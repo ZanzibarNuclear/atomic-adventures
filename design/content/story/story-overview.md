@@ -17,13 +17,17 @@ The story should:
 
 ## Story Beats (TBD)
 
-| Act / Chapter | Technology Focus | Story Beat | Learning Gate |
-|---------------|------------------|------------|---------------|
-| 1 | Hydro | *TBD* | *TBD* |
-| 2 | Photovoltaic | *TBD* | *TBD* |
-| 3 | Nuclear (AP-1000) | *TBD* | *TBD* |
-| 4 | Nuclear (Gen IV) | *TBD* | *TBD* |
-| 5 | Fusion | *TBD* | *TBD* |
+The player starts at a central facility (the hub) and travels to distinct areas, each a dormant energy installation. The arc for each level: Arrive → Explore → Learn → Restore → Unlock next area.
+
+| Level | Facility | Focal Simulation | Story Beat | Learning Gate |
+|-------|----------|------------------|------------|---------------|
+| 1 | Hydroelectric plant | Dam / turbine / reservoir | *TBD* | *TBD* |
+| 2 | PWR reactor (AP-1000) | Reactor startup & operation | *TBD* | *TBD* |
+| 3 | Gen IV reactor (SFR) | Sodium-cooled fast reactor | *TBD* | *TBD* |
+| 4 | Solar array | PV installation & grid tie | *TBD* | *TBD* |
+| 5 | Fusion facility | Tokamak operation | *TBD* | *TBD* |
+
+*Level order may be adjusted. See [World & Style Guide](world-and-style.md) for details.*
 
 ## Existing Assets
 
@@ -32,8 +36,12 @@ The story should:
 
 ## Tone & Voice
 
-- *TBD — Serious? Hopeful? Mysterious?*
-- *TBD — First-person? Third-person? Protagonist defined?*
+- **Mysterious and solitary** — Myst-inspired. The player explores alone, piecing together what happened.
+- **Hopeful** — Rediscovery, not despair. Each restored facility is a step toward rebuilding.
+- **Minimal narration** — The world teaches through environment, found documents, and machinery — not tutorials.
+- **A defined protagonist** — An upbeat young man (Tintin-inspired): calm, decisive, curious, resourceful. Brings energy and optimism to a quiet world.
+
+See [World & Style Guide](world-and-style.md) for full setting, visual direction, and audio direction.
 
 ## Integration with Learning
 
