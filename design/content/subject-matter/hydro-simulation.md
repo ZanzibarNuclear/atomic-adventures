@@ -4,6 +4,7 @@
 
 ## Scope
 
+- **Campus hydro plant** — High-efficiency installation; advanced beyond typical late-20th-century dams (near-future sci-fi liberty). Core teaching still uses real head/flow/power relationships.
 - **Dams** — Reservoir, head, spillway, turbine
 - **Run-of-river** — Flow-dependent, minimal storage
 - **Pumped storage** — Pump-turbine, upper/lower reservoirs (optional expansion)

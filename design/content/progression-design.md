@@ -5,16 +5,22 @@
 ## Progression Model
 
 ```
-Chapter 1 (Hydro) → Chapter 2 (PV) → Chapter 3 (AP-1000) → Chapter 4 (Gen IV) → Chapter 5 (Fusion)
+Part I (one week, surface campus) → Part II (below)
 ```
 
-- **Linear story** — Chapters in fixed order (technology complexity builds)
+**Part I** — Pine forest through surface facility. **Roughly one in-game week**, but beats are not locked to calendar days — early milestones alone (arrival through first power) may span several days. Ends when Zanzibar discovers a hidden elevator that goes down. See [Story Overview](story/story-overview.md#story-structure--parts-i--ii).
+
+**Part II** — What lies below the elevator. Scope TBD.
+
+Within each part, technology chapters may follow a linear order (complexity builds). Part I vs. Part II chapter assignment is not yet decided.
+
 - **Within chapter** — May allow some freedom (e.g., multiple puzzles, optional depth)
 
 ## Difficulty Curve
 
 | Chapter | Complexity | Rationale |
 |---------|------------|-----------|
+| Act 0 (Hub) | Very low | Survival exploration; one sim gate; buggy reward |
 | Hydro | Low | Intuitive (water → turbine → power) |
 | PV | Low–Medium | More variables (tilt, shading, time) |
 | AP-1000 | Medium | Less intuitive; safety-critical |

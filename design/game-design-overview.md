@@ -8,7 +8,7 @@ Atomic Adventures is an immersive, reality-based fantasy adventure where players
 
 ## Design Pillars
 
-1. **Reality-Based Fantasy** — The world feels fantastical, but the science is real. No hand-waving; players encounter genuine principles.
+1. **Reality-Based Fantasy** — The world feels fantastical, but the science is real. No hand-waving on principles; players encounter genuine physics and engineering. Near-future **implementations** may exceed today's technology (advanced hydro, holo-readers, etc.) — see [World & Style Guide](content/story/world-and-style.md#sci-fi-boundaries).
 2. **Learn to Progress** — Story gates require understanding. You can't brute-force your way through.
 3. **Simulations That Teach** — Physics and engineering simulations are playable, accurate enough to be educational, and engaging enough to be fun.
 4. **Technology as Adventure** — Each technology (hydro, PV, nuclear) is a distinct "realm" or chapter with its own challenges and aesthetics.
@@ -20,6 +20,9 @@ Explore → Encounter Problem → Learn Concept → Apply in Simulation → Unlo
 ```
 
 ## Scope
+
+- **Near-future setting** — Roughly 100 years of continued energy-tech advancement assumed; secret DoE research campus in Maine
+- **Sci-fi liberties** — Advanced implementations (e.g. high-efficiency hydro beyond late-1900s norms, holo-readers) while core physics stays real
 
 ### In Scope (Design Phase)
 

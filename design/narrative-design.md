@@ -13,7 +13,8 @@
 
 | Element | Gameplay | Narrative |
 |---------|----------|-----------|
-| Hydro chapter | Dam design, flow simulation | *TBD — e.g., village needs power, river ecology* |
+| Act 0 (hub) | Explore building, read library, engage hydro sim, charge EV, holo-readers | Part I early beats — shelter through facility reveal; may span multiple days |
+| Hydro chapter | Dam design, flow simulation | *TBD — deeper work at the dam itself?* |
 | PV chapter | Panel layout, inverter setup | *TBD* |
 | Nuclear (AP-1000) | Reactor physics, safety systems | *TBD* |
 | Nuclear (Gen IV) | Coolant behavior, fuel cycle | *TBD* |
@@ -21,7 +22,10 @@
 
 ## Pacing
 
-- **Early** — Lower complexity, more hand-holding
+- **Part I opening** — Survival and exploration first; one simulation win (hydro); celebration before complexity rises. Early beats may span **multiple in-game days** — the week is a container, not a rush
+- **Part I mid-week** — TBD; room for exploration, false starts, and overnight breaks between milestones
+- **Part I ending** — Hidden elevator threshold after roughly a week
+- **Early chapters** — Lower complexity; library-before-control-room pattern repeats
 - **Mid** — Concepts build; player applies prior knowledge
 - **Late** — Synthesis; multiple concepts combined
 

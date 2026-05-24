@@ -14,7 +14,7 @@ High-level plan for closing design gaps and moving toward implementation.
 
 The narrative is the biggest gap and unblocks the most downstream work (story drives simulation requirements, which drive puzzle/gate design).
 
-- [ ] Define protagonist, world setting, and tone/voice
+- [x] Define protagonist, world setting, and tone/voice — protagonist: [Zanzibar Nuhero](../design/content/story/characters.md); setting/tone: [World & Style Guide](../design/content/story/world-and-style.md)
 - [ ] Write story beats for the Hydro chapter (Act 1)
 - [ ] Write story beats for remaining chapters (PV, AP-1000, Gen IV, Fusion)
 - [ ] Map story beats to learning objectives and simulation gates

@@ -6,13 +6,27 @@ The aesthetic and narrative feel of Atomic Adventures.
 
 **Myst** — The primary stylistic touchstone. Lonely, atmospheric, puzzle-driven exploration of an abandoned world full of intricate machinery and hidden knowledge. The player is dropped in with minimal exposition and must piece together what happened through exploration.
 
-**The Adventures of Tintin** — The protagonist's character. Tintin is an upbeat young man who stays calm under pressure, acts decisively, and pursues objectives with alacrity. Our hero shares that spirit: curious, resourceful, undaunted by complexity. He doesn't brood or hesitate — he investigates, figures things out, and gets to work. The Tintin influence balances Myst's melancholy atmosphere with a protagonist who brings energy and optimism to a quiet world.
+**The Adventures of Tintin** — The protagonist's character. Tintin is an upbeat young man who stays calm under pressure, acts decisively, and pursues objectives with alacrity. **Zanzibar Nuhero** shares that spirit: curious, resourceful, undaunted by complexity. He doesn't brood or hesitate — he investigates, figures things out, and gets to work. The Tintin influence balances Myst's melancholy atmosphere with a protagonist who brings energy and optimism to a quiet world. See [Characters](characters.md).
 
 ## Setting
 
 A future where something has gone wrong. Key energy technologies have been lost — not destroyed, but forgotten. The infrastructure remains: vast facilities, dormant machines, control rooms with darkened displays. But the knowledge to operate them is gone, along with the people who built them.
 
-The player arrives at a **central facility** — a hub that connects to different areas, each housing a major energy installation. Think of it as the island in Myst: a single place with portals (or paths, or transport systems) to distinct worlds, each with its own character and challenges.
+**Geography:** The game is set **somewhere in Maine**. The player does not know this at first — it should emerge through environment, flora, found documents, or place names encountered later. The opening is a **pine forest on a mountainside**; the central facility and its installations are somewhere in that same region.
+
+**Story open:** Zanzibar walks alone through that forest — hungry, low on water, thinking about the argument that split his group apart to search for help. The facility comes later.
+
+**Zanzibar Nuhero** eventually reaches a **central facility** — a secret **Department of Energy** research campus (details TBD) somewhere in Maine. It connects to advanced energy installations — hydro, nuclear, solar, fusion — each pushing beyond late-20th-century technology. Think of it as the island in Myst: a single place with paths to distinct worlds, each with its own character and challenges.
+
+## Sci-Fi Boundaries
+
+The game is **reality-based fantasy**, not hard sci-fi — but it is set in a **near future** where energy technology has continued to advance over roughly the next 100 years. We take liberties there:
+
+- **What's real:** Core physics and engineering principles — head and flow, criticality, irradiance, confinement. Players learn concepts that hold true today.
+- **What's advanced:** Implementations — higher-efficiency hydro, smarter controls, holo-readers for study, materials and designs not yet commonplace. The campus hydro plant exceeds typical late-1900s dam performance; that gap is intentional.
+- **What's mysterious:** Why a DoE-funded secret facility exists, why it's empty, why the knowledge was lost. Story questions, not science violations.
+
+*Facility name, classification, mission statement, and how much the player learns when — to be developed later.*
 
 ## Tone
 
@@ -24,16 +38,54 @@ The player arrives at a **central facility** — a hub that connects to differen
 ## Voice
 
 - **Minimal narration** — Show, don't tell. The world communicates through environment, found documents, control panels, and machinery behavior.
-- **A defined protagonist** — An upbeat young man: calm under pressure, decisive, curious, resourceful. He reacts to the world with energy and optimism rather than fear or brooding. Think Tintin dropped into Myst.
+- **A defined protagonist** — Zanzibar Nuhero: smart, optimistic, confident, self-driven. Calm under pressure, decisive, curious, resourceful. He reacts to the world with energy and optimism rather than fear or brooding — Tintin dropped into Myst. Full profile: [Characters](characters.md).
 - **In-world learning** — Technical knowledge comes from logbooks, manuals, diagrams, and control room displays found in the environment — not from tutorials or pop-ups.
 
 ## The Facility (Hub)
 
-The central facility serves as:
+The **central facility** is a campus — not a single room. Zanzibar arrives at a lost **DoE-funded secret research site** somewhere in Maine that once coordinated advanced energy installations. The main building is where Part I opens; restoring hydro power is the first major gameplay win.
 
-- **Navigation hub** — Access to each technology area (levels/chapters)
+The hub serves as:
+
+- **Home base** — Shelter, food, library, garage, conference room (Act 0)
+- **Navigation hub** — Access to each technology area (later chapters)
 - **Progress tracker** — Visual changes as the player restores systems (lights come on, displays activate, machinery hums)
 - **Story anchor** — Clues about what happened and why are found here, tying the chapters together
+
+### Main building (Act 0)
+
+| Space | Purpose |
+|-------|---------|
+| **Two-story garage** | EV buggy storage/charging; scale and industrial character |
+| **Conference room** | Institutional clues — what this place was, who worked here |
+| **Kitchen / casual dining** | Meal after the forest; human-scale comfort |
+| **Rations supply** | Immediate survival resource |
+| **Sleeping area** | Zanzibar rests as the sun sets |
+| **Library** | Study material; **holo-readers** (power-gated) for immersive future-style learning |
+| **Hydro control room** | Remote engagement of the campus hydroelectric dam |
+
+*Additional campus buildings and outdoor areas TBD — explored via EV buggy after power returns.*
+
+#### Library and holo-readers
+
+The library serves two beats:
+
+1. **Before or during first power** — Physical shelves, manuals, diagrams. Enough to tackle the hydro control room.
+2. **After power** — **Holo-readers** activate. Immersive study stations — the way people learn in this future. Zanzibar discovers the facility is a **secret DoE research site** and that the campus hydro plant uses **high-efficiency technology** beyond typical late-20th-century dams.
+
+Holo-readers are a **power-gated reward**: restoration unlocks deeper knowledge. They become the primary in-world learning interface for advanced material going forward.
+
+*Holo-reader interaction design, DoE facility details, and classification level — TBD.*
+
+### Campus mobility
+
+An **EV buggy** in the garage becomes available once power is restored. Charging it and driving around the campus is a reward beat after the first simulation success — not necessarily the same in-game day as power coming online.
+
+### Hidden elevator (Part I ending)
+
+Somewhere on the campus is a **concealed elevator** that descends deep into the facility. Zanzibar discovers it near the **end of Part I** — roughly a week after he arrives. It is the threshold into Part II — the surface campus was only the upper layer.
+
+*Location, concealment, and discovery trigger TBD.*
 
 ### Areas / Levels
 
@@ -57,6 +109,7 @@ Each area follows the same arc:
 
 ## Visual Direction
 
+- **Opening landscape** — Pine forest, mountain slope, natural light filtered through needles. Zanzibar's hiking gear (`Zanzi-hiking-1.jpg`) is the visual reference. Contrast with the industrial interiors that follow.
 - **Atmosphere over action** — Still environments, ambient lighting, weather effects
 - **Industrial beauty** — Concrete, steel, water, glass. Functional architecture that has its own grandeur.
 - **Decay with dignity** — Not post-apocalyptic ruin. More like a well-built place that has been waiting patiently. Dust, overgrowth, but intact.
@@ -64,6 +117,7 @@ Each area follows the same arc:
 
 ## Audio Direction
 
+- **Opening forest** — Wind in pines, footsteps on soft ground, distant bird call, maybe Zanzibar's breathing or the slosh of a nearly empty canteen. No music at first — or a very sparse motif.
 - **Ambient-first** — Environmental sounds dominate: water, wind, mechanical hum, echoes
 - **Minimal music** — Sparse, atmospheric. Builds subtly as the player makes progress.
 - **Machinery feedback** — Systems coming online should *sound* satisfying. Turbines spinning up, coolant flowing, plasma igniting.
