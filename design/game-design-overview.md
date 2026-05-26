@@ -26,7 +26,7 @@ Explore → Encounter Problem → Learn Concept → Apply in Simulation → Unlo
 
 ### In Scope (Design Phase)
 
-- Hydroelectric power (dams, run-of-river, pumped storage)
+- Hydroelectric power (diversion / penstock, run-of-river, pumped storage)
 - Photovoltaic power (solar panels, inverters, grid integration)
 - Nuclear: Westinghouse AP-1000 PWR (Gen III+)
 - Nuclear: Gen IV sodium-cooled fast reactor

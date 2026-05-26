@@ -67,7 +67,7 @@ These will embed as mini-games within the adventure:
 - **Setting:** Future where energy technology has been lost. Infrastructure remains, knowledge is gone.
 - **Inspiration:** Myst (atmosphere, exploration) + Tintin (protagonist personality)
 - **Protagonist:** Zanzibar Nuhero — see `design/content/story/characters.md`
-- **Story structure:** Part I (one week, surface) → Part II (below); Part I ends with a hidden elevator
+- **Story structure:** Part I (several weeks, surface — hydro operations) → Part II (below); Part I ends with a hidden elevator (hydro gate)
 - **Core message:** Hopeful. Technology exists to help people thrive.
 
 ## Core Loop

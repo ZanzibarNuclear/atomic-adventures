@@ -23,7 +23,7 @@ A future where something has gone wrong. Key energy technologies have been lost 
 The game is **reality-based fantasy**, not hard sci-fi — but it is set in a **near future** where energy technology has continued to advance over roughly the next 100 years. We take liberties there:
 
 - **What's real:** Core physics and engineering principles — head and flow, criticality, irradiance, confinement. Players learn concepts that hold true today.
-- **What's advanced:** Implementations — higher-efficiency hydro, smarter controls, holo-readers for study, materials and designs not yet commonplace. The campus hydro plant exceeds typical late-1900s dam performance; that gap is intentional.
+- **What's advanced:** Implementations — higher-efficiency diversion hydro, smarter intake controls, holo-readers for study, materials and designs not yet commonplace. The campus penstock plant exceeds typical late-20th-century small hydro performance; that gap is intentional.
 - **What's mysterious:** Why a DoE-funded secret facility exists, why it's empty, why the knowledge was lost. Story questions, not science violations.
 
 *Facility name, classification, mission statement, and how much the player learns when — to be developed later.*
@@ -33,7 +33,7 @@ The game is **reality-based fantasy**, not hard sci-fi — but it is set in a **
 - **Mysterious** — Where did everyone go? What happened? Answers emerge gradually through exploration.
 - **Solitary** — The player is alone (or nearly so). No crowds, no bustling cities. Ambient sound, wind, dripping water, the hum of dormant machinery.
 - **Hopeful** — This is the core emotional throughline. The world is desolate, but the message is optimistic: the technology to help people thrive *exists* and *works*. Every restored facility is proof that the future can be better. The game should leave players feeling empowered, not anxious.
-- **Respectful of scale** — These facilities are big. A dam, a reactor building, a tokamak hall. The player should feel small in the presence of engineering achievements — and then proud when they bring them back to life.
+- **Respectful of scale** — These facilities are big. A penstock run down a mountainside, a reactor building, a tokamak hall. The player should feel small in the presence of engineering achievements — and then proud when they bring them back to life.
 
 ## Voice
 
@@ -43,7 +43,7 @@ The game is **reality-based fantasy**, not hard sci-fi — but it is set in a **
 
 ## The Facility (Hub)
 
-The **central facility** is a campus — not a single room. Zanzibar arrives at a lost **DoE-funded secret research site** somewhere in Maine that once coordinated advanced energy installations. The main building is where Part I opens; restoring hydro power is the first major gameplay win.
+The **central facility** is a campus — not a single room. Zanzibar arrives at a lost **DoE-funded secret research site** somewhere in Maine that once coordinated advanced energy installations. The main building is where Part I opens; **starting hydro** is the first major win — **keeping it running** is the work of Part I.
 
 The hub serves as:
 
@@ -62,7 +62,7 @@ The hub serves as:
 | **Rations supply** | Immediate survival resource |
 | **Sleeping area** | Zanzibar rests as the sun sets |
 | **Library** | Study material; **holo-readers** (power-gated) for immersive future-style learning |
-| **Hydro control room** | Remote engagement of the campus hydroelectric dam |
+| **Hydro control room** | Remote startup of the campus diversion plant (intake, penstock, turbine, generator on Mill Brook) |
 
 *Additional campus buildings and outdoor areas TBD — explored via EV buggy after power returns.*
 
@@ -71,7 +71,7 @@ The hub serves as:
 The library serves two beats:
 
 1. **Before or during first power** — Physical shelves, manuals, diagrams. Enough to tackle the hydro control room.
-2. **After power** — **Holo-readers** activate. Immersive study stations — the way people learn in this future. Zanzibar discovers the facility is a **secret DoE research site** and that the campus hydro plant uses **high-efficiency technology** beyond typical late-20th-century dams.
+2. **After power** — **Holo-readers** activate. Immersive study stations — the way people learn in this future. Zanzibar discovers the facility is a **secret DoE research site** and that the campus hydro plant uses **high-efficiency diversion technology** beyond typical late-20th-century small hydro.
 
 Holo-readers are a **power-gated reward**: restoration unlocks deeper knowledge. They become the primary in-world learning interface for advanced material going forward.
 
@@ -83,9 +83,9 @@ An **EV buggy** in the garage becomes available once power is restored. Charging
 
 ### Hidden elevator (Part I ending)
 
-Somewhere on the campus is a **concealed elevator** that descends deep into the facility. Zanzibar discovers it near the **end of Part I** — roughly a week after he arrives. It is the threshold into Part II — the surface campus was only the upper layer.
+Somewhere on the campus is a **concealed elevator** that descends deep into the facility. Zanzibar discovers it **late in Part I** — after **weeks** of running the hydro plant and managing campus power. Hydro competence is **essential**: the elevator is not reachable until Zanzibar can sustain reliable operation. It is the threshold into Part II — the surface campus was only the upper layer.
 
-*Location, concealment, and discovery trigger TBD.*
+*Location, concealment, exact gate conditions, and discovery trigger TBD.*
 
 ### Areas / Levels
 
@@ -93,7 +93,7 @@ Each area is a distinct energy installation the player must understand and resto
 
 | Level | Facility | Focal Simulation | Mini-games / Tools |
 |-------|----------|------------------|--------------------|
-| 1 | Hydroelectric plant | Dam / turbine / reservoir | Flow management, turbine selection |
+| 1 | Hydroelectric plant | Penstock / turbine / generator | Flow control, turbine selection |
 | 2 | PWR reactor (AP-1000) | Reactor startup and operation | Isotope explorer, control rod management |
 | 3 | Gen IV reactor (SFR) | Sodium-cooled fast reactor | Fuel cycle, coolant behavior |
 | 4 | Solar array | PV installation and grid tie | Panel placement, inverter sizing |

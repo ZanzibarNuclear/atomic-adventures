@@ -14,7 +14,7 @@
 | Element | Gameplay | Narrative |
 |---------|----------|-----------|
 | Act 0 (hub) | Explore building, read library, engage hydro sim, charge EV, holo-readers | Part I early beats — shelter through facility reveal; may span multiple days |
-| Hydro chapter | Dam design, flow simulation | *TBD — deeper work at the dam itself?* |
+| Hydro chapter | Penstock startup, flow and power simulation | *TBD — visit the powerhouse on-site after Part I?* |
 | PV chapter | Panel layout, inverter setup | *TBD* |
 | Nuclear (AP-1000) | Reactor physics, safety systems | *TBD* |
 | Nuclear (Gen IV) | Coolant behavior, fuel cycle | *TBD* |

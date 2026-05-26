@@ -23,7 +23,7 @@ These names are the **story canon** for this draft map. Adjust as design evolves
 | **Pine Hollow Trail** | Hiking trail (dotted red) | Likely Zanzibar's approach path through the woods |
 | **Ridge Line Trail** | Hiking trail (dotted red) | Connects parking area to campus via high route |
 | **County Road 14** | Gravel road (dashed blue) | Public access; parking (P) at trailhead |
-| **Upper Penstock Dam** | Dam | Campus hydro plant — high-efficiency, near-future tech |
+| **Upper Penstock Plant** | Diversion hydro powerhouse | Campus hydro — intake, penstock, turbine, generator on Mill Brook |
 | **Research Campus** | Building cluster | Secret DoE research facility (not public knowledge) |
 
 ## Approximate layout
@@ -37,9 +37,9 @@ These names are the **story canon** for this draft map. Adjust as design evolves
            |               |                 \
       Clearwater Pond   Ridge Line Trail ---- Research Campus
            |                                      |
-        Mill Brook                          Upper Penstock Dam
+        Mill Brook                          Upper Penstock Plant
                                                   |
-                                             [reservoir]
+                                             [powerhouse]
 ```
 
 ## Map conventions (matching reference style)

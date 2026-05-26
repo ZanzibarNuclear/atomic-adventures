@@ -8,13 +8,15 @@ Learning objectives drive story gates. A player cannot advance until they demons
 
 ## By Technology
 
-### Hydro
+### Hydro (Part I — startup through operations)
 
 | Objective | Assessment |
 |-----------|------------|
 | Understand head and flow determine power | Correctly predict P from Q, H in simulation |
-| Know why reservoir matters | Balance inflow/outflow to maintain level |
-| Recognize turbine types | Choose appropriate turbine for conditions |
+| Know penstock → turbine → generator chain | Complete startup sequence: intake, turbine, sync |
+| Operate this plant reliably | Complete maintenance routine over in-game weeks |
+| Manage campus power supply and demand | Balance loads without brownouts; pass power-management scenarios |
+| Recognize turbine types | Choose appropriate turbine for conditions (sandbox / later) |
 
 ### Photovoltaic
 

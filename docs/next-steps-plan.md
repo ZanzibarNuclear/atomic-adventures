@@ -34,7 +34,7 @@ Hydro is the simplest chapter and the roadmap's Phase 1. A minimal playable prot
 
 - [ ] Scaffold Vue 3 project (see Step 6 for stack details)
 - [ ] Implement hydro simulation model (P = η ρ g Q H)
-- [ ] Build minimal UI for dam builder / flow manager / turbine selector
+- [ ] Build minimal UI for Part I hydro startup (intake flow, turbine, generator sync)
 - [ ] Wire in story gates (simulation success unlocks next beat)
 - [ ] Playtest and iterate
 
@@ -42,7 +42,7 @@ Hydro is the simplest chapter and the roadmap's Phase 1. A minimal playable prot
 
 All simulation specs have TBD calibration data. Start with Hydro, then expand.
 
-- [ ] Hydro — source real dam parameters (head, flow, capacity)
+- [ ] Hydro — source real diversion plant parameters (head, flow, capacity)
 - [ ] PV — pull reference data (NREL PVWatts or similar)
 - [ ] AP-1000 — reference NRC Design Control Document values
 - [ ] Gen IV (SFR) — source available design parameters

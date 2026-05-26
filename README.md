@@ -28,7 +28,7 @@ This repository contains design documentation, story outlines, simulation specif
 
 | Category               | Technologies                                           |
 | ---------------------- | ------------------------------------------------------ |
-| **Hydro**              | Dams, run-of-river, pumped storage                     |
+| **Hydro**              | Diversion / penstock, run-of-river, pumped storage     |
 | **Photovoltaic**       | Solar panels, inverters, grid integration              |
 | **Nuclear (Gen III+)** | Westinghouse AP-1000 PWR                               |
 | **Nuclear (Gen IV)**   | Sodium-cooled fast reactor, others as they come online |

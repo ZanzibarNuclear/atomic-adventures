@@ -31,7 +31,7 @@ Each file is a self-contained area. The engine loads them all and links them via
 ```yaml
 area: hydro # Unique area ID
 name: Hydroelectric Plant
-description: A dormant dam facility nestled in a mountain valley.
+description: A dormant diversion plant — intake, penstock, and powerhouse on a mountain stream.
 start: arrival # Entry passage ID
 ambient: water-drip, wind # Default ambient audio for this area
 
@@ -47,17 +47,17 @@ The core unit. A passage is a place, a moment, or a beat in the story.
 passages:
   arrival:
     text: |
-      The path opens onto a concrete platform overlooking a vast
-      reservoir. The water is still. A control building sits to
-      the left, its windows dark. To the right, a steel staircase
-      descends toward the base of the dam.
+      The path opens onto a concrete platform overlooking the
+      powerhouse. The penstock climbs the slope above you,
+      silent. A control building sits to the left, its windows
+      dark. To the right, a steel staircase leads to the intake.
     image: hydro/arrival-overlook.jpg
     ambient: water-lap, wind-gentle # Override area default
     choices:
       - text: Enter the control building
         go_to: control-building
       - text: Descend the staircase
-        go_to: dam-base
+        go_to: intake
       - text: Examine the overlook railing
         go_to: overlook-railing
 ```
@@ -223,15 +223,15 @@ hydro-portal:
 Sometimes a passage should read differently based on state:
 
 ```yaml
-dam-overlook:
+powerhouse-overlook:
   variants:
     - require: { not: [hydro.turbine_restored] }
       text: |
-        The dam stretches across the valley, silent. No water
-        flows through the spillway.
+        The penstock runs silent up the slope. No water moves
+        through the turbine hall.
     - require: { all: [hydro.turbine_restored] }
       text: |
-        Water roars through the spillway. The dam is alive again.
+        Water roars through the penstock. The turbine is alive again.
         You can feel the vibration in the railing.
       ambient: water-roar, turbine-hum
   choices:
