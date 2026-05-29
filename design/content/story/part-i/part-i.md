@@ -26,4 +26,48 @@ Zanzibar heads downhill in a southern direction. Though obscured by pine needles
 
 But the road goes south, and Zanzibar follows the road.
 
-Perhaps half a mile along the road, a driveway splits off to the right (toward the west). The driveway leads to a tall garage door of a two-story building.
+Perhaps half a mile along the road, a driveway splits off to the right (toward the west). Past a few more trees, around a 90 degree bend, and there is a two-story building. To the west of the building is a river cascade, not visible due to the combination of the lay of the land and a solid fence. The river is quite audible however.
+
+The driveway ends at an industrial garage with two closed doors that look like they roll up. The door on the right is single story with windows above at the second story. The door on the left is a wider, two-story door. A path goes around the garage to the side of the building. Zanzibar follows the path. That leads to a man door.
+
+## The Garage
+
+Zanzibar breaks into the man door. The garage is mostly empty on the bigger side. Just the tire marks of some rather large equipment that was parked at some point and some oil stains. The smaller side is full of equipment. Something is covered in a heavy cloth. It's the e-buggy. Plus electrical equipment and a full set of tools. Voltage meter, pliers, wire cutters, wrenches, screw drivers, a wood saw. Those will come in handy.
+
+## The Conference Room
+
+Stairs lead to the second floor. Zanzibar climbs the stairs, opens a door, and enters a conference room.
+
+Table, chairs, dirty windows with a view of the river rapids. The day is drawing to a close.
+
+## The Kitchen
+
+Standard kitchen / dining area for workers. Like in The Office (US edition).
+
+Zanzibar finds water purifier and rations. He quenches his thirst and eats a large meal. Relief. Then he goes back into the conference room to watch the setting sun through the windows.
+
+## The Study / Library
+
+From the kitchen, down a winding staircase on the river side that turn 180˚ as it descends, to a solid door of the library. Positioned under the conference room. Standard library shelves with books, manuals, and binders full of logs.
+
+Ample windows frame the landscape just as in the conference room but closer to the ground. When Zanzibar enters the room, it is dark. He discovers that the blinds slide open for another spectacular view.
+
+This area features three holo-reader stations and a rack of media. Topics are technical, ranging from physics and chemistry to machanical and civil engineering.
+
+## The Control Room
+
+(Question: Is this in another building? That would give the game a bit more space, especially since the compound can be quite large. Plus, separates the common areas from the workplace. What about living quarters? Also separate?)
+
+Gauges that work, based on simulator state. By what miracle does this connect to the local grid. Route excess load to the batteries. Disengage when nothing is drawing power. How will this mimic reality without becoming too much to handle.
+
+## The Micro-hydro Power Converter
+
+Outside, some manual adjustments are needed to get things flowing. Then routine maintenance tasks - clearing the filters, checkingn for and patching leaks, etc..
+
+## Living Quarters
+
+Good place for shut-eye, showers, bathrooms.
+
+## Entrace to the underground
+
+Hidden entrance in the control room. Discovered by accident.
