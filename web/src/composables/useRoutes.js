@@ -231,13 +231,41 @@ export function buildRouteDrawPieces(models, { isRevealed, inView, allowStub }) 
   return pieces
 }
 
+// Do segments AB and CD intersect?
+function segmentsCross(a, b, c, d) {
+  const ccw = (p, q, r) => (r.y - p.y) * (q.x - p.x) - (q.y - p.y) * (r.x - p.x)
+  const d1 = ccw(c, d, a)
+  const d2 = ccw(c, d, b)
+  const d3 = ccw(a, b, c)
+  const d4 = ccw(a, b, d)
+  return ((d1 > 0) !== (d2 > 0)) && ((d3 > 0) !== (d4 > 0))
+}
+
+// Pull line segments out of every fence feature, for collision tests.
+export function fenceSegments(featureModels) {
+  const segs = []
+  for (const m of featureModels) {
+    if (m.kind !== 'fence') continue
+    for (let i = 0; i < m.points.length - 1; i++) {
+      segs.push({ a: m.points[i], b: m.points[i + 1] })
+    }
+  }
+  return segs
+}
+
 // Adjacent hexes not reachable by a route — the off-road options.
-export function offRoadNeighbors(currentHexId, hexes, hexById, onRouteTargets, size) {
+// A move whose center-to-center line crosses a fence is blocked.
+export function offRoadNeighbors(currentHexId, hexes, hexById, onRouteTargets, size, fences = []) {
   const current = hexById[currentHexId]
   if (!current) return []
   const onRoute = new Set(onRouteTargets)
+  const from = axialToPixel(current.q, current.r, size)
   return hexes
     .filter((h) => hexDistance(h, current) === 1 && !onRoute.has(h.id))
+    .filter((h) => {
+      const to = axialToPixel(h.q, h.r, size)
+      return !fences.some((s) => segmentsCross(from, to, s.a, s.b))
+    })
     .map((h) => ({ toHexId: h.id, label: bearingLabel(current, h, size) }))
 }
 

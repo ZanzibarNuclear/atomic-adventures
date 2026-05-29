@@ -6,12 +6,15 @@ import {
   availableMoves,
   offRoadNeighbors,
   buildRouteModels,
+  fenceSegments,
 } from './composables/useRoutes.js'
 
 const hexById = Object.fromEntries(mapData.hexes.map((h) => [h.id, h]))
 const size = mapData.size ?? 44
-const START = mapData.journey[0]
+const START = mapData.start ?? mapData.journey[0]
 const routeModels = buildRouteModels(mapData.routes, hexById, mapData.hexes, size)
+const featureModels = buildRouteModels(mapData.features, hexById, mapData.hexes, size)
+const fences = fenceSegments(featureModels)
 
 // --- Player state (the slice that would be saved/loaded) ---
 const state = reactive({
@@ -34,6 +37,7 @@ const offRoad = computed(() =>
     hexById,
     moves.value.map((m) => m.toHexId),
     size,
+    fences,
   ),
 )
 
@@ -47,9 +51,9 @@ function moveTo(hexId) {
   }, 650)
 }
 
-// Auto-walk forward along the main service path from wherever we are.
+// Auto-walk forward along the hero's trail from wherever we are.
 async function autoTravel() {
-  const main = routeModels.find((r) => r.id === 'service-path')
+  const main = routeModels.find((r) => r.id === 'hero-route') ?? routeModels[0]
   if (!main) return
   const sequence = main.spans.map((s) => s.hexId).filter((id) => id != null)
   let idx = sequence.indexOf(state.currentId)
@@ -85,6 +89,7 @@ function nameOf(hexId) {
       <HexMap
         :map-data="mapData"
         :route-models="routeModels"
+        :feature-models="featureModels"
         :current-hex="state.currentId"
         :discovered="discoveredList"
         :mode="mode"
@@ -113,7 +118,7 @@ function nameOf(hexId) {
             :disabled="traveling"
             @click="moveTo(m.toHexId)"
           >
-            Take the {{ m.routeName }} {{ m.label }}
+            Take {{ m.routeName }} {{ m.label }}
             <span class="dest">→ {{ nameOf(m.toHexId) }}</span>
           </button>
           <button
