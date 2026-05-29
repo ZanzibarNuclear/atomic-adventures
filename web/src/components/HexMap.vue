@@ -7,9 +7,11 @@ import {
   neighborsOf,
   hexDistance,
 } from '../composables/useHexGeometry.js'
+import { buildRouteDrawPieces, pointsAttr } from '../composables/useRoutes.js'
 
 const props = defineProps({
   mapData: { type: Object, required: true },
+  routeModels: { type: Array, default: () => [] },
   currentHex: { type: String, required: true },
   // Set/array of discovered hex ids (fog-of-war).
   discovered: { type: [Array, Object], default: () => [] },
@@ -80,6 +82,20 @@ const viewBox = computed(() => {
   return `${b.x} ${b.y} ${b.width} ${b.height}`
 })
 
+const landmarkHexes = computed(() => visibleHexes.value.filter((h) => h.landmark))
+
+const routePieces = computed(() => {
+  const visibleIds = new Set(visibleHexes.value.map((h) => h.id))
+  const isRevealed =
+    props.mode === 'full' ? () => true : (id) => discoveredSet.value.has(id)
+  const inView = props.mode === 'slice' ? (id) => visibleIds.has(id) : () => true
+  return buildRouteDrawPieces(props.routeModels, {
+    isRevealed,
+    inView,
+    allowStub: props.mode !== 'full',
+  })
+})
+
 function center(hex) {
   return axialToPixel(hex.q, hex.r, size.value)
 }
@@ -128,16 +144,28 @@ function fill(hex) {
             :fill="fill(hex)"
             class="tile"
           />
-          <text
-            v-if="hex.landmark"
-            :x="center(hex).x"
-            :y="center(hex).y + 2"
-            class="landmark-icon"
-          >
+        </g>
+      </g>
+
+      <!-- Routes: continuous polylines; stubs fade into fog -->
+      <g class="routes-layer">
+        <polyline
+          v-for="(piece, i) in routePieces"
+          :key="'piece-' + i"
+          :points="pointsAttr(piece.points)"
+          class="route"
+          :class="['route-' + piece.kind, { stub: piece.partial }]"
+        />
+      </g>
+
+      <!-- Landmarks, drawn above routes -->
+      <g class="landmark-layer">
+        <g v-for="hex in landmarkHexes" :key="'lm-' + hex.id" class="landmark">
+          <text :x="center(hex).x" :y="center(hex).y + 2" class="landmark-icon">
             {{ hex.landmark.icon }}
           </text>
           <text
-            v-if="hex.landmark && expanded"
+            v-if="expanded"
             :x="center(hex).x"
             :y="center(hex).y + size * 0.72"
             class="landmark-label"
@@ -205,6 +233,29 @@ svg {
   font-size: 22px;
   text-anchor: middle;
   font-weight: 700;
+}
+.route {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.route-road {
+  stroke: #6b6f76;
+  stroke-width: 6;
+}
+.route-path {
+  stroke: #c39a6b;
+  stroke-width: 3;
+  stroke-dasharray: 7 5;
+}
+.route-trail {
+  stroke: #d7c48f;
+  stroke-width: 2.5;
+  stroke-dasharray: 1.5 6;
+}
+.route.stub {
+  opacity: 0.45;
 }
 .landmark-icon {
   font-size: 26px;

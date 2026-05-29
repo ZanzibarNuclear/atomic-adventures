@@ -2,49 +2,73 @@
 import { computed, reactive, ref } from 'vue'
 import HexMap from './components/HexMap.vue'
 import mapData from '../content/world/map.yaml'
+import {
+  availableMoves,
+  offRoadNeighbors,
+  buildRouteModels,
+} from './composables/useRoutes.js'
 
 const hexById = Object.fromEntries(mapData.hexes.map((h) => [h.id, h]))
-const journey = mapData.journey
+const size = mapData.size ?? 44
+const START = mapData.journey[0]
+const routeModels = buildRouteModels(mapData.routes, hexById, mapData.hexes, size)
 
-// --- Player state (this is the slice that would be saved/loaded) ---
+// --- Player state (the slice that would be saved/loaded) ---
 const state = reactive({
-  stepIndex: 0, // how far along the journey we are
-  discovered: new Set([journey[0]]),
+  currentId: START,
+  discovered: new Set([START]),
 })
 
 const mode = ref('explored') // 'slice' | 'explored' | 'full'
 const expanded = ref(false)
 const traveling = ref(false)
 
-const currentHex = computed(() => journey[state.stepIndex])
-const currentHexData = computed(() => hexById[currentHex.value])
-const atEnd = computed(() => state.stepIndex >= journey.length - 1)
+const currentHexData = computed(() => hexById[state.currentId])
+const discoveredList = computed(() => [...state.discovered])
 
-function travelNext() {
-  if (atEnd.value || traveling.value) return
+const moves = computed(() => availableMoves(state.currentId, routeModels))
+const offRoad = computed(() =>
+  offRoadNeighbors(
+    state.currentId,
+    mapData.hexes,
+    hexById,
+    moves.value.map((m) => m.toHexId),
+    size,
+  ),
+)
+
+function moveTo(hexId) {
+  if (traveling.value || !hexById[hexId]) return
   traveling.value = true
-  state.stepIndex += 1
-  state.discovered.add(currentHex.value)
-  // Match the avatar's CSS travel transition before re-enabling the button.
+  state.currentId = hexId
+  state.discovered.add(hexId)
   setTimeout(() => {
     traveling.value = false
   }, 650)
 }
 
-async function travelAll() {
-  while (!atEnd.value) {
-    travelNext()
+// Auto-walk forward along the main service path from wherever we are.
+async function autoTravel() {
+  const main = routeModels.find((r) => r.id === 'service-path')
+  if (!main) return
+  const sequence = main.spans.map((s) => s.hexId).filter((id) => id != null)
+  let idx = sequence.indexOf(state.currentId)
+  if (idx === -1) idx = 0
+  for (let i = idx + 1; i < sequence.length; i++) {
+    moveTo(sequence[i])
     await new Promise((r) => setTimeout(r, 750))
   }
 }
 
 function reset() {
-  state.stepIndex = 0
-  state.discovered = new Set([journey[0]])
+  state.currentId = START
+  state.discovered = new Set([START])
 }
 
-// Pass discovered as a plain array so the prop stays reactive.
-const discoveredList = computed(() => [...state.discovered])
+function nameOf(hexId) {
+  const h = hexById[hexId]
+  return h?.landmark?.name ?? hexId
+}
 </script>
 
 <template>
@@ -52,19 +76,20 @@ const discoveredList = computed(() => [...state.discovered])
     <header>
       <h1>Atomic Adventures — Travel Map Prototype</h1>
       <p class="sub">
-        Act I journey: home → west → north → west → south → west to the Utility
-        Station. Unexplored hexes stay hidden until you arrive.
+        Follow the marked routes (or strike off-road). Unexplored hexes stay
+        hidden, but a path may hint at what lies beyond.
       </p>
     </header>
 
     <section class="stage" :class="{ expanded }">
       <HexMap
         :map-data="mapData"
-        :current-hex="currentHex"
+        :route-models="routeModels"
+        :current-hex="state.currentId"
         :discovered="discoveredList"
         :mode="mode"
         :expanded="expanded"
-        @hex-click="(id) => console.log('clicked', id)"
+        @hex-click="moveTo"
       />
     </section>
 
@@ -77,12 +102,36 @@ const discoveredList = computed(() => [...state.discovered])
         </em>
       </div>
 
+      <div class="travel">
+        <span class="label">Follow a route</span>
+        <div class="options">
+          <button
+            v-for="m in moves"
+            :key="m.routeId + m.toHexId"
+            class="route-btn"
+            :class="'k-' + m.kind"
+            :disabled="traveling"
+            @click="moveTo(m.toHexId)"
+          >
+            Take the {{ m.routeName }} {{ m.label }}
+            <span class="dest">→ {{ nameOf(m.toHexId) }}</span>
+          </button>
+          <button
+            v-for="o in offRoad"
+            :key="'off-' + o.toHexId"
+            class="route-btn off"
+            :disabled="traveling"
+            @click="moveTo(o.toHexId)"
+          >
+            Go off-road {{ o.label }}
+            <span class="dest">→ ?</span>
+          </button>
+        </div>
+      </div>
+
       <div class="controls">
-        <button :disabled="atEnd || traveling" @click="travelNext">
-          {{ atEnd ? 'Arrived' : 'Travel to next stop ▸' }}
-        </button>
-        <button :disabled="atEnd || traveling" @click="travelAll">
-          Auto-travel ⏩
+        <button :disabled="traveling" @click="autoTravel">
+          Auto-travel main path ⏩
         </button>
         <button @click="reset">Reset</button>
         <button @click="expanded = !expanded">
@@ -93,13 +142,13 @@ const discoveredList = computed(() => [...state.discovered])
       <div class="modes">
         <span class="label">View</span>
         <label
-          v-for="m in ['slice', 'explored', 'full']"
-          :key="m"
+          v-for="vm in ['slice', 'explored', 'full']"
+          :key="vm"
           class="mode-pill"
-          :class="{ active: mode === m }"
+          :class="{ active: mode === vm }"
         >
-          <input type="radio" :value="m" v-model="mode" />
-          {{ m }}
+          <input type="radio" :value="vm" v-model="mode" />
+          {{ vm }}
         </label>
       </div>
 
@@ -158,6 +207,34 @@ header h1 {
   letter-spacing: 0.08em;
   font-size: 0.7rem;
   color: #6f7787;
+}
+.travel .options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+}
+.route-btn {
+  text-align: left;
+  border-left-width: 4px;
+}
+.route-btn.k-path {
+  border-left-color: #c39a6b;
+}
+.route-btn.k-road {
+  border-left-color: #9aa0a6;
+}
+.route-btn.k-trail {
+  border-left-color: #d7c48f;
+}
+.route-btn.off {
+  border-left-color: #5a6270;
+  color: #aeb4c0;
+  font-style: italic;
+}
+.dest {
+  color: #7f8794;
+  font-size: 0.82rem;
 }
 .controls {
   display: flex;

@@ -32,6 +32,28 @@ export function hexCornerPoints(cx, cy, size) {
   return pts.join(' ')
 }
 
+// Pixel -> axial (pointy-top), rounded to the containing hex.
+// This is what lets a path's geometry decide which hex "lights up",
+// independent of how the path is aligned to the grid.
+export function pixelToHex(x, y, size) {
+  const qf = ((Math.sqrt(3) / 3) * x - (1 / 3) * y) / size
+  const rf = ((2 / 3) * y) / size
+  return cubeRound(qf, rf)
+}
+
+function cubeRound(qf, rf) {
+  let rx = Math.round(qf)
+  let rz = Math.round(rf)
+  let ry = Math.round(-qf - rf)
+  const dx = Math.abs(rx - qf)
+  const dz = Math.abs(rz - rf)
+  const dy = Math.abs(ry - (-qf - rf))
+  if (dx > dy && dx > dz) rx = -ry - rz
+  else if (dy > dz) ry = -rx - rz
+  else rz = -rx - ry
+  return { q: rx, r: rz }
+}
+
 // Axial -> cube, for distance.
 function axialToCube(q, r) {
   return { x: q, z: r, y: -q - r }

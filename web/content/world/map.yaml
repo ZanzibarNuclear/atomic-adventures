@@ -20,6 +20,58 @@ journey:
   - low-march
   - utility-station
 
+# Routes are continuous polylines in world space — NOT hex-to-hex spines.
+# A waypoint anchors to a hex center (`hex:`) with an optional offset in
+# hex-size units (`dx`, `dy`; -y is up/north). The hexes a route lights up and
+# the direction of travel are both derived from this geometry, so a path can
+# run due north while passing through a hex that sits to the northwest.
+#
+# kind: path (foot trail through wood) | road (built road) | trail (faint track)
+routes:
+  - id: service-path
+    kind: path
+    name: Old Service Path
+    points:
+      - { hex: home-vale }
+      - { hex: west-ridge }                 # due west out of home
+      - { hex: west-ridge, dx: -0.15, dy: -1.0 }  # then turn and head DUE NORTH...
+      - { hex: north-pass }                 # ...into north-pass (which lies NW)
+      - { hex: west-fen }
+      - { hex: south-march, dx: 0.1 }
+      - { hex: low-march }
+      - { hex: utility-station }
+  - id: lake-trail
+    kind: trail
+    name: Lakeside Trail
+    points:
+      - { hex: north-pass }
+      - { hex: still-lake }
+  - id: compound-road
+    kind: road
+    name: Compound Road
+    points:
+      - { hex: utility-station }
+      - { hex: utility-station, dx: -0.2, dy: -1.0 }  # road heads north out of the yard
+      - { hex: west-bluffs }
+
+  # A meandering footpath. `smooth: true` runs a spline through these control
+  # points, so it wanders in soft curves across several hex areas. Shares
+  # Home Vale with the service path, making that hex a junction.
+  - id: wanderers-trace
+    kind: trail
+    name: Wanderer's Trace
+    smooth: true
+    points:
+      - { hex: home-vale }
+      - { hex: home-glade, dx: 0.25, dy: -0.15 }
+      - { hex: south-woods, dx: 0.1, dy: 0.35 }
+      - { hex: low-march, dx: 0.35, dy: 0.1 }
+      - { hex: river-bend, dx: 0.1, dy: -0.2 }
+      - { hex: south-march, dx: -0.25, dy: 0.3 }
+      - { hex: west-fen, dx: 0.1, dy: 0.35 }
+      - { hex: north-pass, dx: -0.1, dy: 0.1 }
+      - { hex: still-lake, dx: 0.0, dy: -0.25 }
+
 hexes:
   # --- The journey path ---
   - id: home-vale
