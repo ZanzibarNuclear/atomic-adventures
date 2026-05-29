@@ -1,0 +1,96 @@
+# World overview map for Atomic Adventures.
+#
+# Coordinates are AXIAL hex coordinates (q, r) for a pointy-top layout.
+# Reference: https://www.redblobgames.com/grids/hexagons/
+#
+# Compass directions in the prose ("west", "north") are narrative flavor.
+# The actual route is the authored `journey` sequence of adjacent hexes.
+
+orientation: pointy
+size: 44          # hex "radius" in px, used by the renderer for layout
+
+# The opening of Act I: home -> west -> north -> west -> south (a ways) -> west.
+# First destination is the utility station.
+journey:
+  - home-vale
+  - west-ridge
+  - north-pass
+  - west-fen
+  - south-march
+  - low-march
+  - utility-station
+
+hexes:
+  # --- The journey path ---
+  - id: home-vale
+    q: 0
+    r: 0
+    terrain: meadow
+    landmark: { icon: "🏡", name: "Home Vale", blurb: "Where Zanzibar sets out." }
+
+  - id: west-ridge
+    q: -1
+    r: 0
+    terrain: hills
+
+  - id: north-pass
+    q: -1
+    r: -1
+    terrain: mountain
+    landmark: { icon: "⛰️", name: "North Pass" }
+
+  - id: west-fen
+    q: -2
+    r: -1
+    terrain: marsh
+
+  - id: south-march
+    q: -2
+    r: 0
+    terrain: plains
+
+  - id: low-march
+    q: -2
+    r: 1
+    terrain: plains
+
+  - id: utility-station
+    q: -3
+    r: 1
+    terrain: structure
+    area: utility    # links into a future utility.yaml on arrival
+    landmark:
+      icon: "🏚️"
+      name: "Utility Station"
+      blurb: "Garage, conference room, kitchen, and a library. The first destination."
+
+  # --- Off-path context (only revealed in full view) ---
+  - id: east-wood
+    q: 1
+    r: 0
+    terrain: forest
+  - id: still-lake
+    q: 0
+    r: -1
+    terrain: water
+    landmark: { icon: "🌊", name: "Still Lake" }
+  - id: far-wood
+    q: 1
+    r: -1
+    terrain: forest
+  - id: west-bluffs
+    q: -3
+    r: 0
+    terrain: hills
+  - id: river-bend
+    q: -3
+    r: 2
+    terrain: water
+  - id: south-woods
+    q: -1
+    r: 1
+    terrain: forest
+  - id: home-glade
+    q: 0
+    r: 1
+    terrain: forest
