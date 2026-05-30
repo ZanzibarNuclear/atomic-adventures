@@ -18,6 +18,8 @@ export function buildBuilding(data) {
   return {
     name: data.name,
     cell,
+    gridFeet: data.gridFeet ?? 10, // spacing of visible grid lines (feet)
+    unitFeet: data.unitFeet ?? data.gridFeet ?? 10, // feet per layout grid unit (x, y, w, h)
     north: data.north ?? 'up',
     rooms,
     roomById,

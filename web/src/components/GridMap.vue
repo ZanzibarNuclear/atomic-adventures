@@ -63,6 +63,34 @@ const viewBox = computed(() => {
   return `${cx - W / 2} ${cy - H / 2} ${W} ${H}`
 })
 
+// Floor grid in layout space, then rotated with the plan (10' squares by default).
+const gridStepPx = computed(() => {
+  const gridFeet = props.building.gridFeet ?? 10
+  const unitFeet = props.building.unitFeet ?? gridFeet
+  return cell.value * (gridFeet / unitFeet)
+})
+const placedGridLines = computed(() => {
+  const b = bounds.value
+  const step = gridStepPx.value
+  if (step < 4) return []
+  const lines = []
+  const x0 = Math.floor(b.x / step) * step
+  const y0 = Math.floor(b.y / step) * step
+  const xEnd = b.x + b.w
+  const yEnd = b.y + b.h
+  for (let x = x0; x <= xEnd + 0.01; x += step) {
+    const a = tp(x, b.y)
+    const c = tp(x, yEnd)
+    lines.push({ x1: a.x, y1: a.y, x2: c.x, y2: c.y })
+  }
+  for (let y = y0; y <= yEnd + 0.01; y += step) {
+    const a = tp(b.x, y)
+    const c = tp(xEnd, y)
+    lines.push({ x1: a.x, y1: a.y, x2: c.x, y2: c.y })
+  }
+  return lines
+})
+
 // ---- Geometry helpers (original, pre-rotation coordinates) ----
 function rect(room) {
   return roomRect(room, cell.value)
@@ -163,52 +191,104 @@ const placedBeams = computed(() =>
 )
 
 // ---- Spiral stair: a half-cylinder of glass bulging toward the river ----
+// Building-edge names in layout space (north → right on the plan). `top` = west / river wall.
 function protrudeAngle(edge) {
   if (edge === 'top') return 270
   if (edge === 'bottom') return 90
   if (edge === 'left') return 180
   return 0 // right
 }
-function arcPoints(cx, cy, r, angle) {
+function arcPoints(cx, cy, r, angleDeg) {
   const pts = []
   for (let k = 90; k >= -90; k -= 15) {
-    const a = ((angle + k) * Math.PI) / 180
+    const a = ((angleDeg + k) * Math.PI) / 180
     pts.push({ x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) })
   }
   return pts
 }
+
+// Radial treads centered halfway between hub and arc: short toward library, long toward kitchen.
+// Layout-space angles only — map rotation is applied via toScreen (tp).
+function spiralTreads(cx, cy, radius, protrude, toScreen) {
+  const base = (protrudeAngle(protrude) * Math.PI) / 180
+  const westAng = base - Math.PI / 2
+  const n = 7
+  const midFrac = 0.5
+  const minHalf = 0.12 // half-length as a fraction of radius (library end)
+  const maxHalf = 0.42 // half-length at kitchen end
+  const out = []
+  for (let i = 0; i < n; i++) {
+    const t = n > 1 ? i / (n - 1) : 0 // 0 = library (west), 1 = kitchen (east)
+    const ang = westAng + Math.PI * t
+    let half = minHalf + t * (maxHalf - minHalf)
+    half = Math.min(half, midFrac, 1 - midFrac)
+    const r0 = midFrac - half
+    const r1 = midFrac + half
+    const a = toScreen(cx + radius * r0 * Math.cos(ang), cy + radius * r0 * Math.sin(ang))
+    const b = toScreen(cx + radius * r1 * Math.cos(ang), cy + radius * r1 * Math.sin(ang))
+    out.push({
+      x1: a.x,
+      y1: a.y,
+      x2: b.x,
+      y2: b.y,
+      width: 1.1 + t * 1.8,
+      opacity: 0.5 + t * 0.5,
+    })
+  }
+  return out
+}
+
 const placedFixtures = computed(() =>
   fixtures.value.map((f) => {
     if (f.kind === 'spiral-stairs') {
-      const c = tp(f.x, f.y)
-      const angle = (protrudeAngle(f.protrude) + rotation.value) % 360
-      const pts = arcPoints(c.x, c.y, f.radius, angle)
-      const fillPath = `M ${c.x} ${c.y} ` + pts.map((p) => `L ${p.x} ${p.y}`).join(' ') + ' Z'
-      const arcPath = `M ${pts[0].x} ${pts[0].y} ` + pts.slice(1).map((p) => `L ${p.x} ${p.y}`).join(' ')
-      const mullions = pts.filter((_, i) => i % 2 === 1).map((p) => ({ x1: c.x, y1: c.y, x2: p.x, y2: p.y }))
-      return { id: f.id, type: 'spiral', dir: f.dir, toRoomId: f.toRoomId, cx: c.x, cy: c.y, fillPath, arcPath, mullions }
+      const c0 = { x: f.x, y: f.y }
+      // Bulge is fixed to the building (west / river wall); tp() rotates it with the plan.
+      const pts = arcPoints(c0.x, c0.y, f.radius, protrudeAngle(f.protrude))
+      const tPts = pts.map((p) => tp(p.x, p.y))
+      const c = tp(c0.x, c0.y)
+      const fillPath = `M ${c.x} ${c.y} ` + tPts.map((p) => `L ${p.x} ${p.y}`).join(' ') + ' Z'
+      const arcPath = `M ${tPts[0].x} ${tPts[0].y} ` + tPts.slice(1).map((p) => `L ${p.x} ${p.y}`).join(' ')
+      const treads = spiralTreads(c0.x, c0.y, f.radius, f.protrude, tp)
+      return { id: f.id, type: 'spiral', dir: f.dir, toRoomId: f.toRoomId, cx: c.x, cy: c.y, fillPath, arcPath, treads }
     }
-    // Straight garage staircase: a run of steps, ascending toward the door.
+    // Straight stairs: parallel tread lines, wider toward the top (plan convention).
     const r = f.rect
     const corners = [tp(r.x, r.y), tp(r.x + r.w, r.y), tp(r.x + r.w, r.y + r.h), tp(r.x, r.y + r.h)]
     const box = bbox(corners)
     const horizontal = f.run === 'horizontal'
-    const n = Math.max(3, Math.round((horizontal ? r.w : r.h) / (cell.value * 0.22)))
-    const steps = []
-    for (let i = 1; i < n; i++) {
-      const t = i / n
-      const a = horizontal ? tp(r.x + r.w * t, r.y) : tp(r.x, r.y + r.h * t)
-      const b = horizontal ? tp(r.x + r.w * t, r.y + r.h) : tp(r.x + r.w, r.y + r.h * t)
-      steps.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y })
+    const alongLen = horizontal ? r.w : r.h
+    const crossLen = horizontal ? r.h : r.w
+    const n = Math.max(5, Math.min(9, Math.round(alongLen / (cell.value * 0.18))))
+    const minSpan = cell.value * 0.28
+    const maxSpan = crossLen * 0.88
+    const treads = []
+    for (let i = 0; i < n; i++) {
+      const t = (i + 0.5) / n
+      const towardTop = f.ascend === 'end' ? t : 1 - t
+      const span = minSpan + towardTop * (maxSpan - minSpan)
+      const pos = f.ascend === 'end' ? t : 1 - t
+      let a, b
+      if (horizontal) {
+        const x = r.x + pos * r.w
+        const cy = r.y + r.h / 2
+        a = tp(x, cy - span / 2)
+        b = tp(x, cy + span / 2)
+      } else {
+        const y = r.y + pos * r.h
+        const cx = r.x + r.w / 2
+        a = tp(cx - span / 2, y)
+        b = tp(cx + span / 2, y)
+      }
+      treads.push({
+        x1: a.x,
+        y1: a.y,
+        x2: b.x,
+        y2: b.y,
+        width: 1.2 + towardTop * 1.8,
+      })
     }
-    const near = horizontal ? { x: r.x, y: r.y + r.h / 2 } : { x: r.x + r.w / 2, y: r.y }
-    const far = horizontal ? { x: r.x + r.w, y: r.y + r.h / 2 } : { x: r.x + r.w / 2, y: r.y + r.h }
-    const low = f.ascend === 'end' ? near : far
-    const high = f.ascend === 'end' ? far : near
-    const la = tp(low.x, low.y)
-    const ha = tp(high.x, high.y)
     const cen = tp(r.x + r.w / 2, r.y + r.h / 2)
-    return { id: f.id, type: 'straight', dir: f.dir, toRoomId: f.toRoomId, box, steps, arrow: { x1: la.x, y1: la.y, x2: ha.x, y2: ha.y }, cx: cen.x, cy: cen.y }
+    return { id: f.id, type: 'straight', dir: f.dir, toRoomId: f.toRoomId, box, treads, cx: cen.x, cy: cen.y }
   }),
 )
 
@@ -255,6 +335,19 @@ function onRoomClick(room) {
     </svg>
 
     <svg :viewBox="viewBox" preserveAspectRatio="xMidYMid meet">
+      <!-- 10' floor grid (behind rooms) -->
+      <g class="grid-layer">
+        <line
+          v-for="(ln, i) in placedGridLines"
+          :key="'grid-' + i"
+          :x1="ln.x1"
+          :y1="ln.y1"
+          :x2="ln.x2"
+          :y2="ln.y2"
+          class="grid-line"
+        />
+      </g>
+
       <!-- Rooms -->
       <g class="room-layer">
         <g
@@ -360,35 +453,39 @@ function onRoomClick(room) {
         >
           <template v-if="f.type === 'spiral'">
             <path :d="f.fillPath" class="spiral-glass" />
-            <line
-              v-for="(m, i) in f.mullions"
-              :key="f.id + '-mul-' + i"
-              :x1="m.x1"
-              :y1="m.y1"
-              :x2="m.x2"
-              :y2="m.y2"
-              class="spiral-mullion"
-            />
             <path :d="f.arcPath" class="spiral-frame" />
-            <circle :cx="f.cx" :cy="f.cy" :r="cell * 0.16" class="spiral-pad" />
-            <text :x="f.cx" :y="f.cy" class="spiral-icon">
-              ↻{{ f.dir === 'up' ? '▲' : f.dir === 'down' ? '▼' : '↕' }}
+            <line
+              v-for="(t, i) in f.treads"
+              :key="f.id + '-tread-' + i"
+              :x1="t.x1"
+              :y1="t.y1"
+              :x2="t.x2"
+              :y2="t.y2"
+              class="stair-tread"
+              :stroke-width="t.width"
+              :opacity="t.opacity"
+            />
+            <circle :cx="f.cx" :cy="f.cy" :r="cell * 0.16" class="stair-pad" />
+            <text :x="f.cx" :y="f.cy" class="stair-icon">
+              {{ f.dir === 'up' ? '▲' : f.dir === 'down' ? '▼' : '↕' }}
             </text>
           </template>
           <template v-else>
-            <rect :x="f.box.x" :y="f.box.y" :width="f.box.w" :height="f.box.h" rx="2" class="stair-shaft" />
+            <rect :x="f.box.x" :y="f.box.y" :width="f.box.w" :height="f.box.h" class="stair-hit" />
             <line
-              v-for="(s, i) in f.steps"
-              :key="f.id + '-step-' + i"
-              :x1="s.x1"
-              :y1="s.y1"
-              :x2="s.x2"
-              :y2="s.y2"
-              class="stair-step"
+              v-for="(t, i) in f.treads"
+              :key="f.id + '-tread-' + i"
+              :x1="t.x1"
+              :y1="t.y1"
+              :x2="t.x2"
+              :y2="t.y2"
+              class="stair-tread"
+              :stroke-width="t.width"
             />
-            <line :x1="f.arrow.x1" :y1="f.arrow.y1" :x2="f.arrow.x2" :y2="f.arrow.y2" class="stair-arrow" />
             <circle :cx="f.cx" :cy="f.cy" :r="cell * 0.15" class="stair-pad" />
-            <text :x="f.cx" :y="f.cy" class="stair-icon">{{ f.dir === 'up' ? '▲' : f.dir === 'down' ? '▼' : '↕' }}</text>
+            <text :x="f.cx" :y="f.cy" class="stair-icon">
+              {{ f.dir === 'up' ? '▲' : f.dir === 'down' ? '▼' : '↕' }}
+            </text>
           </template>
         </g>
       </g>
@@ -482,6 +579,13 @@ svg:not(.compass) {
   width: 100%;
   height: 100%;
   display: block;
+}
+.grid-layer {
+  pointer-events: none;
+}
+.grid-line {
+  stroke: rgba(255, 255, 255, 0.1);
+  stroke-width: 1;
 }
 .room {
   cursor: pointer;
@@ -597,59 +701,37 @@ svg:not(.compass) {
 .fixture {
   cursor: pointer;
 }
-.stair-shaft {
-  fill: rgba(215, 196, 143, 0.1);
-  stroke: #b9a36a;
-  stroke-width: 1.5;
-}
-.stair-step {
-  stroke: #d7c48f;
-  stroke-width: 1.5;
-  opacity: 0.85;
-  pointer-events: none;
-}
-.stair-arrow {
-  stroke: #d7c48f;
-  stroke-width: 2;
-  opacity: 0.55;
-  pointer-events: none;
-}
-.spiral-glass {
-  fill: rgba(126, 200, 255, 0.16);
+.stair-hit {
+  fill: transparent;
   stroke: none;
 }
-.spiral-mullion {
-  stroke: #7ec8ff;
-  stroke-width: 1;
-  opacity: 0.6;
-}
-.spiral-frame {
-  fill: none;
-  stroke: #9fd3ff;
-  stroke-width: 2.5;
-  stroke-linejoin: round;
-}
-.spiral-pad {
-  fill: #20262f;
-  stroke: #c9a3e0;
-  stroke-width: 1.5;
-}
-.spiral-icon {
-  fill: #d7c48f;
-  font-size: 9px;
-  text-anchor: middle;
-  dominant-baseline: middle;
+.stair-tread {
+  stroke: #c9b88a;
+  stroke-linecap: round;
+  pointer-events: none;
 }
 .stair-pad {
   fill: #20262f;
   stroke: #d7c48f;
   stroke-width: 1.5;
+  pointer-events: none;
 }
 .stair-icon {
   fill: #d7c48f;
   font-size: 11px;
   text-anchor: middle;
   dominant-baseline: middle;
+  pointer-events: none;
+}
+.spiral-glass {
+  fill: rgba(126, 200, 255, 0.16);
+  stroke: none;
+}
+.spiral-frame {
+  fill: none;
+  stroke: #9fd3ff;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
 }
 .avatar {
   transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);

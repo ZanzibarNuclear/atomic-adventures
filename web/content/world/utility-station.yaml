@@ -12,6 +12,8 @@
 
 name: Utility Station
 cell: 64
+gridFeet: 10 # light floor-grid lines every 10 feet
+unitFeet: 10 # one layout unit (room x/y/w/h) = 10 feet
 start: large-bay
 north: right # the compass arrow points right, per the sketch
 
