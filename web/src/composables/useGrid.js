@@ -14,6 +14,7 @@ export function buildBuilding(data) {
   const levelById = Object.fromEntries(levels.map((l) => [l.id, l]))
   const links = data.links ?? []
   const fixtures = data.fixtures ?? []
+  const doors = data.doors ?? []
   return {
     name: data.name,
     cell,
@@ -24,6 +25,7 @@ export function buildBuilding(data) {
     levelById,
     links,
     fixtures,
+    doors,
     start: data.start ?? rooms[0]?.id,
   }
 }
@@ -131,85 +133,43 @@ export function movesFrom(building, roomId) {
   return out
 }
 
-// Where on a shared wall a door sits: its midpoint, or `doorAt` (grid units).
-function doorPoint(link, edge, cell) {
-  if (link.doorAt) return { x: link.doorAt.x * cell, y: link.doorAt.y * cell }
-  return edge.vertical
-    ? { x: edge.x, y: (edge.y1 + edge.y2) / 2 }
-    : { y: edge.y, x: (edge.x1 + edge.x2) / 2 }
-}
-
-// Drawable connectors for a level: interior doors, open-bay beams, and the
-// straight (non-spiral) stair markers. The spiral stair is a fixture instead.
-export function levelConnectors(building, levelId) {
+// Open-bay beams to draw on a level. `open` links have no wall — just a beam
+// (the ceiling-height step) with support columns.
+export function levelBeams(building, levelId) {
   const cell = building.cell
-  const doors = []
   const beams = []
-  const stairs = []
   for (const link of building.links) {
+    if (link.kind !== 'open') continue
     const a = building.roomById[link.from]
     const b = building.roomById[link.to]
-    if (!a || !b) continue
-    const aHere = a.level === levelId
-    const bHere = b.level === levelId
-
-    if (link.kind === 'door' || link.kind === 'open') {
-      if (!(aHere && bHere)) continue
-      const edge = sharedEdge(a, b, cell)
-      if (!edge) continue
-      if (link.kind === 'open') {
-        // One open garage: no wall, just a beam with support columns.
-        const seg = edge.vertical
-          ? { x1: edge.x, y1: edge.y1, x2: edge.x, y2: edge.y2 }
-          : { x1: edge.x1, y1: edge.y, x2: edge.x2, y2: edge.y }
-        const columns = []
-        const steps = 3
-        for (let i = 1; i < steps; i++) {
-          const t = i / steps
-          columns.push({ x: seg.x1 + (seg.x2 - seg.x1) * t, y: seg.y1 + (seg.y2 - seg.y1) * t })
-        }
-        beams.push({ ...seg, columns })
-      } else {
-        const p = doorPoint(link, edge, cell)
-        doors.push({ x: p.x, y: p.y, vertical: edge.vertical })
-      }
-      continue
+    if (!a || !b || a.level !== levelId || b.level !== levelId) continue
+    const edge = sharedEdge(a, b, cell)
+    if (!edge) continue
+    const seg = edge.vertical
+      ? { x1: edge.x, y1: edge.y1, x2: edge.x, y2: edge.y2 }
+      : { x1: edge.x1, y1: edge.y, x2: edge.x2, y2: edge.y }
+    const columns = []
+    const steps = 3
+    for (let i = 1; i < steps; i++) {
+      const t = i / steps
+      columns.push({ x: seg.x1 + (seg.x2 - seg.x1) * t, y: seg.y1 + (seg.y2 - seg.y1) * t })
     }
-
-    if (link.kind !== 'stairs') continue // winding-stairs => fixture
-    // Straight stairs: a marker in whichever endpoint is on this level, nudged
-    // toward the partner so it reads as "the stairs are over here".
-    for (const [here, there, on] of [
-      [a, b, aHere],
-      [b, a, bHere],
-    ]) {
-      if (!on) continue
-      const c = roomCenter(here, cell)
-      const t = roomCenter(there, cell)
-      const r = roomRect(here, cell)
-      let vx = t.x - c.x
-      let vy = t.y - c.y
-      const len = Math.hypot(vx, vy)
-      if (len > 0.001) {
-        const reach = Math.min(r.w, r.h) * 0.32
-        vx = (vx / len) * reach
-        vy = (vy / len) * reach
-      } else {
-        vy = Math.min(r.w, r.h) * 0.32
-      }
-      stairs.push({
-        x: c.x + vx,
-        y: c.y + vy,
-        dir: dirBetween(building, here, there),
-        toRoomId: there.id,
-      })
-    }
+    beams.push({ ...seg, columns })
   }
-  return { doors, beams, stairs }
+  return beams
 }
 
-// Spiral-stair fixtures visible on a level. Each is drawn as a half-cylinder of
-// glass bulging outward; clicking it travels to the connected room off-floor.
+// Authored man-door glyphs on a level. These are purely visual — connectivity
+// lives in `links`; this just lets us place each door exactly on its wall.
+export function doorsOnLevel(building, levelId) {
+  const cell = building.cell
+  return (building.doors ?? [])
+    .filter((d) => d.level === levelId)
+    .map((d) => ({ x: d.at.x * cell, y: d.at.y * cell, vertical: !!d.vertical }))
+}
+
+// Stair fixtures visible on a level: the spiral (half-cylinder of glass) and
+// the straight garage run. Clicking one travels to the connected off-floor room.
 export function fixturesOnLevel(building, levelId) {
   const cell = building.cell
   const out = []
@@ -219,17 +179,31 @@ export function fixturesOnLevel(building, levelId) {
     const rooms = (f.connects ?? []).map((id) => building.roomById[id]).filter(Boolean)
     const here = rooms.find((r) => r.level === levelId)
     const there = rooms.find((r) => r.level !== levelId)
-    out.push({
-      id: f.id,
-      kind: f.kind,
-      x: f.at.x * cell,
-      y: f.at.y * cell,
-      protrude: f.protrude ?? 'top',
-      radius: (f.radius ?? 0.6) * cell,
-      glass: f.glass !== false,
-      dir: here && there ? dirBetween(building, here, there) : 'same',
-      toRoomId: there?.id ?? null,
-    })
+    const dir = here && there ? dirBetween(building, here, there) : 'same'
+    const toRoomId = there?.id ?? null
+    if (f.kind === 'spiral-stairs') {
+      out.push({
+        id: f.id,
+        kind: f.kind,
+        dir,
+        toRoomId,
+        x: f.at.x * cell,
+        y: f.at.y * cell,
+        protrude: f.protrude ?? 'top',
+        radius: (f.radius ?? 0.6) * cell,
+      })
+    } else if (f.kind === 'straight-stairs') {
+      const r = f.rect
+      out.push({
+        id: f.id,
+        kind: f.kind,
+        dir,
+        toRoomId,
+        rect: { x: r.x * cell, y: r.y * cell, w: r.w * cell, h: r.h * cell },
+        run: f.run ?? 'horizontal',
+        ascend: f.ascend ?? 'end', // 'end' = high end at far x/y, 'start' = near
+      })
+    }
   }
   return out
 }

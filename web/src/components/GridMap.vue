@@ -5,7 +5,8 @@ import {
   roomRect,
   roomCenter,
   levelBounds,
-  levelConnectors,
+  levelBeams,
+  doorsOnLevel,
   fixturesOnLevel,
   sharedEdge,
 } from '../composables/useGrid.js'
@@ -24,7 +25,8 @@ const cell = computed(() => props.building.cell ?? 64)
 const discoveredSet = computed(() => new Set(props.discovered))
 const current = computed(() => props.building.roomById[props.currentRoom])
 const levelRooms = computed(() => roomsOnLevel(props.building, props.level))
-const connectors = computed(() => levelConnectors(props.building, props.level))
+const beams = computed(() => levelBeams(props.building, props.level))
+const doors = computed(() => doorsOnLevel(props.building, props.level))
 const fixtures = computed(() => fixturesOnLevel(props.building, props.level))
 
 // ---- Rotation: the player can spin the plan 90° at a time ----
@@ -123,22 +125,14 @@ const placedRooms = computed(() =>
       const b = tp(s.x2, s.y2)
       return { x1: a.x, y1: a.y, x2: b.x, y2: b.y }
     })
-    const entry = room.entry
-      ? placeRect(
-          doorCenter(room, room.entry).x,
-          doorCenter(room, room.entry).y,
-          doorCenter(room, room.entry).vertical ? 7 : cell.value * 0.32,
-          doorCenter(room, room.entry).vertical ? cell.value * 0.32 : 7,
-        )
-      : null
-    const roll = room.rollDoor
-      ? placeRect(
-          doorCenter(room, room.rollDoor).x,
-          doorCenter(room, room.rollDoor).y,
-          doorCenter(room, room.rollDoor).vertical ? 10 : cell.value * 0.7,
-          doorCenter(room, room.rollDoor).vertical ? cell.value * 0.7 : 10,
-        )
-      : null
+    let roll = null
+    if (room.rollDoor) {
+      const dc = doorCenter(room, room.rollDoor)
+      const r = rect(room)
+      const wallLen = room.rollDoor === 'top' || room.rollDoor === 'bottom' ? r.w : r.h
+      const span = (room.rollSpan ?? 0.6) * wallLen
+      roll = placeRect(dc.x, dc.y, dc.vertical ? 10 : span, dc.vertical ? span : 10)
+    }
     // Railing along the interior edges of an open-to-roof void.
     const railings = []
     if (room.open) {
@@ -151,26 +145,20 @@ const placedRooms = computed(() =>
         railings.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y })
       }
     }
-    return { room, rect: bbox(corners), center: tp(r.x + r.w / 2, r.y + r.h / 2), windows, entry, roll, railings }
+    return { room, rect: bbox(corners), center: tp(r.x + r.w / 2, r.y + r.h / 2), windows, roll, railings }
   }),
 )
 
 const placedDoors = computed(() =>
-  connectors.value.doors.map((d) =>
-    placeRect(d.x, d.y, d.vertical ? 7 : cell.value * 0.28, d.vertical ? cell.value * 0.28 : 7),
+  doors.value.map((d) =>
+    placeRect(d.x, d.y, d.vertical ? 7 : cell.value * 0.3, d.vertical ? cell.value * 0.3 : 7),
   ),
 )
 const placedBeams = computed(() =>
-  connectors.value.beams.map((b) => {
+  beams.value.map((b) => {
     const a = tp(b.x1, b.y1)
     const c = tp(b.x2, b.y2)
     return { x1: a.x, y1: a.y, x2: c.x, y2: c.y, columns: b.columns.map((col) => tp(col.x, col.y)) }
-  }),
-)
-const placedStairs = computed(() =>
-  connectors.value.stairs.map((s) => {
-    const p = tp(s.x, s.y)
-    return { x: p.x, y: p.y, dir: s.dir, toRoomId: s.toRoomId }
   }),
 )
 
@@ -191,13 +179,36 @@ function arcPoints(cx, cy, r, angle) {
 }
 const placedFixtures = computed(() =>
   fixtures.value.map((f) => {
-    const c = tp(f.x, f.y)
-    const angle = (protrudeAngle(f.protrude) + rotation.value) % 360
-    const pts = arcPoints(c.x, c.y, f.radius, angle)
-    const fillPath = `M ${c.x} ${c.y} ` + pts.map((p) => `L ${p.x} ${p.y}`).join(' ') + ' Z'
-    const arcPath = `M ${pts[0].x} ${pts[0].y} ` + pts.slice(1).map((p) => `L ${p.x} ${p.y}`).join(' ')
-    const mullions = pts.filter((_, i) => i % 2 === 1).map((p) => ({ x1: c.x, y1: c.y, x2: p.x, y2: p.y }))
-    return { ...f, cx: c.x, cy: c.y, fillPath, arcPath, mullions }
+    if (f.kind === 'spiral-stairs') {
+      const c = tp(f.x, f.y)
+      const angle = (protrudeAngle(f.protrude) + rotation.value) % 360
+      const pts = arcPoints(c.x, c.y, f.radius, angle)
+      const fillPath = `M ${c.x} ${c.y} ` + pts.map((p) => `L ${p.x} ${p.y}`).join(' ') + ' Z'
+      const arcPath = `M ${pts[0].x} ${pts[0].y} ` + pts.slice(1).map((p) => `L ${p.x} ${p.y}`).join(' ')
+      const mullions = pts.filter((_, i) => i % 2 === 1).map((p) => ({ x1: c.x, y1: c.y, x2: p.x, y2: p.y }))
+      return { id: f.id, type: 'spiral', dir: f.dir, toRoomId: f.toRoomId, cx: c.x, cy: c.y, fillPath, arcPath, mullions }
+    }
+    // Straight garage staircase: a run of steps, ascending toward the door.
+    const r = f.rect
+    const corners = [tp(r.x, r.y), tp(r.x + r.w, r.y), tp(r.x + r.w, r.y + r.h), tp(r.x, r.y + r.h)]
+    const box = bbox(corners)
+    const horizontal = f.run === 'horizontal'
+    const n = Math.max(3, Math.round((horizontal ? r.w : r.h) / (cell.value * 0.22)))
+    const steps = []
+    for (let i = 1; i < n; i++) {
+      const t = i / n
+      const a = horizontal ? tp(r.x + r.w * t, r.y) : tp(r.x, r.y + r.h * t)
+      const b = horizontal ? tp(r.x + r.w * t, r.y + r.h) : tp(r.x + r.w, r.y + r.h * t)
+      steps.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y })
+    }
+    const near = horizontal ? { x: r.x, y: r.y + r.h / 2 } : { x: r.x + r.w / 2, y: r.y }
+    const far = horizontal ? { x: r.x + r.w, y: r.y + r.h / 2 } : { x: r.x + r.w / 2, y: r.y + r.h }
+    const low = f.ascend === 'end' ? near : far
+    const high = f.ascend === 'end' ? far : near
+    const la = tp(low.x, low.y)
+    const ha = tp(high.x, high.y)
+    const cen = tp(r.x + r.w / 2, r.y + r.h / 2)
+    return { id: f.id, type: 'straight', dir: f.dir, toRoomId: f.toRoomId, box, steps, arrow: { x1: la.x, y1: la.y, x2: ha.x, y2: ha.y }, cx: cen.x, cy: cen.y }
   }),
 )
 
@@ -219,7 +230,12 @@ const compassTip = computed(() => {
 })
 
 function isDiscovered(room) {
+  if (room.mirror && discoveredSet.value.has(room.mirror)) return true
   return discoveredSet.value.has(room.id)
+}
+// Open void with no mirror: dark "no floor" styling. Mirrored bays look like normal rooms.
+function isOpenVoid(room) {
+  return room.open && !room.mirror
 }
 function onRoomClick(room) {
   if (room.open) return
@@ -248,8 +264,9 @@ function onRoomClick(room) {
           :class="{
             current: p.room.id === currentRoom,
             visited: isDiscovered(p.room),
-            unvisited: !isDiscovered(p.room) && !p.room.open,
-            open: p.room.open,
+            unvisited: !isDiscovered(p.room) && !isOpenVoid(p.room),
+            open: isOpenVoid(p.room),
+            overlook: p.room.open && p.room.mirror,
           }"
           @click="onRoomClick(p.room)"
         >
@@ -282,19 +299,19 @@ function onRoomClick(room) {
           <!-- Side man-door (exterior entry) -->
           <rect v-if="p.entry" :x="p.entry.x" :y="p.entry.y" :width="p.entry.w" :height="p.entry.h" class="entry-door" />
 
-          <text v-if="!p.room.open" :x="p.center.x" :y="p.center.y - cell * 0.16" class="room-icon">
+          <text v-if="!isOpenVoid(p.room) && p.room.icon" :x="p.center.x" :y="p.center.y - cell * 0.16" class="room-icon">
             {{ p.room.icon }}
           </text>
           <text
             :x="p.center.x"
-            :y="p.center.y + (p.room.open ? 0 : cell * 0.14)"
+            :y="p.center.y + (isOpenVoid(p.room) ? 0 : cell * 0.14)"
             class="room-label"
-            :class="{ 'open-label': p.room.open }"
+            :class="{ 'open-label': isOpenVoid(p.room) }"
           >
-            {{ p.room.open ? p.room.name : isDiscovered(p.room) ? p.room.name : '???' }}
+            {{ isOpenVoid(p.room) ? p.room.name : isDiscovered(p.room) ? p.room.name : '???' }}
           </text>
           <text
-            v-if="p.room.note && isDiscovered(p.room) && !p.room.open"
+            v-if="p.room.note && isDiscovered(p.room) && !isOpenVoid(p.room)"
             :x="p.center.x"
             :y="p.center.y + cell * 0.34"
             class="room-note"
@@ -333,37 +350,46 @@ function onRoomClick(room) {
         />
       </g>
 
-      <!-- Spiral stair: half-cylinder of glass -->
-      <g class="spiral-layer">
-        <g v-for="f in placedFixtures" :key="f.id" class="spiral" @click="f.toRoomId && emit('room-click', f.toRoomId)">
-          <path :d="f.fillPath" class="spiral-glass" />
-          <line
-            v-for="(m, i) in f.mullions"
-            :key="f.id + '-mul-' + i"
-            :x1="m.x1"
-            :y1="m.y1"
-            :x2="m.x2"
-            :y2="m.y2"
-            class="spiral-mullion"
-          />
-          <path :d="f.arcPath" class="spiral-frame" />
-          <circle :cx="f.cx" :cy="f.cy" :r="cell * 0.16" class="spiral-pad" />
-          <text :x="f.cx" :y="f.cy" class="spiral-icon">
-            ↻{{ f.dir === 'up' ? '▲' : f.dir === 'down' ? '▼' : '↕' }}
-          </text>
-        </g>
-      </g>
-
-      <!-- Straight stairs -->
-      <g class="stair-layer">
+      <!-- Stair fixtures: the spiral (glass half-cylinder) and the garage run -->
+      <g class="fixture-layer">
         <g
-          v-for="(s, i) in placedStairs"
-          :key="'stair-' + i"
-          class="stair"
-          @click="emit('room-click', s.toRoomId)"
+          v-for="f in placedFixtures"
+          :key="f.id"
+          class="fixture"
+          @click="f.toRoomId && emit('room-click', f.toRoomId)"
         >
-          <circle :cx="s.x" :cy="s.y" :r="cell * 0.16" class="stair-pad" />
-          <text :x="s.x" :y="s.y" class="stair-icon">{{ s.dir === 'up' ? '▲' : s.dir === 'down' ? '▼' : '↕' }}</text>
+          <template v-if="f.type === 'spiral'">
+            <path :d="f.fillPath" class="spiral-glass" />
+            <line
+              v-for="(m, i) in f.mullions"
+              :key="f.id + '-mul-' + i"
+              :x1="m.x1"
+              :y1="m.y1"
+              :x2="m.x2"
+              :y2="m.y2"
+              class="spiral-mullion"
+            />
+            <path :d="f.arcPath" class="spiral-frame" />
+            <circle :cx="f.cx" :cy="f.cy" :r="cell * 0.16" class="spiral-pad" />
+            <text :x="f.cx" :y="f.cy" class="spiral-icon">
+              ↻{{ f.dir === 'up' ? '▲' : f.dir === 'down' ? '▼' : '↕' }}
+            </text>
+          </template>
+          <template v-else>
+            <rect :x="f.box.x" :y="f.box.y" :width="f.box.w" :height="f.box.h" rx="2" class="stair-shaft" />
+            <line
+              v-for="(s, i) in f.steps"
+              :key="f.id + '-step-' + i"
+              :x1="s.x1"
+              :y1="s.y1"
+              :x2="s.x2"
+              :y2="s.y2"
+              class="stair-step"
+            />
+            <line :x1="f.arrow.x1" :y1="f.arrow.y1" :x2="f.arrow.x2" :y2="f.arrow.y2" class="stair-arrow" />
+            <circle :cx="f.cx" :cy="f.cy" :r="cell * 0.15" class="stair-pad" />
+            <text :x="f.cx" :y="f.cy" class="stair-icon">{{ f.dir === 'up' ? '▲' : f.dir === 'down' ? '▼' : '↕' }}</text>
+          </template>
         </g>
       </g>
 
@@ -486,6 +512,15 @@ svg:not(.compass) {
   fill: #14181f;
   stroke: #2b333d;
 }
+.room.overlook .floor {
+  fill: #50617a;
+  stroke: #20262f;
+}
+.room.overlook.unvisited .floor {
+  fill: #2a3038;
+  stroke-dasharray: 4 4;
+  stroke: #4a5360;
+}
 .railing {
   stroke: #b9923f;
   stroke-width: 2.5;
@@ -559,8 +594,25 @@ svg:not(.compass) {
   fill: #c39a6b;
   pointer-events: none;
 }
-.spiral {
+.fixture {
   cursor: pointer;
+}
+.stair-shaft {
+  fill: rgba(215, 196, 143, 0.1);
+  stroke: #b9a36a;
+  stroke-width: 1.5;
+}
+.stair-step {
+  stroke: #d7c48f;
+  stroke-width: 1.5;
+  opacity: 0.85;
+  pointer-events: none;
+}
+.stair-arrow {
+  stroke: #d7c48f;
+  stroke-width: 2;
+  opacity: 0.55;
+  pointer-events: none;
 }
 .spiral-glass {
   fill: rgba(126, 200, 255, 0.16);
@@ -587,9 +639,6 @@ svg:not(.compass) {
   font-size: 9px;
   text-anchor: middle;
   dominant-baseline: middle;
-}
-.stair {
-  cursor: pointer;
 }
 .stair-pad {
   fill: #20262f;

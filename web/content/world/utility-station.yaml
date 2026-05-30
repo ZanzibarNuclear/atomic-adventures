@@ -41,7 +41,8 @@ rooms:
     name: "Small Bay"
     icon: "🔧"
     note: "1 story · EV bay"
-    rollDoor: right # single-story roll-up door on the outer wall
+    rollDoor: right # single-story roll-up onto the driveway (north wall)
+    rollSpan: 0.72
     blurb: "Tools, electrical gear, and a voltage meter. The e-buggy is parked here under a cloth — dead flat, no charge."
   - id: large-bay
     level: first
@@ -52,8 +53,8 @@ rooms:
     name: "Large Bay"
     icon: "🅿️"
     note: "2 stories"
-    entry: left # the side man-door you force open
-    rollDoor: bottom # tall two-story roll-up door
+    rollDoor: right # bigger two-story roll-up, same (north) wall / driveway
+    rollSpan: 0.6
     blurb: "Open to the roof. Empty now, but the tire tracks and oil stains say something big was housed and serviced here — gone elsewhere on the compound."
 
   # ---------------- 2nd floor ----------------
@@ -82,20 +83,23 @@ rooms:
     y: 2
     w: 4
     h: 3
-    name: "Open to Roof"
-    open: true # no floor here — the Large Bay rises floor-to-roof
-    blurb: "There's no floor here: the Large Bay rises the full height of the building, open to the roof. A railing keeps you back from the edge."
+    name: "Large Bay"
+    icon: "🅿️"
+    note: "2 stories"
+    open: true # mezzanine edge — you can't stand here, but it's the same bay
+    mirror: large-bay # show like the 1st-floor garage once you've been below
+    blurb: "The tall bay opens below your feet all the way to the roof. A railing keeps you back from the edge."
 
-# kind: door | open | stairs | winding-stairs. Up/down inferred from level order.
-# `open` = no wall (one big garage); `doorAt` places a door along its wall.
+# Connectivity only (movement). kind: door | open | stairs | winding-stairs.
+# `open` = no wall (one big garage). Up/down inferred from level order.
 links:
   - { from: small-bay, to: large-bay, kind: open } # one big open garage
-  - { from: library, to: small-bay, kind: door, doorAt: { x: 2, y: 1.55 } } # man-door, library NE corner
-  - { from: large-bay, to: conference, kind: stairs } # straight stairs, west edge
+  - { from: library, to: small-bay, kind: door } # man-door, library NE corner
+  - { from: large-bay, to: conference, kind: stairs } # garage stair up to 2F
   - { from: conference, to: kitchen, kind: door }
   - { from: kitchen, to: library, kind: winding-stairs } # river-side spiral
 
-# Structural fixtures drawn over the plan (not navigable cells themselves).
+# Stair fixtures drawn over the plan (the actual stairs + glyphs).
 fixtures:
   - id: spiral-stair
     kind: spiral-stairs
@@ -104,3 +108,24 @@ fixtures:
     radius: 0.66
     onLevels: [first, second]
     connects: [kitchen, library]
+  - id: garage-stair
+    kind: straight-stairs
+    # Runs along the large bay's west (top) wall, in the south (left) half;
+    # ascends west→east to the 2F door into the conference room.
+    rect: { x: 0.2, y: 2.08, w: 1.55, h: 0.5 }
+    run: horizontal
+    ascend: end # high (top) end is the far (east/right) side, by the door
+    onLevels: [first, second] # visible on both floors so you can go back down
+    connects: [large-bay, conference]
+
+# Authored man-door glyphs (visual only — 6 total). `at` is in grid units;
+# `vertical: true` for a door on a north/south (vertical) wall.
+doors:
+  # --- 1st floor ---
+  - { level: first, at: { x: 0.6, y: 5 } } # garage break-in, east wall, toward the back (south)
+  - { level: first, at: { x: 2, y: 1.62 }, vertical: true } # library ↔ small bay, NE corner of library
+  - { level: first, at: { x: 1.68, y: 0.04 } } # foot of the spiral, into the library
+  # --- 2nd floor ---
+  - { level: second, at: { x: 2, y: 1.0 }, vertical: true } # conference ↔ kitchen
+  - { level: second, at: { x: 1.62, y: 2 } } # top of garage stair, into the conference room
+  - { level: second, at: { x: 2.32, y: 0.04 } } # top of the spiral, into the kitchen
