@@ -1,13 +1,16 @@
 <script setup>
 import { computed, reactive, ref } from 'vue'
 import HexMap from './components/HexMap.vue'
+import GridMap from './components/GridMap.vue'
 import mapData from '../content/world/map.yaml'
+import buildingData from '../content/world/utility-station.yaml'
 import {
   availableMoves,
   offRoadNeighbors,
   buildRouteModels,
   fenceSegments,
 } from './composables/useRoutes.js'
+import { buildBuilding, movesFrom } from './composables/useGrid.js'
 
 const hexById = Object.fromEntries(mapData.hexes.map((h) => [h.id, h]))
 const size = mapData.size ?? 44
@@ -73,6 +76,50 @@ function nameOf(hexId) {
   const h = hexById[hexId]
   return h?.landmark?.name ?? hexId
 }
+
+// --- Indoor building state (the Utility Station) ---
+const building = buildBuilding(buildingData)
+const place = ref('outdoors') // 'outdoors' | 'indoors'
+
+const indoor = reactive({
+  currentRoom: building.start,
+  discovered: new Set([building.start]),
+  level: building.roomById[building.start]?.level ?? building.levels[0]?.id,
+  moving: false,
+})
+
+// You can enter the building when standing on a hex flagged as that area.
+const atBuildingEntrance = computed(() => currentHexData.value?.area === 'utility')
+const currentRoomData = computed(() => building.roomById[indoor.currentRoom])
+const indoorMoves = computed(() => movesFrom(building, indoor.currentRoom))
+const levelsTopDown = computed(() => building.levels)
+
+function enterBuilding() {
+  if (!atBuildingEntrance.value) return
+  place.value = 'indoors'
+}
+function exitBuilding() {
+  place.value = 'outdoors'
+}
+
+function moveToRoom(roomId) {
+  if (indoor.moving || !building.roomById[roomId]) return
+  // Only move to rooms connected to where we stand.
+  if (!indoorMoves.value.some((m) => m.toRoomId === roomId)) return
+  indoor.moving = true
+  indoor.currentRoom = roomId
+  indoor.discovered.add(roomId)
+  indoor.level = building.roomById[roomId].level
+  setTimeout(() => {
+    indoor.moving = false
+  }, 500)
+}
+
+function resetIndoor() {
+  indoor.currentRoom = building.start
+  indoor.discovered = new Set([building.start])
+  indoor.level = building.roomById[building.start]?.level
+}
 </script>
 
 <template>
@@ -85,7 +132,7 @@ function nameOf(hexId) {
       </p>
     </header>
 
-    <section class="stage" :class="{ expanded }">
+    <section v-if="place === 'outdoors'" class="stage" :class="{ expanded }">
       <HexMap
         :map-data="mapData"
         :route-models="routeModels"
@@ -98,13 +145,20 @@ function nameOf(hexId) {
       />
     </section>
 
-    <section class="hud">
+    <section v-if="place === 'outdoors'" class="hud">
       <div class="location">
         <span class="label">Location</span>
         <strong>{{ currentHexData.landmark?.name ?? currentHexData.id }}</strong>
         <em v-if="currentHexData.landmark?.blurb">
           {{ currentHexData.landmark.blurb }}
         </em>
+        <button
+          v-if="atBuildingEntrance"
+          class="enter-btn"
+          @click="enterBuilding"
+        >
+          Enter the {{ building.name }} 🚪
+        </button>
       </div>
 
       <div class="travel">
@@ -161,6 +215,68 @@ function nameOf(hexId) {
         Discovered {{ discoveredList.length }} / {{ mapData.hexes.length }} hexes
       </p>
     </section>
+
+    <!-- ===================== INDOORS ===================== -->
+    <section v-if="place === 'indoors'" class="stage" :class="{ expanded }">
+      <GridMap
+        :building="building"
+        :current-room="indoor.currentRoom"
+        :discovered="[...indoor.discovered]"
+        :level="indoor.level"
+        :expanded="expanded"
+        @room-click="moveToRoom"
+      />
+    </section>
+
+    <section v-if="place === 'indoors'" class="hud">
+      <div class="location">
+        <span class="label">{{ building.name }}</span>
+        <strong>{{ currentRoomData?.name ?? currentRoomData?.id }}</strong>
+        <em v-if="currentRoomData?.blurb">{{ currentRoomData.blurb }}</em>
+      </div>
+
+      <div class="travel">
+        <span class="label">Move</span>
+        <div class="options">
+          <button
+            v-for="m in indoorMoves"
+            :key="m.toRoomId"
+            class="route-btn"
+            :class="'k-' + (m.kind === 'door' ? 'path' : 'road')"
+            :disabled="indoor.moving"
+            @click="moveToRoom(m.toRoomId)"
+          >
+            Go {{ m.label }}
+            <span class="dest">→ {{ indoor.discovered.has(m.toRoomId) ? m.toName : '???' }}</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="modes">
+        <span class="label">Floor</span>
+        <label
+          v-for="lv in levelsTopDown"
+          :key="lv.id"
+          class="mode-pill"
+          :class="{ active: indoor.level === lv.id }"
+        >
+          <input type="radio" :value="lv.id" v-model="indoor.level" />
+          {{ lv.name }}
+        </label>
+      </div>
+
+      <div class="controls">
+        <button @click="exitBuilding">← Step outside</button>
+        <button @click="resetIndoor">Reset</button>
+        <button @click="expanded = !expanded">
+          {{ expanded ? 'Collapse map' : 'Expand map ⤢' }}
+        </button>
+      </div>
+
+      <p class="progress">
+        Explored {{ indoor.discovered.size }} / {{ building.rooms.length }} rooms
+      </p>
+    </section>
   </main>
 </template>
 
@@ -206,6 +322,15 @@ header h1 {
 .location em {
   color: #9aa0ac;
   font-size: 0.88rem;
+}
+.enter-btn {
+  margin-top: 0.6rem;
+  align-self: flex-start;
+  background: #3a5a3f;
+  border-color: #4e7a55;
+}
+.enter-btn:hover {
+  background: #46694c;
 }
 .label {
   text-transform: uppercase;

@@ -1,0 +1,106 @@
+# Utility Station interior — a top-down floor plan, drawn to match the design
+# sketch. TWO floors share one footprint; the Large Bay (garage) is a single
+# double-height room, so on the 2nd floor that footprint is "open to below".
+#
+# Orientation: NORTH points RIGHT (east). The top of each plan is therefore
+# WEST — the river side, where the windows and the winding stair live.
+#
+# Stacking:  Conference sits over Library; Kitchen sits over Small Bay;
+#            the Large Bay spans both floors.
+# Stairs:    Large Bay (garage) --straight stairs--> Conference (2nd floor)
+#            Kitchen --winding 180° river-side stairs--> Library (1st floor)
+
+name: Utility Station
+cell: 64
+start: large-bay
+north: right # the compass arrow points right, per the sketch
+
+# Highest order is the top floor.
+levels:
+  - { id: second, name: "2nd Floor", order: 1 }
+  - { id: first, name: "1st Floor", order: 0 }
+
+rooms:
+  # ---------------- 1st floor (ground) ----------------
+  - id: library
+    level: first
+    x: 0
+    y: 0
+    w: 2
+    h: 2
+    name: "Library / Study"
+    icon: "📚"
+    windows: [top] # west / river side
+    blurb: "Shelves, manuals, log binders, and three holo-reader stations. River windows behind the blinds."
+  - id: small-bay
+    level: first
+    x: 2
+    y: 0
+    w: 2
+    h: 2
+    name: "Small Bay"
+    icon: "🔧"
+    note: "1 story · EV bay"
+    rollDoor: right # single-story roll-up door on the outer wall
+    blurb: "Tools, electrical gear, and a voltage meter. The e-buggy is parked here under a cloth — dead flat, no charge."
+  - id: large-bay
+    level: first
+    x: 0
+    y: 2
+    w: 4
+    h: 3
+    name: "Large Bay"
+    icon: "🅿️"
+    note: "2 stories"
+    entry: left # the side man-door you force open
+    rollDoor: bottom # tall two-story roll-up door
+    blurb: "Open to the roof. Empty now, but the tire tracks and oil stains say something big was housed and serviced here — gone elsewhere on the compound."
+
+  # ---------------- 2nd floor ----------------
+  - id: conference
+    level: second
+    x: 0
+    y: 0
+    w: 2
+    h: 2
+    name: "Conference Room"
+    icon: "🪑"
+    windows: [top]
+    blurb: "Table, chairs, and dirty windows framing the river rapids."
+  - id: kitchen
+    level: second
+    x: 2
+    y: 0
+    w: 2
+    h: 2
+    name: "Kitchen / Dining"
+    icon: "🍽️"
+    blurb: "Worker kitchen and dining area with a water purifier and rations."
+  - id: bay-open
+    level: second
+    x: 0
+    y: 2
+    w: 4
+    h: 3
+    name: "Open to Roof"
+    open: true # no floor here — the Large Bay rises floor-to-roof
+    blurb: "There's no floor here: the Large Bay rises the full height of the building, open to the roof. A railing keeps you back from the edge."
+
+# kind: door | open | stairs | winding-stairs. Up/down inferred from level order.
+# `open` = no wall (one big garage); `doorAt` places a door along its wall.
+links:
+  - { from: small-bay, to: large-bay, kind: open } # one big open garage
+  - { from: library, to: small-bay, kind: door, doorAt: { x: 2, y: 1.55 } } # man-door, library NE corner
+  - { from: large-bay, to: conference, kind: stairs } # straight stairs, west edge
+  - { from: conference, to: kitchen, kind: door }
+  - { from: kitchen, to: library, kind: winding-stairs } # river-side spiral
+
+# Structural fixtures drawn over the plan (not navigable cells themselves).
+fixtures:
+  - id: spiral-stair
+    kind: spiral-stairs
+    at: { x: 2, y: 0 } # top-center, on the river wall between the west rooms
+    protrude: top # half-cylinder of glass bulges out toward the cascade
+    radius: 0.66
+    onLevels: [first, second]
+    connects: [kitchen, library]
