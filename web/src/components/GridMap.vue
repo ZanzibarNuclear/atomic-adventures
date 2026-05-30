@@ -1,10 +1,10 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
   roomsOnLevel,
   roomRect,
   roomCenter,
-  levelBounds,
+  levelDisplayBounds,
   levelBeams,
   doorsOnLevel,
   fixturesOnLevel,
@@ -35,8 +35,7 @@ function rotate() {
   rotation.value = (rotation.value + 90) % 360
 }
 const swapAxes = computed(() => rotation.value % 180 !== 0)
-
-const bounds = computed(() => levelBounds(levelRooms.value, cell.value))
+const bounds = computed(() => levelDisplayBounds(props.building, props.level))
 const center = computed(() => ({
   x: bounds.value.x + bounds.value.w / 2,
   y: bounds.value.y + bounds.value.h / 2,
@@ -53,40 +52,166 @@ function tp(x, y) {
   const s = Math.sin(rad)
   return { x: cx + dx * c - dy * s, y: cy + dx * s + dy * c }
 }
-
-const viewBox = computed(() => {
+// Layout-space sample points (bounds + fixtures) for a tight rotated AABB.
+const layoutSamplePoints = computed(() => {
+  const pts = []
   const b = bounds.value
-  const cx = b.x + b.w / 2
-  const cy = b.y + b.h / 2
-  const W = swapAxes.value ? b.h : b.w
-  const H = swapAxes.value ? b.w : b.h
-  return `${cx - W / 2} ${cy - H / 2} ${W} ${H}`
+  pts.push(
+    { x: b.x, y: b.y },
+    { x: b.x + b.w, y: b.y },
+    { x: b.x + b.w, y: b.y + b.h },
+    { x: b.x, y: b.y + b.h },
+  )
+  for (const f of fixtures.value) {
+    if (f.kind === 'spiral-stairs') {
+      pts.push({ x: f.x, y: f.y })
+      const base = (protrudeAngle(f.protrude ?? 'top') * Math.PI) / 180
+      for (let k = 90; k >= -90; k -= 15) {
+        const a = base + (k * Math.PI) / 180
+        pts.push({ x: f.x + f.radius * Math.cos(a), y: f.y + f.radius * Math.sin(a) })
+      }
+    } else if (f.rect) {
+      const r = f.rect
+      pts.push({ x: r.x, y: r.y }, { x: r.x + r.w, y: r.y + r.h })
+    }
+  }
+  return pts
 })
 
-// Floor grid in layout space, then rotated with the plan (10' squares by default).
+// `top` = west / river wall when north points right on the plan.
+function protrudeAngle(edge) {
+  if (edge === 'top') return 270
+  if (edge === 'bottom') return 90
+  if (edge === 'left') return 180
+  return 0
+}
+
+// True axis-aligned bounds of all content after rotation.
+const rotatedBounds = computed(() => {
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const p of layoutSamplePoints.value) {
+    const r = tp(p.x, p.y)
+    minX = Math.min(minX, r.x)
+    minY = Math.min(minY, r.y)
+    maxX = Math.max(maxX, r.x)
+    maxY = Math.max(maxY, r.y)
+  }
+  if (!Number.isFinite(minX)) return { x: 0, y: 0, w: 100, h: 100 }
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
+})
+
+const mapSvgRef = ref(null)
+const containerAspect = ref(220 / 200)
+let resizeObserver = null
+
+function attachResizeObserver() {
+  resizeObserver?.disconnect()
+  const el = mapSvgRef.value
+  if (!el) return
+  const { width, height } = el.getBoundingClientRect()
+  if (height > 0) containerAspect.value = width / height
+  resizeObserver = new ResizeObserver((entries) => {
+    const cr = entries[0].contentRect
+    if (cr.height > 0) containerAspect.value = cr.width / cr.height
+  })
+  resizeObserver.observe(el)
+}
+
+onMounted(() => nextTick(attachResizeObserver))
+watch(() => props.expanded, () => nextTick(attachResizeObserver))
+onUnmounted(() => resizeObserver?.disconnect())
+
+// Fit whole building in the panel (meet); pad viewBox aspect to reduce empty margins.
+const viewBoxRect = computed(() => {
+  const c = rotatedBounds.value
+  let { x, y, w, h } = c
+  if (w < 1 || h < 1) return c
+  const contentAspect = w / h
+  const boxAspect = containerAspect.value
+  if (contentAspect > boxAspect) {
+    const nh = w / boxAspect
+    y -= (nh - h) / 2
+    h = nh
+  } else if (contentAspect < boxAspect) {
+    const nw = h * boxAspect
+    x -= (nw - w) / 2
+    w = nw
+  }
+  return { x, y, w, h }
+})
+
+const viewBox = computed(() => {
+  const vb = viewBoxRect.value
+  return `${vb.x} ${vb.y} ${vb.w} ${vb.h}`
+})
+
 const gridStepPx = computed(() => {
   const gridFeet = props.building.gridFeet ?? 10
   const unitFeet = props.building.unitFeet ?? gridFeet
   return cell.value * (gridFeet / unitFeet)
 })
+
+// 10' grid lines in screen space — SVG patterns fail to tile across the viewBox.
 const placedGridLines = computed(() => {
-  const b = bounds.value
+  const vb = viewBoxRect.value
   const step = gridStepPx.value
-  if (step < 4) return []
-  const lines = []
-  const x0 = Math.floor(b.x / step) * step
-  const y0 = Math.floor(b.y / step) * step
-  const xEnd = b.x + b.w
-  const yEnd = b.y + b.h
-  for (let x = x0; x <= xEnd + 0.01; x += step) {
-    const a = tp(x, b.y)
-    const c = tp(x, yEnd)
-    lines.push({ x1: a.x, y1: a.y, x2: c.x, y2: c.y })
+  const pivot = tp(center.value.x, center.value.y)
+  const cx = pivot.x
+  const cy = pivot.y
+  const rad = (rotation.value * Math.PI) / 180
+  const ux = Math.cos(rad)
+  const uy = Math.sin(rad)
+  const vx = -Math.sin(rad)
+  const vy = Math.cos(rad)
+
+  const corners = [
+    { x: vb.x, y: vb.y },
+    { x: vb.x + vb.w, y: vb.y },
+    { x: vb.x + vb.w, y: vb.y + vb.h },
+    { x: vb.x, y: vb.y + vb.h },
+  ]
+  let minU = Infinity
+  let maxU = -Infinity
+  let minV = Infinity
+  let maxV = -Infinity
+  for (const p of corners) {
+    const dx = p.x - cx
+    const dy = p.y - cy
+    const u = dx * ux + dy * uy
+    const v = dx * vx + dy * vy
+    minU = Math.min(minU, u)
+    maxU = Math.max(maxU, u)
+    minV = Math.min(minV, v)
+    maxV = Math.max(maxV, v)
   }
-  for (let y = y0; y <= yEnd + 0.01; y += step) {
-    const a = tp(b.x, y)
-    const c = tp(xEnd, y)
-    lines.push({ x1: a.x, y1: a.y, x2: c.x, y2: c.y })
+
+  const pad = step
+  minU -= pad
+  maxU += pad
+  minV -= pad
+  maxV += pad
+
+  const lines = []
+  const u0 = Math.floor(minU / step) * step
+  for (let u = u0; u <= maxU; u += step) {
+    lines.push({
+      x1: cx + u * ux + minV * vx,
+      y1: cy + u * uy + minV * vy,
+      x2: cx + u * ux + maxV * vx,
+      y2: cy + u * uy + maxV * vy,
+    })
+  }
+  const v0 = Math.floor(minV / step) * step
+  for (let v = v0; v <= maxV; v += step) {
+    lines.push({
+      x1: cx + minU * ux + v * vx,
+      y1: cy + minU * uy + v * vy,
+      x2: cx + maxU * ux + v * vx,
+      y2: cy + maxU * uy + v * vy,
+    })
   }
   return lines
 })
@@ -191,13 +316,6 @@ const placedBeams = computed(() =>
 )
 
 // ---- Spiral stair: a half-cylinder of glass bulging toward the river ----
-// Building-edge names in layout space (north → right on the plan). `top` = west / river wall.
-function protrudeAngle(edge) {
-  if (edge === 'top') return 270
-  if (edge === 'bottom') return 90
-  if (edge === 'left') return 180
-  return 0 // right
-}
 function arcPoints(cx, cy, r, angleDeg) {
   const pts = []
   for (let k = 90; k >= -90; k -= 15) {
@@ -334,8 +452,7 @@ function onRoomClick(room) {
       <text :x="compassTip.x" :y="compassTip.y" class="compass-n">N</text>
     </svg>
 
-    <svg :viewBox="viewBox" preserveAspectRatio="xMidYMid meet">
-      <!-- 10' floor grid (behind rooms) -->
+    <svg ref="mapSvgRef" :viewBox="viewBox" preserveAspectRatio="xMidYMid meet">
       <g class="grid-layer">
         <line
           v-for="(ln, i) in placedGridLines"
@@ -584,7 +701,7 @@ svg:not(.compass) {
   pointer-events: none;
 }
 .grid-line {
-  stroke: rgba(255, 255, 255, 0.1);
+  stroke: rgba(255, 255, 255, 0.14);
   stroke-width: 1;
 }
 .room {

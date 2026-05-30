@@ -69,6 +69,57 @@ export function levelBounds(rooms, cell, pad = 0.6) {
   return { x: minX - p, y: minY - p, w: maxX - minX + p * 2, h: maxY - minY + p * 2 }
 }
 
+// `top` = west / river wall when north points right on the plan.
+function protrudeAngle(edge) {
+  if (edge === 'top') return 270
+  if (edge === 'bottom') return 90
+  if (edge === 'left') return 180
+  return 0
+}
+
+// View bounds for rendering: rooms plus fixtures (e.g. spiral semicircle past the wall).
+export function levelDisplayBounds(building, levelId, pad = 0.6) {
+  const cell = building.cell
+  const rooms = roomsOnLevel(building, levelId)
+  if (rooms.length === 0) return { x: 0, y: 0, w: 100, h: 100 }
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  const bump = (x, y) => {
+    minX = Math.min(minX, x)
+    minY = Math.min(minY, y)
+    maxX = Math.max(maxX, x)
+    maxY = Math.max(maxY, y)
+  }
+  for (const room of rooms) {
+    const r = roomRect(room, cell)
+    bump(r.x, r.y)
+    bump(r.x + r.w, r.y + r.h)
+  }
+  for (const f of building.fixtures ?? []) {
+    const onLevels = f.onLevels ?? building.levels.map((l) => l.id)
+    if (!onLevels.includes(levelId)) continue
+    if (f.kind === 'spiral-stairs') {
+      const cx = f.at.x * cell
+      const cy = f.at.y * cell
+      const radius = (f.radius ?? 0.6) * cell
+      const base = protrudeAngle(f.protrude ?? 'top')
+      bump(cx, cy)
+      for (let k = 90; k >= -90; k -= 15) {
+        const a = ((base + k) * Math.PI) / 180
+        bump(cx + radius * Math.cos(a), cy + radius * Math.sin(a))
+      }
+    } else if (f.kind === 'straight-stairs' && f.rect) {
+      const r = f.rect
+      bump(r.x * cell, r.y * cell)
+      bump((r.x + r.w) * cell, (r.y + r.h) * cell)
+    }
+  }
+  const p = cell * pad
+  return { x: minX - p, y: minY - p, w: maxX - minX + p * 2, h: maxY - minY + p * 2 }
+}
+
 // The wall two adjacent rooms share, as a segment + orientation, or null.
 export function sharedEdge(a, b, cell) {
   const ra = roomRect(a, cell)
