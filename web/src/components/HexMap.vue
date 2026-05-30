@@ -7,7 +7,8 @@ import {
   neighborsOf,
 } from '../composables/useHexGeometry.js'
 import { buildRouteDrawPieces, pointsAttr } from '../composables/useRoutes.js'
-import { lineKindColor } from '../composables/useMapBuilder.js'
+import { lineKindColor, placementHandleColor } from '../composables/useMapBuilder.js'
+import { resolveAvatarPosition } from '../composables/useAvatarStand.js'
 
 const props = defineProps({
   mapData: { type: Object, required: true },
@@ -19,16 +20,17 @@ const props = defineProps({
   expanded: { type: Boolean, default: false },
   builderView: { type: Boolean, default: false },
   builderEdit: { type: Boolean, default: false },
+  editMode: { type: String, default: null }, // 'line' | 'placement'
   editHandles: { type: Array, default: () => [] },
   editKind: { type: String, default: 'path' },
-  selectedPointIndex: { type: Number, default: -1 },
+  selectedHandleId: { type: String, default: null },
   addPointMode: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['hex-click', 'select-point', 'waypoint-move', 'builder-map-click'])
+const emit = defineEmits(['hex-click', 'select-handle', 'waypoint-move', 'builder-map-click'])
 
 const svgRef = ref(null)
-const dragIndex = ref(null)
+const dragHandle = ref(null)
 
 function svgCoords(clientX, clientY) {
   const svg = svgRef.value
@@ -42,24 +44,31 @@ function svgCoords(clientX, clientY) {
   return { x: local.x, y: local.y }
 }
 
-function onHandleDown(e, index) {
+function onHandleDown(e, h) {
   e.stopPropagation()
   e.preventDefault()
-  dragIndex.value = index
-  emit('select-point', index)
+  dragHandle.value = h
+  emit('select-handle', h.handleKey)
   window.addEventListener('pointermove', onPointerMove)
   window.addEventListener('pointerup', onPointerUp)
 }
 
 function onPointerMove(e) {
-  if (dragIndex.value == null) return
+  if (!dragHandle.value) return
   const pt = svgCoords(e.clientX, e.clientY)
   if (!pt) return
-  emit('waypoint-move', { index: dragIndex.value, x: pt.x, y: pt.y })
+  const h = dragHandle.value
+  emit('waypoint-move', {
+    handleKey: h.handleKey,
+    index: h.index,
+    role: h.role,
+    x: pt.x,
+    y: pt.y,
+  })
 }
 
 function onPointerUp() {
-  dragIndex.value = null
+  dragHandle.value = null
   window.removeEventListener('pointermove', onPointerMove)
   window.removeEventListener('pointerup', onPointerUp)
 }
@@ -79,10 +88,31 @@ function onHexClick(hexId) {
   emit('hex-click', hexId)
 }
 
-const editPolyline = computed(() =>
-  props.editHandles.map((h) => ({ x: h.x, y: h.y })),
-)
+const editPolyline = computed(() => {
+  if (props.editMode !== 'line') return []
+  return props.editHandles.map((h) => ({ x: h.x, y: h.y }))
+})
 const editStroke = computed(() => lineKindColor(props.editKind))
+
+const placementLink = computed(() => {
+  if (props.editMode !== 'placement') return null
+  const lm = props.editHandles.find((h) => h.role === 'landmark')
+  const st = props.editHandles.find((h) => h.role === 'stand')
+  if (!lm || !st) return null
+  return [lm, st]
+})
+
+function handleColor(h) {
+  if (h.role) return placementHandleColor(h.role)
+  return lineKindColor(props.editKind)
+}
+
+function handleFill(h) {
+  if (h.handleKey === props.selectedHandleId) return '#fff'
+  if (h.role === 'landmark') return '#e8d4ff'
+  if (h.role === 'stand') return '#d4f5e2'
+  return '#ffd166'
+}
 
 // Pine-mountainside palette.
 const TERRAIN_COLORS = {
@@ -196,23 +226,11 @@ function center(hex) {
   return axialToPixel(hex.q, hex.r, size.value)
 }
 // Small figure (~1/4 the old size). On a landmark hex, stand beside the
-// building rather than on top of it — we view this while outside.
+// building rather than on top of it — see useAvatarStand.js.
 const avatarScale = computed(() => (size.value / 44) * 0.28)
-const avatarPos = computed(() => {
-  if (!current.value) return { x: 0, y: 0 }
-  if (current.value.standAt) {
-    return { x: current.value.standAt.x, y: current.value.standAt.y }
-  }
-  const c = center(current.value)
-  if (current.value.landmark?.icon) {
-    const lm = current.value.landmark
-    return {
-      x: c.x + size.value * (lm.dx ?? 0.34),
-      y: c.y + size.value * (lm.dy ?? 0.42),
-    }
-  }
-  return c
-})
+const avatarPos = computed(() =>
+  resolveAvatarPosition(current.value, size.value),
+)
 
 function chevronPath(x, y, dx, dy, scale = 1) {
   const len = Math.hypot(dx, dy) || 1
@@ -501,20 +519,32 @@ const hasLegend = computed(
       <!-- Builder edit: on top so handles stay grabbable -->
       <g v-if="builderEdit && editHandles.length" class="edit-layer">
         <polyline
+          v-if="editMode === 'line'"
           :points="pointsAttr(editPolyline)"
           class="edit-guide"
           :style="{ stroke: editStroke }"
         />
+        <line
+          v-if="placementLink"
+          :x1="placementLink[0].x"
+          :y1="placementLink[0].y"
+          :x2="placementLink[1].x"
+          :y2="placementLink[1].y"
+          class="placement-link"
+        />
         <circle
           v-for="h in editHandles"
-          :key="'handle-' + h.index"
+          :key="'handle-' + h.handleKey"
           :cx="h.x"
           :cy="h.y"
-          :r="h.index === selectedPointIndex ? 7 : 5.5"
+          :r="h.handleKey === selectedHandleId ? 7 : 5.5"
           class="edit-handle"
-          :class="{ selected: h.index === selectedPointIndex }"
-          :style="{ stroke: editStroke }"
-          @pointerdown="onHandleDown($event, h.index)"
+          :class="{
+            selected: h.handleKey === selectedHandleId,
+            ['role-' + h.role]: !!h.role,
+          }"
+          :style="{ stroke: handleColor(h), fill: handleFill(h) }"
+          @pointerdown="onHandleDown($event, h)"
         />
       </g>
     </svg>
@@ -787,14 +817,18 @@ svg {
   pointer-events: none;
 }
 .edit-handle {
-  fill: #ffd166;
   stroke-width: 2.5;
   cursor: grab;
   touch-action: none;
 }
 .edit-handle.selected {
-  fill: #fff;
   stroke-width: 3;
+}
+.placement-link {
+  stroke: rgba(255, 255, 255, 0.35);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 4;
+  pointer-events: none;
 }
 .edit-handle:active {
   cursor: grabbing;

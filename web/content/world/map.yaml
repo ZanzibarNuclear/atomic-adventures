@@ -10,6 +10,13 @@
 #   { hex: utility-yard, dx: -0.3, dy: 0.1 }
 # dx/dy are in hex-size units (-y = north). Raw { x, y } world coords still work.
 #
+# standAt — where the player stands (independent of routes):
+#   { x, y }                     fixed world coords (e.g. gate-woods)
+#   { from: landmark, dx, dy }   offset from the landmark icon; moves with the building
+#   { dx, dy }                   offset from hex center
+# dx/dy are in hex-size units (-y = north). Omit standAt on icon hexes for a default
+# "beside the landmark" offset (0.34, 0.42).
+#
 # Grid sketch (r increases downward on the slope):
 #
 #              high-rocks (0,-3)  ⛰️
@@ -71,6 +78,7 @@ hexes:
     terrain: clearing
     area: utility
     cascade: true
+    standAt: { from: landmark, dx: 0.48, dy: -0.03 }
     landmark:
       icon: "🏚️"
       name: "Utility Station"
@@ -81,30 +89,30 @@ hexes:
   - { id: lower-stand, q: 0, r: 1, terrain: forest }
 
 features:
-  # River runs west of the station (bank between water and building), then exits SW.
   - id: mountain-river
     kind: river
     smooth: true
     flow: south
     points:
       - { hex: high-rocks, dx: -0.15, dy: -0.15 }
-      - { hex: upper-gorge, dx: -0.3, dy: 0.05 }
-      - { hex: north-west, dx: -0.28, dy: 0.08 }
-      - { hex: mid-west, dx: -0.3, dy: 0.05 }
-      - { hex: utility-yard, dx: -0.42, dy: -0.12 }
-      - { hex: utility-yard, dx: -0.4, dy: 0.18 }
-      - { x: -188, y: 118 }
+      - { hex: upper-gorge, dx: 0.43, dy: 0.22 }
+      - { hex: north-west, dx: 0.32, dy: -0.03 }
+      - { hex: mid-west, dx: 0.36, dy: -0.27 }
+      - { hex: utility-yard, dx: -0.17, dy: -0.66 }
+      - { hex: utility-yard, dx: -0.27, dy: 0.61 }
+      - { x: -161, y: 132 }
 
   - id: fence-run-south
     kind: fence
     points:
       - { x: -30, y: 140 }
       - { x: -30, y: -50 }
+
   - id: fence-run-west
     kind: fence
     points:
       - { x: -30, y: -50 }
-      - { x: -205, y: -50 }
+      - { x: -157, y: -51 }
 
   - id: compound-gate
     kind: gate
@@ -113,33 +121,27 @@ features:
     labelAt: { x: -81, y: -42 }
     name: Gate
 
-  # Roads: compound-road (paved) runs gate → north → NE around High Rocks.
-  #        river-access-drive (decomposed granite) branches west in road-fork to the river.
-
   - id: compound-road
     kind: road
     smooth: true
     points:
-      # South — through the gate into the compound
       - { x: -81, y: 150 }
       - { x: -81, y: 60 }
       - { x: -81, y: -40 }
       - { x: -81, y: -58 }
-      # North — main road continues to road-fork and NE (around High Rocks; stub)
       - { x: -81, y: -88 }
-      - { x: -81, y: -115 }
-      - { hex: road-fork, dx: -0.1, dy: 0.15 }
-      - { hex: road-fork, dx: 0.08, dy: -0.05 }
-      - { hex: road-fork, dx: 0.42, dy: -0.72 }
+      - { x: -82, y: -104 }
+      - { hex: road-fork, dx: -0.07, dy: 0.16 }
+      - { hex: road-fork, dx: 0.32, dy: -0.13 }
+      - { hex: road-fork, dx: 0.66, dy: -0.55 }
 
-  # Side access: decomposed-granite drive from the main road down to the upper river.
   - id: river-access-drive
     kind: drive
+    smooth: true
     points:
-      - { hex: road-fork, dx: 0.08, dy: -0.05 }
-      - { hex: road-fork, dx: -0.18, dy: 0.08 }
-      - { hex: upper-gorge, dx: -0.12, dy: 0.06 }
-      - { hex: upper-gorge, dx: -0.22, dy: 0.05 }
+      - { hex: road-fork, dx: -0.15, dy: 0.23 }
+      - { hex: upper-gorge, dx: 1.09, dy: 0.28 }
+      - { x: -123, y: -128 }
 
   - id: station-driveway
     kind: drive
@@ -151,25 +153,22 @@ features:
 routes:
   - id: hero-route
     kind: path
-    name: the trail
+    name: "the trail"
     smooth: true
     points:
       - { x: 152, y: 2 }
-      - { x: 120, y: -6 }
-      - { x: 88, y: 2 }
-      - { x: 56, y: -10 }
+      - { x: 123, y: 6 }
+      - { x: 87, y: -1 }
+      - { x: 50, y: 6 }
       - { x: 24, y: -4 }
-      - { x: -6, y: -20 }
-      - { x: -26, y: -28 }
-      - { x: -24, y: -48 }
-      - { x: -26, y: -56 }
-      - { x: -40, y: -56 }
-      - { x: -58, y: -56 }
-      - { x: -78, y: -56 }
-      - { x: -81, y: -58 }
-      - { x: -81, y: -40 }
-      - { x: -77, y: -10 }
-      - { x: -77, y: 34 }
-      - { x: -79, y: 58 }
-      - { x: -96, y: 62 }
-      - { hex: utility-yard, dx: 0.32, dy: 0.08 }
+      - { x: -6, y: 0 }
+      - { x: -24, y: -3 }
+      - { x: -24, y: -28 }
+      - { x: -26, y: -55 }
+      - { x: -55, y: -57 }
+      - { x: -80, y: -59 }
+      - { x: -81, y: -35 }
+      - { x: -81, y: -9 }
+      - { x: -81, y: 24 }
+      - { x: -81, y: 52 }
+      - { hex: utility-yard, dx: 0.8, dy: 0.02 }

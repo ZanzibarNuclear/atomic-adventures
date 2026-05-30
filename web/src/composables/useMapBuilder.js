@@ -1,5 +1,10 @@
 import { axialToPixel } from './useHexGeometry.js'
 import { resolveWaypoint } from './useRoutes.js'
+import {
+  landmarkAnchor,
+  resolveAvatarPosition,
+  DEFAULT_BESIDE_LANDMARK,
+} from './useAvatarStand.js'
 
 const LINE_KINDS = new Set(['river', 'road', 'drive', 'fence', 'path', 'trail'])
 
@@ -9,6 +14,82 @@ function round2(n) {
 
 function roundInt(n) {
   return Math.round(n)
+}
+
+/** Hexes with a landmark icon and/or standAt — editable placements. */
+export function listEditablePlacements(hexes) {
+  return (hexes ?? [])
+    .filter((h) => h.landmark?.icon || h.standAt || h.landmark?.name)
+    .map((h) => ({
+      source: 'hexes',
+      id: h.id,
+      kind: 'placement',
+      label: h.landmark?.name ?? h.id,
+    }))
+}
+
+export function findEditablePlacement(hexes, id) {
+  return hexes?.find((h) => h.id === id) ?? null
+}
+
+/** Draggable handles for building icon + player stand on a hex. */
+export function resolvedPlacementHandles(hex, size) {
+  if (!hex) return []
+  const handles = []
+  if (hex.landmark?.icon) {
+    const p = landmarkAnchor(hex, size)
+    handles.push({ role: 'landmark', x: p.x, y: p.y })
+  }
+  if (
+    hex.landmark?.icon ||
+    hex.standAt ||
+    hex.landmark?.name
+  ) {
+    const p = resolveAvatarPosition(hex, size)
+    handles.push({ role: 'stand', x: p.x, y: p.y })
+  }
+  return handles
+}
+
+export function setLandmarkWorld(hex, x, y, size) {
+  if (!hex.landmark) hex.landmark = {}
+  const c = axialToPixel(hex.q, hex.r, size)
+  hex.landmark.dx = round2((x - c.x) / size)
+  hex.landmark.dy = round2((y - c.y) / size)
+}
+
+export function setStandWorld(hex, x, y, size) {
+  const c = axialToPixel(hex.q, hex.r, size)
+  const stand = hex.standAt
+
+  if (stand?.from !== 'landmark' && stand?.x != null && stand?.y != null) {
+    hex.standAt = { x: roundInt(x), y: roundInt(y) }
+    return
+  }
+
+  if (hex.landmark?.icon) {
+    const anchor = landmarkAnchor(hex, size)
+    hex.standAt = {
+      from: 'landmark',
+      dx: round2((x - anchor.x) / size),
+      dy: round2((y - anchor.y) / size),
+    }
+    return
+  }
+
+  hex.standAt = {
+    dx: round2((x - c.x) / size),
+    dy: round2((y - c.y) / size),
+  }
+}
+
+export function ensureDefaultStandAt(hex) {
+  if (hex.standAt || !hex.landmark?.icon) return
+  hex.standAt = {
+    from: 'landmark',
+    dx: DEFAULT_BESIDE_LANDMARK.dx,
+    dy: DEFAULT_BESIDE_LANDMARK.dy,
+  }
 }
 
 /** Lines with a points array — editable in the map builder. */
@@ -130,8 +211,53 @@ function serializeFeature(feature, indent) {
   return serializeLine(feature, indent)
 }
 
+function fmtStandAt(stand) {
+  if (stand.from === 'landmark') {
+    const parts = ['from: landmark']
+    if (stand.dx !== undefined && stand.dx !== 0) parts.push(`dx: ${round2(stand.dx)}`)
+    if (stand.dy !== undefined && stand.dy !== 0) parts.push(`dy: ${round2(stand.dy)}`)
+    return `{ ${parts.join(', ')} }`
+  }
+  if (stand.x != null && stand.y != null) {
+    return `{ x: ${roundInt(stand.x)}, y: ${roundInt(stand.y)} }`
+  }
+  const parts = []
+  if (stand.dx !== undefined && stand.dx !== 0) parts.push(`dx: ${round2(stand.dx)}`)
+  if (stand.dy !== undefined && stand.dy !== 0) parts.push(`dy: ${round2(stand.dy)}`)
+  return `{ ${parts.join(', ')} }`
+}
+
+function serializePlacementHex(hex, indent) {
+  const pad = ' '.repeat(indent)
+  const inner = ' '.repeat(indent + 2)
+  const lines = [
+    `${pad}- id: ${hex.id}`,
+    `${inner}q: ${hex.q}`,
+    `${inner}r: ${hex.r}`,
+    `${inner}terrain: ${hex.terrain}`,
+  ]
+  if (hex.area) lines.push(`${inner}area: ${hex.area}`)
+  if (hex.cascade) lines.push(`${inner}cascade: true`)
+  if (hex.puzzle) lines.push(`${inner}puzzle: ${hex.puzzle}`)
+  if (hex.standAt) lines.push(`${inner}standAt: ${fmtStandAt(hex.standAt)}`)
+  if (hex.landmark) {
+    lines.push(`${inner}landmark:`)
+    const lm = hex.landmark
+    if (lm.icon) lines.push(`${inner}  icon: ${JSON.stringify(lm.icon)}`)
+    if (lm.name) lines.push(`${inner}  name: ${JSON.stringify(lm.name)}`)
+    if (lm.dx !== undefined && lm.dx !== 0) lines.push(`${inner}  dx: ${round2(lm.dx)}`)
+    if (lm.dy !== undefined && lm.dy !== 0) lines.push(`${inner}  dy: ${round2(lm.dy)}`)
+    if (lm.blurb) lines.push(`${inner}  blurb: ${JSON.stringify(lm.blurb)}`)
+  }
+  return lines.join('\n')
+}
+
 /** YAML snippets ready to paste into map.yaml. */
-export function exportMapYaml(routes, features) {
+export function exportMapYaml(routes, features, hexes) {
+  const placementHexes = (hexes ?? []).filter(
+    (h) => h.landmark?.icon || h.standAt || h.landmark?.name,
+  )
+  const hexBlocks = placementHexes.map((h) => serializePlacementHex(h, 2))
   const featureBlocks = (features ?? [])
     .map((f) => serializeFeature(f, 2))
     .filter(Boolean)
@@ -139,16 +265,20 @@ export function exportMapYaml(routes, features) {
     .filter((r) => r.points?.length)
     .map((r) => serializeLine(r, 2))
 
+  const hexesYaml = hexBlocks.length ? `hexes:\n${hexBlocks.join('\n\n')}` : ''
+  const featuresYaml = featureBlocks.length ? `features:\n${featureBlocks.join('\n\n')}` : ''
+  const routesYaml = routeBlocks.length ? `routes:\n${routeBlocks.join('\n\n')}` : ''
+
   return {
-    features: featureBlocks.length ? `features:\n${featureBlocks.join('\n\n')}` : '',
-    routes: routeBlocks.length ? `routes:\n${routeBlocks.join('\n\n')}` : '',
-    both: [
-      featureBlocks.length ? `features:\n${featureBlocks.join('\n\n')}` : '',
-      routeBlocks.length ? `routes:\n${routeBlocks.join('\n\n')}` : '',
-    ]
-      .filter(Boolean)
-      .join('\n\n'),
+    hexes: hexesYaml,
+    features: featuresYaml,
+    routes: routesYaml,
+    both: [hexesYaml, featuresYaml, routesYaml].filter(Boolean).join('\n\n'),
   }
+}
+
+export function placementHandleColor(role) {
+  return role === 'landmark' ? '#c792ea' : '#7dcea0'
 }
 
 export function lineKindColor(kind) {

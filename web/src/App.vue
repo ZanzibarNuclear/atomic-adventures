@@ -19,28 +19,40 @@ import {
   addWaypoint,
   removeWaypoint,
   exportMapYaml,
+  listEditablePlacements,
+  findEditablePlacement,
+  resolvedPlacementHandles,
+  setLandmarkWorld,
+  setStandWorld,
+  ensureDefaultStandAt,
 } from './composables/useMapBuilder.js'
+import { landmarkAnchor, resolveAvatarPosition } from './composables/useAvatarStand.js'
 
-const hexById = Object.fromEntries(mapData.hexes.map((h) => [h.id, h]))
 const size = mapData.size ?? 44
 const START = mapData.start ?? mapData.journey[0]
 
-// Editable copies of routes/features — updated by the map builder.
+// Editable copies — updated by the map builder.
+const editableHexes = ref(structuredClone(mapData.hexes ?? []))
 const editableFeatures = ref(structuredClone(mapData.features ?? []))
 const editableRoutes = ref(structuredClone(mapData.routes ?? []))
 
+const hexById = computed(() =>
+  Object.fromEntries(editableHexes.value.map((h) => [h.id, h])),
+)
+
 const displayMapData = computed(() => ({
   ...mapData,
+  hexes: editableHexes.value,
   features: editableFeatures.value,
 }))
 const routeModels = computed(() =>
-  buildRouteModels(editableRoutes.value, hexById, mapData.hexes, size),
+  buildRouteModels(editableRoutes.value, hexById.value, editableHexes.value, size),
 )
 const mapFeatures = computed(() =>
   editableFeatures.value.filter((f) => f.kind !== 'gate'),
 )
 const featureModels = computed(() =>
-  buildRouteModels(mapFeatures.value, hexById, mapData.hexes, size),
+  buildRouteModels(mapFeatures.value, hexById.value, editableHexes.value, size),
 )
 const fences = computed(() => fenceSegments(featureModels.value))
 
@@ -56,17 +68,23 @@ const builderView = ref(false)
 const traveling = ref(false)
 
 // --- Map builder ---
-const editableLines = computed(() =>
-  listEditableLines(editableRoutes.value, editableFeatures.value),
-)
-const editSelection = ref('') // "routes:hero-route" or "features:mountain-river"
-const selectedPointIndex = ref(-1)
+const editableItems = computed(() => [
+  ...listEditablePlacements(editableHexes.value),
+  ...listEditableLines(editableRoutes.value, editableFeatures.value),
+])
+const editSelection = ref('') // "hexes:utility-yard" | "routes:hero-route" | …
+const selectedHandleId = ref(null)
 const addPointMode = ref(false)
 const exportStatus = ref('')
 
 const editParsed = computed(() => {
   if (!editSelection.value) return null
   const [source, id] = editSelection.value.split(':')
+  if (source === 'hexes') {
+    const hex = findEditablePlacement(editableHexes.value, id)
+    if (!hex) return null
+    return { source, id, hex }
+  }
   const line = findEditableLine(
     editableRoutes.value,
     editableFeatures.value,
@@ -77,66 +95,121 @@ const editParsed = computed(() => {
   return { source, id, line }
 })
 
+const editMode = computed(() => {
+  if (!editParsed.value) return null
+  return editParsed.value.source === 'hexes' ? 'placement' : 'line'
+})
+
 const editHandles = computed(() => {
-  if (!editParsed.value) return []
-  return resolvedWaypoints(editParsed.value.line, hexById, size)
+  const parsed = editParsed.value
+  if (!parsed) return []
+  if (parsed.source === 'hexes') {
+    return resolvedPlacementHandles(parsed.hex, size).map((h) => ({
+      ...h,
+      handleKey: h.role,
+    }))
+  }
+  return resolvedWaypoints(parsed.line, hexById.value, size).map((h) => ({
+    ...h,
+    handleKey: `point-${h.index}`,
+  }))
 })
 
 const builderEdit = computed(
   () => builderView.value && editParsed.value != null,
 )
 
+const standAnchoredToLandmark = computed(
+  () => editParsed.value?.hex?.standAt?.from === 'landmark',
+)
+
 watch(builderView, (on) => {
-  if (on && !editSelection.value && editableLines.value.length) {
-    const first = editableLines.value[0]
+  if (on && !editSelection.value && editableItems.value.length) {
+    const first = editableItems.value[0]
     editSelection.value = `${first.source}:${first.id}`
   }
   if (!on) {
     addPointMode.value = false
-    selectedPointIndex.value = -1
+    selectedHandleId.value = null
   }
 })
 
-watch(editSelection, () => {
-  selectedPointIndex.value = -1
+watch(editSelection, (sel) => {
+  selectedHandleId.value = null
   addPointMode.value = false
+  if (!sel.startsWith('hexes:')) return
+  const id = sel.split(':')[1]
+  const hex = findEditablePlacement(editableHexes.value, id)
+  if (hex) {
+    ensureDefaultStandAt(hex)
+    state.currentId = id
+  }
 })
 
-function onSelectPoint(index) {
-  selectedPointIndex.value = index
+function onSelectHandle(handleKey) {
+  selectedHandleId.value = handleKey
 }
 
-function onWaypointMove({ index, x, y }) {
+function onWaypointMove(payload) {
   const parsed = editParsed.value
   if (!parsed) return
-  setWaypointWorld(parsed.line, index, x, y, hexById, size)
+  const { x, y, role, index } = payload
+
+  if (parsed.source === 'hexes') {
+    if (role === 'landmark') setLandmarkWorld(parsed.hex, x, y, size)
+    else if (role === 'stand') setStandWorld(parsed.hex, x, y, size)
+    return
+  }
+
+  setWaypointWorld(parsed.line, index, x, y, hexById.value, size)
 }
 
 function onBuilderMapClick({ x, y }) {
   const parsed = editParsed.value
-  if (!parsed) return
+  if (!parsed || parsed.source === 'hexes') return
   const idx = addWaypoint(parsed.line, x, y)
-  selectedPointIndex.value = idx
+  selectedHandleId.value = `point-${idx}`
 }
 
 function deleteSelectedPoint() {
   const parsed = editParsed.value
-  if (!parsed || selectedPointIndex.value < 0) return
-  if (!removeWaypoint(parsed.line, selectedPointIndex.value)) return
-  selectedPointIndex.value = Math.min(
-    selectedPointIndex.value,
-    parsed.line.points.length - 1,
-  )
+  if (!parsed || parsed.source === 'hexes') return
+  const match = selectedHandleId.value?.match(/^point-(\d+)$/)
+  if (!match) return
+  const idx = Number(match[1])
+  if (!removeWaypoint(parsed.line, idx)) return
+  const next = Math.min(idx, parsed.line.points.length - 1)
+  selectedHandleId.value = next >= 0 ? `point-${next}` : null
 }
 
 function toggleSmooth() {
   const parsed = editParsed.value
-  if (!parsed) return
+  if (!parsed?.line) return
   parsed.line.smooth = !parsed.line.smooth
 }
 
+function toggleStandAnchor() {
+  const hex = editParsed.value?.hex
+  if (!hex?.landmark?.icon) return
+  const pos = resolveAvatarPosition(hex, size)
+  if (hex.standAt?.from === 'landmark') {
+    hex.standAt = { x: Math.round(pos.x), y: Math.round(pos.y) }
+  } else {
+    const anchor = landmarkAnchor(hex, size)
+    hex.standAt = {
+      from: 'landmark',
+      dx: Math.round(((pos.x - anchor.x) / size) * 100) / 100,
+      dy: Math.round(((pos.y - anchor.y) / size) * 100) / 100,
+    }
+  }
+}
+
 async function copyYaml(which) {
-  const yaml = exportMapYaml(editableRoutes.value, editableFeatures.value)
+  const yaml = exportMapYaml(
+    editableRoutes.value,
+    editableFeatures.value,
+    editableHexes.value,
+  )
   const text = yaml[which] || yaml.both
   try {
     await navigator.clipboard.writeText(text)
@@ -150,39 +223,44 @@ async function copyYaml(which) {
 }
 
 function downloadYaml() {
-  const yaml = exportMapYaml(editableRoutes.value, editableFeatures.value)
+  const yaml = exportMapYaml(
+    editableRoutes.value,
+    editableFeatures.value,
+    editableHexes.value,
+  )
   const blob = new Blob([yaml.both], { type: 'text/yaml' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = 'map-lines.yaml'
+  a.download = 'map-export.yaml'
   a.click()
   URL.revokeObjectURL(url)
-  exportStatus.value = 'Downloaded map-lines.yaml'
+  exportStatus.value = 'Downloaded map-export.yaml'
   setTimeout(() => {
     exportStatus.value = ''
   }, 2500)
 }
 
-function resetMapLines() {
+function resetMapBuilder() {
+  editableHexes.value = structuredClone(mapData.hexes ?? [])
   editableFeatures.value = structuredClone(mapData.features ?? [])
   editableRoutes.value = structuredClone(mapData.routes ?? [])
-  selectedPointIndex.value = -1
+  selectedHandleId.value = null
   exportStatus.value = 'Reset to file defaults'
   setTimeout(() => {
     exportStatus.value = ''
   }, 2500)
 }
 
-const currentHexData = computed(() => hexById[state.currentId])
+const currentHexData = computed(() => hexById.value[state.currentId])
 const discoveredList = computed(() => [...state.discovered])
 
 const moves = computed(() => availableMoves(state.currentId, routeModels.value))
 const offRoad = computed(() =>
   offRoadNeighbors(
     state.currentId,
-    mapData.hexes,
-    hexById,
+    editableHexes.value,
+    hexById.value,
     moves.value.map((m) => m.toHexId),
     size,
     fences.value,
@@ -190,7 +268,7 @@ const offRoad = computed(() =>
 )
 
 function moveTo(hexId) {
-  if (traveling.value || !hexById[hexId]) return
+  if (traveling.value || !hexById.value[hexId]) return
   traveling.value = true
   state.currentId = hexId
   state.discovered.add(hexId)
@@ -218,7 +296,7 @@ function reset() {
 }
 
 function nameOf(hexId) {
-  const h = hexById[hexId]
+  const h = hexById.value[hexId]
   return h?.landmark?.name ?? hexId
 }
 
@@ -289,12 +367,13 @@ function resetIndoor() {
         :expanded="expanded"
         :builder-view="builderView"
         :builder-edit="builderEdit"
+        :edit-mode="editMode"
         :edit-handles="editHandles"
         :edit-kind="editParsed?.line?.kind ?? 'path'"
-        :selected-point-index="selectedPointIndex"
+        :selected-handle-id="selectedHandleId"
         :add-point-mode="addPointMode"
         @hex-click="moveTo"
-        @select-point="onSelectPoint"
+        @select-handle="onSelectHandle"
         @waypoint-move="onWaypointMove"
         @builder-map-click="onBuilderMapClick"
       />
@@ -374,11 +453,20 @@ function resetIndoor() {
       </div>
 
       <div v-if="builderView" class="builder-panel">
-        <span class="label">Edit line</span>
+        <span class="label">Edit</span>
         <select v-model="editSelection" class="builder-select">
+          <optgroup label="Buildings &amp; stands">
+            <option
+              v-for="item in editableItems.filter((l) => l.source === 'hexes')"
+              :key="item.id"
+              :value="`${item.source}:${item.id}`"
+            >
+              {{ item.label }}
+            </option>
+          </optgroup>
           <optgroup label="Routes">
             <option
-              v-for="line in editableLines.filter((l) => l.source === 'routes')"
+              v-for="line in editableItems.filter((l) => l.source === 'routes')"
               :key="line.id"
               :value="`${line.source}:${line.id}`"
             >
@@ -387,7 +475,7 @@ function resetIndoor() {
           </optgroup>
           <optgroup label="Features">
             <option
-              v-for="line in editableLines.filter((l) => l.source === 'features')"
+              v-for="line in editableItems.filter((l) => l.source === 'features')"
               :key="line.id"
               :value="`${line.source}:${line.id}`"
             >
@@ -396,7 +484,7 @@ function resetIndoor() {
           </optgroup>
         </select>
 
-        <div class="builder-actions">
+        <div v-if="editMode === 'line'" class="builder-actions">
           <label class="mode-pill sm" :class="{ active: editParsed?.line?.smooth }">
             <input type="checkbox" :checked="editParsed?.line?.smooth" @change="toggleSmooth" />
             smooth curve
@@ -407,20 +495,43 @@ function resetIndoor() {
           </label>
           <button
             class="sm"
-            :disabled="selectedPointIndex < 0"
+            :disabled="!selectedHandleId?.startsWith('point-')"
             @click="deleteSelectedPoint"
           >
             Delete point
           </button>
         </div>
 
+        <div v-if="editMode === 'placement'" class="builder-actions">
+          <label
+            v-if="editParsed?.hex?.landmark?.icon"
+            class="mode-pill sm"
+            :class="{ active: standAnchoredToLandmark }"
+          >
+            <input
+              type="checkbox"
+              :checked="standAnchoredToLandmark"
+              @change="toggleStandAnchor"
+            />
+            stand follows building
+          </label>
+        </div>
+
         <p class="builder-hint">
-          Drag the yellow handles to reshape the line. The dashed guide shows
-          control points; the rendered stroke uses smoothing when enabled.
-          <template v-if="editHandles.length">
-            {{ editHandles.length }} points
-            <template v-if="selectedPointIndex >= 0">
-              — selected #{{ selectedPointIndex + 1 }}
+          <template v-if="editMode === 'placement'">
+            <span class="handle-key landmark">●</span> purple = building icon —
+            <span class="handle-key stand">●</span> green = player stand.
+            Drag to reposition; enable “stand follows building” so the player
+            stays beside the icon when you move it.
+          </template>
+          <template v-else-if="editMode === 'line'">
+            Drag yellow handles to reshape the line. Dashed guide = control
+            points; solid stroke uses smoothing when enabled.
+            <template v-if="editHandles.length">
+              {{ editHandles.length }} points
+              <template v-if="selectedHandleId">
+                — selected {{ selectedHandleId }}
+              </template>
             </template>
           </template>
         </p>
@@ -428,11 +539,12 @@ function resetIndoor() {
         <div class="builder-export">
           <span class="label">Export</span>
           <div class="export-btns">
+            <button class="sm" @click="copyYaml('hexes')">Copy hexes</button>
             <button class="sm" @click="copyYaml('features')">Copy features</button>
             <button class="sm" @click="copyYaml('routes')">Copy routes</button>
             <button class="sm" @click="copyYaml('both')">Copy all</button>
             <button class="sm" @click="downloadYaml">Download</button>
-            <button class="sm muted" @click="resetMapLines">Reset</button>
+            <button class="sm muted" @click="resetMapBuilder">Reset</button>
           </div>
           <p v-if="exportStatus" class="export-status">{{ exportStatus }}</p>
         </div>
@@ -703,5 +815,14 @@ button.sm.muted {
   margin: 0;
   color: #7dcea0;
   font-size: 0.82rem;
+}
+.handle-key {
+  font-weight: 700;
+}
+.handle-key.landmark {
+  color: #c792ea;
+}
+.handle-key.stand {
+  color: #7dcea0;
 }
 </style>
