@@ -16,7 +16,8 @@ const hexById = Object.fromEntries(mapData.hexes.map((h) => [h.id, h]))
 const size = mapData.size ?? 44
 const START = mapData.start ?? mapData.journey[0]
 const routeModels = buildRouteModels(mapData.routes, hexById, mapData.hexes, size)
-const featureModels = buildRouteModels(mapData.features, hexById, mapData.hexes, size)
+const mapFeatures = (mapData.features ?? []).filter((f) => f.kind !== 'gate')
+const featureModels = buildRouteModels(mapFeatures, hexById, mapData.hexes, size)
 const fences = fenceSegments(featureModels)
 
 // --- Player state (the slice that would be saved/loaded) ---
@@ -27,6 +28,7 @@ const state = reactive({
 
 const mode = ref('explored') // 'slice' | 'explored' | 'full'
 const expanded = ref(false)
+const builderView = ref(false)
 const traveling = ref(false)
 
 const currentHexData = computed(() => hexById[state.currentId])
@@ -90,6 +92,7 @@ const indoor = reactive({
 
 // You can enter the building when standing on a hex flagged as that area.
 const atBuildingEntrance = computed(() => currentHexData.value?.area === 'utility')
+const atGatePuzzle = computed(() => currentHexData.value?.puzzle === 'gate')
 const currentRoomData = computed(() => building.roomById[indoor.currentRoom])
 const indoorMoves = computed(() => movesFrom(building, indoor.currentRoom))
 const levelsTopDown = computed(() => building.levels)
@@ -141,6 +144,7 @@ function resetIndoor() {
         :discovered="discoveredList"
         :mode="mode"
         :expanded="expanded"
+        :builder-view="builderView"
         @hex-click="moveTo"
       />
     </section>
@@ -152,6 +156,9 @@ function resetIndoor() {
         <em v-if="currentHexData.landmark?.blurb">
           {{ currentHexData.landmark.blurb }}
         </em>
+        <p v-if="atGatePuzzle" class="puzzle-hint">
+          Puzzle — find a way through the gate to continue.
+        </p>
         <button
           v-if="atBuildingEntrance"
           class="enter-btn"
@@ -208,6 +215,10 @@ function resetIndoor() {
         >
           <input type="radio" :value="vm" v-model="mode" />
           {{ vm }}
+        </label>
+        <label class="mode-pill builder-pill" :class="{ active: builderView }">
+          <input type="checkbox" v-model="builderView" />
+          builder
         </label>
       </div>
 
@@ -322,6 +333,11 @@ header h1 {
 .location em {
   color: #9aa0ac;
   font-size: 0.88rem;
+}
+.puzzle-hint {
+  margin: 0.35rem 0 0;
+  color: #d4a84b;
+  font-size: 0.9rem;
 }
 .enter-btn {
   margin-top: 0.6rem;

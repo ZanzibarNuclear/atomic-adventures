@@ -16,6 +16,7 @@ const props = defineProps({
   discovered: { type: [Array, Object], default: () => [] },
   mode: { type: String, default: 'explored' }, // slice | explored | full
   expanded: { type: Boolean, default: false },
+  builderView: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['hex-click'])
@@ -29,6 +30,25 @@ const TERRAIN_COLORS = {
 }
 const FOG_COLOR = '#222a25'
 
+// Legend copy + line swatch styling, keyed to the terrain palette and the
+// feature/route CSS below. Order here also sets the legend's row order.
+const TERRAIN_LABELS = {
+  forest: 'Forest',
+  clearing: 'Clearing',
+  rock: 'Rocks',
+  water: 'Water',
+}
+const TERRAIN_ORDER = ['forest', 'clearing', 'rock', 'water']
+const LINE_STYLE = {
+  river: { label: 'River', stroke: '#4a90d9', width: 4, dash: '' },
+  road: { label: 'Road', stroke: '#8a8073', width: 5, dash: '' },
+  drive: { label: 'Driveway', stroke: '#9b917f', width: 4, dash: '' },
+  fence: { label: 'Fence', stroke: '#c9b89a', width: 3, dash: '2 6' },
+  path: { label: 'Trail', stroke: '#7a4f2a', width: 3, dash: '3 4' },
+  trail: { label: 'Trail', stroke: '#c9b97e', width: 3, dash: '2 5' },
+}
+const LINE_ORDER = ['river', 'road', 'drive', 'fence', 'path', 'trail']
+
 const size = computed(() => props.mapData.size ?? 44)
 const allHexes = computed(() => props.mapData.hexes ?? [])
 const hexById = computed(() =>
@@ -38,6 +58,7 @@ const discoveredSet = computed(() => new Set(props.discovered))
 const current = computed(() => hexById.value[props.currentHex])
 
 const visibleHexes = computed(() => {
+  if (props.builderView) return allHexes.value
   if (props.mode === 'full') return allHexes.value
   if (props.mode === 'slice') {
     const ids = new Set([
@@ -55,7 +76,7 @@ const visibleHexes = computed(() => {
 })
 
 const fogHexes = computed(() => {
-  if (props.mode !== 'explored') return []
+  if (props.builderView || props.mode !== 'explored') return []
   const edge = new Map()
   for (const h of visibleHexes.value) {
     for (const n of neighborsOf(h)) {
@@ -67,13 +88,46 @@ const fogHexes = computed(() => {
 })
 
 const viewBox = computed(() => {
-  const forBounds = [...visibleHexes.value, ...fogHexes.value]
+  const forBounds = props.builderView
+    ? allHexes.value
+    : [...visibleHexes.value, ...fogHexes.value]
   if (forBounds.length === 0) return '0 0 100 100'
   const b = boundsOf(forBounds, size.value)
   return `${b.x} ${b.y} ${b.width} ${b.height}`
 })
 
-const landmarkHexes = computed(() => visibleHexes.value.filter((h) => h.landmark))
+const landmarkHexes = computed(() => visibleHexes.value.filter((h) => h.landmark?.icon))
+
+function fogMaskOpts() {
+  if (props.builderView) {
+    return { isRevealed: () => true, inView: () => true }
+  }
+  const visibleIds = new Set(visibleHexes.value.map((h) => h.id))
+  const isRevealed =
+    props.mode === 'full' ? () => true : (id) => id != null && discoveredSet.value.has(id)
+  const inView = props.mode === 'slice' ? (id) => visibleIds.has(id) : () => true
+  return { isRevealed, inView }
+}
+
+const gateMarkers = computed(() =>
+  (props.mapData.features ?? [])
+    .filter((f) => f.kind === 'gate' && f.at)
+    .map((f) => ({
+      id: f.id,
+      hex: f.hex ?? null,
+      x: f.at.x,
+      y: f.at.y,
+      labelX: f.labelAt?.x ?? f.at.x,
+      labelY: f.labelAt?.y ?? f.at.y + 12,
+      name: f.name ?? 'Gate',
+    })),
+)
+const visibleGateMarkers = computed(() => {
+  if (props.mode === 'full' || props.builderView) return gateMarkers.value
+  return gateMarkers.value.filter(
+    (g) => !g.hex || discoveredSet.value.has(g.hex),
+  )
+})
 
 function center(hex) {
   return axialToPixel(hex.q, hex.r, size.value)
@@ -83,12 +137,67 @@ function center(hex) {
 const avatarScale = computed(() => (size.value / 44) * 0.28)
 const avatarPos = computed(() => {
   if (!current.value) return { x: 0, y: 0 }
+  if (current.value.standAt) {
+    return { x: current.value.standAt.x, y: current.value.standAt.y }
+  }
   const c = center(current.value)
-  if (current.value.landmark) {
-    return { x: c.x + size.value * 0.34, y: c.y + size.value * 0.42 }
+  if (current.value.landmark?.icon) {
+    const lm = current.value.landmark
+    return {
+      x: c.x + size.value * (lm.dx ?? 0.34),
+      y: c.y + size.value * (lm.dy ?? 0.42),
+    }
   }
   return c
 })
+
+function chevronPath(x, y, dx, dy, scale = 1) {
+  const len = Math.hypot(dx, dy) || 1
+  const ux = dx / len
+  const uy = dy / len
+  const px = -uy
+  const py = ux
+  const s = 5.5 * scale
+  const tipX = x + ux * s * 0.55
+  const tipY = y + uy * s * 0.55
+  const bx = x - ux * s * 0.25
+  const by = y - uy * s * 0.25
+  return `M ${bx - px * s * 0.45} ${by - py * s * 0.45} L ${tipX} ${tipY} L ${bx + px * s * 0.45} ${by + py * s * 0.45}`
+}
+
+// Flow-direction chevrons on discovered cascade hexes, drawn above the river stroke.
+const cascadeChevrons = computed(() => {
+  const cascadeIds = new Set(
+    (props.mapData.hexes ?? []).filter((h) => h.cascade).map((h) => h.id),
+  )
+  if (!cascadeIds.size) return []
+  const river = props.featureModels.find((m) => m.id === 'mountain-river')
+  if (!river?.samples?.length) return []
+  const isRevealed =
+    props.mode === 'full' || props.builderView
+      ? () => true
+      : (id) => discoveredSet.value.has(id)
+  const out = []
+  for (const hexId of cascadeIds) {
+    if (!isRevealed(hexId)) continue
+    const pts = river.samples.filter((s) => s.hexId === hexId)
+    if (pts.length < 4) continue
+    const picks = [0.35, 0.55, 0.75].map((t) =>
+      Math.min(pts.length - 2, Math.max(1, Math.floor(pts.length * t))),
+    )
+    for (const i of picks) {
+      const p = pts[i]
+      const prev = pts[i - 1]
+      const next = pts[i + 1]
+      out.push({
+        key: `${hexId}-${i}`,
+        d: chevronPath(p.x, p.y, next.x - prev.x, next.y - prev.y),
+      })
+    }
+  }
+  return out
+})
+
 function fill(hex) {
   return TERRAIN_COLORS[hex.terrain] ?? '#888'
 }
@@ -131,16 +240,48 @@ const trees = computed(() => {
 })
 
 const routePieces = computed(() => {
-  const visibleIds = new Set(visibleHexes.value.map((h) => h.id))
-  const isRevealed =
-    props.mode === 'full' ? () => true : (id) => discoveredSet.value.has(id)
-  const inView = props.mode === 'slice' ? (id) => visibleIds.has(id) : () => true
+  const { isRevealed, inView } = fogMaskOpts()
   return buildRouteDrawPieces(props.routeModels, {
     isRevealed,
     inView,
     allowStub: props.mode !== 'full',
   })
 })
+
+// Geographic features — fog-masked; road/drive may stub into adjacent fog like trails.
+const featurePieces = computed(() => {
+  const { isRevealed, inView } = fogMaskOpts()
+  const linear = props.featureModels.filter((m) => m.kind !== 'gate')
+  const roadish = linear.filter((m) => m.kind === 'road' || m.kind === 'drive')
+  const other = linear.filter((m) => m.kind !== 'road' && m.kind !== 'drive')
+  const stub = props.mode !== 'full'
+  return [
+    ...buildRouteDrawPieces(roadish, { isRevealed, inView, allowStub: stub }),
+    ...buildRouteDrawPieces(other, { isRevealed, inView, allowStub: false }),
+  ]
+})
+
+// --- Legend: only list what's actually on screen right now ---
+const legendTerrains = computed(() => {
+  const present = new Set(visibleHexes.value.map((h) => h.terrain))
+  return TERRAIN_ORDER.filter((t) => present.has(t)).map((t) => ({
+    key: t,
+    color: TERRAIN_COLORS[t] ?? '#888',
+    label: TERRAIN_LABELS[t] ?? t,
+  }))
+})
+const legendLines = computed(() => {
+  const kinds = new Set()
+  for (const p of featurePieces.value) kinds.add(p.kind)
+  for (const p of routePieces.value) kinds.add(p.kind)
+  return LINE_ORDER.filter((k) => kinds.has(k) && LINE_STYLE[k]).map((k) => ({
+    key: k,
+    ...LINE_STYLE[k],
+  }))
+})
+const hasLegend = computed(
+  () => legendTerrains.value.length > 0 || legendLines.value.length > 0,
+)
 </script>
 
 <template>
@@ -168,7 +309,10 @@ const routePieces = computed(() => {
           v-for="hex in visibleHexes"
           :key="hex.id"
           class="hex"
-          :class="{ current: hex.id === currentHex }"
+          :class="{
+            current: hex.id === currentHex,
+            'builder-unseen': builderView && !discoveredSet.has(hex.id),
+          }"
           @click="emit('hex-click', hex.id)"
         >
           <polygon
@@ -192,15 +336,37 @@ const routePieces = computed(() => {
         </g>
       </g>
 
-      <!-- Geographic features: river + fence -->
+      <!-- Geographic features: river, fence, road (fog-masked) -->
       <g class="feature-layer">
         <polyline
-          v-for="f in featureModels"
-          :key="'feat-' + f.id"
-          :points="pointsAttr(f.points)"
+          v-for="(piece, i) in featurePieces"
+          :key="'feat-' + i"
+          :points="pointsAttr(piece.points)"
           class="feature"
-          :class="'feature-' + f.kind"
+          :class="['feature-' + piece.kind, { stub: piece.partial }]"
         />
+      </g>
+
+      <!-- Cascade chevrons on top of the river (hydro intake at utility-yard) -->
+      <g class="cascade-layer">
+        <path
+          v-for="c in cascadeChevrons"
+          :key="c.key"
+          :d="c.d"
+          class="cascade-chevron"
+        />
+      </g>
+
+      <!-- Guard booth west of the road; "Gate" label below the fence -->
+      <g class="gate-layer">
+        <g v-for="g in visibleGateMarkers" :key="'gate-' + g.id" class="gate">
+          <g class="gate-booth" :transform="`translate(${g.x}, ${g.y})`">
+            <rect x="-6.5" y="-8" width="13" height="8" rx="1" class="gate-wall" />
+            <polygon points="-7.5,-8 7.5,-8 0,-11.5" class="gate-roof" />
+            <rect x="-2.5" y="-6" width="5" height="3.5" rx="0.4" class="gate-window" />
+          </g>
+          <text :x="g.labelX" :y="g.labelY" class="gate-label">{{ g.name }}</text>
+        </g>
       </g>
 
       <!-- The trail -->
@@ -218,7 +384,7 @@ const routePieces = computed(() => {
       <g class="landmark-layer">
         <g v-for="hex in landmarkHexes" :key="'lm-' + hex.id" class="landmark">
           <text
-            :x="center(hex).x"
+            :x="center(hex).x + (hex.landmark.dx ?? 0) * size"
             :y="center(hex).y + 2 + (hex.landmark.dy ?? 0) * size"
             class="landmark-icon"
           >
@@ -226,13 +392,26 @@ const routePieces = computed(() => {
           </text>
           <text
             v-if="expanded"
-            :x="center(hex).x"
+            :x="center(hex).x + (hex.landmark.dx ?? 0) * size"
             :y="center(hex).y + size * 0.78"
             class="landmark-label"
           >
             {{ hex.landmark.name }}
           </text>
         </g>
+      </g>
+
+      <!-- Builder view: axial coords at every hex center -->
+      <g v-if="builderView" class="builder-layer">
+        <text
+          v-for="hex in allHexes"
+          :key="'coord-' + hex.id"
+          :x="center(hex).x"
+          :y="center(hex).y"
+          class="builder-coord"
+        >
+          ({{ hex.q }}, {{ hex.r }})
+        </text>
       </g>
 
       <!-- Oversized stick-figure avatar -->
@@ -251,11 +430,38 @@ const routePieces = computed(() => {
         </g>
       </g>
     </svg>
+
+    <!-- Legend, lower-right. Reflects only what's currently on the map. -->
+    <div v-if="expanded && hasLegend" class="legend" aria-label="Map legend">
+      <div class="legend-title">Legend</div>
+      <ul class="legend-items">
+        <li v-for="t in legendTerrains" :key="'lt-' + t.key" class="legend-item">
+          <span class="legend-swatch" :style="{ background: t.color }" />
+          <span class="legend-label">{{ t.label }}</span>
+        </li>
+        <li v-for="l in legendLines" :key="'ll-' + l.key" class="legend-item">
+          <svg class="legend-line" viewBox="0 0 22 8" aria-hidden="true">
+            <line
+              x1="1"
+              y1="4"
+              x2="21"
+              y2="4"
+              :stroke="l.stroke"
+              :stroke-width="l.width"
+              :stroke-dasharray="l.dash || undefined"
+              stroke-linecap="round"
+            />
+          </svg>
+          <span class="legend-label">{{ l.label }}</span>
+        </li>
+      </ul>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .hexmap {
+  position: relative;
   width: 220px;
   height: 200px;
   border-radius: 10px;
@@ -263,6 +469,57 @@ const routePieces = computed(() => {
   background: radial-gradient(circle at 50% 25%, #34433a, #1d241f);
   box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.45);
   transition: width 0.35s ease, height 0.35s ease;
+}
+.legend {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 2;
+  padding: 8px 11px;
+  border-radius: 8px;
+  background: rgba(20, 28, 22, 0.78);
+  border: 1px solid rgba(143, 174, 110, 0.35);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(3px);
+  pointer-events: none;
+}
+.legend-title {
+  margin-bottom: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #b9c7ad;
+}
+.legend-items {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.legend-swatch {
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  flex: 0 0 auto;
+}
+.legend-line {
+  width: 18px;
+  height: 8px;
+  flex: 0 0 auto;
+}
+.legend-label {
+  font-size: 11px;
+  color: #eef2e6;
+  white-space: nowrap;
 }
 .hexmap.expanded {
   width: 100%;
@@ -285,6 +542,9 @@ svg {
   stroke: #ffd166;
   stroke-width: 3.5;
 }
+.hex.builder-unseen .tile {
+  opacity: 0.38;
+}
 .hex.fog {
   cursor: default;
 }
@@ -302,6 +562,18 @@ svg {
 .tree-layer {
   pointer-events: none;
 }
+.cascade-layer {
+  pointer-events: none;
+}
+.cascade-chevron {
+  fill: none;
+  stroke: #e8f4ff;
+  stroke-width: 2.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  paint-order: stroke;
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.45));
+}
 .feature {
   fill: none;
   stroke-linecap: round;
@@ -314,9 +586,38 @@ svg {
   opacity: 0.9;
 }
 .feature-fence {
-  stroke: #20211f;
+  stroke: #c9b89a;
   stroke-width: 3;
-  stroke-dasharray: 1.5 5;
+  stroke-dasharray: 2 6;
+}
+.gate-layer {
+  pointer-events: none;
+}
+.gate-wall {
+  fill: #6b6358;
+  stroke: #3d3832;
+  stroke-width: 1.2;
+}
+.gate-roof {
+  fill: #4a4540;
+  stroke: #2a2724;
+  stroke-width: 1;
+  stroke-linejoin: round;
+}
+.gate-window {
+  fill: #8ec8e8;
+  stroke: #3d3832;
+  stroke-width: 0.8;
+  opacity: 0.85;
+}
+.gate-label {
+  fill: #f4f1de;
+  font-size: 10px;
+  text-anchor: middle;
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.55);
+  stroke-width: 3px;
 }
 .feature-road {
   stroke: #8a8073;
@@ -326,6 +627,10 @@ svg {
 .feature-drive {
   stroke: #9b917f;
   stroke-width: 4.5;
+}
+.feature-road.stub,
+.feature-drive.stub {
+  opacity: 0.45;
 }
 .route {
   fill: none;
@@ -365,6 +670,20 @@ svg {
   stroke: rgba(0, 0, 0, 0.6);
   stroke-width: 3px;
   pointer-events: none;
+}
+.builder-layer {
+  pointer-events: none;
+}
+.builder-coord {
+  fill: #ffe08a;
+  font-size: 9px;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.65);
+  stroke-width: 3px;
 }
 .avatar {
   transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
