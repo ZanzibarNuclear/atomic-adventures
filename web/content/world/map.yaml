@@ -26,11 +26,18 @@ orientation: pointy
 size: 44
 
 start: trailhead
-journey: [trailhead, east-pines, center-pines, north-bend, gate-woods, utility-yard]
+journey:
+  [trailhead, east-pines, center-pines, north-bend, gate-woods, utility-yard]
 
 hexes:
   # --- North slope (river headwaters) ---
-  - { id: high-rocks, q: 0, r: -3, terrain: rock, landmark: { icon: "⛰️", name: "High Rocks", dy: -0.45 } }
+  - {
+      id: high-rocks,
+      q: 0,
+      r: -3,
+      terrain: rock,
+      landmark: { icon: "⛰️", name: "High Rocks", dy: -0.45 },
+    }
   - { id: upper-gorge, q: -1, r: -2, terrain: forest }
   - { id: road-fork, q: 0, r: -2, terrain: forest }
   - { id: north-west, q: -2, r: -1, terrain: forest }
@@ -106,8 +113,8 @@ features:
     labelAt: { x: -81, y: -42 }
     name: Gate
 
-# Roads: compound-road (paved) runs gate → north → NE around High Rocks.
-#        river-access-drive (decomposed granite) branches west in road-fork to the river.
+  # Roads: compound-road (paved) runs gate → north → NE around High Rocks.
+  #        river-access-drive (decomposed granite) branches west in road-fork to the river.
 
   - id: compound-road
     kind: road

@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onUnmounted } from 'vue'
 import {
   axialToPixel,
   hexCornerPoints,
@@ -7,6 +7,7 @@ import {
   neighborsOf,
 } from '../composables/useHexGeometry.js'
 import { buildRouteDrawPieces, pointsAttr } from '../composables/useRoutes.js'
+import { lineKindColor } from '../composables/useMapBuilder.js'
 
 const props = defineProps({
   mapData: { type: Object, required: true },
@@ -17,9 +18,71 @@ const props = defineProps({
   mode: { type: String, default: 'explored' }, // slice | explored | full
   expanded: { type: Boolean, default: false },
   builderView: { type: Boolean, default: false },
+  builderEdit: { type: Boolean, default: false },
+  editHandles: { type: Array, default: () => [] },
+  editKind: { type: String, default: 'path' },
+  selectedPointIndex: { type: Number, default: -1 },
+  addPointMode: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['hex-click'])
+const emit = defineEmits(['hex-click', 'select-point', 'waypoint-move', 'builder-map-click'])
+
+const svgRef = ref(null)
+const dragIndex = ref(null)
+
+function svgCoords(clientX, clientY) {
+  const svg = svgRef.value
+  if (!svg) return null
+  const pt = svg.createSVGPoint()
+  pt.x = clientX
+  pt.y = clientY
+  const ctm = svg.getScreenCTM()
+  if (!ctm) return null
+  const local = pt.matrixTransform(ctm.inverse())
+  return { x: local.x, y: local.y }
+}
+
+function onHandleDown(e, index) {
+  e.stopPropagation()
+  e.preventDefault()
+  dragIndex.value = index
+  emit('select-point', index)
+  window.addEventListener('pointermove', onPointerMove)
+  window.addEventListener('pointerup', onPointerUp)
+}
+
+function onPointerMove(e) {
+  if (dragIndex.value == null) return
+  const pt = svgCoords(e.clientX, e.clientY)
+  if (!pt) return
+  emit('waypoint-move', { index: dragIndex.value, x: pt.x, y: pt.y })
+}
+
+function onPointerUp() {
+  dragIndex.value = null
+  window.removeEventListener('pointermove', onPointerMove)
+  window.removeEventListener('pointerup', onPointerUp)
+}
+
+onUnmounted(onPointerUp)
+
+function onSvgClick(e) {
+  if (!props.builderEdit || !props.addPointMode) return
+  if (e.target.closest('.edit-handle')) return
+  const pt = svgCoords(e.clientX, e.clientY)
+  if (!pt) return
+  emit('builder-map-click', pt)
+}
+
+function onHexClick(hexId) {
+  if (props.addPointMode) return
+  emit('hex-click', hexId)
+}
+
+const editPolyline = computed(() =>
+  props.editHandles.map((h) => ({ x: h.x, y: h.y })),
+)
+const editStroke = computed(() => lineKindColor(props.editKind))
 
 // Pine-mountainside palette.
 const TERRAIN_COLORS = {
@@ -285,15 +348,20 @@ const hasLegend = computed(
 </script>
 
 <template>
-  <div class="hexmap" :class="{ expanded }">
-    <svg :viewBox="viewBox" preserveAspectRatio="xMidYMid meet">
+  <div class="hexmap" :class="{ expanded, 'builder-edit': builderEdit, 'add-point': addPointMode }">
+    <svg
+      ref="svgRef"
+      :viewBox="viewBox"
+      preserveAspectRatio="xMidYMid meet"
+      @click="onSvgClick"
+    >
       <!-- Fog edge hints -->
       <g class="fog-layer">
         <g
           v-for="hex in fogHexes"
           :key="'fog-' + hex.id"
           class="hex fog"
-          @click="emit('hex-click', hex.id)"
+          @click="onHexClick(hex.id)"
         >
           <polygon
             :points="hexCornerPoints(center(hex).x, center(hex).y, size)"
@@ -313,7 +381,7 @@ const hasLegend = computed(
             current: hex.id === currentHex,
             'builder-unseen': builderView && !discoveredSet.has(hex.id),
           }"
-          @click="emit('hex-click', hex.id)"
+          @click="onHexClick(hex.id)"
         >
           <polygon
             :points="hexCornerPoints(center(hex).x, center(hex).y, size)"
@@ -428,6 +496,26 @@ const hasLegend = computed(
           <line x1="0" y1="6" x2="-10" y2="26" />
           <line x1="0" y1="6" x2="10" y2="26" />
         </g>
+      </g>
+
+      <!-- Builder edit: on top so handles stay grabbable -->
+      <g v-if="builderEdit && editHandles.length" class="edit-layer">
+        <polyline
+          :points="pointsAttr(editPolyline)"
+          class="edit-guide"
+          :style="{ stroke: editStroke }"
+        />
+        <circle
+          v-for="h in editHandles"
+          :key="'handle-' + h.index"
+          :cx="h.x"
+          :cy="h.y"
+          :r="h.index === selectedPointIndex ? 7 : 5.5"
+          class="edit-handle"
+          :class="{ selected: h.index === selectedPointIndex }"
+          :style="{ stroke: editStroke }"
+          @pointerdown="onHandleDown($event, h.index)"
+        />
       </g>
     </svg>
 
@@ -684,6 +772,32 @@ svg {
   paint-order: stroke;
   stroke: rgba(0, 0, 0, 0.65);
   stroke-width: 3px;
+}
+.hexmap.builder-edit.add-point {
+  cursor: crosshair;
+}
+.edit-layer {
+  pointer-events: all;
+}
+.edit-guide {
+  fill: none;
+  stroke-width: 2;
+  stroke-dasharray: 4 5;
+  opacity: 0.85;
+  pointer-events: none;
+}
+.edit-handle {
+  fill: #ffd166;
+  stroke-width: 2.5;
+  cursor: grab;
+  touch-action: none;
+}
+.edit-handle.selected {
+  fill: #fff;
+  stroke-width: 3;
+}
+.edit-handle:active {
+  cursor: grabbing;
 }
 .avatar {
   transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);

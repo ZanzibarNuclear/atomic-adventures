@@ -45,7 +45,7 @@ export function bearingLabel(from, to, size) {
 // A waypoint is anchored to a hex with an optional offset (in hex-size units),
 // or given as raw world coords. This keeps authoring readable while letting the
 // path sit anywhere — off-center, cutting across hexes, etc.
-function resolveWaypoint(wp, hexById, size) {
+export function resolveWaypoint(wp, hexById, size) {
   if (wp.x !== undefined && wp.y !== undefined && wp.hex === undefined) {
     return { x: wp.x, y: wp.y }
   }
