@@ -8,7 +8,8 @@ import {
 } from '../composables/useHexGeometry.js'
 import { buildRouteDrawPieces, pointsAttr } from '../composables/useRoutes.js'
 import { lineKindColor, placementHandleColor } from '../composables/useMapBuilder.js'
-import { resolveAvatarPosition } from '../composables/useAvatarStand.js'
+import { resolveAvatarPosition, hasLandmarkMarker } from '../composables/useAvatarStand.js'
+import UtilityStationLandmark from './UtilityStationLandmark.vue'
 
 const props = defineProps({
   mapData: { type: Object, required: true },
@@ -189,7 +190,7 @@ const viewBox = computed(() => {
   return `${b.x} ${b.y} ${b.width} ${b.height}`
 })
 
-const landmarkHexes = computed(() => visibleHexes.value.filter((h) => h.landmark?.icon))
+const landmarkHexes = computed(() => visibleHexes.value.filter((h) => hasLandmarkMarker(h)))
 
 function fogMaskOpts() {
   if (props.builderView) {
@@ -469,7 +470,14 @@ const hasLegend = computed(
       <!-- Landmarks -->
       <g class="landmark-layer">
         <g v-for="hex in landmarkHexes" :key="'lm-' + hex.id" class="landmark">
+          <g
+            v-if="hex.landmark.building === 'utility-station'"
+            :transform="`translate(${center(hex).x + (hex.landmark.dx ?? 0) * size}, ${center(hex).y + (hex.landmark.dy ?? 0) * size}) scale(1.08)`"
+          >
+            <UtilityStationLandmark />
+          </g>
           <text
+            v-else-if="hex.landmark.icon"
             :x="center(hex).x + (hex.landmark.dx ?? 0) * size"
             :y="center(hex).y + 2 + (hex.landmark.dy ?? 0) * size"
             class="landmark-icon"

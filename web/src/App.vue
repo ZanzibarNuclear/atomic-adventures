@@ -26,7 +26,7 @@ import {
   setStandWorld,
   ensureDefaultStandAt,
 } from './composables/useMapBuilder.js'
-import { landmarkAnchor, resolveAvatarPosition } from './composables/useAvatarStand.js'
+import { landmarkAnchor, resolveAvatarPosition, hasLandmarkMarker } from './composables/useAvatarStand.js'
 
 const size = mapData.size ?? 44
 const START = mapData.start ?? mapData.journey[0]
@@ -35,6 +35,18 @@ const START = mapData.start ?? mapData.journey[0]
 const editableHexes = ref(structuredClone(mapData.hexes ?? []))
 const editableFeatures = ref(structuredClone(mapData.features ?? []))
 const editableRoutes = ref(structuredClone(mapData.routes ?? []))
+
+function syncFromMapData(data) {
+  editableHexes.value = structuredClone(data.hexes ?? [])
+  editableFeatures.value = structuredClone(data.features ?? [])
+  editableRoutes.value = structuredClone(data.routes ?? [])
+}
+
+if (import.meta.hot) {
+  import.meta.hot.accept('../content/world/map.yaml', (mod) => {
+    if (mod?.default) syncFromMapData(mod.default)
+  })
+}
 
 const hexById = computed(() =>
   Object.fromEntries(editableHexes.value.map((h) => [h.id, h])),
@@ -190,7 +202,7 @@ function toggleSmooth() {
 
 function toggleStandAnchor() {
   const hex = editParsed.value?.hex
-  if (!hex?.landmark?.icon) return
+  if (!hasLandmarkMarker(hex)) return
   const pos = resolveAvatarPosition(hex, size)
   if (hex.standAt?.from === 'landmark') {
     hex.standAt = { x: Math.round(pos.x), y: Math.round(pos.y) }
@@ -242,9 +254,7 @@ function downloadYaml() {
 }
 
 function resetMapBuilder() {
-  editableHexes.value = structuredClone(mapData.hexes ?? [])
-  editableFeatures.value = structuredClone(mapData.features ?? [])
-  editableRoutes.value = structuredClone(mapData.routes ?? [])
+  syncFromMapData(mapData)
   selectedHandleId.value = null
   exportStatus.value = 'Reset to file defaults'
   setTimeout(() => {
@@ -504,7 +514,7 @@ function resetIndoor() {
 
         <div v-if="editMode === 'placement'" class="builder-actions">
           <label
-            v-if="editParsed?.hex?.landmark?.icon"
+            v-if="hasLandmarkMarker(editParsed?.hex)"
             class="mode-pill sm"
             :class="{ active: standAnchoredToLandmark }"
           >
@@ -516,6 +526,13 @@ function resetIndoor() {
             stand follows building
           </label>
         </div>
+
+        <p class="builder-hint builder-export-note">
+          Paste each section into <code>map.yaml</code>, replacing the matching
+          block (<code>hexes:</code>, <code>features:</code>, or
+          <code>routes:</code>). Copy hexes replaces the <em>entire</em> hex
+          list — save the file and the map reloads automatically.
+        </p>
 
         <p class="builder-hint">
           <template v-if="editMode === 'placement'">

@@ -4,6 +4,7 @@ import {
   landmarkAnchor,
   resolveAvatarPosition,
   DEFAULT_BESIDE_LANDMARK,
+  hasLandmarkMarker,
 } from './useAvatarStand.js'
 
 const LINE_KINDS = new Set(['river', 'road', 'drive', 'fence', 'path', 'trail'])
@@ -19,7 +20,7 @@ function roundInt(n) {
 /** Hexes with a landmark icon and/or standAt — editable placements. */
 export function listEditablePlacements(hexes) {
   return (hexes ?? [])
-    .filter((h) => h.landmark?.icon || h.standAt || h.landmark?.name)
+    .filter((h) => hasLandmarkMarker(h) || h.standAt || h.landmark?.name)
     .map((h) => ({
       source: 'hexes',
       id: h.id,
@@ -36,12 +37,12 @@ export function findEditablePlacement(hexes, id) {
 export function resolvedPlacementHandles(hex, size) {
   if (!hex) return []
   const handles = []
-  if (hex.landmark?.icon) {
+  if (hasLandmarkMarker(hex)) {
     const p = landmarkAnchor(hex, size)
     handles.push({ role: 'landmark', x: p.x, y: p.y })
   }
   if (
-    hex.landmark?.icon ||
+    hasLandmarkMarker(hex) ||
     hex.standAt ||
     hex.landmark?.name
   ) {
@@ -67,7 +68,7 @@ export function setStandWorld(hex, x, y, size) {
     return
   }
 
-  if (hex.landmark?.icon) {
+  if (hasLandmarkMarker(hex)) {
     const anchor = landmarkAnchor(hex, size)
     hex.standAt = {
       from: 'landmark',
@@ -84,7 +85,7 @@ export function setStandWorld(hex, x, y, size) {
 }
 
 export function ensureDefaultStandAt(hex) {
-  if (hex.standAt || !hex.landmark?.icon) return
+  if (hex.standAt || !hasLandmarkMarker(hex)) return
   hex.standAt = {
     from: 'landmark',
     dx: DEFAULT_BESIDE_LANDMARK.dx,
@@ -227,7 +228,7 @@ function fmtStandAt(stand) {
   return `{ ${parts.join(', ')} }`
 }
 
-function serializePlacementHex(hex, indent) {
+function serializeHexBlock(hex, indent) {
   const pad = ' '.repeat(indent)
   const inner = ' '.repeat(indent + 2)
   const lines = [
@@ -243,6 +244,7 @@ function serializePlacementHex(hex, indent) {
   if (hex.landmark) {
     lines.push(`${inner}landmark:`)
     const lm = hex.landmark
+    if (lm.building) lines.push(`${inner}  building: ${lm.building}`)
     if (lm.icon) lines.push(`${inner}  icon: ${JSON.stringify(lm.icon)}`)
     if (lm.name) lines.push(`${inner}  name: ${JSON.stringify(lm.name)}`)
     if (lm.dx !== undefined && lm.dx !== 0) lines.push(`${inner}  dx: ${round2(lm.dx)}`)
@@ -252,12 +254,45 @@ function serializePlacementHex(hex, indent) {
   return lines.join('\n')
 }
 
+function fmtLandmarkInline(lm) {
+  const parts = []
+  if (lm.building) parts.push(`building: ${lm.building}`)
+  if (lm.icon) parts.push(`icon: ${JSON.stringify(lm.icon)}`)
+  if (lm.name) parts.push(`name: ${JSON.stringify(lm.name)}`)
+  if (lm.dx !== undefined && lm.dx !== 0) parts.push(`dx: ${round2(lm.dx)}`)
+  if (lm.dy !== undefined && lm.dy !== 0) parts.push(`dy: ${round2(lm.dy)}`)
+  return parts.join(', ')
+}
+
+/** Serialize one hex entry for map.yaml export. */
+export function serializeHex(hex, indent = 2) {
+  const pad = ' '.repeat(indent)
+  const simple =
+    !hex.standAt &&
+    !hex.area &&
+    !hex.cascade &&
+    !hex.puzzle &&
+    !hex.landmark
+  if (simple) {
+    return `${pad}- { id: ${hex.id}, q: ${hex.q}, r: ${hex.r}, terrain: ${hex.terrain} }`
+  }
+  const lm = hex.landmark
+  if (
+    lm &&
+    !hex.standAt &&
+    !hex.area &&
+    !hex.cascade &&
+    !hex.puzzle &&
+    !lm.blurb
+  ) {
+    return `${pad}- { id: ${hex.id}, q: ${hex.q}, r: ${hex.r}, terrain: ${hex.terrain}, landmark: { ${fmtLandmarkInline(lm)} } }`
+  }
+  return serializeHexBlock(hex, indent)
+}
+
 /** YAML snippets ready to paste into map.yaml. */
 export function exportMapYaml(routes, features, hexes) {
-  const placementHexes = (hexes ?? []).filter(
-    (h) => h.landmark?.icon || h.standAt || h.landmark?.name,
-  )
-  const hexBlocks = placementHexes.map((h) => serializePlacementHex(h, 2))
+  const hexBlocks = (hexes ?? []).map((h) => serializeHex(h, 2))
   const featureBlocks = (features ?? [])
     .map((f) => serializeFeature(f, 2))
     .filter(Boolean)

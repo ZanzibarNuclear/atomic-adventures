@@ -23,7 +23,7 @@
 #    upper-gorge (-1,-2)  road-fork (0,-2)   north-bend (0,-1)   far-pines (1,-1)
 #    north-west (-2,-1)  gate-woods (-1,-1)   …
 #       mid-west (-2,0)  west-slope (-1,0)   center-pines (0,0) …  trailhead (2,0)
-#  utility-yard (-2,1) 🏚️  south-pines (-1,1)  lower-stand (0,1)
+#  utility-yard (-2,1) [utility station]  south-pines (-1,1)  lower-stand (0,1)
 #
 # River: high-rocks → upper-gorge → … → utility-yard (cascade) → off SW.
 # Roads: compound-road (paved) gate ↔ north ↔ NE stub at road-fork (0,-2).
@@ -37,21 +37,26 @@ journey:
   [trailhead, east-pines, center-pines, north-bend, gate-woods, utility-yard]
 
 hexes:
-  # --- North slope (river headwaters) ---
-  - {
-      id: high-rocks,
-      q: 0,
-      r: -3,
-      terrain: rock,
-      landmark: { icon: "⛰️", name: "High Rocks", dy: -0.45 },
-    }
+  - id: high-rocks
+    q: 0
+    r: -3
+    terrain: rock
+    standAt: { from: landmark, dx: 0.34, dy: 0.42 }
+    landmark:
+      icon: "⛰️"
+      name: "High Rocks"
+      dy: -0.45
+
   - { id: upper-gorge, q: -1, r: -2, terrain: forest }
+
   - { id: road-fork, q: 0, r: -2, terrain: forest }
+
   - { id: north-west, q: -2, r: -1, terrain: forest }
+
   - { id: north-bend, q: 0, r: -1, terrain: forest }
+
   - { id: far-pines, q: 1, r: -1, terrain: forest }
 
-  # Gate approach
   - id: gate-woods
     q: -1
     r: -1
@@ -59,33 +64,36 @@ hexes:
     puzzle: gate
     standAt: { x: -81, y: -58 }
     landmark:
-      name: Compound Gate
-      blurb: A locked gate and a guard booth. The fasteners look like a tavern puzzle — something clever must open the way through.
+      name: "Compound Gate"
+      blurb: "A locked gate and a guard booth. The fasteners look like a tavern puzzle — something clever must open the way through."
 
-  # --- West slope: NW of utility-yard, and SE of gate-woods (fills the grid) ---
   - { id: mid-west, q: -2, r: 0, terrain: forest }
+
   - { id: west-slope, q: -1, r: 0, terrain: forest }
 
-  # --- Main trail row ---
   - { id: center-pines, q: 0, r: 0, terrain: forest }
+
   - { id: east-pines, q: 1, r: 0, terrain: forest }
+
   - { id: trailhead, q: 2, r: 0, terrain: forest }
 
-  # --- South / compound ---
   - id: utility-yard
     q: -2
     r: 1
     terrain: clearing
     area: utility
     cascade: true
-    standAt: { from: landmark, dx: 0.48, dy: -0.03 }
+    standAt: { from: landmark, dx: 0.42, dy: 0.02 }
     landmark:
       icon: "🏚️"
       name: "Utility Station"
-      dx: 0.32
-      dy: 0.05
+      # Authored SVG also available: building: utility-station (UtilityStationLandmark.vue)
+      dx: 0.06
+      dy: 0.19
       blurb: "Built beside a rocky cascade on the river — the hydro intake for Part I. Garage, conference room, kitchen, and library inside."
+
   - { id: south-pines, q: -1, r: 1, terrain: forest }
+
   - { id: lower-stand, q: 0, r: 1, terrain: forest }
 
 features:
@@ -95,12 +103,12 @@ features:
     flow: south
     points:
       - { hex: high-rocks, dx: -0.15, dy: -0.15 }
-      - { hex: upper-gorge, dx: 0.43, dy: 0.22 }
-      - { hex: north-west, dx: 0.32, dy: -0.03 }
-      - { hex: mid-west, dx: 0.36, dy: -0.27 }
-      - { hex: utility-yard, dx: -0.17, dy: -0.66 }
-      - { hex: utility-yard, dx: -0.27, dy: 0.61 }
-      - { x: -161, y: 132 }
+      - { hex: upper-gorge, dx: 0.37, dy: 0.34 }
+      - { hex: north-west, dx: 0.3, dy: -0.07 }
+      - { hex: mid-west, dx: 0.24, dy: -0.3 }
+      - { hex: utility-yard, dx: -0.39, dy: -0.71 }
+      - { hex: utility-yard, dx: -0.53, dy: 0.52 }
+      - { x: -163, y: 125 }
 
   - id: fence-run-south
     kind: fence
@@ -112,7 +120,7 @@ features:
     kind: fence
     points:
       - { x: -30, y: -50 }
-      - { x: -157, y: -51 }
+      - { x: -164, y: -49 }
 
   - id: compound-gate
     kind: gate
@@ -147,8 +155,8 @@ features:
     kind: drive
     points:
       - { x: -81, y: 60 }
-      - { x: -92, y: 64 }
-      - { hex: utility-yard, dx: 0.32, dy: 0.08 }
+      - { x: -99, y: 59 }
+      - { hex: utility-yard, dx: 0.13 }
 
 routes:
   - id: hero-route

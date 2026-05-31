@@ -3,6 +3,12 @@ import { axialToPixel } from './useHexGeometry.js'
 /** Default offset from a landmark icon when standAt is omitted (hex-size units). */
 export const DEFAULT_BESIDE_LANDMARK = { dx: 0.34, dy: 0.42 }
 
+/** Hex carries a visible landmark (emoji icon or authored building graphic). */
+export function hasLandmarkMarker(hex) {
+  const lm = hex?.landmark
+  return !!(lm?.icon || lm?.building)
+}
+
 /** Pixel position of the landmark icon anchor (hex center + landmark dx/dy). */
 export function landmarkAnchor(hex, size) {
   const c = axialToPixel(hex.q, hex.r, size)
@@ -37,7 +43,7 @@ export function resolveAvatarPosition(hex, size) {
     }
   }
 
-  if (hex.landmark?.icon) {
+  if (hasLandmarkMarker(hex)) {
     const base = landmarkAnchor(hex, size)
     return {
       x: base.x + size * DEFAULT_BESIDE_LANDMARK.dx,
