@@ -5,6 +5,8 @@
 // derives movement from path geometry, a building's connectivity is authored
 // explicitly as `links`, and up/down is inferred from each level's `order`.
 
+import { canPassDoor, normalizeDoorInitial } from './useDoors.js'
+
 // Normalize the raw YAML into a convenient model.
 export function buildBuilding(data) {
   const cell = data.cell ?? 64
@@ -14,12 +16,19 @@ export function buildBuilding(data) {
   const levelById = Object.fromEntries(levels.map((l) => [l.id, l]))
   const links = data.links ?? []
   const fixtures = data.fixtures ?? []
-  const doors = data.doors ?? []
+  const doors = (data.doors ?? []).map((d) => ({
+    ...d,
+    initial: normalizeDoorInitial(d.initial),
+  }))
+  const doorById = Object.fromEntries(doors.filter((d) => d.id).map((d) => [d.id, d]))
+  const areaId = data.id ?? data.area ?? 'building'
   return {
+    id: areaId,
+    areaId,
     name: data.name,
     cell,
-    gridFeet: data.gridFeet ?? 10, // spacing of visible grid lines (feet)
-    unitFeet: data.unitFeet ?? data.gridFeet ?? 10, // feet per layout grid unit (x, y, w, h)
+    gridFeet: data.gridFeet ?? 10,
+    unitFeet: data.unitFeet ?? data.gridFeet ?? 10,
     north: data.north ?? 'up',
     rooms,
     roomById,
@@ -28,6 +37,7 @@ export function buildBuilding(data) {
     links,
     fixtures,
     doors,
+    doorById,
     start: data.start ?? rooms[0]?.id,
   }
 }
@@ -245,13 +255,20 @@ export function moveKey(move) {
   return move.onSpiral ? `${move.toRoomId}:${move.dir}` : move.toRoomId
 }
 
+function linkPassable(link, doorState, areaId) {
+  if (link.kind !== 'door' || !link.door) return true
+  if (!doorState) return false
+  return canPassDoor(doorState, areaId, link.door)
+}
+
 // Every room reachable from `roomId` in one step, with a human label.
 // `atLevel` is the floor landing the player occupies (required on the spiral stair).
-export function movesFrom(building, roomId, atLevel = null) {
+export function movesFrom(building, roomId, atLevel = null, doorState = null) {
   const out = []
   const from = building.roomById[roomId]
   if (!from) return out
   const fromLevel = standLevel(from, atLevel)
+  const areaId = building.areaId
 
   if (from.feature === 'spiral-stair') {
     for (const link of building.links) {
@@ -259,6 +276,7 @@ export function movesFrom(building, roomId, atLevel = null) {
       if (link.from === roomId) otherId = link.to
       else if (link.to === roomId) otherId = link.from
       if (!otherId) continue
+      if (!linkPassable(link, doorState, areaId)) continue
       const other = building.roomById[otherId]
       if (!other || other.feature === 'spiral-stair') continue
       const otherLevel = roomLevel(other)
@@ -267,6 +285,7 @@ export function movesFrom(building, roomId, atLevel = null) {
         toRoomId: otherId,
         kind: link.kind,
         dir,
+        doorId: link.door ?? null,
         label: moveLabel(link.kind, dir, from, other),
         toName: other.name ?? otherId,
         toLevel: otherLevel,
@@ -280,6 +299,7 @@ export function movesFrom(building, roomId, atLevel = null) {
     if (link.from === roomId) toId = link.to
     else if (link.to === roomId) toId = link.from
     if (!toId) continue
+    if (!linkPassable(link, doorState, areaId)) continue
     const to = building.roomById[toId]
     if (!to) continue
     const toLevel = roomLevel(to, to.feature === 'spiral-stair' ? fromLevel : null)
@@ -288,6 +308,7 @@ export function movesFrom(building, roomId, atLevel = null) {
       toRoomId: toId,
       kind: link.kind,
       dir,
+      doorId: link.door ?? null,
       label: moveLabel(link.kind, dir, from, to),
       toName: to.name ?? toId,
       toLevel: to.feature === 'spiral-stair' ? fromLevel : toLevel,
@@ -322,13 +343,70 @@ export function levelBeams(building, levelId) {
   return beams
 }
 
-// Authored man-door glyphs on a level. These are purely visual — connectivity
-// lives in `links`; this just lets us place each door exactly on its wall.
-export function doorsOnLevel(building, levelId) {
+// Roll-up door rectangle in layout pixels (from room geometry).
+export function rollDoorRect(room, cell) {
+  if (!room?.rollDoor) return null
+  const r = roomRect(room, cell)
+  const edge = room.rollDoor
+  const wallLen = edge === 'top' || edge === 'bottom' ? r.w : r.h
+  const span = (room.rollSpan ?? 0.6) * wallLen
+  let x1, y1, x2, y2
+  if (edge === 'top') {
+    const mx = r.x + r.w / 2
+    x1 = mx - span / 2
+    y1 = r.y
+    return { x: x1, y: y1, w: span, h: 10, vertical: false }
+  }
+  if (edge === 'bottom') {
+    const mx = r.x + r.w / 2
+    x1 = mx - span / 2
+    y1 = r.y + r.h - 10
+    return { x: x1, y: y1, w: span, h: 10, vertical: false }
+  }
+  if (edge === 'left') {
+    const my = r.y + r.h / 2
+    x1 = r.x
+    y1 = my - span / 2
+    return { x: x1, y: y1, w: 10, h: span, vertical: true }
+  }
+  const my = r.y + r.h / 2
+  x1 = r.x + r.w - 10
+  y1 = my - span / 2
+  return { x: x1, y: y1, w: 10, h: span, vertical: true }
+}
+
+// Man-door and roll-up glyphs on a level, with live state for rendering.
+export function doorsOnLevel(building, levelId, doorState = null) {
   const cell = building.cell
-  return (building.doors ?? [])
-    .filter((d) => d.level === levelId)
-    .map((d) => ({ x: d.at.x * cell, y: d.at.y * cell, vertical: !!d.vertical }))
+  const areaId = building.areaId
+  const out = []
+  for (const door of building.doors ?? []) {
+    if (!door.id) continue
+    const state = doorState?.[`${areaId}:${door.id}`] ?? door.initial
+    if (door.kind === 'man' && door.level === levelId && door.at) {
+      out.push({
+        id: door.id,
+        kind: 'man',
+        x: door.at.x * cell,
+        y: door.at.y * cell,
+        vertical: !!door.vertical,
+        state,
+      })
+    }
+    if (door.kind === 'roll') {
+      const room = building.roomById[door.room]
+      if (!room || room.level !== levelId) continue
+      const rect = rollDoorRect(room, cell)
+      if (!rect) continue
+      out.push({
+        id: door.id,
+        kind: 'roll',
+        ...rect,
+        state,
+      })
+    }
+  }
+  return out
 }
 
 // Stair fixtures visible on a level: the spiral (glass half-cylinder) and

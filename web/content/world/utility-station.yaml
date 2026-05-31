@@ -11,6 +11,7 @@
 #            Kitchen / Library each open onto the river-side spiral stair (a
 #            feature you can pause on — not just a through-route).
 
+id: utility-station
 name: Utility Station
 cell: 64
 gridFeet: 10 # light floor-grid lines every 10 feet
@@ -98,43 +99,72 @@ rooms:
     mirror: large-bay # show like the 1st-floor garage once you've been below
     blurb: "The tall bay opens below your feet all the way to the roof. A railing keeps you back from the edge."
 
-# Connectivity only (movement). kind: door | open | stairs | winding-stairs.
-# `open` = no wall (one big garage). Up/down inferred from level order.
+# Connectivity. Door-kind links name a `door` id; movement requires that door open.
 links:
   - { from: small-bay, to: large-bay, kind: open } # one big open garage
-  - { from: library, to: small-bay, kind: door } # man-door, library NE corner
+  - { from: library, to: small-bay, kind: door, door: library-small-bay }
   - { from: large-bay, to: conference, kind: stairs } # garage stair up to 2F
-  - { from: conference, to: kitchen, kind: door }
-  - { from: library, to: spiral-stair, kind: door }
-  - { from: kitchen, to: spiral-stair, kind: door }
+  - { from: conference, to: kitchen, kind: door, door: conference-kitchen }
+  - { from: library, to: spiral-stair, kind: door, door: library-spiral }
+  - { from: kitchen, to: spiral-stair, kind: door, door: kitchen-spiral }
 
-# Stair fixtures drawn over the plan (visual geometry for multi-floor stairs).
+# Doors: topology + visuals + initial state. All start closed.
+doors:
+  - id: library-small-bay
+    kind: man
+    level: first
+    at: { x: 2, y: 1.62 }
+    vertical: true
+    initial: { closed: true, locked: true }
+  - id: large-bay-man
+    kind: man
+    level: first
+    room: large-bay
+    at: { x: 0.6, y: 5 }
+    label: "Large bay man door"
+    initial: { closed: true, lockBroken: true }
+  - id: library-spiral
+    kind: man
+    level: first
+    at: { x: 1.68, y: 0.04 }
+    initial: { closed: true, locked: false }
+  - id: small-bay-roll
+    kind: roll
+    room: small-bay
+    initial: { closed: true, locked: true }
+  - id: large-bay-roll
+    kind: roll
+    room: large-bay
+    initial: { closed: true, locked: true }
+  - id: conference-kitchen
+    kind: man
+    level: second
+    at: { x: 2, y: 1.0 }
+    vertical: true
+    initial: { closed: true, locked: false }
+  - id: conference-garage-stair
+    kind: man
+    level: second
+    at: { x: 1.62, y: 2 }
+    initial: { closed: true, locked: false }
+  - id: kitchen-spiral
+    kind: man
+    level: second
+    at: { x: 2.32, y: 0.04 }
+    initial: { closed: true, locked: false }
+
 fixtures:
   - id: spiral-stair
     kind: spiral-stairs
-    at: { x: 2, y: 0 } # top-center, on the river wall between the west rooms
-    protrude: top # half-cylinder of glass bulges out toward the cascade
+    at: { x: 2, y: 0 }
+    protrude: top
     radius: 0.66
     onLevels: [first, second]
-    connects: [kitchen, library] # fog lifts once either landing room is known
+    connects: [kitchen, library]
   - id: garage-stair
     kind: straight-stairs
-    # Runs along the large bay's west (top) wall, in the south (left) half;
-    # ascends west→east to the 2F door into the conference room.
     rect: { x: 0.2, y: 2.08, w: 1.55, h: 0.5 }
     run: horizontal
-    ascend: end # high (top) end is the far (east/right) side, by the door
-    onLevels: [first, second] # visible on both floors so you can go back down
+    ascend: end
+    onLevels: [first, second]
     connects: [large-bay, conference]
-
-# Authored man-door glyphs (visual only — 6 total). `at` is in grid units;
-# `vertical: true` for a door on a north/south (vertical) wall.
-doors:
-  # --- 1st floor ---
-  - { level: first, at: { x: 0.6, y: 5 } } # garage break-in, east wall, toward the back (south)
-  - { level: first, at: { x: 2, y: 1.62 }, vertical: true } # library ↔ small bay, NE corner of library
-  - { level: first, at: { x: 1.68, y: 0.04 } } # foot of the spiral, into the library
-  # --- 2nd floor ---
-  - { level: second, at: { x: 2, y: 1.0 }, vertical: true } # conference ↔ kitchen
-  - { level: second, at: { x: 1.62, y: 2 } } # top of garage stair, into the conference room
-  - { level: second, at: { x: 2.32, y: 0.04 } } # top of the spiral, into the kitchen

@@ -21,6 +21,7 @@ const props = defineProps({
   level: { type: String, required: true },
   standLevel: { type: String, default: null },
   reachableRooms: { type: Array, default: () => [] },
+  doorStates: { type: Object, default: () => ({}) },
   expanded: { type: Boolean, default: false },
 })
 
@@ -31,7 +32,7 @@ const discoveredSet = computed(() => new Set(props.discovered))
 const current = computed(() => props.building.roomById[props.currentRoom])
 const levelRooms = computed(() => roomsOnLevel(props.building, props.level))
 const beams = computed(() => levelBeams(props.building, props.level))
-const doors = computed(() => doorsOnLevel(props.building, props.level))
+const doors = computed(() => doorsOnLevel(props.building, props.level, props.doorStates))
 const fixtures = computed(() => fixturesOnLevel(props.building, props.level))
 
 // ---- Rotation: the player can spin the plan 90° at a time ----
@@ -283,14 +284,6 @@ const placedRooms = computed(() =>
       const b = tp(s.x2, s.y2)
       return { x1: a.x, y1: a.y, x2: b.x, y2: b.y }
     })
-    let roll = null
-    if (room.rollDoor) {
-      const dc = doorCenter(room, room.rollDoor)
-      const r = rect(room)
-      const wallLen = room.rollDoor === 'top' || room.rollDoor === 'bottom' ? r.w : r.h
-      const span = (room.rollSpan ?? 0.6) * wallLen
-      roll = placeRect(dc.x, dc.y, dc.vertical ? 10 : span, dc.vertical ? span : 10)
-    }
     // Railing along the interior edges of an open-to-roof void.
     const railings = []
     if (room.open) {
@@ -303,14 +296,47 @@ const placedRooms = computed(() =>
         railings.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y })
       }
     }
-    return { room, rect: bbox(corners), center: tp(r.x + r.w / 2, r.y + r.h / 2), windows, roll, railings }
+    return { room, rect: bbox(corners), center: tp(r.x + r.w / 2, r.y + r.h / 2), windows, railings }
   }),
 )
 
 const placedDoors = computed(() =>
-  doors.value.map((d) =>
-    placeRect(d.x, d.y, d.vertical ? 7 : cell.value * 0.3, d.vertical ? cell.value * 0.3 : 7),
-  ),
+  doors.value.map((d) => {
+    if (d.kind === 'roll') {
+      const corners = [
+        tp(d.x, d.y),
+        tp(d.x + d.w, d.y),
+        tp(d.x + d.w, d.y + d.h),
+        tp(d.x, d.y + d.h),
+      ]
+      const box = bbox(corners)
+      return {
+        id: d.id,
+        kind: 'roll',
+        x: box.x,
+        y: box.y,
+        w: box.w,
+        h: box.h,
+        open: !!d.state?.open,
+        locked: !!d.state?.locked,
+        lockBroken: !!d.state?.lockBroken,
+      }
+    }
+    const placed = placeRect(
+      d.x,
+      d.y,
+      d.vertical ? 7 : cell.value * 0.3,
+      d.vertical ? cell.value * 0.3 : 7,
+    )
+    return {
+      id: d.id,
+      kind: 'man',
+      ...placed,
+      open: !!d.state?.open,
+      locked: !!d.state?.locked,
+      lockBroken: !!d.state?.lockBroken,
+    }
+  }),
 )
 const placedBeams = computed(() =>
   beams.value.map((b) => {
@@ -575,15 +601,7 @@ function onSpiralExitClick(roomId) {
             class="window"
           />
 
-          <!-- Tall roll-up garage door -->
-          <rect
-            v-if="p.roll && (isDiscovered(p.room) || isOpenVoid(p.room))"
-            :x="p.roll.x"
-            :y="p.roll.y"
-            :width="p.roll.w"
-            :height="p.roll.h"
-            class="roll-door"
-          />
+          <!-- Tall roll-up garage door (drawn in door layer) -->
           <!-- Side man-door (exterior entry) -->
           <rect v-if="p.entry" :x="p.entry.x" :y="p.entry.y" :width="p.entry.w" :height="p.entry.h" class="entry-door" />
 
@@ -633,16 +651,19 @@ function onSpiralExitClick(roomId) {
         </g>
       </g>
 
-      <!-- Interior doors -->
+      <!-- Interior + roll-up doors -->
       <g class="door-layer">
         <rect
-          v-for="(d, i) in placedDoors"
-          :key="'door-' + i"
+          v-for="d in placedDoors"
+          :key="d.id"
           :x="d.x"
           :y="d.y"
           :width="d.w"
           :height="d.h"
-          class="door"
+          :class="[
+            d.kind === 'roll' ? 'roll-door' : 'man-door',
+            { open: d.open, closed: !d.open, locked: d.locked, 'lock-broken': d.lockBroken },
+          ]"
         />
       </g>
 
@@ -930,9 +951,36 @@ svg:not(.compass) {
   stroke: #5b5247;
   stroke-width: 1;
   pointer-events: none;
+  transition: fill 0.25s ease, opacity 0.25s ease;
 }
-.entry-door,
-.door {
+.roll-door.open {
+  fill: #3b4658;
+  opacity: 0.55;
+}
+.roll-door.locked {
+  stroke: #a0522d;
+  stroke-width: 2;
+}
+.man-door {
+  fill: #c39a6b;
+  pointer-events: none;
+  transition: fill 0.25s ease;
+}
+.man-door.open {
+  fill: #2a3038;
+  stroke: #c39a6b;
+  stroke-width: 1.5;
+}
+.man-door.locked {
+  stroke: #a0522d;
+  stroke-width: 2.5;
+}
+.man-door.lock-broken {
+  stroke: #7a828e;
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+}
+.entry-door {
   fill: #c39a6b;
   pointer-events: none;
 }

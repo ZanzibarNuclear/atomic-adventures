@@ -12,6 +12,20 @@ import {
 } from './composables/useRoutes.js'
 import { buildBuilding, movesFrom, moveKey } from './composables/useGrid.js'
 import {
+  buildInitialDoorState,
+  doorsFromRoom,
+  doorLabel,
+  doorStatusText,
+  getDoorState,
+  setDoorOpen,
+  canOpenDoor,
+  canCloseDoor,
+  canToggleLock,
+  canBreakLock,
+  toggleDoorLock,
+  breakLock,
+} from './composables/useDoors.js'
+import {
   listEditableLines,
   findEditableLine,
   resolvedWaypoints,
@@ -319,6 +333,7 @@ const indoor = reactive({
   discovered: new Set([building.start]),
   level: building.roomById[building.start]?.level ?? building.levels[0]?.id,
   viewLevel: building.roomById[building.start]?.level ?? building.levels[0]?.id,
+  doorState: buildInitialDoorState(building.areaId, building),
   moving: false,
 })
 
@@ -326,11 +341,34 @@ const indoor = reactive({
 const atBuildingEntrance = computed(() => currentHexData.value?.area === 'utility')
 const atGatePuzzle = computed(() => currentHexData.value?.puzzle === 'gate')
 const currentRoomData = computed(() => building.roomById[indoor.currentRoom])
-const indoorMoves = computed(() => movesFrom(building, indoor.currentRoom, indoor.level))
+const indoorMoves = computed(() =>
+  movesFrom(building, indoor.currentRoom, indoor.level, indoor.doorState),
+)
 const reachableRooms = computed(() =>
   indoorMoves.value.filter((m) => !m.onSpiral).map((m) => m.toRoomId),
 )
+const nearbyDoors = computed(() => doorsFromRoom(building, indoor.currentRoom))
 const levelsTopDown = computed(() => building.levels)
+
+function doorStateFor(doorId) {
+  return getDoorState(indoor.doorState, building.areaId, doorId)
+}
+
+function tryOpenDoor(doorId) {
+  setDoorOpen(indoor.doorState, building.areaId, doorId, true)
+}
+
+function tryCloseDoor(doorId) {
+  setDoorOpen(indoor.doorState, building.areaId, doorId, false)
+}
+
+function tryBreakLock(doorId) {
+  breakLock(indoor.doorState, building.areaId, doorId)
+}
+
+function tryToggleLock(doorId) {
+  toggleDoorLock(indoor.doorState, building.areaId, doorId)
+}
 
 function enterBuilding() {
   if (!atBuildingEntrance.value) return
@@ -387,6 +425,7 @@ function resetIndoor() {
   indoor.discovered = new Set([building.start])
   indoor.level = building.roomById[building.start]?.level
   indoor.viewLevel = indoor.level
+  indoor.doorState = buildInitialDoorState(building.areaId, building)
 }
 </script>
 
@@ -615,6 +654,7 @@ function resetIndoor() {
         :level="indoor.viewLevel"
         :stand-level="indoor.level"
         :reachable-rooms="reachableRooms"
+        :door-states="indoor.doorState"
         :expanded="expanded"
         @room-click="moveToRoom"
       />
@@ -641,6 +681,46 @@ function resetIndoor() {
             Go {{ m.label }}
             <span class="dest">→ {{ m.onSpiral || indoor.discovered.has(m.toRoomId) ? m.toName : '?' }}</span>
           </button>
+        </div>
+      </div>
+
+      <div v-if="nearbyDoors.length" class="doors">
+        <span class="label">Doors</span>
+        <div v-for="d in nearbyDoors" :key="d.doorId" class="door-row">
+          <span class="door-name">
+            {{ doorLabel(building, d.doorId, d.toName) }}
+            <em class="door-state">{{ doorStatusText(doorStateFor(d.doorId)) }}</em>
+          </span>
+          <span class="door-actions">
+            <button
+              v-if="canBreakLock(indoor.doorState, building.areaId, d.doorId)"
+              class="sm"
+              @click="tryBreakLock(d.doorId)"
+            >
+              Break lock
+            </button>
+            <button
+              v-if="canToggleLock(indoor.doorState, building.areaId, d.doorId)"
+              class="sm"
+              @click="tryToggleLock(d.doorId)"
+            >
+              {{ doorStateFor(d.doorId).locked ? 'Unlock' : 'Lock' }}
+            </button>
+            <button
+              v-if="canOpenDoor(indoor.doorState, building.areaId, d.doorId)"
+              class="sm"
+              @click="tryOpenDoor(d.doorId)"
+            >
+              Open
+            </button>
+            <button
+              v-if="canCloseDoor(indoor.doorState, building.areaId, d.doorId)"
+              class="sm"
+              @click="tryCloseDoor(d.doorId)"
+            >
+              Close
+            </button>
+          </span>
         </div>
       </div>
 
@@ -762,6 +842,34 @@ header h1 {
 .dest {
   color: #7f8794;
   font-size: 0.82rem;
+}
+.doors {
+  margin-top: 0.75rem;
+}
+.door-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+  margin-top: 0.35rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.door-row:last-child {
+  border-bottom: none;
+}
+.door-name {
+  font-size: 0.88rem;
+}
+.door-state {
+  color: #8b94a3;
+  font-style: normal;
+  margin-left: 0.35rem;
+}
+.door-actions {
+  display: flex;
+  gap: 0.35rem;
 }
 .controls {
   display: flex;
