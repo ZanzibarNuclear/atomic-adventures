@@ -65,7 +65,7 @@ hexes:
     standAt: { x: -81, y: -58 }
     landmark:
       name: "Compound Gate"
-      blurb: "A locked gate and a guard booth. The fasteners look like a tavern puzzle — something clever must open the way through."
+      blurb: "A locked fence gate and a guard booth."
 
   - { id: mid-west, q: -2, r: 0, terrain: forest }
 
@@ -90,7 +90,7 @@ hexes:
       # Authored SVG also available: building: utility-station (UtilityStationLandmark.vue)
       dx: 0.06
       dy: 0.19
-      blurb: "Built beside a rocky cascade on the river — the hydro intake for Part I. Garage, conference room, kitchen, and library inside."
+      blurb: "Built beside a rocky cascade on the river, this facility is the central location for Part I of our adventure."
 
   - { id: south-pines, q: -1, r: 1, terrain: forest }
 

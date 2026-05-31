@@ -35,7 +35,7 @@ rooms:
     name: "Library / Study"
     icon: "📚"
     windows: [top] # west / river side
-    blurb: "Shelves, manuals, log binders, and three holo-reader stations. River windows behind the blinds."
+    blurb: "Shelves, manuals, log binders, and three holo-reader stations. Windows covered by sliding blinds. Views of the river cascade."
   - id: small-bay
     level: first
     x: 2
@@ -47,7 +47,7 @@ rooms:
     note: "1 story · EV bay"
     rollDoor: right # single-story roll-up onto the driveway (north wall)
     rollSpan: 0.72
-    blurb: "Tools, electrical gear, and a voltage meter. The e-buggy is parked here under a cloth — dead flat, no charge."
+    blurb: "The e-buggy is parked here under a cloth. Needs charge to move. Power cable and outlet, electrical gear, a voltage meter, assorted tools."
   - id: large-bay
     level: first
     x: 0
@@ -64,7 +64,7 @@ rooms:
     levels: [first, second]
     feature: spiral-stair
     name: "Spiral Stair"
-    blurb: "A glass half-cylinder thrust out over the cascade. River noise fills the stairwell — a good place to pause, take in the view, or talk without the rest of the station listening in."
+    blurb: "A glass half-cylinder with a spectacular view of the cascade. White noise from the river fills the stairwell. A good place to pause and take in the view or hold a semi-private conversation."
 
   # ---------------- 2nd floor ----------------
   - id: conference
@@ -76,7 +76,7 @@ rooms:
     name: "Conference Room"
     icon: "🪑"
     windows: [top]
-    blurb: "Table, chairs, and dirty windows framing the river rapids."
+    blurb: "Table, chairs, and dirty windows framing the river rapids and sloping valley."
   - id: kitchen
     level: second
     x: 2
@@ -85,7 +85,7 @@ rooms:
     h: 2
     name: "Kitchen / Dining"
     icon: "🍽️"
-    blurb: "Worker kitchen and dining area with a water purifier and rations."
+    blurb: "Worker kitchen and dining area. Water purifier, rations, dishes and utensils. Small table with kitchen chairs."
   - id: bay-open
     level: second
     x: 0
@@ -97,7 +97,7 @@ rooms:
     note: "2 stories"
     open: true # mezzanine edge — you can't stand here, but it's the same bay
     mirror: large-bay # show like the 1st-floor garage once you've been below
-    blurb: "The tall bay opens below your feet all the way to the roof. A railing keeps you back from the edge."
+    blurb: "The 2-story high bay, open to the rafters. Enter at the top of the stairs."
 
 # Connectivity. Door-kind links name a `door` id; movement requires that door open.
 links:
