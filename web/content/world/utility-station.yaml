@@ -8,7 +8,8 @@
 # Stacking:  Conference sits over Library; Kitchen sits over Small Bay;
 #            the Large Bay spans both floors.
 # Stairs:    Large Bay (garage) --straight stairs--> Conference (2nd floor)
-#            Kitchen --winding 180° river-side stairs--> Library (1st floor)
+#            Kitchen / Library each open onto the river-side spiral stair (a
+#            feature you can pause on — not just a through-route).
 
 name: Utility Station
 cell: 64
@@ -58,6 +59,11 @@ rooms:
     rollDoor: right # bigger two-story roll-up, same (north) wall / driveway
     rollSpan: 0.6
     blurb: "Open to the roof. Empty now, but the tire tracks and oil stains say something big was housed and serviced here — gone elsewhere on the compound."
+  - id: spiral-stair
+    levels: [first, second]
+    feature: spiral-stair
+    name: "Spiral Stair"
+    blurb: "A glass half-cylinder thrust out over the cascade. River noise fills the stairwell — a good place to pause, take in the view, or talk without the rest of the station listening in."
 
   # ---------------- 2nd floor ----------------
   - id: conference
@@ -99,9 +105,10 @@ links:
   - { from: library, to: small-bay, kind: door } # man-door, library NE corner
   - { from: large-bay, to: conference, kind: stairs } # garage stair up to 2F
   - { from: conference, to: kitchen, kind: door }
-  - { from: kitchen, to: library, kind: winding-stairs } # river-side spiral
+  - { from: library, to: spiral-stair, kind: door }
+  - { from: kitchen, to: spiral-stair, kind: door }
 
-# Stair fixtures drawn over the plan (the actual stairs + glyphs).
+# Stair fixtures drawn over the plan (visual geometry for multi-floor stairs).
 fixtures:
   - id: spiral-stair
     kind: spiral-stairs
@@ -109,7 +116,7 @@ fixtures:
     protrude: top # half-cylinder of glass bulges out toward the cascade
     radius: 0.66
     onLevels: [first, second]
-    connects: [kitchen, library]
+    connects: [kitchen, library] # fog lifts once either landing room is known
   - id: garage-stair
     kind: straight-stairs
     # Runs along the large bay's west (top) wall, in the south (left) half;

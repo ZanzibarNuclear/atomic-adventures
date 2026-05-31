@@ -10,7 +10,7 @@ import {
   buildRouteModels,
   fenceSegments,
 } from './composables/useRoutes.js'
-import { buildBuilding, movesFrom } from './composables/useGrid.js'
+import { buildBuilding, movesFrom, moveKey } from './composables/useGrid.js'
 import {
   listEditableLines,
   findEditableLine,
@@ -318,6 +318,7 @@ const indoor = reactive({
   currentRoom: building.start,
   discovered: new Set([building.start]),
   level: building.roomById[building.start]?.level ?? building.levels[0]?.id,
+  viewLevel: building.roomById[building.start]?.level ?? building.levels[0]?.id,
   moving: false,
 })
 
@@ -325,7 +326,10 @@ const indoor = reactive({
 const atBuildingEntrance = computed(() => currentHexData.value?.area === 'utility')
 const atGatePuzzle = computed(() => currentHexData.value?.puzzle === 'gate')
 const currentRoomData = computed(() => building.roomById[indoor.currentRoom])
-const indoorMoves = computed(() => movesFrom(building, indoor.currentRoom))
+const indoorMoves = computed(() => movesFrom(building, indoor.currentRoom, indoor.level))
+const reachableRooms = computed(() =>
+  indoorMoves.value.filter((m) => !m.onSpiral).map((m) => m.toRoomId),
+)
 const levelsTopDown = computed(() => building.levels)
 
 function enterBuilding() {
@@ -336,23 +340,53 @@ function exitBuilding() {
   place.value = 'outdoors'
 }
 
-function moveToRoom(roomId) {
-  if (indoor.moving || !building.roomById[roomId]) return
-  // Only move to rooms connected to where we stand.
-  if (!indoorMoves.value.some((m) => m.toRoomId === roomId)) return
+function applyIndoorMove(move) {
+  if (indoor.moving) return
+  if (!indoorMoves.value.some((m) => moveKey(m) === moveKey(move))) return
+
   indoor.moving = true
-  indoor.currentRoom = roomId
-  indoor.discovered.add(roomId)
-  indoor.level = building.roomById[roomId].level
+
+  if (move.onSpiral) {
+    indoor.level = move.toLevel
+    indoor.viewLevel = move.toLevel
+    setTimeout(() => {
+      indoor.moving = false
+    }, 500)
+    return
+  }
+
+  const from = building.roomById[indoor.currentRoom]
+  const to = building.roomById[move.toRoomId]
+  if (!to) {
+    indoor.moving = false
+    return
+  }
+
+  indoor.currentRoom = move.toRoomId
+  indoor.discovered.add(move.toRoomId)
+
+  if (to.feature === 'spiral-stair') {
+    indoor.level = move.toLevel ?? from.level ?? from.levels?.[0]
+  } else {
+    indoor.level = move.toLevel ?? to.level ?? to.levels?.[0]
+  }
+  indoor.viewLevel = indoor.level
+
   setTimeout(() => {
     indoor.moving = false
   }, 500)
+}
+
+function moveToRoom(roomId) {
+  const move = indoorMoves.value.find((m) => !m.onSpiral && m.toRoomId === roomId)
+  if (move) applyIndoorMove(move)
 }
 
 function resetIndoor() {
   indoor.currentRoom = building.start
   indoor.discovered = new Set([building.start])
   indoor.level = building.roomById[building.start]?.level
+  indoor.viewLevel = indoor.level
 }
 </script>
 
@@ -578,7 +612,9 @@ function resetIndoor() {
         :building="building"
         :current-room="indoor.currentRoom"
         :discovered="[...indoor.discovered]"
-        :level="indoor.level"
+        :level="indoor.viewLevel"
+        :stand-level="indoor.level"
+        :reachable-rooms="reachableRooms"
         :expanded="expanded"
         @room-click="moveToRoom"
       />
@@ -596,14 +632,14 @@ function resetIndoor() {
         <div class="options">
           <button
             v-for="m in indoorMoves"
-            :key="m.toRoomId"
+            :key="moveKey(m)"
             class="route-btn"
             :class="'k-' + (m.kind === 'door' ? 'path' : 'road')"
             :disabled="indoor.moving"
-            @click="moveToRoom(m.toRoomId)"
+            @click="applyIndoorMove(m)"
           >
             Go {{ m.label }}
-            <span class="dest">→ {{ indoor.discovered.has(m.toRoomId) ? m.toName : '???' }}</span>
+            <span class="dest">→ {{ m.onSpiral || indoor.discovered.has(m.toRoomId) ? m.toName : '?' }}</span>
           </button>
         </div>
       </div>
@@ -614,9 +650,9 @@ function resetIndoor() {
           v-for="lv in levelsTopDown"
           :key="lv.id"
           class="mode-pill"
-          :class="{ active: indoor.level === lv.id }"
+          :class="{ active: indoor.viewLevel === lv.id }"
         >
-          <input type="radio" :value="lv.id" v-model="indoor.level" />
+          <input type="radio" :value="lv.id" v-model="indoor.viewLevel" />
           {{ lv.name }}
         </label>
       </div>

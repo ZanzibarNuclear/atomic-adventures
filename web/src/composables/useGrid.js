@@ -33,7 +33,14 @@ export function buildBuilding(data) {
 }
 
 export function roomsOnLevel(building, levelId) {
-  return building.rooms.filter((r) => r.level === levelId)
+  return building.rooms.filter(
+    (r) => !r.feature && (r.level === levelId || r.levels?.includes(levelId)),
+  )
+}
+
+export function roomOnLevel(room, levelId) {
+  if (room.feature) return room.levels?.includes(levelId) ?? room.level === levelId
+  return room.level === levelId
 }
 
 // Pixel rectangle for a room, given the cell size.
@@ -51,30 +58,75 @@ export function roomCenter(room, cell) {
   return { x: r.x + r.w / 2, y: r.y + r.h / 2 }
 }
 
-// Padded pixel bounds covering every room on a level: { x, y, w, h }.
-export function levelBounds(rooms, cell, pad = 0.6) {
-  if (rooms.length === 0) return { x: 0, y: 0, w: 100, h: 100 }
-  let minX = Infinity
-  let minY = Infinity
-  let maxX = -Infinity
-  let maxY = -Infinity
-  for (const room of rooms) {
-    const r = roomRect(room, cell)
-    minX = Math.min(minX, r.x)
-    minY = Math.min(minY, r.y)
-    maxX = Math.max(maxX, r.x + r.w)
-    maxY = Math.max(maxY, r.y + r.h)
-  }
-  const p = cell * pad
-  return { x: minX - p, y: minY - p, w: maxX - minX + p * 2, h: maxY - minY + p * 2 }
-}
-
 // `top` = west / river wall when north points right on the plan.
 function protrudeAngle(edge) {
   if (edge === 'top') return 270
   if (edge === 'bottom') return 90
   if (edge === 'left') return 180
   return 0
+}
+
+const SPIRAL_TREAD_COUNT = 7
+
+// Center of a spiral tread in layout pixels — default is the middle tread on the arc.
+export function spiralStandPoint(cx, cy, radius, protrude = 'top', treadIndex) {
+  const base = (protrudeAngle(protrude) * Math.PI) / 180
+  const westAng = base - Math.PI / 2
+  const n = SPIRAL_TREAD_COUNT
+  const midFrac = 0.5
+  const i = treadIndex ?? Math.floor((n - 1) / 2)
+  const t = n > 1 ? i / (n - 1) : 0
+  const ang = westAng + Math.PI * t
+  return {
+    x: cx + radius * midFrac * Math.cos(ang),
+    y: cy + radius * midFrac * Math.sin(ang),
+  }
+}
+
+// Landing badges at the top and bottom of the spiral run (kitchen / library ends).
+export function spiralExitPoint(cx, cy, radius, protrude = 'top', end) {
+  const n = SPIRAL_TREAD_COUNT
+  const treadIndex = end === 'up' ? n - 1 : 0
+  return spiralStandPoint(cx, cy, radius, protrude, treadIndex)
+}
+
+// Room ids at the high (▲) and low (▼) ends of the spiral stair.
+export function spiralExitRooms(building) {
+  const spiral = building.roomById['spiral-stair']
+  if (!spiral) return { upRoomId: null, downRoomId: null }
+  const { low, high } = spiralLandingsFor(building, spiral)
+  let upRoomId = null
+  let downRoomId = null
+  for (const link of building.links) {
+    let otherId = null
+    if (link.from === 'spiral-stair') otherId = link.to
+    else if (link.to === 'spiral-stair') otherId = link.from
+    else continue
+    const other = building.roomById[otherId]
+    if (!other || other.feature) continue
+    const lv = roomLevel(other)
+    if (lv === high) upRoomId = otherId
+    if (lv === low) downRoomId = otherId
+  }
+  return { upRoomId, downRoomId }
+}
+
+// Where the avatar stands — feature rooms use their fixture anchor instead of a grid cell.
+export function roomStandPosition(building, room) {
+  if (!room) return null
+  if (room.feature) {
+    const fixture = (building.fixtures ?? []).find((f) => f.id === room.feature)
+    if (fixture?.kind === 'spiral-stairs' && fixture.at) {
+      const cell = building.cell
+      return spiralStandPoint(
+        fixture.at.x * cell,
+        fixture.at.y * cell,
+        (fixture.radius ?? 0.6) * cell,
+        fixture.protrude ?? 'top',
+      )
+    }
+  }
+  return roomCenter(room, building.cell)
 }
 
 // View bounds for rendering: rooms plus fixtures (e.g. spiral semicircle past the wall).
@@ -145,14 +197,27 @@ export function sharedEdge(a, b, cell) {
 }
 
 function dirBetween(building, fromRoom, toRoom) {
-  const a = building.levelById[fromRoom.level]?.order ?? 0
-  const b = building.levelById[toRoom.level]?.order ?? 0
+  const a = building.levelById[roomLevel(fromRoom)]?.order ?? 0
+  const b = building.levelById[roomLevel(toRoom)]?.order ?? 0
   if (b > a) return 'up'
   if (b < a) return 'down'
   return 'same'
 }
 
-function moveLabel(kind, dir) {
+function roomLevel(room, landing = null) {
+  if (!room) return landing
+  if (room.feature === 'spiral-stair') return landing ?? room.levels?.[0]
+  return room.level ?? room.levels?.[0]
+}
+
+function moveLabel(kind, dir, from, to) {
+  if (to?.feature === 'spiral-stair') return 'onto the spiral stair'
+  if (from?.feature === 'spiral-stair') {
+    if (to.id === 'kitchen') return 'up to the kitchen'
+    if (to.id === 'library') return 'down to the library'
+    const short = (to.name ?? '').split('/')[0].trim().toLowerCase()
+    return short ? `into the ${short}` : 'into the next room'
+  }
   if (kind === 'door') return 'through the door'
   if (kind === 'open') return 'across the open garage'
   const flight = kind === 'winding-stairs' ? 'the spiral stair' : 'the stairs'
@@ -161,11 +226,55 @@ function moveLabel(kind, dir) {
   return `along ${flight}`
 }
 
+function standLevel(room, atLevel) {
+  return roomLevel(room, atLevel)
+}
+
+function levelOrder(building, levelId) {
+  return building.levelById[levelId]?.order ?? 0
+}
+
+function spiralLandingsFor(building, room) {
+  const levels = room?.levels ?? []
+  if (levels.length < 2) return { low: levels[0], high: levels[0] }
+  const sorted = [...levels].sort((a, b) => levelOrder(building, a) - levelOrder(building, b))
+  return { low: sorted[0], high: sorted[sorted.length - 1] }
+}
+
+export function moveKey(move) {
+  return move.onSpiral ? `${move.toRoomId}:${move.dir}` : move.toRoomId
+}
+
 // Every room reachable from `roomId` in one step, with a human label.
-export function movesFrom(building, roomId) {
+// `atLevel` is the floor landing the player occupies (required on the spiral stair).
+export function movesFrom(building, roomId, atLevel = null) {
   const out = []
   const from = building.roomById[roomId]
   if (!from) return out
+  const fromLevel = standLevel(from, atLevel)
+
+  if (from.feature === 'spiral-stair') {
+    for (const link of building.links) {
+      let otherId = null
+      if (link.from === roomId) otherId = link.to
+      else if (link.to === roomId) otherId = link.from
+      if (!otherId) continue
+      const other = building.roomById[otherId]
+      if (!other || other.feature === 'spiral-stair') continue
+      const otherLevel = roomLevel(other)
+      const dir = dirBetween(building, { level: fromLevel }, { level: otherLevel })
+      out.push({
+        toRoomId: otherId,
+        kind: link.kind,
+        dir,
+        label: moveLabel(link.kind, dir, from, other),
+        toName: other.name ?? otherId,
+        toLevel: otherLevel,
+      })
+    }
+    return out
+  }
+
   for (const link of building.links) {
     let toId = null
     if (link.from === roomId) toId = link.to
@@ -173,14 +282,15 @@ export function movesFrom(building, roomId) {
     if (!toId) continue
     const to = building.roomById[toId]
     if (!to) continue
-    const dir = dirBetween(building, from, to)
+    const toLevel = roomLevel(to, to.feature === 'spiral-stair' ? fromLevel : null)
+    const dir = dirBetween(building, { level: fromLevel }, { level: toLevel })
     out.push({
       toRoomId: toId,
       kind: link.kind,
       dir,
-      label: moveLabel(link.kind, dir),
+      label: moveLabel(link.kind, dir, from, to),
       toName: to.name ?? toId,
-      toLevel: to.level,
+      toLevel: to.feature === 'spiral-stair' ? fromLevel : toLevel,
     })
   }
   return out
@@ -221,8 +331,8 @@ export function doorsOnLevel(building, levelId) {
     .map((d) => ({ x: d.at.x * cell, y: d.at.y * cell, vertical: !!d.vertical }))
 }
 
-// Stair fixtures visible on a level: the spiral (half-cylinder of glass) and
-// the straight garage run. Clicking one travels to the connected off-floor room.
+// Stair fixtures visible on a level: the spiral (glass half-cylinder) and
+// the straight garage run. Travel is via room links, not fixture clicks.
 export function fixturesOnLevel(building, levelId) {
   const cell = building.cell
   const out = []
@@ -234,12 +344,14 @@ export function fixturesOnLevel(building, levelId) {
     const there = rooms.find((r) => r.level !== levelId)
     const dir = here && there ? dirBetween(building, here, there) : 'same'
     const toRoomId = there?.id ?? null
+    const connects = (f.connects ?? rooms.map((r) => r.id)).filter(Boolean)
     if (f.kind === 'spiral-stairs') {
       out.push({
         id: f.id,
         kind: f.kind,
         dir,
         toRoomId,
+        connects,
         x: f.at.x * cell,
         y: f.at.y * cell,
         protrude: f.protrude ?? 'top',
@@ -252,6 +364,7 @@ export function fixturesOnLevel(building, levelId) {
         kind: f.kind,
         dir,
         toRoomId,
+        connects,
         rect: { x: r.x * cell, y: r.y * cell, w: r.w * cell, h: r.h * cell },
         run: f.run ?? 'horizontal',
         ascend: f.ascend ?? 'end', // 'end' = high end at far x/y, 'start' = near

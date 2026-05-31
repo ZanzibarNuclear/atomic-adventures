@@ -3,7 +3,10 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
   roomsOnLevel,
   roomRect,
-  roomCenter,
+  roomStandPosition,
+  spiralStandPoint,
+  spiralExitPoint,
+  spiralExitRooms,
   levelDisplayBounds,
   levelBeams,
   doorsOnLevel,
@@ -16,6 +19,8 @@ const props = defineProps({
   currentRoom: { type: String, required: true },
   discovered: { type: [Array, Object], default: () => [] },
   level: { type: String, required: true },
+  standLevel: { type: String, default: null },
+  reachableRooms: { type: Array, default: () => [] },
   expanded: { type: Boolean, default: false },
 })
 
@@ -367,7 +372,33 @@ const placedFixtures = computed(() =>
       const fillPath = `M ${c.x} ${c.y} ` + tPts.map((p) => `L ${p.x} ${p.y}`).join(' ') + ' Z'
       const arcPath = `M ${tPts[0].x} ${tPts[0].y} ` + tPts.slice(1).map((p) => `L ${p.x} ${p.y}`).join(' ')
       const treads = spiralTreads(c0.x, c0.y, f.radius, f.protrude, tp)
-      return { id: f.id, type: 'spiral', dir: f.dir, toRoomId: f.toRoomId, cx: c.x, cy: c.y, fillPath, arcPath, treads }
+      const standLayout = spiralStandPoint(c0.x, c0.y, f.radius, f.protrude)
+      const stand = tp(standLayout.x, standLayout.y)
+      const { upRoomId, downRoomId } = spiralExitRooms(props.building)
+      const exitUpLayout = spiralExitPoint(c0.x, c0.y, f.radius, f.protrude, 'up')
+      const exitDownLayout = spiralExitPoint(c0.x, c0.y, f.radius, f.protrude, 'down')
+      const exitUp = tp(exitUpLayout.x, exitUpLayout.y)
+      const exitDown = tp(exitDownLayout.x, exitDownLayout.y)
+      const fogBox = bbox([c, ...tPts])
+      return {
+        id: f.id,
+        type: 'spiral',
+        dir: f.dir,
+        toRoomId: f.toRoomId,
+        connects: f.connects ?? [],
+        cx: c.x,
+        cy: c.y,
+        standX: stand.x,
+        standY: stand.y,
+        exitUp,
+        exitDown,
+        exitUpRoomId: upRoomId,
+        exitDownRoomId: downRoomId,
+        fillPath,
+        arcPath,
+        treads,
+        fogBox,
+      }
     }
     // Straight stairs: parallel tread lines, wider toward the top (plan convention).
     const r = f.rect
@@ -406,15 +437,40 @@ const placedFixtures = computed(() =>
       })
     }
     const cen = tp(r.x + r.w / 2, r.y + r.h / 2)
-    return { id: f.id, type: 'straight', dir: f.dir, toRoomId: f.toRoomId, box, treads, cx: cen.x, cy: cen.y }
+    return {
+      id: f.id,
+      type: 'straight',
+      dir: f.dir,
+      toRoomId: f.toRoomId,
+      connects: f.connects ?? [],
+      box,
+      treads,
+      cx: cen.x,
+      cy: cen.y,
+    }
   }),
 )
 
 const avatarScale = computed(() => (cell.value / 64) * 0.42)
+// Figure feet sit at y = 26 in local coords after scale().
+const avatarFootOffset = computed(() => 26 * avatarScale.value)
+const spiralFixture = computed(() => placedFixtures.value.find((f) => f.type === 'spiral'))
 const avatarPos = computed(() => {
-  if (!current.value || current.value.level !== props.level) return null
-  const c = roomCenter(current.value, cell.value)
-  return tp(c.x, c.y)
+  if (!current.value) return null
+  const landing = props.standLevel ?? props.level
+  if (current.value.feature === 'spiral-stair') {
+    if (landing !== props.level) return null
+    const sf = spiralFixture.value
+    if (!sf) return null
+    return {
+      x: sf.standX,
+      y: sf.standY - avatarFootOffset.value,
+    }
+  }
+  if (current.value.level !== props.level) return null
+  const stand = roomStandPosition(props.building, current.value)
+  if (!stand) return null
+  return tp(stand.x, stand.y)
 })
 
 // ---- Compass: a needle pointing to the plan's current north ----
@@ -435,9 +491,23 @@ function isDiscovered(room) {
 function isOpenVoid(room) {
   return room.open && !room.mirror
 }
+function isFixtureRevealed(fixture) {
+  const ids = fixture.connects?.length ? fixture.connects : fixture.toRoomId ? [fixture.toRoomId] : []
+  return ids.some((id) => discoveredSet.value.has(id))
+}
 function onRoomClick(room) {
   if (room.open) return
   emit('room-click', room.id)
+}
+function onSpiralClick(f) {
+  if (!isFixtureRevealed(f)) return
+  if (!props.reachableRooms.includes('spiral-stair')) return
+  emit('room-click', 'spiral-stair')
+}
+function onSpiralExitClick(roomId) {
+  if (props.currentRoom !== 'spiral-stair') return
+  if (!props.reachableRooms.includes(roomId)) return
+  emit('room-click', roomId)
 }
 </script>
 
@@ -493,9 +563,10 @@ function onRoomClick(room) {
             class="railing"
           />
 
-          <!-- Windows -->
+          <!-- Windows (revealed rooms only) -->
           <line
             v-for="(w, i) in p.windows"
+            v-show="isDiscovered(p.room) || isOpenVoid(p.room)"
             :key="p.room.id + '-win-' + i"
             :x1="w.x1"
             :y1="w.y1"
@@ -505,20 +576,35 @@ function onRoomClick(room) {
           />
 
           <!-- Tall roll-up garage door -->
-          <rect v-if="p.roll" :x="p.roll.x" :y="p.roll.y" :width="p.roll.w" :height="p.roll.h" class="roll-door" />
+          <rect
+            v-if="p.roll && (isDiscovered(p.room) || isOpenVoid(p.room))"
+            :x="p.roll.x"
+            :y="p.roll.y"
+            :width="p.roll.w"
+            :height="p.roll.h"
+            class="roll-door"
+          />
           <!-- Side man-door (exterior entry) -->
           <rect v-if="p.entry" :x="p.entry.x" :y="p.entry.y" :width="p.entry.w" :height="p.entry.h" class="entry-door" />
 
-          <text v-if="!isOpenVoid(p.room) && p.room.icon" :x="p.center.x" :y="p.center.y - cell * 0.16" class="room-icon">
+          <text
+            v-if="!isOpenVoid(p.room) && p.room.icon && isDiscovered(p.room)"
+            :x="p.center.x"
+            :y="p.center.y - cell * 0.16"
+            class="room-icon"
+          >
             {{ p.room.icon }}
           </text>
           <text
             :x="p.center.x"
-            :y="p.center.y + (isOpenVoid(p.room) ? 0 : cell * 0.14)"
+            :y="p.center.y + (isOpenVoid(p.room) ? 0 : isDiscovered(p.room) ? cell * 0.14 : 6)"
             class="room-label"
-            :class="{ 'open-label': isOpenVoid(p.room) }"
+            :class="{
+              'open-label': isOpenVoid(p.room),
+              'fog-mark': !isOpenVoid(p.room) && !isDiscovered(p.room),
+            }"
           >
-            {{ isOpenVoid(p.room) ? p.room.name : isDiscovered(p.room) ? p.room.name : '???' }}
+            {{ isOpenVoid(p.room) ? p.room.name : isDiscovered(p.room) ? p.room.name : '?' }}
           </text>
           <text
             v-if="p.room.note && isDiscovered(p.room) && !isOpenVoid(p.room)"
@@ -566,9 +652,26 @@ function onRoomClick(room) {
           v-for="f in placedFixtures"
           :key="f.id"
           class="fixture"
-          @click="f.toRoomId && emit('room-click', f.toRoomId)"
+          :class="{
+            fog: f.type === 'spiral' && !isFixtureRevealed(f),
+            current: f.type === 'spiral' && currentRoom === 'spiral-stair',
+            reachable: f.type === 'spiral' && isFixtureRevealed(f) && reachableRooms.includes('spiral-stair'),
+            'stair-clickable': f.type === 'straight',
+          }"
+          @click="f.type === 'spiral' ? onSpiralClick(f) : f.type === 'straight' && f.toRoomId && emit('room-click', f.toRoomId)"
         >
-          <template v-if="f.type === 'spiral'">
+          <template v-if="f.type === 'spiral' && !isFixtureRevealed(f)">
+            <rect
+              :x="f.fogBox.x"
+              :y="f.fogBox.y"
+              :width="f.fogBox.w"
+              :height="f.fogBox.h"
+              rx="4"
+              class="fixture-fog-fill"
+            />
+            <text :x="f.cx" :y="f.cy + 6" class="fog-mark">?</text>
+          </template>
+          <template v-else-if="f.type === 'spiral'">
             <path :d="f.fillPath" class="spiral-glass" />
             <path :d="f.arcPath" class="spiral-frame" />
             <line
@@ -582,10 +685,26 @@ function onRoomClick(room) {
               :stroke-width="t.width"
               :opacity="t.opacity"
             />
-            <circle :cx="f.cx" :cy="f.cy" :r="cell * 0.16" class="stair-pad" />
-            <text :x="f.cx" :y="f.cy" class="stair-icon">
-              {{ f.dir === 'up' ? '▲' : f.dir === 'down' ? '▼' : '↕' }}
-            </text>
+            <g v-if="currentRoom === 'spiral-stair'" class="spiral-exits">
+              <g
+                v-if="f.exitUpRoomId"
+                class="spiral-exit"
+                :class="{ reachable: reachableRooms.includes(f.exitUpRoomId) }"
+                @click.stop="onSpiralExitClick(f.exitUpRoomId)"
+              >
+                <circle :cx="f.exitUp.x" :cy="f.exitUp.y" :r="cell * 0.14" class="stair-pad" />
+                <text :x="f.exitUp.x" :y="f.exitUp.y" class="stair-icon">▲</text>
+              </g>
+              <g
+                v-if="f.exitDownRoomId"
+                class="spiral-exit"
+                :class="{ reachable: reachableRooms.includes(f.exitDownRoomId) }"
+                @click.stop="onSpiralExitClick(f.exitDownRoomId)"
+              >
+                <circle :cx="f.exitDown.x" :cy="f.exitDown.y" :r="cell * 0.14" class="stair-pad" />
+                <text :x="f.exitDown.x" :y="f.exitDown.y" class="stair-icon">▼</text>
+              </g>
+            </g>
           </template>
           <template v-else>
             <rect :x="f.box.x" :y="f.box.y" :width="f.box.w" :height="f.box.h" class="stair-hit" />
@@ -717,9 +836,9 @@ svg:not(.compass) {
   fill: #50617a;
 }
 .room.unvisited .floor {
-  fill: #2a3038;
+  fill: #222a25;
+  stroke: rgba(255, 255, 255, 0.07);
   stroke-dasharray: 4 4;
-  stroke: #4a5360;
 }
 .room.current .floor {
   fill: #5d7090;
@@ -738,9 +857,9 @@ svg:not(.compass) {
   stroke: #20262f;
 }
 .room.overlook.unvisited .floor {
-  fill: #2a3038;
+  fill: #222a25;
+  stroke: rgba(255, 255, 255, 0.07);
   stroke-dasharray: 4 4;
-  stroke: #4a5360;
 }
 .railing {
   stroke: #b9923f;
@@ -754,9 +873,6 @@ svg:not(.compass) {
   dominant-baseline: middle;
   pointer-events: none;
 }
-.room.unvisited .room-icon {
-  opacity: 0.25;
-}
 .room-label {
   fill: #f4f1de;
   font-size: 10px;
@@ -768,8 +884,13 @@ svg:not(.compass) {
   stroke-width: 3px;
   pointer-events: none;
 }
-.room.unvisited .room-label {
-  fill: #8b94a3;
+.fog-mark {
+  fill: rgba(255, 255, 255, 0.3);
+  font-size: 22px;
+  text-anchor: middle;
+  font-weight: 700;
+  paint-order: unset;
+  stroke: none;
 }
 .room-label.open-label {
   fill: #5d6775;
@@ -816,7 +937,21 @@ svg:not(.compass) {
   pointer-events: none;
 }
 .fixture {
+  cursor: default;
+}
+.fixture.reachable,
+.fixture.stair-clickable {
   cursor: pointer;
+}
+.fixture.fog {
+  cursor: default;
+}
+.fixture-fog-fill {
+  fill: #222a25;
+  stroke: rgba(255, 255, 255, 0.07);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+  pointer-events: none;
 }
 .stair-hit {
   fill: transparent;
@@ -833,6 +968,20 @@ svg:not(.compass) {
   stroke-width: 1.5;
   pointer-events: none;
 }
+.spiral-exit {
+  cursor: default;
+  opacity: 0.45;
+}
+.spiral-exit.reachable {
+  cursor: pointer;
+  opacity: 1;
+}
+.spiral-exit.reachable .stair-pad {
+  pointer-events: all;
+}
+.spiral-exit .stair-pad {
+  pointer-events: all;
+}
 .stair-icon {
   fill: #d7c48f;
   font-size: 11px;
@@ -843,12 +992,21 @@ svg:not(.compass) {
 .spiral-glass {
   fill: rgba(126, 200, 255, 0.16);
   stroke: none;
+  transition: fill 0.3s ease;
+}
+.fixture.current .spiral-glass {
+  fill: rgba(126, 200, 255, 0.28);
 }
 .spiral-frame {
   fill: none;
   stroke: #9fd3ff;
   stroke-width: 2.5;
   stroke-linejoin: round;
+  transition: stroke 0.3s ease, stroke-width 0.3s ease;
+}
+.fixture.current .spiral-frame {
+  stroke: #ffd166;
+  stroke-width: 3.5;
 }
 .avatar {
   transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
