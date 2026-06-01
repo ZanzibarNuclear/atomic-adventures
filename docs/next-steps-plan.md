@@ -65,7 +65,7 @@ Rationale: The sibling projects (crazy-converter = Nuxt 3, isotope-explorer = Vu
 ### Architecture
 
 ```
-┌─────────────────────────────────────────────┐
+┌──────────────────────────────────────────────┐
 │            Atomic Adventures (Vue 3)         │
 │                                              │
 │  ┌────────────────────────────────────────┐  │
@@ -77,31 +77,31 @@ Rationale: The sibling projects (crazy-converter = Nuxt 3, isotope-explorer = Vu
 │  │  - Simulation gates (pass/fail checks) │  │
 │  └────────────────────────────────────────┘  │
 │                                              │
-│  ┌──────────┐  ┌───────────┐  ┌──────────┐  │
-│  │  Hydro   │  │  PV Sim   │  │ Nuclear  │  │
-│  │  Sim     │  │           │  │ Sims     │  │
-│  │ (built-in│  │ (built-in │  │(built-in │  │
-│  │  Vue)    │  │  Vue)     │  │ Vue)     │  │
-│  └──────────┘  └───────────┘  └──────────┘  │
+│  ┌──────────┐  ┌───────────┐  ┌──────────┐   │
+│  │  Hydro   │  │  PV Sim   │  │ Nuclear  │   │
+│  │  Sim     │  │           │  │ Sims     │   │
+│  │ (built-in│  │ (built-in │  │(built-in │   │
+│  │  Vue)    │  │  Vue)     │  │ Vue)     │   │
+│  └──────────┘  └───────────┘  └──────────┘   │
 │                                              │
 │  ┌─────────────────┐  ┌──────────────────┐   │
-│  │ crazy-converter  │  │ isotope-explorer │   │
-│  │ (embed/iframe)   │  │ (Vue component   │   │
-│  │                  │  │  or iframe)      │   │
+│  │ crazy-converter │  │ isotope-explorer │   │
+│  │ (embed/iframe)  │  │ (Vue component   │   │
+│  │                 │  │  or iframe)      │   │
 │  └─────────────────┘  └──────────────────┘   │
-└─────────────────────────────────────────────┘
+└──────────────────────────────────────────────┘
 ```
 
 ### Key Design Choices
 
-| Aspect | Choice | Why |
-|--------|--------|-----|
-| Framework | Vue 3 (Composition API) | Matches isotope-explorer; team familiarity |
-| Story data | Declarative JSON/YAML passages | Authorable without code; inspired by Twine's passage graph |
-| Simulation gates | Engine checks sim outcomes before unlocking next passage | Implements the core loop directly |
-| Mini-game integration | Vue components (isotope-explorer) or iframe (crazy-converter/Nuxt) | No runtime bridging needed |
-| Build tool | Vite | Standard for Vue 3; fast HMR |
-| State management | Vue composables (start simple) | Upgrade to Pinia if complexity warrants |
+| Aspect                | Choice                                                             | Why                                                        |
+| --------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------- |
+| Framework             | Vue 3 (Composition API)                                            | Matches isotope-explorer; team familiarity                 |
+| Story data            | Declarative JSON/YAML passages                                     | Authorable without code; inspired by Twine's passage graph |
+| Simulation gates      | Engine checks sim outcomes before unlocking next passage           | Implements the core loop directly                          |
+| Mini-game integration | Vue components (isotope-explorer) or iframe (crazy-converter/Nuxt) | No runtime bridging needed                                 |
+| Build tool            | Vite                                                               | Standard for Vue 3; fast HMR                               |
+| State management      | Vue composables (start simple)                                     | Upgrade to Pinia if complexity warrants                    |
 
 ### Tasks
 

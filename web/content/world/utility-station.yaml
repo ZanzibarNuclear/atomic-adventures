@@ -1,0 +1,170 @@
+# Utility Station interior — a top-down floor plan, drawn to match the design
+# sketch. TWO floors share one footprint; the Large Bay (garage) is a single
+# double-height room, so on the 2nd floor that footprint is "open to below".
+#
+# Orientation: NORTH points RIGHT (east). The top of each plan is therefore
+# WEST — the river side, where the windows and the winding stair live.
+#
+# Stacking:  Conference sits over Library; Kitchen sits over Small Bay;
+#            the Large Bay spans both floors.
+# Stairs:    Large Bay (garage) --straight stairs--> Conference (2nd floor)
+#            Kitchen / Library each open onto the river-side spiral stair (a
+#            feature you can pause on — not just a through-route).
+
+id: utility-station
+name: Utility Station
+cell: 64
+gridFeet: 10 # light floor-grid lines every 10 feet
+unitFeet: 10 # one layout unit (room x/y/w/h) = 10 feet
+start: large-bay
+north: right # the compass arrow points right, per the sketch
+
+# Highest order is the top floor.
+levels:
+  - { id: second, name: "2nd Floor", order: 1 }
+  - { id: first, name: "1st Floor", order: 0 }
+
+rooms:
+  # ---------------- 1st floor (ground) ----------------
+  - id: library
+    level: first
+    x: 0
+    y: 0
+    w: 2
+    h: 2
+    name: "Library / Study"
+    icon: "📚"
+    windows: [top] # west / river side
+    blurb: "Shelves, manuals, log binders, and three holo-reader stations. Windows covered by sliding blinds. Views of the river cascade."
+  - id: small-bay
+    level: first
+    x: 2
+    y: 0
+    w: 2
+    h: 2
+    name: "Small Bay"
+    icon: "🔧"
+    note: "1 story · EV bay"
+    rollDoor: right # single-story roll-up onto the driveway (north wall)
+    rollSpan: 0.72
+    blurb: "The e-buggy is parked here under a cloth. Needs charge to move. Power cable and outlet, electrical gear, a voltage meter, assorted tools."
+  - id: large-bay
+    level: first
+    x: 0
+    y: 2
+    w: 4
+    h: 3
+    name: "Large Bay"
+    icon: "🅿️"
+    note: "2 stories"
+    rollDoor: right # bigger two-story roll-up, same (north) wall / driveway
+    rollSpan: 0.6
+    blurb: "Open to the roof. Empty now, but the tire tracks and oil stains say something big was housed and serviced here — gone elsewhere on the compound."
+  - id: spiral-stair
+    levels: [first, second]
+    feature: spiral-stair
+    name: "Spiral Stair"
+    blurb: "A glass half-cylinder with a spectacular view of the cascade. White noise from the river fills the stairwell. A good place to pause and take in the view or hold a semi-private conversation."
+
+  # ---------------- 2nd floor ----------------
+  - id: conference
+    level: second
+    x: 0
+    y: 0
+    w: 2
+    h: 2
+    name: "Conference Room"
+    icon: "🪑"
+    windows: [top]
+    blurb: "Table, chairs, and dirty windows framing the river rapids and sloping valley."
+  - id: kitchen
+    level: second
+    x: 2
+    y: 0
+    w: 2
+    h: 2
+    name: "Kitchen / Dining"
+    icon: "🍽️"
+    blurb: "Worker kitchen and dining area. Water purifier, rations, dishes and utensils. Small table with kitchen chairs."
+  - id: bay-open
+    level: second
+    x: 0
+    y: 2
+    w: 4
+    h: 3
+    name: "Large Bay"
+    icon: "🅿️"
+    note: "2 stories"
+    open: true # mezzanine edge — you can't stand here, but it's the same bay
+    mirror: large-bay # show like the 1st-floor garage once you've been below
+    blurb: "The 2-story high bay, open to the rafters. Enter at the top of the stairs."
+
+# Connectivity. Door-kind links name a `door` id; movement requires that door open.
+links:
+  - { from: small-bay, to: large-bay, kind: open } # one big open garage
+  - { from: library, to: small-bay, kind: door, door: library-small-bay }
+  - { from: large-bay, to: conference, kind: stairs } # garage stair up to 2F
+  - { from: conference, to: kitchen, kind: door, door: conference-kitchen }
+  - { from: library, to: spiral-stair, kind: door, door: library-spiral }
+  - { from: kitchen, to: spiral-stair, kind: door, door: kitchen-spiral }
+
+# Doors: topology + visuals + initial state. All start closed.
+doors:
+  - id: library-small-bay
+    kind: man
+    level: first
+    at: { x: 2, y: 1.62 }
+    vertical: true
+    initial: { closed: true, locked: true }
+  - id: large-bay-man
+    kind: man
+    level: first
+    room: large-bay
+    at: { x: 0.6, y: 5 }
+    label: "Large bay man door"
+    initial: { closed: true, lockBroken: true }
+  - id: library-spiral
+    kind: man
+    level: first
+    at: { x: 1.68, y: 0.04 }
+    initial: { closed: true, locked: false }
+  - id: small-bay-roll
+    kind: roll
+    room: small-bay
+    initial: { closed: true, locked: true }
+  - id: large-bay-roll
+    kind: roll
+    room: large-bay
+    initial: { closed: true, locked: true }
+  - id: conference-kitchen
+    kind: man
+    level: second
+    at: { x: 2, y: 1.0 }
+    vertical: true
+    initial: { closed: true, locked: false }
+  - id: conference-garage-stair
+    kind: man
+    level: second
+    at: { x: 1.62, y: 2 }
+    initial: { closed: true, locked: false }
+  - id: kitchen-spiral
+    kind: man
+    level: second
+    at: { x: 2.32, y: 0.04 }
+    initial: { closed: true, locked: false }
+
+fixtures:
+  - id: spiral-stair
+    kind: spiral-stairs
+    at: { x: 2, y: 0 }
+    protrude: top
+    radius: 0.66
+    onLevels: [first, second]
+    connects: [kitchen, library]
+  - id: garage-stair
+    kind: straight-stairs
+    rect: { x: 0.2, y: 2.08, w: 1.55, h: 0.5 }
+    run: horizontal
+    ascend: end
+    onLevels: [first, second]
+    connects: [large-bay, conference]

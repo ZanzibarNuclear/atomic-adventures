@@ -1,0 +1,20 @@
+{
+  "name": "atomic-adventures-web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Web-native CYOA engine for Atomic Adventures. Currently seeding the hex-map travel prototype.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3.5.35"
+  },
+  "devDependencies": {
+    "@rollup/plugin-yaml": "^5.0.0",
+    "@vitejs/plugin-vue": "^6.0.7",
+    "vite": "^8.0.14"
+  }
+}

@@ -1,0 +1,170 @@
+# World overview map for Atomic Adventures — Act I opening.
+#
+# HEX REFERENCE
+# -------------
+# Each hex has a unique `id` (kebab-case) — use this in story, flags, and code.
+# Layout uses axial coordinates (q, r), pointy-top. North = decreasing r / screen-up.
+#   https://www.redblobgames.com/grids/hexagons/
+#
+# Authoring routes & features: anchor waypoints to a hex with optional offsets
+#   { hex: utility-yard, dx: -0.3, dy: 0.1 }
+# dx/dy are in hex-size units (-y = north). Raw { x, y } world coords still work.
+#
+# standAt — where the player stands (independent of routes):
+#   { x, y }                     fixed world coords (e.g. gate-woods)
+#   { from: landmark, dx, dy }   offset from the landmark icon; moves with the building
+#   { dx, dy }                   offset from hex center
+# dx/dy are in hex-size units (-y = north). Omit standAt on icon hexes for a default
+# "beside the landmark" offset (0.34, 0.42).
+#
+# Grid sketch (r increases downward on the slope):
+#
+#    upper-gorge (-1,-2)  road-fork (0,-2)   north-bend (0,-1)   far-pines (1,-1)
+#    north-west (-2,-1)  gate-woods (-1,-1)   …
+#       mid-west (-2,0)  west-slope (-1,0)   center-pines (0,0) …  trailhead (2,0)
+#  utility-yard (-2,1) [utility station]  south-pines (-1,1)  lower-stand (0,1)
+#
+# River: upper-gorge → … → utility-yard (cascade) → off SW.
+# Roads: compound-road (paved) gate ↔ north ↔ NE stub at road-fork (0,-2).
+#        river-access-drive (granite) — side road from road-fork west to the river.
+
+orientation: pointy
+size: 44
+
+start: trailhead
+journey:
+  [trailhead, east-pines, center-pines, north-bend, gate-woods, utility-yard]
+
+hexes:
+  - { id: upper-gorge, q: -1, r: -2, terrain: forest }
+
+  - { id: road-fork, q: 0, r: -2, terrain: forest }
+
+  - { id: north-west, q: -2, r: -1, terrain: forest }
+
+  - { id: north-bend, q: 0, r: -1, terrain: forest }
+
+  - { id: far-pines, q: 1, r: -1, terrain: forest }
+
+  - id: gate-woods
+    q: -1
+    r: -1
+    terrain: forest
+    puzzle: gate
+    standAt: { x: -81, y: -58 }
+    landmark:
+      name: "Compound Gate"
+      blurb: "A locked fence gate and a guard booth."
+
+  - { id: mid-west, q: -2, r: 0, terrain: forest }
+
+  - { id: west-slope, q: -1, r: 0, terrain: forest }
+
+  - { id: center-pines, q: 0, r: 0, terrain: forest }
+
+  - { id: east-pines, q: 1, r: 0, terrain: forest }
+
+  - { id: trailhead, q: 2, r: 0, terrain: forest }
+
+  - id: utility-yard
+    q: -2
+    r: 1
+    terrain: clearing
+    area: utility
+    cascade: true
+    standAt: { from: landmark, dx: 0.42, dy: 0.02 }
+    landmark:
+      icon: "🏚️"
+      name: "Utility Station"
+      # Authored SVG also available: building: utility-station (UtilityStationLandmark.vue)
+      dx: 0.06
+      dy: 0.19
+      blurb: "Built beside a rocky cascade on the river, this facility is the central location for Part I of our adventure."
+
+  - { id: south-pines, q: -1, r: 1, terrain: forest }
+
+  - { id: lower-stand, q: 0, r: 1, terrain: forest }
+
+features:
+  - id: mountain-river
+    kind: river
+    smooth: true
+    flow: south
+    points:
+      - { hex: upper-gorge, dx: 0.56, dy: -0.57 }
+      - { hex: north-west, dx: 0.52, dy: -0.42 }
+      - { hex: mid-west, dx: -0.19, dy: -0.47 }
+      - { hex: utility-yard, dx: -0.46, dy: -0.97 }
+      - { hex: utility-yard, dx: -0.5, dy: 0.53 }
+      - { x: -159, y: 127 }
+
+  - id: fence-run-south
+    kind: fence
+    points:
+      - { x: -30, y: 140 }
+      - { x: -30, y: -50 }
+
+  - id: fence-run-west
+    kind: fence
+    points:
+      - { x: -30, y: -50 }
+      - { x: -164, y: -49 }
+
+  - id: compound-gate
+    kind: gate
+    hex: gate-woods
+    at: { x: -94, y: -58 }
+    labelAt: { x: -81, y: -42 }
+    name: Gate
+
+  - id: compound-road
+    kind: road
+    smooth: true
+    points:
+      - { x: -81, y: 150 }
+      - { x: -81, y: 60 }
+      - { x: -81, y: -40 }
+      - { x: -81, y: -58 }
+      - { x: -81, y: -88 }
+      - { x: -82, y: -104 }
+      - { hex: road-fork, dx: -0.07, dy: 0.16 }
+      - { hex: road-fork, dx: 0.32, dy: -0.13 }
+      - { hex: road-fork, dx: 0.66, dy: -0.55 }
+
+  - id: river-access-drive
+    kind: drive
+    smooth: true
+    points:
+      - { hex: road-fork, dx: -0.15, dy: 0.23 }
+      - { hex: upper-gorge, dx: 0.91, dy: 0.3 }
+      - { x: -133, y: -130 }
+
+  - id: station-driveway
+    kind: drive
+    points:
+      - { x: -81, y: 60 }
+      - { x: -99, y: 59 }
+      - { hex: utility-yard, dx: 0.13 }
+
+routes:
+  - id: hero-route
+    kind: path
+    name: "the trail"
+    smooth: true
+    points:
+      - { x: 152, y: 2 }
+      - { x: 123, y: 6 }
+      - { x: 86, y: 2 }
+      - { x: 53, y: -4 }
+      - { x: 24, y: -4 }
+      - { x: -6, y: 0 }
+      - { x: -24, y: -3 }
+      - { x: -24, y: -28 }
+      - { x: -26, y: -55 }
+      - { x: -55, y: -57 }
+      - { x: -80, y: -59 }
+      - { x: -81, y: -35 }
+      - { x: -81, y: -9 }
+      - { x: -81, y: 24 }
+      - { x: -81, y: 52 }
+      - { hex: utility-yard, dx: 0.8, dy: 0.02 }
