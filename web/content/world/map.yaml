@@ -19,13 +19,12 @@
 #
 # Grid sketch (r increases downward on the slope):
 #
-#              high-rocks (0,-3)  ⛰️
 #    upper-gorge (-1,-2)  road-fork (0,-2)   north-bend (0,-1)   far-pines (1,-1)
 #    north-west (-2,-1)  gate-woods (-1,-1)   …
 #       mid-west (-2,0)  west-slope (-1,0)   center-pines (0,0) …  trailhead (2,0)
 #  utility-yard (-2,1) [utility station]  south-pines (-1,1)  lower-stand (0,1)
 #
-# River: high-rocks → upper-gorge → … → utility-yard (cascade) → off SW.
+# River: upper-gorge → … → utility-yard (cascade) → off SW.
 # Roads: compound-road (paved) gate ↔ north ↔ NE stub at road-fork (0,-2).
 #        river-access-drive (granite) — side road from road-fork west to the river.
 
@@ -37,16 +36,6 @@ journey:
   [trailhead, east-pines, center-pines, north-bend, gate-woods, utility-yard]
 
 hexes:
-  - id: high-rocks
-    q: 0
-    r: -3
-    terrain: rock
-    standAt: { from: landmark, dx: 0.34, dy: 0.42 }
-    landmark:
-      icon: "⛰️"
-      name: "High Rocks"
-      dy: -0.45
-
   - { id: upper-gorge, q: -1, r: -2, terrain: forest }
 
   - { id: road-fork, q: 0, r: -2, terrain: forest }
@@ -102,13 +91,12 @@ features:
     smooth: true
     flow: south
     points:
-      - { hex: high-rocks, dx: -0.15, dy: -0.15 }
-      - { hex: upper-gorge, dx: 0.37, dy: 0.34 }
-      - { hex: north-west, dx: 0.3, dy: -0.07 }
-      - { hex: mid-west, dx: 0.24, dy: -0.3 }
-      - { hex: utility-yard, dx: -0.39, dy: -0.71 }
-      - { hex: utility-yard, dx: -0.53, dy: 0.52 }
-      - { x: -163, y: 125 }
+      - { hex: upper-gorge, dx: 0.56, dy: -0.57 }
+      - { hex: north-west, dx: 0.52, dy: -0.42 }
+      - { hex: mid-west, dx: -0.19, dy: -0.47 }
+      - { hex: utility-yard, dx: -0.46, dy: -0.97 }
+      - { hex: utility-yard, dx: -0.5, dy: 0.53 }
+      - { x: -159, y: 127 }
 
   - id: fence-run-south
     kind: fence
@@ -148,8 +136,8 @@ features:
     smooth: true
     points:
       - { hex: road-fork, dx: -0.15, dy: 0.23 }
-      - { hex: upper-gorge, dx: 1.09, dy: 0.28 }
-      - { x: -123, y: -128 }
+      - { hex: upper-gorge, dx: 0.91, dy: 0.3 }
+      - { x: -133, y: -130 }
 
   - id: station-driveway
     kind: drive
