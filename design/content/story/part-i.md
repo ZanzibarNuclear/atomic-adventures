@@ -4,19 +4,23 @@
 
 The action takes place on a mountainside in an old-growth pine forest. Tight focus on Zanzibar Nuhero as we live his story.
 
-Zanzibar had been walking in the forest for days. He parted company with his small group of explorers, following an unshakable intuition. Now the situation was becoming despirate. Zanzibar is low on food and water. Zanzibar has a habit of counteracting despiration with optimism. He will get through this, and things will be better.
+Zanzibar had been walking in the forest for days. He parted company with his small group of explorers, following an unshakable intuition and an impasse. Now the situation is growing desperate. Zanzibar is low on food and water, and his hunch has yet to play out.
 
 **Inventory:** Use this time to become familiar with the character, including how to review possessions.
 
-Early afternoon. The sun is still high, the weather is pleasant, a gentle warm breeze meets his face. A nice summer day. The natural fresh-pine scent keeps Zanzibar alert. His fasting stomach gives an edge to his senses.
+Not one to wallow for long, Zanzibar perries desperation with optimism. Things will be better. He will survive.
 
-Before long, he sees the first sign of human existance in days, a chain-link fence. The fence runs up and down the slope, cutting off the semblance of a path Zanzibar was following. Zanzibar turned uphill. Higher ground offers better vantage points. As he traced the fence, Zanzibar thought about its purpose. Who was it keeping out, who or what was it keeping in? The way over looked nasty. He would need a shovel to go under.
+Early afternoon of a nice summer day. The sun is still high, the weather is pleasant, a gentle warm breeze meets his face. The natural fresh-pine scent keeps Zanzibar alert. His fasting stomach gives an edge to his senses.
 
-Zanzibar resolve to follow the fence and look for an entrance. Long story short, he comes to a corner, which he rounds, and after some time heading west again, he comes to a gate. The gate is closed and wrapped in chains with rusty pad locks. There is no way in without bolt cutters, a blow torch, or a tank.
+At the time of the disagreement, Zanzibar and his group were a bit lost. They reached a point where the path split. He was certain that the best strategy would be to head west. Everyone else thought it would be better to go east. It turned out that what seemed like a path dwindled to more of a suggestion, and then nothing at all but the random droppings of pine cones among the tall trees.
 
-**Puzzle 1:** Let's say this portion of fence uses the tricks of a tavern puzzle. Fasteners that seem to be close are more like complex buttons, waiting for someone clever enough to undo them and walk right through.
+Turning back would be a mistake.
 
-**Unlock:** On closer inspection, he finds that a corner of the fence has been cut. Extra chain reinforcements were only there to reinforce the idea of impenetrability. In fact, the fence was open. He goes through, taking care to restore the illusion.
+After a time, Zanzibar found the first sign of humanity in days. A chain-link fence rose out of the ground, stretching in a straight line up and down the mountainside. Zanzibar turned uphill, hoping that higher ground would offer a vantage point. As he walked, Zanzibar thought about the fence and what was on the other side.
+
+Zanzibar followed the fence for what might have been a half a mile. He reached a corner and rounded the bend. At least he was back on his westward heading. Before long, he reached a gate with a guard house. Both were closed and locked. A pair of bolt cutters or a blow torch would come in handy. Or a tank.
+
+Something about the fence was a bit extra. On closer inspection, Zanzi notices that the chain holding the gate closed was loose. It was more to reinforce the idea of impenetrability. Zanzi unraveled the chain, went through, then replaced it to restore the illusion.
 
 ## The Compound
 
