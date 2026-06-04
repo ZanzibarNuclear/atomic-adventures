@@ -180,9 +180,9 @@ With shelter established, Zanzibar digs deeper. This arc may unfold over **multi
 | ------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------- |
 | **Library (first visit)** | Study material to prepare for hydro                                 | Physical docs and/or limited access; sets up core concepts |
 | **Hydro control room**    | First major system — remote control of the campus diversion plant (penstock, turbine, generator) | Player figures out how to bring hydro online                   |
-| **Power online**          | First restoration win — lights, systems, charge port                | Simulation gate: hydro startup succeeds                   |
-| **EV buggy**              | Campus mobility; reward for restoring power                         | In garage or nearby; charge and drive                      |
-| **Buggy drive**           | Earned celebration — explore the campus                             | Charge the EV; drive around; enjoy what he has learned     |
+| **Power online**          | First restoration win — lights, systems, charge port                | Hydro Level 1: four-step startup chain → [Unlocks](../part-i-unlocks.md#hydro--level-1-startup) |
+| **EV buggy**              | Campus mobility; reward for restoring power                         | Found in garage earlier; charge after `hub.hydro_online`   |
+| **Buggy drive**           | Earned celebration — explore the campus                             | Discovery track: compound, storage, solar, reactor tease — [Unlocks](../part-i-unlocks.md#discovery-track-campus-and-other-tech) |
 
 **Emotional arc:** Curiosity → competence → joy. Zanzibar goes from hungry wanderer to someone who brought the penstock plant back online and is cruising the campus in an electric buggy. This is the first time optimism pays off at scale.
 
@@ -224,7 +224,7 @@ See [World & Style Guide](world-and-style.md) for hub layout and [Learning Objec
 
 ### Beat — Hydro operations (core of Part I)
 
-After first power and the holo-reader revelation, Part I shifts from **one-time startup** to **ongoing operation**. Zanzibar must learn everything about **this** plant — not hydro in the abstract, but the Upper Penstock diversion system on Mill Brook — and keep it running reliably.
+After first power and the holo-reader revelation, Part I shifts from **one-time startup** to **ongoing operation**. Zanzibar must learn everything about **this** plant — not hydro in the abstract, but the Upper Penstock diversion system on Mill Brook — and keep it running reliably. First startup should feel almost too easy; operations then layers real problems in many rounds before the Part II threshold — see [Staged Complexity](../progression-design.md#staged-complexity-through-real-world-challenges).
 
 This phase lasts **at least a few weeks** of game time. The player establishes a **routine**:
 
@@ -233,7 +233,7 @@ This phase lasts **at least a few weeks** of game time. The player establishes a
 | **Daily checks** | Intake, penstock pressure, turbine status — catch drift before failure |
 | **Maintenance tasks** | Clear debris at intake, inspect penstock telemetry, lubrication / wear items (simplified) |
 | **Flow adjustment** | Respond to stream conditions (seasonal variation, weather events) |
-| **Power management** | Allocate campus load — lighting zones, holo-readers, EV charge, systems that draw more as campus wakes up |
+| **Power management** | Allocate campus load — lighting zones, holo-readers, EV charge, systems that draw more as campus wakes up. Ops rounds: leaks, gauges, load vs. capacity, excess generation — [Unlocks](../part-i-unlocks.md#hydro--operations-level-2) |
 | **Logs and learning** | Operator logbooks, holo-reader deep dives on this plant's quirks |
 
 **Power management** is a distinct skill layer: the control room is not only about starting the turbine but **balancing supply and demand** across campus circuits. Mismanagement causes brownouts, tripped loads, or plant stress — teaching that generation and consumption must match.
@@ -324,7 +324,8 @@ Each story beat should:
 - [x] Define Part I scope (several weeks; hydro operations core) and ending (hidden elevator down; hydro gate)
 - [x] Establish Part I beat sequence (arrival → shelter → startup → operations → elevator)
 - [ ] **Work out operations schedule** — maintenance routine cadence; power-management scenarios
-- [ ] Define hydro → elevator gate (power threshold, competence flags, discovery trigger)
+- [x] Draft Part I unlock catalog (hydro L1 chain, ops rounds, discoveries) — [part-i-unlocks.md](../part-i-unlocks.md)
+- [ ] Finalize hydro → elevator gate weights and discovery triggers
 - [ ] Define forest-to-facility path (specific scenes)
 - [ ] Define the group, the argument, and what "help" means
 - [x] Post-power library beat — holo-readers, DoE facility reveal, advanced hydro (details TBD)

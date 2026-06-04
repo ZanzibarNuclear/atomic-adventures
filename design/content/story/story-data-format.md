@@ -282,7 +282,8 @@ All state is serializable to JSON for save/load.
 
 - **Passage IDs** — kebab-case, unique within an area: `control-building`, `turbine-hall-lit`
 - **Cross-area references** — `area:passage` syntax: `hydro:arrival`, `hub:main-hall`
-- **Flag names** — dot-scoped: `hydro.read_ops_manual`, `hub.hydro_unlocked`
+- **Flag names** — dot-scoped: `hydro.read_ops_manual`, `hub.hydro_online`
+- **Challenge / unlock IDs** — kebab-case, technology-prefixed: `hydro.clear-intake-debris`, `hub.buggy-mobile`. Chains and Part I catalog: [Part I Unlocks](../part-i-unlocks.md)
 - **Item IDs** — flat kebab-case: `flashlight`, `reactor-keycard`
 - **Simulation IDs** — match Vue component names: `hydro-turbine-select`, `ap1000-startup`
 - **Image paths** — relative to an assets directory: `hydro/arrival-overlook.jpg`

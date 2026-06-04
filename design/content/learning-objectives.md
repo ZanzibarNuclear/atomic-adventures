@@ -13,7 +13,7 @@ Learning objectives drive story gates. A player cannot advance until they demons
 | Objective | Assessment |
 |-----------|------------|
 | Understand head and flow determine power | Correctly predict P from Q, H in simulation |
-| Know penstock → turbine → generator chain | Complete startup sequence: intake, turbine, sync |
+| Know penstock → turbine → generator chain | Complete Level 1 startup: clear intake → pressure rise → turbine valve → generator ([unlocks](part-i-unlocks.md#hydro--level-1-startup)) |
 | Operate this plant reliably | Complete maintenance routine over in-game weeks |
 | Manage campus power supply and demand | Balance loads without brownouts; pass power-management scenarios |
 | Recognize turbine types | Choose appropriate turbine for conditions (sandbox / later) |

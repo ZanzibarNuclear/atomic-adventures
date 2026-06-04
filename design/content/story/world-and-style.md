@@ -64,7 +64,7 @@ The hub serves as:
 | **Library** | Study material; **holo-readers** (power-gated) for immersive future-style learning |
 | **Hydro control room** | Remote startup of the campus diversion plant (intake, penstock, turbine, generator on Mill Brook) |
 
-*Additional campus buildings and outdoor areas TBD — explored via EV buggy after power returns.*
+*Additional campus buildings and outdoor areas — explored via EV buggy after power returns. Discoveries (battery storage array, solar field, Act II reactor tease) are catalogued in [Part I Unlocks](../part-i-unlocks.md#discovery-track-campus-and-other-tech).*
 
 #### Library and holo-readers
 
@@ -79,7 +79,7 @@ Holo-readers are a **power-gated reward**: restoration unlocks deeper knowledge.
 
 ### Campus mobility
 
-An **EV buggy** in the garage becomes available once power is restored. Charging it and driving around the campus is a reward beat after the first simulation success — not necessarily the same in-game day as power coming online.
+An **EV buggy** in the garage is found during shelter; charging and driving unlock after hydro Level 1 (station power on). The compound tour is the main **discovery** adventure — storage, solar, and clues about the advanced modular reactor below. See [Part I Unlocks](../part-i-unlocks.md).
 
 ### Hidden elevator (Part I ending)
 
