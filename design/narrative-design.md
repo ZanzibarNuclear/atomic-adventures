@@ -22,6 +22,7 @@
 
 ## Pacing
 
+- **Staged challenges** — Wins can feel almost too easy first; story and simulations then introduce real-world problems in rounds. See [Staged Complexity](content/progression-design.md#staged-complexity-through-real-world-challenges) in Progression Design.
 - **Part I opening** — Survival and exploration first; one simulation win (hydro); celebration before complexity rises. Early beats may span **multiple in-game days** — the week is a container, not a rush
 - **Part I mid-week** — TBD; room for exploration, false starts, and overnight breaks between milestones
 - **Part I ending** — Hidden elevator threshold after roughly a week

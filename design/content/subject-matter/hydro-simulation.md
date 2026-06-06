@@ -76,19 +76,24 @@ Mill Brook (mountain stream)
 
 The first hydro simulation is a **startup sequence**. Zanzibar has read enough in the library; the sim tests application.
 
-### Proposed flow
+### Level 1 startup flow (four steps)
 
-1. **Check conditions** — Head and available flow displayed (from plant telemetry). Turbine type is fixed (appropriate for this site).
-2. **Open intake** — Set diversion flow (Q). Too little → insufficient power; too much → educational warning (environmental bypass / intake limits).
-3. **Penstock online** — Confirm pressure stable (implicit once flow is set — or one explicit "open penstock valve" step).
-4. **Start turbine** — Spinner reaches operating speed; efficiency (η) shown for current Q and H.
-5. **Sync generator** — Match campus load; power (MW) crosses threshold → **success**.
+Canonical unlock chain — see [Part I Unlocks](../part-i-unlocks.md#hydro--level-1-startup).
+
+| Step | Player action | Teaching moment |
+| ---- | ------------- | --------------- |
+| 1 | **Clear intake debris** | Flow path must be open before anything else works |
+| 2 | **Confirm penstock pressure rising** | Head pressure proves the line is filling |
+| 3 | **Open valve to turbine** | Admit flow; turbine begins to spin |
+| 4 | **Energize / sync generator** | Deliver power to campus → **station power on** |
+
+**Level 1 complete** when step 4 succeeds.
 
 ### Success criteria (startup)
 
 - Power output ≥ campus minimum (TBD — calibrate for "lights + charge port")
 - No fault states triggered (cavitation warning, overspeed, etc.)
-- Sets story flag: `hub.hydro_online`
+- Sets flags: `hydro.level-1-complete`, `hub.hydro_online`
 
 ### Phase 2: Operations (weeks — core gameplay)
 
@@ -136,9 +141,10 @@ The **hidden elevator** requires **sustained hydro competence** — not a single
 
 ### Phase 1 — Startup (required once)
 
-1. **Intake / flow control** — Adjust Q; see P update in real time
-2. **Turbine startup** — Bring system to operating speed
-3. **Generator sync** — Connect to campus load; reach power threshold
+1. **Clear intake** — Debris removed; path ready for diversion
+2. **Penstock pressure** — Read gauges; confirm rise
+3. **Turbine valve** — Open admission; spin up
+4. **Generator** — Sync; reach power threshold
 
 ### Phase 2 — Operations (recurring, weeks)
 
@@ -178,6 +184,7 @@ The **hidden elevator** requires **sustained hydro competence** — not a single
 
 ## Related Docs
 
+- [Part I Unlocks](../part-i-unlocks.md) — challenge IDs, ops rounds, discovery track
 - [Hydro research notes](../research/hydro.md)
 - [Story Overview](../story/story-overview.md) — first power beat
 - [Regional Geography](../story/regional-geography.md) — Mill Brook, Upper Penstock plant
