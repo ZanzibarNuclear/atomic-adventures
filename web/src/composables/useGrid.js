@@ -169,7 +169,7 @@ function isDoorPeekOpen(doorId, ctx) {
 function canPeekThroughDoor(doorId, ctx) {
   if (!isDoorPeekOpen(doorId, ctx)) return false
   const door = ctx?.building?.doorById?.[doorId]
-  if (door?.showWhenRoom && !ctx.discovered.has(door.showWhenRoom)) return false
+  // showWhenRoom only gates the door glyph (isDoorMapped), not peeking once it is open.
   if (door?.showWhenRevealed) {
     const room = ctx.building?.roomById?.[door.showWhenRevealed]
     if (!room || !isRoomMapped(room, ctx)) return false
@@ -388,8 +388,10 @@ export function movesFrom(building, roomId, atLevel = null, doorState = null, vi
   const fromLevel = standLevel(from, atLevel)
   const areaId = building.areaId
 
-  function targetMapped(room) {
+  // Map peeking is separate from movement: an open door link works like any other door.
+  function targetReachable(room, link) {
     if (!room || room.feature === 'spiral-stair') return true
+    if (link.kind === 'door' && link.door) return true
     return isRoomMapped(room, visibility)
   }
 
@@ -402,7 +404,7 @@ export function movesFrom(building, roomId, atLevel = null, doorState = null, vi
       if (!linkPassable(link, doorState, areaId)) continue
       const other = building.roomById[otherId]
       if (!other || other.feature === 'spiral-stair') continue
-      if (!targetMapped(other)) continue
+      if (!targetReachable(other, link)) continue
       const otherLevel = roomLevel(other)
       const dir = dirBetween(building, { level: fromLevel }, { level: otherLevel })
       out.push({
@@ -426,7 +428,7 @@ export function movesFrom(building, roomId, atLevel = null, doorState = null, vi
     if (!linkPassable(link, doorState, areaId)) continue
     const to = building.roomById[toId]
     if (!to) continue
-    if (!targetMapped(to)) continue
+    if (!targetReachable(to, link)) continue
     const toLevel = roomLevel(to, to.feature === 'spiral-stair' ? fromLevel : null)
     const dir = dirBetween(building, { level: fromLevel }, { level: toLevel })
     out.push({
@@ -568,6 +570,7 @@ export function fixturesOnLevel(building, levelId) {
         dir,
         toRoomId,
         connects,
+        visualOnly: !!f.visualOnly,
         rect: { x: r.x * cell, y: r.y * cell, w: r.w * cell, h: r.h * cell },
         run: f.run ?? 'horizontal',
         ascend: f.ascend ?? 'end', // 'end' = high end at far x/y, 'start' = near

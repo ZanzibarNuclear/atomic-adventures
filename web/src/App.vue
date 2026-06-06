@@ -379,8 +379,17 @@ function doorStateFor(doorId) {
   return getDoorState(indoor.doorState, building.areaId, doorId)
 }
 
+function syncDoorState() {
+  const next = {}
+  for (const [k, v] of Object.entries(indoor.doorState)) {
+    next[k] = { ...v }
+  }
+  indoor.doorState = next
+}
+
 function tryOpenDoor(doorId) {
   if (!setDoorOpen(indoor.doorState, building.areaId, doorId, true)) return
+  syncDoorState()
   const next = new Set(indoor.revealed)
   applyRevealForDoor(building, next, doorId)
   indoor.revealed = next
@@ -388,6 +397,7 @@ function tryOpenDoor(doorId) {
 
 function openAllInteriorDoors() {
   setAllDoorsOpen(indoor.doorState, building.areaId, building, true)
+  syncDoorState()
   const next = new Set(indoor.revealed)
   for (const door of building.doors) {
     if (door.id) applyRevealForDoor(building, next, door.id)
@@ -397,10 +407,12 @@ function openAllInteriorDoors() {
 
 function closeAllInteriorDoors() {
   setAllDoorsOpen(indoor.doorState, building.areaId, building, false)
+  syncDoorState()
 }
 
 function tryCloseDoor(doorId) {
-  setDoorOpen(indoor.doorState, building.areaId, doorId, false)
+  if (!setDoorOpen(indoor.doorState, building.areaId, doorId, false)) return
+  syncDoorState()
 }
 
 function tryBreakLock(doorId) {

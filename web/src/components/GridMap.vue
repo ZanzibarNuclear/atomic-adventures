@@ -492,6 +492,7 @@ const placedFixtures = computed(() =>
       dir: f.dir,
       toRoomId: f.toRoomId,
       connects: f.connects ?? [],
+      visualOnly: !!f.visualOnly,
       box,
       treads,
       cx: cen.x,
@@ -706,9 +707,16 @@ function onSpiralExitClick(roomId) {
             fog: !isFixtureRevealed(f),
             current: f.type === 'spiral' && currentRoom === 'spiral-stair',
             reachable: f.type === 'spiral' && isFixtureRevealed(f) && reachableRooms.includes('spiral-stair'),
-            'stair-clickable': f.type === 'straight' && isFixtureRevealed(f),
+            'visual-only': f.visualOnly,
+            'stair-clickable': f.type === 'straight' && isFixtureRevealed(f) && !f.visualOnly && f.toRoomId,
           }"
-          @click="f.type === 'spiral' ? onSpiralClick(f) : f.type === 'straight' && f.toRoomId && emit('room-click', f.toRoomId)"
+          @click="
+            f.visualOnly
+              ? undefined
+              : f.type === 'spiral'
+                ? onSpiralClick(f)
+                : f.type === 'straight' && f.toRoomId && emit('room-click', f.toRoomId)
+          "
         >
           <template v-if="!isFixtureRevealed(f)">
             <rect
@@ -757,7 +765,14 @@ function onSpiralExitClick(roomId) {
             </g>
           </template>
           <template v-else>
-            <rect :x="f.box.x" :y="f.box.y" :width="f.box.w" :height="f.box.h" class="stair-hit" />
+            <rect
+              v-if="!f.visualOnly"
+              :x="f.box.x"
+              :y="f.box.y"
+              :width="f.box.w"
+              :height="f.box.h"
+              class="stair-hit"
+            />
             <line
               v-for="(t, i) in f.treads"
               :key="f.id + '-tread-' + i"
@@ -1026,6 +1041,9 @@ svg:not(.compass) {
 .fixture.reachable,
 .fixture.stair-clickable {
   cursor: pointer;
+}
+.fixture.visual-only {
+  pointer-events: none;
 }
 .fixture.fog {
   cursor: default;
