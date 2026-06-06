@@ -16,27 +16,37 @@ At the time of the disagreement, Zanzibar and his group were a bit lost. They re
 
 Turning back would be a mistake.
 
-After a time, Zanzibar found the first sign of humanity in days. A chain-link fence rose out of the ground, stretching in a straight line up and down the mountainside. Zanzibar turned uphill, hoping that higher ground would offer a vantage point. As he walked, Zanzibar thought about the fence and what was on the other side.
+After a time, Zanzibar found the first sign of humanity in days. A chain-link fence covered in thick vines grew out of the ground, stretching in a straight line up and down the mountainside. Zanzibar turned uphill, hoping that higher ground would offer a vantage point. As he walked, Zanzibar thought about the fence and what was on the other side.
 
-Zanzibar followed the fence for what might have been a half a mile. He reached a corner and rounded the bend. At least he was back on his westward heading. Before long, he reached a gate with a guard house. Both were closed and locked. A pair of bolt cutters or a blow torch would come in handy. Or a tank.
+Zanzibar followed the fence for what might have been a half a mile. He reached a corner and rounded the bend to head west. Before long, he reached a paved road, a gate blocking the roac, and a guard house. The gate and guard house were closed and locked. A pair of bolt cutters or a blow torch would come in handy. Or a tank.
 
-Something about the fence was a bit extra. On closer inspection, Zanzi notices that the chain holding the gate closed was loose. It was more to reinforce the idea of impenetrability. Zanzi unraveled the chain, went through, then replaced it to restore the illusion.
+As he sipped some water and nibbled at his last energy bar, Zanzibar studied the gate. Something seemed off. On closer inspection, Zanzi notices that the chain holding the gate closed was unattached. More to reinforce the idea of impenetrability. Zanzi unraveled the chain, went through. He paused and replaced it to restore the illusion. Then he headed down the paved road, down the hill.
 
 ## The Compound
 
-Zanzibar heads downhill in a southern direction. Though obscured by pine needles, he is on a well-built road of decomposed granite that has weathered the years well. He notices the sound of running water. A stream or river is nearby further to the west.
+The road was in decent shape. It was obscured by years of pine needle drops. In addition to the pine trees, the area had shrubs and a few thickets. As he walked, the white noise of running water entered his awareness. A stream or river was nearby, somewhere over the ridge to the west.
 
-**Note:** There are clues about what is underneath. Everything is covered in vegetation, quite hidden if you don't know what's there. For now, the map should show this area as forest with areas of clearing and patches of shrubs. Moreover, the land rises gradually toward the west. If one were to go in that direction, they would crest the ridge and see hints of the river through the trees.
+Zanzibar stayed on the road.
 
-But the road goes south, and Zanzibar follows the road.
+Perhaps half a mile along, a gravel driveway split off to the right toward the now prominent sound of rushing water. Zanzi passed a few more trees, and there was a two-story building. To the west of the building was a spectacular river cascade. It was not accessible from the driveway.
 
-Perhaps half a mile along the road, a driveway splits off to the right (toward the west). Past a few more trees, around a 90 degree bend, and there is a two-story building. To the west of the building is a river cascade, not visible due to the combination of the lay of the land and a solid fence. The river is quite audible however.
+A bigger surprise was the building that stood before him. It had a large industrial-sized garage. One of the roll-up doors was a bit wider and twice the height of the other. A path went around to the side of the garage.
 
-The driveway ends at an industrial garage with two closed doors that look like they roll up. The door on the right is single story with windows above at the second story. The door on the left is a wider, two-story door. A path goes around the garage to the side of the building. Zanzibar follows the path. That leads to a man door.
+Seeing no way to open the roll-up doors, Zanzibar followed the path to a man door at the side.
 
 ## The Garage
 
-Zanzibar breaks into the man door. The garage is mostly empty on the bigger side. Just the tire marks of some rather large equipment that was parked at some point and some oil stains. The smaller side is full of equipment. Something is covered in a heavy cloth. It's the e-buggy. Plus electrical equipment and a full set of tools. Voltage meter, pliers, wire cutters, wrenches, screw drivers, a wood saw. Those will come in handy.
+It is no wonder that the side door was locked. Whoever left this area might have realized they would never return, at least not for a long while. This seemed an ideal place to take shelter and to make sense of things. Zanzibar had to get in.
+
+Zanzibar had bested more formidable locks. Still, he would have preferred to leave it functional. For now, getting in was more important.
+
+He stepped into the larger garage bay, which was rather empty. Tire marks and oil stains made it clear that some large equipment was parked here at some point. Directly opposite was a staircase to a door on the second story. Above the stairs was a row of grimy windows. Around the permimeter were strong posts supporting beams. A cross beam had a set of pulleys and chains hanging down. Zanzibar imagined that this rigging could help to unload heavy objects.
+
+While Zanzibar was taking that in, something in the next bay caught his eye. He walked over to get a closer look. Although it was covered, this had the distinctive shape of a small vehicle. He lifted the cover just enough to peek at the shiny chrome and knobby wheels of a stylish dune buggy.
+
+As much fun as that looked, Zanzibar's stomach told him to come back later. He replaced the cover and continued his self-guided tour of the building.
+
+This garage bay had a tool rack and what looked like charging cables, certainly for the buggy. There was also a door in the back wall. Locked. Zanzibar decided to see if the stairs would provide for a more civilized entry.
 
 ## The Conference Room
 
