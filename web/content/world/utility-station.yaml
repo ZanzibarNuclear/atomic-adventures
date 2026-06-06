@@ -37,15 +37,13 @@ rooms:
     icon: "📚"
     windows: [top] # west / river side
     blurb: "Shelves, manuals, log binders, and three holo-reader stations. Windows covered by sliding blinds. Views of the river cascade."
-  - id: utility-corridor
+  - id: corridor
     level: first
     x: -3
     y: 0.2
     w: 2
     h: 0.5
-    name: "Utility Corridor"
-    icon: "↘️"
-    revealWhenDoor: library-corridor # peek onto the plan once the library door opens
+    name: "Corridor"
     blurb: "A narrow passage sloping downhill away from the station — conduit runs, pipe insulation, and a draft of cool air from below."
   - id: control-room
     level: first
@@ -64,7 +62,6 @@ rooms:
     w: 1
     h: 0.8 # 8 ft — corridor above the bathroom
     name: "Hallway"
-    icon: "🚪"
     blurb: "A short passage between the library, small bay, and spiral stair. Doors line the west wall and both ends."
   - id: bathroom
     level: first
@@ -73,7 +70,7 @@ rooms:
     w: 1
     h: 1.2 # 12 ft — slightly deeper than the hallway
     name: "Bathroom"
-    icon: "🚿"
+    icon: "🚽"
     blurb: "A compact washroom off the hallway — sink, toilet, and a frosted window onto the cascade. Smells faintly of old soap."
   - id: small-bay
     level: first
@@ -142,9 +139,9 @@ rooms:
 links:
   - { from: small-bay, to: large-bay, kind: open } # one big open garage
   - { from: library, to: hallway, kind: door, door: library-hallway }
-  - { from: library, to: utility-corridor, kind: door, door: library-corridor }
+  - { from: library, to: corridor, kind: door, door: library-corridor }
   - {
-      from: utility-corridor,
+      from: corridor,
       to: control-room,
       kind: door,
       door: corridor-control,
@@ -176,7 +173,6 @@ doors:
     level: first
     at: { x: -3, y: 0.4 }
     vertical: true
-    showWhenRevealed: utility-corridor # visible once the slope has been peeked
     initial: { closed: true, locked: false }
   - id: hallway-spiral
     kind: man
@@ -234,16 +230,6 @@ fixtures:
     radius: 0.66
     onLevels: [first, second]
     connects: [kitchen, hallway]
-  - id: utility-slope
-    kind: straight-stairs
-    rect: { x: -3, y: 0.2, w: 2, h: 0.5 }
-    run: horizontal
-    ascend: end # high end at the library; slopes down toward the control room
-    onLevels: [first]
-    visualOnly: true # slope art over utility-corridor; travel uses room links
-    revealWhenDoor: library-corridor
-    revealRoom: utility-corridor # stay fogged until the player enters the corridor
-    connects: [library, control-room]
   - id: garage-stair
     kind: straight-stairs
     rect: { x: 0.2, y: 2.08, w: 1.55, h: 0.5 }

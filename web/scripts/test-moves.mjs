@@ -6,7 +6,7 @@ const b = buildBuilding(buildingData)
 const ds = buildInitialDoorState(b.areaId, b)
 const libLinks = b.links.filter((l) => l.from === 'library' || l.to === 'library')
 console.log('library links:', JSON.stringify(libLinks, null, 2))
-console.log('utility-corridor:', b.roomById['utility-corridor'])
+console.log('corridor:', b.roomById['corridor'])
 
 let m = movesFrom(b, 'library', 'first', ds, mapVisibilityCtx(new Set(['library']), new Set(), b, ds, b.areaId))
 console.log('closed:', m.map((x) => x.toRoomId))
