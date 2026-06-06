@@ -32,6 +32,7 @@ import {
   canBreakLock,
   toggleDoorLock,
   breakLock,
+  setAllDoorsOpen,
 } from './composables/useDoors.js'
 import {
   listEditableLines,
@@ -346,7 +347,16 @@ const indoor = reactive({
   moving: false,
 })
 
-const indoorVisibility = computed(() => mapVisibilityCtx(indoor.discovered, indoor.revealed))
+const indoorVisibility = computed(() =>
+  mapVisibilityCtx(
+    indoor.discovered,
+    indoor.revealed,
+    building,
+    indoor.doorState,
+    building.areaId,
+    builderView.value,
+  ),
+)
 
 // You can enter the building when standing on a hex flagged as that area.
 const atBuildingEntrance = computed(() => currentHexData.value?.area === 'utility')
@@ -371,7 +381,22 @@ function doorStateFor(doorId) {
 
 function tryOpenDoor(doorId) {
   if (!setDoorOpen(indoor.doorState, building.areaId, doorId, true)) return
-  applyRevealForDoor(building, indoor.revealed, doorId)
+  const next = new Set(indoor.revealed)
+  applyRevealForDoor(building, next, doorId)
+  indoor.revealed = next
+}
+
+function openAllInteriorDoors() {
+  setAllDoorsOpen(indoor.doorState, building.areaId, building, true)
+  const next = new Set(indoor.revealed)
+  for (const door of building.doors) {
+    if (door.id) applyRevealForDoor(building, next, door.id)
+  }
+  indoor.revealed = next
+}
+
+function closeAllInteriorDoors() {
+  setAllDoorsOpen(indoor.doorState, building.areaId, building, false)
 }
 
 function tryCloseDoor(doorId) {
@@ -417,7 +442,7 @@ function applyIndoorMove(move) {
   }
 
   indoor.currentRoom = move.toRoomId
-  indoor.discovered.add(move.toRoomId)
+  indoor.discovered = new Set([...indoor.discovered, move.toRoomId])
 
   if (to.feature === 'spiral-stair') {
     indoor.level = move.toLevel ?? from.level ?? from.levels?.[0]
@@ -673,6 +698,7 @@ function resetIndoor() {
         :stand-level="indoor.level"
         :reachable-rooms="reachableRooms"
         :door-states="indoor.doorState"
+        :builder-view="builderView"
         :expanded="expanded"
         @room-click="moveToRoom"
       />
@@ -753,6 +779,22 @@ function resetIndoor() {
           <input type="radio" :value="lv.id" v-model="indoor.viewLevel" />
           {{ lv.name }}
         </label>
+        <label class="mode-pill builder-pill" :class="{ active: builderView }">
+          <input type="checkbox" v-model="builderView" />
+          builder
+        </label>
+      </div>
+
+      <div v-if="builderView" class="builder-panel">
+        <span class="label">Grid builder</span>
+        <div class="builder-actions">
+          <button class="sm" @click="openAllInteriorDoors">Open all doors</button>
+          <button class="sm" @click="closeAllInteriorDoors">Close all doors</button>
+        </div>
+        <p class="builder-hint">
+          Full floor plan — all rooms and doors visible. Use door buttons to test
+          peek / movement without playing through locks.
+        </p>
       </div>
 
       <div class="controls">

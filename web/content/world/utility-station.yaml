@@ -178,17 +178,17 @@ doors:
     vertical: true
     showWhenRevealed: utility-corridor # visible once the slope has been peeked
     initial: { closed: true, locked: false }
+  - id: hallway-spiral
+    kind: man
+    level: first
+    at: { x: 1.68, y: 0.04 } # west landing — matches spiral exitDown (hallway end)
+    initial: { closed: true, locked: false }
   - id: hallway-small-bay
     kind: man
     level: first
     at: { x: 2, y: 0.38 }
     vertical: true
     initial: { closed: true, locked: true }
-  - id: hallway-spiral
-    kind: man
-    level: first
-    at: { x: 1, y: 0.04 }
-    initial: { closed: true, locked: false }
   - id: hallway-bathroom
     kind: man
     level: first

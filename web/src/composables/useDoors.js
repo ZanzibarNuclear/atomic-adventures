@@ -87,6 +87,19 @@ export function setDoorOpen(doorState, areaId, doorId, open) {
   return true
 }
 
+/** Builder / debug: set every door open or closed (ignores locks). */
+export function setAllDoorsOpen(doorState, areaId, building, open) {
+  let n = 0
+  for (const door of building.doors ?? []) {
+    if (!door.id) continue
+    const s = getDoorState(doorState, areaId, door.id)
+    if (!s) continue
+    s.open = open
+    n++
+  }
+  return n
+}
+
 export function unlockDoor(doorState, areaId, doorId) {
   const s = getDoorState(doorState, areaId, doorId)
   if (!s || s.lockBroken) return false

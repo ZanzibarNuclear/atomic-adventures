@@ -29,6 +29,7 @@ const props = defineProps({
   standLevel: { type: String, default: null },
   reachableRooms: { type: Array, default: () => [] },
   doorStates: { type: Object, default: () => ({}) },
+  builderView: { type: Boolean, default: false },
   expanded: { type: Boolean, default: false },
 })
 
@@ -36,7 +37,16 @@ const emit = defineEmits(['room-click'])
 
 const cell = computed(() => props.building.cell ?? 64)
 const discoveredSet = computed(() => new Set(props.discovered))
-const visibility = computed(() => mapVisibilityCtx(props.discovered, props.revealed))
+const visibility = computed(() =>
+  mapVisibilityCtx(
+    props.discovered,
+    props.revealed,
+    props.building,
+    props.doorStates,
+    props.building.areaId,
+    props.builderView,
+  ),
+)
 const current = computed(() => props.building.roomById[props.currentRoom])
 const levelRooms = computed(() => roomsOnLevel(props.building, props.level))
 const mappedRooms = computed(() => levelRooms.value.filter((r) => isRoomMapped(r, visibility.value)))
@@ -523,6 +533,7 @@ const compassTip = computed(() => {
 })
 
 function isDiscovered(room) {
+  if (props.builderView) return true
   if (isRoomFogged(room, visibility.value)) return false
   if (room.mirror && discoveredSet.value.has(room.mirror)) return true
   return discoveredSet.value.has(room.id)
@@ -539,6 +550,7 @@ function isFixtureRevealed(fixture) {
 }
 function onRoomClick(room) {
   if (room.open) return
+  if (!props.reachableRooms.includes(room.id)) return
   emit('room-click', room.id)
 }
 function onSpiralClick(f) {
@@ -554,7 +566,7 @@ function onSpiralExitClick(roomId) {
 </script>
 
 <template>
-  <div class="gridmap" :class="{ expanded }">
+  <div class="gridmap" :class="{ expanded, 'builder-view': builderView }">
     <button class="rotate-btn" title="Rotate 90°" @click="rotate">⟳</button>
 
     <svg class="compass" viewBox="0 0 46 46">
@@ -585,6 +597,7 @@ function onSpiralExitClick(roomId) {
           class="room"
           :class="{
             current: p.room.id === currentRoom,
+            reachable: reachableRooms.includes(p.room.id),
             visited: isDiscovered(p.room),
             unvisited: (isFogged(p.room) || !isDiscovered(p.room)) && !isOpenVoid(p.room),
             open: isOpenVoid(p.room),
@@ -797,6 +810,9 @@ function onSpiralExitClick(roomId) {
   width: 100%;
   height: 72vh;
 }
+.gridmap.builder-view {
+  box-shadow: inset 0 0 0 2px rgba(200, 162, 255, 0.35);
+}
 .rotate-btn {
   position: absolute;
   top: 8px;
@@ -876,6 +892,10 @@ svg:not(.compass) {
   fill: #222a25;
   stroke: rgba(255, 255, 255, 0.07);
   stroke-dasharray: 4 4;
+}
+.room.reachable.unvisited .floor {
+  stroke: rgba(109, 185, 127, 0.45);
+  cursor: pointer;
 }
 .room.current .floor {
   fill: #5d7090;

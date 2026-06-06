@@ -139,10 +139,21 @@ export function roomStandPosition(building, room) {
   return roomCenter(room, building.cell)
 }
 
-export function mapVisibilityCtx(discovered, revealed = []) {
+export function mapVisibilityCtx(
+  discovered,
+  revealed = [],
+  building = null,
+  doorState = null,
+  areaId = null,
+  builderView = false,
+) {
   return {
     discovered: discovered instanceof Set ? discovered : new Set(discovered),
     revealed: revealed instanceof Set ? revealed : new Set(revealed),
+    building,
+    doorState,
+    areaId: areaId ?? building?.areaId ?? null,
+    builderView,
   }
 }
 
@@ -150,58 +161,79 @@ export function fixtureRevealKey(fixtureId) {
   return `fixture:${fixtureId}`
 }
 
-/** Room appears on the plan once discovered or peeked via an opened door. */
-export function isRoomMapped(room, visibility) {
-  if (!room || room.feature) return true
-  if (!room.revealWhenDoor) return true
-  if (!visibility) return false
-  return visibility.discovered.has(room.id) || visibility.revealed.has(room.id)
+function isDoorPeekOpen(doorId, ctx) {
+  if (!doorId || !ctx?.doorState || !ctx?.areaId) return false
+  return canPassDoor(ctx.doorState, ctx.areaId, doorId)
 }
 
-/** Peeked but not yet entered — draw as fog (?). */
-export function isRoomFogged(room, visibility) {
-  if (!isRoomMapped(room, visibility)) return false
-  if (room.mirror && visibility?.discovered.has(room.mirror)) return false
-  return !visibility?.discovered.has(room.id)
-}
-
-export function isDoorMapped(door, visibility) {
-  if (!door) return true
-  if (door.showWhenDiscovered && !visibility?.discovered.has(door.showWhenDiscovered)) return false
-  if (door.showWhenRoom && !visibility?.discovered.has(door.showWhenRoom)) return false
-  if (door.showWhenRevealed) {
-    const id = door.showWhenRevealed
-    if (!visibility?.revealed.has(id) && !visibility?.discovered.has(id)) return false
+function canPeekThroughDoor(doorId, ctx) {
+  if (!isDoorPeekOpen(doorId, ctx)) return false
+  const door = ctx?.building?.doorById?.[doorId]
+  if (door?.showWhenRoom && !ctx.discovered.has(door.showWhenRoom)) return false
+  if (door?.showWhenRevealed) {
+    const room = ctx.building?.roomById?.[door.showWhenRevealed]
+    if (!room || !isRoomMapped(room, ctx)) return false
   }
   return true
 }
 
-export function isFixtureMapped(fixture, visibility) {
-  if (!fixture.revealWhenDoor) {
-    const ids = fixture.connects ?? []
-    return !visibility || ids.some((id) => visibility.discovered.has(id))
-  }
-  if (!visibility) return false
-  const key = fixtureRevealKey(fixture.id)
-  if (visibility.revealed.has(key) || visibility.discovered.has(key)) return true
-  return (fixture.connects ?? []).some((id) => visibility.discovered.has(id))
+/** Room appears on the plan once discovered or peeked via an opened door. */
+export function isRoomMapped(room, ctx) {
+  if (ctx?.builderView) return true
+  if (!room || room.feature) return true
+  if (!room.revealWhenDoor) return true
+  if (!ctx) return false
+  if (ctx.discovered.has(room.id) || ctx.revealed.has(room.id)) return true
+  return canPeekThroughDoor(room.revealWhenDoor, ctx)
 }
 
-export function isFixtureFogged(fixture, visibility) {
-  if (!isFixtureMapped(fixture, visibility)) return false
+/** Peeked but not yet entered — draw as fog (?). */
+export function isRoomFogged(room, ctx) {
+  if (ctx?.builderView) return false
+  if (!isRoomMapped(room, ctx)) return false
+  if (room.mirror && ctx?.discovered.has(room.mirror)) return false
+  return !ctx?.discovered.has(room.id)
+}
+
+export function isDoorMapped(door, ctx) {
+  if (ctx?.builderView) return true
+  if (!door) return true
+  if (door.showWhenDiscovered && !ctx?.discovered.has(door.showWhenDiscovered)) return false
+  if (door.showWhenRoom && !ctx?.discovered.has(door.showWhenRoom)) return false
+  if (door.showWhenRevealed) {
+    const room = ctx?.building?.roomById?.[door.showWhenRevealed]
+    if (!room || !isRoomMapped(room, ctx)) return false
+  }
+  return true
+}
+
+export function isFixtureMapped(fixture, ctx) {
+  if (ctx?.builderView) return true
   if (!fixture.revealWhenDoor) {
     const ids = fixture.connects ?? []
-    return !ids.some((id) => visibility?.discovered.has(id))
+    return !ctx || ids.some((id) => ctx.discovered.has(id))
+  }
+  if (!ctx) return false
+  const key = fixtureRevealKey(fixture.id)
+  if (ctx.revealed.has(key)) return true
+  if (canPeekThroughDoor(fixture.revealWhenDoor, ctx)) return true
+  return (fixture.connects ?? []).some((id) => ctx.discovered.has(id))
+}
+
+export function isFixtureFogged(fixture, ctx) {
+  if (ctx?.builderView) return false
+  if (!isFixtureMapped(fixture, ctx)) return false
+  if (!fixture.revealWhenDoor) {
+    const ids = fixture.connects ?? []
+    return !ids.some((id) => ctx?.discovered.has(id))
   }
   const target = fixture.revealRoom
   if (target) {
-    return (
-      (visibility.revealed.has(target) || visibility.discovered.has(target)) &&
-      !visibility.discovered.has(target)
-    )
+    const room = ctx?.building?.roomById?.[target]
+    return !!room && isRoomMapped(room, ctx) && !ctx.discovered.has(target)
   }
   const key = fixtureRevealKey(fixture.id)
-  return visibility.revealed.has(key) && !visibility.discovered.has(key)
+  return (ctx.revealed.has(key) || canPeekThroughDoor(fixture.revealWhenDoor, ctx)) && !ctx.discovered.has(key)
 }
 
 /** Opening a door permanently peeks linked rooms / fixtures onto the plan. */
@@ -214,10 +246,13 @@ export function applyRevealForDoor(building, revealedSet, doorId) {
   }
 }
 
-export function isDestinationNamed(roomId, visibility) {
-  if (!visibility) return false
-  if (visibility.discovered.has(roomId)) return true
-  return visibility.revealed.has(roomId)
+export function isDestinationNamed(roomId, ctx) {
+  if (ctx?.builderView) return true
+  if (!ctx) return false
+  if (ctx.discovered.has(roomId)) return true
+  if (ctx.revealed.has(roomId)) return true
+  const room = ctx.building?.roomById?.[roomId]
+  return !!room && isRoomMapped(room, ctx)
 }
 
 // View bounds for rendering: rooms plus fixtures (e.g. spiral semicircle past the wall).
