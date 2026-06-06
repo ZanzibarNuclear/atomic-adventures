@@ -12,12 +12,19 @@ import {
   doorsOnLevel,
   fixturesOnLevel,
   sharedEdge,
+  mapVisibilityCtx,
+  isRoomMapped,
+  isRoomFogged,
+  isDoorMapped,
+  isFixtureMapped,
+  isFixtureFogged,
 } from '../composables/useGrid.js'
 
 const props = defineProps({
   building: { type: Object, required: true },
   currentRoom: { type: String, required: true },
   discovered: { type: [Array, Object], default: () => [] },
+  revealed: { type: [Array, Object], default: () => [] },
   level: { type: String, required: true },
   standLevel: { type: String, default: null },
   reachableRooms: { type: Array, default: () => [] },
@@ -29,11 +36,15 @@ const emit = defineEmits(['room-click'])
 
 const cell = computed(() => props.building.cell ?? 64)
 const discoveredSet = computed(() => new Set(props.discovered))
+const visibility = computed(() => mapVisibilityCtx(props.discovered, props.revealed))
 const current = computed(() => props.building.roomById[props.currentRoom])
 const levelRooms = computed(() => roomsOnLevel(props.building, props.level))
+const mappedRooms = computed(() => levelRooms.value.filter((r) => isRoomMapped(r, visibility.value)))
 const beams = computed(() => levelBeams(props.building, props.level))
 const doors = computed(() => doorsOnLevel(props.building, props.level, props.doorStates))
-const fixtures = computed(() => fixturesOnLevel(props.building, props.level))
+const fixtures = computed(() =>
+  fixturesOnLevel(props.building, props.level).filter((f) => isFixtureMapped(f, visibility.value)),
+)
 
 // ---- Rotation: the player can spin the plan 90° at a time ----
 const rotation = ref(0)
@@ -41,7 +52,7 @@ function rotate() {
   rotation.value = (rotation.value + 90) % 360
 }
 const swapAxes = computed(() => rotation.value % 180 !== 0)
-const bounds = computed(() => levelDisplayBounds(props.building, props.level))
+const bounds = computed(() => levelDisplayBounds(props.building, props.level, 0.6, visibility.value))
 const center = computed(() => ({
   x: bounds.value.x + bounds.value.w / 2,
   y: bounds.value.y + bounds.value.h / 2,
@@ -270,7 +281,7 @@ function placeRect(cxOrig, cyOrig, w, h) {
 }
 
 const placedRooms = computed(() =>
-  levelRooms.value.map((room) => {
+  mappedRooms.value.map((room) => {
     const r = rect(room)
     const corners = [
       tp(r.x, r.y),
@@ -301,7 +312,9 @@ const placedRooms = computed(() =>
 )
 
 const placedDoors = computed(() =>
-  doors.value.map((d) => {
+  doors.value
+    .filter((d) => isDoorMapped(props.building.doorById?.[d.id], visibility.value))
+    .map((d) => {
     if (d.kind === 'roll') {
       const corners = [
         tp(d.x, d.y),
@@ -510,16 +523,19 @@ const compassTip = computed(() => {
 })
 
 function isDiscovered(room) {
+  if (isRoomFogged(room, visibility.value)) return false
   if (room.mirror && discoveredSet.value.has(room.mirror)) return true
   return discoveredSet.value.has(room.id)
+}
+function isFogged(room) {
+  return isRoomFogged(room, visibility.value)
 }
 // Open void with no mirror: dark "no floor" styling. Mirrored bays look like normal rooms.
 function isOpenVoid(room) {
   return room.open && !room.mirror
 }
 function isFixtureRevealed(fixture) {
-  const ids = fixture.connects?.length ? fixture.connects : fixture.toRoomId ? [fixture.toRoomId] : []
-  return ids.some((id) => discoveredSet.value.has(id))
+  return !isFixtureFogged(fixture, visibility.value)
 }
 function onRoomClick(room) {
   if (room.open) return
@@ -570,7 +586,7 @@ function onSpiralExitClick(roomId) {
           :class="{
             current: p.room.id === currentRoom,
             visited: isDiscovered(p.room),
-            unvisited: !isDiscovered(p.room) && !isOpenVoid(p.room),
+            unvisited: (isFogged(p.room) || !isDiscovered(p.room)) && !isOpenVoid(p.room),
             open: isOpenVoid(p.room),
             overlook: p.room.open && p.room.mirror,
           }"
@@ -674,19 +690,19 @@ function onSpiralExitClick(roomId) {
           :key="f.id"
           class="fixture"
           :class="{
-            fog: f.type === 'spiral' && !isFixtureRevealed(f),
+            fog: !isFixtureRevealed(f),
             current: f.type === 'spiral' && currentRoom === 'spiral-stair',
             reachable: f.type === 'spiral' && isFixtureRevealed(f) && reachableRooms.includes('spiral-stair'),
-            'stair-clickable': f.type === 'straight',
+            'stair-clickable': f.type === 'straight' && isFixtureRevealed(f),
           }"
           @click="f.type === 'spiral' ? onSpiralClick(f) : f.type === 'straight' && f.toRoomId && emit('room-click', f.toRoomId)"
         >
-          <template v-if="f.type === 'spiral' && !isFixtureRevealed(f)">
+          <template v-if="!isFixtureRevealed(f)">
             <rect
-              :x="f.fogBox.x"
-              :y="f.fogBox.y"
-              :width="f.fogBox.w"
-              :height="f.fogBox.h"
+              :x="(f.fogBox ?? f.box).x"
+              :y="(f.fogBox ?? f.box).y"
+              :width="(f.fogBox ?? f.box).w"
+              :height="(f.fogBox ?? f.box).h"
               rx="4"
               class="fixture-fog-fill"
             />
