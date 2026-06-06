@@ -74,7 +74,7 @@ Having satisfied his hunger and thirst without overdoing it, there was one more 
 
 Between the white noise from the falls and fatigue, Zanzibar felt an overwhelming urge to sleep. Looking down the stairs, he saw another door. There was just enough light left to check it out.
 
-This room had the feel of a library. Quiet carpeting, rows of shelves, a few stations with lamps for studying, and best of all, Zanzibar found an overstuffed chair, perfect for an extended period of reading, or a nice long nap.
+A short hallway opened onto the study beyond — quiet carpeting, rows of shelves, a few stations with lamps for reading, and best of all, an overstuffed chair, perfect for an extended period of reading, or a nice long nap.
 
 Zanzibar fell asleep.
 
@@ -82,31 +82,60 @@ Zanzibar fell asleep.
 
 Zanzibar woke up. His body had absorbed what it could of the previous meal. He needed to dispose of what remained. Where to find the bathroom?
 
-**Questions**
+The answer was right behind him. Back through the hallway at the foot of the spiral stair, a door marked with the universal symbols led to a small restroom — two unisex stalls and two sinks, clean enough for a facility that expected regular use.
 
-- Where are the bathrooms in this place? two stalls, unisex, both floors?
-- Does the building go down another level to control room? or split level?
+**Open questions**
+
 - What about living quarters? separate building connected by tunnel / covered walkway (for winter / rain)
+
+### Floor plan (Utility Station)
+
+West wing, river side (top of the plan). North = driveway / east wall.
+
+**1st floor**
+
+| Space | Size | Notes |
+|-------|------|-------|
+| Hallway | 10 × 10 ft | Vestibule at the spiral landing; doors to study, restroom, and stair |
+| Restroom | 10 × 10 ft | Two unisex stalls, two sinks |
+| Library / Study | 20 × 20 ft | Moved ~10 ft south from original position; under the conference room |
+| Control room | 20 × 10 ft | South of the library; hydro startup console (same floor, not a basement) |
+| Small bay | 20 × 40 ft | EV bay; deepened to meet the garage |
+| Large bay | 40 × 30 ft | Two-story garage; shifted south to make room for the control room |
+
+**2nd floor**
+
+| Space | Notes |
+|-------|-------|
+| Conference room | Over the library (also shifted south) |
+| Kitchen / dining | Unchanged |
+| Large bay (open) | Mezzanine over the garage |
+
+Spiral stair: kitchen (2nd floor) ↔ hallway (1st floor). The study opens directly off the hallway; the restroom is beside it.
 
 ### The Study / Library
 
-Positioned under the conference room. Standard library shelves with books, manuals, and binders full of logs.
+Positioned under the conference room, about ten feet south of the original layout so the spiral landing could become a hallway. Standard library shelves with books, manuals, and binders full of logs.
 
 This area features three holo-reader stations and a rack of media. Topics are technical, ranging from physics and chemistry to machanical and civil engineering.
 
-## The Control Room
+### The Control Room
 
-(Question: Is this in another building? That would give the game a bit more space, especially since the compound can be quite large. Plus, separates the common areas from the workplace. What about living quarters? Also separate?)
+South of the library on the same floor — not a basement level. Gauges that work, based on simulator state. By what miracle does this connect to the local grid. Route excess load to the batteries. Disengage when nothing is drawing power. How will this mimic reality without becoming too much to handle.
 
-Gauges that work, based on simulator state. By what miracle does this connect to the local grid. Route excess load to the batteries. Disengage when nothing is drawing power. How will this mimic reality without becoming too much to handle.
+### Living Quarters
+
+Good place for shut-eye, showers, bathrooms.
+
+## Day 3
 
 ## The Micro-hydro Power Converter
 
 Outside, some manual adjustments are needed to get things flowing. Then routine maintenance tasks - clearing the filters, checkingn for and patching leaks, etc..
 
-## Living Quarters
+## e-Buggy (eB)
 
-Good place for shut-eye, showers, bathrooms.
+Reward for turning on hydro, able to charge the buggy. Has to be plugged in with the circuit connected while the generator is running.
 
 ## Entrace to the underground
 
