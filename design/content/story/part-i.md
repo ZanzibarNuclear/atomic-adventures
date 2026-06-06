@@ -84,35 +84,6 @@ Zanzibar woke up. His body had absorbed what it could of the previous meal. He n
 
 The answer was right behind him. Back through the hallway at the foot of the spiral stair, a door marked with the universal symbols led to a small restroom — two unisex stalls and two sinks, clean enough for a facility that expected regular use.
 
-**Open questions**
-
-- What about living quarters? separate building connected by tunnel / covered walkway (for winter / rain)
-
-### Floor plan (Utility Station)
-
-West wing, river side (top of the plan). North = driveway / east wall.
-
-**1st floor**
-
-| Space | Size | Notes |
-|-------|------|-------|
-| Hallway | 10 × 10 ft | Vestibule at the spiral landing; doors to study, restroom, and stair |
-| Restroom | 10 × 10 ft | Two unisex stalls, two sinks |
-| Library / Study | 20 × 20 ft | Moved ~10 ft south from original position; under the conference room |
-| Control room | 20 × 10 ft | South of the library; hydro startup console (same floor, not a basement) |
-| Small bay | 20 × 40 ft | EV bay; deepened to meet the garage |
-| Large bay | 40 × 30 ft | Two-story garage; shifted south to make room for the control room |
-
-**2nd floor**
-
-| Space | Notes |
-|-------|-------|
-| Conference room | Over the library (also shifted south) |
-| Kitchen / dining | Unchanged |
-| Large bay (open) | Mezzanine over the garage |
-
-Spiral stair: kitchen (2nd floor) ↔ hallway (1st floor). The study opens directly off the hallway; the restroom is beside it.
-
 ### The Study / Library
 
 Positioned under the conference room, about ten feet south of the original layout so the spiral landing could become a hallway. Standard library shelves with books, manuals, and binders full of logs.
