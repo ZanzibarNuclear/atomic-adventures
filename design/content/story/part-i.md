@@ -1,6 +1,8 @@
 # Zanzibar's World of Energy
 
-## Opening Scene
+## Day 1
+
+### Opening Scene
 
 The action takes place on a mountainside in an old-growth pine forest. Tight focus on Zanzibar Nuhero as we live his story.
 
@@ -22,7 +24,7 @@ Zanzibar followed the fence for what might have been a half a mile. He reached a
 
 As he sipped some water and nibbled at his last energy bar, Zanzibar studied the gate. Something seemed off. On closer inspection, Zanzi notices that the chain holding the gate closed was unattached. More to reinforce the idea of impenetrability. Zanzi unraveled the chain, went through. He paused and replaced it to restore the illusion. Then he headed down the paved road, down the hill.
 
-## The Compound
+### The Compound
 
 The road was in decent shape. It was obscured by years of pine needle drops. In addition to the pine trees, the area had shrubs and a few thickets. As he walked, the white noise of running water entered his awareness. A stream or river was nearby, somewhere over the ridge to the west.
 
@@ -34,9 +36,9 @@ A bigger surprise was the building that stood before him. It had a large industr
 
 Seeing no way to open the roll-up doors, Zanzibar followed the path to a man door at the side.
 
-## The Garage
+### The Garage
 
-It is no wonder that the side door was locked. Whoever left this area might have realized they would never return, at least not for a long while. This seemed an ideal place to take shelter and to make sense of things. Zanzibar had to get in.
+It is no wonder that the side door was locked. Whoever left this area might have realized they would never return. This seemed an ideal place to take shelter and to make sense of things. Zanzibar had to get in.
 
 Zanzibar had bested more formidable locks. Still, he would have preferred to leave it functional. For now, getting in was more important.
 
@@ -46,25 +48,49 @@ While Zanzibar was taking that in, something in the next bay caught his eye. He 
 
 As much fun as that looked, Zanzibar's stomach told him to come back later. He replaced the cover and continued his self-guided tour of the building.
 
-This garage bay had a tool rack and what looked like charging cables, certainly for the buggy. There was also a door in the back wall. Locked. Zanzibar decided to see if the stairs would provide for a more civilized entry.
+This garage bay has a tool rack and what looks like charging cables, certainly for the buggy. There was also a door in the back wall. Locked. Zanzibar decided to see if the stairs would provide for a more civilized entry.
 
-## The Conference Room
+### The Conference Room
 
-Stairs lead to the second floor. Zanzibar climbs the stairs, opens a door, and enters a conference room.
+Zanzibar climbs the stairs to a bit of good luck. The door is unlocked, so he goes through into a stylish conference room, formal without being stuffy. The decor fit the surroundings, with a large, rustic wooden table circled by a number of sturdy wooden chairs.
 
-Table, chairs, dirty windows with a view of the river rapids. The day is drawing to a close.
+The sides were lined with windows, those that overlooked the garage, and on the opposite side, larger windows to what must be a spectacular view. They needed cleaning, inside and out.
 
-## The Kitchen
+The wall at the end of the conference room featured a pair of wooden panels. Zanzibar slide the panels apart to reveal a large screen. Presentations, conference calls, movie night. From what Zanzibar had seen so far, he could tell that whoever stayed here was doing more than camping. This is a serious facility. What happened?
 
-Standard kitchen / dining area for workers. Like in The Office (US edition).
+A second door stood at the back of the room. The door was unlocked. As Zanzibar opened it, adrenaline flooded his body with the instant recognition of what he had found.
 
-Zanzibar finds water purifier and rations. He quenches his thirst and eats a large meal. Relief. Then he goes back into the conference room to watch the setting sun through the windows.
+### The Kitchen
 
-## The Study / Library
+In a facility where people come and go with some regularity, proper labeling is essential to help people find what they need. Zanzibar found the cabinet for rations in no time flat.
 
-From the kitchen, down a winding staircase on the river side that turn 180˚ as it descends, to a solid door of the library. Positioned under the conference room. Standard library shelves with books, manuals, and binders full of logs.
+Some decades prior, the technology for food preservation went through an evolution. With a combination of a technique called nutrition packing, flavor loading, irradiation and impenetrable wrapping materials, energy bars gained a shelf life of decades. They had yet to discover the true "best by" date. Every bar was a tasty and nutritious as the last.
 
-Ample windows frame the landscape just as in the conference room but closer to the ground. When Zanzibar enters the room, it is dark. He discovers that the blinds slide open for another spectacular view.
+Tastee Tack, harkening back to hardtack, a stable of soldiers. It comes in a variety of meals. Zanzibar settled on a double helping of turkey-cranberry. After a couple of bites, he realized how thirsty he was. Looking around some more, he found a container and packets of water purifier. He tried the faucet at the sink. It sputtered and spewed a bit, and started to clear after about 20 seconds. Another minute was enough to give him confidence. He filled the container, dropped in some tablets. He found a glass in a cabinet and rinsed it out before pouring himself a tall one.
+
+Zanzibar sat at a breakroom table to one side of the kitchen. This side of the room also had windows with a view of the flowing water outside. The sun was setting on this amazing day.
+
+Having satisfied his hunger and thirst without overdoing it, there was one more place Zanzibar wanted to see. Another door led from the dining area to a spiral staircase at the side of the building. The springloaded door hinge closed automatically behind him. There he was, with the cascade of water and view into the valley below where the setting sun turned the sky a deepening orange.
+
+Between the white noise from the falls and fatigue, Zanzibar felt an overwhelming urge to sleep. Looking down the stairs, he saw another door. There was just enough light left to check it out.
+
+This room had the feel of a library. Quiet carpeting, rows of shelves, a few stations with lamps for studying, and best of all, Zanzibar found an overstuffed chair, perfect for an extended period of reading, or a nice long nap.
+
+Zanzibar fell asleep.
+
+## Day 2
+
+Zanzibar woke up. His body had absorbed what it could of the previous meal. He needed to dispose of what remained. Where to find the bathroom?
+
+**Questions**
+
+- Where are the bathrooms in this place? two stalls, unisex, both floors?
+- Does the building go down another level to control room? or split level?
+- What about living quarters? separate building connected by tunnel / covered walkway (for winter / rain)
+
+### The Study / Library
+
+Positioned under the conference room. Standard library shelves with books, manuals, and binders full of logs.
 
 This area features three holo-reader stations and a rack of media. Topics are technical, ranging from physics and chemistry to machanical and civil engineering.
 
