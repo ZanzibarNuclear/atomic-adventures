@@ -1,7 +1,8 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { hexCornerPoints } from '../composables/useHexGeometry.js'
-import { catmullRomSpline } from '../composables/useRoutes.js'
+import { catmullRomSpline, pointsAttr } from '../composables/useRoutes.js'
+import { pathHandleColor, roomHandleColor } from '../composables/useGridBuilder.js'
 import {
   roomsOnLevel,
   roomRect,
@@ -40,10 +41,25 @@ const props = defineProps({
   reachableExitDoors: { type: Array, default: () => [] },
   reachableExteriorNodes: { type: Array, default: () => [] },
   builderView: { type: Boolean, default: false },
+  builderEdit: { type: Boolean, default: false },
+  editMode: { type: String, default: null },
+  editHandles: { type: Array, default: () => [] },
+  selectedHandleId: { type: String, default: null },
+  selectedItemId: { type: String, default: null },
+  addPointMode: { type: Boolean, default: false },
   expanded: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['room-click', 'door-click', 'exit-click', 'exterior-node-click'])
+const emit = defineEmits([
+  'room-click',
+  'door-click',
+  'exit-click',
+  'exterior-node-click',
+  'select-handle',
+  'grid-handle-move',
+  'builder-map-click',
+  'select-item',
+])
 
 const cell = computed(() => props.building.cell ?? 64)
 const discoveredSet = computed(() => new Set(props.discovered))
@@ -96,6 +112,103 @@ function tp(x, y) {
   const c = Math.cos(rad)
   const s = Math.sin(rad)
   return { x: cx + dx * c - dy * s, y: cy + dx * s + dy * c }
+}
+
+function unTp(x, y) {
+  const rad = (rotation.value * Math.PI) / 180
+  const cx = center.value.x
+  const cy = center.value.y
+  const dx = x - cx
+  const dy = y - cy
+  const c = Math.cos(rad)
+  const s = Math.sin(rad)
+  return { x: cx + dx * c + dy * s, y: cy - dx * s + dy * c }
+}
+
+const mapSvgRef = ref(null)
+const dragHandle = ref(null)
+
+function svgCoords(clientX, clientY) {
+  const svg = mapSvgRef.value
+  if (!svg) return null
+  const pt = svg.createSVGPoint()
+  pt.x = clientX
+  pt.y = clientY
+  const ctm = svg.getScreenCTM()
+  if (!ctm) return null
+  const local = pt.matrixTransform(ctm.inverse())
+  return { x: local.x, y: local.y }
+}
+
+function onHandleDown(e, h) {
+  e.stopPropagation()
+  e.preventDefault()
+  dragHandle.value = h
+  emit('select-handle', h.handleKey)
+  window.addEventListener('pointermove', onPointerMove)
+  window.addEventListener('pointerup', onPointerUp)
+}
+
+function onPointerMove(e) {
+  if (!dragHandle.value) return
+  const pt = svgCoords(e.clientX, e.clientY)
+  if (!pt) return
+  const layout = unTp(pt.x, pt.y)
+  const h = dragHandle.value
+  emit('grid-handle-move', {
+    handleKey: h.handleKey,
+    index: h.index,
+    role: h.role,
+    x: layout.x,
+    y: layout.y,
+  })
+}
+
+function onPointerUp() {
+  dragHandle.value = null
+  window.removeEventListener('pointermove', onPointerMove)
+  window.removeEventListener('pointerup', onPointerUp)
+}
+
+onUnmounted(onPointerUp)
+
+function onSvgClick(e) {
+  if (!props.builderEdit || !props.addPointMode) return
+  if (e.target.closest('.edit-handle')) return
+  const pt = svgCoords(e.clientX, e.clientY)
+  if (!pt) return
+  const layout = unTp(pt.x, pt.y)
+  emit('builder-map-click', layout)
+}
+
+const displayEditHandles = computed(() =>
+  props.editHandles.map((h) => {
+    const p = tp(h.x, h.y)
+    return { ...h, x: p.x, y: p.y }
+  }),
+)
+
+const editPolyline = computed(() => {
+  if (props.editMode !== 'line') return []
+  return displayEditHandles.value.map((h) => ({ x: h.x, y: h.y }))
+})
+
+const editStroke = computed(() => pathHandleColor())
+
+function handleColor(h) {
+  if (h.role === 'point') return pathHandleColor()
+  return roomHandleColor(h.role)
+}
+
+function handleFill(h) {
+  if (h.handleKey === props.selectedHandleId) return '#fff'
+  if (h.role === 'move') return '#e8d4ff'
+  if (h.role === 'door-at' || h.role === 'node-at') return '#7dcea0'
+  return '#ffd166'
+}
+
+function isItemSelected(id) {
+  return props.builderView && id === props.selectedItemId
 }
 // Layout-space sample points (bounds + fixtures) for a tight rotated AABB.
 const layoutSamplePoints = computed(() => {
@@ -168,7 +281,6 @@ const rotatedBounds = computed(() => {
   }
 })
 
-const mapSvgRef = ref(null)
 const containerAspect = ref(220 / 200)
 let resizeObserver = null
 
@@ -699,6 +811,10 @@ function isFixtureRevealed(fixture) {
   return !isFixtureFogged(fixture, visibility.value)
 }
 function onRoomClick(room) {
+  if (props.builderView) {
+    emit('select-item', { source: 'rooms', id: room.id })
+    return
+  }
   if (room.open) return
   if (!props.reachableRooms.includes(room.id)) return
   emit('room-click', room.id)
@@ -715,6 +831,10 @@ function onStairExitClick(f, roomId) {
   emit('room-click', roomId)
 }
 function onDoorClick(doorId) {
+  if (props.builderView) {
+    emit('select-item', { source: 'doors', id: doorId })
+    return
+  }
   if (!interactableDoorSet.value.has(doorId)) return
   emit('door-click', doorId)
 }
@@ -723,6 +843,10 @@ function onExitClick(doorId) {
   emit('exit-click', doorId)
 }
 function onExteriorNodeClick(nodeId) {
+  if (props.builderView) {
+    emit('select-item', { source: 'nodes', id: nodeId })
+    return
+  }
   if (nodeId === props.exteriorNode) return
   if (!reachableExteriorSet.value.has(nodeId)) return
   emit('exterior-node-click', nodeId)
@@ -730,7 +854,15 @@ function onExteriorNodeClick(nodeId) {
 </script>
 
 <template>
-  <div class="gridmap" :class="{ expanded, 'builder-view': builderView }">
+  <div
+    class="gridmap"
+    :class="{
+      expanded,
+      'builder-view': builderView,
+      'builder-edit': builderEdit,
+      'add-point': addPointMode,
+    }"
+  >
     <button class="rotate-btn" title="Rotate 90°" @click="rotate">⟳</button>
 
     <svg class="compass" viewBox="0 0 46 46">
@@ -740,7 +872,12 @@ function onExteriorNodeClick(nodeId) {
       <text :x="compassTip.x" :y="compassTip.y" class="compass-n">N</text>
     </svg>
 
-    <svg ref="mapSvgRef" :viewBox="viewBox" preserveAspectRatio="xMidYMid meet">
+    <svg
+      ref="mapSvgRef"
+      :viewBox="viewBox"
+      preserveAspectRatio="xMidYMid meet"
+      @click="onSvgClick"
+    >
       <g class="grid-layer">
         <line
           v-for="(ln, i) in placedGridLines"
@@ -769,7 +906,11 @@ function onExteriorNodeClick(nodeId) {
           v-for="node in placedExteriorNodes"
           :key="'ext-node-' + node.id"
           class="exterior-node"
-          :class="{ current: node.current, reachable: node.reachable }"
+          :class="{
+            current: node.current,
+            reachable: node.reachable,
+            'builder-selected': isItemSelected(node.id),
+          }"
           @click.stop="onExteriorNodeClick(node.id)"
         >
           <polygon :points="node.points" class="exterior-node-fill" />
@@ -789,6 +930,7 @@ function onExteriorNodeClick(nodeId) {
             unvisited: (isFogged(p.room) || !isDiscovered(p.room)) && !isOpenVoid(p.room),
             open: isOpenVoid(p.room),
             overlook: p.room.open && p.room.mirror,
+            'builder-selected': isItemSelected(p.room.id),
           }"
           @click="onRoomClick(p.room)"
         >
@@ -883,7 +1025,8 @@ function onExteriorNodeClick(nodeId) {
               closed: !d.open,
               locked: d.locked,
               'lock-broken': d.lockBroken,
-              'door-clickable': interactableDoorSet.has(d.id),
+              'door-clickable': interactableDoorSet.has(d.id) || builderView,
+              'builder-selected': isItemSelected(d.id),
             },
           ]"
           @click.stop="onDoorClick(d.id)"
@@ -1049,6 +1192,42 @@ function onExteriorNodeClick(nodeId) {
           <line x1="0" y1="6" x2="10" y2="26" />
         </g>
       </g>
+
+      <!-- Builder edit layer -->
+      <g v-if="builderEdit" class="edit-layer">
+        <polyline
+          v-if="editMode === 'line' && editPolyline.length"
+          :points="pointsAttr(editPolyline)"
+          class="edit-guide"
+          :style="{ stroke: editStroke }"
+        />
+        <template v-if="editMode === 'room' && selectedItemId">
+          <rect
+            v-for="p in placedRooms.filter((r) => r.room.id === selectedItemId)"
+            :key="'sel-' + p.room.id"
+            :x="p.rect.x"
+            :y="p.rect.y"
+            :width="p.rect.w"
+            :height="p.rect.h"
+            class="room-selection-outline"
+            rx="4"
+          />
+        </template>
+        <circle
+          v-for="h in displayEditHandles"
+          :key="'handle-' + h.handleKey"
+          :cx="h.x"
+          :cy="h.y"
+          :r="h.role === 'move' ? 9 : 7"
+          class="edit-handle"
+          :class="{
+            selected: h.handleKey === selectedHandleId,
+            ['role-' + h.role]: !!h.role,
+          }"
+          :style="{ stroke: handleColor(h), fill: handleFill(h) }"
+          @pointerdown="onHandleDown($event, h)"
+        />
+      </g>
     </svg>
   </div>
 </template>
@@ -1070,6 +1249,48 @@ function onExteriorNodeClick(nodeId) {
 }
 .gridmap.builder-view {
   box-shadow: inset 0 0 0 2px rgba(200, 162, 255, 0.35);
+}
+.gridmap.builder-view:not(.expanded) {
+  width: 100%;
+  height: min(58vh, 560px);
+}
+.gridmap.builder-edit.add-point {
+  cursor: crosshair;
+}
+.room.builder-selected .floor,
+.man-door.builder-selected,
+.roll-door.builder-selected,
+.exterior-node.builder-selected .exterior-node-fill {
+  stroke: rgba(200, 162, 255, 0.95);
+  stroke-width: 3;
+}
+.edit-layer {
+  pointer-events: all;
+}
+.edit-guide {
+  fill: none;
+  stroke-width: 2;
+  stroke-dasharray: 4 5;
+  opacity: 0.85;
+  pointer-events: none;
+}
+.room-selection-outline {
+  fill: rgba(200, 162, 255, 0.08);
+  stroke: rgba(200, 162, 255, 0.75);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  pointer-events: none;
+}
+.edit-handle {
+  stroke-width: 2.5;
+  cursor: grab;
+  touch-action: none;
+}
+.edit-handle.selected {
+  stroke-width: 3;
+}
+.edit-handle:active {
+  cursor: grabbing;
 }
 .rotate-btn {
   position: absolute;
