@@ -17,7 +17,7 @@ import {
   isOutsideBuilding,
   roomsOnLevel,
 } from '../src/composables/useGrid.js'
-import { buildInitialDoorState, setDoorOpen, setAllDoorsOpen, unlockDoor } from '../src/composables/useDoors.js'
+import { buildInitialDoorState, setDoorOpen, setAllDoorsOpen, unlockDoor, canPassDoor } from '../src/composables/useDoors.js'
 
 const b = buildBuilding(buildingData)
 const ds = buildInitialDoorState(b.areaId, b)
@@ -97,6 +97,46 @@ const visibleDoors = doorsOnLevel(b, 'first', ds)
   .map((d) => d.id)
   .sort()
 console.log('visible 1F doors from large-bay:', visibleDoors)
+if (visibleDoors.includes('kitchen-spiral')) {
+  console.error('FAIL: kitchen-spiral must not appear on the 1F plan')
+  process.exit(1)
+}
+
+const hallwayCtx = mapVisibilityCtx(new Set(['hallway']), [], b, ds, b.areaId, false, 'hallway')
+const hallwayDoors = doorsOnLevel(b, 'first', ds)
+  .filter((d) => isDoorMapped(b.doorById[d.id], hallwayCtx))
+  .map((d) => d.id)
+if (hallwayDoors.includes('kitchen-spiral')) {
+  console.error('FAIL: kitchen-spiral must not show on 1F when exploring hallway')
+  process.exit(1)
+}
+if (!hallwayDoors.includes('hallway-spiral')) {
+  console.error('FAIL: hallway-spiral should show on 1F from hallway')
+  process.exit(1)
+}
+
+const spiralCtx = mapVisibilityCtx(
+  new Set(['spiral-stair', 'hallway']),
+  [],
+  b,
+  ds,
+  b.areaId,
+  false,
+  'spiral-stair',
+)
+const spiralDoors1F = doorsOnLevel(b, 'first', ds, 'spiral-stair')
+  .filter((d) => isDoorMapped(b.doorById[d.id], spiralCtx))
+  .map((d) => d.id)
+  .sort()
+if (!spiralDoors1F.includes('hallway-spiral') || !spiralDoors1F.includes('kitchen-spiral')) {
+  console.error('FAIL: both spiral landing doors must show while on the stairwell')
+  process.exit(1)
+}
+
+if (!canPassDoor(ds, b.areaId, 'hallway-spiral', b.doorById['hallway-spiral'])) {
+  console.error('FAIL: self-closing hallway-spiral must be passable while closed')
+  process.exit(1)
+}
 
 const confCtx = mapVisibilityCtx(new Set(['conference']), [], b, ds, b.areaId, false, 'conference')
 const confDoors = doorsOnLevel(b, 'second', ds)

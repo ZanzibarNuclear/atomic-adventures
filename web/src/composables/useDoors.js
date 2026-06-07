@@ -38,20 +38,27 @@ export function getDoorState(doorState, areaId, doorId) {
   return doorState[doorStateKey(areaId, doorId)] ?? null
 }
 
-/** Walk-through requires the door to be open. */
-export function canPassDoor(doorState, areaId, doorId) {
+export function isSelfClosingDoor(door) {
+  return door?.selfClosing === true
+}
+
+/** Walk-through requires the door to be open — except self-closing stair doors (push-through while shut). */
+export function canPassDoor(doorState, areaId, doorId, door = null) {
   if (!doorId) return true
+  if (door && isSelfClosingDoor(door)) return true
   const s = getDoorState(doorState, areaId, doorId)
   if (!s) return false
   return s.open === true
 }
 
-export function canOpenDoor(doorState, areaId, doorId) {
+export function canOpenDoor(doorState, areaId, doorId, door = null) {
+  if (door && isSelfClosingDoor(door)) return false
   const s = getDoorState(doorState, areaId, doorId)
   return s && !s.open && !s.locked
 }
 
-export function canCloseDoor(doorState, areaId, doorId) {
+export function canCloseDoor(doorState, areaId, doorId, door = null) {
+  if (door && isSelfClosingDoor(door)) return false
   const s = getDoorState(doorState, areaId, doorId)
   return s && s.open && !s.locked
 }
@@ -61,9 +68,12 @@ export function canUnlockDoor(doorState, areaId, doorId) {
   return s && s.locked && !s.lockBroken
 }
 
-export function canBreakLock(doorState, areaId, doorId) {
+export function canBreakLock(doorState, areaId, doorId, building = null) {
   const s = getDoorState(doorState, areaId, doorId)
-  return s && s.locked && !s.lockBroken
+  if (!s || !s.locked || s.lockBroken) return false
+  const door = building?.doorById?.[doorId]
+  if (door && isEnablerLock(door)) return false
+  return true
 }
 
 export function canLockDoor(doorState, areaId, doorId) {
@@ -102,9 +112,9 @@ export function requiredKeyId(door) {
   return doorLockConfig(door)?.key ?? door?.key ?? null
 }
 
-/** Roll-up / enabler: station power restores the motorized opener. */
+/** Roll-up / enabler: hydro generator online restores the motorized opener. */
 export function isPowerEnablerActive(facilityState) {
-  return facilityState?.powerOn === true
+  return facilityState?.hydroOnline === true
 }
 
 /** Roll-up / enabler: manual release disengages the chain hoist on that door. */
@@ -145,11 +155,9 @@ export function canToggleLockFromRoom(
     return { ok: false, reason: s?.open ? 'open' : 'blocked' }
   }
 
+  // Roll-ups release only via manual switch or hydro power — no thumb turn / break lock.
   if (isEnablerLock(door)) {
-    if (s.locked && !canUnlockViaEnablers(doorId, door, facilityState)) {
-      return { ok: false, reason: 'need-enabler', doorId }
-    }
-    return { ok: true }
+    return { ok: false, reason: 'enabler-only', doorId }
   }
 
   const freeFrom = lockFreeFromRoom(door)
@@ -173,7 +181,9 @@ export function canToggleLock(
 ) {
   if (!building || playerRoomId == null) {
     const s = getDoorState(doorState, areaId, doorId)
-    return !!(s && !s.lockBroken && !s.open)
+    if (!s || s.lockBroken || s.open) return false
+    if (isEnablerLock(building.doorById?.[doorId])) return false
+    return true
   }
   return canToggleLockFromRoom(
     doorState,
@@ -199,6 +209,8 @@ export function toggleDoorLock(
   const s = getDoorState(doorState, areaId, doorId)
   if (!s || s.lockBroken || s.open) return false
 
+  if (isEnablerLock(door)) return false
+
   if (building && playerRoomId != null) {
     const check = canToggleLockFromRoom(
       doorState,
@@ -210,10 +222,6 @@ export function toggleDoorLock(
       facilityState ?? {},
     )
     if (!check.ok) return false
-  }
-
-  if (isEnablerLock(door) && s.locked && facilityState) {
-    if (!canUnlockViaEnablers(doorId, door, facilityState)) return false
   }
 
   s.locked = !s.locked
@@ -262,11 +270,23 @@ export function unlockDoor(doorState, areaId, doorId) {
   return true
 }
 
-export function breakLock(doorState, areaId, doorId) {
+export function breakLock(doorState, areaId, doorId, building = null) {
+  const door = building?.doorById?.[doorId]
+  if (door && isEnablerLock(door)) return false
   const s = getDoorState(doorState, areaId, doorId)
   if (!s || s.lockBroken || !s.locked) return false
   s.lockBroken = true
   s.locked = false
+  return true
+}
+
+/** Re-engage motor lock on a closed roll-up (e.g. manual release turned off). */
+export function relockEnablerDoor(doorState, building, areaId, doorId) {
+  const door = building?.doorById?.[doorId]
+  if (!door || !isEnablerLock(door)) return false
+  const s = getDoorState(doorState, areaId, doorId)
+  if (!s || s.open || s.lockBroken) return false
+  s.locked = true
   return true
 }
 
@@ -317,11 +337,14 @@ export function doorLabel(building, doorId, toName) {
 
 export function doorStatusText(state, door = null, facilityState = null) {
   if (!state) return 'unknown'
+  if (door && isSelfClosingDoor(door)) {
+    return state.open ? 'open · self-closing' : 'closed · self-closing'
+  }
   if (state.open) return 'open'
   if (state.locked && door && isEnablerLock(door) && facilityState) {
     const active = activeEnablersForDoor(door.id, door, facilityState)
     if (active.length) return `locked · ${active.join(' + ')} ready`
-    return 'locked · needs power or manual'
+    return 'locked · needs manual release or hydro power'
   }
   if (state.locked) return 'locked'
   if (state.lockBroken) return 'closed · lock broken'
@@ -330,10 +353,11 @@ export function doorStatusText(state, door = null, facilityState = null) {
 
 export function lockHintForDoor(door, playerRoomId, inventory, facilityState, catalog = {}) {
   if (!door) return ''
+  if (isSelfClosingDoor(door)) return ''
   if (isEnablerLock(door)) {
     const active = activeEnablersForDoor(door.id, door, facilityState)
     if (active.length) return `Opener enabled (${active.join(', ')})`
-    return 'Engage manual release or restore station power'
+    return 'Use manual release or wait for hydro power'
   }
   const freeFrom = lockFreeFromRoom(door)
   if (freeFrom && playerRoomId === freeFrom) return 'Lock thumb turn — no key needed'

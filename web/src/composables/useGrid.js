@@ -149,10 +149,13 @@ export function spiralStandPoint(cx, cy, radius, protrude = 'top', treadIndex) {
   }
 }
 
-// Landing badges at the top and bottom of the spiral run (kitchen / library ends).
+// Click targets for ▲/▼ on the spiral — between landing doors and the center stand.
 export function spiralExitPoint(cx, cy, radius, protrude = 'top', end) {
   const n = SPIRAL_TREAD_COUNT
-  const treadIndex = end === 'up' ? n - 1 : 0
+  const innerDown = Math.floor((n - 1) * 0.35)
+  const innerUp = Math.ceil((n - 1) * 0.65)
+  const treadIndex =
+    end === 'up' ? Math.round((innerUp + (n - 1)) / 2) : Math.round(innerDown / 2)
   return spiralStandPoint(cx, cy, radius, protrude, treadIndex)
 }
 
@@ -610,10 +613,11 @@ function canPeekThroughDoor(doorId, ctx) {
   return true
 }
 
-function linkPassable(link, doorState, areaId) {
+function linkPassable(link, doorState, areaId, building) {
   if (link.kind !== 'door' || !link.door) return true
   if (!doorState) return false
-  return canPassDoor(doorState, areaId, link.door)
+  const door = building?.doorById?.[link.door]
+  return canPassDoor(doorState, areaId, link.door, door)
 }
 
 /** Room ids reachable in one step from `roomId` through passable links. */
@@ -624,7 +628,7 @@ function passableNeighborIds(building, roomId, doorState, areaId) {
     if (link.from === roomId) otherId = link.to
     else if (link.to === roomId) otherId = link.from
     else continue
-    if (!linkPassable(link, doorState, areaId)) continue
+    if (!linkPassable(link, doorState, areaId, building)) continue
     out.push(otherId)
   }
   return out
@@ -705,6 +709,29 @@ export function isRoomFogged(room, ctx) {
 function doorOnLevel(door, levelId) {
   const levels = door.onLevels ?? (door.level != null ? [door.level] : [])
   return levels.includes(levelId)
+}
+
+/** Spiral has separate landing doors — each belongs on its room's floor only. */
+function spiralStairEndpointLevel(door, building) {
+  const linked = linkedRoomIdsForDoor(building, door)
+    .map((id) => building.roomById[id])
+    .filter(Boolean)
+  const stair = linked.find((r) => r.feature === 'spiral-stair')
+  if (!stair) return null
+  const end = linked.find((r) => !isStairLanding(r))
+  return end ? primaryLevel(end) : null
+}
+
+function spiralStairRoomId(building) {
+  return building.rooms?.find((r) => r.feature === 'spiral-stair')?.id ?? null
+}
+
+function manDoorOnLevel(door, building, levelId, currentRoom = null) {
+  const endpointLevel = spiralStairEndpointLevel(door, building)
+  if (endpointLevel == null) return doorOnLevel(door, levelId)
+  const onSpiral = currentRoom && currentRoom === spiralStairRoomId(building)
+  if (onSpiral) return true
+  return endpointLevel === levelId
 }
 
 /** True when either end of a multi-floor stair run has been explored. */
@@ -939,7 +966,7 @@ export function movesFrom(building, roomId, atLevel = null, doorState = null, vi
       if (link.from === roomId) otherId = link.to
       else if (link.to === roomId) otherId = link.from
       if (!otherId) continue
-      if (!linkPassable(link, doorState, areaId)) continue
+      if (!linkPassable(link, doorState, areaId, building)) continue
       const other = building.roomById[otherId]
       if (!other || isStairLanding(other)) continue
       if (!targetReachable(other, link)) continue
@@ -963,7 +990,7 @@ export function movesFrom(building, roomId, atLevel = null, doorState = null, vi
     if (link.from === roomId) toId = link.to
     else if (link.to === roomId) toId = link.from
     if (!toId) continue
-    if (!linkPassable(link, doorState, areaId)) continue
+    if (!linkPassable(link, doorState, areaId, building)) continue
     const to = building.roomById[toId]
     if (!to) continue
     if (!targetReachable(to, link)) continue
@@ -1131,14 +1158,14 @@ export function exteriorNodesOnLevel(building, levelId) {
 }
 
 // Man-door and roll-up glyphs on a level, with live state for rendering.
-export function doorsOnLevel(building, levelId, doorState = null) {
+export function doorsOnLevel(building, levelId, doorState = null, currentRoom = null) {
   const cell = building.cell
   const areaId = building.areaId
   const out = []
   for (const door of building.doors ?? []) {
     if (!door.id) continue
     const state = doorState?.[`${areaId}:${door.id}`] ?? door.initial
-    if (door.kind === 'man' && doorOnLevel(door, levelId) && door.at) {
+    if (door.kind === 'man' && manDoorOnLevel(door, building, levelId, currentRoom) && door.at) {
       out.push({
         id: door.id,
         kind: 'man',

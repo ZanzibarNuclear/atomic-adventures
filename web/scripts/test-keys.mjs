@@ -4,6 +4,7 @@ import {
   buildInitialDoorState,
   canToggleLockFromRoom,
   toggleDoorLock,
+  canBreakLock,
   applyEnablerAutoUnlock,
   unlockDoor,
 } from '../src/composables/useDoors.js'
@@ -12,7 +13,7 @@ import { createInventory, addItem, hasItem } from '../src/composables/useInvento
 const b = buildBuilding(buildingData)
 const ds = buildInitialDoorState(b.areaId, b)
 const inventory = createInventory()
-const facility = { powerOn: false, manualMode: {} }
+const facility = { hydroOnline: false, manualMode: {} }
 
 let failed = 0
 function fail(msg) {
@@ -61,8 +62,8 @@ const bayWithKey = canToggleLockFromRoom(
 )
 if (!bayWithKey.ok) fail('small-bay with key should toggle hallway-small-bay')
 
-// Roll-up: needs enabler
-const rollCheck = canToggleLockFromRoom(
+// Roll-up: no manual lock toggle; manual release auto-unlocks
+const rollToggle = canToggleLockFromRoom(
   ds,
   b,
   b.areaId,
@@ -71,21 +72,39 @@ const rollCheck = canToggleLockFromRoom(
   inventory,
   facility,
 )
-if (rollCheck.ok) fail('roll door should not unlock without enabler')
+if (rollToggle.ok) fail('roll door should not allow manual lock toggle')
 
 facility.manualMode['small-bay-roll'] = true
 applyEnablerAutoUnlock(ds, b, b.areaId, facility)
 const rollState = ds[`${b.areaId}:small-bay-roll`]
 if (rollState?.locked) fail('manual mode should auto-unlock small-bay-roll')
 
-facility.powerOn = true
+if (canBreakLock(ds, b.areaId, 'small-bay-roll', b)) {
+  fail('roll door lock cannot be broken')
+}
+
+facility.hydroOnline = true
 applyEnablerAutoUnlock(ds, b, b.areaId, facility)
 const largeRoll = ds[`${b.areaId}:large-bay-roll`]
-if (largeRoll?.locked) fail('power should auto-unlock large-bay-roll')
+if (largeRoll?.locked) fail('hydro power should auto-unlock large-bay-roll')
 
 // Pickups defined
 if (!b.pickups?.length) fail('building should define pickups')
 if (!hasItem(inventory, 'hallway-small-bay-key')) fail('inventory should hold added key')
+
+// Exterior footpath: adjacent room tag must not grant freeFrom
+const extMan = canToggleLockFromRoom(
+  ds,
+  b,
+  b.areaId,
+  'large-bay-man',
+  null,
+  createInventory(),
+  facility,
+)
+if (extMan.ok || extMan.reason !== 'need-key') {
+  fail('large-bay-man from footpath should require key, not freeFrom large-bay')
+}
 
 if (failed) {
   process.exit(1)

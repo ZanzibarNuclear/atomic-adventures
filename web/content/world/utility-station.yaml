@@ -378,7 +378,8 @@ doors:
     initial: { closed: true, locked: true }
   - id: hallway-spiral
     kind: man
-    onLevels: [first, second] # bottom of the spiral run — same spot on both plans
+    level: first
+    selfClosing: true # push-through stair door — passable while shut
     at: { x: 1.68, y: 0.04 } # west wall — spiral exitDown (hallway / south end)
     initial: { closed: true, locked: false }
   - id: hallway-small-bay
@@ -433,7 +434,8 @@ doors:
     initial: { closed: true, locked: false }
   - id: kitchen-spiral
     kind: man
-    onLevels: [first, second] # top of the spiral run — same spot on both plans
+    level: second
+    selfClosing: true
     at: { x: 2.32, y: 0.04 }
     initial: { closed: true, locked: false }
 

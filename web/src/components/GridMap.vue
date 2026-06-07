@@ -97,7 +97,9 @@ function shellRingPath(ring) {
   return ring.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ') + ' Z'
 }
 const beams = computed(() => levelBeams(props.building, props.level, visibility.value))
-const doors = computed(() => doorsOnLevel(props.building, props.level, props.doorStates))
+const doors = computed(() =>
+  doorsOnLevel(props.building, props.level, props.doorStates, props.currentRoom || null),
+)
 const fixtures = computed(() =>
   fixturesOnLevel(props.building, props.level).filter((f) => isFixtureMapped(f, visibility.value)),
 )

@@ -43,6 +43,9 @@ import {
   setAllDoorsOpen,
   applyEnablerAutoUnlock,
   isManualEnablerActive,
+  isEnablerLock,
+  relockEnablerDoor,
+  isSelfClosingDoor,
 } from "./composables/useDoors.js";
 import {
   createInventory,
@@ -419,7 +422,7 @@ const indoor = reactive({
   inventory: createInventory(),
   pickupsTaken: new Set(),
   facility: {
-    powerOn: false,
+    hydroOnline: false, // set true when hydro generator is running (hub.hydro_online)
     manualMode: {},
   },
   moving: false,
@@ -701,7 +704,12 @@ const indoorMoves = computed(() => {
     const node = currentExteriorNode.value;
     if (
       node?.room &&
-      canPassDoor(indoor.doorState, building.value.areaId, node.door)
+      canPassDoor(
+        indoor.doorState,
+        building.value.areaId,
+        node.door,
+        building.value.doorById[node.door],
+      )
     ) {
       const room = building.value.roomById[node.room];
       moves.push({
@@ -817,9 +825,8 @@ function doorStateFor(doorId) {
   return getDoorState(indoor.doorState, building.value.areaId, doorId);
 }
 
-const playerRoomId = computed(
-  () => indoor.currentRoom ?? currentExteriorNode.value?.room ?? null,
-);
+/** Lock side is based on interior room only — not exterior footpath nodes (they tag the door's room, not where you stand). */
+const playerRoomId = computed(() => indoor.currentRoom ?? null);
 
 const carriedItems = computed(() =>
   inventoryItems(indoor.inventory, building.value.itemById),
@@ -893,6 +900,8 @@ function tryOpenDoor(doorId) {
 }
 
 function tryToggleDoor(doorId) {
+  const door = building.value.doorById[doorId];
+  if (door && isSelfClosingDoor(door)) return;
   const state = doorStateFor(doorId);
   if (!state || state.locked) return;
   if (indoor.exteriorNode) {
@@ -943,7 +952,15 @@ function tryCloseDoor(doorId) {
 }
 
 function tryBreakLock(doorId) {
-  if (!breakLock(indoor.doorState, building.value.areaId, doorId)) return;
+  if (
+    !breakLock(
+      indoor.doorState,
+      building.value.areaId,
+      doorId,
+      building.value,
+    )
+  )
+    return;
   syncDoorState();
 }
 
@@ -975,19 +992,30 @@ function toggleManualRelease(doorId) {
   const sw = (building.value.switches ?? []).find((s) => s.door === doorId);
   if (!sw || sw.room !== indoor.currentRoom) return;
   const next = { ...indoor.facility.manualMode };
-  next[doorId] = !next[doorId];
+  const engaging = !next[doorId];
+  next[doorId] = engaging;
   indoor.facility.manualMode = next;
-  applyEnablerAutoUnlock(
-    indoor.doorState,
-    building.value,
-    building.value.areaId,
-    indoor.facility,
-  );
+  if (engaging) {
+    applyEnablerAutoUnlock(
+      indoor.doorState,
+      building.value,
+      building.value.areaId,
+      indoor.facility,
+    );
+  } else {
+    relockEnablerDoor(
+      indoor.doorState,
+      building.value,
+      building.value.areaId,
+      doorId,
+    );
+  }
   syncDoorState();
 }
 
-function toggleStationPower() {
-  indoor.facility.powerOn = !indoor.facility.powerOn;
+/** Called when the hydro sim brings the generator online. */
+function setHydroOnline(on) {
+  indoor.facility.hydroOnline = on;
   applyEnablerAutoUnlock(
     indoor.doorState,
     building.value,
@@ -1160,7 +1188,7 @@ function resetIndoor() {
   );
   indoor.inventory = createInventory();
   indoor.pickupsTaken = new Set();
-  indoor.facility.powerOn = false;
+  indoor.facility.hydroOnline = false;
   indoor.facility.manualMode = {};
 }
 </script>
@@ -1939,16 +1967,26 @@ function resetIndoor() {
               doorLockHint(d.doorId)
             }}</em>
           </span>
-          <span class="door-actions">
+          <span
+            v-if="!isSelfClosingDoor(building.doorById[d.doorId])"
+            class="door-actions">
             <button
-              v-if="canBreakLock(indoor.doorState, building.areaId, d.doorId)"
+              v-if="
+                canBreakLock(
+                  indoor.doorState,
+                  building.areaId,
+                  d.doorId,
+                  building,
+                )
+              "
               class="sm"
               @click="tryBreakLock(d.doorId)">
               Break lock
             </button>
             <button
               v-if="
-                canToggleLock(
+                !isEnablerLock(building.doorById[d.doorId]) &&
+                (canToggleLock(
                   indoor.doorState,
                   building.areaId,
                   d.doorId,
@@ -1956,7 +1994,8 @@ function resetIndoor() {
                   playerRoomId,
                   indoor.inventory,
                   indoor.facility,
-                ) || doorStateFor(d.doorId).locked
+                ) ||
+                  doorStateFor(d.doorId).locked)
               "
               class="sm"
               :disabled="!canToggleDoorLock(d.doorId)"
@@ -2000,13 +2039,6 @@ function resetIndoor() {
       <div class="controls">
         <button @click="exitBuilding">← Step outside</button>
         <button @click="resetIndoor">Reset</button>
-        <button
-          v-if="!builderView"
-          class="sm"
-          :class="{ active: indoor.facility.powerOn }"
-          @click="toggleStationPower">
-          {{ indoor.facility.powerOn ? "Station power on" : "Station power off" }}
-        </button>
         <button @click="expanded = !expanded">
           {{ expanded ? "Collapse map" : "Expand map ⤢" }}
         </button>
