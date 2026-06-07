@@ -110,9 +110,9 @@ rooms:
   # ---------------- 2nd floor ----------------
   - id: conference
     level: second
-    x: 0
+    x: -1
     y: 0
-    w: 2
+    w: 3
     h: 2
     name: "Conference Room"
     icon: "🪑"
@@ -150,7 +150,12 @@ links:
   - { from: hallway, to: spiral-stair, kind: door, door: hallway-spiral }
   - { from: hallway, to: bathroom, kind: door, door: hallway-bathroom }
   - { from: large-bay, to: garage-stair, kind: stairs }
-  - { from: garage-stair, to: conference, kind: door, door: conference-garage-stair }
+  - {
+      from: garage-stair,
+      to: conference,
+      kind: door,
+      door: conference-garage-stair,
+    }
   - { from: conference, to: kitchen, kind: door, door: conference-kitchen }
   - { from: kitchen, to: spiral-stair, kind: door, door: kitchen-spiral }
 
