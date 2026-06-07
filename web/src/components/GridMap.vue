@@ -6,22 +6,31 @@ import {
   roomStandPosition,
   spiralStandPoint,
   spiralExitPoint,
-  spiralExitRooms,
+  stairExitRooms,
+  isStairLanding,
   levelDisplayBounds,
   levelBeams,
   doorsOnLevel,
   fixturesOnLevel,
   sharedEdge,
+  mapVisibilityCtx,
+  isRoomMapped,
+  isRoomFogged,
+  isDoorMapped,
+  isFixtureMapped,
+  isFixtureFogged,
 } from '../composables/useGrid.js'
 
 const props = defineProps({
   building: { type: Object, required: true },
   currentRoom: { type: String, required: true },
   discovered: { type: [Array, Object], default: () => [] },
+  revealed: { type: [Array, Object], default: () => [] },
   level: { type: String, required: true },
   standLevel: { type: String, default: null },
   reachableRooms: { type: Array, default: () => [] },
   doorStates: { type: Object, default: () => ({}) },
+  builderView: { type: Boolean, default: false },
   expanded: { type: Boolean, default: false },
 })
 
@@ -29,11 +38,25 @@ const emit = defineEmits(['room-click'])
 
 const cell = computed(() => props.building.cell ?? 64)
 const discoveredSet = computed(() => new Set(props.discovered))
+const visibility = computed(() =>
+  mapVisibilityCtx(
+    props.discovered,
+    props.revealed,
+    props.building,
+    props.doorStates,
+    props.building.areaId,
+    props.builderView,
+    props.currentRoom,
+  ),
+)
 const current = computed(() => props.building.roomById[props.currentRoom])
 const levelRooms = computed(() => roomsOnLevel(props.building, props.level))
+const mappedRooms = computed(() => levelRooms.value.filter((r) => isRoomMapped(r, visibility.value)))
 const beams = computed(() => levelBeams(props.building, props.level))
 const doors = computed(() => doorsOnLevel(props.building, props.level, props.doorStates))
-const fixtures = computed(() => fixturesOnLevel(props.building, props.level))
+const fixtures = computed(() =>
+  fixturesOnLevel(props.building, props.level).filter((f) => isFixtureMapped(f, visibility.value)),
+)
 
 // ---- Rotation: the player can spin the plan 90° at a time ----
 const rotation = ref(0)
@@ -41,7 +64,7 @@ function rotate() {
   rotation.value = (rotation.value + 90) % 360
 }
 const swapAxes = computed(() => rotation.value % 180 !== 0)
-const bounds = computed(() => levelDisplayBounds(props.building, props.level))
+const bounds = computed(() => levelDisplayBounds(props.building, props.level, 0.6, visibility.value))
 const center = computed(() => ({
   x: bounds.value.x + bounds.value.w / 2,
   y: bounds.value.y + bounds.value.h / 2,
@@ -270,7 +293,7 @@ function placeRect(cxOrig, cyOrig, w, h) {
 }
 
 const placedRooms = computed(() =>
-  levelRooms.value.map((room) => {
+  mappedRooms.value.map((room) => {
     const r = rect(room)
     const corners = [
       tp(r.x, r.y),
@@ -301,7 +324,9 @@ const placedRooms = computed(() =>
 )
 
 const placedDoors = computed(() =>
-  doors.value.map((d) => {
+  doors.value
+    .filter((d) => isDoorMapped(props.building.doorById?.[d.id], visibility.value))
+    .map((d) => {
     if (d.kind === 'roll') {
       const corners = [
         tp(d.x, d.y),
@@ -400,7 +425,8 @@ const placedFixtures = computed(() =>
       const treads = spiralTreads(c0.x, c0.y, f.radius, f.protrude, tp)
       const standLayout = spiralStandPoint(c0.x, c0.y, f.radius, f.protrude)
       const stand = tp(standLayout.x, standLayout.y)
-      const { upRoomId, downRoomId } = spiralExitRooms(props.building)
+      const stairId = f.featureRoomId ?? 'spiral-stair'
+      const { upRoomId, downRoomId } = stairExitRooms(props.building, stairId)
       const exitUpLayout = spiralExitPoint(c0.x, c0.y, f.radius, f.protrude, 'up')
       const exitDownLayout = spiralExitPoint(c0.x, c0.y, f.radius, f.protrude, 'down')
       const exitUp = tp(exitUpLayout.x, exitUpLayout.y)
@@ -411,6 +437,7 @@ const placedFixtures = computed(() =>
         type: 'spiral',
         dir: f.dir,
         toRoomId: f.toRoomId,
+        featureRoomId: stairId,
         connects: f.connects ?? [],
         cx: c.x,
         cy: c.y,
@@ -463,16 +490,41 @@ const placedFixtures = computed(() =>
       })
     }
     const cen = tp(r.x + r.w / 2, r.y + r.h / 2)
+    const highPos = f.ascend === 'end' ? 1 : 0
+    const lowPos = f.ascend === 'end' ? 0 : 1
+    let exitUpLayout
+    let exitDownLayout
+    if (horizontal) {
+      const cy = r.y + r.h / 2
+      exitUpLayout = { x: r.x + highPos * r.w, y: cy }
+      exitDownLayout = { x: r.x + lowPos * r.w, y: cy }
+    } else {
+      const cx = r.x + r.w / 2
+      exitUpLayout = { x: cx, y: r.y + highPos * r.h }
+      exitDownLayout = { x: cx, y: r.y + lowPos * r.h }
+    }
+    const exitUp = tp(exitUpLayout.x, exitUpLayout.y)
+    const exitDown = tp(exitDownLayout.x, exitDownLayout.y)
+    const stairId = f.featureRoomId
+    const { upRoomId, downRoomId } = stairId
+      ? stairExitRooms(props.building, stairId)
+      : { upRoomId: null, downRoomId: null }
     return {
       id: f.id,
       type: 'straight',
       dir: f.dir,
       toRoomId: f.toRoomId,
+      featureRoomId: stairId,
       connects: f.connects ?? [],
+      visualOnly: !!f.visualOnly,
       box,
       treads,
       cx: cen.x,
       cy: cen.y,
+      exitUp,
+      exitDown,
+      exitUpRoomId: upRoomId,
+      exitDownRoomId: downRoomId,
     }
   }),
 )
@@ -480,17 +532,26 @@ const placedFixtures = computed(() =>
 const avatarScale = computed(() => (cell.value / 64) * 0.42)
 // Figure feet sit at y = 26 in local coords after scale().
 const avatarFootOffset = computed(() => 26 * avatarScale.value)
-const spiralFixture = computed(() => placedFixtures.value.find((f) => f.type === 'spiral'))
+const stairLandingFixture = computed(() => {
+  if (!current.value?.feature) return null
+  return placedFixtures.value.find((f) => f.featureRoomId === current.value.id) ?? null
+})
 const avatarPos = computed(() => {
   if (!current.value) return null
   const landing = props.standLevel ?? props.level
-  if (current.value.feature === 'spiral-stair') {
+  if (isStairLanding(current.value)) {
     if (landing !== props.level) return null
-    const sf = spiralFixture.value
+    const sf = stairLandingFixture.value
     if (!sf) return null
+    if (sf.type === 'spiral') {
+      return {
+        x: sf.standX,
+        y: sf.standY - avatarFootOffset.value,
+      }
+    }
     return {
-      x: sf.standX,
-      y: sf.standY - avatarFootOffset.value,
+      x: sf.cx,
+      y: sf.cy - avatarFootOffset.value,
     }
   }
   if (current.value.level !== props.level) return null
@@ -510,35 +571,41 @@ const compassTip = computed(() => {
 })
 
 function isDiscovered(room) {
+  if (props.builderView) return true
+  if (isRoomFogged(room, visibility.value)) return false
   if (room.mirror && discoveredSet.value.has(room.mirror)) return true
   return discoveredSet.value.has(room.id)
+}
+function isFogged(room) {
+  return isRoomFogged(room, visibility.value)
 }
 // Open void with no mirror: dark "no floor" styling. Mirrored bays look like normal rooms.
 function isOpenVoid(room) {
   return room.open && !room.mirror
 }
 function isFixtureRevealed(fixture) {
-  const ids = fixture.connects?.length ? fixture.connects : fixture.toRoomId ? [fixture.toRoomId] : []
-  return ids.some((id) => discoveredSet.value.has(id))
+  return !isFixtureFogged(fixture, visibility.value)
 }
 function onRoomClick(room) {
   if (room.open) return
+  if (!props.reachableRooms.includes(room.id)) return
   emit('room-click', room.id)
 }
-function onSpiralClick(f) {
+function onStairFixtureClick(f) {
   if (!isFixtureRevealed(f)) return
-  if (!props.reachableRooms.includes('spiral-stair')) return
-  emit('room-click', 'spiral-stair')
+  const stairId = f.featureRoomId ?? f.toRoomId
+  if (!stairId || !props.reachableRooms.includes(stairId)) return
+  emit('room-click', stairId)
 }
-function onSpiralExitClick(roomId) {
-  if (props.currentRoom !== 'spiral-stair') return
+function onStairExitClick(f, roomId) {
+  if (!f.featureRoomId || props.currentRoom !== f.featureRoomId) return
   if (!props.reachableRooms.includes(roomId)) return
   emit('room-click', roomId)
 }
 </script>
 
 <template>
-  <div class="gridmap" :class="{ expanded }">
+  <div class="gridmap" :class="{ expanded, 'builder-view': builderView }">
     <button class="rotate-btn" title="Rotate 90°" @click="rotate">⟳</button>
 
     <svg class="compass" viewBox="0 0 46 46">
@@ -569,8 +636,9 @@ function onSpiralExitClick(roomId) {
           class="room"
           :class="{
             current: p.room.id === currentRoom,
+            reachable: reachableRooms.includes(p.room.id),
             visited: isDiscovered(p.room),
-            unvisited: !isDiscovered(p.room) && !isOpenVoid(p.room),
+            unvisited: (isFogged(p.room) || !isDiscovered(p.room)) && !isOpenVoid(p.room),
             open: isOpenVoid(p.room),
             overlook: p.room.open && p.room.mirror,
           }"
@@ -674,19 +742,34 @@ function onSpiralExitClick(roomId) {
           :key="f.id"
           class="fixture"
           :class="{
-            fog: f.type === 'spiral' && !isFixtureRevealed(f),
-            current: f.type === 'spiral' && currentRoom === 'spiral-stair',
-            reachable: f.type === 'spiral' && isFixtureRevealed(f) && reachableRooms.includes('spiral-stair'),
-            'stair-clickable': f.type === 'straight',
+            fog: !isFixtureRevealed(f),
+            current: f.featureRoomId && currentRoom === f.featureRoomId,
+            reachable:
+              f.featureRoomId &&
+              isFixtureRevealed(f) &&
+              reachableRooms.includes(f.featureRoomId),
+            'visual-only': f.visualOnly,
+            'stair-clickable':
+              f.featureRoomId &&
+              isFixtureRevealed(f) &&
+              !f.visualOnly &&
+              currentRoom !== f.featureRoomId &&
+              reachableRooms.includes(f.featureRoomId),
           }"
-          @click="f.type === 'spiral' ? onSpiralClick(f) : f.type === 'straight' && f.toRoomId && emit('room-click', f.toRoomId)"
+          @click="
+            f.visualOnly
+              ? undefined
+              : f.featureRoomId && currentRoom !== f.featureRoomId
+                ? onStairFixtureClick(f)
+                : undefined
+          "
         >
-          <template v-if="f.type === 'spiral' && !isFixtureRevealed(f)">
+          <template v-if="!isFixtureRevealed(f)">
             <rect
-              :x="f.fogBox.x"
-              :y="f.fogBox.y"
-              :width="f.fogBox.w"
-              :height="f.fogBox.h"
+              :x="(f.fogBox ?? f.box).x"
+              :y="(f.fogBox ?? f.box).y"
+              :width="(f.fogBox ?? f.box).w"
+              :height="(f.fogBox ?? f.box).h"
               rx="4"
               class="fixture-fog-fill"
             />
@@ -706,12 +789,12 @@ function onSpiralExitClick(roomId) {
               :stroke-width="t.width"
               :opacity="t.opacity"
             />
-            <g v-if="currentRoom === 'spiral-stair'" class="spiral-exits">
+            <g v-if="f.featureRoomId && currentRoom === f.featureRoomId" class="spiral-exits">
               <g
                 v-if="f.exitUpRoomId"
                 class="spiral-exit"
                 :class="{ reachable: reachableRooms.includes(f.exitUpRoomId) }"
-                @click.stop="onSpiralExitClick(f.exitUpRoomId)"
+                @click.stop="onStairExitClick(f, f.exitUpRoomId)"
               >
                 <circle :cx="f.exitUp.x" :cy="f.exitUp.y" :r="cell * 0.14" class="stair-pad" />
                 <text :x="f.exitUp.x" :y="f.exitUp.y" class="stair-icon">▲</text>
@@ -720,7 +803,7 @@ function onSpiralExitClick(roomId) {
                 v-if="f.exitDownRoomId"
                 class="spiral-exit"
                 :class="{ reachable: reachableRooms.includes(f.exitDownRoomId) }"
-                @click.stop="onSpiralExitClick(f.exitDownRoomId)"
+                @click.stop="onStairExitClick(f, f.exitDownRoomId)"
               >
                 <circle :cx="f.exitDown.x" :cy="f.exitDown.y" :r="cell * 0.14" class="stair-pad" />
                 <text :x="f.exitDown.x" :y="f.exitDown.y" class="stair-icon">▼</text>
@@ -728,7 +811,14 @@ function onSpiralExitClick(roomId) {
             </g>
           </template>
           <template v-else>
-            <rect :x="f.box.x" :y="f.box.y" :width="f.box.w" :height="f.box.h" class="stair-hit" />
+            <rect
+              v-if="!f.visualOnly"
+              :x="f.box.x"
+              :y="f.box.y"
+              :width="f.box.w"
+              :height="f.box.h"
+              class="stair-hit"
+            />
             <line
               v-for="(t, i) in f.treads"
               :key="f.id + '-tread-' + i"
@@ -739,10 +829,38 @@ function onSpiralExitClick(roomId) {
               class="stair-tread"
               :stroke-width="t.width"
             />
-            <circle :cx="f.cx" :cy="f.cy" :r="cell * 0.15" class="stair-pad" />
-            <text :x="f.cx" :y="f.cy" class="stair-icon">
-              {{ f.dir === 'up' ? '▲' : f.dir === 'down' ? '▼' : '↕' }}
-            </text>
+            <g v-if="f.featureRoomId && currentRoom === f.featureRoomId" class="spiral-exits">
+              <g
+                v-if="f.exitUpRoomId"
+                class="spiral-exit"
+                :class="{ reachable: reachableRooms.includes(f.exitUpRoomId) }"
+                @click.stop="onStairExitClick(f, f.exitUpRoomId)"
+              >
+                <circle :cx="f.exitUp.x" :cy="f.exitUp.y" :r="cell * 0.14" class="stair-pad" />
+                <text :x="f.exitUp.x" :y="f.exitUp.y" class="stair-icon">▲</text>
+              </g>
+              <g
+                v-if="f.exitDownRoomId"
+                class="spiral-exit"
+                :class="{ reachable: reachableRooms.includes(f.exitDownRoomId) }"
+                @click.stop="onStairExitClick(f, f.exitDownRoomId)"
+              >
+                <circle :cx="f.exitDown.x" :cy="f.exitDown.y" :r="cell * 0.14" class="stair-pad" />
+                <text :x="f.exitDown.x" :y="f.exitDown.y" class="stair-icon">▼</text>
+              </g>
+            </g>
+            <template v-else-if="f.featureRoomId">
+              <circle :cx="f.cx" :cy="f.cy" :r="cell * 0.15" class="stair-pad" />
+              <text :x="f.cx" :y="f.cy" class="stair-icon">
+                {{ f.dir === 'up' ? '▲' : f.dir === 'down' ? '▼' : '↕' }}
+              </text>
+            </template>
+            <template v-else>
+              <circle :cx="f.cx" :cy="f.cy" :r="cell * 0.15" class="stair-pad" />
+              <text :x="f.cx" :y="f.cy" class="stair-icon">
+                {{ f.dir === 'up' ? '▲' : f.dir === 'down' ? '▼' : '↕' }}
+              </text>
+            </template>
           </template>
         </g>
       </g>
@@ -780,6 +898,9 @@ function onSpiralExitClick(roomId) {
 .gridmap.expanded {
   width: 100%;
   height: 72vh;
+}
+.gridmap.builder-view {
+  box-shadow: inset 0 0 0 2px rgba(200, 162, 255, 0.35);
 }
 .rotate-btn {
   position: absolute;
@@ -860,6 +981,10 @@ svg:not(.compass) {
   fill: #222a25;
   stroke: rgba(255, 255, 255, 0.07);
   stroke-dasharray: 4 4;
+}
+.room.reachable.unvisited .floor {
+  stroke: rgba(109, 185, 127, 0.45);
+  cursor: pointer;
 }
 .room.current .floor {
   fill: #5d7090;
@@ -990,6 +1115,9 @@ svg:not(.compass) {
 .fixture.reachable,
 .fixture.stair-clickable {
   cursor: pointer;
+}
+.fixture.visual-only {
+  pointer-events: none;
 }
 .fixture.fog {
   cursor: default;

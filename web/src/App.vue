@@ -10,7 +10,15 @@ import {
   buildRouteModels,
   fenceSegments,
 } from './composables/useRoutes.js'
-import { buildBuilding, movesFrom, moveKey } from './composables/useGrid.js'
+import {
+  applyRevealForDoor,
+  buildBuilding,
+  isDestinationNamed,
+  isDoorMapped,
+  mapVisibilityCtx,
+  movesFrom,
+  moveKey,
+} from './composables/useGrid.js'
 import {
   buildInitialDoorState,
   doorsFromRoom,
@@ -24,6 +32,7 @@ import {
   canBreakLock,
   toggleDoorLock,
   breakLock,
+  setAllDoorsOpen,
 } from './composables/useDoors.js'
 import {
   listEditableLines,
@@ -331,35 +340,80 @@ const place = ref('outdoors') // 'outdoors' | 'indoors'
 const indoor = reactive({
   currentRoom: building.start,
   discovered: new Set([building.start]),
+  revealed: new Set(),
   level: building.roomById[building.start]?.level ?? building.levels[0]?.id,
   viewLevel: building.roomById[building.start]?.level ?? building.levels[0]?.id,
   doorState: buildInitialDoorState(building.areaId, building),
   moving: false,
 })
 
+const indoorVisibility = computed(() =>
+  mapVisibilityCtx(
+    indoor.discovered,
+    indoor.revealed,
+    building,
+    indoor.doorState,
+    building.areaId,
+    builderView.value,
+    indoor.currentRoom,
+  ),
+)
+
 // You can enter the building when standing on a hex flagged as that area.
 const atBuildingEntrance = computed(() => currentHexData.value?.area === 'utility')
 const atGatePuzzle = computed(() => currentHexData.value?.puzzle === 'gate')
 const currentRoomData = computed(() => building.roomById[indoor.currentRoom])
 const indoorMoves = computed(() =>
-  movesFrom(building, indoor.currentRoom, indoor.level, indoor.doorState),
+  movesFrom(building, indoor.currentRoom, indoor.level, indoor.doorState, indoorVisibility.value),
 )
 const reachableRooms = computed(() =>
   indoorMoves.value.filter((m) => !m.onSpiral).map((m) => m.toRoomId),
 )
-const nearbyDoors = computed(() => doorsFromRoom(building, indoor.currentRoom))
+const nearbyDoors = computed(() =>
+  doorsFromRoom(building, indoor.currentRoom).filter((d) =>
+    isDoorMapped(building.doorById[d.doorId], indoorVisibility.value),
+  ),
+)
 const levelsTopDown = computed(() => building.levels)
 
 function doorStateFor(doorId) {
   return getDoorState(indoor.doorState, building.areaId, doorId)
 }
 
+function syncDoorState() {
+  const next = {}
+  for (const [k, v] of Object.entries(indoor.doorState)) {
+    next[k] = { ...v }
+  }
+  indoor.doorState = next
+}
+
 function tryOpenDoor(doorId) {
-  setDoorOpen(indoor.doorState, building.areaId, doorId, true)
+  if (!setDoorOpen(indoor.doorState, building.areaId, doorId, true)) return
+  syncDoorState()
+  const next = new Set(indoor.revealed)
+  applyRevealForDoor(building, next, doorId)
+  indoor.revealed = next
+}
+
+function openAllInteriorDoors() {
+  setAllDoorsOpen(indoor.doorState, building.areaId, building, true)
+  syncDoorState()
+  const next = new Set(indoor.revealed)
+  for (const door of building.doors) {
+    if (door.id) applyRevealForDoor(building, next, door.id)
+  }
+  indoor.revealed = next
+}
+
+function closeAllInteriorDoors() {
+  setAllDoorsOpen(indoor.doorState, building.areaId, building, false)
+  syncDoorState()
 }
 
 function tryCloseDoor(doorId) {
-  setDoorOpen(indoor.doorState, building.areaId, doorId, false)
+  if (!setDoorOpen(indoor.doorState, building.areaId, doorId, false)) return
+  syncDoorState()
 }
 
 function tryBreakLock(doorId) {
@@ -401,9 +455,9 @@ function applyIndoorMove(move) {
   }
 
   indoor.currentRoom = move.toRoomId
-  indoor.discovered.add(move.toRoomId)
+  indoor.discovered = new Set([...indoor.discovered, move.toRoomId])
 
-  if (to.feature === 'spiral-stair') {
+  if (to.feature) {
     indoor.level = move.toLevel ?? from.level ?? from.levels?.[0]
   } else {
     indoor.level = move.toLevel ?? to.level ?? to.levels?.[0]
@@ -423,6 +477,7 @@ function moveToRoom(roomId) {
 function resetIndoor() {
   indoor.currentRoom = building.start
   indoor.discovered = new Set([building.start])
+  indoor.revealed = new Set()
   indoor.level = building.roomById[building.start]?.level
   indoor.viewLevel = indoor.level
   indoor.doorState = buildInitialDoorState(building.areaId, building)
@@ -651,10 +706,12 @@ function resetIndoor() {
         :building="building"
         :current-room="indoor.currentRoom"
         :discovered="[...indoor.discovered]"
+        :revealed="[...indoor.revealed]"
         :level="indoor.viewLevel"
         :stand-level="indoor.level"
         :reachable-rooms="reachableRooms"
         :door-states="indoor.doorState"
+        :builder-view="builderView"
         :expanded="expanded"
         @room-click="moveToRoom"
       />
@@ -679,7 +736,7 @@ function resetIndoor() {
             @click="applyIndoorMove(m)"
           >
             Go {{ m.label }}
-            <span class="dest">→ {{ m.onSpiral || indoor.discovered.has(m.toRoomId) ? m.toName : '?' }}</span>
+            <span class="dest">→ {{ m.onSpiral || isDestinationNamed(m.toRoomId, indoorVisibility) ? m.toName : '?' }}</span>
           </button>
         </div>
       </div>
@@ -735,6 +792,22 @@ function resetIndoor() {
           <input type="radio" :value="lv.id" v-model="indoor.viewLevel" />
           {{ lv.name }}
         </label>
+        <label class="mode-pill builder-pill" :class="{ active: builderView }">
+          <input type="checkbox" v-model="builderView" />
+          builder
+        </label>
+      </div>
+
+      <div v-if="builderView" class="builder-panel">
+        <span class="label">Grid builder</span>
+        <div class="builder-actions">
+          <button class="sm" @click="openAllInteriorDoors">Open all doors</button>
+          <button class="sm" @click="closeAllInteriorDoors">Close all doors</button>
+        </div>
+        <p class="builder-hint">
+          Full floor plan — all rooms and doors visible. Use door buttons to test
+          peek / movement without playing through locks.
+        </p>
       </div>
 
       <div class="controls">

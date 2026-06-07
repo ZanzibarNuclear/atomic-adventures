@@ -8,8 +8,9 @@
 # Stacking:  Conference sits over Library; Kitchen sits over Small Bay;
 #            the Large Bay spans both floors.
 # Stairs:    Large Bay (garage) --straight stairs--> Conference (2nd floor)
-#            Kitchen / Library each open onto the river-side spiral stair (a
-#            feature you can pause on — not just a through-route).
+#            Kitchen (2F) and Hallway (1F) open onto the river-side spiral stair
+#            (a feature you can pause on — not just a through-route).
+#            Library connects west through a sloping corridor to the control room.
 
 id: utility-station
 name: Utility Station
@@ -28,14 +29,49 @@ rooms:
   # ---------------- 1st floor (ground) ----------------
   - id: library
     level: first
-    x: 0
+    x: -1
     y: 0
     w: 2
     h: 2
-    name: "Library / Study"
+    name: "Library"
     icon: "📚"
     windows: [top] # west / river side
     blurb: "Shelves, manuals, log binders, and three holo-reader stations. Windows covered by sliding blinds. Views of the river cascade."
+  - id: corridor
+    level: first
+    x: -3
+    y: 0.2
+    w: 2
+    h: 0.5
+    name: "Corridor"
+    blurb: "A narrow passage sloping downhill away from the station — conduit runs, pipe insulation, and a draft of cool air from below."
+  - id: control-room
+    level: first
+    x: -6
+    y: 0
+    w: 3
+    h: 3
+    name: "Control Room"
+    icon: "🎛️"
+    revealWhenDoor: corridor-control # peek once the downhill door opens
+    blurb: "Plant controls and monitoring gear for the utility station — breaker panels, annunciators, and a wall of labeled switches."
+  - id: hallway
+    level: first
+    x: 1
+    y: 0
+    w: 1
+    h: 0.8 # 8 ft — corridor above the bathroom
+    name: "Hallway"
+    blurb: "A short passage between the library, small bay, and spiral stair. Doors line the west wall and both ends."
+  - id: bathroom
+    level: first
+    x: 1
+    y: 0.8
+    w: 1
+    h: 1.2 # 12 ft — slightly deeper than the hallway
+    name: "Bathroom"
+    icon: "🚽"
+    blurb: "A compact washroom off the hallway — sink, toilet, and a frosted window onto the cascade. Smells faintly of old soap."
   - id: small-bay
     level: first
     x: 2
@@ -60,6 +96,11 @@ rooms:
     rollDoor: right # bigger two-story roll-up, same (north) wall / driveway
     rollSpan: 0.6
     blurb: "Open to the roof. Empty now, but the tire tracks and oil stains say something big was housed and serviced here — gone elsewhere on the compound."
+  - id: garage-stair
+    levels: [first, second]
+    feature: garage-stair
+    name: "Garage Stairs"
+    blurb: "A straight run of steps from the large bay up to the conference room landing. A closed door at the top leads into the second floor."
   - id: spiral-stair
     levels: [first, second]
     feature: spiral-stair
@@ -69,9 +110,9 @@ rooms:
   # ---------------- 2nd floor ----------------
   - id: conference
     level: second
-    x: 0
+    x: -1
     y: 0
-    w: 2
+    w: 3
     h: 2
     name: "Conference Room"
     icon: "🪑"
@@ -102,20 +143,59 @@ rooms:
 # Connectivity. Door-kind links name a `door` id; movement requires that door open.
 links:
   - { from: small-bay, to: large-bay, kind: open } # one big open garage
-  - { from: library, to: small-bay, kind: door, door: library-small-bay }
-  - { from: large-bay, to: conference, kind: stairs } # garage stair up to 2F
+  - { from: library, to: hallway, kind: door, door: library-hallway }
+  - { from: library, to: corridor, kind: door, door: library-corridor }
+  - { from: corridor, to: control-room, kind: door, door: corridor-control }
+  - { from: hallway, to: small-bay, kind: door, door: hallway-small-bay }
+  - { from: hallway, to: spiral-stair, kind: door, door: hallway-spiral }
+  - { from: hallway, to: bathroom, kind: door, door: hallway-bathroom }
+  - { from: large-bay, to: garage-stair, kind: stairs }
+  - {
+      from: garage-stair,
+      to: conference,
+      kind: door,
+      door: conference-garage-stair,
+    }
   - { from: conference, to: kitchen, kind: door, door: conference-kitchen }
-  - { from: library, to: spiral-stair, kind: door, door: library-spiral }
   - { from: kitchen, to: spiral-stair, kind: door, door: kitchen-spiral }
 
 # Doors: topology + visuals + initial state. All start closed.
 doors:
-  - id: library-small-bay
+  - id: library-hallway
     kind: man
     level: first
-    at: { x: 2, y: 1.62 }
+    at: { x: 1, y: 0.38 }
+    vertical: true
+    initial: { closed: true, locked: false }
+  - id: library-corridor
+    kind: man
+    level: first
+    at: { x: -1, y: 0.4 }
+    vertical: true
+    showWhenRoom: library # visible once the player has reached the library
+    initial: { closed: true, locked: false }
+  - id: corridor-control
+    kind: man
+    level: first
+    at: { x: -3, y: 0.4 }
+    vertical: true
+    initial: { closed: true, locked: false }
+  - id: hallway-spiral
+    kind: man
+    level: first
+    at: { x: 1.68, y: 0.04 } # west landing — matches spiral exitDown (hallway end)
+    initial: { closed: true, locked: false }
+  - id: hallway-small-bay
+    kind: man
+    level: first
+    at: { x: 2, y: 0.38 }
     vertical: true
     initial: { closed: true, locked: true }
+  - id: hallway-bathroom
+    kind: man
+    level: first
+    at: { x: 1.5, y: 0.8 }
+    initial: { closed: true, locked: false }
   - id: large-bay-man
     kind: man
     level: first
@@ -123,11 +203,6 @@ doors:
     at: { x: 0.6, y: 5 }
     label: "Large bay man door"
     initial: { closed: true, lockBroken: true }
-  - id: library-spiral
-    kind: man
-    level: first
-    at: { x: 1.68, y: 0.04 }
-    initial: { closed: true, locked: false }
   - id: small-bay-roll
     kind: roll
     room: small-bay
@@ -146,6 +221,7 @@ doors:
     kind: man
     level: second
     at: { x: 1.62, y: 2 }
+    showWhenRoom: garage-stair # top landing — visible once you're on the stair run
     initial: { closed: true, locked: false }
   - id: kitchen-spiral
     kind: man
@@ -160,11 +236,11 @@ fixtures:
     protrude: top
     radius: 0.66
     onLevels: [first, second]
-    connects: [kitchen, library]
+    connects: [kitchen, hallway]
   - id: garage-stair
     kind: straight-stairs
     rect: { x: 0.2, y: 2.08, w: 1.55, h: 0.5 }
     run: horizontal
     ascend: end
     onLevels: [first, second]
-    connects: [large-bay, conference]
+    connects: [large-bay, conference] # visual up/down; travel uses garage-stair room + door link

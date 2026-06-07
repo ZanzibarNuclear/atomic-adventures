@@ -100,25 +100,39 @@ export function spiralExitPoint(cx, cy, radius, protrude = 'top', end) {
   return spiralStandPoint(cx, cy, radius, protrude, treadIndex)
 }
 
-// Room ids at the high (▲) and low (▼) ends of the spiral stair.
-export function spiralExitRooms(building) {
-  const spiral = building.roomById['spiral-stair']
-  if (!spiral) return { upRoomId: null, downRoomId: null }
-  const { low, high } = spiralLandingsFor(building, spiral)
+export function isStairLanding(room) {
+  return !!room?.feature
+}
+
+export function featureRoomForFixture(building, fixtureId) {
+  const room = building.rooms.find((r) => r.feature === fixtureId)
+  return room?.id ?? null
+}
+
+// Room ids at the high (▲) and low (▼) ends of a multi-floor stair landing.
+export function stairExitRooms(building, stairRoomId) {
+  const stair = building.roomById[stairRoomId]
+  if (!stair?.feature) return { upRoomId: null, downRoomId: null }
+  const { low, high } = spiralLandingsFor(building, stair)
   let upRoomId = null
   let downRoomId = null
   for (const link of building.links) {
     let otherId = null
-    if (link.from === 'spiral-stair') otherId = link.to
-    else if (link.to === 'spiral-stair') otherId = link.from
+    if (link.from === stairRoomId) otherId = link.to
+    else if (link.to === stairRoomId) otherId = link.from
     else continue
     const other = building.roomById[otherId]
-    if (!other || other.feature) continue
+    if (!other || isStairLanding(other)) continue
     const lv = roomLevel(other)
     if (lv === high) upRoomId = otherId
     if (lv === low) downRoomId = otherId
   }
   return { upRoomId, downRoomId }
+}
+
+/** @deprecated use stairExitRooms */
+export function spiralExitRooms(building) {
+  return stairExitRooms(building, 'spiral-stair')
 }
 
 // Where the avatar stands — feature rooms use their fixture anchor instead of a grid cell.
@@ -135,14 +149,227 @@ export function roomStandPosition(building, room) {
         fixture.protrude ?? 'top',
       )
     }
+    if (fixture?.kind === 'straight-stairs' && fixture.rect) {
+      const cell = building.cell
+      const r = fixture.rect
+      return {
+        x: (r.x + r.w / 2) * cell,
+        y: (r.y + r.h / 2) * cell,
+      }
+    }
   }
   return roomCenter(room, building.cell)
 }
 
+export function mapVisibilityCtx(
+  discovered,
+  revealed = [],
+  building = null,
+  doorState = null,
+  areaId = null,
+  builderView = false,
+  currentRoom = null,
+) {
+  return {
+    discovered: discovered instanceof Set ? discovered : new Set(discovered),
+    revealed: revealed instanceof Set ? revealed : new Set(revealed),
+    building,
+    doorState,
+    areaId: areaId ?? building?.areaId ?? null,
+    builderView,
+    currentRoom: currentRoom ?? null,
+  }
+}
+
+export function fixtureRevealKey(fixtureId) {
+  return `fixture:${fixtureId}`
+}
+
+function isDoorPeekOpen(doorId, ctx) {
+  if (!doorId || !ctx?.doorState || !ctx?.areaId) return false
+  return canPassDoor(ctx.doorState, ctx.areaId, doorId)
+}
+
+function canPeekThroughDoor(doorId, ctx) {
+  if (!isDoorPeekOpen(doorId, ctx)) return false
+  const door = ctx?.building?.doorById?.[doorId]
+  // showWhenRoom only gates the door glyph (isDoorMapped), not peeking once it is open.
+  if (door?.showWhenRevealed) {
+    const room = ctx.building?.roomById?.[door.showWhenRevealed]
+    if (!room || !isRoomMapped(room, ctx)) return false
+  }
+  return true
+}
+
+function linkPassable(link, doorState, areaId) {
+  if (link.kind !== 'door' || !link.door) return true
+  if (!doorState) return false
+  return canPassDoor(doorState, areaId, link.door)
+}
+
+/** Room ids reachable in one step from `roomId` through passable links. */
+function passableNeighborIds(building, roomId, doorState, areaId) {
+  const out = []
+  for (const link of building.links ?? []) {
+    let otherId = null
+    if (link.from === roomId) otherId = link.to
+    else if (link.to === roomId) otherId = link.from
+    else continue
+    if (!linkPassable(link, doorState, areaId)) continue
+    out.push(otherId)
+  }
+  return out
+}
+
+function primaryLevel(room) {
+  if (!room) return null
+  return room.level ?? room.levels?.[0] ?? null
+}
+
+/** True when any explored room shares a same-floor passable link with this room. */
+function isAdjacentToDiscovered(roomId, ctx) {
+  if (!ctx?.building || !ctx.discovered?.size) return false
+  const target = ctx.building.roomById?.[roomId]
+  const targetLevel = primaryLevel(target)
+  for (const discoveredId of ctx.discovered) {
+    const from = ctx.building.roomById?.[discoveredId]
+    if (primaryLevel(from) !== targetLevel) continue
+    const neighbors = passableNeighborIds(ctx.building, discoveredId, ctx.doorState, ctx.areaId)
+    if (neighbors.includes(roomId)) return true
+  }
+  return false
+}
+
+/**
+ * Room visibility on the floor plan — three states:
+ *   unknown — not mapped (draw nothing)
+ *   fog     — mapped but not in `discovered` (draw "?" via isRoomFogged)
+ *   known   — in `discovered` (name, icon, windows)
+ *
+ * A room is mapped when discovered, peeked (`revealed`), adjacent to a discovered
+ * room through a passable link, peeked through an open door (`revealWhenDoor`),
+ * or mirrored from a discovered twin (e.g. the 2F bay overlook).
+ */
+export function isRoomMapped(room, ctx) {
+  if (ctx?.builderView) return true
+  if (!room || room.feature) return true
+  if (!ctx) return false
+  if (ctx.discovered.has(room.id) || ctx.revealed.has(room.id)) return true
+  if (room.mirror && ctx.discovered.has(room.mirror)) return true
+  if (room.revealWhenDoor && canPeekThroughDoor(room.revealWhenDoor, ctx)) return true
+  return isAdjacentToDiscovered(room.id, ctx)
+}
+
+/** Peeked but not yet entered — draw as fog (?). */
+export function isRoomFogged(room, ctx) {
+  if (ctx?.builderView) return false
+  if (!isRoomMapped(room, ctx)) return false
+  if (room.mirror && ctx?.discovered.has(room.mirror)) return false
+  return !ctx?.discovered.has(room.id)
+}
+
+function linkedRoomIdsForDoor(building, door) {
+  if (door.room) return [door.room]
+  const ids = new Set()
+  for (const link of building.links ?? []) {
+    if (link.kind === 'door' && link.door === door.id) {
+      ids.add(link.from)
+      ids.add(link.to)
+    }
+  }
+  return [...ids]
+}
+
+export function isDoorMapped(door, ctx) {
+  if (ctx?.builderView) return true
+  if (!door) return true
+  if (door.showWhenDiscovered && !ctx?.discovered.has(door.showWhenDiscovered)) return false
+  if (door.showWhenRoom && !ctx?.discovered.has(door.showWhenRoom)) return false
+  if (door.showWhenRevealed) {
+    const room = ctx?.building?.roomById?.[door.showWhenRevealed]
+    if (!room || !isRoomMapped(room, ctx)) return false
+  }
+  // Draw a door only when joined rooms are on the plan. Stair-landing doors may
+  // lead into an unseen room once the player is standing on the run.
+  const linked = linkedRoomIdsForDoor(ctx.building, door)
+    .map((id) => ctx.building?.roomById?.[id])
+    .filter(Boolean)
+  const onStairLanding = linked.some((r) => isStairLanding(r) && ctx.discovered.has(r.id))
+  const standingInLinkedRoom =
+    !!ctx.currentRoom &&
+    linked.some((r) => r.id === ctx.currentRoom && ctx.discovered.has(r.id))
+  for (const room of linked) {
+    if (isStairLanding(room)) {
+      if (!isRoomMapped(room, ctx)) return false
+      continue
+    }
+    if (!isRoomMapped(room, ctx)) {
+      if (onStairLanding || standingInLinkedRoom) continue
+      return false
+    }
+  }
+  return true
+}
+
+export function isFixtureMapped(fixture, ctx) {
+  if (ctx?.builderView) return true
+  if (!fixture.revealWhenDoor) {
+    const ids = fixture.connects ?? []
+    return !ctx || ids.some((id) => ctx.discovered.has(id))
+  }
+  if (!ctx) return false
+  const key = fixtureRevealKey(fixture.id)
+  if (ctx.revealed.has(key)) return true
+  if (canPeekThroughDoor(fixture.revealWhenDoor, ctx)) return true
+  return (fixture.connects ?? []).some((id) => ctx.discovered.has(id))
+}
+
+export function isFixtureFogged(fixture, ctx) {
+  if (ctx?.builderView) return false
+  if (!isFixtureMapped(fixture, ctx)) return false
+  if (!fixture.revealWhenDoor) {
+    const ids = fixture.connects ?? []
+    return !ids.some((id) => ctx?.discovered.has(id))
+  }
+  const target = fixture.revealRoom
+  if (target) {
+    const room = ctx?.building?.roomById?.[target]
+    return !!room && isRoomMapped(room, ctx) && !ctx.discovered.has(target)
+  }
+  const key = fixtureRevealKey(fixture.id)
+  return (ctx.revealed.has(key) || canPeekThroughDoor(fixture.revealWhenDoor, ctx)) && !ctx.discovered.has(key)
+}
+
+/** Opening a door permanently peeks linked rooms / fixtures onto the plan. */
+export function applyRevealForDoor(building, revealedSet, doorId) {
+  for (const room of building.rooms) {
+    if (room.revealWhenDoor === doorId) revealedSet.add(room.id)
+  }
+  for (const fixture of building.fixtures ?? []) {
+    if (fixture.revealWhenDoor === doorId) revealedSet.add(fixtureRevealKey(fixture.id))
+  }
+  // Keep rooms on the far side visible as fog after the door closes again.
+  for (const link of building.links ?? []) {
+    if (link.kind === 'door' && link.door === doorId) {
+      revealedSet.add(link.from)
+      revealedSet.add(link.to)
+    }
+  }
+}
+
+export function isDestinationNamed(roomId, ctx) {
+  if (ctx?.builderView) return true
+  if (!ctx) return false
+  if (ctx.discovered.has(roomId)) return true
+  if (ctx.revealed.has(roomId)) return true
+  const room = ctx.building?.roomById?.[roomId]
+  return !!room && isRoomMapped(room, ctx)
+}
+
 // View bounds for rendering: rooms plus fixtures (e.g. spiral semicircle past the wall).
-export function levelDisplayBounds(building, levelId, pad = 0.6) {
+export function levelDisplayBounds(building, levelId, pad = 0.6, visibility = null) {
   const cell = building.cell
-  const rooms = roomsOnLevel(building, levelId)
+  const rooms = roomsOnLevel(building, levelId).filter((r) => isRoomMapped(r, visibility))
   if (rooms.length === 0) return { x: 0, y: 0, w: 100, h: 100 }
   let minX = Infinity
   let minY = Infinity
@@ -162,6 +389,7 @@ export function levelDisplayBounds(building, levelId, pad = 0.6) {
   for (const f of building.fixtures ?? []) {
     const onLevels = f.onLevels ?? building.levels.map((l) => l.id)
     if (!onLevels.includes(levelId)) continue
+    if (visibility && !isFixtureMapped(f, visibility)) continue
     if (f.kind === 'spiral-stairs') {
       const cx = f.at.x * cell
       const cy = f.at.y * cell
@@ -216,16 +444,22 @@ function dirBetween(building, fromRoom, toRoom) {
 
 function roomLevel(room, landing = null) {
   if (!room) return landing
-  if (room.feature === 'spiral-stair') return landing ?? room.levels?.[0]
+  if (room.feature) return landing ?? room.levels?.[0]
   return room.level ?? room.levels?.[0]
 }
 
 function moveLabel(kind, dir, from, to) {
-  if (to?.feature === 'spiral-stair') return 'onto the spiral stair'
-  if (from?.feature === 'spiral-stair') {
+  if (to?.feature) {
+    const name = (to.name ?? 'stairs').toLowerCase()
+    return `onto the ${name}`
+  }
+  if (from?.feature) {
     if (to.id === 'kitchen') return 'up to the kitchen'
-    if (to.id === 'library') return 'down to the library'
+    if (to.id === 'hallway') return 'down to the hallway'
+    if (to.id === 'large-bay') return 'down to the large bay'
     const short = (to.name ?? '').split('/')[0].trim().toLowerCase()
+    if (dir === 'up') return short ? `up to the ${short}` : 'up the stairs'
+    if (dir === 'down') return short ? `down to the ${short}` : 'down the stairs'
     return short ? `into the ${short}` : 'into the next room'
   }
   if (kind === 'door') return 'through the door'
@@ -255,22 +489,24 @@ export function moveKey(move) {
   return move.onSpiral ? `${move.toRoomId}:${move.dir}` : move.toRoomId
 }
 
-function linkPassable(link, doorState, areaId) {
-  if (link.kind !== 'door' || !link.door) return true
-  if (!doorState) return false
-  return canPassDoor(doorState, areaId, link.door)
-}
-
 // Every room reachable from `roomId` in one step, with a human label.
 // `atLevel` is the floor landing the player occupies (required on the spiral stair).
-export function movesFrom(building, roomId, atLevel = null, doorState = null) {
+export function movesFrom(building, roomId, atLevel = null, doorState = null, visibility = null) {
   const out = []
   const from = building.roomById[roomId]
   if (!from) return out
   const fromLevel = standLevel(from, atLevel)
   const areaId = building.areaId
 
-  if (from.feature === 'spiral-stair') {
+  // Map peeking is separate from movement: doors and stairs can reach rooms not yet on the plan.
+  function targetReachable(room, link) {
+    if (!room || isStairLanding(room)) return true
+    if (link.kind === 'door' && link.door) return true
+    if (link.kind === 'stairs') return true
+    return isRoomMapped(room, visibility)
+  }
+
+  if (isStairLanding(from)) {
     for (const link of building.links) {
       let otherId = null
       if (link.from === roomId) otherId = link.to
@@ -278,7 +514,8 @@ export function movesFrom(building, roomId, atLevel = null, doorState = null) {
       if (!otherId) continue
       if (!linkPassable(link, doorState, areaId)) continue
       const other = building.roomById[otherId]
-      if (!other || other.feature === 'spiral-stair') continue
+      if (!other || isStairLanding(other)) continue
+      if (!targetReachable(other, link)) continue
       const otherLevel = roomLevel(other)
       const dir = dirBetween(building, { level: fromLevel }, { level: otherLevel })
       out.push({
@@ -302,7 +539,8 @@ export function movesFrom(building, roomId, atLevel = null, doorState = null) {
     if (!linkPassable(link, doorState, areaId)) continue
     const to = building.roomById[toId]
     if (!to) continue
-    const toLevel = roomLevel(to, to.feature === 'spiral-stair' ? fromLevel : null)
+    if (!targetReachable(to, link)) continue
+    const toLevel = roomLevel(to, isStairLanding(to) ? fromLevel : null)
     const dir = dirBetween(building, { level: fromLevel }, { level: toLevel })
     out.push({
       toRoomId: toId,
@@ -311,7 +549,7 @@ export function movesFrom(building, roomId, atLevel = null, doorState = null) {
       doorId: link.door ?? null,
       label: moveLabel(link.kind, dir, from, to),
       toName: to.name ?? toId,
-      toLevel: to.feature === 'spiral-stair' ? fromLevel : toLevel,
+      toLevel: isStairLanding(to) ? fromLevel : toLevel,
     })
   }
   return out
@@ -418,10 +656,11 @@ export function fixturesOnLevel(building, levelId) {
     const onLevels = f.onLevels ?? building.levels.map((l) => l.id)
     if (!onLevels.includes(levelId)) continue
     const rooms = (f.connects ?? []).map((id) => building.roomById[id]).filter(Boolean)
-    const here = rooms.find((r) => r.level === levelId)
-    const there = rooms.find((r) => r.level !== levelId)
+    const here = rooms.find((r) => roomOnLevel(r, levelId))
+    const there = rooms.find((r) => r !== here && !roomOnLevel(r, levelId))
     const dir = here && there ? dirBetween(building, here, there) : 'same'
-    const toRoomId = there?.id ?? null
+    const featureRoomId = featureRoomForFixture(building, f.id)
+    const toRoomId = featureRoomId ?? there?.id ?? null
     const connects = (f.connects ?? rooms.map((r) => r.id)).filter(Boolean)
     if (f.kind === 'spiral-stairs') {
       out.push({
@@ -429,6 +668,7 @@ export function fixturesOnLevel(building, levelId) {
         kind: f.kind,
         dir,
         toRoomId,
+        featureRoomId,
         connects,
         x: f.at.x * cell,
         y: f.at.y * cell,
@@ -442,7 +682,9 @@ export function fixturesOnLevel(building, levelId) {
         kind: f.kind,
         dir,
         toRoomId,
+        featureRoomId,
         connects,
+        visualOnly: !!f.visualOnly,
         rect: { x: r.x * cell, y: r.y * cell, w: r.w * cell, h: r.h * cell },
         run: f.run ?? 'horizontal',
         ascend: f.ascend ?? 'end', // 'end' = high end at far x/y, 'start' = near
