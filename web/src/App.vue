@@ -17,6 +17,8 @@ import {
   buildBuilding,
   canUseExteriorExit,
   exteriorMovesFrom,
+  exteriorPathBetween,
+  exteriorReachableNodes,
   exteriorStepOutMoves,
   isDestinationNamed,
   isDoorMapped,
@@ -803,8 +805,9 @@ const reachableRooms = computed(() => {
 });
 const reachableExteriorNodes = computed(() => {
   if (indoor.exteriorNode) {
-    return exteriorMovesFrom(building.value, indoor.exteriorNode).map(
-      (m) => m.toNodeId,
+    return exteriorReachableNodes(
+      building.value,
+      indoor.exteriorNode,
     );
   }
   if (indoor.currentRoom) {
@@ -1235,8 +1238,37 @@ function moveToRoom(roomId) {
 }
 
 function moveToExteriorNode(nodeId) {
+  if (indoor.moving || nodeId === indoor.exteriorNode) return;
+
+  if (indoor.exteriorNode) {
+    const path = exteriorPathBetween(
+      building.value,
+      indoor.exteriorNode,
+      nodeId,
+    );
+    if (!path?.length) return;
+    walkExteriorPath(path);
+    return;
+  }
+
   const move = indoorMoves.value.find((m) => m.toExteriorNode === nodeId);
   if (move) applyIndoorMove(move);
+}
+
+function walkExteriorPath(nodeIds) {
+  if (indoor.moving || !nodeIds.length) return;
+  indoor.moving = true;
+  let i = 0;
+  function step() {
+    if (i >= nodeIds.length) {
+      indoor.moving = false;
+      return;
+    }
+    indoor.exteriorNode = nodeIds[i];
+    i += 1;
+    setTimeout(step, 400);
+  }
+  step();
 }
 
 function resetIndoor() {

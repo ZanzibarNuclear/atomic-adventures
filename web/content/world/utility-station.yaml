@@ -34,7 +34,7 @@ river:
 exterior:
   level: first
   entry: large-bay-roll-front
-  pad: 1.0 # one 10' grid square margin on south, east, and north
+  pad: 1
   nodes:
     - id: small-bay-roll-front
       at: { x: 4.58, y: 0.98 }
@@ -58,10 +58,19 @@ exterior:
       at: { x: -3.13, y: 5.34 }
       label: "South-east bend"
     - id: lobby-exterior-front
-      at: { x: -4.4, y: 3.28 }
+      at: { x: -4.4, y: 3.52 }
       label: "Control lobby"
       door: lobby-exterior
       room: control-lobby
+    - id: south-east-corner
+      at: { x: -6.39, y: 3.24 }
+      label: "South-east corner"
+    - id: downstream-bank
+      at: { x: -5.38, y: -0.93 }
+      label: "Riverbank downstream"
+    - id: upstream-bank
+      at: { x: 4.01, y: -1.02 }
+      label: "Riverbank upstream"
   paths:
     - id: driveway
       smooth: true
@@ -86,9 +95,23 @@ exterior:
         - { x: 4.29, y: 5.53 }
         - { x: 2.81, y: 5.53 }
         - { x: 0.61, y: 5.55 }
-        - { x: -2.05, y: 5.59 }
-        - { x: -4.17, y: 4.7 }
-        - { x: -4.39, y: 3.34 }
+        - { x: -1.98, y: 5.56 }
+        - { x: -4.05, y: 4.65 }
+        - { x: -4.39, y: 3.48 }
+    - id: riverside
+      smooth: true
+      nodes:
+        [
+          lobby-exterior-front,
+          south-east-corner,
+          downstream-bank,
+          upstream-bank,
+        ]
+      points:
+        - { x: -4.4, y: 3.52 }
+        - { x: -6.39, y: 3.24 }
+        - { x: -5.38, y: -0.93 }
+        - { x: 4.01, y: -1.02 }
 
 # Exterior doors — mini hex on the floor plan steps out to the world map.
 exits:

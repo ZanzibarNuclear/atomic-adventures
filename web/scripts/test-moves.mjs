@@ -11,6 +11,8 @@ import {
   doorRevealKey,
   doorsOnLevel,
   exteriorStepOutMoves,
+  exteriorReachableNodes,
+  exteriorPathBetween,
   levelBeams,
   levelBuildingOutline,
   levelBuildingPerimeter,
@@ -322,3 +324,26 @@ if (!bayStepOut.some((m) => m.toExteriorNode === 'large-bay-roll-front')) {
 setAllDoorsOpen(ds, b.areaId, b, true)
 m = movesFrom(b, 'library', 'first', ds, mapVisibilityCtx(new Set(['library']), new Set(), b, ds, b.areaId, true))
 console.log('library moves (all open, builder):', m.map((x) => x.toRoomId))
+
+const entry = b.exterior.entry
+const reachableFromEntry = exteriorReachableNodes(b, entry).sort()
+console.log('footpath reachable from entry:', reachableFromEntry)
+if (!reachableFromEntry.includes('lobby-exterior-front')) {
+  console.error('FAIL: lobby footpath node should be reachable from entry')
+  process.exit(1)
+}
+if (exteriorReachableNodes(b, entry).length < b.exterior.nodes.length - 1) {
+  console.error('FAIL: all footpath nodes should connect from entry')
+  process.exit(1)
+}
+
+const lobbyPath = exteriorPathBetween(b, entry, 'lobby-exterior-front')
+if (!lobbyPath?.length || lobbyPath[lobbyPath.length - 1] !== 'lobby-exterior-front') {
+  console.error('FAIL: footpath to lobby should end at lobby-exterior-front')
+  process.exit(1)
+}
+const firstHop = b.exterior.adj[entry]?.find((n) => lobbyPath.includes(n))
+if (!firstHop) {
+  console.error('FAIL: lobby path should start along an adjacent footpath segment')
+  process.exit(1)
+}

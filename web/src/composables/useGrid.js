@@ -1180,6 +1180,58 @@ export function exteriorMovesFrom(building, nodeId) {
   })
 }
 
+/** All footpath nodes reachable from `nodeId` without backtracking through doors. */
+export function exteriorReachableNodes(building, nodeId) {
+  const adj = building.exterior?.adj ?? {}
+  if (!nodeId || !building.exterior?.nodeById?.[nodeId]) return []
+  const seen = new Set([nodeId])
+  const q = [nodeId]
+  while (q.length) {
+    const id = q.shift()
+    for (const next of adj[id] ?? []) {
+      if (seen.has(next)) continue
+      seen.add(next)
+      q.push(next)
+    }
+  }
+  seen.delete(nodeId)
+  return [...seen]
+}
+
+/** Shortest footpath from `fromId` to `toId` — node ids to visit, excluding the start. */
+export function exteriorPathBetween(building, fromId, toId) {
+  if (!fromId || !toId || fromId === toId) return []
+  const adj = building.exterior?.adj ?? {}
+  if (!building.exterior?.nodeById?.[fromId] || !building.exterior?.nodeById?.[toId]) {
+    return null
+  }
+  const prev = new Map()
+  const seen = new Set([fromId])
+  const q = [fromId]
+  let found = false
+  while (q.length) {
+    const id = q.shift()
+    if (id === toId) {
+      found = true
+      break
+    }
+    for (const next of adj[id] ?? []) {
+      if (seen.has(next)) continue
+      seen.add(next)
+      prev.set(next, id)
+      q.push(next)
+    }
+  }
+  if (!found) return null
+  const path = []
+  let cur = toId
+  while (cur !== fromId) {
+    path.unshift(cur)
+    cur = prev.get(cur)
+  }
+  return path
+}
+
 /** Step from an interior room out to its footpath stand spot (exit door must be open). */
 export function exteriorStepOutMoves(building, roomId, doorState, areaId) {
   if (!roomId) return []
