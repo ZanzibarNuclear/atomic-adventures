@@ -726,6 +726,14 @@ function spiralStairRoomId(building) {
   return building.rooms?.find((r) => r.feature === 'spiral-stair')?.id ?? null
 }
 
+function spiralStairEndpointRoom(door, building) {
+  const linked = linkedRoomIdsForDoor(building, door)
+    .map((id) => building.roomById[id])
+    .filter(Boolean)
+  if (!linked.some((r) => r.feature === 'spiral-stair')) return null
+  return linked.find((r) => !isStairLanding(r)) ?? null
+}
+
 function manDoorOnLevel(door, building, levelId, currentRoom = null) {
   const endpointLevel = spiralStairEndpointLevel(door, building)
   if (endpointLevel == null) return doorOnLevel(door, levelId)
@@ -775,6 +783,10 @@ export function isDoorMapped(door, ctx) {
   const stairEndKnown = linked.some(
     (r) => isStairLanding(r) && isRoomMapped(r, ctx) && stairEndDiscovered(r, ctx),
   )
+  const spiralEnd = spiralStairEndpointRoom(door, ctx.building)
+  if (spiralEnd && !ctx.discovered.has(spiralEnd.id) && !onStairRun) {
+    return false
+  }
   for (const room of linked) {
     if (isStairLanding(room)) {
       if (!isRoomMapped(room, ctx)) return false

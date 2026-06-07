@@ -102,6 +102,38 @@ if (visibleDoors.includes('kitchen-spiral')) {
   process.exit(1)
 }
 
+setDoorOpen(ds, b.areaId, 'library-hallway', true)
+const libraryPeekCtx = mapVisibilityCtx(
+  new Set(['library']),
+  new Set(['library', 'hallway']),
+  b,
+  ds,
+  b.areaId,
+  false,
+  'library',
+)
+if (isDoorMapped(b.doorById['hallway-spiral'], libraryPeekCtx)) {
+  console.error('FAIL: hallway-spiral must not show while hallway is still fog')
+  process.exit(1)
+}
+if (isDoorMapped(b.doorById['hallway-small-bay'], libraryPeekCtx)) {
+  console.error('FAIL: hallway-small-bay must not show while hallway is still fog')
+  process.exit(1)
+}
+const libraryHallwayCtx = mapVisibilityCtx(
+  new Set(['library', 'hallway']),
+  new Set(['library', 'hallway']),
+  b,
+  ds,
+  b.areaId,
+  false,
+  'hallway',
+)
+if (!isDoorMapped(b.doorById['hallway-spiral'], libraryHallwayCtx)) {
+  console.error('FAIL: hallway-spiral should show once hallway is explored')
+  process.exit(1)
+}
+
 const hallwayCtx = mapVisibilityCtx(new Set(['hallway']), [], b, ds, b.areaId, false, 'hallway')
 const hallwayDoors = doorsOnLevel(b, 'first', ds)
   .filter((d) => isDoorMapped(b.doorById[d.id], hallwayCtx))
