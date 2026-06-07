@@ -94,6 +94,7 @@ export function buildBuilding(data) {
     exitByDoorId,
     exterior,
     river: data.river ?? null,
+    cliffWall: data.cliffWall ?? null,
     start: data.start ?? rooms[0]?.id,
   }
 }
@@ -574,6 +575,31 @@ export function levelMapLayoutBounds(building, levelId, visibility = null) {
 /** River strip west of the level footprint (layout units; west = top / −y). */
 export function levelRiverRect(building, levelId, visibility = null) {
   return levelMapLayoutBounds(building, levelId, visibility).river
+}
+
+/**
+ * Stone retaining wall west of the driveway (layout units).
+ * Spine runs north→south (+x to −x on the plan); thickness offsets west (−y).
+ */
+export function levelCliffWall(building, levelId, visibility = null) {
+  const cfg = building.cliffWall
+  if (!cfg) return null
+  const onLevels = cfg.onLevels ?? [building.exterior?.level ?? 'first']
+  if (!onLevels.includes(levelId)) return null
+
+  const unitFeet = building.unitFeet ?? 10
+  const thickness = (cfg.thicknessFeet ?? 6) / unitFeet
+  let points = (cfg.points ?? []).map((p) => ({ x: p.x, y: p.y }))
+  if (points.length < 1) return null
+
+  if (cfg.extendNorthToMapEdge ?? cfg.extendWestToMapEdge) {
+    const bounds = levelMapLayoutBounds(building, levelId, visibility)
+    const southEnd = points.reduce((best, p) => (!best || p.x < best.x ? p : best))
+    points = [{ x: bounds.maxX + 0.45, y: southEnd.y }, ...points]
+  }
+
+  if (points.length < 2) return null
+  return { points, thickness }
 }
 
 export function fixtureRevealKey(fixtureId) {

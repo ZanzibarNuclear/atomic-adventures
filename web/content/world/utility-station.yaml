@@ -29,6 +29,15 @@ river:
   visibleFraction: 0.5
   onLevels: [first, second]
 
+# Retaining wall west of the driveway — blocks the cliff drop to the river.
+# Runs north→south (right→left on the plan); thickness extends west toward the river.
+cliffWall:
+  onLevels: [first, second]
+  thicknessFeet: 5
+  extendNorthToMapEdge: true
+  points:
+    - { x: 4.2, y: 0.1 } # northwest corner of building footprint (upper-right)
+
 # Footpaths and stand spots outside the building (1st-floor plan).
 # Paths use smooth curves (Catmull-Rom) like the hex-map trails.
 exterior:
@@ -106,12 +115,15 @@ exterior:
           south-east-corner,
           downstream-bank,
           upstream-bank,
+          small-bay-roll-front,
         ]
       points:
         - { x: -4.4, y: 3.52 }
         - { x: -6.39, y: 3.24 }
         - { x: -5.38, y: -0.93 }
         - { x: 4.01, y: -1.02 }
+        - { x: 4.01, y: 0.3 }
+        - { x: 4.63, y: 0.97 }
 
 # Exterior doors — mini hex on the floor plan steps out to the world map.
 exits:

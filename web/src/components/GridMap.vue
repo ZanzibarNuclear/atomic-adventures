@@ -21,6 +21,7 @@ import {
   mapVisibilityCtx,
   levelBuildingPerimeter,
   levelMapLayoutBounds,
+  levelCliffWall,
   isRoomMapped,
   isRoomFogged,
   isDoorMapped,
@@ -235,6 +236,37 @@ const placedRiver = computed(() => {
     chevrons.push(`M ${wingA.x} ${wingA.y} L ${tip.x} ${tip.y} L ${wingB.x} ${wingB.y}`)
   }
   return { rect: bbox(corners), chevrons }
+})
+
+/** Stone strip offset west (−y) from each spine segment. */
+function cliffWallSegmentPoly(p1, p2, thickness) {
+  return [
+    { x: p1.x, y: p1.y },
+    { x: p2.x, y: p2.y },
+    { x: p2.x, y: p2.y - thickness },
+    { x: p1.x, y: p1.y - thickness },
+  ]
+}
+
+function cliffWallPolygonPath(points) {
+  if (!points.length) return ''
+  const [first, ...rest] = points
+  return `M ${first.x} ${first.y} ${rest.map((p) => `L ${p.x} ${p.y}`).join(' ')} Z`
+}
+
+const placedCliffWall = computed(() => {
+  const wall = levelCliffWall(props.building, props.level, visibility.value)
+  if (!wall) return null
+  const cellV = cell.value
+  const t = wall.thickness
+  const segments = []
+  for (let i = 0; i < wall.points.length - 1; i++) {
+    const a = wall.points[i]
+    const b = wall.points[i + 1]
+    const poly = cliffWallSegmentPoly(a, b, t).map((p) => tp(p.x * cellV, p.y * cellV))
+    segments.push({ d: cliffWallPolygonPath(poly), key: `seg-${i}` })
+  }
+  return segments.length ? { segments } : null
 })
 
 // Viewing area = panel aspect, centered on the building; grid fills this rect.
@@ -927,6 +959,21 @@ function onExteriorNodeClick(nodeId) {
       preserveAspectRatio="xMidYMid meet"
       @click="onSvgClick"
     >
+      <defs>
+        <pattern
+          id="cliff-wall-stone"
+          patternUnits="userSpaceOnUse"
+          width="18"
+          height="12"
+        >
+          <rect width="18" height="12" fill="#7a7672" />
+          <rect x="0.5" y="0.5" width="8" height="5" rx="0.4" fill="#8f8b86" stroke="#5c5854" stroke-width="0.5" />
+          <rect x="9.5" y="0.5" width="8" height="5" rx="0.4" fill="#6e6a66" stroke="#5c5854" stroke-width="0.5" />
+          <rect x="5" y="6.5" width="8" height="5" rx="0.4" fill="#75716d" stroke="#5c5854" stroke-width="0.5" />
+          <rect x="0.5" y="6.5" width="4" height="5" rx="0.4" fill="#85817c" stroke="#5c5854" stroke-width="0.5" />
+        </pattern>
+      </defs>
+
       <g class="grid-layer">
         <line
           v-for="(ln, i) in placedGridLines"
@@ -953,6 +1000,16 @@ function onExteriorNodeClick(nodeId) {
           :key="'river-flow-' + i"
           :d="d"
           class="river-flow"
+        />
+      </g>
+
+      <!-- Retaining wall — cliff edge west of the driveway -->
+      <g v-if="placedCliffWall" class="cliff-wall-layer" pointer-events="none">
+        <path
+          v-for="seg in placedCliffWall.segments"
+          :key="'cliff-' + seg.key"
+          :d="seg.d"
+          class="cliff-wall-fill"
         />
       </g>
 
@@ -1497,6 +1554,15 @@ svg:not(.compass) {
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+.cliff-wall-layer {
+  pointer-events: none;
+}
+.cliff-wall-fill {
+  fill: url(#cliff-wall-stone);
+  stroke: #5c5854;
+  stroke-width: 2;
+  stroke-linejoin: bevel;
 }
 .building-shell {
   fill: #14181f;
