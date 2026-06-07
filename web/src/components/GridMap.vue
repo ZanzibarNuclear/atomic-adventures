@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onUnmounted, ref } from 'vue'
 import { hexCornerPoints } from '../composables/useHexGeometry.js'
 import { catmullRomSpline, pointsAttr } from '../composables/useRoutes.js'
 import { pathHandleColor, roomHandleColor } from '../composables/useGridBuilder.js'
@@ -98,7 +98,7 @@ function shellRingPath(ring) {
   return ring.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ') + ' Z'
 }
 const placedRiver = computed(() => {
-  const layout = levelRiverRect(props.building, props.level)
+  const layout = levelRiverRect(props.building, props.level, visibility.value)
   if (!layout) return null
   const cellV = cell.value
   const x0 = layout.x * cellV
@@ -132,7 +132,7 @@ function rotate() {
   rotation.value = (rotation.value + 90) % 360
 }
 const swapAxes = computed(() => rotation.value % 180 !== 0)
-const bounds = computed(() => levelDisplayBounds(props.building, props.level, 0.6, visibility.value))
+const bounds = computed(() => levelDisplayBounds(props.building, props.level, 0, visibility.value))
 const center = computed(() => ({
   x: bounds.value.x + bounds.value.w / 2,
   y: bounds.value.y + bounds.value.h / 2,
@@ -262,14 +262,6 @@ const layoutSamplePoints = computed(() => {
     { x: b.x + b.w, y: b.y + b.h },
     { x: b.x, y: b.y + b.h },
   )
-  const river = levelRiverRect(props.building, props.level)
-  if (river) {
-    const cellV = cell.value
-    pts.push(
-      { x: river.x * cellV, y: river.y * cellV },
-      { x: (river.x + river.w) * cellV, y: (river.y + river.h) * cellV },
-    )
-  }
   for (const f of fixtures.value) {
     if (f.kind === 'spiral-stairs') {
       pts.push({ x: f.x, y: f.y })
@@ -322,53 +314,11 @@ const rotatedBounds = computed(() => {
     maxY = Math.max(maxY, r.y)
   }
   if (!Number.isFinite(minX)) return { x: 0, y: 0, w: 100, h: 100 }
-  const pad = (props.building.exterior?.pad ?? 0.6) * cell.value
-  return {
-    x: minX - pad,
-    y: minY - pad,
-    w: maxX - minX + pad * 2,
-    h: maxY - minY + pad * 2,
-  }
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
 })
 
-const containerAspect = ref(220 / 200)
-let resizeObserver = null
-
-function attachResizeObserver() {
-  resizeObserver?.disconnect()
-  const el = mapSvgRef.value
-  if (!el) return
-  const { width, height } = el.getBoundingClientRect()
-  if (height > 0) containerAspect.value = width / height
-  resizeObserver = new ResizeObserver((entries) => {
-    const cr = entries[0].contentRect
-    if (cr.height > 0) containerAspect.value = cr.width / cr.height
-  })
-  resizeObserver.observe(el)
-}
-
-onMounted(() => nextTick(attachResizeObserver))
-watch(() => props.expanded, () => nextTick(attachResizeObserver))
-onUnmounted(() => resizeObserver?.disconnect())
-
-// Fit whole building in the panel (meet); pad viewBox aspect to reduce empty margins.
-const viewBoxRect = computed(() => {
-  const c = rotatedBounds.value
-  let { x, y, w, h } = c
-  if (w < 1 || h < 1) return c
-  const contentAspect = w / h
-  const boxAspect = containerAspect.value
-  if (contentAspect > boxAspect) {
-    const nh = w / boxAspect
-    y -= (nh - h) / 2
-    h = nh
-  } else if (contentAspect < boxAspect) {
-    const nw = h * boxAspect
-    x -= (nw - w) / 2
-    w = nw
-  }
-  return { x, y, w, h }
-})
+// Tight viewBox — margins come from levelMapLayoutBounds, not aspect-ratio padding.
+const viewBoxRect = computed(() => rotatedBounds.value)
 
 const viewBox = computed(() => {
   const vb = viewBoxRect.value

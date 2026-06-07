@@ -22,10 +22,11 @@ north: right # the compass arrow points right, per the sketch
 outdoorHex: utility-yard # hex where this building sits on the world map
 
 # Cascade west (top) of the building; layout +x is north, flow runs north → south.
+# Close-up plan crops to the building-facing half — a western border, not crossable here.
 river:
-  offsetFeet: 20
-  widthFeet: 25
-  endPadFeet: 8
+  offsetFeet: 10
+  widthFeet: 15
+  visibleFraction: 0.5
   onLevels: [first, second]
 
 # Footpaths and stand spots outside the building (1st-floor plan).
@@ -33,7 +34,7 @@ river:
 exterior:
   level: first
   entry: large-bay-roll-front
-  pad: 1.1
+  pad: 1.0 # one 10' grid square margin on south, east, and north
   nodes:
     - id: small-bay-roll-front
       at: { x: 4.58, y: 0.98 }

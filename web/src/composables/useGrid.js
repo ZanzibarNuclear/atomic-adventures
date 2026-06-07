@@ -447,36 +447,104 @@ export function levelBuildingOutline(building, levelId) {
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
 }
 
-/** River strip west of the level footprint (layout units; west = top / −y). */
-export function levelRiverRect(building, levelId) {
-  const cfg = building.river
-  if (!cfg) return null
-  const onLevels = cfg.onLevels ?? [building.exterior?.level ?? 'first']
-  if (!onLevels.includes(levelId)) return null
-  const rings = levelBuildingPerimeter(building, levelId)
-  if (!rings.length) return null
-  let minX = Infinity
-  let minY = Infinity
-  let maxX = -Infinity
-  let maxY = -Infinity
-  for (const ring of rings) {
-    for (const p of ring) {
-      minX = Math.min(minX, p.x)
-      minY = Math.min(minY, p.y)
-      maxX = Math.max(maxX, p.x)
-      maxY = Math.max(maxY, p.y)
+/** One floor-grid square of margin around the plan (layout units). */
+function mapMarginLayoutUnits(building) {
+  const unitFeet = building.unitFeet ?? 10
+  const gridFeet = building.gridFeet ?? unitFeet
+  return building.exterior?.pad ?? gridFeet / unitFeet
+}
+
+function bumpLayoutExtents(ext, x, y) {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return
+  ext.minX = Math.min(ext.minX, x)
+  ext.maxX = Math.max(ext.maxX, x)
+  ext.minY = Math.min(ext.minY, y)
+  ext.maxY = Math.max(ext.maxY, y)
+  ext.has = true
+}
+
+/** Content bounds in layout units — rooms, footprint, fixtures, exterior paths. */
+export function levelContentExtentsLayout(building, levelId, visibility = null) {
+  const ext = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, has: false }
+  const rooms = roomsOnLevel(building, levelId).filter((r) => isRoomMapped(r, visibility))
+  for (const room of rooms) {
+    bumpLayoutExtents(ext, room.x, room.y)
+    bumpLayoutExtents(ext, room.x + (room.w ?? 1), room.y + (room.h ?? 1))
+  }
+  if (!visibility?.builderView) {
+    for (const ring of levelBuildingPerimeter(building, levelId)) {
+      for (const p of ring) bumpLayoutExtents(ext, p.x, p.y)
+    }
+    for (const path of exteriorPathsOnLevel(building, levelId)) {
+      for (const p of path.points ?? []) bumpLayoutExtents(ext, p.x, p.y)
+    }
+    for (const node of exteriorNodesOnLevel(building, levelId)) {
+      bumpLayoutExtents(ext, node.at.x, node.at.y)
     }
   }
-  const unitFeet = building.unitFeet ?? 10
-  const gap = (cfg.offsetFeet ?? 20) / unitFeet
-  const width = (cfg.widthFeet ?? 25) / unitFeet
-  const pad = (cfg.endPadFeet ?? 8) / unitFeet
-  return {
-    x: minX - pad,
-    y: minY - gap - width,
-    w: maxX - minX + pad * 2,
-    h: width,
+  for (const f of building.fixtures ?? []) {
+    const onLevels = f.onLevels ?? building.levels.map((l) => l.id)
+    if (!onLevels.includes(levelId)) continue
+    if (visibility && !isFixtureMapped(f, visibility)) continue
+    if (f.kind === 'spiral-stairs') {
+      const cx = f.at.x
+      const cy = f.at.y
+      const radius = f.radius ?? 0.6
+      const base = protrudeAngle(f.protrude ?? 'top')
+      bumpLayoutExtents(ext, cx, cy)
+      for (let k = 90; k >= -90; k -= 15) {
+        const a = ((base + k) * Math.PI) / 180
+        bumpLayoutExtents(ext, cx + radius * Math.cos(a), cy + radius * Math.sin(a))
+      }
+    } else if (f.kind === 'straight-stairs' && f.rect) {
+      const r = f.rect
+      bumpLayoutExtents(ext, r.x, r.y)
+      bumpLayoutExtents(ext, r.x + r.w, r.y + r.h)
+    }
   }
+  return ext.has ? ext : null
+}
+
+/**
+ * Map frame in layout units: ~1 grid square margin on south/east/north;
+ * river spans full north–south width; west edge crops to the visible river fraction.
+ */
+export function levelMapLayoutBounds(building, levelId, visibility = null) {
+  const content = levelContentExtentsLayout(building, levelId, visibility)
+  if (!content) return { minX: 0, maxX: 10, minY: 0, maxY: 10, river: null }
+  const margin = mapMarginLayoutUnits(building)
+  const cfg = building.river
+  let river = null
+  let minY = content.minY - margin
+  if (cfg) {
+    const onLevels = cfg.onLevels ?? [building.exterior?.level ?? 'first']
+    if (onLevels.includes(levelId)) {
+      const unitFeet = building.unitFeet ?? 10
+      const gap = (cfg.offsetFeet ?? 20) / unitFeet
+      const width = (cfg.widthFeet ?? 25) / unitFeet
+      const visibleFraction = cfg.visibleFraction ?? 1
+      const riverY = content.minY - gap - width
+      river = {
+        x: content.minX - margin,
+        y: riverY,
+        w: content.maxX - content.minX + margin * 2,
+        h: width,
+      }
+      minY = riverY + width * (1 - visibleFraction)
+    }
+  }
+  return {
+    minX: content.minX - margin,
+    maxX: content.maxX + margin,
+    minY,
+    maxY: content.maxY + margin,
+    river,
+  }
+}
+
+/** River strip west of the level footprint (layout units; west = top / −y). */
+export function levelRiverRect(building, levelId, visibility = null) {
+  return levelMapLayoutBounds(building, levelId, visibility).river
 }
 
 export function fixtureRevealKey(fixtureId) {
@@ -728,62 +796,17 @@ export function isDestinationNamed(roomId, ctx) {
   return !!room && isRoomMapped(room, ctx)
 }
 
-// View bounds for rendering: rooms plus fixtures (e.g. spiral semicircle past the wall).
-export function levelDisplayBounds(building, levelId, pad = 0.6, visibility = null) {
+// View bounds for rendering — asymmetric ~1-grid-square frame; river spans map width.
+export function levelDisplayBounds(building, levelId, pad = 0, visibility = null) {
   const cell = building.cell
-  const rooms = roomsOnLevel(building, levelId).filter((r) => isRoomMapped(r, visibility))
-  let minX = Infinity
-  let minY = Infinity
-  let maxX = -Infinity
-  let maxY = -Infinity
-  let hasPoints = false
-  const bump = (x, y) => {
-    hasPoints = true
-    minX = Math.min(minX, x)
-    minY = Math.min(minY, y)
-    maxX = Math.max(maxX, x)
-    maxY = Math.max(maxY, y)
+  const map = levelMapLayoutBounds(building, levelId, visibility)
+  const extra = cell * pad
+  return {
+    x: map.minX * cell - extra,
+    y: map.minY * cell - extra,
+    w: (map.maxX - map.minX) * cell + extra * 2,
+    h: (map.maxY - map.minY) * cell + extra * 2,
   }
-  for (const room of rooms) {
-    const r = roomRect(room, cell)
-    bump(r.x, r.y)
-    bump(r.x + r.w, r.y + r.h)
-  }
-  if (!visibility?.builderView) {
-    const outline = levelBuildingOutline(building, levelId)
-    if (outline) {
-      bump(outline.x, outline.y)
-      bump(outline.x + outline.w, outline.y + outline.h)
-    }
-    const river = levelRiverRect(building, levelId)
-    if (river) {
-      bump(river.x * cell, river.y * cell)
-      bump((river.x + river.w) * cell, (river.y + river.h) * cell)
-    }
-  }
-  if (!hasPoints) return { x: 0, y: 0, w: 100, h: 100 }
-  for (const f of building.fixtures ?? []) {
-    const onLevels = f.onLevels ?? building.levels.map((l) => l.id)
-    if (!onLevels.includes(levelId)) continue
-    if (visibility && !isFixtureMapped(f, visibility)) continue
-    if (f.kind === 'spiral-stairs') {
-      const cx = f.at.x * cell
-      const cy = f.at.y * cell
-      const radius = (f.radius ?? 0.6) * cell
-      const base = protrudeAngle(f.protrude ?? 'top')
-      bump(cx, cy)
-      for (let k = 90; k >= -90; k -= 15) {
-        const a = ((base + k) * Math.PI) / 180
-        bump(cx + radius * Math.cos(a), cy + radius * Math.sin(a))
-      }
-    } else if (f.kind === 'straight-stairs' && f.rect) {
-      const r = f.rect
-      bump(r.x * cell, r.y * cell)
-      bump((r.x + r.w) * cell, (r.y + r.h) * cell)
-    }
-  }
-  const p = cell * pad
-  return { x: minX - p, y: minY - p, w: maxX - minX + p * 2, h: maxY - minY + p * 2 }
 }
 
 // The wall two adjacent rooms share, as a segment + orientation, or null.
