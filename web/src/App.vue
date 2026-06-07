@@ -14,6 +14,7 @@ import {
 import {
   applyRevealForDoor,
   buildBuilding,
+  canUseExteriorExit,
   isDestinationNamed,
   isDoorMapped,
   mapVisibilityCtx,
@@ -22,6 +23,7 @@ import {
 } from "./composables/useGrid.js";
 import {
   buildInitialDoorState,
+  canPassDoor,
   doorsFromRoom,
   doorLabel,
   doorStatusText,
@@ -317,6 +319,7 @@ function moveTo(hexId) {
   traveling.value = true;
   state.currentId = hexId;
   state.discovered.add(hexId);
+  outdoorStand.value = null;
   setTimeout(() => {
     traveling.value = false;
   }, 650);
@@ -340,6 +343,9 @@ async function autoTravel() {
 function reset() {
   state.currentId = START;
   state.discovered = new Set([START]);
+  outdoorStand.value = null;
+  place.value = "outdoors";
+  resetIndoor();
 }
 
 function nameOf(hexId) {
@@ -350,6 +356,7 @@ function nameOf(hexId) {
 // --- Indoor building state (the Utility Station) ---
 const building = buildBuilding(buildingData);
 const place = ref("outdoors"); // 'outdoors' | 'indoors'
+const outdoorStand = ref(null); // { hexId, standAt } — where you landed after stepping outside
 
 const indoor = reactive({
   currentRoom: building.start,
@@ -396,6 +403,31 @@ const nearbyDoors = computed(() =>
     isDoorMapped(building.doorById[d.doorId], indoorVisibility.value),
   ),
 );
+const interactableDoorIds = computed(() => {
+  if (builderView.value) {
+    return (building.doors ?? []).map((d) => d.id).filter(Boolean);
+  }
+  return nearbyDoors.value.map((d) => d.doorId);
+});
+const reachableExitDoors = computed(() => {
+  if (builderView.value) {
+    return (building.exits ?? []).map((e) => e.door);
+  }
+  return (building.exits ?? [])
+    .filter((exit) =>
+      canUseExteriorExit(
+        building,
+        exit,
+        indoor.currentRoom,
+        indoor.doorState,
+        building.areaId,
+      ),
+    )
+    .filter((exit) =>
+      isDoorMapped(building.doorById[exit.door], indoorVisibility.value),
+    )
+    .map((exit) => exit.door);
+});
 const levelsTopDown = computed(() => building.levels);
 
 function doorStateFor(doorId) {
@@ -416,6 +448,13 @@ function tryOpenDoor(doorId) {
   const next = new Set(indoor.revealed);
   applyRevealForDoor(building, next, doorId);
   indoor.revealed = next;
+}
+
+function tryToggleDoor(doorId) {
+  const state = doorStateFor(doorId);
+  if (!state || state.locked) return;
+  if (state.open) tryCloseDoor(doorId);
+  else tryOpenDoor(doorId);
 }
 
 function openAllInteriorDoors() {
@@ -446,11 +485,47 @@ function tryToggleLock(doorId) {
   toggleDoorLock(indoor.doorState, building.areaId, doorId);
 }
 
-function enterBuilding() {
-  if (!atBuildingEntrance.value) return;
+function enterBuilding(hexId) {
+  const id = hexId ?? state.currentId;
+  const hex = hexById.value[id];
+  if (!hex || hex.area !== "utility") return;
+  outdoorStand.value = null;
   place.value = "indoors";
 }
+function exitViaDoor(doorId) {
+  const exit = building.exitByDoorId?.[doorId];
+  if (!exit) return;
+  if (
+    !builderView.value &&
+    !canUseExteriorExit(
+      building,
+      exit,
+      indoor.currentRoom,
+      indoor.doorState,
+      building.areaId,
+    )
+  ) {
+    return;
+  }
+  if (!builderView.value && !canPassDoor(indoor.doorState, building.areaId, doorId)) {
+    return;
+  }
+  const hexId = exit.hex ?? building.outdoorHex;
+  if (!hexId) return;
+  state.currentId = hexId;
+  state.discovered = new Set([...state.discovered, hexId]);
+  if (exit.standAt) {
+    outdoorStand.value = { hexId, standAt: exit.standAt };
+  } else {
+    outdoorStand.value = null;
+  }
+  place.value = "outdoors";
+}
 function exitBuilding() {
+  const hexId = building.outdoorHex ?? state.currentId;
+  state.currentId = hexId;
+  state.discovered = new Set([...state.discovered, hexId]);
+  outdoorStand.value = null;
   place.value = "outdoors";
 }
 
@@ -535,7 +610,9 @@ function resetIndoor() {
         :edit-kind="editParsed?.line?.kind ?? 'path'"
         :selected-handle-id="selectedHandleId"
         :add-point-mode="addPointMode"
+        :stand-override="outdoorStand"
         @hex-click="moveTo"
+        @building-enter="enterBuilding"
         @select-handle="onSelectHandle"
         @waypoint-move="onWaypointMove"
         @builder-map-click="onBuilderMapClick" />
@@ -553,10 +630,13 @@ function resetIndoor() {
         <p v-if="atGatePuzzle" class="puzzle-hint">
           Puzzle — find a way through the gate to continue.
         </p>
+        <p v-if="atBuildingEntrance" class="puzzle-hint">
+          Click the utility station on the map to go inside.
+        </p>
         <button
           v-if="atBuildingEntrance"
           class="enter-btn"
-          @click="enterBuilding">
+          @click="enterBuilding()">
           Enter the {{ building.name }} 🚪
         </button>
       </div>
@@ -739,7 +819,11 @@ function resetIndoor() {
         :door-states="indoor.doorState"
         :builder-view="builderView"
         :expanded="expanded"
-        @room-click="moveToRoom" />
+        :interactable-door-ids="interactableDoorIds"
+        :reachable-exit-doors="reachableExitDoors"
+        @room-click="moveToRoom"
+        @door-click="tryToggleDoor"
+        @exit-click="exitViaDoor" />
     </section>
 
     <section v-if="place === 'indoors'" class="hud">
@@ -747,6 +831,9 @@ function resetIndoor() {
         <span class="label">{{ building.name }}</span>
         <strong>{{ currentRoomData?.name ?? currentRoomData?.id }}</strong>
         <em v-if="currentRoomData?.blurb">{{ currentRoomData.blurb }}</em>
+        <p v-if="reachableExitDoors.length" class="puzzle-hint">
+          Open exterior door, then click the ⬡ hex outside to step out.
+        </p>
       </div>
 
       <div class="travel">
@@ -795,16 +882,13 @@ function resetIndoor() {
               {{ doorStateFor(d.doorId).locked ? "Unlock" : "Lock" }}
             </button>
             <button
-              v-if="canOpenDoor(indoor.doorState, building.areaId, d.doorId)"
+              v-if="
+                canOpenDoor(indoor.doorState, building.areaId, d.doorId) ||
+                canCloseDoor(indoor.doorState, building.areaId, d.doorId)
+              "
               class="sm"
-              @click="tryOpenDoor(d.doorId)">
-              Open
-            </button>
-            <button
-              v-if="canCloseDoor(indoor.doorState, building.areaId, d.doorId)"
-              class="sm"
-              @click="tryCloseDoor(d.doorId)">
-              Close
+              @click="tryToggleDoor(d.doorId)">
+              {{ doorStateFor(d.doorId).open ? "Close" : "Open" }}
             </button>
           </span>
         </div>

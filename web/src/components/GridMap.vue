@@ -1,5 +1,6 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { hexCornerPoints } from '../composables/useHexGeometry.js'
 import {
   roomsOnLevel,
   roomRect,
@@ -11,6 +12,7 @@ import {
   levelDisplayBounds,
   levelBeams,
   doorsOnLevel,
+  exitsOnLevel,
   fixturesOnLevel,
   sharedEdge,
   mapVisibilityCtx,
@@ -30,14 +32,19 @@ const props = defineProps({
   standLevel: { type: String, default: null },
   reachableRooms: { type: Array, default: () => [] },
   doorStates: { type: Object, default: () => ({}) },
+  interactableDoorIds: { type: Array, default: () => [] },
+  reachableExitDoors: { type: Array, default: () => [] },
   builderView: { type: Boolean, default: false },
   expanded: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['room-click'])
+const emit = defineEmits(['room-click', 'door-click', 'exit-click'])
 
 const cell = computed(() => props.building.cell ?? 64)
 const discoveredSet = computed(() => new Set(props.discovered))
+const interactableDoorSet = computed(() => new Set(props.interactableDoorIds))
+const reachableExitSet = computed(() => new Set(props.reachableExitDoors))
+const exitHexRadius = computed(() => cell.value * 0.13)
 const visibility = computed(() =>
   mapVisibilityCtx(
     props.discovered,
@@ -371,6 +378,32 @@ const placedBeams = computed(() =>
   }),
 )
 
+const placedExits = computed(() =>
+  exitsOnLevel(props.building, props.level)
+    .filter((exit) => {
+      const door = props.building.doorById?.[exit.door]
+      if (!door || !isDoorMapped(door, visibility.value)) return false
+      if (props.builderView) return true
+      return props.currentRoom === exit.room
+    })
+    .map((exit) => {
+      const layout = {
+        x: exit.at.x * cell.value,
+        y: exit.at.y * cell.value,
+      }
+      const c = tp(layout.x, layout.y)
+      const r = exitHexRadius.value
+      return {
+        doorId: exit.door,
+        roomId: exit.room,
+        cx: c.x,
+        cy: c.y,
+        points: hexCornerPoints(c.x, c.y, r),
+        reachable: reachableExitSet.value.has(exit.door),
+      }
+    }),
+)
+
 // ---- Spiral stair: a half-cylinder of glass bulging toward the river ----
 function arcPoints(cx, cy, r, angleDeg) {
   const pts = []
@@ -602,6 +635,14 @@ function onStairExitClick(f, roomId) {
   if (!props.reachableRooms.includes(roomId)) return
   emit('room-click', roomId)
 }
+function onDoorClick(doorId) {
+  if (!interactableDoorSet.value.has(doorId)) return
+  emit('door-click', doorId)
+}
+function onExitClick(doorId) {
+  if (!reachableExitSet.value.has(doorId)) return
+  emit('exit-click', doorId)
+}
 </script>
 
 <template>
@@ -730,9 +771,30 @@ function onStairExitClick(f, roomId) {
           :height="d.h"
           :class="[
             d.kind === 'roll' ? 'roll-door' : 'man-door',
-            { open: d.open, closed: !d.open, locked: d.locked, 'lock-broken': d.lockBroken },
+            {
+              open: d.open,
+              closed: !d.open,
+              locked: d.locked,
+              'lock-broken': d.lockBroken,
+              'door-clickable': interactableDoorSet.has(d.id),
+            },
           ]"
+          @click.stop="onDoorClick(d.id)"
         />
+      </g>
+
+      <!-- Exterior exit hexes (step out to the world map) -->
+      <g class="exit-layer">
+        <g
+          v-for="ex in placedExits"
+          :key="'exit-' + ex.doorId"
+          class="exit-hex"
+          :class="{ reachable: ex.reachable }"
+          @click.stop="onExitClick(ex.doorId)"
+        >
+          <polygon :points="ex.points" class="exit-hex-fill" />
+          <text :x="ex.cx" :y="ex.cy + 4" class="exit-hex-icon">⬡</text>
+        </g>
       </g>
 
       <!-- Stair fixtures: the spiral (glass half-cylinder) and the garage run -->
@@ -1105,9 +1167,44 @@ svg:not(.compass) {
   stroke-width: 2;
   stroke-dasharray: 4 3;
 }
+.man-door.door-clickable,
+.roll-door.door-clickable {
+  pointer-events: all;
+  cursor: pointer;
+}
+.man-door.door-clickable:hover,
+.roll-door.door-clickable:hover {
+  filter: brightness(1.15);
+}
 .entry-door {
   fill: #c39a6b;
   pointer-events: none;
+}
+.exit-hex {
+  pointer-events: none;
+  opacity: 0.45;
+}
+.exit-hex.reachable {
+  pointer-events: all;
+  cursor: pointer;
+  opacity: 1;
+}
+.exit-hex-fill {
+  fill: #3d5a4a;
+  stroke: #8ab89a;
+  stroke-width: 1.5;
+  transition: fill 0.2s ease, stroke 0.2s ease;
+}
+.exit-hex.reachable:hover .exit-hex-fill {
+  fill: #4a7560;
+  stroke: #b8e0c8;
+}
+.exit-hex-icon {
+  fill: #c8e6d0;
+  font-size: 11px;
+  text-anchor: middle;
+  pointer-events: none;
+  opacity: 0.85;
 }
 .fixture {
   cursor: default;

@@ -74,9 +74,8 @@ hexes:
     cascade: true
     standAt: { from: landmark, dx: 0.42, dy: 0.02 }
     landmark:
-      icon: "🏚️"
+      building: utility-station
       name: "Utility Station"
-      # Authored SVG also available: building: utility-station (UtilityStationLandmark.vue)
       dx: 0.06
       dy: 0.19
       blurb: "Built beside a rocky cascade on the river, this facility is the central location for Part I of our adventure."

@@ -21,6 +21,8 @@ export function buildBuilding(data) {
     initial: normalizeDoorInitial(d.initial),
   }))
   const doorById = Object.fromEntries(doors.filter((d) => d.id).map((d) => [d.id, d]))
+  const exits = (data.exits ?? []).map((e) => ({ ...e }))
+  const exitByDoorId = Object.fromEntries(exits.filter((e) => e.door).map((e) => [e.door, e]))
   const areaId = data.id ?? data.area ?? 'building'
   return {
     id: areaId,
@@ -30,6 +32,7 @@ export function buildBuilding(data) {
     gridFeet: data.gridFeet ?? 10,
     unitFeet: data.unitFeet ?? data.gridFeet ?? 10,
     north: data.north ?? 'up',
+    outdoorHex: data.outdoorHex ?? null,
     rooms,
     roomById,
     levels,
@@ -38,6 +41,8 @@ export function buildBuilding(data) {
     fixtures,
     doors,
     doorById,
+    exits,
+    exitByDoorId,
     start: data.start ?? rooms[0]?.id,
   }
 }
@@ -280,6 +285,21 @@ function linkedRoomIdsForDoor(building, door) {
   return [...ids]
 }
 
+function doorOnLevel(door, levelId) {
+  const levels = door.onLevels ?? (door.level != null ? [door.level] : [])
+  return levels.includes(levelId)
+}
+
+/** True when either end of a multi-floor stair run has been explored. */
+function stairEndDiscovered(stairRoom, ctx) {
+  if (!stairRoom?.feature || !ctx?.discovered?.size) return false
+  const { downRoomId, upRoomId } = stairExitRooms(ctx.building, stairRoom.id)
+  return (
+    (!!downRoomId && ctx.discovered.has(downRoomId)) ||
+    (!!upRoomId && ctx.discovered.has(upRoomId))
+  )
+}
+
 export function isDoorMapped(door, ctx) {
   if (ctx?.builderView) return true
   if (!door) return true
@@ -290,21 +310,27 @@ export function isDoorMapped(door, ctx) {
     if (!room || !isRoomMapped(room, ctx)) return false
   }
   // Draw a door only when joined rooms are on the plan. Stair-landing doors may
-  // lead into an unseen room once the player is standing on the run.
+  // lead into an unseen room once the player is on the run or has reached the foot.
   const linked = linkedRoomIdsForDoor(ctx.building, door)
     .map((id) => ctx.building?.roomById?.[id])
     .filter(Boolean)
   const onStairLanding = linked.some((r) => isStairLanding(r) && ctx.discovered.has(r.id))
+  const onStairRun =
+    !!ctx.currentRoom &&
+    linked.some((r) => isStairLanding(r) && r.id === ctx.currentRoom)
   const standingInLinkedRoom =
     !!ctx.currentRoom &&
     linked.some((r) => r.id === ctx.currentRoom && ctx.discovered.has(r.id))
+  const stairEndKnown = linked.some(
+    (r) => isStairLanding(r) && isRoomMapped(r, ctx) && stairEndDiscovered(r, ctx),
+  )
   for (const room of linked) {
     if (isStairLanding(room)) {
       if (!isRoomMapped(room, ctx)) return false
       continue
     }
     if (!isRoomMapped(room, ctx)) {
-      if (onStairLanding || standingInLinkedRoom) continue
+      if (onStairLanding || onStairRun || standingInLinkedRoom || stairEndKnown) continue
       return false
     }
   }
@@ -613,6 +639,25 @@ export function rollDoorRect(room, cell) {
   return { x: x1, y: y1, w: 10, h: span, vertical: true }
 }
 
+/** Exterior exits whose door glyph is drawn on this floor. */
+export function exitsOnLevel(building, levelId) {
+  return (building.exits ?? []).filter((exit) => {
+    const door = building.doorById?.[exit.door]
+    if (!door) return false
+    if (door.kind === 'roll') {
+      const room = building.roomById[door.room]
+      return room?.level === levelId
+    }
+    return doorOnLevel(door, levelId)
+  })
+}
+
+/** Step outside when standing in the exit room and the door is open. */
+export function canUseExteriorExit(building, exit, roomId, doorState, areaId) {
+  if (!exit || roomId !== exit.room) return false
+  return canPassDoor(doorState, areaId, exit.door)
+}
+
 // Man-door and roll-up glyphs on a level, with live state for rendering.
 export function doorsOnLevel(building, levelId, doorState = null) {
   const cell = building.cell
@@ -621,7 +666,7 @@ export function doorsOnLevel(building, levelId, doorState = null) {
   for (const door of building.doors ?? []) {
     if (!door.id) continue
     const state = doorState?.[`${areaId}:${door.id}`] ?? door.initial
-    if (door.kind === 'man' && door.level === levelId && door.at) {
+    if (door.kind === 'man' && doorOnLevel(door, levelId) && door.at) {
       out.push({
         id: door.id,
         kind: 'man',
