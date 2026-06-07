@@ -355,6 +355,7 @@ const indoorVisibility = computed(() =>
     indoor.doorState,
     building.areaId,
     builderView.value,
+    indoor.currentRoom,
   ),
 )
 
@@ -456,7 +457,7 @@ function applyIndoorMove(move) {
   indoor.currentRoom = move.toRoomId
   indoor.discovered = new Set([...indoor.discovered, move.toRoomId])
 
-  if (to.feature === 'spiral-stair') {
+  if (to.feature) {
     indoor.level = move.toLevel ?? from.level ?? from.levels?.[0]
   } else {
     indoor.level = move.toLevel ?? to.level ?? to.levels?.[0]

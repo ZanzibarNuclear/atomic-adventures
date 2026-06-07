@@ -96,6 +96,11 @@ rooms:
     rollDoor: right # bigger two-story roll-up, same (north) wall / driveway
     rollSpan: 0.6
     blurb: "Open to the roof. Empty now, but the tire tracks and oil stains say something big was housed and serviced here — gone elsewhere on the compound."
+  - id: garage-stair
+    levels: [first, second]
+    feature: garage-stair
+    name: "Garage Stairs"
+    blurb: "A straight run of steps from the large bay up to the conference room landing. A closed door at the top leads into the second floor."
   - id: spiral-stair
     levels: [first, second]
     feature: spiral-stair
@@ -140,16 +145,12 @@ links:
   - { from: small-bay, to: large-bay, kind: open } # one big open garage
   - { from: library, to: hallway, kind: door, door: library-hallway }
   - { from: library, to: corridor, kind: door, door: library-corridor }
-  - {
-      from: corridor,
-      to: control-room,
-      kind: door,
-      door: corridor-control,
-    }
+  - { from: corridor, to: control-room, kind: door, door: corridor-control }
   - { from: hallway, to: small-bay, kind: door, door: hallway-small-bay }
   - { from: hallway, to: spiral-stair, kind: door, door: hallway-spiral }
   - { from: hallway, to: bathroom, kind: door, door: hallway-bathroom }
-  - { from: large-bay, to: conference, kind: stairs } # garage stair up to 2F
+  - { from: large-bay, to: garage-stair, kind: stairs }
+  - { from: garage-stair, to: conference, kind: door, door: conference-garage-stair }
   - { from: conference, to: kitchen, kind: door, door: conference-kitchen }
   - { from: kitchen, to: spiral-stair, kind: door, door: kitchen-spiral }
 
@@ -215,6 +216,7 @@ doors:
     kind: man
     level: second
     at: { x: 1.62, y: 2 }
+    showWhenRoom: garage-stair # top landing — visible once you're on the stair run
     initial: { closed: true, locked: false }
   - id: kitchen-spiral
     kind: man
@@ -236,4 +238,4 @@ fixtures:
     run: horizontal
     ascend: end
     onLevels: [first, second]
-    connects: [large-bay, conference]
+    connects: [large-bay, conference] # visual up/down; travel uses garage-stair room + door link
