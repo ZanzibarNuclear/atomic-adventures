@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { hexCornerPoints } from '../composables/useHexGeometry.js'
 import { catmullRomSpline, pointsAttr } from '../composables/useRoutes.js'
 import { pathHandleColor, roomHandleColor } from '../composables/useGridBuilder.js'
@@ -11,7 +11,6 @@ import {
   spiralExitPoint,
   stairExitRooms,
   isStairLanding,
-  levelDisplayBounds,
   levelBeams,
   doorsOnLevel,
   exitsOnLevel,
@@ -21,7 +20,7 @@ import {
   sharedEdge,
   mapVisibilityCtx,
   levelBuildingPerimeter,
-  levelRiverRect,
+  levelMapLayoutBounds,
   isRoomMapped,
   isRoomFogged,
   isDoorMapped,
@@ -97,29 +96,6 @@ function shellRingPath(ring) {
   if (ring.length === 0) return ''
   return ring.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ') + ' Z'
 }
-const placedRiver = computed(() => {
-  const layout = levelRiverRect(props.building, props.level, visibility.value)
-  if (!layout) return null
-  const cellV = cell.value
-  const x0 = layout.x * cellV
-  const y0 = layout.y * cellV
-  const w = layout.w * cellV
-  const h = layout.h * cellV
-  const corners = [tp(x0, y0), tp(x0 + w, y0), tp(x0 + w, y0 + h), tp(x0, y0 + h)]
-  const cy = layout.y + layout.h / 2
-  const halfSpan = layout.h * 0.22
-  const depth = 0.35 // layout units toward south (−x); flow is north → south
-  const n = Math.max(4, Math.min(8, Math.round(layout.w / 0.9)))
-  const chevrons = []
-  for (let i = 0; i < n; i++) {
-    const x = layout.x + ((i + 0.5) / n) * layout.w
-    const wingA = tp(x * cellV, (cy - halfSpan) * cellV)
-    const tip = tp((x - depth) * cellV, cy * cellV)
-    const wingB = tp(x * cellV, (cy + halfSpan) * cellV)
-    chevrons.push(`M ${wingA.x} ${wingA.y} L ${tip.x} ${tip.y} L ${wingB.x} ${wingB.y}`)
-  }
-  return { rect: bbox(corners), chevrons }
-})
 const beams = computed(() => levelBeams(props.building, props.level, visibility.value))
 const doors = computed(() => doorsOnLevel(props.building, props.level, props.doorStates))
 const fixtures = computed(() =>
@@ -132,13 +108,85 @@ function rotate() {
   rotation.value = (rotation.value + 90) % 360
 }
 const swapAxes = computed(() => rotation.value % 180 !== 0)
-const bounds = computed(() => levelDisplayBounds(props.building, props.level, 0, visibility.value))
+
+const mapLayout = computed(() =>
+  levelMapLayoutBounds(props.building, props.level, visibility.value),
+)
+
+const gridmapRef = ref(null)
+const containerAspect = ref(220 / 200)
+let resizeObserver = null
+
+function attachResizeObserver() {
+  resizeObserver?.disconnect()
+  const el = gridmapRef.value
+  if (!el) return
+  const { width, height } = el.getBoundingClientRect()
+  if (height > 0) containerAspect.value = width / height
+  resizeObserver = new ResizeObserver((entries) => {
+    const cr = entries[0].contentRect
+    if (cr.height > 0) containerAspect.value = cr.width / cr.height
+  })
+  resizeObserver.observe(el)
+}
+
+onMounted(() => nextTick(attachResizeObserver))
+watch(() => props.expanded, () => nextTick(attachResizeObserver))
+onUnmounted(() => resizeObserver?.disconnect())
+
+/** Expand the minimum frame to the panel aspect ratio, centered on the building. */
+function expandFrameToAspect(frame, aspect) {
+  const { minX, maxX, minY, maxY, bcx, bcy } = frame
+  const corners = [
+    { x: minX, y: minY },
+    { x: maxX, y: minY },
+    { x: maxX, y: maxY },
+    { x: minX, y: maxY },
+  ]
+  let halfW = 0
+  let halfH = 0
+  for (const p of corners) {
+    halfW = Math.max(halfW, Math.abs(p.x - bcx))
+    halfH = Math.max(halfH, Math.abs(p.y - bcy))
+  }
+  if (halfH <= 0) halfH = 1
+  if (halfW / halfH < aspect) halfW = halfH * aspect
+  else halfH = halfW / aspect
+  return {
+    minX: bcx - halfW,
+    maxX: bcx + halfW,
+    minY: bcy - halfH,
+    maxY: bcy + halfH,
+    w: halfW * 2,
+    h: halfH * 2,
+    bcx,
+    bcy,
+  }
+}
+
+const minFramePx = computed(() => {
+  const m = mapLayout.value
+  const c = cell.value
+  return {
+    minX: m.minX * c,
+    maxX: m.maxX * c,
+    minY: m.minY * c,
+    maxY: m.maxY * c,
+    bcx: m.centerX * c,
+    bcy: m.centerY * c,
+  }
+})
+
+const layoutViewFrame = computed(() =>
+  expandFrameToAspect(minFramePx.value, containerAspect.value),
+)
+
 const center = computed(() => ({
-  x: bounds.value.x + bounds.value.w / 2,
-  y: bounds.value.y + bounds.value.h / 2,
+  x: layoutViewFrame.value.bcx,
+  y: layoutViewFrame.value.bcy,
 }))
 
-// Rotate a point about the level center (clockwise on screen).
+// Rotate a point about the building center (clockwise on screen).
 function tp(x, y) {
   const rad = (rotation.value * Math.PI) / 180
   const cx = center.value.x
@@ -160,6 +208,51 @@ function unTp(x, y) {
   const s = Math.sin(rad)
   return { x: cx + dx * c + dy * s, y: cy - dx * s + dy * c }
 }
+
+const placedRiver = computed(() => {
+  const river = mapLayout.value.river
+  if (!river) return null
+  const cellV = cell.value
+  const f = layoutViewFrame.value
+  const x0 = f.minX
+  const y0 = river.y * cellV
+  const w = f.w
+  const h = river.h * cellV
+  const corners = [tp(x0, y0), tp(x0 + w, y0), tp(x0 + w, y0 + h), tp(x0, y0 + h)]
+  const cy = river.y + river.h / 2
+  const halfSpan = river.h * 0.22
+  const depth = 0.35 // layout units toward south (−x); flow is north → south
+  const spanLayout = f.w / cellV
+  const n = Math.max(4, Math.min(8, Math.round(spanLayout / 0.9)))
+  const chevrons = []
+  for (let i = 0; i < n; i++) {
+    const x = f.minX / cellV + ((i + 0.5) / n) * spanLayout
+    const wingA = tp(x * cellV, (cy - halfSpan) * cellV)
+    const tip = tp((x - depth) * cellV, cy * cellV)
+    const wingB = tp(x * cellV, (cy + halfSpan) * cellV)
+    chevrons.push(`M ${wingA.x} ${wingA.y} L ${tip.x} ${tip.y} L ${wingB.x} ${wingB.y}`)
+  }
+  return { rect: bbox(corners), chevrons }
+})
+
+// Viewing area = panel aspect, centered on the building; grid fills this rect.
+const viewBoxRect = computed(() => {
+  const f = layoutViewFrame.value
+  const corners = [
+    tp(f.minX, f.minY),
+    tp(f.maxX, f.minY),
+    tp(f.maxX, f.maxY),
+    tp(f.minX, f.maxY),
+  ]
+  const xs = corners.map((p) => p.x)
+  const ys = corners.map((p) => p.y)
+  const minX = Math.min(...xs)
+  const minY = Math.min(...ys)
+  const maxX = Math.max(...xs)
+  const maxY = Math.max(...ys)
+  if (!Number.isFinite(minX)) return { x: 0, y: 0, w: 100, h: 100 }
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
+})
 
 const mapSvgRef = ref(null)
 const dragHandle = ref(null)
@@ -252,73 +345,6 @@ function handleFill(h) {
 function isItemSelected(id) {
   return props.builderView && id === props.selectedItemId
 }
-// Layout-space sample points (bounds + fixtures) for a tight rotated AABB.
-const layoutSamplePoints = computed(() => {
-  const pts = []
-  const b = bounds.value
-  pts.push(
-    { x: b.x, y: b.y },
-    { x: b.x + b.w, y: b.y },
-    { x: b.x + b.w, y: b.y + b.h },
-    { x: b.x, y: b.y + b.h },
-  )
-  for (const f of fixtures.value) {
-    if (f.kind === 'spiral-stairs') {
-      pts.push({ x: f.x, y: f.y })
-      const base = (protrudeAngle(f.protrude ?? 'top') * Math.PI) / 180
-      for (let k = 90; k >= -90; k -= 15) {
-        const a = base + (k * Math.PI) / 180
-        pts.push({ x: f.x + f.radius * Math.cos(a), y: f.y + f.radius * Math.sin(a) })
-      }
-    } else if (f.rect) {
-      const r = f.rect
-      pts.push({ x: r.x, y: r.y }, { x: r.x + r.w, y: r.y + r.h })
-    }
-  }
-  for (const path of exteriorPathsOnLevel(props.building, props.level)) {
-    const layout = (path.points ?? []).map((p) => ({
-      x: p.x * cell.value,
-      y: p.y * cell.value,
-    }))
-    const drawn =
-      path.smooth !== false && layout.length >= 2
-        ? catmullRomSpline(layout)
-        : layout
-    for (const p of drawn) pts.push(p)
-  }
-  for (const node of exteriorNodesOnLevel(props.building, props.level)) {
-    pts.push({ x: node.at.x * cell.value, y: node.at.y * cell.value })
-  }
-  return pts
-})
-
-// `top` = west / river wall when north points right on the plan.
-function protrudeAngle(edge) {
-  if (edge === 'top') return 270
-  if (edge === 'bottom') return 90
-  if (edge === 'left') return 180
-  return 0
-}
-
-// True axis-aligned bounds of all content after rotation.
-const rotatedBounds = computed(() => {
-  let minX = Infinity
-  let minY = Infinity
-  let maxX = -Infinity
-  let maxY = -Infinity
-  for (const p of layoutSamplePoints.value) {
-    const r = tp(p.x, p.y)
-    minX = Math.min(minX, r.x)
-    minY = Math.min(minY, r.y)
-    maxX = Math.max(maxX, r.x)
-    maxY = Math.max(maxY, r.y)
-  }
-  if (!Number.isFinite(minX)) return { x: 0, y: 0, w: 100, h: 100 }
-  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
-})
-
-// Tight viewBox — margins come from levelMapLayoutBounds, not aspect-ratio padding.
-const viewBoxRect = computed(() => rotatedBounds.value)
 
 const viewBox = computed(() => {
   const vb = viewBoxRect.value
@@ -364,12 +390,6 @@ const placedGridLines = computed(() => {
     minV = Math.min(minV, v)
     maxV = Math.max(maxV, v)
   }
-
-  const pad = step
-  minU -= pad
-  maxU += pad
-  minV -= pad
-  maxV += pad
 
   const lines = []
   const u0 = Math.floor(minU / step) * step
@@ -581,6 +601,14 @@ const placedExits = computed(() =>
 )
 
 // ---- Spiral stair: a half-cylinder of glass bulging toward the river ----
+// `top` = west / river wall when north points right on the plan.
+function protrudeAngle(edge) {
+  if (edge === 'top') return 270
+  if (edge === 'bottom') return 90
+  if (edge === 'left') return 180
+  return 0
+}
+
 function arcPoints(cx, cy, r, angleDeg) {
   const pts = []
   for (let k = 90; k >= -90; k -= 15) {
@@ -787,6 +815,18 @@ const compassTip = computed(() => {
   const a = (compassAngle.value * Math.PI) / 180
   return { x: 23 + 17 * Math.cos(a), y: 23 + 17 * Math.sin(a) }
 })
+function compassLabelPoint(baseDeg, offsetDeg) {
+  const a = ((baseDeg + offsetDeg) * Math.PI) / 180
+  return { x: 23 + 17 * Math.cos(a), y: 23 + 17 * Math.sin(a) }
+}
+const compassCardinals = computed(() => {
+  const n = compassAngle.value
+  return [
+    { id: 'E', ...compassLabelPoint(n, 90) },
+    { id: 'S', ...compassLabelPoint(n, 180) },
+    { id: 'W', ...compassLabelPoint(n, 270) },
+  ]
+})
 
 function isDiscovered(room) {
   if (props.builderView) return true
@@ -853,6 +893,7 @@ function onExteriorNodeClick(nodeId) {
 
 <template>
   <div
+    ref="gridmapRef"
     class="gridmap"
     :class="{
       expanded,
@@ -861,14 +902,22 @@ function onExteriorNodeClick(nodeId) {
       'add-point': addPointMode,
     }"
   >
-    <button class="rotate-btn" title="Rotate 90°" @click="rotate">⟳</button>
-
-    <svg class="compass" viewBox="0 0 46 46">
-      <circle cx="23" cy="23" r="20" class="compass-ring" />
-      <line x1="23" y1="23" :x2="compassTip.x" :y2="compassTip.y" class="compass-needle" />
-      <circle :cx="compassTip.x" :cy="compassTip.y" r="2.4" class="compass-dot" />
-      <text :x="compassTip.x" :y="compassTip.y" class="compass-n">N</text>
-    </svg>
+    <div class="map-controls">
+      <button class="rotate-btn" title="Rotate 90°" @click="rotate">⟳</button>
+      <svg class="compass" viewBox="0 0 46 46">
+        <circle cx="23" cy="23" r="20" class="compass-ring" />
+        <line x1="23" y1="23" :x2="compassTip.x" :y2="compassTip.y" class="compass-needle" />
+        <circle :cx="compassTip.x" :cy="compassTip.y" r="2.4" class="compass-dot" />
+        <text
+          v-for="label in compassCardinals"
+          :key="label.id"
+          :x="label.x"
+          :y="label.y"
+          class="compass-cardinal"
+        >{{ label.id }}</text>
+        <text :x="compassTip.x" :y="compassTip.y" class="compass-n">N</text>
+      </svg>
+    </div>
 
     <svg
       ref="mapSvgRef"
@@ -1215,6 +1264,12 @@ function onExteriorNodeClick(nodeId) {
         class="avatar"
         :style="{ transform: `translate(${avatarPos.x}px, ${avatarPos.y}px)` }"
       >
+        <circle
+          :cx="0"
+          :cy="1 * avatarScale"
+          :r="37.5 * avatarScale"
+          class="avatar-halo"
+        />
         <ellipse :cx="0" :cy="27 * avatarScale" :rx="13 * avatarScale" :ry="3.5 * avatarScale" class="avatar-shadow" />
         <g :transform="`scale(${avatarScale})`" class="figure">
           <circle cx="0" cy="-24" r="7.5" />
@@ -1291,6 +1346,7 @@ function onExteriorNodeClick(nodeId) {
   height: 200px;
   border-radius: 10px;
   overflow: hidden;
+  container-type: size;
   background: radial-gradient(circle at 50% 30%, #2c3340, #181c24);
   box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.45);
   transition: width 0.35s ease, height 0.35s ease;
@@ -1344,15 +1400,24 @@ function onExteriorNodeClick(nodeId) {
 .edit-handle:active {
   cursor: grabbing;
 }
-.rotate-btn {
+.map-controls {
   position: absolute;
-  top: 8px;
-  left: 8px;
+  right: clamp(6px, 2.5cqmin, 14px);
+  top: clamp(6px, 2.5cqmin, 14px);
   z-index: 2;
-  width: 30px;
-  height: 30px;
+  display: flex;
+  align-items: center;
+  gap: clamp(4px, 1.5cqmin, 10px);
+  --ctrl-size: clamp(28px, 13cqmin, 54px);
+}
+.rotate-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--ctrl-size);
+  height: var(--ctrl-size);
   padding: 0;
-  font-size: 1.05rem;
+  font-size: calc(var(--ctrl-size) * 0.62);
   line-height: 1;
   border-radius: 7px;
   background: rgba(20, 24, 30, 0.8);
@@ -1364,13 +1429,10 @@ function onExteriorNodeClick(nodeId) {
   background: rgba(40, 48, 60, 0.9);
 }
 .compass {
-  position: absolute;
-  top: 6px;
-  right: 8px;
-  width: 40px;
-  height: 40px;
-  z-index: 2;
+  width: calc(var(--ctrl-size) * 1.35);
+  height: calc(var(--ctrl-size) * 1.35);
   pointer-events: none;
+  flex-shrink: 0;
 }
 .compass-ring {
   fill: rgba(20, 24, 30, 0.55);
@@ -1394,6 +1456,16 @@ function onExteriorNodeClick(nodeId) {
   paint-order: stroke;
   stroke: #181c24;
   stroke-width: 2.5px;
+}
+.compass-cardinal {
+  fill: #9aa3b2;
+  font-size: 7px;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  paint-order: stroke;
+  stroke: #181c24;
+  stroke-width: 2px;
 }
 svg:not(.compass) {
   width: 100%;
@@ -1769,6 +1841,11 @@ svg:not(.compass) {
 }
 .avatar-shadow {
   fill: rgba(0, 0, 0, 0.3);
+}
+.avatar-halo {
+  fill: #ffd166;
+  stroke: #c9970a;
+  stroke-width: 1.5;
 }
 .figure circle {
   fill: #f4f1de;

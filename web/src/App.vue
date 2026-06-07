@@ -30,16 +30,25 @@ import {
   doorsFromRoom,
   doorLabel,
   doorStatusText,
+  lockHintForDoor,
   getDoorState,
   setDoorOpen,
   canOpenDoor,
   canCloseDoor,
   canToggleLock,
+  canToggleLockFromRoom,
   canBreakLock,
   toggleDoorLock,
   breakLock,
   setAllDoorsOpen,
+  applyEnablerAutoUnlock,
+  isManualEnablerActive,
 } from "./composables/useDoors.js";
+import {
+  createInventory,
+  addItem,
+  inventoryItems,
+} from "./composables/useInventory.js";
 import {
   listEditableLines,
   findEditableLine,
@@ -407,6 +416,12 @@ const indoor = reactive({
   level: initialBuilding.exterior?.level ?? initialBuilding.levels[0]?.id,
   viewLevel: initialBuilding.exterior?.level ?? initialBuilding.levels[0]?.id,
   doorState: buildInitialDoorState(initialBuilding.areaId, initialBuilding),
+  inventory: createInventory(),
+  pickupsTaken: new Set(),
+  facility: {
+    powerOn: false,
+    manualMode: {},
+  },
   moving: false,
 });
 
@@ -802,6 +817,56 @@ function doorStateFor(doorId) {
   return getDoorState(indoor.doorState, building.value.areaId, doorId);
 }
 
+const playerRoomId = computed(
+  () => indoor.currentRoom ?? currentExteriorNode.value?.room ?? null,
+);
+
+const carriedItems = computed(() =>
+  inventoryItems(indoor.inventory, building.value.itemById),
+);
+
+const roomPickups = computed(() => {
+  const roomId = indoor.currentRoom;
+  if (!roomId) return [];
+  return (building.value.pickups ?? []).filter(
+    (p) => p.room === roomId && !indoor.pickupsTaken.has(p.id),
+  );
+});
+
+const roomSwitches = computed(() => {
+  const roomId = indoor.currentRoom;
+  if (!roomId) return [];
+  return (building.value.switches ?? []).filter((s) => s.room === roomId);
+});
+
+function doorLockCheck(doorId) {
+  const door = building.value.doorById[doorId];
+  return canToggleLockFromRoom(
+    indoor.doorState,
+    building.value,
+    building.value.areaId,
+    doorId,
+    playerRoomId.value,
+    indoor.inventory,
+    indoor.facility,
+  );
+}
+
+function canToggleDoorLock(doorId) {
+  return doorLockCheck(doorId).ok;
+}
+
+function doorLockHint(doorId) {
+  const door = building.value.doorById[doorId];
+  return lockHintForDoor(
+    door,
+    playerRoomId.value,
+    indoor.inventory,
+    indoor.facility,
+    building.value.itemById,
+  );
+}
+
 function syncDoorState() {
   const next = {};
   for (const [k, v] of Object.entries(indoor.doorState)) {
@@ -883,7 +948,52 @@ function tryBreakLock(doorId) {
 }
 
 function tryToggleLock(doorId) {
-  if (!toggleDoorLock(indoor.doorState, building.value.areaId, doorId)) return;
+  if (
+    !toggleDoorLock(
+      indoor.doorState,
+      building.value.areaId,
+      doorId,
+      building.value,
+      playerRoomId.value,
+      indoor.inventory,
+      indoor.facility,
+    )
+  )
+    return;
+  syncDoorState();
+}
+
+function tryPickup(pickupId) {
+  const pickup = (building.value.pickups ?? []).find((p) => p.id === pickupId);
+  if (!pickup || indoor.pickupsTaken.has(pickupId)) return;
+  if (pickup.room !== indoor.currentRoom) return;
+  addItem(indoor.inventory, pickup.item);
+  indoor.pickupsTaken = new Set([...indoor.pickupsTaken, pickupId]);
+}
+
+function toggleManualRelease(doorId) {
+  const sw = (building.value.switches ?? []).find((s) => s.door === doorId);
+  if (!sw || sw.room !== indoor.currentRoom) return;
+  const next = { ...indoor.facility.manualMode };
+  next[doorId] = !next[doorId];
+  indoor.facility.manualMode = next;
+  applyEnablerAutoUnlock(
+    indoor.doorState,
+    building.value,
+    building.value.areaId,
+    indoor.facility,
+  );
+  syncDoorState();
+}
+
+function toggleStationPower() {
+  indoor.facility.powerOn = !indoor.facility.powerOn;
+  applyEnablerAutoUnlock(
+    indoor.doorState,
+    building.value,
+    building.value.areaId,
+    indoor.facility,
+  );
   syncDoorState();
 }
 
@@ -1048,6 +1158,10 @@ function resetIndoor() {
     building.value.areaId,
     building.value,
   );
+  indoor.inventory = createInventory();
+  indoor.pickupsTaken = new Set();
+  indoor.facility.powerOn = false;
+  indoor.facility.manualMode = {};
 }
 </script>
 
@@ -1779,13 +1893,50 @@ function resetIndoor() {
         </div>
       </div>
 
+      <div v-if="carriedItems.length" class="inventory">
+        <span class="label">Carrying</span>
+        <ul class="inventory-list">
+          <li v-for="item in carriedItems" :key="item.id">
+            <strong>{{ item.name }}</strong>
+            <em v-if="item.description">{{ item.description }}</em>
+          </li>
+        </ul>
+      </div>
+
+      <div v-if="roomPickups.length && !builderView" class="pickups">
+        <span class="label">Found here</span>
+        <div v-for="p in roomPickups" :key="p.id" class="pickup-row">
+          <button class="sm" @click="tryPickup(p.id)">Take — {{ p.label }}</button>
+        </div>
+      </div>
+
+      <div v-if="roomSwitches.length && !builderView" class="switches">
+        <span class="label">Garage controls</span>
+        <div v-for="sw in roomSwitches" :key="sw.id" class="switch-row">
+          <button class="sm" @click="toggleManualRelease(sw.door)">
+            {{
+              isManualEnablerActive(sw.door, indoor.facility)
+                ? "Engage motor"
+                : sw.label
+            }}
+          </button>
+        </div>
+      </div>
+
       <div v-if="nearbyDoors.length" class="doors">
         <span class="label">Doors</span>
         <div v-for="d in nearbyDoors" :key="d.doorId" class="door-row">
           <span class="door-name">
             {{ doorLabel(building, d.doorId, d.toName) }}
             <em class="door-state">{{
-              doorStatusText(doorStateFor(d.doorId))
+              doorStatusText(
+                doorStateFor(d.doorId),
+                building.doorById[d.doorId],
+                indoor.facility,
+              )
+            }}</em>
+            <em v-if="doorLockHint(d.doorId)" class="door-hint">{{
+              doorLockHint(d.doorId)
             }}</em>
           </span>
           <span class="door-actions">
@@ -1796,8 +1947,24 @@ function resetIndoor() {
               Break lock
             </button>
             <button
-              v-if="canToggleLock(indoor.doorState, building.areaId, d.doorId)"
+              v-if="
+                canToggleLock(
+                  indoor.doorState,
+                  building.areaId,
+                  d.doorId,
+                  building,
+                  playerRoomId,
+                  indoor.inventory,
+                  indoor.facility,
+                ) || doorStateFor(d.doorId).locked
+              "
               class="sm"
+              :disabled="!canToggleDoorLock(d.doorId)"
+              :title="
+                canToggleDoorLock(d.doorId)
+                  ? ''
+                  : doorLockHint(d.doorId) || 'Cannot change lock'
+              "
               @click="tryToggleLock(d.doorId)">
               {{ doorStateFor(d.doorId).locked ? "Unlock" : "Lock" }}
             </button>
@@ -1833,6 +2000,13 @@ function resetIndoor() {
       <div class="controls">
         <button @click="exitBuilding">← Step outside</button>
         <button @click="resetIndoor">Reset</button>
+        <button
+          v-if="!builderView"
+          class="sm"
+          :class="{ active: indoor.facility.powerOn }"
+          @click="toggleStationPower">
+          {{ indoor.facility.powerOn ? "Station power on" : "Station power off" }}
+        </button>
         <button @click="expanded = !expanded">
           {{ expanded ? "Collapse map" : "Expand map ⤢" }}
         </button>
@@ -2037,6 +2211,40 @@ header h1 {
   color: #8b94a3;
   font-style: normal;
   margin-left: 0.35rem;
+}
+.door-hint {
+  display: block;
+  color: #6f7787;
+  font-size: 0.78rem;
+  margin-top: 0.15rem;
+}
+.inventory,
+.pickups,
+.switches {
+  margin-top: 0.75rem;
+}
+.inventory-list {
+  margin: 0.35rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.inventory-list li {
+  font-size: 0.85rem;
+  margin-bottom: 0.35rem;
+}
+.inventory-list em {
+  display: block;
+  color: #7f8794;
+  font-size: 0.78rem;
+  font-style: normal;
+}
+.pickup-row,
+.switch-row {
+  margin-top: 0.35rem;
+}
+.controls button.active {
+  background: #3d5a3a;
+  border-color: #5a8a52;
 }
 .door-actions {
   display: flex;

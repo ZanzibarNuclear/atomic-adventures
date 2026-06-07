@@ -54,6 +54,12 @@ export function buildBuilding(data) {
   const levelById = Object.fromEntries(levels.map((l) => [l.id, l]))
   const links = data.links ?? []
   const fixtures = data.fixtures ?? []
+  const items = data.items ?? []
+  const itemById = Object.fromEntries(
+    items.filter((i) => i.id).map((i) => [i.id, { kind: 'item', ...i }]),
+  )
+  const pickups = (data.pickups ?? []).filter((p) => p.id && p.item)
+  const switches = (data.switches ?? []).filter((s) => s.id && s.door)
   const doors = (data.doors ?? []).map((d) => ({
     ...d,
     initial: normalizeDoorInitial(d.initial),
@@ -78,6 +84,10 @@ export function buildBuilding(data) {
     levelById,
     links,
     fixtures,
+    items,
+    itemById,
+    pickups,
+    switches,
     doors,
     doorById,
     exits,
@@ -505,41 +515,57 @@ export function levelContentExtentsLayout(building, levelId, visibility = null) 
   return ext.has ? ext : null
 }
 
+/** Building centroid on a level (layout units). */
+function levelBuildingCenterLayout(building, levelId) {
+  const rings = levelBuildingPerimeter(building, levelId)
+  if (rings.length) {
+    let minX = Infinity
+    let maxX = -Infinity
+    let minY = Infinity
+    let maxY = -Infinity
+    for (const ring of rings) {
+      for (const p of ring) {
+        minX = Math.min(minX, p.x)
+        maxX = Math.max(maxX, p.x)
+        minY = Math.min(minY, p.y)
+        maxY = Math.max(maxY, p.y)
+      }
+    }
+    return { x: (minX + maxX) / 2, y: (minY + maxY) / 2 }
+  }
+  const content = levelContentExtentsLayout(building, levelId, { builderView: true })
+  if (!content) return { x: 0, y: 0 }
+  return { x: (content.minX + content.maxX) / 2, y: (content.minY + content.maxY) / 2 }
+}
+
 /**
- * Map frame in layout units: ~1 grid square margin on south/east/north;
- * river spans full north–south width; west edge crops to the visible river fraction.
+ * Minimum view frame in layout units: ~1 grid margin on south/east/north,
+ * west edge at the river midline; river spans the frame north–south.
  */
 export function levelMapLayoutBounds(building, levelId, visibility = null) {
   const content = levelContentExtentsLayout(building, levelId, visibility)
-  if (!content) return { minX: 0, maxX: 10, minY: 0, maxY: 10, river: null }
+  if (!content) return { minX: 0, maxX: 10, minY: 0, maxY: 10, centerX: 5, centerY: 5, river: null }
   const margin = mapMarginLayoutUnits(building)
-  const cfg = building.river
-  let river = null
+  const center = levelBuildingCenterLayout(building, levelId)
+  const minX = content.minX - margin
+  const maxX = content.maxX + margin
+  const maxY = content.maxY + margin
   let minY = content.minY - margin
+  let river = null
+  const cfg = building.river
   if (cfg) {
     const onLevels = cfg.onLevels ?? [building.exterior?.level ?? 'first']
     if (onLevels.includes(levelId)) {
       const unitFeet = building.unitFeet ?? 10
       const gap = (cfg.offsetFeet ?? 20) / unitFeet
       const width = (cfg.widthFeet ?? 25) / unitFeet
-      const visibleFraction = cfg.visibleFraction ?? 1
+      const visibleFraction = cfg.visibleFraction ?? 0.5
       const riverY = content.minY - gap - width
-      river = {
-        x: content.minX - margin,
-        y: riverY,
-        w: content.maxX - content.minX + margin * 2,
-        h: width,
-      }
       minY = riverY + width * (1 - visibleFraction)
+      river = { x: minX, y: riverY, w: maxX - minX, h: width }
     }
   }
-  return {
-    minX: content.minX - margin,
-    maxX: content.maxX + margin,
-    minY,
-    maxY: content.maxY + margin,
-    river,
-  }
+  return { minX, maxX, minY, maxY, centerX: center.x, centerY: center.y, river }
 }
 
 /** River strip west of the level footprint (layout units; west = top / −y). */

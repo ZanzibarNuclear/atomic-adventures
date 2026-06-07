@@ -294,6 +294,47 @@ links:
   - { from: conference, to: kitchen, kind: door, door: conference-kitchen }
   - { from: kitchen, to: spiral-stair, kind: door, door: kitchen-spiral }
 
+# Keys and other carry items (inventory ids).
+items:
+  - id: hallway-small-bay-key
+    kind: key
+    name: Small bay door key
+    description: Brass key for the man door between the hallway and small bay — needed from the garage side.
+  - id: lobby-exterior-key
+    kind: key
+    name: Lobby exterior key
+    description: Deadbolt key for the front door — needed from outside on the footpath.
+  - id: large-bay-man-key
+    kind: key
+    name: Large bay man door key
+    description: Key for the personnel door at the corner of the large bay.
+
+# Pickups — one-time items found in a room.
+pickups:
+  - id: lobby-desk-keys
+    room: control-lobby
+    item: lobby-exterior-key
+    label: Keys on the reception desk
+  - id: hallway-key-hook
+    room: hallway
+    item: hallway-small-bay-key
+    label: Key on the hallway hook (small bay door)
+  - id: large-bay-key-peg
+    room: large-bay
+    item: large-bay-man-key
+    label: Key on the peg by the man door
+
+# Manual release toggles for roll-up doors (disengages the chain hoist).
+switches:
+  - id: small-bay-manual
+    room: small-bay
+    door: small-bay-roll
+    label: Manual release — small roll-up
+  - id: large-bay-manual
+    room: large-bay
+    door: large-bay-roll
+    label: Manual release — large roll-up
+
 # Doors: topology + visuals + initial state. All start closed.
 doors:
   - id: library-hallway
@@ -331,6 +372,9 @@ doors:
     room: control-lobby
     at: { x: -4.4, y: 3 } # east / bottom wall — exterior entry
     label: "Lobby exterior door"
+    lock:
+      key: lobby-exterior-key
+      freeFrom: control-lobby # thumb turn inside the lobby
     initial: { closed: true, locked: true }
   - id: hallway-spiral
     kind: man
@@ -342,6 +386,9 @@ doors:
     level: first
     at: { x: 2, y: 0.38 }
     vertical: true
+    lock:
+      key: hallway-small-bay-key
+      freeFrom: hallway # lock/unlock from hallway without a key
     initial: { closed: true, locked: true }
   - id: hallway-bathroom
     kind: man
@@ -354,14 +401,23 @@ doors:
     room: large-bay
     at: { x: 0.6, y: 5 }
     label: "Large bay man door"
+    lock:
+      key: large-bay-man-key
+      freeFrom: large-bay
     initial: { closed: true, locked: true }
   - id: small-bay-roll
     kind: roll
     room: small-bay
+    lock:
+      kind: enabler
+      enablers: [power, manual]
     initial: { closed: true, locked: true }
   - id: large-bay-roll
     kind: roll
     room: large-bay
+    lock:
+      kind: enabler
+      enablers: [power, manual]
     initial: { closed: true, locked: true }
   - id: conference-kitchen
     kind: man
