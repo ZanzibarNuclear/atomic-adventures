@@ -17,7 +17,7 @@ import {
   isOutsideBuilding,
   roomsOnLevel,
 } from '../src/composables/useGrid.js'
-import { buildInitialDoorState, setDoorOpen, setAllDoorsOpen, unlockDoor, canPassDoor } from '../src/composables/useDoors.js'
+import { buildInitialDoorState, setDoorOpen, setAllDoorsOpen, unlockDoor, canPassDoor, canBargeThroughDoor } from '../src/composables/useDoors.js'
 
 const b = buildBuilding(buildingData)
 const ds = buildInitialDoorState(b.areaId, b)
@@ -92,13 +92,51 @@ setDoorOpen(ds, b.areaId, 'conference-garage-stair', true)
 m = movesFrom(b, 'garage-stair', 'first', ds, mapVisibilityCtx(new Set(['large-bay', 'garage-stair']), [], b, ds, b.areaId))
 console.log('garage-stair moves (door open):', m.map((x) => x.toRoomId))
 
-const visibleDoors = doorsOnLevel(b, 'first', ds)
+const visibleDoors = doorsOnLevel(b, 'first', ds, b.start)
   .filter((d) => isDoorMapped(b.doorById[d.id], startCtx))
   .map((d) => d.id)
   .sort()
 console.log('visible 1F doors from large-bay:', visibleDoors)
 if (visibleDoors.includes('kitchen-spiral')) {
   console.error('FAIL: kitchen-spiral must not appear on the 1F plan')
+  process.exit(1)
+}
+if (visibleDoors.includes('conference-garage-stair')) {
+  console.error('FAIL: conference-garage-stair must not appear on 1F from large-bay')
+  process.exit(1)
+}
+
+const libraryCtx = mapVisibilityCtx(
+  new Set(['library', 'large-bay']),
+  [],
+  b,
+  ds,
+  b.areaId,
+  false,
+  'library',
+)
+const libraryDoors1F = doorsOnLevel(b, 'first', ds, 'library')
+  .filter((d) => isDoorMapped(b.doorById[d.id], libraryCtx))
+  .map((d) => d.id)
+if (libraryDoors1F.includes('conference-garage-stair')) {
+  console.error('FAIL: conference-garage-stair must not show on 1F from library')
+  process.exit(1)
+}
+
+const garageStairCtx = mapVisibilityCtx(
+  new Set(['large-bay', 'garage-stair']),
+  [],
+  b,
+  ds,
+  b.areaId,
+  false,
+  'garage-stair',
+)
+const garageStairDoors1F = doorsOnLevel(b, 'first', ds, 'garage-stair')
+  .filter((d) => isDoorMapped(b.doorById[d.id], garageStairCtx))
+  .map((d) => d.id)
+if (!garageStairDoors1F.includes('conference-garage-stair')) {
+  console.error('FAIL: conference-garage-stair should show on 1F while on garage stairs')
   process.exit(1)
 }
 
@@ -171,14 +209,36 @@ if (!canPassDoor(ds, b.areaId, 'hallway-spiral', b.doorById['hallway-spiral'])) 
 }
 
 const confCtx = mapVisibilityCtx(new Set(['conference']), [], b, ds, b.areaId, false, 'conference')
-const confDoors = doorsOnLevel(b, 'second', ds)
+const confDoors = doorsOnLevel(b, 'second', ds, 'conference')
   .filter((d) => isDoorMapped(b.doorById[d.id], confCtx))
   .map((d) => d.id)
   .sort()
 console.log('visible 2F doors from conference:', confDoors)
+if (!confDoors.includes('conference-garage-stair')) {
+  console.error('FAIL: conference-garage-stair should show on 2F from conference')
+  process.exit(1)
+}
 
 m = movesFrom(b, 'library', 'first', ds, mapVisibilityCtx(new Set(['library']), new Set(), b, ds, b.areaId))
 console.log('library moves (closed):', m.map((x) => x.toRoomId))
+
+const libraryBarge = movesFrom(
+  b,
+  'library',
+  'first',
+  ds,
+  mapVisibilityCtx(new Set(['library']), new Set(), b, ds, b.areaId),
+  { includeBarge: true },
+)
+console.log('library barge moves (corridor door closed):', libraryBarge.map((x) => x.toRoomId))
+if (!libraryBarge.some((x) => x.toRoomId === 'corridor')) {
+  console.error('FAIL: corridor should be bargeable from library when library-corridor is unlocked')
+  process.exit(1)
+}
+if (!canBargeThroughDoor(ds, b.areaId, 'library-corridor', b.doorById['library-corridor'])) {
+  console.error('FAIL: library-corridor should allow barge while closed and unlocked')
+  process.exit(1)
+}
 
 setDoorOpen(ds, b.areaId, 'library-corridor', true)
 m = movesFrom(b, 'library', 'first', ds, mapVisibilityCtx(new Set(['library']), new Set(), b, ds, b.areaId))

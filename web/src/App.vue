@@ -27,6 +27,7 @@ import {
 import {
   buildInitialDoorState,
   canPassDoor,
+  canBargeThroughDoor,
   doorsFromRoom,
   doorLabel,
   doorStatusText,
@@ -737,13 +738,68 @@ const indoorMoves = computed(() => {
     ),
   ];
 });
+/** One-step moves through closed but unlocked doors (room click opens the door, then enter). */
+const bargeMoves = computed(() => {
+  if (indoor.exteriorNode) {
+    const node = currentExteriorNode.value;
+    if (!node?.room || !node.door) return [];
+    const door = building.value.doorById[node.door];
+    if (
+      canPassDoor(
+        indoor.doorState,
+        building.value.areaId,
+        node.door,
+        door,
+      )
+    ) {
+      return [];
+    }
+    if (
+      !canBargeThroughDoor(
+        indoor.doorState,
+        building.value.areaId,
+        node.door,
+        door,
+      )
+    ) {
+      return [];
+    }
+    const room = building.value.roomById[node.room];
+    return [
+      {
+        kind: "door",
+        toRoomId: node.room,
+        doorId: node.door,
+        label: "through the door",
+        toName: room?.name ?? node.room,
+      },
+    ];
+  }
+  if (!indoor.currentRoom) return [];
+  const passableIds = new Set(
+    indoorMoves.value.filter((m) => !m.onSpiral).map((m) => m.toRoomId),
+  );
+  return movesFrom(
+    building.value,
+    indoor.currentRoom,
+    indoor.level,
+    indoor.doorState,
+    indoorVisibility.value,
+    { includeBarge: true },
+  ).filter((m) => !passableIds.has(m.toRoomId));
+});
 const reachableRooms = computed(() => {
   if (indoor.exteriorNode) {
-    return indoorMoves.value
+    const ids = indoorMoves.value
       .filter((m) => m.kind === "door")
       .map((m) => m.toRoomId);
+    for (const m of bargeMoves.value) ids.push(m.toRoomId);
+    return ids;
   }
-  return indoorMoves.value.filter((m) => !m.onSpiral).map((m) => m.toRoomId);
+  return [
+    ...indoorMoves.value.filter((m) => !m.onSpiral).map((m) => m.toRoomId),
+    ...bargeMoves.value.map((m) => m.toRoomId),
+  ];
 });
 const reachableExteriorNodes = computed(() => {
   if (indoor.exteriorNode) {
@@ -1164,9 +1220,17 @@ function applyIndoorMove(move) {
 }
 
 function moveToRoom(roomId) {
-  const move = indoorMoves.value.find(
+  let move = indoorMoves.value.find(
     (m) => !m.onSpiral && m.toRoomId === roomId,
   );
+  if (!move) {
+    const barge = bargeMoves.value.find((m) => m.toRoomId === roomId);
+    if (!barge) return;
+    if (barge.doorId) tryOpenDoor(barge.doorId);
+    move = indoorMoves.value.find(
+      (m) => !m.onSpiral && m.toRoomId === roomId,
+    );
+  }
   if (move) applyIndoorMove(move);
 }
 

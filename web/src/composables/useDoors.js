@@ -57,6 +57,11 @@ export function canOpenDoor(doorState, areaId, doorId, door = null) {
   return s && !s.open && !s.locked
 }
 
+/** Click a room to push through a closed, unlocked door (opens it, then enter). */
+export function canBargeThroughDoor(doorState, areaId, doorId, door = null) {
+  return canOpenDoor(doorState, areaId, doorId, door)
+}
+
 export function canCloseDoor(doorState, areaId, doorId, door = null) {
   if (door && isSelfClosingDoor(door)) return false
   const s = getDoorState(doorState, areaId, doorId)

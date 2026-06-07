@@ -5,7 +5,7 @@
 // derives movement from path geometry, a building's connectivity is authored
 // explicitly as `links`, and up/down is inferred from each level's `order`.
 
-import { canPassDoor, normalizeDoorInitial } from './useDoors.js'
+import { canPassDoor, canBargeThroughDoor, normalizeDoorInitial } from './useDoors.js'
 
 function buildExteriorModel(exterior) {
   if (!exterior) {
@@ -620,6 +620,13 @@ function linkPassable(link, doorState, areaId, building) {
   return canPassDoor(doorState, areaId, link.door, door)
 }
 
+function linkPassableOrBarge(link, doorState, areaId, building) {
+  if (linkPassable(link, doorState, areaId, building)) return true
+  if (link.kind !== 'door' || !link.door || !doorState) return false
+  const door = building?.doorById?.[link.door]
+  return canBargeThroughDoor(doorState, areaId, link.door, door)
+}
+
 /** Room ids reachable in one step from `roomId` through passable links. */
 function passableNeighborIds(building, roomId, doorState, areaId) {
   const out = []
@@ -734,12 +741,36 @@ function spiralStairEndpointRoom(door, building) {
   return linked.find((r) => !isStairLanding(r)) ?? null
 }
 
+function straightStairEndpointLevel(door, building) {
+  const linked = linkedRoomIdsForDoor(building, door)
+    .map((id) => building.roomById[id])
+    .filter(Boolean)
+  const stair = linked.find((r) => r.feature === 'garage-stair')
+  if (!stair) return null
+  const end = linked.find((r) => !isStairLanding(r))
+  return end ? primaryLevel(end) : null
+}
+
+function straightStairRoomId(building) {
+  return building.rooms?.find((r) => r.feature === 'garage-stair')?.id ?? null
+}
+
 function manDoorOnLevel(door, building, levelId, currentRoom = null) {
-  const endpointLevel = spiralStairEndpointLevel(door, building)
-  if (endpointLevel == null) return doorOnLevel(door, levelId)
-  const onSpiral = currentRoom && currentRoom === spiralStairRoomId(building)
-  if (onSpiral) return true
-  return endpointLevel === levelId
+  const spiralEndpoint = spiralStairEndpointLevel(door, building)
+  if (spiralEndpoint != null) {
+    const onSpiral = currentRoom && currentRoom === spiralStairRoomId(building)
+    if (onSpiral) return true
+    return spiralEndpoint === levelId
+  }
+
+  const straightEndpoint = straightStairEndpointLevel(door, building)
+  if (straightEndpoint != null) {
+    if (levelId === straightEndpoint) return doorOnLevel(door, levelId)
+    const onGarageStair = currentRoom && currentRoom === straightStairRoomId(building)
+    return onGarageStair && doorOnLevel(door, levelId)
+  }
+
+  return doorOnLevel(door, levelId)
 }
 
 /** True when either end of a multi-floor stair run has been explored. */
@@ -957,7 +988,17 @@ export function moveKey(move) {
 
 // Every room reachable from `roomId` in one step, with a human label.
 // `atLevel` is the floor landing the player occupies (required on the spiral stair).
-export function movesFrom(building, roomId, atLevel = null, doorState = null, visibility = null) {
+// Pass `{ includeBarge: true }` to also list rooms behind closed, unlocked doors.
+export function movesFrom(
+  building,
+  roomId,
+  atLevel = null,
+  doorState = null,
+  visibility = null,
+  opts = {},
+) {
+  const { includeBarge = false } = opts
+  const linkOk = includeBarge ? linkPassableOrBarge : linkPassable
   const out = []
   const from = building.roomById[roomId]
   if (!from) return out
@@ -978,7 +1019,7 @@ export function movesFrom(building, roomId, atLevel = null, doorState = null, vi
       if (link.from === roomId) otherId = link.to
       else if (link.to === roomId) otherId = link.from
       if (!otherId) continue
-      if (!linkPassable(link, doorState, areaId, building)) continue
+      if (!linkOk(link, doorState, areaId, building)) continue
       const other = building.roomById[otherId]
       if (!other || isStairLanding(other)) continue
       if (!targetReachable(other, link)) continue
@@ -1002,7 +1043,7 @@ export function movesFrom(building, roomId, atLevel = null, doorState = null, vi
     if (link.from === roomId) toId = link.to
     else if (link.to === roomId) toId = link.from
     if (!toId) continue
-    if (!linkPassable(link, doorState, areaId, building)) continue
+    if (!linkOk(link, doorState, areaId, building)) continue
     const to = building.roomById[toId]
     if (!to) continue
     if (!targetReachable(to, link)) continue
