@@ -240,6 +240,23 @@ export function fixtureRevealKey(fixtureId) {
   return `fixture:${fixtureId}`
 }
 
+export function doorRevealKey(doorId) {
+  return `door:${doorId}`
+}
+
+/** Once a room is explored, its door glyphs stay on the plan (even if unopened). */
+export function applyRevealDoorsForRoom(building, revealedSet, roomId) {
+  if (!building || !roomId) return
+  for (const link of building.links ?? []) {
+    if (link.kind === 'door' && link.door && (link.from === roomId || link.to === roomId)) {
+      revealedSet.add(doorRevealKey(link.door))
+    }
+  }
+  for (const door of building.doors ?? []) {
+    if (door.id && door.room === roomId) revealedSet.add(doorRevealKey(door.id))
+  }
+}
+
 function isDoorPeekOpen(doorId, ctx) {
   if (!doorId || !ctx?.doorState || !ctx?.areaId) return false
   return canPassDoor(ctx.doorState, ctx.areaId, doorId)
@@ -248,7 +265,7 @@ function isDoorPeekOpen(doorId, ctx) {
 function canPeekThroughDoor(doorId, ctx) {
   if (!isDoorPeekOpen(doorId, ctx)) return false
   const door = ctx?.building?.doorById?.[doorId]
-  // showWhenRoom only gates the door glyph (isDoorMapped), not peeking once it is open.
+  // showWhenRoom gates the door glyph (isDoorMapped), not peeking once it is open.
   if (door?.showWhenRevealed) {
     const room = ctx.building?.roomById?.[door.showWhenRevealed]
     if (!room || !isRoomMapped(room, ctx)) return false
@@ -370,11 +387,17 @@ export function isDoorMapped(door, ctx) {
   if (!door) return true
   if (isOutsideBuilding(ctx) && ctx?.building?.exitByDoorId?.[door.id]) return true
   if (door.showWhenDiscovered && !ctx?.discovered.has(door.showWhenDiscovered)) return false
-  if (door.showWhenRoom && !ctx?.discovered.has(door.showWhenRoom)) return false
+  // showWhenRoom gates the door glyph until the named room or any linked room is discovered.
+  if (door.showWhenRoom) {
+    const linkedIds = linkedRoomIdsForDoor(ctx.building, door)
+    const linkedDiscovered = linkedIds.some((id) => ctx?.discovered.has(id))
+    if (!ctx?.discovered.has(door.showWhenRoom) && !linkedDiscovered) return false
+  }
   if (door.showWhenRevealed) {
     const room = ctx?.building?.roomById?.[door.showWhenRevealed]
     if (!room || !isRoomMapped(room, ctx)) return false
   }
+  if (ctx?.revealed.has(doorRevealKey(door.id))) return true
   // Draw a door only when joined rooms are on the plan. Stair-landing doors may
   // lead into an unseen room once the player is on the run or has reached the foot.
   const linked = linkedRoomIdsForDoor(ctx.building, door)
@@ -434,6 +457,7 @@ export function isFixtureFogged(fixture, ctx) {
 
 /** Opening a door permanently peeks linked rooms / fixtures onto the plan. */
 export function applyRevealForDoor(building, revealedSet, doorId) {
+  revealedSet.add(doorRevealKey(doorId))
   for (const room of building.rooms) {
     if (room.revealWhenDoor === doorId) revealedSet.add(room.id)
   }
@@ -650,8 +674,8 @@ export function movesFrom(building, roomId, atLevel = null, doorState = null, vi
 }
 
 // Open-bay beams to draw on a level. `open` links have no wall — just a beam
-// (the ceiling-height step) with support columns.
-export function levelBeams(building, levelId) {
+// (the ceiling-height step) with support columns. Hidden until both bays are mapped.
+export function levelBeams(building, levelId, visibility = null) {
   const cell = building.cell
   const beams = []
   for (const link of building.links) {
@@ -659,6 +683,9 @@ export function levelBeams(building, levelId) {
     const a = building.roomById[link.from]
     const b = building.roomById[link.to]
     if (!a || !b || a.level !== levelId || b.level !== levelId) continue
+    if (visibility && (!isRoomMapped(a, visibility) || !isRoomMapped(b, visibility))) {
+      continue
+    }
     const edge = sharedEdge(a, b, cell)
     if (!edge) continue
     const seg = edge.vertical
@@ -762,6 +789,26 @@ export function exteriorMovesFrom(building, nodeId) {
       toName: other?.label ?? toNodeId,
     }
   })
+}
+
+/** Step from an interior room out to its footpath stand spot (exit door must be open). */
+export function exteriorStepOutMoves(building, roomId, doorState, areaId) {
+  if (!roomId) return []
+  const out = []
+  for (const exit of building.exits ?? []) {
+    if (exit.room !== roomId || !exit.exteriorNode) continue
+    if (!canPassDoor(doorState, areaId, exit.door)) continue
+    const node = building.exterior?.nodeById?.[exit.exteriorNode]
+    if (!node) continue
+    out.push({
+      toExteriorNode: exit.exteriorNode,
+      kind: 'path',
+      doorId: exit.door,
+      label: 'out to the footpath',
+      toName: node.label ?? exit.exteriorNode,
+    })
+  }
+  return out
 }
 
 export function exteriorPathsOnLevel(building, levelId) {

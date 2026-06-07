@@ -299,7 +299,7 @@ doors:
     level: first
     at: { x: -1, y: 0.4 }
     vertical: true
-    showWhenRoom: library # visible once the player has reached the library
+    showWhenRoom: library # hidden until library or corridor wing is explored
     initial: { closed: true, locked: false }
   - id: corridor-control
     kind: man

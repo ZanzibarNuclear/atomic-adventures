@@ -13,9 +13,11 @@ import {
 } from "./composables/useRoutes.js";
 import {
   applyRevealForDoor,
+  applyRevealDoorsForRoom,
   buildBuilding,
   canUseExteriorExit,
   exteriorMovesFrom,
+  exteriorStepOutMoves,
   isDestinationNamed,
   isDoorMapped,
   mapVisibilityCtx,
@@ -696,13 +698,21 @@ const indoorMoves = computed(() => {
     }
     return moves;
   }
-  return movesFrom(
-    building.value,
-    indoor.currentRoom,
-    indoor.level,
-    indoor.doorState,
-    indoorVisibility.value,
-  );
+  return [
+    ...movesFrom(
+      building.value,
+      indoor.currentRoom,
+      indoor.level,
+      indoor.doorState,
+      indoorVisibility.value,
+    ),
+    ...exteriorStepOutMoves(
+      building.value,
+      indoor.currentRoom,
+      indoor.doorState,
+      building.value.areaId,
+    ),
+  ];
 });
 const reachableRooms = computed(() => {
   if (indoor.exteriorNode) {
@@ -713,10 +723,20 @@ const reachableRooms = computed(() => {
   return indoorMoves.value.filter((m) => !m.onSpiral).map((m) => m.toRoomId);
 });
 const reachableExteriorNodes = computed(() => {
-  if (!indoor.exteriorNode) return [];
-  return exteriorMovesFrom(building.value, indoor.exteriorNode).map(
-    (m) => m.toNodeId,
-  );
+  if (indoor.exteriorNode) {
+    return exteriorMovesFrom(building.value, indoor.exteriorNode).map(
+      (m) => m.toNodeId,
+    );
+  }
+  if (indoor.currentRoom) {
+    return exteriorStepOutMoves(
+      building.value,
+      indoor.currentRoom,
+      indoor.doorState,
+      building.value.areaId,
+    ).map((m) => m.toExteriorNode);
+  }
+  return [];
 });
 const nearbyDoors = computed(() => {
   if (indoor.exteriorNode) {
@@ -788,6 +808,13 @@ function syncDoorState() {
     next[k] = { ...v };
   }
   indoor.doorState = next;
+}
+
+function discoverIndoorRoom(roomId) {
+  indoor.discovered = new Set([...indoor.discovered, roomId]);
+  const next = new Set(indoor.revealed);
+  applyRevealDoorsForRoom(building.value, next, roomId);
+  indoor.revealed = next;
 }
 
 function tryOpenDoor(doorId) {
@@ -933,7 +960,7 @@ function applyIndoorMove(move) {
     if (move.kind === "door" && move.toRoomId) {
       indoor.currentRoom = move.toRoomId;
       indoor.exteriorNode = null;
-      indoor.discovered = new Set([...indoor.discovered, move.toRoomId]);
+      discoverIndoorRoom(move.toRoomId);
       indoor.level =
         building.value.roomById[move.toRoomId]?.level ?? indoor.level;
       indoor.viewLevel = indoor.level;
@@ -943,6 +970,15 @@ function applyIndoorMove(move) {
       return;
     }
     indoor.moving = false;
+    return;
+  }
+
+  if (move.toExteriorNode) {
+    indoor.exteriorNode = move.toExteriorNode;
+    indoor.currentRoom = null;
+    setTimeout(() => {
+      indoor.moving = false;
+    }, 400);
     return;
   }
 
@@ -963,7 +999,7 @@ function applyIndoorMove(move) {
   }
 
   indoor.currentRoom = move.toRoomId;
-  indoor.discovered = new Set([...indoor.discovered, move.toRoomId]);
+  discoverIndoorRoom(move.toRoomId);
 
   if (to.feature) {
     indoor.level = move.toLevel ?? from.level ?? from.levels?.[0];
@@ -1697,8 +1733,8 @@ function resetIndoor() {
         <p
           v-if="!indoor.exteriorNode && reachableExitDoors.length && indoor.currentRoom"
           class="puzzle-hint">
-          Open the exterior door, then use the ⬡ map marker or Travel world map
-          button.
+          Open the exterior door, then step out to the footpath (Move or green
+          dot) or use the ⬡ map marker for the world map.
         </p>
         <p v-if="exitTravelHint" class="puzzle-hint">{{ exitTravelHint }}</p>
       </div>

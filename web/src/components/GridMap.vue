@@ -85,7 +85,7 @@ const current = computed(() =>
 )
 const levelRooms = computed(() => roomsOnLevel(props.building, props.level))
 const mappedRooms = computed(() => levelRooms.value.filter((r) => isRoomMapped(r, visibility.value)))
-const beams = computed(() => levelBeams(props.building, props.level))
+const beams = computed(() => levelBeams(props.building, props.level, visibility.value))
 const doors = computed(() => doorsOnLevel(props.building, props.level, props.doorStates))
 const fixtures = computed(() =>
   fixturesOnLevel(props.building, props.level).filter((f) => isFixtureMapped(f, visibility.value)),
