@@ -15,6 +15,7 @@ import {
   applyRevealForDoor,
   buildBuilding,
   canUseExteriorExit,
+  exteriorMovesFrom,
   isDestinationNamed,
   isDoorMapped,
   mapVisibilityCtx,
@@ -359,11 +360,12 @@ const place = ref("outdoors"); // 'outdoors' | 'indoors'
 const outdoorStand = ref(null); // { hexId, standAt } — where you landed after stepping outside
 
 const indoor = reactive({
-  currentRoom: building.start,
-  discovered: new Set([building.start]),
+  currentRoom: null,
+  exteriorNode: building.exterior?.entry ?? null,
+  discovered: new Set(),
   revealed: new Set(),
-  level: building.roomById[building.start]?.level ?? building.levels[0]?.id,
-  viewLevel: building.roomById[building.start]?.level ?? building.levels[0]?.id,
+  level: building.exterior?.level ?? building.levels[0]?.id,
+  viewLevel: building.exterior?.level ?? building.levels[0]?.id,
   doorState: buildInitialDoorState(building.areaId, building),
   moving: false,
 });
@@ -377,6 +379,7 @@ const indoorVisibility = computed(() =>
     building.areaId,
     builderView.value,
     indoor.currentRoom,
+    indoor.exteriorNode,
   ),
 );
 
@@ -385,24 +388,74 @@ const atBuildingEntrance = computed(
   () => currentHexData.value?.area === "utility",
 );
 const atGatePuzzle = computed(() => currentHexData.value?.puzzle === "gate");
-const currentRoomData = computed(() => building.roomById[indoor.currentRoom]);
-const indoorMoves = computed(() =>
-  movesFrom(
+const currentRoomData = computed(() =>
+  indoor.currentRoom ? building.roomById[indoor.currentRoom] : null,
+);
+const currentExteriorNode = computed(() =>
+  indoor.exteriorNode
+    ? building.exterior?.nodeById?.[indoor.exteriorNode]
+    : null,
+);
+const indoorMoves = computed(() => {
+  if (indoor.exteriorNode) {
+    const moves = exteriorMovesFrom(building, indoor.exteriorNode).map((m) => ({
+      ...m,
+      toExteriorNode: m.toNodeId,
+    }));
+    const node = currentExteriorNode.value;
+    if (
+      node?.room &&
+      canPassDoor(indoor.doorState, building.areaId, node.door)
+    ) {
+      const room = building.roomById[node.room];
+      moves.push({
+        kind: "door",
+        toRoomId: node.room,
+        label: "through the door",
+        toName: room?.name ?? node.room,
+      });
+    }
+    return moves;
+  }
+  return movesFrom(
     building,
     indoor.currentRoom,
     indoor.level,
     indoor.doorState,
     indoorVisibility.value,
-  ),
-);
-const reachableRooms = computed(() =>
-  indoorMoves.value.filter((m) => !m.onSpiral).map((m) => m.toRoomId),
-);
-const nearbyDoors = computed(() =>
-  doorsFromRoom(building, indoor.currentRoom).filter((d) =>
+  );
+});
+const reachableRooms = computed(() => {
+  if (indoor.exteriorNode) {
+    return indoorMoves.value
+      .filter((m) => m.kind === "door")
+      .map((m) => m.toRoomId);
+  }
+  return indoorMoves.value.filter((m) => !m.onSpiral).map((m) => m.toRoomId);
+});
+const reachableExteriorNodes = computed(() => {
+  if (!indoor.exteriorNode) return [];
+  return exteriorMovesFrom(building, indoor.exteriorNode).map((m) => m.toNodeId);
+});
+const nearbyDoors = computed(() => {
+  if (indoor.exteriorNode) {
+    const node = currentExteriorNode.value;
+    if (!node?.door) return [];
+    const door = building.doorById[node.door];
+    if (!door || !isDoorMapped(door, indoorVisibility.value)) return [];
+    const room = building.roomById[node.room];
+    return [
+      {
+        doorId: node.door,
+        toRoomId: node.room,
+        toName: room?.name ?? node.room,
+      },
+    ];
+  }
+  return doorsFromRoom(building, indoor.currentRoom).filter((d) =>
     isDoorMapped(building.doorById[d.doorId], indoorVisibility.value),
-  ),
-);
+  );
+});
 const interactableDoorIds = computed(() => {
   if (builderView.value) {
     return (building.doors ?? []).map((d) => d.id).filter(Boolean);
@@ -421,6 +474,7 @@ const reachableExitDoors = computed(() => {
         indoor.currentRoom,
         indoor.doorState,
         building.areaId,
+        indoor.exteriorNode,
       ),
     )
     .filter((exit) =>
@@ -478,11 +532,13 @@ function tryCloseDoor(doorId) {
 }
 
 function tryBreakLock(doorId) {
-  breakLock(indoor.doorState, building.areaId, doorId);
+  if (!breakLock(indoor.doorState, building.areaId, doorId)) return;
+  syncDoorState();
 }
 
 function tryToggleLock(doorId) {
-  toggleDoorLock(indoor.doorState, building.areaId, doorId);
+  if (!toggleDoorLock(indoor.doorState, building.areaId, doorId)) return;
+  syncDoorState();
 }
 
 function enterBuilding(hexId) {
@@ -490,6 +546,12 @@ function enterBuilding(hexId) {
   const hex = hexById.value[id];
   if (!hex || hex.area !== "utility") return;
   outdoorStand.value = null;
+  indoor.exteriorNode = building.exterior?.entry ?? null;
+  indoor.currentRoom = null;
+  indoor.discovered = new Set();
+  indoor.revealed = new Set();
+  indoor.level = building.exterior?.level ?? "first";
+  indoor.viewLevel = indoor.level;
   place.value = "indoors";
 }
 function exitViaDoor(doorId) {
@@ -503,22 +565,20 @@ function exitViaDoor(doorId) {
       indoor.currentRoom,
       indoor.doorState,
       building.areaId,
+      indoor.exteriorNode,
     )
   ) {
-    return;
-  }
-  if (!builderView.value && !canPassDoor(indoor.doorState, building.areaId, doorId)) {
     return;
   }
   const hexId = exit.hex ?? building.outdoorHex;
   if (!hexId) return;
   state.currentId = hexId;
   state.discovered = new Set([...state.discovered, hexId]);
-  if (exit.standAt) {
-    outdoorStand.value = { hexId, standAt: exit.standAt };
-  } else {
-    outdoorStand.value = null;
-  }
+  outdoorStand.value = exit.standAt
+    ? { hexId, standAt: { ...exit.standAt } }
+    : null;
+  indoor.exteriorNode = null;
+  indoor.currentRoom = null;
   place.value = "outdoors";
 }
 function exitBuilding() {
@@ -526,6 +586,8 @@ function exitBuilding() {
   state.currentId = hexId;
   state.discovered = new Set([...state.discovered, hexId]);
   outdoorStand.value = null;
+  indoor.exteriorNode = null;
+  indoor.currentRoom = null;
   place.value = "outdoors";
 }
 
@@ -534,6 +596,29 @@ function applyIndoorMove(move) {
   if (!indoorMoves.value.some((m) => moveKey(m) === moveKey(move))) return;
 
   indoor.moving = true;
+
+  if (indoor.exteriorNode) {
+    if (move.toExteriorNode) {
+      indoor.exteriorNode = move.toExteriorNode;
+      setTimeout(() => {
+        indoor.moving = false;
+      }, 400);
+      return;
+    }
+    if (move.kind === "door" && move.toRoomId) {
+      indoor.currentRoom = move.toRoomId;
+      indoor.exteriorNode = null;
+      indoor.discovered = new Set([...indoor.discovered, move.toRoomId]);
+      indoor.level = building.roomById[move.toRoomId]?.level ?? indoor.level;
+      indoor.viewLevel = indoor.level;
+      setTimeout(() => {
+        indoor.moving = false;
+      }, 400);
+      return;
+    }
+    indoor.moving = false;
+    return;
+  }
 
   if (move.onSpiral) {
     indoor.level = move.toLevel;
@@ -573,11 +658,17 @@ function moveToRoom(roomId) {
   if (move) applyIndoorMove(move);
 }
 
+function moveToExteriorNode(nodeId) {
+  const move = indoorMoves.value.find((m) => m.toExteriorNode === nodeId);
+  if (move) applyIndoorMove(move);
+}
+
 function resetIndoor() {
-  indoor.currentRoom = building.start;
-  indoor.discovered = new Set([building.start]);
+  indoor.exteriorNode = building.exterior?.entry ?? null;
+  indoor.currentRoom = null;
+  indoor.discovered = new Set();
   indoor.revealed = new Set();
-  indoor.level = building.roomById[building.start]?.level;
+  indoor.level = building.exterior?.level ?? "first";
   indoor.viewLevel = indoor.level;
   indoor.doorState = buildInitialDoorState(building.areaId, building);
 }
@@ -810,18 +901,21 @@ function resetIndoor() {
     <section v-if="place === 'indoors'" class="stage" :class="{ expanded }">
       <GridMap
         :building="building"
-        :current-room="indoor.currentRoom"
+        :current-room="indoor.currentRoom ?? ''"
+        :exterior-node="indoor.exteriorNode"
         :discovered="[...indoor.discovered]"
         :revealed="[...indoor.revealed]"
         :level="indoor.viewLevel"
         :stand-level="indoor.level"
         :reachable-rooms="reachableRooms"
+        :reachable-exterior-nodes="reachableExteriorNodes"
         :door-states="indoor.doorState"
         :builder-view="builderView"
         :expanded="expanded"
         :interactable-door-ids="interactableDoorIds"
         :reachable-exit-doors="reachableExitDoors"
         @room-click="moveToRoom"
+        @exterior-node-click="moveToExteriorNode"
         @door-click="tryToggleDoor"
         @exit-click="exitViaDoor" />
     </section>
@@ -829,8 +923,16 @@ function resetIndoor() {
     <section v-if="place === 'indoors'" class="hud">
       <div class="location">
         <span class="label">{{ building.name }}</span>
-        <strong>{{ currentRoomData?.name ?? currentRoomData?.id }}</strong>
+        <strong>{{
+          currentExteriorNode?.label ??
+          currentRoomData?.name ??
+          currentRoomData?.id
+        }}</strong>
         <em v-if="currentRoomData?.blurb">{{ currentRoomData.blurb }}</em>
+        <em v-else-if="currentExteriorNode"
+          >Footpaths ring the building — break a lock and go in through a
+          door.</em
+        >
         <p v-if="reachableExitDoors.length" class="puzzle-hint">
           Open exterior door, then click the ⬡ hex outside to step out.
         </p>
@@ -843,16 +945,21 @@ function resetIndoor() {
             v-for="m in indoorMoves"
             :key="moveKey(m)"
             class="route-btn"
-            :class="'k-' + (m.kind === 'door' ? 'path' : 'road')"
+            :class="
+              'k-' +
+              (m.kind === 'door' ? 'path' : m.kind === 'path' ? 'trail' : 'road')
+            "
             :disabled="indoor.moving"
             @click="applyIndoorMove(m)">
             Go {{ m.label }}
             <span class="dest"
               >→
               {{
-                m.onSpiral || isDestinationNamed(m.toRoomId, indoorVisibility)
+                m.toExteriorNode
                   ? m.toName
-                  : "?"
+                  : m.onSpiral || isDestinationNamed(m.toRoomId, indoorVisibility)
+                    ? m.toName
+                    : "?"
               }}</span
             >
           </button>

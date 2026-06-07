@@ -490,7 +490,7 @@ const hasLegend = computed(
             v-if="hex.landmark.building === 'utility-station'"
             class="building-enter"
             :class="{ 'can-enter': hex.id === currentHex && !builderEdit }"
-            :transform="`translate(${center(hex).x + (hex.landmark.dx ?? 0) * size}, ${center(hex).y + (hex.landmark.dy ?? 0) * size}) scale(1.08)`"
+            :transform="`translate(${center(hex).x + (hex.landmark.dx ?? 0) * size}, ${center(hex).y + (hex.landmark.dy ?? 0) * size}) scale(0.54)`"
             @click.stop="onBuildingClick(hex)"
           >
             <UtilityStationLandmark />

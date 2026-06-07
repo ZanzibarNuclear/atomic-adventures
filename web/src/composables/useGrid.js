@@ -7,6 +7,44 @@
 
 import { canPassDoor, normalizeDoorInitial } from './useDoors.js'
 
+function buildExteriorModel(exterior) {
+  if (!exterior) {
+    return { level: 'first', entry: null, nodes: [], nodeById: {}, adj: {}, paths: [] }
+  }
+  const nodes = exterior.nodes ?? []
+  const nodeById = Object.fromEntries(nodes.map((n) => [n.id, n]))
+  const adj = Object.fromEntries(nodes.map((n) => [n.id, new Set()]))
+  const paths = []
+  for (const path of exterior.paths ?? []) {
+    const nodeIds = path.nodes ?? []
+    const points =
+      path.points?.length > 0
+        ? path.points
+        : nodeIds.map((id) => nodeById[id]?.at).filter(Boolean)
+    paths.push({
+      id: path.id ?? nodeIds.join('-'),
+      nodeIds,
+      points,
+      smooth: path.smooth !== false,
+    })
+    for (let i = 0; i < nodeIds.length - 1; i++) {
+      const a = nodeIds[i]
+      const b = nodeIds[i + 1]
+      adj[a]?.add(b)
+      adj[b]?.add(a)
+    }
+  }
+  return {
+    level: exterior.level ?? 'first',
+    entry: exterior.entry ?? nodes[0]?.id ?? null,
+    pad: exterior.pad ?? 0.8,
+    nodes,
+    nodeById,
+    adj: Object.fromEntries(Object.entries(adj).map(([k, v]) => [k, [...v]])),
+    paths,
+  }
+}
+
 // Normalize the raw YAML into a convenient model.
 export function buildBuilding(data) {
   const cell = data.cell ?? 64
@@ -23,6 +61,7 @@ export function buildBuilding(data) {
   const doorById = Object.fromEntries(doors.filter((d) => d.id).map((d) => [d.id, d]))
   const exits = (data.exits ?? []).map((e) => ({ ...e }))
   const exitByDoorId = Object.fromEntries(exits.filter((e) => e.door).map((e) => [e.door, e]))
+  const exterior = buildExteriorModel(data.exterior)
   const areaId = data.id ?? data.area ?? 'building'
   return {
     id: areaId,
@@ -43,6 +82,7 @@ export function buildBuilding(data) {
     doorById,
     exits,
     exitByDoorId,
+    exterior,
     start: data.start ?? rooms[0]?.id,
   }
 }
@@ -174,6 +214,7 @@ export function mapVisibilityCtx(
   areaId = null,
   builderView = false,
   currentRoom = null,
+  exteriorNode = null,
 ) {
   return {
     discovered: discovered instanceof Set ? discovered : new Set(discovered),
@@ -183,7 +224,16 @@ export function mapVisibilityCtx(
     areaId: areaId ?? building?.areaId ?? null,
     builderView,
     currentRoom: currentRoom ?? null,
+    exteriorNode: exteriorNode ?? null,
   }
+}
+
+function exteriorLevelId(ctx) {
+  return ctx?.building?.exterior?.level ?? 'first'
+}
+
+function isOutsideBuilding(ctx) {
+  return !!ctx?.exteriorNode && !ctx?.currentRoom
 }
 
 export function fixtureRevealKey(fixtureId) {
@@ -259,6 +309,13 @@ export function isRoomMapped(room, ctx) {
   if (ctx?.builderView) return true
   if (!room || room.feature) return true
   if (!ctx) return false
+  if (
+    isOutsideBuilding(ctx) &&
+    primaryLevel(room) === exteriorLevelId(ctx) &&
+    !room.open
+  ) {
+    return true
+  }
   if (ctx.discovered.has(room.id) || ctx.revealed.has(room.id)) return true
   if (room.mirror && ctx.discovered.has(room.mirror)) return true
   if (room.revealWhenDoor && canPeekThroughDoor(room.revealWhenDoor, ctx)) return true
@@ -269,6 +326,14 @@ export function isRoomMapped(room, ctx) {
 export function isRoomFogged(room, ctx) {
   if (ctx?.builderView) return false
   if (!isRoomMapped(room, ctx)) return false
+  if (
+    isOutsideBuilding(ctx) &&
+    primaryLevel(room) === exteriorLevelId(ctx) &&
+    !room.feature &&
+    !room.open
+  ) {
+    return !ctx?.discovered.has(room.id)
+  }
   if (room.mirror && ctx?.discovered.has(room.mirror)) return false
   return !ctx?.discovered.has(room.id)
 }
@@ -303,6 +368,7 @@ function stairEndDiscovered(stairRoom, ctx) {
 export function isDoorMapped(door, ctx) {
   if (ctx?.builderView) return true
   if (!door) return true
+  if (isOutsideBuilding(ctx) && ctx?.building?.exitByDoorId?.[door.id]) return true
   if (door.showWhenDiscovered && !ctx?.discovered.has(door.showWhenDiscovered)) return false
   if (door.showWhenRoom && !ctx?.discovered.has(door.showWhenRoom)) return false
   if (door.showWhenRevealed) {
@@ -512,7 +578,9 @@ function spiralLandingsFor(building, room) {
 }
 
 export function moveKey(move) {
-  return move.onSpiral ? `${move.toRoomId}:${move.dir}` : move.toRoomId
+  if (move.onSpiral) return `${move.toRoomId}:${move.dir}`
+  if (move.toExteriorNode) return `ext:${move.toExteriorNode}`
+  return move.toRoomId
 }
 
 // Every room reachable from `roomId` in one step, with a human label.
@@ -652,10 +720,47 @@ export function exitsOnLevel(building, levelId) {
   })
 }
 
-/** Step outside when standing in the exit room and the door is open. */
-export function canUseExteriorExit(building, exit, roomId, doorState, areaId) {
-  if (!exit || roomId !== exit.room) return false
-  return canPassDoor(doorState, areaId, exit.door)
+/** Step outside when at the matching exterior stand or inside the exit room with the door open. */
+export function canUseExteriorExit(
+  building,
+  exit,
+  roomId,
+  doorState,
+  areaId,
+  exteriorNode = null,
+) {
+  if (!exit || !canPassDoor(doorState, areaId, exit.door)) return false
+  if (exteriorNode) {
+    const node = building.exterior?.nodeById?.[exteriorNode]
+    return node?.door === exit.door
+  }
+  return roomId === exit.room
+}
+
+/** Walkway moves between exterior stand spots. */
+export function exteriorMovesFrom(building, nodeId) {
+  const node = building.exterior?.nodeById?.[nodeId]
+  if (!node) return []
+  const neighbors = building.exterior?.adj?.[nodeId] ?? []
+  return neighbors.map((toNodeId) => {
+    const other = building.exterior.nodeById[toNodeId]
+    return {
+      toNodeId,
+      kind: 'path',
+      label: 'along the footpath',
+      toName: other?.label ?? toNodeId,
+    }
+  })
+}
+
+export function exteriorPathsOnLevel(building, levelId) {
+  if (building.exterior?.level !== levelId) return []
+  return building.exterior.paths ?? []
+}
+
+export function exteriorNodesOnLevel(building, levelId) {
+  if (building.exterior?.level !== levelId) return []
+  return building.exterior.nodes ?? []
 }
 
 // Man-door and roll-up glyphs on a level, with live state for rendering.

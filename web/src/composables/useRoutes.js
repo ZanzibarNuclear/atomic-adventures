@@ -56,7 +56,7 @@ export function resolveWaypoint(wp, hexById, size) {
 
 // Catmull-Rom spline through the control points -> a smooth, curvy polyline.
 // Endpoints are clamped (duplicated) so the curve starts/ends at the controls.
-function catmullRom(ctrl, perSeg = 18) {
+export function catmullRomSpline(ctrl, perSeg = 18) {
   if (ctrl.length < 3) return ctrl
   const out = []
   for (let i = 0; i < ctrl.length - 1; i++) {
@@ -90,7 +90,7 @@ function catmullRom(ctrl, perSeg = 18) {
 
 function resolvePolyline(route, hexById, size) {
   const ctrl = (route.points ?? []).map((wp) => resolveWaypoint(wp, hexById, size))
-  return route.smooth ? catmullRom(ctrl) : ctrl
+  return route.smooth ? catmullRomSpline(ctrl) : ctrl
 }
 
 // Walk the polyline at a fine step, tagging each sample with the hex it falls in.

@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { hexCornerPoints } from '../composables/useHexGeometry.js'
+import { catmullRomSpline } from '../composables/useRoutes.js'
 import {
   roomsOnLevel,
   roomRect,
@@ -13,6 +14,8 @@ import {
   levelBeams,
   doorsOnLevel,
   exitsOnLevel,
+  exteriorNodesOnLevel,
+  exteriorPathsOnLevel,
   fixturesOnLevel,
   sharedEdge,
   mapVisibilityCtx,
@@ -25,7 +28,8 @@ import {
 
 const props = defineProps({
   building: { type: Object, required: true },
-  currentRoom: { type: String, required: true },
+  currentRoom: { type: String, default: '' },
+  exteriorNode: { type: String, default: null },
   discovered: { type: [Array, Object], default: () => [] },
   revealed: { type: [Array, Object], default: () => [] },
   level: { type: String, required: true },
@@ -34,16 +38,18 @@ const props = defineProps({
   doorStates: { type: Object, default: () => ({}) },
   interactableDoorIds: { type: Array, default: () => [] },
   reachableExitDoors: { type: Array, default: () => [] },
+  reachableExteriorNodes: { type: Array, default: () => [] },
   builderView: { type: Boolean, default: false },
   expanded: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['room-click', 'door-click', 'exit-click'])
+const emit = defineEmits(['room-click', 'door-click', 'exit-click', 'exterior-node-click'])
 
 const cell = computed(() => props.building.cell ?? 64)
 const discoveredSet = computed(() => new Set(props.discovered))
 const interactableDoorSet = computed(() => new Set(props.interactableDoorIds))
 const reachableExitSet = computed(() => new Set(props.reachableExitDoors))
+const reachableExteriorSet = computed(() => new Set(props.reachableExteriorNodes))
 const exitHexRadius = computed(() => cell.value * 0.13)
 const visibility = computed(() =>
   mapVisibilityCtx(
@@ -53,10 +59,13 @@ const visibility = computed(() =>
     props.doorStates,
     props.building.areaId,
     props.builderView,
-    props.currentRoom,
+    props.currentRoom || null,
+    props.exteriorNode,
   ),
 )
-const current = computed(() => props.building.roomById[props.currentRoom])
+const current = computed(() =>
+  props.currentRoom ? props.building.roomById[props.currentRoom] : null,
+)
 const levelRooms = computed(() => roomsOnLevel(props.building, props.level))
 const mappedRooms = computed(() => levelRooms.value.filter((r) => isRoomMapped(r, visibility.value)))
 const beams = computed(() => levelBeams(props.building, props.level))
@@ -111,6 +120,20 @@ const layoutSamplePoints = computed(() => {
       pts.push({ x: r.x, y: r.y }, { x: r.x + r.w, y: r.y + r.h })
     }
   }
+  for (const path of exteriorPathsOnLevel(props.building, props.level)) {
+    const layout = (path.points ?? []).map((p) => ({
+      x: p.x * cell.value,
+      y: p.y * cell.value,
+    }))
+    const drawn =
+      path.smooth !== false && layout.length >= 2
+        ? catmullRomSpline(layout)
+        : layout
+    for (const p of drawn) pts.push(p)
+  }
+  for (const node of exteriorNodesOnLevel(props.building, props.level)) {
+    pts.push({ x: node.at.x * cell.value, y: node.at.y * cell.value })
+  }
   return pts
 })
 
@@ -136,7 +159,13 @@ const rotatedBounds = computed(() => {
     maxY = Math.max(maxY, r.y)
   }
   if (!Number.isFinite(minX)) return { x: 0, y: 0, w: 100, h: 100 }
-  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
+  const pad = (props.building.exterior?.pad ?? 0.6) * cell.value
+  return {
+    x: minX - pad,
+    y: minY - pad,
+    w: maxX - minX + pad * 2,
+    h: maxY - minY + pad * 2,
+  }
 })
 
 const mapSvgRef = ref(null)
@@ -378,12 +407,53 @@ const placedBeams = computed(() =>
   }),
 )
 
+const placedExteriorPaths = computed(() =>
+  exteriorPathsOnLevel(props.building, props.level).map((path) => {
+    const layout = (path.points ?? []).map((p) => ({
+      x: p.x * cell.value,
+      y: p.y * cell.value,
+    }))
+    const drawn =
+      path.smooth !== false && layout.length >= 2
+        ? catmullRomSpline(layout)
+        : layout
+    const points = drawn
+      .map((p) => tp(p.x, p.y))
+      .map((p) => `${p.x},${p.y}`)
+      .join(' ')
+    return { id: path.id, points }
+  }),
+)
+
+const placedExteriorNodes = computed(() =>
+  exteriorNodesOnLevel(props.building, props.level).map((node) => {
+    const c = tp(node.at.x * cell.value, node.at.y * cell.value)
+    const r = cell.value * 0.1
+    return {
+      id: node.id,
+      label: node.label,
+      cx: c.x,
+      cy: c.y,
+      points: hexCornerPoints(c.x, c.y, r),
+      current: props.exteriorNode === node.id,
+      reachable: reachableExteriorSet.value.has(node.id),
+    }
+  }),
+)
+
 const placedExits = computed(() =>
   exitsOnLevel(props.building, props.level)
     .filter((exit) => {
       const door = props.building.doorById?.[exit.door]
       if (!door || !isDoorMapped(door, visibility.value)) return false
       if (props.builderView) return true
+      if (props.exteriorNode) {
+        return (
+          exit.exteriorNode === props.exteriorNode ||
+          props.building.exitByDoorId?.[exit.door]?.exteriorNode ===
+            props.exteriorNode
+        )
+      }
       return props.currentRoom === exit.room
     })
     .map((exit) => {
@@ -570,6 +640,15 @@ const stairLandingFixture = computed(() => {
   return placedFixtures.value.find((f) => f.featureRoomId === current.value.id) ?? null
 })
 const avatarPos = computed(() => {
+  if (props.exteriorNode) {
+    const node = props.building.exterior?.nodeById?.[props.exteriorNode]
+    if (!node || props.building.exterior?.level !== props.level) return null
+    const stand = tp(node.at.x * cell.value, node.at.y * cell.value)
+    return {
+      x: stand.x,
+      y: stand.y - avatarFootOffset.value,
+    }
+  }
   if (!current.value) return null
   const landing = props.standLevel ?? props.level
   if (isStairLanding(current.value)) {
@@ -643,6 +722,11 @@ function onExitClick(doorId) {
   if (!reachableExitSet.value.has(doorId)) return
   emit('exit-click', doorId)
 }
+function onExteriorNodeClick(nodeId) {
+  if (nodeId === props.exteriorNode) return
+  if (!reachableExteriorSet.value.has(nodeId)) return
+  emit('exterior-node-click', nodeId)
+}
 </script>
 
 <template>
@@ -667,6 +751,29 @@ function onExitClick(doorId) {
           :y2="ln.y2"
           class="grid-line"
         />
+      </g>
+
+      <!-- Exterior footpaths -->
+      <g class="exterior-path-layer">
+        <polyline
+          v-for="path in placedExteriorPaths"
+          :key="'ext-path-' + path.id"
+          :points="path.points"
+          class="exterior-path"
+        />
+      </g>
+
+      <!-- Exterior stand spots along the footpath -->
+      <g class="exterior-node-layer">
+        <g
+          v-for="node in placedExteriorNodes"
+          :key="'ext-node-' + node.id"
+          class="exterior-node"
+          :class="{ current: node.current, reachable: node.reachable }"
+          @click.stop="onExteriorNodeClick(node.id)"
+        >
+          <polygon :points="node.points" class="exterior-node-fill" />
+        </g>
       </g>
 
       <!-- Rooms -->
@@ -1205,6 +1312,43 @@ svg:not(.compass) {
   text-anchor: middle;
   pointer-events: none;
   opacity: 0.85;
+}
+.exterior-path {
+  fill: none;
+  stroke: #c9b97e;
+  stroke-width: 2.8;
+  stroke-dasharray: 1.5 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.82;
+  pointer-events: none;
+}
+.exterior-node {
+  pointer-events: none;
+  opacity: 0.35;
+}
+.exterior-node.reachable {
+  pointer-events: all;
+  cursor: pointer;
+  opacity: 0.85;
+}
+.exterior-node.current {
+  opacity: 1;
+}
+.exterior-node-fill {
+  fill: #4a5a48;
+  stroke: #9a8b5e;
+  stroke-width: 1.2;
+  transition: fill 0.2s ease, stroke 0.2s ease;
+}
+.exterior-node.reachable:hover .exterior-node-fill {
+  fill: #5c7058;
+  stroke: #c9b97e;
+}
+.exterior-node.current .exterior-node-fill {
+  fill: #6a8066;
+  stroke: #e0d4a8;
+  stroke-width: 2;
 }
 .fixture {
   cursor: default;

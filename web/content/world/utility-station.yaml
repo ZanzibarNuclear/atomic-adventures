@@ -21,28 +21,96 @@ start: large-bay
 north: right # the compass arrow points right, per the sketch
 outdoorHex: utility-yard # hex where this building sits on the world map
 
+# Footpaths and stand spots outside the building (1st-floor plan).
+# Paths use smooth curves (Catmull-Rom) like the hex-map trails.
+exterior:
+  level: first
+  entry: large-bay-roll-front
+  pad: 1.1 # extra layout units of margin around the footpath in the view
+  nodes:
+    - id: small-bay-roll-front
+      at: { x: 5.35, y: 1.0 }
+      label: "EV bay roll-up"
+      door: small-bay-roll
+      room: small-bay
+    - id: large-bay-roll-front
+      at: { x: 5.35, y: 3.5 }
+      label: "Large bay roll-up"
+      door: large-bay-roll
+      room: large-bay
+    - id: south-east-corner
+      at: { x: 5.35, y: 6.75 }
+      label: "South-east corner"
+    - id: large-bay-man-front
+      at: { x: 0.6, y: 6.75 }
+      label: "Large bay side door"
+      door: large-bay-man
+      room: large-bay
+    - id: south-west-bend
+      at: { x: -3.2, y: 6.75 }
+      label: "South-west bend"
+    - id: lobby-exterior-front
+      at: { x: -4.4, y: 3.28 }
+      label: "Control lobby"
+      door: lobby-exterior
+      room: control-lobby
+  paths:
+    - id: driveway
+      smooth: true
+      nodes: [small-bay-roll-front, large-bay-roll-front]
+      points:
+        - { x: 5.35, y: 1.0 }
+        - { x: 5.5, y: 2.2 }
+        - { x: 5.35, y: 3.5 }
+    - id: perimeter
+      smooth: true
+      nodes:
+        [
+          large-bay-roll-front,
+          south-east-corner,
+          large-bay-man-front,
+          south-west-bend,
+          lobby-exterior-front,
+        ]
+      points:
+        - { x: 5.35, y: 3.5 }
+        - { x: 5.65, y: 4.6 }
+        - { x: 5.5, y: 5.8 }
+        - { x: 5.35, y: 6.75 }
+        - { x: 3.0, y: 6.95 }
+        - { x: 0.6, y: 6.75 }
+        - { x: -1.5, y: 6.9 }
+        - { x: -3.2, y: 6.75 }
+        - { x: -4.55, y: 5.6 }
+        - { x: -4.45, y: 4.2 }
+        - { x: -4.4, y: 3.28 }
+
 # Exterior doors — mini hex on the floor plan steps out to the world map.
 exits:
   - door: small-bay-roll
     room: small-bay
-    at: { x: 4.3, y: 1 }
+    exteriorNode: small-bay-roll-front
+    at: { x: 5.35, y: 1.0 }
     hex: utility-yard
-    standAt: { from: landmark, dx: 0.78, dy: -0.1 }
+    standAt: { from: landmark, dx: 0.58, dy: -0.02 }
   - door: large-bay-roll
     room: large-bay
-    at: { x: 4.3, y: 3.5 }
+    exteriorNode: large-bay-roll-front
+    at: { x: 5.35, y: 3.5 }
     hex: utility-yard
-    standAt: { from: landmark, dx: 0.85, dy: 0.15 }
+    standAt: { from: landmark, dx: 0.62, dy: 0.22 }
   - door: large-bay-man
     room: large-bay
-    at: { x: 0.6, y: 5.3 }
+    exteriorNode: large-bay-man-front
+    at: { x: 0.6, y: 6.75 }
     hex: utility-yard
-    standAt: { from: landmark, dx: 0.38, dy: 0.58 }
+    standAt: { from: landmark, dx: 0.28, dy: 0.52 }
   - door: lobby-exterior
     room: control-lobby
-    at: { x: -3.85, y: 3.35 }
+    exteriorNode: lobby-exterior-front
+    at: { x: -4.4, y: 3.28 }
     hex: utility-yard
-    standAt: { from: landmark, dx: -0.2, dy: 0.42 }
+    standAt: { from: landmark, dx: -0.28, dy: 0.38 }
 
 # Highest order is the top floor.
 levels:
@@ -274,7 +342,7 @@ doors:
     room: large-bay
     at: { x: 0.6, y: 5 }
     label: "Large bay man door"
-    initial: { closed: true, lockBroken: true }
+    initial: { closed: true, locked: true }
   - id: small-bay-roll
     kind: roll
     room: small-bay
