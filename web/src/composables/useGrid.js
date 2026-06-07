@@ -228,12 +228,222 @@ export function mapVisibilityCtx(
   }
 }
 
-function exteriorLevelId(ctx) {
-  return ctx?.building?.exterior?.level ?? 'first'
+export function isOutsideBuilding(ctx) {
+  return !!ctx?.exteriorNode && !ctx?.currentRoom
 }
 
-function isOutsideBuilding(ctx) {
-  return !!ctx?.exteriorNode && !ctx?.currentRoom
+const LAYOUT_EPS = 1e-5
+
+function layoutRect(room) {
+  return { x: room.x, y: room.y, w: room.w ?? 1, h: room.h ?? 1 }
+}
+
+function subtractIntervals(fullStart, fullEnd, covered) {
+  if (fullEnd - fullStart <= LAYOUT_EPS) return []
+  const merged = covered
+    .filter(([a, b]) => b - a > LAYOUT_EPS)
+    .sort((a, b) => a[0] - b[0])
+  const out = []
+  let cursor = fullStart
+  for (const [a, b] of merged) {
+    const start = Math.max(a, fullStart)
+    const end = Math.min(b, fullEnd)
+    if (end <= start + LAYOUT_EPS) continue
+    if (start > cursor + LAYOUT_EPS) out.push([cursor, start])
+    cursor = Math.max(cursor, end)
+  }
+  if (cursor < fullEnd - LAYOUT_EPS) out.push([cursor, fullEnd])
+  return out
+}
+
+function neighborCoverOnSide(room, other, side) {
+  const r = layoutRect(room)
+  const s = layoutRect(other)
+  if (side === 'left') {
+    if (Math.abs(s.x + s.w - r.x) >= LAYOUT_EPS) return null
+    const y1 = Math.max(r.y, s.y)
+    const y2 = Math.min(r.y + r.h, s.y + s.h)
+    return y2 - y1 > LAYOUT_EPS ? [y1, y2] : null
+  }
+  if (side === 'right') {
+    if (Math.abs(s.x - (r.x + r.w)) >= LAYOUT_EPS) return null
+    const y1 = Math.max(r.y, s.y)
+    const y2 = Math.min(r.y + r.h, s.y + s.h)
+    return y2 - y1 > LAYOUT_EPS ? [y1, y2] : null
+  }
+  if (side === 'top') {
+    if (Math.abs(s.y + s.h - r.y) >= LAYOUT_EPS) return null
+    const x1 = Math.max(r.x, s.x)
+    const x2 = Math.min(r.x + r.w, s.x + s.w)
+    return x2 - x1 > LAYOUT_EPS ? [x1, x2] : null
+  }
+  if (side === 'bottom') {
+    if (Math.abs(s.y - (r.y + r.h)) >= LAYOUT_EPS) return null
+    const x1 = Math.max(r.x, s.x)
+    const x2 = Math.min(r.x + r.w, s.x + s.w)
+    return x2 - x1 > LAYOUT_EPS ? [x1, x2] : null
+  }
+  return null
+}
+
+function exteriorEdgeIntervals(room, rooms, side) {
+  const r = layoutRect(room)
+  const covered = []
+  for (const o of rooms) {
+    if (o.id === room.id) continue
+    const span = neighborCoverOnSide(room, o, side)
+    if (span) covered.push(span)
+  }
+  if (side === 'left') return subtractIntervals(r.y, r.y + r.h, covered)
+  if (side === 'right') return subtractIntervals(r.y, r.y + r.h, covered)
+  if (side === 'top') return subtractIntervals(r.x, r.x + r.w, covered)
+  if (side === 'bottom') return subtractIntervals(r.x, r.x + r.w, covered)
+  return []
+}
+
+function collectExteriorSegments(rooms) {
+  const segs = []
+  for (const room of rooms) {
+    const r = layoutRect(room)
+    for (const [y1, y2] of exteriorEdgeIntervals(room, rooms, 'left')) {
+      segs.push({ x1: r.x, y1, x2: r.x, y2 })
+    }
+    for (const [y1, y2] of exteriorEdgeIntervals(room, rooms, 'right')) {
+      segs.push({ x1: r.x + r.w, y1: y2, x2: r.x + r.w, y2: y1 })
+    }
+    for (const [x1, x2] of exteriorEdgeIntervals(room, rooms, 'top')) {
+      segs.push({ x1, y1: r.y, x2, y2: r.y })
+    }
+    for (const [x1, x2] of exteriorEdgeIntervals(room, rooms, 'bottom')) {
+      segs.push({ x1: x2, y1: r.y + r.h, x2: x1, y2: r.y + r.h })
+    }
+  }
+  return segs
+}
+
+function mergeCollinearSegments(segments) {
+  const horiz = []
+  const vert = []
+  for (const s of segments) {
+    if (Math.abs(s.y1 - s.y2) < LAYOUT_EPS) {
+      horiz.push({ x1: Math.min(s.x1, s.x2), x2: Math.max(s.x1, s.x2), y: s.y1 })
+    } else {
+      vert.push({ y1: Math.min(s.y1, s.y2), y2: Math.max(s.y1, s.y2), x: s.x1 })
+    }
+  }
+  const merged = []
+  const byHorizY = new Map()
+  for (const s of horiz) {
+    const key = s.y.toFixed(6)
+    if (!byHorizY.has(key)) byHorizY.set(key, [])
+    byHorizY.get(key).push(s)
+  }
+  for (const [yKey, group] of byHorizY) {
+    group.sort((a, b) => a.x1 - b.x1)
+    let cur = { ...group[0] }
+    for (let i = 1; i < group.length; i++) {
+      const next = group[i]
+      if (next.x1 <= cur.x2 + LAYOUT_EPS) cur.x2 = Math.max(cur.x2, next.x2)
+      else {
+        merged.push({ x1: cur.x1, y1: Number(yKey), x2: cur.x2, y2: Number(yKey) })
+        cur = { ...next }
+      }
+    }
+    merged.push({ x1: cur.x1, y1: Number(yKey), x2: cur.x2, y2: Number(yKey) })
+  }
+  const byVertX = new Map()
+  for (const s of vert) {
+    const key = s.x.toFixed(6)
+    if (!byVertX.has(key)) byVertX.set(key, [])
+    byVertX.get(key).push(s)
+  }
+  for (const [xKey, group] of byVertX) {
+    group.sort((a, b) => a.y1 - b.y1)
+    let cur = { ...group[0] }
+    for (let i = 1; i < group.length; i++) {
+      const next = group[i]
+      if (next.y1 <= cur.y2 + LAYOUT_EPS) cur.y2 = Math.max(cur.y2, next.y2)
+      else {
+        merged.push({ x1: Number(xKey), y1: cur.y1, x2: Number(xKey), y2: cur.y2 })
+        cur = { ...next }
+      }
+    }
+    merged.push({ x1: Number(xKey), y1: cur.y1, x2: Number(xKey), y2: cur.y2 })
+  }
+  return merged
+}
+
+function segmentsToRings(segments) {
+  const unused = new Set(segments.map((_, i) => i))
+  const rings = []
+  while (unused.size) {
+    const startIdx = unused.values().next().value
+    unused.delete(startIdx)
+    const start = segments[startIdx]
+    const ring = [{ x: start.x1, y: start.y1 }]
+    let cx = start.x2
+    let cy = start.y2
+    ring.push({ x: cx, y: cy })
+    while (Math.abs(cx - start.x1) > LAYOUT_EPS || Math.abs(cy - start.y1) > LAYOUT_EPS) {
+      let found = false
+      for (const idx of unused) {
+        const s = segments[idx]
+        if (Math.abs(s.x1 - cx) < LAYOUT_EPS && Math.abs(s.y1 - cy) < LAYOUT_EPS) {
+          unused.delete(idx)
+          cx = s.x2
+          cy = s.y2
+          if (Math.abs(cx - start.x1) > LAYOUT_EPS || Math.abs(cy - start.y1) > LAYOUT_EPS) {
+            ring.push({ x: cx, y: cy })
+          }
+          found = true
+          break
+        }
+        if (Math.abs(s.x2 - cx) < LAYOUT_EPS && Math.abs(s.y2 - cy) < LAYOUT_EPS) {
+          unused.delete(idx)
+          cx = s.x1
+          cy = s.y1
+          if (Math.abs(cx - start.x1) > LAYOUT_EPS || Math.abs(cy - start.y1) > LAYOUT_EPS) {
+            ring.push({ x: cx, y: cy })
+          }
+          found = true
+          break
+        }
+      }
+      if (!found) break
+    }
+    if (ring.length >= 3) rings.push(ring)
+  }
+  return rings
+}
+
+/** Closed perimeter ring(s) for all rooms on a level, in layout coordinates. */
+export function levelBuildingPerimeter(building, levelId) {
+  const rooms = roomsOnLevel(building, levelId)
+  if (rooms.length === 0) return []
+  const segments = mergeCollinearSegments(collectExteriorSegments(rooms))
+  return segmentsToRings(segments)
+}
+
+/** Axis-aligned bounds of the level footprint (layout pixels). */
+export function levelBuildingOutline(building, levelId) {
+  const cell = building.cell
+  const rings = levelBuildingPerimeter(building, levelId)
+  if (rings.length === 0) return null
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const ring of rings) {
+    for (const p of ring) {
+      const x = p.x * cell
+      const y = p.y * cell
+      minX = Math.min(minX, x)
+      minY = Math.min(minY, y)
+      maxX = Math.max(maxX, x)
+      maxY = Math.max(maxY, y)
+    }
+  }
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
 }
 
 export function fixtureRevealKey(fixtureId) {
@@ -312,50 +522,8 @@ function isAdjacentToDiscovered(roomId, ctx) {
   return false
 }
 
-/**
- * Room visibility on the floor plan — three states:
- *   unknown — not mapped (draw nothing)
- *   fog     — mapped but not in `discovered` (draw "?" via isRoomFogged)
- *   known   — in `discovered` (name, icon, windows)
- *
- * A room is mapped when discovered, peeked (`revealed`), adjacent to a discovered
- * room through a passable link, peeked through an open door (`revealWhenDoor`),
- * or mirrored from a discovered twin (e.g. the 2F bay overlook).
- */
-export function isRoomMapped(room, ctx) {
-  if (ctx?.builderView) return true
-  if (!room || room.feature) return true
-  if (!ctx) return false
-  if (
-    isOutsideBuilding(ctx) &&
-    primaryLevel(room) === exteriorLevelId(ctx) &&
-    !room.open
-  ) {
-    return true
-  }
-  if (ctx.discovered.has(room.id) || ctx.revealed.has(room.id)) return true
-  if (room.mirror && ctx.discovered.has(room.mirror)) return true
-  if (room.revealWhenDoor && canPeekThroughDoor(room.revealWhenDoor, ctx)) return true
-  return isAdjacentToDiscovered(room.id, ctx)
-}
-
-/** Peeked but not yet entered — draw as fog (?). */
-export function isRoomFogged(room, ctx) {
-  if (ctx?.builderView) return false
-  if (!isRoomMapped(room, ctx)) return false
-  if (
-    isOutsideBuilding(ctx) &&
-    primaryLevel(room) === exteriorLevelId(ctx) &&
-    !room.feature &&
-    !room.open
-  ) {
-    return !ctx?.discovered.has(room.id)
-  }
-  if (room.mirror && ctx?.discovered.has(room.mirror)) return false
-  return !ctx?.discovered.has(room.id)
-}
-
 function linkedRoomIdsForDoor(building, door) {
+  if (!door) return []
   if (door.room) return [door.room]
   const ids = new Set()
   for (const link of building.links ?? []) {
@@ -365,6 +533,46 @@ function linkedRoomIdsForDoor(building, door) {
     }
   }
   return [...ids]
+}
+
+/** Room visible through any open door that connects to it (exterior roll-ups, lobby, etc.). */
+function roomPeekableThroughOpenDoor(roomId, ctx) {
+  if (!ctx?.building || !ctx.doorState) return false
+  for (const door of ctx.building.doors ?? []) {
+    if (!door.id) continue
+    if (!linkedRoomIdsForDoor(ctx.building, door).includes(roomId)) continue
+    if (canPeekThroughDoor(door.id, ctx)) return true
+  }
+  return false
+}
+
+/**
+ * Room visibility on the floor plan — three states:
+ *   unknown — not mapped (draw nothing)
+ *   fog     — mapped but not in `discovered` (draw "?" via isRoomFogged)
+ *   known   — in `discovered` (name, icon, windows)
+ *
+ * A room is mapped when discovered, peeked (`revealed`), adjacent to a discovered
+ * room through a passable link, peeked through an open door (`revealWhenDoor` or
+ * any connecting door), or mirrored from a discovered twin (e.g. the 2F bay overlook).
+ */
+export function isRoomMapped(room, ctx) {
+  if (ctx?.builderView) return true
+  if (!room || room.feature) return true
+  if (!ctx) return false
+  if (ctx.discovered.has(room.id) || ctx.revealed.has(room.id)) return true
+  if (room.mirror && ctx.discovered.has(room.mirror)) return true
+  if (room.revealWhenDoor && canPeekThroughDoor(room.revealWhenDoor, ctx)) return true
+  if (roomPeekableThroughOpenDoor(room.id, ctx)) return true
+  return isAdjacentToDiscovered(room.id, ctx)
+}
+
+/** Peeked but not yet entered — draw as fog (?). */
+export function isRoomFogged(room, ctx) {
+  if (ctx?.builderView) return false
+  if (!isRoomMapped(room, ctx)) return false
+  if (room.mirror && ctx?.discovered.has(room.mirror)) return false
+  return !ctx?.discovered.has(room.id)
 }
 
 function doorOnLevel(door, levelId) {
@@ -458,17 +666,22 @@ export function isFixtureFogged(fixture, ctx) {
 /** Opening a door permanently peeks linked rooms / fixtures onto the plan. */
 export function applyRevealForDoor(building, revealedSet, doorId) {
   revealedSet.add(doorRevealKey(doorId))
+  const door = building.doorById?.[doorId]
   for (const room of building.rooms) {
     if (room.revealWhenDoor === doorId) revealedSet.add(room.id)
   }
   for (const fixture of building.fixtures ?? []) {
     if (fixture.revealWhenDoor === doorId) revealedSet.add(fixtureRevealKey(fixture.id))
   }
-  // Keep rooms on the far side visible as fog after the door closes again.
   for (const link of building.links ?? []) {
     if (link.kind === 'door' && link.door === doorId) {
       revealedSet.add(link.from)
       revealedSet.add(link.to)
+    }
+  }
+  if (door) {
+    for (const id of linkedRoomIdsForDoor(building, door)) {
+      revealedSet.add(id)
     }
   }
 }
@@ -486,12 +699,13 @@ export function isDestinationNamed(roomId, ctx) {
 export function levelDisplayBounds(building, levelId, pad = 0.6, visibility = null) {
   const cell = building.cell
   const rooms = roomsOnLevel(building, levelId).filter((r) => isRoomMapped(r, visibility))
-  if (rooms.length === 0) return { x: 0, y: 0, w: 100, h: 100 }
   let minX = Infinity
   let minY = Infinity
   let maxX = -Infinity
   let maxY = -Infinity
+  let hasPoints = false
   const bump = (x, y) => {
+    hasPoints = true
     minX = Math.min(minX, x)
     minY = Math.min(minY, y)
     maxX = Math.max(maxX, x)
@@ -502,6 +716,14 @@ export function levelDisplayBounds(building, levelId, pad = 0.6, visibility = nu
     bump(r.x, r.y)
     bump(r.x + r.w, r.y + r.h)
   }
+  if (!visibility?.builderView) {
+    const outline = levelBuildingOutline(building, levelId)
+    if (outline) {
+      bump(outline.x, outline.y)
+      bump(outline.x + outline.w, outline.y + outline.h)
+    }
+  }
+  if (!hasPoints) return { x: 0, y: 0, w: 100, h: 100 }
   for (const f of building.fixtures ?? []) {
     const onLevels = f.onLevels ?? building.levels.map((l) => l.id)
     if (!onLevels.includes(levelId)) continue

@@ -20,6 +20,7 @@ import {
   fixturesOnLevel,
   sharedEdge,
   mapVisibilityCtx,
+  levelBuildingPerimeter,
   isRoomMapped,
   isRoomFogged,
   isDoorMapped,
@@ -85,6 +86,16 @@ const current = computed(() =>
 )
 const levelRooms = computed(() => roomsOnLevel(props.building, props.level))
 const mappedRooms = computed(() => levelRooms.value.filter((r) => isRoomMapped(r, visibility.value)))
+const placedBuildingShell = computed(() => {
+  if (props.builderView) return []
+  return levelBuildingPerimeter(props.building, props.level).map((ring) =>
+    ring.map((p) => tp(p.x * cell.value, p.y * cell.value)),
+  )
+})
+function shellRingPath(ring) {
+  if (ring.length === 0) return ''
+  return ring.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ') + ' Z'
+}
 const beams = computed(() => levelBeams(props.building, props.level, visibility.value))
 const doors = computed(() => doorsOnLevel(props.building, props.level, props.doorStates))
 const fixtures = computed(() =>
@@ -895,6 +906,17 @@ function onExteriorNodeClick(nodeId) {
         />
       </g>
 
+      <!-- Building shell — true footprint, always behind interactive layers -->
+      <g v-if="placedBuildingShell.length" class="building-shell-layer" pointer-events="none">
+        <path
+          v-for="(ring, i) in placedBuildingShell"
+          :key="'shell-' + i"
+          :d="shellRingPath(ring)"
+          class="building-shell"
+          pointer-events="none"
+        />
+      </g>
+
       <!-- Exterior footpaths -->
       <g class="exterior-path-layer">
         <polyline
@@ -1385,6 +1407,14 @@ svg:not(.compass) {
 .grid-line {
   stroke: rgba(255, 255, 255, 0.14);
   stroke-width: 1;
+}
+.building-shell-layer {
+  pointer-events: none;
+}
+.building-shell {
+  fill: #14181f;
+  stroke: rgba(255, 255, 255, 0.22);
+  stroke-width: 2.5;
 }
 .room {
   cursor: pointer;

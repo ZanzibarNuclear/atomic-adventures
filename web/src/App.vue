@@ -830,6 +830,18 @@ function tryOpenDoor(doorId) {
 function tryToggleDoor(doorId) {
   const state = doorStateFor(doorId);
   if (!state || state.locked) return;
+  if (indoor.exteriorNode) {
+    const node = currentExteriorNode.value;
+    if (
+      node?.door === doorId &&
+      state.open &&
+      node.room &&
+      reachableRooms.value.includes(node.room)
+    ) {
+      moveToRoom(node.room);
+      return;
+    }
+  }
   if (state.open) tryCloseDoor(doorId);
   else tryOpenDoor(doorId);
 }

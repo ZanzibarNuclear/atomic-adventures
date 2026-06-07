@@ -4,31 +4,84 @@ import {
   movesFrom,
   mapVisibilityCtx,
   isRoomMapped,
+  isRoomFogged,
   isDoorMapped,
+  applyRevealForDoor,
   applyRevealDoorsForRoom,
   doorRevealKey,
   doorsOnLevel,
   exteriorStepOutMoves,
   levelBeams,
+  levelBuildingOutline,
+  levelBuildingPerimeter,
+  isOutsideBuilding,
   roomsOnLevel,
 } from '../src/composables/useGrid.js'
-import { buildInitialDoorState, setDoorOpen, setAllDoorsOpen } from '../src/composables/useDoors.js'
+import { buildInitialDoorState, setDoorOpen, setAllDoorsOpen, unlockDoor } from '../src/composables/useDoors.js'
 
 const b = buildBuilding(buildingData)
 const ds = buildInitialDoorState(b.areaId, b)
 
-function mappedOnLevel(level, discovered, revealed = []) {
-  const ctx = mapVisibilityCtx(new Set(discovered), revealed, b, ds, b.areaId)
+function mappedOnLevel(level, discovered, revealed = [], currentRoom = null, exteriorNode = null) {
+  const ctx = mapVisibilityCtx(new Set(discovered), revealed, b, ds, b.areaId, false, currentRoom, exteriorNode)
   return roomsOnLevel(b, level)
     .filter((r) => isRoomMapped(r, ctx))
     .map((r) => r.id)
     .sort()
 }
 
-console.log('start (large-bay, 1F):', mappedOnLevel('first', [b.start]))
-console.log('start (large-bay, 2F):', mappedOnLevel('second', [b.start]))
+const outsideMapped = mappedOnLevel('first', [], [], null, b.exterior.entry)
+console.log('outside footpath (1F mapped rooms):', outsideMapped)
+if (outsideMapped.length !== 0) {
+  console.error('FAIL: interior rooms must stay hidden when outside — show building shell only')
+  process.exit(1)
+}
 
-const startCtx = mapVisibilityCtx(new Set([b.start]), [], b, ds, b.areaId)
+console.log('start (large-bay, 1F):', mappedOnLevel('first', [b.start], [], b.start))
+console.log('start (large-bay, 2F):', mappedOnLevel('second', [b.start], [], b.start))
+
+const outsideCtx = mapVisibilityCtx([], [], b, ds, b.areaId, false, null, b.exterior.entry)
+const firstPerimeter = levelBuildingPerimeter(b, 'first')
+console.log('outside building perimeter vertices:', firstPerimeter[0]?.length)
+if (!isOutsideBuilding(outsideCtx) || !levelBuildingOutline(b, 'first')) {
+  console.error('FAIL: building outline must be available when outside')
+  process.exit(1)
+}
+if (!firstPerimeter[0] || firstPerimeter[0].length < 8) {
+  console.error('FAIL: first-floor perimeter should follow the full building footprint')
+  process.exit(1)
+}
+
+unlockDoor(ds, b.areaId, 'lobby-exterior')
+setDoorOpen(ds, b.areaId, 'lobby-exterior', true)
+const lobbyRevealed = new Set()
+applyRevealForDoor(b, lobbyRevealed, 'lobby-exterior')
+const lobbyOutsideCtx = mapVisibilityCtx(
+  new Set(),
+  lobbyRevealed,
+  b,
+  ds,
+  b.areaId,
+  false,
+  null,
+  'lobby-exterior-front',
+)
+const lobby = b.roomById['control-lobby']
+if (!lobbyRevealed.has('control-lobby')) {
+  console.error('FAIL: opening lobby-exterior must peek control-lobby into revealed')
+  process.exit(1)
+}
+if (!isRoomMapped(lobby, lobbyOutsideCtx) || !isRoomFogged(lobby, lobbyOutsideCtx)) {
+  console.error('FAIL: control-lobby should appear in fog when lobby door is open from outside')
+  process.exit(1)
+}
+const lobbyPeekCtx = mapVisibilityCtx(new Set(), [], b, ds, b.areaId, false, null, 'lobby-exterior-front')
+if (!isRoomMapped(lobby, lobbyPeekCtx)) {
+  console.error('FAIL: control-lobby should peek through open lobby-exterior even before revealed set')
+  process.exit(1)
+}
+
+const startCtx = mapVisibilityCtx(new Set([b.start]), [], b, ds, b.areaId, false, b.start)
 let m = movesFrom(b, b.start, 'first', ds, startCtx)
 console.log('large-bay moves:', m.map((x) => `${x.toRoomId} (${x.kind})`))
 
@@ -117,6 +170,7 @@ if (bayBeams.length !== 1) {
   process.exit(1)
 }
 
+unlockDoor(ds, b.areaId, 'lobby-exterior')
 setDoorOpen(ds, b.areaId, 'lobby-exterior', true)
 const lobbyStepOut = exteriorStepOutMoves(b, 'control-lobby', ds, b.areaId)
 console.log('lobby step-out moves (door open):', lobbyStepOut.map((m) => m.toExteriorNode))
