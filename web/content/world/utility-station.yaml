@@ -21,6 +21,13 @@ start: large-bay
 north: right # the compass arrow points right, per the sketch
 outdoorHex: utility-yard # hex where this building sits on the world map
 
+# Cascade west (top) of the building; layout +x is north, flow runs north → south.
+river:
+  offsetFeet: 20
+  widthFeet: 25
+  endPadFeet: 8
+  onLevels: [first, second]
+
 # Footpaths and stand spots outside the building (1st-floor plan).
 # Paths use smooth curves (Catmull-Rom) like the hex-map trails.
 exterior:

@@ -83,6 +83,7 @@ export function buildBuilding(data) {
     exits,
     exitByDoorId,
     exterior,
+    river: data.river ?? null,
     start: data.start ?? rooms[0]?.id,
   }
 }
@@ -446,6 +447,38 @@ export function levelBuildingOutline(building, levelId) {
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
 }
 
+/** River strip west of the level footprint (layout units; west = top / −y). */
+export function levelRiverRect(building, levelId) {
+  const cfg = building.river
+  if (!cfg) return null
+  const onLevels = cfg.onLevels ?? [building.exterior?.level ?? 'first']
+  if (!onLevels.includes(levelId)) return null
+  const rings = levelBuildingPerimeter(building, levelId)
+  if (!rings.length) return null
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const ring of rings) {
+    for (const p of ring) {
+      minX = Math.min(minX, p.x)
+      minY = Math.min(minY, p.y)
+      maxX = Math.max(maxX, p.x)
+      maxY = Math.max(maxY, p.y)
+    }
+  }
+  const unitFeet = building.unitFeet ?? 10
+  const gap = (cfg.offsetFeet ?? 20) / unitFeet
+  const width = (cfg.widthFeet ?? 25) / unitFeet
+  const pad = (cfg.endPadFeet ?? 8) / unitFeet
+  return {
+    x: minX - pad,
+    y: minY - gap - width,
+    w: maxX - minX + pad * 2,
+    h: width,
+  }
+}
+
 export function fixtureRevealKey(fixtureId) {
   return `fixture:${fixtureId}`
 }
@@ -721,6 +754,11 @@ export function levelDisplayBounds(building, levelId, pad = 0.6, visibility = nu
     if (outline) {
       bump(outline.x, outline.y)
       bump(outline.x + outline.w, outline.y + outline.h)
+    }
+    const river = levelRiverRect(building, levelId)
+    if (river) {
+      bump(river.x * cell, river.y * cell)
+      bump((river.x + river.w) * cell, (river.y + river.h) * cell)
     }
   }
   if (!hasPoints) return { x: 0, y: 0, w: 100, h: 100 }

@@ -21,6 +21,7 @@ import {
   sharedEdge,
   mapVisibilityCtx,
   levelBuildingPerimeter,
+  levelRiverRect,
   isRoomMapped,
   isRoomFogged,
   isDoorMapped,
@@ -96,6 +97,29 @@ function shellRingPath(ring) {
   if (ring.length === 0) return ''
   return ring.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ') + ' Z'
 }
+const placedRiver = computed(() => {
+  const layout = levelRiverRect(props.building, props.level)
+  if (!layout) return null
+  const cellV = cell.value
+  const x0 = layout.x * cellV
+  const y0 = layout.y * cellV
+  const w = layout.w * cellV
+  const h = layout.h * cellV
+  const corners = [tp(x0, y0), tp(x0 + w, y0), tp(x0 + w, y0 + h), tp(x0, y0 + h)]
+  const cy = layout.y + layout.h / 2
+  const halfSpan = layout.h * 0.22
+  const depth = 0.35 // layout units toward south (−x); flow is north → south
+  const n = Math.max(4, Math.min(8, Math.round(layout.w / 0.9)))
+  const chevrons = []
+  for (let i = 0; i < n; i++) {
+    const x = layout.x + ((i + 0.5) / n) * layout.w
+    const wingA = tp(x * cellV, (cy - halfSpan) * cellV)
+    const tip = tp((x - depth) * cellV, cy * cellV)
+    const wingB = tp(x * cellV, (cy + halfSpan) * cellV)
+    chevrons.push(`M ${wingA.x} ${wingA.y} L ${tip.x} ${tip.y} L ${wingB.x} ${wingB.y}`)
+  }
+  return { rect: bbox(corners), chevrons }
+})
 const beams = computed(() => levelBeams(props.building, props.level, visibility.value))
 const doors = computed(() => doorsOnLevel(props.building, props.level, props.doorStates))
 const fixtures = computed(() =>
@@ -238,6 +262,14 @@ const layoutSamplePoints = computed(() => {
     { x: b.x + b.w, y: b.y + b.h },
     { x: b.x, y: b.y + b.h },
   )
+  const river = levelRiverRect(props.building, props.level)
+  if (river) {
+    const cellV = cell.value
+    pts.push(
+      { x: river.x * cellV, y: river.y * cellV },
+      { x: (river.x + river.w) * cellV, y: (river.y + river.h) * cellV },
+    )
+  }
   for (const f of fixtures.value) {
     if (f.kind === 'spiral-stairs') {
       pts.push({ x: f.x, y: f.y })
@@ -906,6 +938,23 @@ function onExteriorNodeClick(nodeId) {
         />
       </g>
 
+      <!-- River cascade west of the building -->
+      <g v-if="placedRiver" class="river-layer" pointer-events="none">
+        <rect
+          :x="placedRiver.rect.x"
+          :y="placedRiver.rect.y"
+          :width="placedRiver.rect.w"
+          :height="placedRiver.rect.h"
+          class="river-fill"
+        />
+        <path
+          v-for="(d, i) in placedRiver.chevrons"
+          :key="'river-flow-' + i"
+          :d="d"
+          class="river-flow"
+        />
+      </g>
+
       <!-- Building shell — true footprint, always behind interactive layers -->
       <g v-if="placedBuildingShell.length" class="building-shell-layer" pointer-events="none">
         <path
@@ -1410,6 +1459,20 @@ svg:not(.compass) {
 }
 .building-shell-layer {
   pointer-events: none;
+}
+.river-layer {
+  pointer-events: none;
+}
+.river-fill {
+  fill: #2a5578;
+  opacity: 0.92;
+}
+.river-flow {
+  fill: none;
+  stroke: rgba(200, 230, 255, 0.5);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .building-shell {
   fill: #14181f;
