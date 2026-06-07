@@ -25,6 +25,7 @@ import {
   isDoorMapped,
   isFixtureMapped,
   isFixtureFogged,
+  exitMapAt,
 } from '../composables/useGrid.js'
 
 const props = defineProps({
@@ -159,6 +160,7 @@ function onPointerMove(e) {
     handleKey: h.handleKey,
     index: h.index,
     role: h.role,
+    nodeId: h.nodeId,
     x: layout.x,
     y: layout.y,
   })
@@ -197,13 +199,18 @@ const editStroke = computed(() => pathHandleColor())
 
 function handleColor(h) {
   if (h.role === 'point') return pathHandleColor()
+  if (h.role === 'path-node' || h.role === 'node-at' || h.role === 'door-at' || h.role === 'exit-map') {
+    return '#7dcea0'
+  }
   return roomHandleColor(h.role)
 }
 
 function handleFill(h) {
   if (h.handleKey === props.selectedHandleId) return '#fff'
   if (h.role === 'move') return '#e8d4ff'
-  if (h.role === 'door-at' || h.role === 'node-at') return '#7dcea0'
+  if (h.role === 'path-node' || h.role === 'node-at' || h.role === 'door-at' || h.role === 'exit-map') {
+    return '#d4f5e2'
+  }
   return '#ffd166'
 }
 
@@ -540,15 +547,16 @@ const placedExteriorPaths = computed(() =>
 const placedExteriorNodes = computed(() =>
   exteriorNodesOnLevel(props.building, props.level).map((node) => {
     const c = tp(node.at.x * cell.value, node.at.y * cell.value)
-    const r = cell.value * 0.1
+    const r = cell.value * 0.11
     return {
       id: node.id,
       label: node.label,
       cx: c.x,
       cy: c.y,
-      points: hexCornerPoints(c.x, c.y, r),
+      r,
       current: props.exteriorNode === node.id,
       reachable: reachableExteriorSet.value.has(node.id),
+      hasDoor: !!node.door,
     }
   }),
 )
@@ -557,23 +565,15 @@ const placedExits = computed(() =>
   exitsOnLevel(props.building, props.level)
     .filter((exit) => {
       const door = props.building.doorById?.[exit.door]
-      if (!door || !isDoorMapped(door, visibility.value)) return false
-      if (props.builderView) return true
-      if (props.exteriorNode) {
-        return (
-          exit.exteriorNode === props.exteriorNode ||
-          props.building.exitByDoorId?.[exit.door]?.exteriorNode ===
-            props.exteriorNode
-        )
-      }
+      if (!door) return false
+      if (props.builderView || props.exteriorNode) return true
+      if (!isDoorMapped(door, visibility.value)) return false
       return props.currentRoom === exit.room
     })
     .map((exit) => {
-      const layout = {
-        x: exit.at.x * cell.value,
-        y: exit.at.y * cell.value,
-      }
-      const c = tp(layout.x, layout.y)
+      const mapAt = exitMapAt(exit)
+      if (!mapAt) return null
+      const c = tp(mapAt.x * cell.value, mapAt.y * cell.value)
       const r = exitHexRadius.value
       return {
         doorId: exit.door,
@@ -583,7 +583,8 @@ const placedExits = computed(() =>
         points: hexCornerPoints(c.x, c.y, r),
         reachable: reachableExitSet.value.has(exit.door),
       }
-    }),
+    })
+    .filter(Boolean),
 )
 
 // ---- Spiral stair: a half-cylinder of glass bulging toward the river ----
@@ -596,18 +597,18 @@ function arcPoints(cx, cy, r, angleDeg) {
   return pts
 }
 
-// Radial treads centered halfway between hub and arc: short toward library, long toward kitchen.
+// Radial treads centered halfway between hub and arc: short toward hallway (south), long toward kitchen (north).
 // Layout-space angles only — map rotation is applied via toScreen (tp).
 function spiralTreads(cx, cy, radius, protrude, toScreen) {
   const base = (protrudeAngle(protrude) * Math.PI) / 180
   const westAng = base - Math.PI / 2
   const n = 7
   const midFrac = 0.5
-  const minHalf = 0.12 // half-length as a fraction of radius (library end)
-  const maxHalf = 0.42 // half-length at kitchen end
+  const minHalf = 0.12 // half-length as a fraction of radius (hallway / south end)
+  const maxHalf = 0.42 // half-length at kitchen / north end
   const out = []
   for (let i = 0; i < n; i++) {
-    const t = n > 1 ? i / (n - 1) : 0 // 0 = library (west), 1 = kitchen (east)
+    const t = n > 1 ? i / (n - 1) : 0 // 0 = hallway (south), 1 = kitchen (north)
     const ang = westAng + Math.PI * t
     let half = minHalf + t * (maxHalf - minHalf)
     half = Math.min(half, midFrac, 1 - midFrac)
@@ -838,8 +839,12 @@ function onDoorClick(doorId) {
   if (!interactableDoorSet.value.has(doorId)) return
   emit('door-click', doorId)
 }
-function onExitClick(doorId) {
-  if (!reachableExitSet.value.has(doorId)) return
+function onExitClick(e, doorId) {
+  if (props.builderView) {
+    e.preventDefault()
+    emit('select-item', { source: 'exits', id: doorId })
+    return
+  }
   emit('exit-click', doorId)
 }
 function onExteriorNodeClick(nodeId) {
@@ -908,12 +913,32 @@ function onExteriorNodeClick(nodeId) {
           class="exterior-node"
           :class="{
             current: node.current,
-            reachable: node.reachable,
+            reachable: node.reachable || builderView,
             'builder-selected': isItemSelected(node.id),
           }"
           @click.stop="onExteriorNodeClick(node.id)"
         >
-          <polygon :points="node.points" class="exterior-node-fill" />
+          <circle
+            :cx="node.cx"
+            :cy="node.cy"
+            :r="node.r"
+            class="exterior-node-fill"
+          />
+          <circle
+            v-if="node.current"
+            :cx="node.cx"
+            :cy="node.cy"
+            :r="node.r + 4"
+            class="exterior-node-ring"
+          />
+          <text
+            v-if="node.current || node.reachable"
+            :x="node.cx"
+            :y="node.cy - node.r - 6"
+            class="exterior-node-label"
+          >
+            {{ node.label }}
+          </text>
         </g>
       </g>
 
@@ -1031,20 +1056,6 @@ function onExteriorNodeClick(nodeId) {
           ]"
           @click.stop="onDoorClick(d.id)"
         />
-      </g>
-
-      <!-- Exterior exit hexes (step out to the world map) -->
-      <g class="exit-layer">
-        <g
-          v-for="ex in placedExits"
-          :key="'exit-' + ex.doorId"
-          class="exit-hex"
-          :class="{ reachable: ex.reachable }"
-          @click.stop="onExitClick(ex.doorId)"
-        >
-          <polygon :points="ex.points" class="exit-hex-fill" />
-          <text :x="ex.cx" :y="ex.cy + 4" class="exit-hex-icon">⬡</text>
-        </g>
       </g>
 
       <!-- Stair fixtures: the spiral (glass half-cylinder) and the garage run -->
@@ -1193,6 +1204,26 @@ function onExteriorNodeClick(nodeId) {
         </g>
       </g>
 
+      <!-- Step out to the hex travel map (on top for reliable clicks) -->
+      <g class="exit-layer">
+        <g
+          v-for="ex in placedExits"
+          :key="'exit-' + ex.doorId"
+          class="exit-hex"
+          :class="{
+            reachable: ex.reachable,
+            playable: !builderView,
+            'builder-selected': isItemSelected(ex.doorId),
+            'builder-pick': builderView,
+          }"
+          @click.stop="onExitClick($event, ex.doorId)"
+        >
+          <polygon :points="ex.points" class="exit-hex-fill" />
+          <text :x="ex.cx" :y="ex.cy + 1" class="exit-hex-icon">⬡</text>
+          <text :x="ex.cx" :y="ex.cy + 14" class="exit-hex-label">map</text>
+        </g>
+      </g>
+
       <!-- Builder edit layer -->
       <g v-if="builderEdit" class="edit-layer">
         <polyline
@@ -1218,7 +1249,7 @@ function onExteriorNodeClick(nodeId) {
           :key="'handle-' + h.handleKey"
           :cx="h.x"
           :cy="h.y"
-          :r="h.role === 'move' ? 9 : 7"
+          :r="h.role === 'move' || h.role === 'path-node' ? 9 : 7"
           class="edit-handle"
           :class="{
             selected: h.handleKey === selectedHandleId,
@@ -1512,10 +1543,23 @@ svg:not(.compass) {
   pointer-events: none;
   opacity: 0.45;
 }
-.exit-hex.reachable {
+.exit-hex.playable,
+.exit-hex.builder-pick {
   pointer-events: all;
   cursor: pointer;
+}
+.exit-hex.reachable {
   opacity: 1;
+}
+.exit-hex.playable:not(.reachable) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.gridmap.builder-view .exit-hex.builder-pick {
+  cursor: grab;
+}
+.gridmap.builder-view .exit-hex.builder-selected {
+  cursor: grab;
 }
 .exit-hex-fill {
   fill: #3d5a4a;
@@ -1527,12 +1571,25 @@ svg:not(.compass) {
   fill: #4a7560;
   stroke: #b8e0c8;
 }
+.exit-hex.builder-selected .exit-hex-fill {
+  stroke: rgba(200, 162, 255, 0.95);
+  stroke-width: 2.5;
+}
 .exit-hex-icon {
   fill: #c8e6d0;
   font-size: 11px;
   text-anchor: middle;
   pointer-events: none;
   opacity: 0.85;
+}
+.exit-hex-label {
+  fill: #9ab89a;
+  font-size: 7px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-anchor: middle;
+  pointer-events: none;
 }
 .exterior-path {
   fill: none;
@@ -1546,30 +1603,47 @@ svg:not(.compass) {
 }
 .exterior-node {
   pointer-events: none;
-  opacity: 0.35;
+  opacity: 0.4;
 }
 .exterior-node.reachable {
   pointer-events: all;
   cursor: pointer;
-  opacity: 0.85;
+  opacity: 0.9;
 }
 .exterior-node.current {
   opacity: 1;
 }
 .exterior-node-fill {
-  fill: #4a5a48;
-  stroke: #9a8b5e;
-  stroke-width: 1.2;
-  transition: fill 0.2s ease, stroke 0.2s ease;
-}
-.exterior-node.reachable:hover .exterior-node-fill {
   fill: #5c7058;
   stroke: #c9b97e;
+  stroke-width: 2;
+  transition: fill 0.2s ease, stroke 0.2s ease;
 }
-.exterior-node.current .exterior-node-fill {
+.exterior-node-ring {
+  fill: none;
+  stroke: rgba(224, 212, 168, 0.55);
+  stroke-width: 2;
+  pointer-events: none;
+}
+.exterior-node-label {
+  fill: #e0d4a8;
+  font-size: 8px;
+  font-weight: 600;
+  text-anchor: middle;
+  pointer-events: none;
+}
+.exterior-node.reachable:hover .exterior-node-fill {
   fill: #6a8066;
   stroke: #e0d4a8;
-  stroke-width: 2;
+}
+.exterior-node.current .exterior-node-fill {
+  fill: #7a9474;
+  stroke: #fff;
+  stroke-width: 2.5;
+}
+.exterior-node.builder-selected .exterior-node-fill {
+  stroke: rgba(200, 162, 255, 0.95);
+  stroke-width: 3;
 }
 .fixture {
   cursor: default;

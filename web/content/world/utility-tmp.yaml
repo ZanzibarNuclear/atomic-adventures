@@ -1,0 +1,32 @@
+exits:
+  - door: small-bay-roll
+    room: small-bay
+    exteriorNode: small-bay-roll-front
+    at: { x: 5.35, y: 1 }
+    mapAt: { x: 5.08, y: 1.16 }
+    hex: utility-yard
+    standAt: { from: landmark, dx: 0.58, dy: -0.02 }
+
+  - door: large-bay-roll
+    room: large-bay
+    exteriorNode: large-bay-roll-front
+    at: { x: 5.35, y: 3.5 }
+    mapAt: { x: 5.12, y: 3.42 }
+    hex: utility-yard
+    standAt: { from: landmark, dx: 0.62, dy: 0.22 }
+
+  - door: large-bay-man
+    room: large-bay
+    exteriorNode: large-bay-man-front
+    at: { x: 0.6, y: 6.75 }
+    mapAt: { x: 0.67, y: 5.94 }
+    hex: utility-yard
+    standAt: { from: landmark, dx: 0.28, dy: 0.52 }
+
+  - door: lobby-exterior
+    room: control-lobby
+    exteriorNode: lobby-exterior-front
+    at: { x: -4.4, y: 3.28 }
+    mapAt: { x: -4.72, y: 3.48 }
+    hex: utility-yard
+    standAt: { from: landmark, dx: -0.28, dy: 0.38 }

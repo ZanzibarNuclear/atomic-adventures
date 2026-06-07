@@ -2,15 +2,15 @@
 # sketch. TWO floors share one footprint; the Large Bay (garage) is a single
 # double-height room, so on the 2nd floor that footprint is "open to below".
 #
-# Orientation: NORTH points RIGHT (east). The top of each plan is therefore
-# WEST — the river side, where the windows and the winding stair live.
+# Orientation: NORTH points RIGHT; SOUTH is left, WEST is up, EAST is down.
+# The top of each plan is WEST — the river side, where the windows and the winding stair live.
 #
 # Stacking:  Conference sits over Library; Kitchen sits over Small Bay;
 #            the Large Bay spans both floors.
 # Stairs:    Large Bay (garage) --straight stairs--> Conference (2nd floor)
 #            Kitchen (2F) and Hallway (1F) open onto the river-side spiral stair
 #            (a feature you can pause on — not just a through-route).
-#            Library connects west through a sloping corridor to the control room.
+#            Library connects south through a sloping corridor to the control room.
 
 id: utility-station
 name: Utility Station
@@ -26,29 +26,29 @@ outdoorHex: utility-yard # hex where this building sits on the world map
 exterior:
   level: first
   entry: large-bay-roll-front
-  pad: 1.1 # extra layout units of margin around the footpath in the view
+  pad: 1.1
   nodes:
     - id: small-bay-roll-front
-      at: { x: 5.35, y: 1.0 }
+      at: { x: 4.58, y: 0.98 }
       label: "EV bay roll-up"
       door: small-bay-roll
       room: small-bay
     - id: large-bay-roll-front
-      at: { x: 5.35, y: 3.5 }
+      at: { x: 4.67, y: 3.26 }
       label: "Large bay roll-up"
       door: large-bay-roll
       room: large-bay
-    - id: south-east-corner
-      at: { x: 5.35, y: 6.75 }
-      label: "South-east corner"
+    - id: north-east-corner
+      at: { x: 4.42, y: 5.48 }
+      label: "North-east corner"
     - id: large-bay-man-front
-      at: { x: 0.6, y: 6.75 }
+      at: { x: 0.61, y: 5.55 }
       label: "Large bay side door"
       door: large-bay-man
       room: large-bay
-    - id: south-west-bend
-      at: { x: -3.2, y: 6.75 }
-      label: "South-west bend"
+    - id: south-east-bend
+      at: { x: -3.13, y: 5.34 }
+      label: "South-east bend"
     - id: lobby-exterior-front
       at: { x: -4.4, y: 3.28 }
       label: "Control lobby"
@@ -59,56 +59,60 @@ exterior:
       smooth: true
       nodes: [small-bay-roll-front, large-bay-roll-front]
       points:
-        - { x: 5.35, y: 1.0 }
-        - { x: 5.5, y: 2.2 }
-        - { x: 5.35, y: 3.5 }
+        - { x: 4.63, y: 0.97 }
+        - { x: 4.75, y: 2.16 }
+        - { x: 4.65, y: 3.41 }
     - id: perimeter
       smooth: true
       nodes:
         [
           large-bay-roll-front,
-          south-east-corner,
+          north-east-corner,
           large-bay-man-front,
-          south-west-bend,
+          south-east-bend,
           lobby-exterior-front,
         ]
       points:
-        - { x: 5.35, y: 3.5 }
-        - { x: 5.65, y: 4.6 }
-        - { x: 5.5, y: 5.8 }
-        - { x: 5.35, y: 6.75 }
-        - { x: 3.0, y: 6.95 }
-        - { x: 0.6, y: 6.75 }
-        - { x: -1.5, y: 6.9 }
-        - { x: -3.2, y: 6.75 }
-        - { x: -4.55, y: 5.6 }
-        - { x: -4.45, y: 4.2 }
-        - { x: -4.4, y: 3.28 }
+        - { x: 4.66, y: 3.57 }
+        - { x: 4.67, y: 4.74 }
+        - { x: 4.29, y: 5.53 }
+        - { x: 2.81, y: 5.53 }
+        - { x: 0.61, y: 5.55 }
+        - { x: -2.05, y: 5.59 }
+        - { x: -4.17, y: 4.7 }
+        - { x: -4.39, y: 3.34 }
 
 # Exterior doors — mini hex on the floor plan steps out to the world map.
 exits:
   - door: small-bay-roll
     room: small-bay
     exteriorNode: small-bay-roll-front
-    at: { x: 5.35, y: 1.0 }
+    at: { x: 5.35, y: 1 }
+    mapAt: { x: 5.08, y: 1.16 }
     hex: utility-yard
     standAt: { from: landmark, dx: 0.58, dy: -0.02 }
+
   - door: large-bay-roll
     room: large-bay
     exteriorNode: large-bay-roll-front
     at: { x: 5.35, y: 3.5 }
+    mapAt: { x: 5.12, y: 3.42 }
     hex: utility-yard
     standAt: { from: landmark, dx: 0.62, dy: 0.22 }
+
   - door: large-bay-man
     room: large-bay
     exteriorNode: large-bay-man-front
     at: { x: 0.6, y: 6.75 }
+    mapAt: { x: 0.67, y: 5.94 }
     hex: utility-yard
     standAt: { from: landmark, dx: 0.28, dy: 0.52 }
+
   - door: lobby-exterior
     room: control-lobby
     exteriorNode: lobby-exterior-front
     at: { x: -4.4, y: 3.28 }
+    mapAt: { x: -4.72, y: 3.48 }
     hex: utility-yard
     standAt: { from: landmark, dx: -0.28, dy: 0.38 }
 
@@ -173,7 +177,7 @@ rooms:
     w: 1
     h: 0.8 # 8 ft — corridor above the bathroom
     name: "Hallway"
-    blurb: "A short passage between the library, small bay, and spiral stair. Doors line the west wall and both ends."
+    blurb: "A short passage between the library, small bay, and spiral stair. Doors line the west (river) wall and the north and south ends."
   - id: bathroom
     level: first
     x: 1
@@ -323,7 +327,7 @@ doors:
   - id: hallway-spiral
     kind: man
     onLevels: [first, second] # bottom of the spiral run — same spot on both plans
-    at: { x: 1.68, y: 0.04 } # west landing — matches spiral exitDown (hallway end)
+    at: { x: 1.68, y: 0.04 } # west wall — spiral exitDown (hallway / south end)
     initial: { closed: true, locked: false }
   - id: hallway-small-bay
     kind: man

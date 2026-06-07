@@ -58,6 +58,7 @@ import {
   findGridEditable,
   gridEditModeForSource,
   resolvedPathHandles,
+  resolvedPathNodeHandles,
   resolvedRoomHandles,
   resolvedDoorHandle,
   resolvedNodeHandle,
@@ -71,6 +72,9 @@ import {
   setRollDoorProps,
   setNodeAt,
   setNodeLabel,
+  resolvedExitHandle,
+  setExitMapAt,
+  getExitMapAt,
   exportBuildingYaml,
 } from "./composables/useGridBuilder.js";
 import {
@@ -391,6 +395,7 @@ if (import.meta.hot) {
 const initialBuilding = buildBuilding(buildingData);
 const place = ref("outdoors"); // 'outdoors' | 'indoors'
 const outdoorStand = ref(null); // { hexId, standAt } — where you landed after stepping outside
+const exitTravelHint = ref("");
 
 const indoor = reactive({
   currentRoom: null,
@@ -433,7 +438,14 @@ const gridEditHandles = computed(() => {
   if (!parsed) return [];
   const cell = gridCell.value;
   if (parsed.source === "paths") {
-    return resolvedPathHandles(parsed.entity, cell);
+    return [
+      ...resolvedPathHandles(parsed.entity, cell, editableBuildingData.value),
+      ...resolvedPathNodeHandles(
+        editableBuildingData.value,
+        parsed.entity,
+        cell,
+      ),
+    ];
   }
   if (parsed.source === "rooms") {
     return resolvedRoomHandles(parsed.entity, cell);
@@ -444,6 +456,9 @@ const gridEditHandles = computed(() => {
   }
   if (parsed.source === "nodes") {
     return resolvedNodeHandle(parsed.entity, cell);
+  }
+  if (parsed.source === "exits") {
+    return resolvedExitHandle(parsed.entity, cell);
   }
   return [];
 });
@@ -522,6 +537,15 @@ function onGridHandleMove(payload) {
   const { role, index } = payload;
 
   if (parsed.source === "paths") {
+    if (role === "path-node" && payload.nodeId) {
+      setNodeAt(
+        editableBuildingData.value,
+        payload.nodeId,
+        xUnits,
+        yUnits,
+      );
+      return;
+    }
     setPathPoint(
       editableBuildingData.value,
       parsed.id,
@@ -547,6 +571,10 @@ function onGridHandleMove(payload) {
   }
   if (parsed.source === "nodes") {
     setNodeAt(editableBuildingData.value, parsed.id, xUnits, yUnits);
+    return;
+  }
+  if (parsed.source === "exits") {
+    setExitMapAt(editableBuildingData.value, parsed.id, xUnits, yUnits);
   }
 }
 
@@ -719,6 +747,9 @@ const reachableExitDoors = computed(() => {
   if (builderView.value) {
     return (building.value.exits ?? []).map((e) => e.door);
   }
+  if (indoor.exteriorNode) {
+    return (building.value.exits ?? []).map((e) => e.door).filter(Boolean);
+  }
   return (building.value.exits ?? [])
     .filter((exit) =>
       canUseExteriorExit(
@@ -737,6 +768,16 @@ const reachableExitDoors = computed(() => {
 });
 const levelsTopDown = computed(() => building.value.levels);
 
+/** Door + exit available to leave for the hex travel map. */
+const worldMapExit = computed(() => {
+  for (const doorId of reachableExitDoors.value) {
+    const exit = building.value.exitByDoorId?.[doorId];
+    if (!exit) continue;
+    return { doorId, label: "Travel world map ⬡" };
+  }
+  return null;
+});
+
 function doorStateFor(doorId) {
   return getDoorState(indoor.doorState, building.value.areaId, doorId);
 }
@@ -753,6 +794,7 @@ function tryOpenDoor(doorId) {
   if (!setDoorOpen(indoor.doorState, building.value.areaId, doorId, true))
     return;
   syncDoorState();
+  exitTravelHint.value = "";
   const next = new Set(indoor.revealed);
   applyRevealForDoor(building.value, next, doorId);
   indoor.revealed = next;
@@ -835,10 +877,10 @@ function visitStation() {
   goIndoors();
 }
 function exitViaDoor(doorId) {
+  if (builderView.value) return;
   const exit = building.value.exitByDoorId?.[doorId];
   if (!exit) return;
   if (
-    !builderView.value &&
     !canUseExteriorExit(
       building.value,
       exit,
@@ -848,15 +890,18 @@ function exitViaDoor(doorId) {
       indoor.exteriorNode,
     )
   ) {
+    exitTravelHint.value = indoor.exteriorNode
+      ? ""
+      : "Open the exterior door first, then use the ⬡ map marker.";
     return;
   }
+  exitTravelHint.value = "";
   const hexId = exit.hex ?? building.value.outdoorHex;
   if (!hexId) return;
   state.currentId = hexId;
   state.discovered = new Set([...state.discovered, hexId]);
-  outdoorStand.value = exit.standAt
-    ? { hexId, standAt: { ...exit.standAt } }
-    : null;
+  // Use the hex's standAt from map.yaml (not per-exit overrides).
+  outdoorStand.value = null;
   indoor.exteriorNode = null;
   indoor.currentRoom = null;
   place.value = "outdoors";
@@ -1263,6 +1308,16 @@ function resetIndoor() {
               {{ item.label }}
             </option>
           </optgroup>
+          <optgroup label="World map exits">
+            <option
+              v-for="item in gridEditableItems.filter(
+                (i) => i.source === 'exits',
+              )"
+              :key="item.id"
+              :value="`${item.source}:${item.id}`">
+              {{ item.label }}
+            </option>
+          </optgroup>
         </select>
 
         <div v-if="gridEditMode === 'line'" class="builder-actions">
@@ -1485,6 +1540,50 @@ function resetIndoor() {
           <p class="prop-readonly">ID: {{ gridEditParsed?.id }}</p>
         </div>
 
+        <div v-if="gridEditMode === 'exit'" class="builder-props">
+          <p class="prop-readonly">
+            Door: {{ gridEditParsed?.entity?.door }} · anchor
+            {{ gridEditParsed?.entity?.at?.x }},
+            {{ gridEditParsed?.entity?.at?.y }}
+          </p>
+          <label class="prop-row">
+            <span>Map X</span>
+            <input
+              type="number"
+              step="0.05"
+              :value="getExitMapAt(gridEditParsed?.entity).x"
+              @input="
+                setExitMapAt(
+                  editableBuildingData,
+                  gridEditParsed.id,
+                  Number($event.target.value),
+                  getExitMapAt(gridEditParsed.entity).y,
+                )
+              " />
+          </label>
+          <label class="prop-row">
+            <span>Map Y</span>
+            <input
+              type="number"
+              step="0.05"
+              :value="getExitMapAt(gridEditParsed?.entity).y"
+              @input="
+                setExitMapAt(
+                  editableBuildingData,
+                  gridEditParsed.id,
+                  getExitMapAt(gridEditParsed.entity).x,
+                  Number($event.target.value),
+                )
+              " />
+          </label>
+          <button
+            v-if="gridEditParsed?.entity?.mapAt"
+            class="sm muted"
+            @click="gridEditParsed.entity.mapAt = undefined">
+            Reset to default offset
+          </button>
+        </div>
+
         <div class="builder-actions playtest">
           <span class="label">Playtest</span>
           <button class="sm" @click="openAllInteriorDoors">Open all doors</button>
@@ -1495,8 +1594,8 @@ function resetIndoor() {
 
         <p class="builder-hint">
           <template v-if="gridEditMode === 'line'">
-            Drag yellow handles to reshape the footpath. Enable smooth curve for
-            Catmull-Rom spline rendering.
+            Drag yellow handles for curve points, green for named path nodes
+            (stand spots). Moving a node updates matching path points and exits.
           </template>
           <template v-else-if="gridEditMode === 'room'">
             Drag purple center to move; yellow corners to resize. Click a room
@@ -1514,6 +1613,10 @@ function resetIndoor() {
           <template v-else-if="gridEditMode === 'node'">
             Drag the green handle to move an exterior stand spot.
           </template>
+          <template v-else-if="gridEditMode === 'exit'">
+            Click the ⬡ marker to select it, then drag the green handle (or edit
+            Map X/Y). Exits do not leave the building while builder is on.
+          </template>
         </p>
 
         <p class="builder-hint builder-export-note">
@@ -1527,6 +1630,7 @@ function resetIndoor() {
           <div class="export-btns">
             <button class="sm" @click="copyGridYaml('rooms')">Copy rooms</button>
             <button class="sm" @click="copyGridYaml('doors')">Copy doors</button>
+            <button class="sm" @click="copyGridYaml('exits')">Copy exits</button>
             <button class="sm" @click="copyGridYaml('exterior')">
               Copy exterior
             </button>
@@ -1576,12 +1680,27 @@ function resetIndoor() {
         }}</strong>
         <em v-if="currentRoomData?.blurb">{{ currentRoomData.blurb }}</em>
         <em v-else-if="currentExteriorNode"
-          >Footpaths ring the building — break a lock and go in through a
-          door.</em
+          >Walk the footpath — click green dots to move. Any ⬡ map marker (or
+          the button below) takes you to the hex travel map.</em
         >
-        <p v-if="reachableExitDoors.length" class="puzzle-hint">
-          Open exterior door, then click the ⬡ hex outside to step out.
+        <button
+          v-if="worldMapExit && !builderView"
+          class="world-map-btn"
+          @click="exitViaDoor(worldMapExit.doorId)">
+          {{ worldMapExit.label }}
+        </button>
+        <p
+          v-else-if="!indoor.exteriorNode && reachableExitDoors.length && !worldMapExit"
+          class="puzzle-hint">
+          Open an exterior door to unlock travel to the world map.
         </p>
+        <p
+          v-if="!indoor.exteriorNode && reachableExitDoors.length && indoor.currentRoom"
+          class="puzzle-hint">
+          Open the exterior door, then use the ⬡ map marker or Travel world map
+          button.
+        </p>
+        <p v-if="exitTravelHint" class="puzzle-hint">{{ exitTravelHint }}</p>
       </div>
 
       <div class="travel">
@@ -1803,6 +1922,15 @@ header h1 {
 }
 .visit-station-btn:hover {
   background: #465a6e;
+}
+.world-map-btn {
+  margin-top: 0.6rem;
+  align-self: flex-start;
+  background: #3d5a4a;
+  border-color: #5a8870;
+}
+.world-map-btn:hover {
+  background: #4a7560;
 }
 .label {
   text-transform: uppercase;

@@ -1,4 +1,4 @@
-import { roomRect, roomOnLevel } from './useGrid.js'
+import { roomRect, roomOnLevel, exitMapAt } from './useGrid.js'
 
 function round2(n) {
   return Math.round(n * 100) / 100
@@ -78,12 +78,33 @@ export function listEditableNodes(data, levelId) {
   }))
 }
 
+/** World-map exit icons on a floor. */
+export function listEditableExits(data, levelId) {
+  const roomById = Object.fromEntries((data.rooms ?? []).map((r) => [r.id, r]))
+  return (data.exits ?? [])
+    .filter((exit) => {
+      const door = data.doors?.find((d) => d.id === exit.door)
+      if (!door) return false
+      if (door.kind === 'roll') {
+        const room = roomById[door.room]
+        return room?.level === levelId
+      }
+      return doorOnLevel(door, levelId)
+    })
+    .map((exit) => ({
+      source: 'exits',
+      id: exit.door,
+      label: `${exit.door} (world map)`,
+    }))
+}
+
 export function listAllGridEditable(data, levelId) {
   return [
     ...listEditablePaths(data, levelId),
     ...listEditableRooms(data, levelId),
     ...listEditableDoors(data, levelId),
     ...listEditableNodes(data, levelId),
+    ...listEditableExits(data, levelId),
   ]
 }
 
@@ -100,6 +121,9 @@ export function findGridEditable(data, source, id) {
   if (source === 'nodes') {
     return data.exterior?.nodes?.find((n) => n.id === id) ?? null
   }
+  if (source === 'exits') {
+    return data.exits?.find((e) => e.door === id) ?? null
+  }
   return null
 }
 
@@ -108,18 +132,122 @@ export function gridEditModeForSource(source) {
   if (source === 'rooms') return 'room'
   if (source === 'doors') return 'door'
   if (source === 'nodes') return 'node'
+  if (source === 'exits') return 'exit'
   return null
 }
 
-/** Path waypoint handles in layout pixels (pre-rotation). */
-export function resolvedPathHandles(path, cell) {
-  return (path?.points ?? []).map((p, index) => ({
-    index,
-    role: 'point',
-    x: p.x * cell,
-    y: p.y * cell,
-    handleKey: `point-${index}`,
-  }))
+/** World-map ⬡ icon handle in layout pixels. */
+export function resolvedExitHandle(exit, cell) {
+  const at = exitMapAt(exit)
+  if (!at) return []
+  return [
+    {
+      role: 'exit-map',
+      x: at.x * cell,
+      y: at.y * cell,
+      handleKey: 'exit-map',
+    },
+  ]
+}
+
+export function setExitMapAt(data, doorId, xUnits, yUnits) {
+  const exit = data.exits?.find((e) => e.door === doorId)
+  if (!exit) return
+  exit.mapAt = { x: round2(xUnits), y: round2(yUnits) }
+}
+
+export function getExitMapAt(exit) {
+  return exitMapAt(exit) ?? { x: 0, y: 0 }
+}
+
+function coordsKey(x, y) {
+  return `${round2(x)},${round2(y)}`
+}
+
+/** Node ids on a path whose stand spots share coordinates with curve points. */
+function linkedNodeCoordKeys(data, path) {
+  const keys = new Set()
+  for (const nodeId of path?.nodes ?? []) {
+    const node = data.exterior?.nodes?.find((n) => n.id === nodeId)
+    if (node?.at) keys.add(coordsKey(node.at.x, node.at.y))
+  }
+  return keys
+}
+
+/** Curve handles — skips points that share coords with a named path node. */
+export function resolvedPathHandles(path, cell, data = null) {
+  const linked = data ? linkedNodeCoordKeys(data, path) : new Set()
+  const handles = []
+  for (const [index, p] of (path?.points ?? []).entries()) {
+    if (linked.has(coordsKey(p.x, p.y))) continue
+    handles.push({
+      index,
+      role: 'point',
+      x: p.x * cell,
+      y: p.y * cell,
+      handleKey: `point-${index}`,
+    })
+  }
+  return handles
+}
+
+/** Named stand spots referenced by a path — drag these to move path nodes. */
+export function resolvedPathNodeHandles(data, path, cell) {
+  if (!path?.nodes?.length) return []
+  const handles = []
+  for (const nodeId of path.nodes) {
+    const node = data.exterior?.nodes?.find((n) => n.id === nodeId)
+    if (!node?.at) continue
+    handles.push({
+      nodeId,
+      role: 'path-node',
+      x: node.at.x * cell,
+      y: node.at.y * cell,
+      handleKey: `node-${nodeId}`,
+    })
+  }
+  return handles
+}
+
+function syncCoordsEverywhere(data, oldX, oldY, newX, newY) {
+  if (oldX == null || oldY == null) return
+  const oldKey = coordsKey(oldX, oldY)
+  const newKey = coordsKey(newX, newY)
+  if (oldKey === newKey) return
+
+  for (const path of data.exterior?.paths ?? []) {
+    for (const p of path.points ?? []) {
+      if (coordsKey(p.x, p.y) === oldKey) {
+        p.x = round2(newX)
+        p.y = round2(newY)
+      }
+    }
+  }
+
+  for (const exit of data.exits ?? []) {
+    if (exit.at && coordsKey(exit.at.x, exit.at.y) === oldKey) {
+      exit.at.x = round2(newX)
+      exit.at.y = round2(newY)
+    }
+  }
+}
+
+function syncNodeAtCoords(data, oldX, oldY, newX, newY) {
+  for (const node of data.exterior?.nodes ?? []) {
+    if (!node.at || coordsKey(node.at.x, node.at.y) !== coordsKey(oldX, oldY)) {
+      continue
+    }
+    node.at.x = round2(newX)
+    node.at.y = round2(newY)
+    if (node.door) {
+      const exit = data.exits?.find((e) => e.door === node.door)
+      if (exit) {
+        if (!exit.at) exit.at = {}
+        exit.at.x = node.at.x
+        exit.at.y = node.at.y
+      }
+    }
+  }
 }
 
 /** Room move + corner resize handles in layout pixels. */
@@ -164,9 +292,14 @@ export function resolvedNodeHandle(node, cell) {
 
 export function setPathPoint(data, pathId, pointIndex, xUnits, yUnits) {
   const path = data.exterior?.paths?.find((p) => p.id === pathId)
-  if (!path?.points?.[pointIndex]) return
-  path.points[pointIndex].x = round2(xUnits)
-  path.points[pointIndex].y = round2(yUnits)
+  const pt = path?.points?.[pointIndex]
+  if (!pt) return
+  const oldX = pt.x
+  const oldY = pt.y
+  pt.x = round2(xUnits)
+  pt.y = round2(yUnits)
+  syncCoordsEverywhere(data, oldX, oldY, pt.x, pt.y)
+  syncNodeAtCoords(data, oldX, oldY, pt.x, pt.y)
 }
 
 export function addPathPoint(data, pathId, xUnits, yUnits) {
@@ -261,8 +394,19 @@ export function setNodeAt(data, nodeId, xUnits, yUnits) {
   const node = data.exterior?.nodes?.find((n) => n.id === nodeId)
   if (!node) return
   if (!node.at) node.at = {}
+  const oldX = node.at.x
+  const oldY = node.at.y
   node.at.x = round2(xUnits)
   node.at.y = round2(yUnits)
+  syncCoordsEverywhere(data, oldX, oldY, node.at.x, node.at.y)
+  if (node.door) {
+    const exit = data.exits?.find((e) => e.door === node.door)
+    if (exit) {
+      if (!exit.at) exit.at = {}
+      exit.at.x = node.at.x
+      exit.at.y = node.at.y
+    }
+  }
 }
 
 export function setNodeLabel(data, nodeId, label) {
@@ -355,6 +499,29 @@ function serializeNode(node, indent) {
   return lines.join('\n')
 }
 
+function serializeExit(exit, indent) {
+  const pad = ' '.repeat(indent)
+  const inner = ' '.repeat(indent + 2)
+  const lines = [`${pad}- door: ${exit.door}`]
+  if (exit.room) lines.push(`${inner}room: ${exit.room}`)
+  if (exit.exteriorNode) lines.push(`${inner}exteriorNode: ${exit.exteriorNode}`)
+  if (exit.at) lines.push(`${inner}at: ${fmtPoint(exit.at)}`)
+  if (exit.mapAt) lines.push(`${inner}mapAt: ${fmtPoint(exit.mapAt)}`)
+  if (exit.hex) lines.push(`${inner}hex: ${exit.hex}`)
+  if (exit.standAt) {
+    const st = exit.standAt
+    if (st.from === 'landmark') {
+      const parts = ['from: landmark']
+      if (st.dx !== undefined && st.dx !== 0) parts.push(`dx: ${round2(st.dx)}`)
+      if (st.dy !== undefined && st.dy !== 0) parts.push(`dy: ${round2(st.dy)}`)
+      lines.push(`${inner}standAt: { ${parts.join(', ')} }`)
+    } else if (st.x != null && st.y != null) {
+      lines.push(`${inner}standAt: { x: ${round2(st.x)}, y: ${round2(st.y)} }`)
+    }
+  }
+  return lines.join('\n')
+}
+
 function serializeExterior(exterior, indent = 0) {
   const pad = ' '.repeat(indent)
   const inner = ' '.repeat(indent + 2)
@@ -381,16 +548,19 @@ function serializeExterior(exterior, indent = 0) {
 export function exportBuildingYaml(data) {
   const roomBlocks = (data.rooms ?? []).map((r) => serializeRoom(r, 2))
   const doorBlocks = (data.doors ?? []).map((d) => serializeDoor(d, 2))
+  const exitBlocks = (data.exits ?? []).map((e) => serializeExit(e, 2))
   const exteriorYaml = data.exterior ? serializeExterior(data.exterior, 0) : ''
 
   const roomsYaml = roomBlocks.length ? `rooms:\n${roomBlocks.join('\n\n')}` : ''
   const doorsYaml = doorBlocks.length ? `doors:\n${doorBlocks.join('\n\n')}` : ''
+  const exitsYaml = exitBlocks.length ? `exits:\n${exitBlocks.join('\n\n')}` : ''
 
   return {
     rooms: roomsYaml,
     doors: doorsYaml,
+    exits: exitsYaml,
     exterior: exteriorYaml,
-    all: [roomsYaml, doorsYaml, exteriorYaml].filter(Boolean).join('\n\n'),
+    all: [roomsYaml, doorsYaml, exitsYaml, exteriorYaml].filter(Boolean).join('\n\n'),
   }
 }
 
@@ -400,5 +570,6 @@ export function pathHandleColor() {
 
 export function roomHandleColor(role) {
   if (role === 'move') return '#c792ea'
+  if (role === 'path-node' || role === 'exit-map') return '#7dcea0'
   return '#ffd166'
 }

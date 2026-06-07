@@ -507,7 +507,7 @@ export function sharedEdge(a, b, cell) {
   const ra = roomRect(a, cell)
   const rb = roomRect(b, cell)
   const eps = 0.5
-  // Vertical shared wall (a east == b west, or vice versa).
+  // Vertical shared wall (north of the southern room meets south of the northern room).
   for (const [left, right] of [[ra, rb], [rb, ra]]) {
     if (Math.abs(left.x + left.w - right.x) < eps) {
       const y1 = Math.max(left.y, right.y)
@@ -515,7 +515,7 @@ export function sharedEdge(a, b, cell) {
       if (y2 > y1) return { x: right.x, y1, y2, vertical: true }
     }
   }
-  // Horizontal shared wall (a south == b north, or vice versa).
+  // Horizontal shared wall (east of the western room meets west of the eastern room).
   for (const [top, bot] of [[ra, rb], [rb, ra]]) {
     if (Math.abs(top.y + top.h - bot.y) < eps) {
       const x1 = Math.max(top.x, bot.x)
@@ -707,6 +707,19 @@ export function rollDoorRect(room, cell) {
   return { x: x1, y: y1, w: 10, h: span, vertical: true }
 }
 
+/** Default offset (layout units) of the world-map ⬡ icon from exit.at. */
+export const EXIT_MAP_OFFSET = { dx: 0.38, dy: -0.38 }
+
+/** Layout position of the world-map exit icon (optional exit.mapAt override). */
+export function exitMapAt(exit) {
+  if (exit?.mapAt) return exit.mapAt
+  if (!exit?.at) return null
+  return {
+    x: exit.at.x + EXIT_MAP_OFFSET.dx,
+    y: exit.at.y + EXIT_MAP_OFFSET.dy,
+  }
+}
+
 /** Exterior exits whose door glyph is drawn on this floor. */
 export function exitsOnLevel(building, levelId) {
   return (building.exits ?? []).filter((exit) => {
@@ -720,7 +733,7 @@ export function exitsOnLevel(building, levelId) {
   })
 }
 
-/** Step outside when at the matching exterior stand or inside the exit room with the door open. */
+/** Step out to the hex travel map. On the exterior footpath, any exit works. */
 export function canUseExteriorExit(
   building,
   exit,
@@ -729,11 +742,9 @@ export function canUseExteriorExit(
   areaId,
   exteriorNode = null,
 ) {
-  if (!exit || !canPassDoor(doorState, areaId, exit.door)) return false
-  if (exteriorNode) {
-    const node = building.exterior?.nodeById?.[exteriorNode]
-    return node?.door === exit.door
-  }
+  if (!exit) return false
+  if (exteriorNode) return true
+  if (!canPassDoor(doorState, areaId, exit.door)) return false
   return roomId === exit.room
 }
 
