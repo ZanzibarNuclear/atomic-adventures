@@ -21,7 +21,7 @@ export function useOutdoorWorld(mapData) {
   }
 
   if (import.meta.hot) {
-    import.meta.hot.accept("../content/world/map.yaml", (mod) => {
+    import.meta.hot.accept("../../content/world/map.yaml", (mod) => {
       if (mod?.default) syncFromMapData(mod.default);
     });
   }

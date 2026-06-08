@@ -43,7 +43,7 @@ export function useIndoorBuilding(buildingData, outdoor, ctx) {
   }
 
   if (import.meta.hot) {
-    import.meta.hot.accept("../content/world/utility-station.yaml", (mod) => {
+    import.meta.hot.accept("../../content/world/utility-station.yaml", (mod) => {
       if (mod?.default) syncFromBuildingData(mod.default);
     });
   }
