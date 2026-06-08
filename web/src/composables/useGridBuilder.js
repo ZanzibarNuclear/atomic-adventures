@@ -164,22 +164,21 @@ function coordsKey(x, y) {
   return `${round2(x)},${round2(y)}`
 }
 
-/** Node ids on a path whose stand spots share coordinates with curve points. */
-function linkedNodeCoordKeys(data, path) {
-  const keys = new Set()
+/** True when a curve point shares coordinates with a named node on this path. */
+function isPathNodeLocation(data, path, x, y) {
+  const key = coordsKey(x, y)
   for (const nodeId of path?.nodes ?? []) {
     const node = data.exterior?.nodes?.find((n) => n.id === nodeId)
-    if (node?.at) keys.add(coordsKey(node.at.x, node.at.y))
+    if (node?.at && coordsKey(node.at.x, node.at.y) === key) return true
   }
-  return keys
+  return false
 }
 
 /** Curve handles — skips points that share coords with a named path node. */
 export function resolvedPathHandles(path, cell, data = null) {
-  const linked = data ? linkedNodeCoordKeys(data, path) : new Set()
   const handles = []
   for (const [index, p] of (path?.points ?? []).entries()) {
-    if (linked.has(coordsKey(p.x, p.y))) continue
+    if (data && isPathNodeLocation(data, path, p.x, p.y)) continue
     handles.push({
       index,
       role: 'point',
@@ -302,12 +301,120 @@ export function setPathPoint(data, pathId, pointIndex, xUnits, yUnits) {
   syncNodeAtCoords(data, oldX, oldY, pt.x, pt.y)
 }
 
+function distanceToSegment(px, py, ax, ay, bx, by) {
+  const dx = bx - ax
+  const dy = by - ay
+  const lenSq = dx * dx + dy * dy
+  if (lenSq === 0) return Math.hypot(px - ax, py - ay)
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq))
+  const nx = ax + t * dx
+  const ny = ay + t * dy
+  return Math.hypot(px - nx, py - ny)
+}
+
+function insertIndexOnPolyline(px, py, pts) {
+  if (pts.length < 2) return pts.length
+  let bestDist = Infinity
+  let insertIndex = pts.length
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i]
+    const b = pts[i + 1]
+    const d = distanceToSegment(px, py, a.x, a.y, b.x, b.y)
+    if (d < bestDist) {
+      bestDist = d
+      insertIndex = i + 1
+    }
+  }
+  return insertIndex
+}
+
+function pathNodePositions(data, path) {
+  return (path.nodes ?? [])
+    .map((id) => data.exterior?.nodes?.find((n) => n.id === id)?.at)
+    .filter(Boolean)
+}
+
+export function generateExteriorNodeId(data, prefix = 'footpath-stand') {
+  const ids = new Set((data.exterior?.nodes ?? []).map((n) => n.id))
+  let n = 1
+  while (ids.has(`${prefix}-${n}`)) n += 1
+  return `${prefix}-${n}`
+}
+
+/** Insert a curve waypoint on the nearest control segment (not always at the end). */
 export function addPathPoint(data, pathId, xUnits, yUnits) {
   const path = data.exterior?.paths?.find((p) => p.id === pathId)
   if (!path) return -1
   if (!path.points) path.points = []
-  path.points.push({ x: round2(xUnits), y: round2(yUnits) })
-  return path.points.length - 1
+
+  const newPt = { x: round2(xUnits), y: round2(yUnits) }
+  if (path.points.length < 2) {
+    path.points.push(newPt)
+    return path.points.length - 1
+  }
+
+  const insertIndex = insertIndexOnPolyline(xUnits, yUnits, path.points)
+  path.points.splice(insertIndex, 0, newPt)
+  return insertIndex
+}
+
+/**
+ * Insert a named stand spot on the path route (green node). Also adds a matching
+ * curve point when the path already has a points list.
+ */
+export function addPathNode(data, pathId, xUnits, yUnits, label = null) {
+  const path = data.exterior?.paths?.find((p) => p.id === pathId)
+  if (!path) return null
+  if (!data.exterior.nodes) data.exterior.nodes = []
+  if (!path.nodes) path.nodes = []
+
+  const at = { x: round2(xUnits), y: round2(yUnits) }
+  const nodeId = generateExteriorNodeId(data)
+  const node = {
+    id: nodeId,
+    at,
+    label: label ?? `Stand ${path.nodes.length + 1}`,
+  }
+  data.exterior.nodes.push(node)
+
+  const nodePts = pathNodePositions(data, path)
+  const guidePts =
+    nodePts.length >= 2 ? nodePts : (path.points?.length ? path.points : [at])
+  const nodeInsertIndex = insertIndexOnPolyline(xUnits, yUnits, guidePts)
+  path.nodes.splice(nodeInsertIndex, 0, nodeId)
+
+  if (path.points?.length) {
+    const pointInsertIndex = insertIndexOnPolyline(xUnits, yUnits, path.points)
+    path.points.splice(pointInsertIndex, 0, { ...at })
+  }
+
+  return nodeId
+}
+
+/** Remove a stand spot from a path; deletes the exterior node if unused elsewhere. */
+export function removePathNodeFromPath(data, pathId, nodeId) {
+  const path = data.exterior?.paths?.find((p) => p.id === pathId)
+  const node = data.exterior?.nodes?.find((n) => n.id === nodeId)
+  if (!path?.nodes || !node) return false
+  if (node.door) return false
+
+  const idx = path.nodes.indexOf(nodeId)
+  if (idx === -1) return false
+  path.nodes.splice(idx, 1)
+
+  const key = coordsKey(node.at.x, node.at.y)
+  if (path.points) {
+    const pi = path.points.findIndex((p) => coordsKey(p.x, p.y) === key)
+    if (pi !== -1) path.points.splice(pi, 1)
+  }
+
+  const stillUsed = (data.exterior?.paths ?? []).some((p) =>
+    p.nodes?.includes(nodeId),
+  )
+  if (!stillUsed) {
+    data.exterior.nodes = data.exterior.nodes.filter((n) => n.id !== nodeId)
+  }
+  return true
 }
 
 export function removePathPoint(data, pathId, pointIndex) {
@@ -478,7 +585,8 @@ function serializePath(path, indent) {
   const pad = ' '.repeat(indent)
   const inner = ' '.repeat(indent + 2)
   const lines = [`${pad}- id: ${path.id}`]
-  if (path.smooth) lines.push(`${inner}smooth: true`)
+  if (path.smooth === false) lines.push(`${inner}smooth: false`)
+  else if (path.smooth) lines.push(`${inner}smooth: true`)
   if (path.nodes?.length) {
     lines.push(`${inner}nodes: [${path.nodes.join(', ')}]`)
   }
@@ -564,8 +672,34 @@ export function exportBuildingYaml(data) {
   }
 }
 
+/** Builder palette — keep footpath, edit overlays, and handles visually distinct. */
+export const GRID_BUILDER_COLORS = {
+  footpath: '#c9b97e',
+  footpathDim: '#5c574e',
+  pathPreview: '#e878a8',
+  pathControl: '#58c4e8',
+  curvePoint: '#f4a261',
+  pathNode: '#7dcea0',
+}
+
 export function pathHandleColor() {
-  return '#c9b97e'
+  return GRID_BUILDER_COLORS.footpath
+}
+
+export function pathCurvePointColor() {
+  return GRID_BUILDER_COLORS.curvePoint
+}
+
+export function pathNodeHandleColor() {
+  return GRID_BUILDER_COLORS.pathNode
+}
+
+export function pathControlLineColor() {
+  return GRID_BUILDER_COLORS.pathControl
+}
+
+export function pathPreviewColor() {
+  return GRID_BUILDER_COLORS.pathPreview
 }
 
 export function roomHandleColor(role) {

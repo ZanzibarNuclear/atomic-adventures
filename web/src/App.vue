@@ -81,7 +81,9 @@ import {
   resolvedNodeHandle,
   setPathPoint,
   addPathPoint,
+  addPathNode,
   removePathPoint,
+  removePathNodeFromPath,
   setRoomRect,
   setRoomName,
   setRoomFromHandle,
@@ -435,6 +437,7 @@ const indoor = reactive({
 const gridEditSelection = ref("");
 const gridSelectedHandleId = ref(null);
 const gridAddPointMode = ref(false);
+const gridAddNodeMode = ref(false);
 const gridExportStatus = ref("");
 
 const gridEditableItems = computed(() =>
@@ -452,6 +455,17 @@ const gridEditParsed = computed(() => {
 const gridEditMode = computed(() => {
   if (!gridEditParsed.value) return null;
   return gridEditModeForSource(gridEditParsed.value.source);
+});
+
+const gridSelectedPathNodeId = computed(() => {
+  const m = gridSelectedHandleId.value?.match(/^node-(.+)$/);
+  return m?.[1] ?? null;
+});
+
+const gridSelectedPathNode = computed(() => {
+  const id = gridSelectedPathNodeId.value;
+  if (!id) return null;
+  return editableBuildingData.value.exterior?.nodes?.find((n) => n.id === id) ?? null;
 });
 
 const gridCell = computed(() => editableBuildingData.value.cell ?? 64);
@@ -508,6 +522,7 @@ watch(builderView, (on) => {
   }
   if (!on) {
     gridAddPointMode.value = false;
+    gridAddNodeMode.value = false;
     gridSelectedHandleId.value = null;
   }
 });
@@ -519,6 +534,7 @@ watch(
       gridEditSelection.value = "";
       gridSelectedHandleId.value = null;
       gridAddPointMode.value = false;
+      gridAddNodeMode.value = false;
     } else if (builderView.value && !gridEditSelection.value) {
       const items = gridEditableItems.value;
       if (items.length) {
@@ -528,9 +544,17 @@ watch(
   },
 );
 
+watch(gridAddPointMode, (on) => {
+  if (on) gridAddNodeMode.value = false;
+});
+watch(gridAddNodeMode, (on) => {
+  if (on) gridAddPointMode.value = false;
+});
+
 watch(gridEditSelection, () => {
   gridSelectedHandleId.value = null;
   gridAddPointMode.value = false;
+  gridAddNodeMode.value = false;
 });
 
 watch(
@@ -601,17 +625,33 @@ function onGridHandleMove(payload) {
   }
 }
 
-function onGridBuilderMapClick({ x, y }) {
+function onGridBuilderMapClick(payload) {
   const parsed = gridEditParsed.value;
   if (!parsed || parsed.source !== "paths") return;
+  const kind =
+    payload.kind ??
+    (gridAddNodeMode.value ? "node" : gridAddPointMode.value ? "point" : null);
+  if (!kind) return;
+
   const cell = gridCell.value;
-  const idx = addPathPoint(
-    editableBuildingData.value,
-    parsed.id,
-    x / cell,
-    y / cell,
-  );
-  gridSelectedHandleId.value = idx >= 0 ? `point-${idx}` : null;
+  const xu = payload.x / cell;
+  const yu = payload.y / cell;
+
+  if (kind === "node") {
+    const nodeId = addPathNode(
+      editableBuildingData.value,
+      parsed.id,
+      xu,
+      yu,
+    );
+    gridSelectedHandleId.value = nodeId ? `node-${nodeId}` : null;
+    return;
+  }
+
+  if (kind === "point") {
+    const idx = addPathPoint(editableBuildingData.value, parsed.id, xu, yu);
+    gridSelectedHandleId.value = idx >= 0 ? `point-${idx}` : null;
+  }
 }
 
 function deleteGridSelectedPoint() {
@@ -624,6 +664,23 @@ function deleteGridSelectedPoint() {
   const path = parsed.entity;
   const next = Math.min(idx, path.points.length - 1);
   gridSelectedHandleId.value = next >= 0 ? `point-${next}` : null;
+}
+
+function deleteGridSelectedPathNode() {
+  const parsed = gridEditParsed.value;
+  if (!parsed || parsed.source !== "paths") return;
+  const nodeId = gridSelectedPathNodeId.value;
+  if (!nodeId) return;
+  if (
+    !removePathNodeFromPath(
+      editableBuildingData.value,
+      parsed.id,
+      nodeId,
+    )
+  ) {
+    return;
+  }
+  gridSelectedHandleId.value = null;
 }
 
 function toggleGridSmooth() {
@@ -1537,7 +1594,8 @@ function resetIndoor() {
           :edit-handles="gridEditHandles"
           :selected-handle-id="gridSelectedHandleId"
           :selected-item-id="gridEditParsed?.id ?? ''"
-          :add-point-mode="gridAddPointMode"
+          :add-point-mode="gridAddPointMode || gridAddNodeMode"
+          :map-click-mode="gridAddNodeMode ? 'node' : gridAddPointMode ? 'point' : null"
           :expanded="expanded"
           :interactable-door-ids="interactableDoorIds"
           :reachable-exit-doors="reachableExitDoors"
@@ -1618,14 +1676,50 @@ function resetIndoor() {
           </label>
           <label class="mode-pill sm" :class="{ active: gridAddPointMode }">
             <input type="checkbox" v-model="gridAddPointMode" />
-            click to add point
+            click to add waypoint
           </label>
+          <label class="mode-pill sm" :class="{ active: gridAddNodeMode }">
+            <input type="checkbox" v-model="gridAddNodeMode" />
+            click to add node
+          </label>
+          <p v-if="gridAddPointMode" class="builder-inline-hint">
+            Orange waypoint on the nearest cyan segment, at the click location.
+          </p>
+          <p v-else-if="gridAddNodeMode" class="builder-inline-hint">
+            Green stand spot on the route (walk stop + label). Inserted on the
+            nearest segment between existing nodes.
+          </p>
           <button
             class="sm"
             :disabled="!gridSelectedHandleId?.startsWith('point-')"
             @click="deleteGridSelectedPoint">
-            Delete point
+            Delete waypoint
           </button>
+          <button
+            class="sm"
+            :disabled="!gridSelectedPathNodeId || gridSelectedPathNode?.door"
+            @click="deleteGridSelectedPathNode">
+            Delete node
+          </button>
+        </div>
+
+        <div
+          v-if="gridEditMode === 'line' && gridSelectedPathNode"
+          class="builder-props">
+          <label class="prop-row">
+            <span>Node label</span>
+            <input
+              type="text"
+              :value="gridSelectedPathNode.label ?? ''"
+              @input="
+                setNodeLabel(
+                  editableBuildingData,
+                  gridSelectedPathNode.id,
+                  $event.target.value,
+                )
+              " />
+          </label>
+          <p class="prop-readonly">ID: {{ gridSelectedPathNode.id }}</p>
         </div>
 
         <div v-if="gridEditMode === 'room'" class="builder-props">
@@ -1880,8 +1974,9 @@ function resetIndoor() {
 
         <p class="builder-hint">
           <template v-if="gridEditMode === 'line'">
-            Drag yellow handles for curve points, green for named path nodes
-            (stand spots). Moving a node updates matching path points and exits.
+            Pink = smoothed path preview. Cyan dashed = control polygon. Orange
+            handles = curve waypoints; green = path nodes (stand spots). Use
+            “click to add waypoint” or “click to add node” below.
           </template>
           <template v-else-if="gridEditMode === 'room'">
             Drag purple center to move; yellow corners to resize. Click a room
@@ -2469,6 +2564,12 @@ button.sm.muted {
   color: #8a919e;
   font-size: 0.82rem;
   line-height: 1.45;
+}
+.builder-inline-hint {
+  margin: 0.35rem 0 0;
+  color: #f4a261;
+  font-size: 0.78rem;
+  line-height: 1.4;
 }
 .builder-export {
   display: grid;

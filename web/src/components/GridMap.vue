@@ -2,7 +2,11 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { hexCornerPoints } from '../composables/useHexGeometry.js'
 import { catmullRomSpline, pointsAttr } from '../composables/useRoutes.js'
-import { pathHandleColor, roomHandleColor } from '../composables/useGridBuilder.js'
+import {
+  pathCurvePointColor,
+  pathNodeHandleColor,
+  roomHandleColor,
+} from '../composables/useGridBuilder.js'
 import {
   roomsOnLevel,
   roomRect,
@@ -50,6 +54,7 @@ const props = defineProps({
   selectedHandleId: { type: String, default: null },
   selectedItemId: { type: String, default: null },
   addPointMode: { type: Boolean, default: false },
+  mapClickMode: { type: String, default: null },
   expanded: { type: Boolean, default: false },
 })
 
@@ -337,12 +342,12 @@ function onPointerUp() {
 onUnmounted(onPointerUp)
 
 function onSvgClick(e) {
-  if (!props.builderEdit || !props.addPointMode) return
+  if (!props.builderEdit || !props.mapClickMode) return
   if (e.target.closest('.edit-handle')) return
   const pt = svgCoords(e.clientX, e.clientY)
   if (!pt) return
   const layout = unTp(pt.x, pt.y)
-  emit('builder-map-click', layout)
+  emit('builder-map-click', { ...layout, kind: props.mapClickMode })
 }
 
 const displayEditHandles = computed(() =>
@@ -352,17 +357,15 @@ const displayEditHandles = computed(() =>
   }),
 )
 
-const editPolyline = computed(() => {
-  if (props.editMode !== 'line') return []
-  return displayEditHandles.value.map((h) => ({ x: h.x, y: h.y }))
-})
-
-const editStroke = computed(() => pathHandleColor())
-
 function handleColor(h) {
-  if (h.role === 'point') return pathHandleColor()
-  if (h.role === 'path-node' || h.role === 'node-at' || h.role === 'door-at' || h.role === 'exit-map') {
-    return '#7dcea0'
+  if (h.role === 'point') return pathCurvePointColor()
+  if (
+    h.role === 'path-node' ||
+    h.role === 'node-at' ||
+    h.role === 'door-at' ||
+    h.role === 'exit-map'
+  ) {
+    return pathNodeHandleColor()
   }
   return roomHandleColor(h.role)
 }
@@ -370,7 +373,13 @@ function handleColor(h) {
 function handleFill(h) {
   if (h.handleKey === props.selectedHandleId) return '#fff'
   if (h.role === 'move') return '#e8d4ff'
-  if (h.role === 'path-node' || h.role === 'node-at' || h.role === 'door-at' || h.role === 'exit-map') {
+  if (h.role === 'point') return '#ffe8cc'
+  if (h.role === 'path-node') return '#9fdfb8'
+  if (
+    h.role === 'node-at' ||
+    h.role === 'door-at' ||
+    h.role === 'exit-map'
+  ) {
     return '#d4f5e2'
   }
   return '#ffd166'
@@ -587,12 +596,57 @@ const placedExteriorPaths = computed(() =>
       .map((p) => tp(p.x, p.y))
       .map((p) => `${p.x},${p.y}`)
       .join(' ')
-    return { id: path.id, points }
+    const pathEditing =
+      props.builderEdit && props.editMode === 'line' && props.selectedItemId
+    const isSelected = pathEditing && path.id === props.selectedItemId
+    const dimmed = pathEditing && !isSelected
+    return { id: path.id, points, isSelected, dimmed }
   }),
 )
 
-const placedExteriorNodes = computed(() =>
-  exteriorNodesOnLevel(props.building, props.level).map((node) => {
+/** Control polygon for the path being edited (point order, not handle list order). */
+const editPathControlLine = computed(() => {
+  if (!props.builderEdit || props.editMode !== 'line' || !props.selectedItemId) {
+    return []
+  }
+  const path = props.building.exterior?.paths?.find(
+    (p) => p.id === props.selectedItemId,
+  )
+  if (!path?.points?.length) return []
+  return path.points.map((p) => tp(p.x * cell.value, p.y * cell.value))
+})
+
+const pathBuilderLegend = computed(
+  () => props.builderEdit && props.editMode === 'line',
+)
+
+const addPointHint = computed(
+  () =>
+    props.builderEdit &&
+    props.editMode === 'line' &&
+    props.mapClickMode === 'point',
+)
+
+const addNodeHint = computed(
+  () =>
+    props.builderEdit &&
+    props.editMode === 'line' &&
+    props.mapClickMode === 'node',
+)
+
+const placedExteriorNodes = computed(() => {
+  const editingPathId =
+    props.builderEdit && props.editMode === 'line' ? props.selectedItemId : null
+  const editingNodeIds = new Set(
+    editingPathId
+      ? (props.building.exterior?.paths ?? []).find((p) => p.id === editingPathId)
+          ?.nodes ?? []
+      : [],
+  )
+
+  return exteriorNodesOnLevel(props.building, props.level)
+    .filter((node) => !editingNodeIds.has(node.id))
+    .map((node) => {
     const c = tp(node.at.x * cell.value, node.at.y * cell.value)
     const r = cell.value * 0.11
     return {
@@ -605,8 +659,8 @@ const placedExteriorNodes = computed(() =>
       reachable: reachableExteriorSet.value.has(node.id),
       hasDoor: !!node.door,
     }
-  }),
-)
+  })
+})
 
 const placedExits = computed(() =>
   exitsOnLevel(props.building, props.level)
@@ -1031,6 +1085,10 @@ function onExteriorNodeClick(nodeId) {
           :key="'ext-path-' + path.id"
           :points="path.points"
           class="exterior-path"
+          :class="{
+            'exterior-path-builder-dim': path.dimmed,
+            'exterior-path-builder-active': path.isSelected,
+          }"
         />
       </g>
 
@@ -1362,10 +1420,9 @@ function onExteriorNodeClick(nodeId) {
       <!-- Builder edit layer -->
       <g v-if="builderEdit" class="edit-layer">
         <polyline
-          v-if="editMode === 'line' && editPolyline.length"
-          :points="pointsAttr(editPolyline)"
-          class="edit-guide"
-          :style="{ stroke: editStroke }"
+          v-if="editMode === 'line' && editPathControlLine.length"
+          :points="pointsAttr(editPathControlLine)"
+          class="edit-path-control"
         />
         <template v-if="editMode === 'room' && selectedItemId">
           <rect
@@ -1384,17 +1441,48 @@ function onExteriorNodeClick(nodeId) {
           :key="'handle-' + h.handleKey"
           :cx="h.x"
           :cy="h.y"
-          :r="h.role === 'move' || h.role === 'path-node' ? 9 : 7"
+          :r="h.role === 'path-node' ? 10 : h.role === 'move' ? 9 : 7"
           class="edit-handle"
           :class="{
             selected: h.handleKey === selectedHandleId,
             ['role-' + h.role]: !!h.role,
+            'path-node-handle': h.role === 'path-node',
           }"
           :style="{ stroke: handleColor(h), fill: handleFill(h) }"
           @pointerdown="onHandleDown($event, h)"
         />
       </g>
     </svg>
+
+    <div v-if="pathBuilderLegend" class="path-builder-legend" aria-label="Path editor legend">
+      <div class="path-builder-legend-title">Path editor</div>
+      <div class="path-builder-legend-row">
+        <span class="swatch swatch-preview" />
+        <span>Smoothed preview (selected path)</span>
+      </div>
+      <div class="path-builder-legend-row">
+        <span class="swatch swatch-control" />
+        <span>Control polygon (straight segments between points)</span>
+      </div>
+      <div class="path-builder-legend-row">
+        <span class="swatch swatch-curve" />
+        <span>Curve waypoint — drag to bend</span>
+      </div>
+      <div class="path-builder-legend-row">
+        <span class="swatch swatch-node" />
+        <span>Path node — stand spot on the route</span>
+      </div>
+      <div class="path-builder-legend-row">
+        <span class="swatch swatch-dim" />
+        <span>Other paths (background)</span>
+      </div>
+      <p v-if="addPointHint" class="path-builder-add-hint">
+        Click the map: adds an orange waypoint on the nearest cyan segment.
+      </p>
+      <p v-else-if="addNodeHint" class="path-builder-add-hint path-builder-add-hint-node">
+        Click the map: adds a green path node (stand spot) on the route.
+      </p>
+    </div>
   </div>
 </template>
 
@@ -1441,6 +1529,16 @@ function onExteriorNodeClick(nodeId) {
   opacity: 0.85;
   pointer-events: none;
 }
+.edit-path-control {
+  fill: none;
+  stroke: #58c4e8;
+  stroke-width: 2.5;
+  stroke-dasharray: 6 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.95;
+  pointer-events: none;
+}
 .room-selection-outline {
   fill: rgba(200, 162, 255, 0.08);
   stroke: rgba(200, 162, 255, 0.75);
@@ -1456,8 +1554,88 @@ function onExteriorNodeClick(nodeId) {
 .edit-handle.selected {
   stroke-width: 3;
 }
+.edit-handle.path-node-handle {
+  stroke-width: 3;
+}
+.edit-handle.path-node-handle.selected {
+  stroke-width: 3.5;
+}
 .edit-handle:active {
   cursor: grabbing;
+}
+.path-builder-legend {
+  position: absolute;
+  left: clamp(6px, 2.5cqmin, 14px);
+  bottom: clamp(6px, 2.5cqmin, 14px);
+  z-index: 2;
+  max-width: min(240px, 88%);
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(12, 14, 18, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 10px;
+  line-height: 1.35;
+  color: #d8dde6;
+  pointer-events: none;
+}
+.path-builder-legend-title {
+  font-weight: 700;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #a8b0bd;
+  margin-bottom: 6px;
+}
+.path-builder-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.path-builder-legend .swatch {
+  flex-shrink: 0;
+  width: 22px;
+  height: 0;
+  border-top-width: 3px;
+  border-top-style: solid;
+  border-radius: 1px;
+}
+.path-builder-legend .swatch-preview {
+  border-top-color: #e878a8;
+}
+.path-builder-legend .swatch-control {
+  border-top-color: #58c4e8;
+  border-top-style: dashed;
+}
+.path-builder-legend .swatch-curve {
+  width: 10px;
+  height: 10px;
+  border: 2.5px solid #f4a261;
+  border-radius: 50%;
+  border-top: 2.5px solid #f4a261;
+}
+.path-builder-legend .swatch-node {
+  width: 10px;
+  height: 10px;
+  border: 2.5px solid #7dcea0;
+  border-radius: 50%;
+  border-top: 2.5px solid #7dcea0;
+}
+.path-builder-legend .swatch-dim {
+  border-top-color: #5c574e;
+  border-top-style: dashed;
+  opacity: 0.7;
+}
+.path-builder-add-hint {
+  margin: 8px 0 0;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f4a261;
+  font-size: 9px;
+  line-height: 1.4;
+}
+.path-builder-add-hint-node {
+  color: #7dcea0;
 }
 .map-controls {
   position: absolute;
@@ -1783,6 +1961,18 @@ svg:not(.compass) {
   stroke-linejoin: round;
   opacity: 0.82;
   pointer-events: none;
+}
+.exterior-path-builder-dim {
+  stroke: #5c574e;
+  stroke-width: 2;
+  stroke-dasharray: 2 8;
+  opacity: 0.45;
+}
+.exterior-path-builder-active {
+  stroke: #e878a8;
+  stroke-width: 3.5;
+  stroke-dasharray: none;
+  opacity: 0.95;
 }
 .exterior-node {
   pointer-events: none;

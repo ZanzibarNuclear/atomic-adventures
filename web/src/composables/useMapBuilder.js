@@ -179,7 +179,8 @@ function serializeLine(line, indent) {
   const inner = ' '.repeat(indent + 2)
   const lines = [`${pad}- id: ${line.id}`, `${inner}kind: ${line.kind}`]
   if (line.name) lines.push(`${inner}name: ${JSON.stringify(line.name)}`)
-  if (line.smooth) lines.push(`${inner}smooth: true`)
+  if (line.smooth === false) lines.push(`${inner}smooth: false`)
+  else if (line.smooth) lines.push(`${inner}smooth: true`)
   if (line.flow) lines.push(`${inner}flow: ${line.flow}`)
   lines.push(`${inner}points:`)
   for (const p of line.points ?? []) {
