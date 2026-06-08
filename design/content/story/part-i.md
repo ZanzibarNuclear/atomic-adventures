@@ -90,19 +90,64 @@ What an exciting day. Three days ago, he made a bold decision based on a hunch. 
 
 It was a small miracle that the facilities were in working order. Running water, a supply of paper products, even an old bar of soap. A welcome improvement after days of roughing it.
 
-### The Study / Library
+The next priority was to find breakfast. Zanzibar went back up the spiral staircase, enjoying the sight and sound of the cascade. He was impressed that the flow was still rather strong. It had been at least a month since the last of the snow had vanished from the mountain summit.
 
-Positioned under the conference room, about ten feet south of the original layout so the spiral landing could become a hallway. Standard library shelves with books, manuals, and binders full of logs.
+Back in the kitchen, Zanzibar rifled through boxes of Tasty Tack. He opened a box of Pioneer Breakfast, "a complete meal, with griddle cakes, eggs and bacon." Each pack had three bars with their distinctive flavors. Zanzibar took small bites, trying each on its own, then in combination. He washed it down with a fresh batch of purified river water.
 
-This area features three holo-reader stations and a rack of media. Topics are technical, ranging from physics and chemistry to machanical and civil engineering.
+Ready for the day, Zanzibar returned to the library to continue his self-guided tour.
+
+### The Library
+
+Low shelves of binders. Large picture book - the making of the facility.
+
+This area features two holo-reader stations side-by-side with a rack of media between them. The titles were impressive.
+
+**Holo-reader media**
+
+(note: make the titles humorous, punny)
+
+- Fundamentals of Physics
+- The Chemistry of Everything
+- Mechanical Engineering, the Complete Works
+- Fluid Dynamics
+- Statistical Thermodynamics
+- Quantum Mechanics and Engineering
+- Hydro Power, Water You Waiting For?
+- Photovoltaics, PVs in Charge
+- Battery Storage Through the Years
+- Nuclear Fission
+- Power Grids
+
+With the power out, the materials were inaccessible. One fact was obvious. To make the most of this library, Zanzibar needed to find a way to turn on the power.
 
 ### The Control Room
 
+Down the sloping corridor. Bit of a steep angle. Non-slip surfacing on the floor. Landing at the bottom, door opens into the corridor.
+
 South of the library on the same floor — not a basement level. Gauges that work, based on simulator state. By what miracle does this connect to the local grid. Route excess load to the batteries. Disengage when nothing is drawing power. How will this mimic reality without becoming too much to handle.
 
-### Living Quarters
+Operation manuals for hydro power system.
 
-Good place for shut-eye, showers, bathrooms.
+Show the laminated information card. First quiz to make sure the player understands the basics on the card.
+
+Basic operational instructions on the back.
+
+1. Clear and open the intake.
+2. Water gets diverted into the cascade. Switch the bypass so water flows down the pipe.
+3. Walk down the path to the base of the pipe. Look for obvious leaks.
+4. Check the water pressure at the base of the pipe. Should be approaching 70 PSI.
+5. Open valve to the water turbine.
+6. Go back to the control room. Connect the circuit.
+7. Control room comes alive. Check the gauges.
+
+Get some lunch.
+
+Back to the control room. Observe steady state production for a while. There is enough production to power this station.
+
+Now or later: See the gauge for the battery array that is slowly charging with the excess electricity.
+Soon: Zanzibar thinks of the e-Buggy. Goes into the garage and plugs it in. An estimated N hours to full charge.
+
+Lots more to think through...
 
 ## Day 3
 
