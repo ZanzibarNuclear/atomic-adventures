@@ -76,3 +76,55 @@ function shellRingPath(ring) {
   return ring.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ') + ' Z'
 }
 </script>
+
+<style scoped>
+.grid-layer {
+  pointer-events: none;
+}
+.grid-line {
+  stroke: rgba(255, 255, 255, 0.14);
+  stroke-width: 1;
+}
+.building-shell-layer {
+  pointer-events: none;
+}
+.river-layer {
+  pointer-events: none;
+}
+.river-fill {
+  fill: #2a5578;
+  opacity: 0.92;
+}
+.river-flow {
+  fill: none;
+  stroke: rgba(200, 230, 255, 0.5);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.cliff-wall-layer {
+  pointer-events: none;
+}
+.cliff-wall-fill {
+  fill: url(#cliff-wall-stone);
+  stroke: #5c5854;
+  stroke-width: 2;
+  stroke-linejoin: bevel;
+}
+.building-shell {
+  fill: #14181f;
+  stroke: rgba(255, 255, 255, 0.22);
+  stroke-width: 2.5;
+}
+.beam {
+  stroke: #6f6657;
+  stroke-width: 5;
+  stroke-linecap: round;
+  opacity: 0.85;
+  pointer-events: none;
+}
+.column {
+  fill: #514a3f;
+  pointer-events: none;
+}
+</style>

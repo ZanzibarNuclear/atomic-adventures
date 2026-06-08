@@ -33,3 +33,49 @@ defineProps({
 
 defineEmits(['door-click'])
 </script>
+
+<style scoped>
+.roll-door {
+  fill: #8a8073;
+  stroke: #5b5247;
+  stroke-width: 1;
+  pointer-events: none;
+  transition: fill 0.25s ease, opacity 0.25s ease;
+}
+.roll-door.open {
+  fill: #3b4658;
+  opacity: 0.55;
+}
+.roll-door.locked {
+  stroke: #a0522d;
+  stroke-width: 2;
+}
+.man-door {
+  fill: #c39a6b;
+  pointer-events: none;
+  transition: fill 0.25s ease;
+}
+.man-door.open {
+  fill: #2a3038;
+  stroke: #c39a6b;
+  stroke-width: 1.5;
+}
+.man-door.locked {
+  stroke: #a0522d;
+  stroke-width: 2.5;
+}
+.man-door.lock-broken {
+  stroke: #7a828e;
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+}
+.man-door.door-clickable,
+.roll-door.door-clickable {
+  pointer-events: all;
+  cursor: pointer;
+}
+.man-door.door-clickable:hover,
+.roll-door.door-clickable:hover {
+  filter: brightness(1.15);
+}
+</style>

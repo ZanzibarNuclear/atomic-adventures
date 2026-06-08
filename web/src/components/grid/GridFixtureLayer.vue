@@ -137,3 +137,89 @@ function onFixtureClick(f) {
   emit('stair-fixture-click', f)
 }
 </script>
+
+<style scoped>
+.fixture {
+  cursor: default;
+}
+.fixture.reachable,
+.fixture.stair-clickable {
+  cursor: pointer;
+}
+.fixture.visual-only {
+  pointer-events: none;
+}
+.fixture.fog {
+  cursor: default;
+}
+.fixture-fog-fill {
+  fill: #222a25;
+  stroke: rgba(255, 255, 255, 0.07);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+  pointer-events: none;
+}
+.fog-mark {
+  fill: rgba(255, 255, 255, 0.3);
+  font-size: 22px;
+  text-anchor: middle;
+  font-weight: 700;
+  paint-order: unset;
+  stroke: none;
+}
+.stair-hit {
+  fill: transparent;
+  stroke: none;
+}
+.stair-tread {
+  stroke: #c9b88a;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+.stair-pad {
+  fill: #20262f;
+  stroke: #d7c48f;
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+.spiral-exit {
+  cursor: default;
+  opacity: 0.45;
+}
+.spiral-exit.reachable {
+  cursor: pointer;
+  opacity: 1;
+}
+.spiral-exit.reachable .stair-pad {
+  pointer-events: all;
+}
+.spiral-exit .stair-pad {
+  pointer-events: all;
+}
+.stair-icon {
+  fill: #d7c48f;
+  font-size: 11px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+.spiral-glass {
+  fill: rgba(126, 200, 255, 0.16);
+  stroke: none;
+  transition: fill 0.3s ease;
+}
+.fixture.current .spiral-glass {
+  fill: rgba(126, 200, 255, 0.28);
+}
+.spiral-frame {
+  fill: none;
+  stroke: #9fd3ff;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  transition: stroke 0.3s ease, stroke-width 0.3s ease;
+}
+.fixture.current .spiral-frame {
+  stroke: #ffd166;
+  stroke-width: 3.5;
+}
+</style>

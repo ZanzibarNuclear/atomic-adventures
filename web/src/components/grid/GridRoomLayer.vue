@@ -88,3 +88,105 @@ defineProps({
 
 defineEmits(['room-click'])
 </script>
+
+<style scoped>
+.room {
+  cursor: pointer;
+}
+.floor {
+  fill: #3b4658;
+  stroke: #20262f;
+  stroke-width: 2;
+  transition: fill 0.3s ease, stroke 0.3s ease;
+}
+.room.visited .floor {
+  fill: #50617a;
+}
+.room.unvisited .floor {
+  fill: #222a25;
+  stroke: rgba(255, 255, 255, 0.07);
+  stroke-dasharray: 4 4;
+}
+.room.reachable.unvisited .floor {
+  stroke: rgba(109, 185, 127, 0.45);
+  cursor: pointer;
+}
+.room.current .floor {
+  fill: #5d7090;
+  stroke: #ffd166;
+  stroke-width: 3.5;
+}
+.room.open {
+  cursor: default;
+}
+.room.open .floor {
+  fill: #14181f;
+  stroke: #2b333d;
+}
+.room.overlook .floor {
+  fill: #50617a;
+  stroke: #20262f;
+}
+.room.overlook.unvisited .floor {
+  fill: #222a25;
+  stroke: rgba(255, 255, 255, 0.07);
+  stroke-dasharray: 4 4;
+}
+.railing {
+  stroke: #b9923f;
+  stroke-width: 2.5;
+  stroke-dasharray: 2 3;
+  pointer-events: none;
+}
+.room-icon {
+  font-size: 22px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+.room-label {
+  fill: #f4f1de;
+  font-size: 10px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.55);
+  stroke-width: 3px;
+  pointer-events: none;
+}
+.fog-mark {
+  fill: rgba(255, 255, 255, 0.3);
+  font-size: 22px;
+  text-anchor: middle;
+  font-weight: 700;
+  paint-order: unset;
+  stroke: none;
+}
+.room-label.open-label {
+  fill: #5d6775;
+  font-weight: 500;
+  font-style: italic;
+  font-size: 9px;
+  stroke: none;
+}
+.room-note {
+  fill: #aab2c0;
+  font-size: 7.5px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  font-style: italic;
+  pointer-events: none;
+}
+.window {
+  stroke: #7ec8ff;
+  stroke-width: 4;
+  stroke-linecap: round;
+  opacity: 0.85;
+  pointer-events: none;
+}
+.entry-door {
+  fill: #c39a6b;
+  pointer-events: none;
+}
+</style>

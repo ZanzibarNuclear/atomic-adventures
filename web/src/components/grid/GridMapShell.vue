@@ -1,6 +1,6 @@
 <script setup>
-import { computed } from 'vue'
-import './grid-map.css'
+import { computed, ref } from 'vue'
+import './grid-map-shared.css'
 
 const props = defineProps({
   expanded: { type: Boolean, default: false },
@@ -39,10 +39,14 @@ const compassCardinals = computed(() => {
     { id: 'W', ...compassLabelPoint(n, 270) },
   ]
 })
+
+const rootRef = ref(null)
+defineExpose({ rootRef })
 </script>
 
 <template>
   <div
+    ref="rootRef"
     class="gridmap"
     :class="{
       expanded,
@@ -101,3 +105,177 @@ const compassCardinals = computed(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.gridmap {
+  position: relative;
+  width: 220px;
+  height: 200px;
+  border-radius: 10px;
+  overflow: hidden;
+  container-type: size;
+  background: radial-gradient(circle at 50% 30%, #2c3340, #181c24);
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.45);
+  transition: width 0.35s ease, height 0.35s ease;
+}
+.gridmap.expanded {
+  width: 100%;
+  height: 72vh;
+}
+.gridmap.builder-view {
+  box-shadow: inset 0 0 0 2px rgba(200, 162, 255, 0.35);
+}
+.gridmap.builder-view:not(.expanded) {
+  width: 100%;
+  height: min(58vh, 560px);
+}
+.gridmap.builder-edit.add-point {
+  cursor: crosshair;
+}
+.gridmap :deep(svg:not(.compass)) {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.path-builder-legend {
+  position: absolute;
+  left: clamp(6px, 2.5cqmin, 14px);
+  bottom: clamp(6px, 2.5cqmin, 14px);
+  z-index: 2;
+  max-width: min(240px, 88%);
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(12, 14, 18, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 10px;
+  line-height: 1.35;
+  color: #d8dde6;
+  pointer-events: none;
+}
+.path-builder-legend-title {
+  font-weight: 700;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #a8b0bd;
+  margin-bottom: 6px;
+}
+.path-builder-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.path-builder-legend .swatch {
+  flex-shrink: 0;
+  width: 22px;
+  height: 0;
+  border-top-width: 3px;
+  border-top-style: solid;
+  border-radius: 1px;
+}
+.path-builder-legend .swatch-preview {
+  border-top-color: #e878a8;
+}
+.path-builder-legend .swatch-control {
+  border-top-color: #58c4e8;
+  border-top-style: dashed;
+}
+.path-builder-legend .swatch-curve {
+  width: 10px;
+  height: 10px;
+  border: 2.5px solid #f4a261;
+  border-radius: 50%;
+  border-top: 2.5px solid #f4a261;
+}
+.path-builder-legend .swatch-node {
+  width: 10px;
+  height: 10px;
+  border: 2.5px solid #7dcea0;
+  border-radius: 50%;
+  border-top: 2.5px solid #7dcea0;
+}
+.path-builder-legend .swatch-dim {
+  border-top-color: #5c574e;
+  border-top-style: dashed;
+  opacity: 0.7;
+}
+.path-builder-add-hint {
+  margin: 8px 0 0;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f4a261;
+  font-size: 9px;
+  line-height: 1.4;
+}
+.path-builder-add-hint-node {
+  color: #7dcea0;
+}
+.map-controls {
+  position: absolute;
+  right: clamp(6px, 2.5cqmin, 14px);
+  top: clamp(6px, 2.5cqmin, 14px);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: clamp(4px, 1.5cqmin, 10px);
+  --ctrl-size: clamp(28px, 13cqmin, 54px);
+}
+.rotate-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--ctrl-size);
+  height: var(--ctrl-size);
+  padding: 0;
+  font-size: calc(var(--ctrl-size) * 0.62);
+  line-height: 1;
+  border-radius: 7px;
+  background: rgba(20, 24, 30, 0.8);
+  color: #cdd3dd;
+  border: 1px solid #3f4c63;
+  cursor: pointer;
+}
+.rotate-btn:hover {
+  background: rgba(40, 48, 60, 0.9);
+}
+.compass {
+  width: calc(var(--ctrl-size) * 1.35);
+  height: calc(var(--ctrl-size) * 1.35);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+.compass-ring {
+  fill: rgba(20, 24, 30, 0.55);
+  stroke: #3f4c63;
+  stroke-width: 1.5;
+}
+.compass-needle {
+  stroke: #6db97f;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+.compass-dot {
+  fill: #6db97f;
+}
+.compass-n {
+  fill: #6db97f;
+  font-size: 8px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  paint-order: stroke;
+  stroke: #181c24;
+  stroke-width: 2.5px;
+}
+.compass-cardinal {
+  fill: #9aa3b2;
+  font-size: 7px;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  paint-order: stroke;
+  stroke: #181c24;
+  stroke-width: 2px;
+}
+</style>

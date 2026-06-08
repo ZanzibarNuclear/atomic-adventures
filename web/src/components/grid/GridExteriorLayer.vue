@@ -74,3 +74,118 @@ defineProps({
 
 defineEmits(['exterior-node-click', 'exit-click'])
 </script>
+
+<style scoped>
+.exterior-path {
+  fill: none;
+  stroke: #c9b97e;
+  stroke-width: 2.8;
+  stroke-dasharray: 1.5 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.82;
+  pointer-events: none;
+}
+.exterior-path-builder-dim {
+  stroke: #5c574e;
+  stroke-width: 2;
+  stroke-dasharray: 2 8;
+  opacity: 0.45;
+}
+.exterior-path-builder-active {
+  stroke: #e878a8;
+  stroke-width: 3.5;
+  stroke-dasharray: none;
+  opacity: 0.95;
+}
+.exterior-node {
+  pointer-events: none;
+  opacity: 0.4;
+}
+.exterior-node.reachable {
+  pointer-events: all;
+  cursor: pointer;
+  opacity: 0.9;
+}
+.exterior-node.current {
+  opacity: 1;
+}
+.exterior-node-fill {
+  fill: #5c7058;
+  stroke: #c9b97e;
+  stroke-width: 2;
+  transition: fill 0.2s ease, stroke 0.2s ease;
+}
+.exterior-node-ring {
+  fill: none;
+  stroke: rgba(224, 212, 168, 0.55);
+  stroke-width: 2;
+  pointer-events: none;
+}
+.exterior-node-label {
+  fill: #e0d4a8;
+  font-size: 8px;
+  font-weight: 600;
+  text-anchor: middle;
+  pointer-events: none;
+}
+.exterior-node.reachable:hover .exterior-node-fill {
+  fill: #6a8066;
+  stroke: #e0d4a8;
+}
+.exterior-node.current .exterior-node-fill {
+  fill: #7a9474;
+  stroke: #fff;
+  stroke-width: 2.5;
+}
+.exterior-node.builder-selected .exterior-node-fill {
+  stroke: rgba(200, 162, 255, 0.95);
+  stroke-width: 3;
+}
+.exit-hex {
+  pointer-events: none;
+  opacity: 0.45;
+}
+.exit-hex.playable,
+.exit-hex.builder-pick {
+  pointer-events: all;
+  cursor: pointer;
+}
+.exit-hex.reachable {
+  opacity: 1;
+}
+.exit-hex.playable:not(.reachable) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.exit-hex-fill {
+  fill: #3d5a4a;
+  stroke: #8ab89a;
+  stroke-width: 1.5;
+  transition: fill 0.2s ease, stroke 0.2s ease;
+}
+.exit-hex.reachable:hover .exit-hex-fill {
+  fill: #4a7560;
+  stroke: #b8e0c8;
+}
+.exit-hex.builder-selected .exit-hex-fill {
+  stroke: rgba(200, 162, 255, 0.95);
+  stroke-width: 2.5;
+}
+.exit-hex-icon {
+  fill: #c8e6d0;
+  font-size: 11px;
+  text-anchor: middle;
+  pointer-events: none;
+  opacity: 0.85;
+}
+.exit-hex-label {
+  fill: #9ab89a;
+  font-size: 7px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-anchor: middle;
+  pointer-events: none;
+}
+</style>
