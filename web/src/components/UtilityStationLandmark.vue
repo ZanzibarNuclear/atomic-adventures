@@ -51,7 +51,7 @@
 
 <style scoped>
 .utility-station {
-  pointer-events: none;
+  pointer-events: all;
 }
 
 .us-shadow {

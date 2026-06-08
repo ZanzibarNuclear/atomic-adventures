@@ -26,9 +26,10 @@ const props = defineProps({
   editKind: { type: String, default: 'path' },
   selectedHandleId: { type: String, default: null },
   addPointMode: { type: Boolean, default: false },
+  standOverride: { type: Object, default: null }, // { hexId, standAt }
 })
 
-const emit = defineEmits(['hex-click', 'select-handle', 'waypoint-move', 'builder-map-click'])
+const emit = defineEmits(['hex-click', 'select-handle', 'waypoint-move', 'builder-map-click', 'building-enter'])
 
 const svgRef = ref(null)
 const dragHandle = ref(null)
@@ -87,6 +88,13 @@ function onSvgClick(e) {
 function onHexClick(hexId) {
   if (props.addPointMode) return
   emit('hex-click', hexId)
+}
+
+function onBuildingClick(hex) {
+  if (props.builderEdit || props.addPointMode) return
+  if (props.currentHex !== hex.id) return
+  if (hex.landmark?.building !== 'utility-station' && hex.area !== 'utility') return
+  emit('building-enter', hex.id)
 }
 
 const editPolyline = computed(() => {
@@ -229,9 +237,17 @@ function center(hex) {
 // Small figure (~1/4 the old size). On a landmark hex, stand beside the
 // building rather than on top of it — see useAvatarStand.js.
 const avatarScale = computed(() => (size.value / 44) * 0.28)
-const avatarPos = computed(() =>
-  resolveAvatarPosition(current.value, size.value),
-)
+const avatarPos = computed(() => {
+  const hex = current.value
+  if (
+    hex &&
+    props.standOverride?.hexId === hex.id &&
+    props.standOverride?.standAt
+  ) {
+    return resolveAvatarPosition({ ...hex, standAt: props.standOverride.standAt }, size.value)
+  }
+  return resolveAvatarPosition(hex, size.value)
+})
 
 function chevronPath(x, y, dx, dy, scale = 1) {
   const len = Math.hypot(dx, dy) || 1
@@ -472,7 +488,10 @@ const hasLegend = computed(
         <g v-for="hex in landmarkHexes" :key="'lm-' + hex.id" class="landmark">
           <g
             v-if="hex.landmark.building === 'utility-station'"
-            :transform="`translate(${center(hex).x + (hex.landmark.dx ?? 0) * size}, ${center(hex).y + (hex.landmark.dy ?? 0) * size}) scale(1.08)`"
+            class="building-enter"
+            :class="{ 'can-enter': hex.id === currentHex && !builderEdit }"
+            :transform="`translate(${center(hex).x + (hex.landmark.dx ?? 0) * size}, ${center(hex).y + (hex.landmark.dy ?? 0) * size}) scale(0.54)`"
+            @click.stop="onBuildingClick(hex)"
           >
             <UtilityStationLandmark />
           </g>
@@ -780,6 +799,12 @@ svg {
 }
 .route.stub {
   opacity: 0.45;
+}
+.building-enter.can-enter {
+  cursor: pointer;
+}
+.building-enter.can-enter:hover :deep(.us-wall) {
+  filter: brightness(1.08);
 }
 .landmark-icon {
   font-size: 26px;

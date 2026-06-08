@@ -13,7 +13,13 @@ import {
 } from "./composables/useRoutes.js";
 import {
   applyRevealForDoor,
+  applyRevealDoorsForRoom,
   buildBuilding,
+  canUseExteriorExit,
+  exteriorMovesFrom,
+  exteriorPathBetween,
+  exteriorReachableNodes,
+  exteriorStepOutMoves,
   isDestinationNamed,
   isDoorMapped,
   mapVisibilityCtx,
@@ -22,19 +28,33 @@ import {
 } from "./composables/useGrid.js";
 import {
   buildInitialDoorState,
+  canPassDoor,
+  canBargeThroughDoor,
   doorsFromRoom,
   doorLabel,
   doorStatusText,
+  lockHintForDoor,
   getDoorState,
   setDoorOpen,
   canOpenDoor,
   canCloseDoor,
   canToggleLock,
+  canToggleLockFromRoom,
   canBreakLock,
   toggleDoorLock,
   breakLock,
   setAllDoorsOpen,
+  applyEnablerAutoUnlock,
+  isManualEnablerActive,
+  isEnablerLock,
+  relockEnablerDoor,
+  isSelfClosingDoor,
 } from "./composables/useDoors.js";
+import {
+  createInventory,
+  addItem,
+  inventoryItems,
+} from "./composables/useInventory.js";
 import {
   listEditableLines,
   findEditableLine,
@@ -50,6 +70,32 @@ import {
   setStandWorld,
   ensureDefaultStandAt,
 } from "./composables/useMapBuilder.js";
+import {
+  listAllGridEditable,
+  findGridEditable,
+  gridEditModeForSource,
+  resolvedPathHandles,
+  resolvedPathNodeHandles,
+  resolvedRoomHandles,
+  resolvedDoorHandle,
+  resolvedNodeHandle,
+  setPathPoint,
+  addPathPoint,
+  addPathNode,
+  removePathPoint,
+  removePathNodeFromPath,
+  setRoomRect,
+  setRoomName,
+  setRoomFromHandle,
+  setDoorAt,
+  setRollDoorProps,
+  setNodeAt,
+  setNodeLabel,
+  resolvedExitHandle,
+  setExitMapAt,
+  getExitMapAt,
+  exportBuildingYaml,
+} from "./composables/useGridBuilder.js";
 import {
   landmarkAnchor,
   resolveAvatarPosition,
@@ -317,6 +363,7 @@ function moveTo(hexId) {
   traveling.value = true;
   state.currentId = hexId;
   state.discovered.add(hexId);
+  outdoorStand.value = null;
   setTimeout(() => {
     traveling.value = false;
   }, 650);
@@ -340,6 +387,9 @@ async function autoTravel() {
 function reset() {
   state.currentId = START;
   state.discovered = new Set([START]);
+  outdoorStand.value = null;
+  place.value = "outdoors";
+  resetIndoor();
 }
 
 function nameOf(hexId) {
@@ -348,28 +398,345 @@ function nameOf(hexId) {
 }
 
 // --- Indoor building state (the Utility Station) ---
-const building = buildBuilding(buildingData);
+const editableBuildingData = ref(structuredClone(buildingData));
+const building = computed(() => buildBuilding(editableBuildingData.value));
+
+function syncFromBuildingData(data) {
+  editableBuildingData.value = structuredClone(data);
+}
+
+if (import.meta.hot) {
+  import.meta.hot.accept("../content/world/utility-station.yaml", (mod) => {
+    if (mod?.default) syncFromBuildingData(mod.default);
+  });
+}
+
+const initialBuilding = buildBuilding(buildingData);
 const place = ref("outdoors"); // 'outdoors' | 'indoors'
+const outdoorStand = ref(null); // { hexId, standAt } — where you landed after stepping outside
+const exitTravelHint = ref("");
 
 const indoor = reactive({
-  currentRoom: building.start,
-  discovered: new Set([building.start]),
+  currentRoom: null,
+  exteriorNode: initialBuilding.exterior?.entry ?? null,
+  discovered: new Set(),
   revealed: new Set(),
-  level: building.roomById[building.start]?.level ?? building.levels[0]?.id,
-  viewLevel: building.roomById[building.start]?.level ?? building.levels[0]?.id,
-  doorState: buildInitialDoorState(building.areaId, building),
+  level: initialBuilding.exterior?.level ?? initialBuilding.levels[0]?.id,
+  viewLevel: initialBuilding.exterior?.level ?? initialBuilding.levels[0]?.id,
+  doorState: buildInitialDoorState(initialBuilding.areaId, initialBuilding),
+  inventory: createInventory(),
+  pickupsTaken: new Set(),
+  facility: {
+    hydroOnline: false, // set true when hydro generator is running (hub.hydro_online)
+    manualMode: {},
+  },
   moving: false,
 });
+
+// --- Grid map builder ---
+const gridEditSelection = ref("");
+const gridSelectedHandleId = ref(null);
+const gridAddPointMode = ref(false);
+const gridAddNodeMode = ref(false);
+const gridExportStatus = ref("");
+
+const gridEditableItems = computed(() =>
+  listAllGridEditable(editableBuildingData.value, indoor.viewLevel),
+);
+
+const gridEditParsed = computed(() => {
+  if (!gridEditSelection.value) return null;
+  const [source, id] = gridEditSelection.value.split(":");
+  const entity = findGridEditable(editableBuildingData.value, source, id);
+  if (!entity) return null;
+  return { source, id, entity };
+});
+
+const gridEditMode = computed(() => {
+  if (!gridEditParsed.value) return null;
+  return gridEditModeForSource(gridEditParsed.value.source);
+});
+
+const gridSelectedPathNodeId = computed(() => {
+  const m = gridSelectedHandleId.value?.match(/^node-(.+)$/);
+  return m?.[1] ?? null;
+});
+
+const gridSelectedPathNode = computed(() => {
+  const id = gridSelectedPathNodeId.value;
+  if (!id) return null;
+  return editableBuildingData.value.exterior?.nodes?.find((n) => n.id === id) ?? null;
+});
+
+const gridCell = computed(() => editableBuildingData.value.cell ?? 64);
+
+const gridEditHandles = computed(() => {
+  const parsed = gridEditParsed.value;
+  if (!parsed) return [];
+  const cell = gridCell.value;
+  if (parsed.source === "paths") {
+    return [
+      ...resolvedPathHandles(parsed.entity, cell, editableBuildingData.value),
+      ...resolvedPathNodeHandles(
+        editableBuildingData.value,
+        parsed.entity,
+        cell,
+      ),
+    ];
+  }
+  if (parsed.source === "rooms") {
+    return resolvedRoomHandles(parsed.entity, cell);
+  }
+  if (parsed.source === "doors") {
+    if (parsed.entity.kind === "roll") return [];
+    return resolvedDoorHandle(parsed.entity, cell);
+  }
+  if (parsed.source === "nodes") {
+    return resolvedNodeHandle(parsed.entity, cell);
+  }
+  if (parsed.source === "exits") {
+    return resolvedExitHandle(parsed.entity, cell);
+  }
+  return [];
+});
+
+const gridBuilderEdit = computed(
+  () =>
+    builderView.value &&
+    place.value === "indoors" &&
+    gridEditParsed.value != null,
+);
+
+const gridRollDoorRoom = computed(() => {
+  const door = gridEditParsed.value?.entity;
+  if (!door || door.kind !== "roll" || !door.room) return null;
+  return editableBuildingData.value.rooms?.find((r) => r.id === door.room) ?? null;
+});
+
+watch(builderView, (on) => {
+  if (on && place.value === "indoors" && !gridEditSelection.value) {
+    const items = gridEditableItems.value;
+    if (items.length) {
+      gridEditSelection.value = `${items[0].source}:${items[0].id}`;
+    }
+  }
+  if (!on) {
+    gridAddPointMode.value = false;
+    gridAddNodeMode.value = false;
+    gridSelectedHandleId.value = null;
+  }
+});
+
+watch(
+  () => place.value,
+  (p) => {
+    if (p !== "indoors") {
+      gridEditSelection.value = "";
+      gridSelectedHandleId.value = null;
+      gridAddPointMode.value = false;
+      gridAddNodeMode.value = false;
+    } else if (builderView.value && !gridEditSelection.value) {
+      const items = gridEditableItems.value;
+      if (items.length) {
+        gridEditSelection.value = `${items[0].source}:${items[0].id}`;
+      }
+    }
+  },
+);
+
+watch(gridAddPointMode, (on) => {
+  if (on) gridAddNodeMode.value = false;
+});
+watch(gridAddNodeMode, (on) => {
+  if (on) gridAddPointMode.value = false;
+});
+
+watch(gridEditSelection, () => {
+  gridSelectedHandleId.value = null;
+  gridAddPointMode.value = false;
+  gridAddNodeMode.value = false;
+});
+
+watch(
+  () => indoor.viewLevel,
+  () => {
+    if (!gridEditSelection.value) return;
+    const [source, id] = gridEditSelection.value.split(":");
+    if (!findGridEditable(editableBuildingData.value, source, id)) {
+      const items = gridEditableItems.value;
+      gridEditSelection.value = items.length
+        ? `${items[0].source}:${items[0].id}`
+        : "";
+    }
+  },
+);
+
+function onGridSelectItem({ source, id }) {
+  gridEditSelection.value = `${source}:${id}`;
+}
+
+function onGridHandleMove(payload) {
+  const parsed = gridEditParsed.value;
+  if (!parsed) return;
+  const cell = gridCell.value;
+  const xUnits = payload.x / cell;
+  const yUnits = payload.y / cell;
+  const { role, index } = payload;
+
+  if (parsed.source === "paths") {
+    if (role === "path-node" && payload.nodeId) {
+      setNodeAt(
+        editableBuildingData.value,
+        payload.nodeId,
+        xUnits,
+        yUnits,
+      );
+      return;
+    }
+    setPathPoint(
+      editableBuildingData.value,
+      parsed.id,
+      index,
+      xUnits,
+      yUnits,
+    );
+    return;
+  }
+  if (parsed.source === "rooms") {
+    setRoomFromHandle(
+      editableBuildingData.value,
+      parsed.id,
+      role,
+      xUnits,
+      yUnits,
+    );
+    return;
+  }
+  if (parsed.source === "doors") {
+    setDoorAt(editableBuildingData.value, parsed.id, xUnits, yUnits);
+    return;
+  }
+  if (parsed.source === "nodes") {
+    setNodeAt(editableBuildingData.value, parsed.id, xUnits, yUnits);
+    return;
+  }
+  if (parsed.source === "exits") {
+    setExitMapAt(editableBuildingData.value, parsed.id, xUnits, yUnits);
+  }
+}
+
+function onGridBuilderMapClick(payload) {
+  const parsed = gridEditParsed.value;
+  if (!parsed || parsed.source !== "paths") return;
+  const kind =
+    payload.kind ??
+    (gridAddNodeMode.value ? "node" : gridAddPointMode.value ? "point" : null);
+  if (!kind) return;
+
+  const cell = gridCell.value;
+  const xu = payload.x / cell;
+  const yu = payload.y / cell;
+
+  if (kind === "node") {
+    const nodeId = addPathNode(
+      editableBuildingData.value,
+      parsed.id,
+      xu,
+      yu,
+    );
+    gridSelectedHandleId.value = nodeId ? `node-${nodeId}` : null;
+    return;
+  }
+
+  if (kind === "point") {
+    const idx = addPathPoint(editableBuildingData.value, parsed.id, xu, yu);
+    gridSelectedHandleId.value = idx >= 0 ? `point-${idx}` : null;
+  }
+}
+
+function deleteGridSelectedPoint() {
+  const parsed = gridEditParsed.value;
+  if (!parsed || parsed.source !== "paths") return;
+  const match = gridSelectedHandleId.value?.match(/^point-(\d+)$/);
+  if (!match) return;
+  const idx = Number(match[1]);
+  if (!removePathPoint(editableBuildingData.value, parsed.id, idx)) return;
+  const path = parsed.entity;
+  const next = Math.min(idx, path.points.length - 1);
+  gridSelectedHandleId.value = next >= 0 ? `point-${next}` : null;
+}
+
+function deleteGridSelectedPathNode() {
+  const parsed = gridEditParsed.value;
+  if (!parsed || parsed.source !== "paths") return;
+  const nodeId = gridSelectedPathNodeId.value;
+  if (!nodeId) return;
+  if (
+    !removePathNodeFromPath(
+      editableBuildingData.value,
+      parsed.id,
+      nodeId,
+    )
+  ) {
+    return;
+  }
+  gridSelectedHandleId.value = null;
+}
+
+function toggleGridSmooth() {
+  const path = gridEditParsed.value?.entity;
+  if (!path || gridEditParsed.value.source !== "paths") return;
+  path.smooth = !path.smooth;
+}
+
+async function copyGridYaml(which) {
+  const yaml = exportBuildingYaml(editableBuildingData.value);
+  const text = yaml[which] || yaml.all;
+  try {
+    await navigator.clipboard.writeText(text);
+    gridExportStatus.value = `Copied ${which} YAML`;
+  } catch {
+    gridExportStatus.value = "Copy failed — try Download";
+  }
+  setTimeout(() => {
+    gridExportStatus.value = "";
+  }, 2500);
+}
+
+function downloadGridYaml() {
+  const yaml = exportBuildingYaml(editableBuildingData.value);
+  const blob = new Blob([yaml.all], { type: "text/yaml" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "utility-station-export.yaml";
+  a.click();
+  URL.revokeObjectURL(url);
+  gridExportStatus.value = "Downloaded utility-station-export.yaml";
+  setTimeout(() => {
+    gridExportStatus.value = "";
+  }, 2500);
+}
+
+function resetGridBuilder() {
+  syncFromBuildingData(buildingData);
+  gridSelectedHandleId.value = null;
+  gridExportStatus.value = "Reset to file defaults";
+  setTimeout(() => {
+    gridExportStatus.value = "";
+  }, 2500);
+}
 
 const indoorVisibility = computed(() =>
   mapVisibilityCtx(
     indoor.discovered,
     indoor.revealed,
-    building,
+    building.value,
     indoor.doorState,
-    building.areaId,
+    building.value.areaId,
     builderView.value,
     indoor.currentRoom,
+    indoor.exteriorNode,
   ),
 );
 
@@ -378,28 +745,249 @@ const atBuildingEntrance = computed(
   () => currentHexData.value?.area === "utility",
 );
 const atGatePuzzle = computed(() => currentHexData.value?.puzzle === "gate");
-const currentRoomData = computed(() => building.roomById[indoor.currentRoom]);
-const indoorMoves = computed(() =>
-  movesFrom(
-    building,
+const currentRoomData = computed(() =>
+  indoor.currentRoom ? building.value.roomById[indoor.currentRoom] : null,
+);
+const currentExteriorNode = computed(() =>
+  indoor.exteriorNode
+    ? building.value.exterior?.nodeById?.[indoor.exteriorNode]
+    : null,
+);
+const indoorMoves = computed(() => {
+  if (indoor.exteriorNode) {
+    const moves = exteriorMovesFrom(building.value, indoor.exteriorNode).map(
+      (m) => ({
+        ...m,
+        toExteriorNode: m.toNodeId,
+      }),
+    );
+    const node = currentExteriorNode.value;
+    if (
+      node?.room &&
+      canPassDoor(
+        indoor.doorState,
+        building.value.areaId,
+        node.door,
+        building.value.doorById[node.door],
+      )
+    ) {
+      const room = building.value.roomById[node.room];
+      moves.push({
+        kind: "door",
+        toRoomId: node.room,
+        label: "through the door",
+        toName: room?.name ?? node.room,
+      });
+    }
+    return moves;
+  }
+  return [
+    ...movesFrom(
+      building.value,
+      indoor.currentRoom,
+      indoor.level,
+      indoor.doorState,
+      indoorVisibility.value,
+    ),
+    ...exteriorStepOutMoves(
+      building.value,
+      indoor.currentRoom,
+      indoor.doorState,
+      building.value.areaId,
+    ),
+  ];
+});
+/** One-step moves through closed but unlocked doors (room click opens the door, then enter). */
+const bargeMoves = computed(() => {
+  if (indoor.exteriorNode) {
+    const node = currentExteriorNode.value;
+    if (!node?.room || !node.door) return [];
+    const door = building.value.doorById[node.door];
+    if (
+      canPassDoor(
+        indoor.doorState,
+        building.value.areaId,
+        node.door,
+        door,
+      )
+    ) {
+      return [];
+    }
+    if (
+      !canBargeThroughDoor(
+        indoor.doorState,
+        building.value.areaId,
+        node.door,
+        door,
+      )
+    ) {
+      return [];
+    }
+    const room = building.value.roomById[node.room];
+    return [
+      {
+        kind: "door",
+        toRoomId: node.room,
+        doorId: node.door,
+        label: "through the door",
+        toName: room?.name ?? node.room,
+      },
+    ];
+  }
+  if (!indoor.currentRoom) return [];
+  const passableIds = new Set(
+    indoorMoves.value.filter((m) => !m.onSpiral).map((m) => m.toRoomId),
+  );
+  return movesFrom(
+    building.value,
     indoor.currentRoom,
     indoor.level,
     indoor.doorState,
     indoorVisibility.value,
-  ),
-);
-const reachableRooms = computed(() =>
-  indoorMoves.value.filter((m) => !m.onSpiral).map((m) => m.toRoomId),
-);
-const nearbyDoors = computed(() =>
-  doorsFromRoom(building, indoor.currentRoom).filter((d) =>
-    isDoorMapped(building.doorById[d.doorId], indoorVisibility.value),
-  ),
-);
-const levelsTopDown = computed(() => building.levels);
+    { includeBarge: true },
+  ).filter((m) => !passableIds.has(m.toRoomId));
+});
+const reachableRooms = computed(() => {
+  if (indoor.exteriorNode) {
+    const ids = indoorMoves.value
+      .filter((m) => m.kind === "door")
+      .map((m) => m.toRoomId);
+    for (const m of bargeMoves.value) ids.push(m.toRoomId);
+    return ids;
+  }
+  return [
+    ...indoorMoves.value.filter((m) => !m.onSpiral).map((m) => m.toRoomId),
+    ...bargeMoves.value.map((m) => m.toRoomId),
+  ];
+});
+const reachableExteriorNodes = computed(() => {
+  if (indoor.exteriorNode) {
+    return exteriorReachableNodes(
+      building.value,
+      indoor.exteriorNode,
+    );
+  }
+  if (indoor.currentRoom) {
+    return exteriorStepOutMoves(
+      building.value,
+      indoor.currentRoom,
+      indoor.doorState,
+      building.value.areaId,
+    ).map((m) => m.toExteriorNode);
+  }
+  return [];
+});
+const nearbyDoors = computed(() => {
+  if (indoor.exteriorNode) {
+    const node = currentExteriorNode.value;
+    if (!node?.door) return [];
+    const door = building.value.doorById[node.door];
+    if (!door || !isDoorMapped(door, indoorVisibility.value)) return [];
+    const room = building.value.roomById[node.room];
+    return [
+      {
+        doorId: node.door,
+        toRoomId: node.room,
+        toName: room?.name ?? node.room,
+      },
+    ];
+  }
+  return doorsFromRoom(building.value, indoor.currentRoom).filter((d) =>
+    isDoorMapped(building.value.doorById[d.doorId], indoorVisibility.value),
+  );
+});
+const interactableDoorIds = computed(() => {
+  if (builderView.value) {
+    return (building.value.doors ?? []).map((d) => d.id).filter(Boolean);
+  }
+  return nearbyDoors.value.map((d) => d.doorId);
+});
+const reachableExitDoors = computed(() => {
+  if (builderView.value) {
+    return (building.value.exits ?? []).map((e) => e.door);
+  }
+  if (indoor.exteriorNode) {
+    return (building.value.exits ?? []).map((e) => e.door).filter(Boolean);
+  }
+  return (building.value.exits ?? [])
+    .filter((exit) =>
+      canUseExteriorExit(
+        building.value,
+        exit,
+        indoor.currentRoom,
+        indoor.doorState,
+        building.value.areaId,
+        indoor.exteriorNode,
+      ),
+    )
+    .filter((exit) =>
+      isDoorMapped(building.value.doorById[exit.door], indoorVisibility.value),
+    )
+    .map((exit) => exit.door);
+});
+const levelsTopDown = computed(() => building.value.levels);
+
+/** Door + exit available to leave for the hex travel map. */
+const worldMapExit = computed(() => {
+  for (const doorId of reachableExitDoors.value) {
+    const exit = building.value.exitByDoorId?.[doorId];
+    if (!exit) continue;
+    return { doorId, label: "Travel world map ⬡" };
+  }
+  return null;
+});
 
 function doorStateFor(doorId) {
-  return getDoorState(indoor.doorState, building.areaId, doorId);
+  return getDoorState(indoor.doorState, building.value.areaId, doorId);
+}
+
+/** Lock side is based on interior room only — not exterior footpath nodes (they tag the door's room, not where you stand). */
+const playerRoomId = computed(() => indoor.currentRoom ?? null);
+
+const carriedItems = computed(() =>
+  inventoryItems(indoor.inventory, building.value.itemById),
+);
+
+const roomPickups = computed(() => {
+  const roomId = indoor.currentRoom;
+  if (!roomId) return [];
+  return (building.value.pickups ?? []).filter(
+    (p) => p.room === roomId && !indoor.pickupsTaken.has(p.id),
+  );
+});
+
+const roomSwitches = computed(() => {
+  const roomId = indoor.currentRoom;
+  if (!roomId) return [];
+  return (building.value.switches ?? []).filter((s) => s.room === roomId);
+});
+
+function doorLockCheck(doorId) {
+  const door = building.value.doorById[doorId];
+  return canToggleLockFromRoom(
+    indoor.doorState,
+    building.value,
+    building.value.areaId,
+    doorId,
+    playerRoomId.value,
+    indoor.inventory,
+    indoor.facility,
+  );
+}
+
+function canToggleDoorLock(doorId) {
+  return doorLockCheck(doorId).ok;
+}
+
+function doorLockHint(doorId) {
+  const door = building.value.doorById[doorId];
+  return lockHintForDoor(
+    door,
+    playerRoomId.value,
+    indoor.inventory,
+    indoor.facility,
+    building.value.itemById,
+  );
 }
 
 function syncDoorState() {
@@ -410,47 +998,214 @@ function syncDoorState() {
   indoor.doorState = next;
 }
 
-function tryOpenDoor(doorId) {
-  if (!setDoorOpen(indoor.doorState, building.areaId, doorId, true)) return;
-  syncDoorState();
+function discoverIndoorRoom(roomId) {
+  indoor.discovered = new Set([...indoor.discovered, roomId]);
   const next = new Set(indoor.revealed);
-  applyRevealForDoor(building, next, doorId);
+  applyRevealDoorsForRoom(building.value, next, roomId);
   indoor.revealed = next;
 }
 
+function tryOpenDoor(doorId) {
+  if (!setDoorOpen(indoor.doorState, building.value.areaId, doorId, true))
+    return;
+  syncDoorState();
+  exitTravelHint.value = "";
+  const next = new Set(indoor.revealed);
+  applyRevealForDoor(building.value, next, doorId);
+  indoor.revealed = next;
+}
+
+function tryToggleDoor(doorId) {
+  const door = building.value.doorById[doorId];
+  if (door && isSelfClosingDoor(door)) return;
+  const state = doorStateFor(doorId);
+  if (!state || state.locked) return;
+  if (indoor.exteriorNode) {
+    const node = currentExteriorNode.value;
+    if (
+      node?.door === doorId &&
+      state.open &&
+      node.room &&
+      reachableRooms.value.includes(node.room)
+    ) {
+      moveToRoom(node.room);
+      return;
+    }
+  }
+  if (state.open) tryCloseDoor(doorId);
+  else tryOpenDoor(doorId);
+}
+
 function openAllInteriorDoors() {
-  setAllDoorsOpen(indoor.doorState, building.areaId, building, true);
+  setAllDoorsOpen(
+    indoor.doorState,
+    building.value.areaId,
+    building.value,
+    true,
+  );
   syncDoorState();
   const next = new Set(indoor.revealed);
-  for (const door of building.doors) {
-    if (door.id) applyRevealForDoor(building, next, door.id);
+  for (const door of building.value.doors) {
+    if (door.id) applyRevealForDoor(building.value, next, door.id);
   }
   indoor.revealed = next;
 }
 
 function closeAllInteriorDoors() {
-  setAllDoorsOpen(indoor.doorState, building.areaId, building, false);
+  setAllDoorsOpen(
+    indoor.doorState,
+    building.value.areaId,
+    building.value,
+    false,
+  );
   syncDoorState();
 }
 
 function tryCloseDoor(doorId) {
-  if (!setDoorOpen(indoor.doorState, building.areaId, doorId, false)) return;
+  if (!setDoorOpen(indoor.doorState, building.value.areaId, doorId, false))
+    return;
   syncDoorState();
 }
 
 function tryBreakLock(doorId) {
-  breakLock(indoor.doorState, building.areaId, doorId);
+  if (
+    !breakLock(
+      indoor.doorState,
+      building.value.areaId,
+      doorId,
+      building.value,
+    )
+  )
+    return;
+  syncDoorState();
 }
 
 function tryToggleLock(doorId) {
-  toggleDoorLock(indoor.doorState, building.areaId, doorId);
+  if (
+    !toggleDoorLock(
+      indoor.doorState,
+      building.value.areaId,
+      doorId,
+      building.value,
+      playerRoomId.value,
+      indoor.inventory,
+      indoor.facility,
+    )
+  )
+    return;
+  syncDoorState();
 }
 
-function enterBuilding() {
-  if (!atBuildingEntrance.value) return;
+function tryPickup(pickupId) {
+  const pickup = (building.value.pickups ?? []).find((p) => p.id === pickupId);
+  if (!pickup || indoor.pickupsTaken.has(pickupId)) return;
+  if (pickup.room !== indoor.currentRoom) return;
+  addItem(indoor.inventory, pickup.item);
+  indoor.pickupsTaken = new Set([...indoor.pickupsTaken, pickupId]);
+}
+
+function toggleManualRelease(doorId) {
+  const sw = (building.value.switches ?? []).find((s) => s.door === doorId);
+  if (!sw || sw.room !== indoor.currentRoom) return;
+  const next = { ...indoor.facility.manualMode };
+  const engaging = !next[doorId];
+  next[doorId] = engaging;
+  indoor.facility.manualMode = next;
+  if (engaging) {
+    applyEnablerAutoUnlock(
+      indoor.doorState,
+      building.value,
+      building.value.areaId,
+      indoor.facility,
+    );
+  } else {
+    relockEnablerDoor(
+      indoor.doorState,
+      building.value,
+      building.value.areaId,
+      doorId,
+    );
+  }
+  syncDoorState();
+}
+
+/** Called when the hydro sim brings the generator online. */
+function setHydroOnline(on) {
+  indoor.facility.hydroOnline = on;
+  applyEnablerAutoUnlock(
+    indoor.doorState,
+    building.value,
+    building.value.areaId,
+    indoor.facility,
+  );
+  syncDoorState();
+}
+
+function goIndoors() {
+  outdoorStand.value = null;
+  indoor.exteriorNode = building.value.exterior?.entry ?? null;
+  indoor.currentRoom = null;
+  indoor.discovered = new Set();
+  indoor.revealed = new Set();
+  indoor.level = building.value.exterior?.level ?? "first";
+  indoor.viewLevel = indoor.level;
   place.value = "indoors";
 }
+
+function enterBuilding(hexId) {
+  const id = hexId ?? state.currentId;
+  const hex = hexById.value[id];
+  if (!hex || hex.area !== "utility") return;
+  goIndoors();
+}
+
+/** Dev shortcut — jump to the utility station without walking the hex map. */
+function visitStation() {
+  const hexId =
+    building.value.outdoorHex ??
+    editableHexes.value.find((h) => h.area === "utility")?.id;
+  if (!hexId) return;
+  state.currentId = hexId;
+  state.discovered.add(hexId);
+  goIndoors();
+}
+function exitViaDoor(doorId) {
+  if (builderView.value) return;
+  const exit = building.value.exitByDoorId?.[doorId];
+  if (!exit) return;
+  if (
+    !canUseExteriorExit(
+      building.value,
+      exit,
+      indoor.currentRoom,
+      indoor.doorState,
+      building.value.areaId,
+      indoor.exteriorNode,
+    )
+  ) {
+    exitTravelHint.value = indoor.exteriorNode
+      ? ""
+      : "Open the exterior door first, then use the ⬡ map marker.";
+    return;
+  }
+  exitTravelHint.value = "";
+  const hexId = exit.hex ?? building.value.outdoorHex;
+  if (!hexId) return;
+  state.currentId = hexId;
+  state.discovered = new Set([...state.discovered, hexId]);
+  // Use the hex's standAt from map.yaml (not per-exit overrides).
+  outdoorStand.value = null;
+  indoor.exteriorNode = null;
+  indoor.currentRoom = null;
+  place.value = "outdoors";
+}
 function exitBuilding() {
+  const hexId = building.value.outdoorHex ?? state.currentId;
+  state.currentId = hexId;
+  state.discovered = new Set([...state.discovered, hexId]);
+  outdoorStand.value = null;
+  indoor.exteriorNode = null;
+  indoor.currentRoom = null;
   place.value = "outdoors";
 }
 
@@ -459,6 +1214,39 @@ function applyIndoorMove(move) {
   if (!indoorMoves.value.some((m) => moveKey(m) === moveKey(move))) return;
 
   indoor.moving = true;
+
+  if (indoor.exteriorNode) {
+    if (move.toExteriorNode) {
+      indoor.exteriorNode = move.toExteriorNode;
+      setTimeout(() => {
+        indoor.moving = false;
+      }, 400);
+      return;
+    }
+    if (move.kind === "door" && move.toRoomId) {
+      indoor.currentRoom = move.toRoomId;
+      indoor.exteriorNode = null;
+      discoverIndoorRoom(move.toRoomId);
+      indoor.level =
+        building.value.roomById[move.toRoomId]?.level ?? indoor.level;
+      indoor.viewLevel = indoor.level;
+      setTimeout(() => {
+        indoor.moving = false;
+      }, 400);
+      return;
+    }
+    indoor.moving = false;
+    return;
+  }
+
+  if (move.toExteriorNode) {
+    indoor.exteriorNode = move.toExteriorNode;
+    indoor.currentRoom = null;
+    setTimeout(() => {
+      indoor.moving = false;
+    }, 400);
+    return;
+  }
 
   if (move.onSpiral) {
     indoor.level = move.toLevel;
@@ -469,15 +1257,15 @@ function applyIndoorMove(move) {
     return;
   }
 
-  const from = building.roomById[indoor.currentRoom];
-  const to = building.roomById[move.toRoomId];
+  const from = building.value.roomById[indoor.currentRoom];
+  const to = building.value.roomById[move.toRoomId];
   if (!to) {
     indoor.moving = false;
     return;
   }
 
   indoor.currentRoom = move.toRoomId;
-  indoor.discovered = new Set([...indoor.discovered, move.toRoomId]);
+  discoverIndoorRoom(move.toRoomId);
 
   if (to.feature) {
     indoor.level = move.toLevel ?? from.level ?? from.levels?.[0];
@@ -492,19 +1280,69 @@ function applyIndoorMove(move) {
 }
 
 function moveToRoom(roomId) {
-  const move = indoorMoves.value.find(
+  let move = indoorMoves.value.find(
     (m) => !m.onSpiral && m.toRoomId === roomId,
   );
+  if (!move) {
+    const barge = bargeMoves.value.find((m) => m.toRoomId === roomId);
+    if (!barge) return;
+    if (barge.doorId) tryOpenDoor(barge.doorId);
+    move = indoorMoves.value.find(
+      (m) => !m.onSpiral && m.toRoomId === roomId,
+    );
+  }
   if (move) applyIndoorMove(move);
 }
 
+function moveToExteriorNode(nodeId) {
+  if (indoor.moving || nodeId === indoor.exteriorNode) return;
+
+  if (indoor.exteriorNode) {
+    const path = exteriorPathBetween(
+      building.value,
+      indoor.exteriorNode,
+      nodeId,
+    );
+    if (!path?.length) return;
+    walkExteriorPath(path);
+    return;
+  }
+
+  const move = indoorMoves.value.find((m) => m.toExteriorNode === nodeId);
+  if (move) applyIndoorMove(move);
+}
+
+function walkExteriorPath(nodeIds) {
+  if (indoor.moving || !nodeIds.length) return;
+  indoor.moving = true;
+  let i = 0;
+  function step() {
+    if (i >= nodeIds.length) {
+      indoor.moving = false;
+      return;
+    }
+    indoor.exteriorNode = nodeIds[i];
+    i += 1;
+    setTimeout(step, 400);
+  }
+  step();
+}
+
 function resetIndoor() {
-  indoor.currentRoom = building.start;
-  indoor.discovered = new Set([building.start]);
+  indoor.exteriorNode = building.value.exterior?.entry ?? null;
+  indoor.currentRoom = null;
+  indoor.discovered = new Set();
   indoor.revealed = new Set();
-  indoor.level = building.roomById[building.start]?.level;
+  indoor.level = building.value.exterior?.level ?? "first";
   indoor.viewLevel = indoor.level;
-  indoor.doorState = buildInitialDoorState(building.areaId, building);
+  indoor.doorState = buildInitialDoorState(
+    building.value.areaId,
+    building.value,
+  );
+  indoor.inventory = createInventory();
+  indoor.pickupsTaken = new Set();
+  indoor.facility.hydroOnline = false;
+  indoor.facility.manualMode = {};
 }
 </script>
 
@@ -535,7 +1373,9 @@ function resetIndoor() {
         :edit-kind="editParsed?.line?.kind ?? 'path'"
         :selected-handle-id="selectedHandleId"
         :add-point-mode="addPointMode"
+        :stand-override="outdoorStand"
         @hex-click="moveTo"
+        @building-enter="enterBuilding"
         @select-handle="onSelectHandle"
         @waypoint-move="onWaypointMove"
         @builder-map-click="onBuilderMapClick" />
@@ -553,10 +1393,13 @@ function resetIndoor() {
         <p v-if="atGatePuzzle" class="puzzle-hint">
           Puzzle — find a way through the gate to continue.
         </p>
+        <p v-if="atBuildingEntrance" class="puzzle-hint">
+          Click the utility station on the map to go inside.
+        </p>
         <button
           v-if="atBuildingEntrance"
           class="enter-btn"
-          @click="enterBuilding">
+          @click="enterBuilding()">
           Enter the {{ building.name }} 🚪
         </button>
       </div>
@@ -587,6 +1430,9 @@ function resetIndoor() {
       </div>
 
       <div class="controls">
+        <button class="visit-station-btn" @click="visitStation">
+          Visit {{ building.name }} 🏭
+        </button>
         <button :disabled="traveling" @click="autoTravel">
           Auto-travel main path ⏩
         </button>
@@ -727,26 +1573,515 @@ function resetIndoor() {
     </section>
 
     <!-- ===================== INDOORS ===================== -->
-    <section v-if="place === 'indoors'" class="stage" :class="{ expanded }">
+    <div
+      v-if="place === 'indoors' && builderView"
+      class="grid-builder-workspace">
+      <section class="stage builder-stage">
+        <GridMap
+          :building="building"
+          :current-room="indoor.currentRoom ?? ''"
+          :exterior-node="indoor.exteriorNode"
+          :discovered="[...indoor.discovered]"
+          :revealed="[...indoor.revealed]"
+          :level="indoor.viewLevel"
+          :stand-level="indoor.level"
+          :reachable-rooms="reachableRooms"
+          :reachable-exterior-nodes="reachableExteriorNodes"
+          :door-states="indoor.doorState"
+          :builder-view="builderView"
+          :builder-edit="gridBuilderEdit"
+          :edit-mode="gridEditMode"
+          :edit-handles="gridEditHandles"
+          :selected-handle-id="gridSelectedHandleId"
+          :selected-item-id="gridEditParsed?.id ?? ''"
+          :add-point-mode="gridAddPointMode || gridAddNodeMode"
+          :map-click-mode="gridAddNodeMode ? 'node' : gridAddPointMode ? 'point' : null"
+          :expanded="expanded"
+          :interactable-door-ids="interactableDoorIds"
+          :reachable-exit-doors="reachableExitDoors"
+          @room-click="moveToRoom"
+          @exterior-node-click="moveToExteriorNode"
+          @door-click="tryToggleDoor"
+          @exit-click="exitViaDoor"
+          @select-handle="gridSelectedHandleId = $event"
+          @grid-handle-move="onGridHandleMove"
+          @builder-map-click="onGridBuilderMapClick"
+          @select-item="onGridSelectItem" />
+      </section>
+
+      <aside class="builder-sidebar builder-panel">
+        <span class="label">Grid builder</span>
+        <select v-model="gridEditSelection" class="builder-select">
+          <optgroup label="Paths">
+            <option
+              v-for="item in gridEditableItems.filter(
+                (i) => i.source === 'paths',
+              )"
+              :key="item.id"
+              :value="`${item.source}:${item.id}`">
+              {{ item.label }}
+            </option>
+          </optgroup>
+          <optgroup label="Rooms">
+            <option
+              v-for="item in gridEditableItems.filter(
+                (i) => i.source === 'rooms',
+              )"
+              :key="item.id"
+              :value="`${item.source}:${item.id}`">
+              {{ item.label }}
+            </option>
+          </optgroup>
+          <optgroup label="Doors">
+            <option
+              v-for="item in gridEditableItems.filter(
+                (i) => i.source === 'doors',
+              )"
+              :key="item.id"
+              :value="`${item.source}:${item.id}`">
+              {{ item.label }}
+            </option>
+          </optgroup>
+          <optgroup label="Nodes">
+            <option
+              v-for="item in gridEditableItems.filter(
+                (i) => i.source === 'nodes',
+              )"
+              :key="item.id"
+              :value="`${item.source}:${item.id}`">
+              {{ item.label }}
+            </option>
+          </optgroup>
+          <optgroup label="World map exits">
+            <option
+              v-for="item in gridEditableItems.filter(
+                (i) => i.source === 'exits',
+              )"
+              :key="item.id"
+              :value="`${item.source}:${item.id}`">
+              {{ item.label }}
+            </option>
+          </optgroup>
+        </select>
+
+        <div v-if="gridEditMode === 'line'" class="builder-actions">
+          <label
+            class="mode-pill sm"
+            :class="{ active: gridEditParsed?.entity?.smooth }">
+            <input
+              type="checkbox"
+              :checked="gridEditParsed?.entity?.smooth"
+              @change="toggleGridSmooth" />
+            smooth curve
+          </label>
+          <label class="mode-pill sm" :class="{ active: gridAddPointMode }">
+            <input type="checkbox" v-model="gridAddPointMode" />
+            click to add waypoint
+          </label>
+          <label class="mode-pill sm" :class="{ active: gridAddNodeMode }">
+            <input type="checkbox" v-model="gridAddNodeMode" />
+            click to add node
+          </label>
+          <p v-if="gridAddPointMode" class="builder-inline-hint">
+            Orange waypoint on the nearest cyan segment, at the click location.
+          </p>
+          <p v-else-if="gridAddNodeMode" class="builder-inline-hint">
+            Green stand spot on the route (walk stop + label). Inserted on the
+            nearest segment between existing nodes.
+          </p>
+          <button
+            class="sm"
+            :disabled="!gridSelectedHandleId?.startsWith('point-')"
+            @click="deleteGridSelectedPoint">
+            Delete waypoint
+          </button>
+          <button
+            class="sm"
+            :disabled="!gridSelectedPathNodeId || gridSelectedPathNode?.door"
+            @click="deleteGridSelectedPathNode">
+            Delete node
+          </button>
+        </div>
+
+        <div
+          v-if="gridEditMode === 'line' && gridSelectedPathNode"
+          class="builder-props">
+          <label class="prop-row">
+            <span>Node label</span>
+            <input
+              type="text"
+              :value="gridSelectedPathNode.label ?? ''"
+              @input="
+                setNodeLabel(
+                  editableBuildingData,
+                  gridSelectedPathNode.id,
+                  $event.target.value,
+                )
+              " />
+          </label>
+          <p class="prop-readonly">ID: {{ gridSelectedPathNode.id }}</p>
+        </div>
+
+        <div v-if="gridEditMode === 'room'" class="builder-props">
+          <label class="prop-row">
+            <span>Name</span>
+            <input
+              type="text"
+              :value="gridEditParsed?.entity?.name ?? ''"
+              @input="
+                setRoomName(
+                  editableBuildingData,
+                  gridEditParsed.id,
+                  $event.target.value,
+                )
+              " />
+          </label>
+          <label class="prop-row">
+            <span>X</span>
+            <input
+              type="number"
+              step="0.5"
+              :value="gridEditParsed?.entity?.x"
+              @input="
+                setRoomRect(editableBuildingData, gridEditParsed.id, {
+                  x: Number($event.target.value),
+                })
+              " />
+          </label>
+          <label class="prop-row">
+            <span>Y</span>
+            <input
+              type="number"
+              step="0.5"
+              :value="gridEditParsed?.entity?.y"
+              @input="
+                setRoomRect(editableBuildingData, gridEditParsed.id, {
+                  y: Number($event.target.value),
+                })
+              " />
+          </label>
+          <label class="prop-row">
+            <span>W</span>
+            <input
+              type="number"
+              step="0.5"
+              min="0.5"
+              :value="gridEditParsed?.entity?.w"
+              @input="
+                setRoomRect(editableBuildingData, gridEditParsed.id, {
+                  w: Number($event.target.value),
+                })
+              " />
+          </label>
+          <label class="prop-row">
+            <span>H</span>
+            <input
+              type="number"
+              step="0.5"
+              min="0.5"
+              :value="gridEditParsed?.entity?.h"
+              @input="
+                setRoomRect(editableBuildingData, gridEditParsed.id, {
+                  h: Number($event.target.value),
+                })
+              " />
+          </label>
+          <p class="prop-readonly">ID: {{ gridEditParsed?.id }}</p>
+        </div>
+
+        <div
+          v-if="gridEditMode === 'door' && gridEditParsed?.entity?.kind === 'man'"
+          class="builder-props">
+          <label class="prop-row">
+            <span>X</span>
+            <input
+              type="number"
+              step="0.05"
+              :value="gridEditParsed?.entity?.at?.x"
+              @input="
+                setDoorAt(
+                  editableBuildingData,
+                  gridEditParsed.id,
+                  Number($event.target.value),
+                  gridEditParsed.entity.at?.y ?? 0,
+                )
+              " />
+          </label>
+          <label class="prop-row">
+            <span>Y</span>
+            <input
+              type="number"
+              step="0.05"
+              :value="gridEditParsed?.entity?.at?.y"
+              @input="
+                setDoorAt(
+                  editableBuildingData,
+                  gridEditParsed.id,
+                  gridEditParsed.entity.at?.x ?? 0,
+                  Number($event.target.value),
+                )
+              " />
+          </label>
+          <label class="prop-row checkbox">
+            <input
+              type="checkbox"
+              :checked="gridEditParsed?.entity?.vertical"
+              @change="
+                (gridEditParsed.entity.vertical = $event.target.checked)
+              " />
+            vertical
+          </label>
+          <p class="prop-readonly">ID: {{ gridEditParsed?.id }}</p>
+        </div>
+
+        <div
+          v-if="gridEditMode === 'door' && gridEditParsed?.entity?.kind === 'roll'"
+          class="builder-props">
+          <p class="prop-readonly">Room: {{ gridEditParsed?.entity?.room }}</p>
+          <label class="prop-row">
+            <span>Edge</span>
+            <select
+              :value="gridRollDoorRoom?.rollDoor ?? 'right'"
+              @change="
+                setRollDoorProps(editableBuildingData, gridEditParsed.id, {
+                  edge: $event.target.value,
+                })
+              ">
+              <option value="top">top</option>
+              <option value="bottom">bottom</option>
+              <option value="left">left</option>
+              <option value="right">right</option>
+            </select>
+          </label>
+          <label class="prop-row">
+            <span>Span</span>
+            <input
+              type="range"
+              min="0.1"
+              max="1"
+              step="0.01"
+              :value="gridRollDoorRoom?.rollSpan ?? 0.6"
+              @input="
+                setRollDoorProps(editableBuildingData, gridEditParsed.id, {
+                  rollSpan: Number($event.target.value),
+                })
+              " />
+            <span class="prop-value">{{
+              (gridRollDoorRoom?.rollSpan ?? 0.6).toFixed(2)
+            }}</span>
+          </label>
+          <p class="prop-readonly">ID: {{ gridEditParsed?.id }}</p>
+        </div>
+
+        <div v-if="gridEditMode === 'node'" class="builder-props">
+          <label class="prop-row">
+            <span>Label</span>
+            <input
+              type="text"
+              :value="gridEditParsed?.entity?.label ?? ''"
+              @input="
+                setNodeLabel(
+                  editableBuildingData,
+                  gridEditParsed.id,
+                  $event.target.value,
+                )
+              " />
+          </label>
+          <label class="prop-row">
+            <span>X</span>
+            <input
+              type="number"
+              step="0.05"
+              :value="gridEditParsed?.entity?.at?.x"
+              @input="
+                setNodeAt(
+                  editableBuildingData,
+                  gridEditParsed.id,
+                  Number($event.target.value),
+                  gridEditParsed.entity.at?.y ?? 0,
+                )
+              " />
+          </label>
+          <label class="prop-row">
+            <span>Y</span>
+            <input
+              type="number"
+              step="0.05"
+              :value="gridEditParsed?.entity?.at?.y"
+              @input="
+                setNodeAt(
+                  editableBuildingData,
+                  gridEditParsed.id,
+                  gridEditParsed.entity.at?.x ?? 0,
+                  Number($event.target.value),
+                )
+              " />
+          </label>
+          <p class="prop-readonly">ID: {{ gridEditParsed?.id }}</p>
+        </div>
+
+        <div v-if="gridEditMode === 'exit'" class="builder-props">
+          <p class="prop-readonly">
+            Door: {{ gridEditParsed?.entity?.door }} · anchor
+            {{ gridEditParsed?.entity?.at?.x }},
+            {{ gridEditParsed?.entity?.at?.y }}
+          </p>
+          <label class="prop-row">
+            <span>Map X</span>
+            <input
+              type="number"
+              step="0.05"
+              :value="getExitMapAt(gridEditParsed?.entity).x"
+              @input="
+                setExitMapAt(
+                  editableBuildingData,
+                  gridEditParsed.id,
+                  Number($event.target.value),
+                  getExitMapAt(gridEditParsed.entity).y,
+                )
+              " />
+          </label>
+          <label class="prop-row">
+            <span>Map Y</span>
+            <input
+              type="number"
+              step="0.05"
+              :value="getExitMapAt(gridEditParsed?.entity).y"
+              @input="
+                setExitMapAt(
+                  editableBuildingData,
+                  gridEditParsed.id,
+                  getExitMapAt(gridEditParsed.entity).x,
+                  Number($event.target.value),
+                )
+              " />
+          </label>
+          <button
+            v-if="gridEditParsed?.entity?.mapAt"
+            class="sm muted"
+            @click="gridEditParsed.entity.mapAt = undefined">
+            Reset to default offset
+          </button>
+        </div>
+
+        <div class="builder-actions playtest">
+          <span class="label">Playtest</span>
+          <button class="sm" @click="openAllInteriorDoors">Open all doors</button>
+          <button class="sm" @click="closeAllInteriorDoors">
+            Close all doors
+          </button>
+        </div>
+
+        <p class="builder-hint">
+          <template v-if="gridEditMode === 'line'">
+            Pink = smoothed path preview. Cyan dashed = control polygon. Orange
+            handles = curve waypoints; green = path nodes (stand spots). Use
+            “click to add waypoint” or “click to add node” below.
+          </template>
+          <template v-else-if="gridEditMode === 'room'">
+            Drag purple center to move; yellow corners to resize. Click a room
+            on the map to select it.
+          </template>
+          <template v-else-if="gridEditMode === 'door'">
+            <template v-if="gridEditParsed?.entity?.kind === 'man'">
+              Drag the green handle to reposition the man door.
+            </template>
+            <template v-else>
+              Adjust roll-up edge and span in the panel — position follows room
+              geometry.
+            </template>
+          </template>
+          <template v-else-if="gridEditMode === 'node'">
+            Drag the green handle to move an exterior stand spot.
+          </template>
+          <template v-else-if="gridEditMode === 'exit'">
+            Click the ⬡ marker to select it, then drag the green handle (or edit
+            Map X/Y). Exits do not leave the building while builder is on.
+          </template>
+        </p>
+
+        <p class="builder-hint builder-export-note">
+          Paste each section into
+          <code>utility-station.yaml</code>, replacing the matching block.
+          Save the file and the map reloads automatically.
+        </p>
+
+        <div class="builder-export">
+          <span class="label">Export</span>
+          <div class="export-btns">
+            <button class="sm" @click="copyGridYaml('rooms')">Copy rooms</button>
+            <button class="sm" @click="copyGridYaml('doors')">Copy doors</button>
+            <button class="sm" @click="copyGridYaml('exits')">Copy exits</button>
+            <button class="sm" @click="copyGridYaml('exterior')">
+              Copy exterior
+            </button>
+            <button class="sm" @click="copyGridYaml('all')">Copy all</button>
+            <button class="sm" @click="downloadGridYaml">Download</button>
+            <button class="sm muted" @click="resetGridBuilder">Reset</button>
+          </div>
+          <p v-if="gridExportStatus" class="export-status">
+            {{ gridExportStatus }}
+          </p>
+        </div>
+      </aside>
+    </div>
+
+    <section
+      v-else-if="place === 'indoors'"
+      class="stage"
+      :class="{ expanded }">
       <GridMap
         :building="building"
-        :current-room="indoor.currentRoom"
+        :current-room="indoor.currentRoom ?? ''"
+        :exterior-node="indoor.exteriorNode"
         :discovered="[...indoor.discovered]"
         :revealed="[...indoor.revealed]"
         :level="indoor.viewLevel"
         :stand-level="indoor.level"
         :reachable-rooms="reachableRooms"
+        :reachable-exterior-nodes="reachableExteriorNodes"
         :door-states="indoor.doorState"
         :builder-view="builderView"
         :expanded="expanded"
-        @room-click="moveToRoom" />
+        :interactable-door-ids="interactableDoorIds"
+        :reachable-exit-doors="reachableExitDoors"
+        @room-click="moveToRoom"
+        @exterior-node-click="moveToExteriorNode"
+        @door-click="tryToggleDoor"
+        @exit-click="exitViaDoor" />
     </section>
 
     <section v-if="place === 'indoors'" class="hud">
       <div class="location">
         <span class="label">{{ building.name }}</span>
-        <strong>{{ currentRoomData?.name ?? currentRoomData?.id }}</strong>
+        <strong>{{
+          currentExteriorNode?.label ??
+          currentRoomData?.name ??
+          currentRoomData?.id
+        }}</strong>
         <em v-if="currentRoomData?.blurb">{{ currentRoomData.blurb }}</em>
+        <em v-else-if="currentExteriorNode"
+          >Walk the footpath — click green dots to move. Any ⬡ map marker (or
+          the button below) takes you to the hex travel map.</em
+        >
+        <button
+          v-if="worldMapExit && !builderView"
+          class="world-map-btn"
+          @click="exitViaDoor(worldMapExit.doorId)">
+          {{ worldMapExit.label }}
+        </button>
+        <p
+          v-else-if="!indoor.exteriorNode && reachableExitDoors.length && !worldMapExit"
+          class="puzzle-hint">
+          Open an exterior door to unlock travel to the world map.
+        </p>
+        <p
+          v-if="!indoor.exteriorNode && reachableExitDoors.length && indoor.currentRoom"
+          class="puzzle-hint">
+          Open the exterior door, then step out to the footpath (Move or green
+          dot) or use the ⬡ map marker for the world map.
+        </p>
+        <p v-if="exitTravelHint" class="puzzle-hint">{{ exitTravelHint }}</p>
       </div>
 
       <div class="travel">
@@ -756,18 +2091,53 @@ function resetIndoor() {
             v-for="m in indoorMoves"
             :key="moveKey(m)"
             class="route-btn"
-            :class="'k-' + (m.kind === 'door' ? 'path' : 'road')"
+            :class="
+              'k-' +
+              (m.kind === 'door' ? 'path' : m.kind === 'path' ? 'trail' : 'road')
+            "
             :disabled="indoor.moving"
             @click="applyIndoorMove(m)">
             Go {{ m.label }}
             <span class="dest"
               >→
               {{
-                m.onSpiral || isDestinationNamed(m.toRoomId, indoorVisibility)
+                m.toExteriorNode
                   ? m.toName
-                  : "?"
+                  : m.onSpiral || isDestinationNamed(m.toRoomId, indoorVisibility)
+                    ? m.toName
+                    : "?"
               }}</span
             >
+          </button>
+        </div>
+      </div>
+
+      <div v-if="carriedItems.length" class="inventory">
+        <span class="label">Carrying</span>
+        <ul class="inventory-list">
+          <li v-for="item in carriedItems" :key="item.id">
+            <strong>{{ item.name }}</strong>
+            <em v-if="item.description">{{ item.description }}</em>
+          </li>
+        </ul>
+      </div>
+
+      <div v-if="roomPickups.length && !builderView" class="pickups">
+        <span class="label">Found here</span>
+        <div v-for="p in roomPickups" :key="p.id" class="pickup-row">
+          <button class="sm" @click="tryPickup(p.id)">Take — {{ p.label }}</button>
+        </div>
+      </div>
+
+      <div v-if="roomSwitches.length && !builderView" class="switches">
+        <span class="label">Garage controls</span>
+        <div v-for="sw in roomSwitches" :key="sw.id" class="switch-row">
+          <button class="sm" @click="toggleManualRelease(sw.door)">
+            {{
+              isManualEnablerActive(sw.door, indoor.facility)
+                ? "Engage motor"
+                : sw.label
+            }}
           </button>
         </div>
       </div>
@@ -778,33 +2148,64 @@ function resetIndoor() {
           <span class="door-name">
             {{ doorLabel(building, d.doorId, d.toName) }}
             <em class="door-state">{{
-              doorStatusText(doorStateFor(d.doorId))
+              doorStatusText(
+                doorStateFor(d.doorId),
+                building.doorById[d.doorId],
+                indoor.facility,
+              )
+            }}</em>
+            <em v-if="doorLockHint(d.doorId)" class="door-hint">{{
+              doorLockHint(d.doorId)
             }}</em>
           </span>
-          <span class="door-actions">
+          <span
+            v-if="!isSelfClosingDoor(building.doorById[d.doorId])"
+            class="door-actions">
             <button
-              v-if="canBreakLock(indoor.doorState, building.areaId, d.doorId)"
+              v-if="
+                canBreakLock(
+                  indoor.doorState,
+                  building.areaId,
+                  d.doorId,
+                  building,
+                )
+              "
               class="sm"
               @click="tryBreakLock(d.doorId)">
               Break lock
             </button>
             <button
-              v-if="canToggleLock(indoor.doorState, building.areaId, d.doorId)"
+              v-if="
+                !isEnablerLock(building.doorById[d.doorId]) &&
+                (canToggleLock(
+                  indoor.doorState,
+                  building.areaId,
+                  d.doorId,
+                  building,
+                  playerRoomId,
+                  indoor.inventory,
+                  indoor.facility,
+                ) ||
+                  doorStateFor(d.doorId).locked)
+              "
               class="sm"
+              :disabled="!canToggleDoorLock(d.doorId)"
+              :title="
+                canToggleDoorLock(d.doorId)
+                  ? ''
+                  : doorLockHint(d.doorId) || 'Cannot change lock'
+              "
               @click="tryToggleLock(d.doorId)">
               {{ doorStateFor(d.doorId).locked ? "Unlock" : "Lock" }}
             </button>
             <button
-              v-if="canOpenDoor(indoor.doorState, building.areaId, d.doorId)"
+              v-if="
+                canOpenDoor(indoor.doorState, building.areaId, d.doorId) ||
+                canCloseDoor(indoor.doorState, building.areaId, d.doorId)
+              "
               class="sm"
-              @click="tryOpenDoor(d.doorId)">
-              Open
-            </button>
-            <button
-              v-if="canCloseDoor(indoor.doorState, building.areaId, d.doorId)"
-              class="sm"
-              @click="tryCloseDoor(d.doorId)">
-              Close
+              @click="tryToggleDoor(d.doorId)">
+              {{ doorStateFor(d.doorId).open ? "Close" : "Open" }}
             </button>
           </span>
         </div>
@@ -824,22 +2225,6 @@ function resetIndoor() {
           <input type="checkbox" v-model="builderView" />
           builder
         </label>
-      </div>
-
-      <div v-if="builderView" class="builder-panel">
-        <span class="label">Grid builder</span>
-        <div class="builder-actions">
-          <button class="sm" @click="openAllInteriorDoors">
-            Open all doors
-          </button>
-          <button class="sm" @click="closeAllInteriorDoors">
-            Close all doors
-          </button>
-        </div>
-        <p class="builder-hint">
-          Full floor plan — all rooms and doors visible. Use door buttons to
-          test peek / movement without playing through locks.
-        </p>
       </div>
 
       <div class="controls">
@@ -881,6 +2266,67 @@ header h1 {
 .stage.expanded {
   display: block;
 }
+.grid-builder-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) min(320px, 28%);
+  gap: 1rem;
+  align-items: start;
+  margin-bottom: 1.5rem;
+}
+.builder-stage {
+  min-width: 0;
+}
+.builder-sidebar {
+  max-height: min(58vh, 560px);
+  overflow-y: auto;
+}
+@media (max-width: 720px) {
+  .grid-builder-workspace {
+    grid-template-columns: 1fr;
+  }
+  .builder-sidebar {
+    max-height: none;
+  }
+}
+.builder-props {
+  display: grid;
+  gap: 0.45rem;
+}
+.prop-row {
+  display: grid;
+  grid-template-columns: 3.5rem 1fr;
+  gap: 0.4rem;
+  align-items: center;
+  font-size: 0.85rem;
+  color: #c5cad3;
+}
+.prop-row.checkbox {
+  grid-template-columns: auto 1fr;
+}
+.prop-row input[type="text"],
+.prop-row input[type="number"],
+.prop-row select {
+  background: #2f3a4d;
+  color: #e8eaed;
+  border: 1px solid #3f4c63;
+  border-radius: 4px;
+  padding: 0.3rem 0.45rem;
+  font-size: 0.85rem;
+}
+.prop-readonly {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #6f7787;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+.prop-value {
+  font-size: 0.78rem;
+  color: #9aa0ac;
+}
+.builder-actions.playtest {
+  flex-direction: column;
+  align-items: stretch;
+}
 .hud {
   display: grid;
   gap: 1rem;
@@ -914,6 +2360,22 @@ header h1 {
 }
 .enter-btn:hover {
   background: #46694c;
+}
+.visit-station-btn {
+  background: #3a4a5a;
+  border-color: #5a7088;
+}
+.visit-station-btn:hover {
+  background: #465a6e;
+}
+.world-map-btn {
+  margin-top: 0.6rem;
+  align-self: flex-start;
+  background: #3d5a4a;
+  border-color: #5a8870;
+}
+.world-map-btn:hover {
+  background: #4a7560;
 }
 .label {
   text-transform: uppercase;
@@ -972,6 +2434,40 @@ header h1 {
   color: #8b94a3;
   font-style: normal;
   margin-left: 0.35rem;
+}
+.door-hint {
+  display: block;
+  color: #6f7787;
+  font-size: 0.78rem;
+  margin-top: 0.15rem;
+}
+.inventory,
+.pickups,
+.switches {
+  margin-top: 0.75rem;
+}
+.inventory-list {
+  margin: 0.35rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.inventory-list li {
+  font-size: 0.85rem;
+  margin-bottom: 0.35rem;
+}
+.inventory-list em {
+  display: block;
+  color: #7f8794;
+  font-size: 0.78rem;
+  font-style: normal;
+}
+.pickup-row,
+.switch-row {
+  margin-top: 0.35rem;
+}
+.controls button.active {
+  background: #3d5a3a;
+  border-color: #5a8a52;
 }
 .door-actions {
   display: flex;
@@ -1068,6 +2564,12 @@ button.sm.muted {
   color: #8a919e;
   font-size: 0.82rem;
   line-height: 1.45;
+}
+.builder-inline-hint {
+  margin: 0.35rem 0 0;
+  color: #f4a261;
+  font-size: 0.78rem;
+  line-height: 1.4;
 }
 .builder-export {
   display: grid;

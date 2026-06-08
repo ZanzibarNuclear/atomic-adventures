@@ -1,5 +1,12 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { hexCornerPoints } from '../composables/useHexGeometry.js'
+import { catmullRomSpline, pointsAttr } from '../composables/useRoutes.js'
+import {
+  pathCurvePointColor,
+  pathNodeHandleColor,
+  roomHandleColor,
+} from '../composables/useGridBuilder.js'
 import {
   roomsOnLevel,
   roomRect,
@@ -8,36 +15,66 @@ import {
   spiralExitPoint,
   stairExitRooms,
   isStairLanding,
-  levelDisplayBounds,
   levelBeams,
   doorsOnLevel,
+  exitsOnLevel,
+  exteriorNodesOnLevel,
+  exteriorPathsOnLevel,
   fixturesOnLevel,
   sharedEdge,
   mapVisibilityCtx,
+  levelBuildingPerimeter,
+  levelMapLayoutBounds,
+  levelCliffWall,
   isRoomMapped,
   isRoomFogged,
   isDoorMapped,
   isFixtureMapped,
   isFixtureFogged,
+  exitMapAt,
 } from '../composables/useGrid.js'
 
 const props = defineProps({
   building: { type: Object, required: true },
-  currentRoom: { type: String, required: true },
+  currentRoom: { type: String, default: '' },
+  exteriorNode: { type: String, default: null },
   discovered: { type: [Array, Object], default: () => [] },
   revealed: { type: [Array, Object], default: () => [] },
   level: { type: String, required: true },
   standLevel: { type: String, default: null },
   reachableRooms: { type: Array, default: () => [] },
   doorStates: { type: Object, default: () => ({}) },
+  interactableDoorIds: { type: Array, default: () => [] },
+  reachableExitDoors: { type: Array, default: () => [] },
+  reachableExteriorNodes: { type: Array, default: () => [] },
   builderView: { type: Boolean, default: false },
+  builderEdit: { type: Boolean, default: false },
+  editMode: { type: String, default: null },
+  editHandles: { type: Array, default: () => [] },
+  selectedHandleId: { type: String, default: null },
+  selectedItemId: { type: String, default: null },
+  addPointMode: { type: Boolean, default: false },
+  mapClickMode: { type: String, default: null },
   expanded: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['room-click'])
+const emit = defineEmits([
+  'room-click',
+  'door-click',
+  'exit-click',
+  'exterior-node-click',
+  'select-handle',
+  'grid-handle-move',
+  'builder-map-click',
+  'select-item',
+])
 
 const cell = computed(() => props.building.cell ?? 64)
 const discoveredSet = computed(() => new Set(props.discovered))
+const interactableDoorSet = computed(() => new Set(props.interactableDoorIds))
+const reachableExitSet = computed(() => new Set(props.reachableExitDoors))
+const reachableExteriorSet = computed(() => new Set(props.reachableExteriorNodes))
+const exitHexRadius = computed(() => cell.value * 0.13)
 const visibility = computed(() =>
   mapVisibilityCtx(
     props.discovered,
@@ -46,14 +83,29 @@ const visibility = computed(() =>
     props.doorStates,
     props.building.areaId,
     props.builderView,
-    props.currentRoom,
+    props.currentRoom || null,
+    props.exteriorNode,
   ),
 )
-const current = computed(() => props.building.roomById[props.currentRoom])
+const current = computed(() =>
+  props.currentRoom ? props.building.roomById[props.currentRoom] : null,
+)
 const levelRooms = computed(() => roomsOnLevel(props.building, props.level))
 const mappedRooms = computed(() => levelRooms.value.filter((r) => isRoomMapped(r, visibility.value)))
-const beams = computed(() => levelBeams(props.building, props.level))
-const doors = computed(() => doorsOnLevel(props.building, props.level, props.doorStates))
+const placedBuildingShell = computed(() => {
+  if (props.builderView) return []
+  return levelBuildingPerimeter(props.building, props.level).map((ring) =>
+    ring.map((p) => tp(p.x * cell.value, p.y * cell.value)),
+  )
+})
+function shellRingPath(ring) {
+  if (ring.length === 0) return ''
+  return ring.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ') + ' Z'
+}
+const beams = computed(() => levelBeams(props.building, props.level, visibility.value))
+const doors = computed(() =>
+  doorsOnLevel(props.building, props.level, props.doorStates, props.currentRoom || null),
+)
 const fixtures = computed(() =>
   fixturesOnLevel(props.building, props.level).filter((f) => isFixtureMapped(f, visibility.value)),
 )
@@ -64,81 +116,18 @@ function rotate() {
   rotation.value = (rotation.value + 90) % 360
 }
 const swapAxes = computed(() => rotation.value % 180 !== 0)
-const bounds = computed(() => levelDisplayBounds(props.building, props.level, 0.6, visibility.value))
-const center = computed(() => ({
-  x: bounds.value.x + bounds.value.w / 2,
-  y: bounds.value.y + bounds.value.h / 2,
-}))
 
-// Rotate a point about the level center (clockwise on screen).
-function tp(x, y) {
-  const rad = (rotation.value * Math.PI) / 180
-  const cx = center.value.x
-  const cy = center.value.y
-  const dx = x - cx
-  const dy = y - cy
-  const c = Math.cos(rad)
-  const s = Math.sin(rad)
-  return { x: cx + dx * c - dy * s, y: cy + dx * s + dy * c }
-}
-// Layout-space sample points (bounds + fixtures) for a tight rotated AABB.
-const layoutSamplePoints = computed(() => {
-  const pts = []
-  const b = bounds.value
-  pts.push(
-    { x: b.x, y: b.y },
-    { x: b.x + b.w, y: b.y },
-    { x: b.x + b.w, y: b.y + b.h },
-    { x: b.x, y: b.y + b.h },
-  )
-  for (const f of fixtures.value) {
-    if (f.kind === 'spiral-stairs') {
-      pts.push({ x: f.x, y: f.y })
-      const base = (protrudeAngle(f.protrude ?? 'top') * Math.PI) / 180
-      for (let k = 90; k >= -90; k -= 15) {
-        const a = base + (k * Math.PI) / 180
-        pts.push({ x: f.x + f.radius * Math.cos(a), y: f.y + f.radius * Math.sin(a) })
-      }
-    } else if (f.rect) {
-      const r = f.rect
-      pts.push({ x: r.x, y: r.y }, { x: r.x + r.w, y: r.y + r.h })
-    }
-  }
-  return pts
-})
+const mapLayout = computed(() =>
+  levelMapLayoutBounds(props.building, props.level, visibility.value),
+)
 
-// `top` = west / river wall when north points right on the plan.
-function protrudeAngle(edge) {
-  if (edge === 'top') return 270
-  if (edge === 'bottom') return 90
-  if (edge === 'left') return 180
-  return 0
-}
-
-// True axis-aligned bounds of all content after rotation.
-const rotatedBounds = computed(() => {
-  let minX = Infinity
-  let minY = Infinity
-  let maxX = -Infinity
-  let maxY = -Infinity
-  for (const p of layoutSamplePoints.value) {
-    const r = tp(p.x, p.y)
-    minX = Math.min(minX, r.x)
-    minY = Math.min(minY, r.y)
-    maxX = Math.max(maxX, r.x)
-    maxY = Math.max(maxY, r.y)
-  }
-  if (!Number.isFinite(minX)) return { x: 0, y: 0, w: 100, h: 100 }
-  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
-})
-
-const mapSvgRef = ref(null)
+const gridmapRef = ref(null)
 const containerAspect = ref(220 / 200)
 let resizeObserver = null
 
 function attachResizeObserver() {
   resizeObserver?.disconnect()
-  const el = mapSvgRef.value
+  const el = gridmapRef.value
   if (!el) return
   const { width, height } = el.getBoundingClientRect()
   if (height > 0) containerAspect.value = width / height
@@ -153,24 +142,252 @@ onMounted(() => nextTick(attachResizeObserver))
 watch(() => props.expanded, () => nextTick(attachResizeObserver))
 onUnmounted(() => resizeObserver?.disconnect())
 
-// Fit whole building in the panel (meet); pad viewBox aspect to reduce empty margins.
-const viewBoxRect = computed(() => {
-  const c = rotatedBounds.value
-  let { x, y, w, h } = c
-  if (w < 1 || h < 1) return c
-  const contentAspect = w / h
-  const boxAspect = containerAspect.value
-  if (contentAspect > boxAspect) {
-    const nh = w / boxAspect
-    y -= (nh - h) / 2
-    h = nh
-  } else if (contentAspect < boxAspect) {
-    const nw = h * boxAspect
-    x -= (nw - w) / 2
-    w = nw
+/** Expand the minimum frame to the panel aspect ratio, centered on the building. */
+function expandFrameToAspect(frame, aspect) {
+  const { minX, maxX, minY, maxY, bcx, bcy } = frame
+  const corners = [
+    { x: minX, y: minY },
+    { x: maxX, y: minY },
+    { x: maxX, y: maxY },
+    { x: minX, y: maxY },
+  ]
+  let halfW = 0
+  let halfH = 0
+  for (const p of corners) {
+    halfW = Math.max(halfW, Math.abs(p.x - bcx))
+    halfH = Math.max(halfH, Math.abs(p.y - bcy))
   }
-  return { x, y, w, h }
+  if (halfH <= 0) halfH = 1
+  if (halfW / halfH < aspect) halfW = halfH * aspect
+  else halfH = halfW / aspect
+  return {
+    minX: bcx - halfW,
+    maxX: bcx + halfW,
+    minY: bcy - halfH,
+    maxY: bcy + halfH,
+    w: halfW * 2,
+    h: halfH * 2,
+    bcx,
+    bcy,
+  }
+}
+
+const minFramePx = computed(() => {
+  const m = mapLayout.value
+  const c = cell.value
+  return {
+    minX: m.minX * c,
+    maxX: m.maxX * c,
+    minY: m.minY * c,
+    maxY: m.maxY * c,
+    bcx: m.centerX * c,
+    bcy: m.centerY * c,
+  }
 })
+
+const layoutViewFrame = computed(() =>
+  expandFrameToAspect(minFramePx.value, containerAspect.value),
+)
+
+const center = computed(() => ({
+  x: layoutViewFrame.value.bcx,
+  y: layoutViewFrame.value.bcy,
+}))
+
+// Rotate a point about the building center (clockwise on screen).
+function tp(x, y) {
+  const rad = (rotation.value * Math.PI) / 180
+  const cx = center.value.x
+  const cy = center.value.y
+  const dx = x - cx
+  const dy = y - cy
+  const c = Math.cos(rad)
+  const s = Math.sin(rad)
+  return { x: cx + dx * c - dy * s, y: cy + dx * s + dy * c }
+}
+
+function unTp(x, y) {
+  const rad = (rotation.value * Math.PI) / 180
+  const cx = center.value.x
+  const cy = center.value.y
+  const dx = x - cx
+  const dy = y - cy
+  const c = Math.cos(rad)
+  const s = Math.sin(rad)
+  return { x: cx + dx * c + dy * s, y: cy - dx * s + dy * c }
+}
+
+const placedRiver = computed(() => {
+  const river = mapLayout.value.river
+  if (!river) return null
+  const cellV = cell.value
+  const f = layoutViewFrame.value
+  const x0 = f.minX
+  const y0 = river.y * cellV
+  const w = f.w
+  const h = river.h * cellV
+  const corners = [tp(x0, y0), tp(x0 + w, y0), tp(x0 + w, y0 + h), tp(x0, y0 + h)]
+  const cy = river.y + river.h / 2
+  const halfSpan = river.h * 0.22
+  const depth = 0.35 // layout units toward south (−x); flow is north → south
+  const spanLayout = f.w / cellV
+  const n = Math.max(4, Math.min(8, Math.round(spanLayout / 0.9)))
+  const chevrons = []
+  for (let i = 0; i < n; i++) {
+    const x = f.minX / cellV + ((i + 0.5) / n) * spanLayout
+    const wingA = tp(x * cellV, (cy - halfSpan) * cellV)
+    const tip = tp((x - depth) * cellV, cy * cellV)
+    const wingB = tp(x * cellV, (cy + halfSpan) * cellV)
+    chevrons.push(`M ${wingA.x} ${wingA.y} L ${tip.x} ${tip.y} L ${wingB.x} ${wingB.y}`)
+  }
+  return { rect: bbox(corners), chevrons }
+})
+
+/** Stone strip offset west (−y) from each spine segment. */
+function cliffWallSegmentPoly(p1, p2, thickness) {
+  return [
+    { x: p1.x, y: p1.y },
+    { x: p2.x, y: p2.y },
+    { x: p2.x, y: p2.y - thickness },
+    { x: p1.x, y: p1.y - thickness },
+  ]
+}
+
+function cliffWallPolygonPath(points) {
+  if (!points.length) return ''
+  const [first, ...rest] = points
+  return `M ${first.x} ${first.y} ${rest.map((p) => `L ${p.x} ${p.y}`).join(' ')} Z`
+}
+
+const placedCliffWall = computed(() => {
+  const wall = levelCliffWall(props.building, props.level, visibility.value)
+  if (!wall) return null
+  const cellV = cell.value
+  const t = wall.thickness
+  const segments = []
+  for (let i = 0; i < wall.points.length - 1; i++) {
+    const a = wall.points[i]
+    const b = wall.points[i + 1]
+    const poly = cliffWallSegmentPoly(a, b, t).map((p) => tp(p.x * cellV, p.y * cellV))
+    segments.push({ d: cliffWallPolygonPath(poly), key: `seg-${i}` })
+  }
+  return segments.length ? { segments } : null
+})
+
+// Viewing area = panel aspect, centered on the building; grid fills this rect.
+const viewBoxRect = computed(() => {
+  const f = layoutViewFrame.value
+  const corners = [
+    tp(f.minX, f.minY),
+    tp(f.maxX, f.minY),
+    tp(f.maxX, f.maxY),
+    tp(f.minX, f.maxY),
+  ]
+  const xs = corners.map((p) => p.x)
+  const ys = corners.map((p) => p.y)
+  const minX = Math.min(...xs)
+  const minY = Math.min(...ys)
+  const maxX = Math.max(...xs)
+  const maxY = Math.max(...ys)
+  if (!Number.isFinite(minX)) return { x: 0, y: 0, w: 100, h: 100 }
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
+})
+
+const mapSvgRef = ref(null)
+const dragHandle = ref(null)
+
+function svgCoords(clientX, clientY) {
+  const svg = mapSvgRef.value
+  if (!svg) return null
+  const pt = svg.createSVGPoint()
+  pt.x = clientX
+  pt.y = clientY
+  const ctm = svg.getScreenCTM()
+  if (!ctm) return null
+  const local = pt.matrixTransform(ctm.inverse())
+  return { x: local.x, y: local.y }
+}
+
+function onHandleDown(e, h) {
+  e.stopPropagation()
+  e.preventDefault()
+  dragHandle.value = h
+  emit('select-handle', h.handleKey)
+  window.addEventListener('pointermove', onPointerMove)
+  window.addEventListener('pointerup', onPointerUp)
+}
+
+function onPointerMove(e) {
+  if (!dragHandle.value) return
+  const pt = svgCoords(e.clientX, e.clientY)
+  if (!pt) return
+  const layout = unTp(pt.x, pt.y)
+  const h = dragHandle.value
+  emit('grid-handle-move', {
+    handleKey: h.handleKey,
+    index: h.index,
+    role: h.role,
+    nodeId: h.nodeId,
+    x: layout.x,
+    y: layout.y,
+  })
+}
+
+function onPointerUp() {
+  dragHandle.value = null
+  window.removeEventListener('pointermove', onPointerMove)
+  window.removeEventListener('pointerup', onPointerUp)
+}
+
+onUnmounted(onPointerUp)
+
+function onSvgClick(e) {
+  if (!props.builderEdit || !props.mapClickMode) return
+  if (e.target.closest('.edit-handle')) return
+  const pt = svgCoords(e.clientX, e.clientY)
+  if (!pt) return
+  const layout = unTp(pt.x, pt.y)
+  emit('builder-map-click', { ...layout, kind: props.mapClickMode })
+}
+
+const displayEditHandles = computed(() =>
+  props.editHandles.map((h) => {
+    const p = tp(h.x, h.y)
+    return { ...h, x: p.x, y: p.y }
+  }),
+)
+
+function handleColor(h) {
+  if (h.role === 'point') return pathCurvePointColor()
+  if (
+    h.role === 'path-node' ||
+    h.role === 'node-at' ||
+    h.role === 'door-at' ||
+    h.role === 'exit-map'
+  ) {
+    return pathNodeHandleColor()
+  }
+  return roomHandleColor(h.role)
+}
+
+function handleFill(h) {
+  if (h.handleKey === props.selectedHandleId) return '#fff'
+  if (h.role === 'move') return '#e8d4ff'
+  if (h.role === 'point') return '#ffe8cc'
+  if (h.role === 'path-node') return '#9fdfb8'
+  if (
+    h.role === 'node-at' ||
+    h.role === 'door-at' ||
+    h.role === 'exit-map'
+  ) {
+    return '#d4f5e2'
+  }
+  return '#ffd166'
+}
+
+function isItemSelected(id) {
+  return props.builderView && id === props.selectedItemId
+}
 
 const viewBox = computed(() => {
   const vb = viewBoxRect.value
@@ -216,12 +433,6 @@ const placedGridLines = computed(() => {
     minV = Math.min(minV, v)
     maxV = Math.max(maxV, v)
   }
-
-  const pad = step
-  minU -= pad
-  maxU += pad
-  minV -= pad
-  maxV += pad
 
   const lines = []
   const u0 = Math.floor(minU / step) * step
@@ -371,7 +582,121 @@ const placedBeams = computed(() =>
   }),
 )
 
+const placedExteriorPaths = computed(() =>
+  exteriorPathsOnLevel(props.building, props.level).map((path) => {
+    const layout = (path.points ?? []).map((p) => ({
+      x: p.x * cell.value,
+      y: p.y * cell.value,
+    }))
+    const drawn =
+      path.smooth !== false && layout.length >= 2
+        ? catmullRomSpline(layout)
+        : layout
+    const points = drawn
+      .map((p) => tp(p.x, p.y))
+      .map((p) => `${p.x},${p.y}`)
+      .join(' ')
+    const pathEditing =
+      props.builderEdit && props.editMode === 'line' && props.selectedItemId
+    const isSelected = pathEditing && path.id === props.selectedItemId
+    const dimmed = pathEditing && !isSelected
+    return { id: path.id, points, isSelected, dimmed }
+  }),
+)
+
+/** Control polygon for the path being edited (point order, not handle list order). */
+const editPathControlLine = computed(() => {
+  if (!props.builderEdit || props.editMode !== 'line' || !props.selectedItemId) {
+    return []
+  }
+  const path = props.building.exterior?.paths?.find(
+    (p) => p.id === props.selectedItemId,
+  )
+  if (!path?.points?.length) return []
+  return path.points.map((p) => tp(p.x * cell.value, p.y * cell.value))
+})
+
+const pathBuilderLegend = computed(
+  () => props.builderEdit && props.editMode === 'line',
+)
+
+const addPointHint = computed(
+  () =>
+    props.builderEdit &&
+    props.editMode === 'line' &&
+    props.mapClickMode === 'point',
+)
+
+const addNodeHint = computed(
+  () =>
+    props.builderEdit &&
+    props.editMode === 'line' &&
+    props.mapClickMode === 'node',
+)
+
+const placedExteriorNodes = computed(() => {
+  const editingPathId =
+    props.builderEdit && props.editMode === 'line' ? props.selectedItemId : null
+  const editingNodeIds = new Set(
+    editingPathId
+      ? (props.building.exterior?.paths ?? []).find((p) => p.id === editingPathId)
+          ?.nodes ?? []
+      : [],
+  )
+
+  return exteriorNodesOnLevel(props.building, props.level)
+    .filter((node) => !editingNodeIds.has(node.id))
+    .map((node) => {
+    const c = tp(node.at.x * cell.value, node.at.y * cell.value)
+    const r = cell.value * 0.11
+    return {
+      id: node.id,
+      label: node.label,
+      cx: c.x,
+      cy: c.y,
+      r,
+      current: props.exteriorNode === node.id,
+      reachable: reachableExteriorSet.value.has(node.id),
+      hasDoor: !!node.door,
+    }
+  })
+})
+
+const placedExits = computed(() =>
+  exitsOnLevel(props.building, props.level)
+    .filter((exit) => {
+      const door = props.building.doorById?.[exit.door]
+      if (!door) return false
+      if (props.builderView || props.exteriorNode) return true
+      if (!isDoorMapped(door, visibility.value)) return false
+      return props.currentRoom === exit.room
+    })
+    .map((exit) => {
+      const mapAt = exitMapAt(exit)
+      if (!mapAt) return null
+      const c = tp(mapAt.x * cell.value, mapAt.y * cell.value)
+      const r = exitHexRadius.value
+      return {
+        doorId: exit.door,
+        roomId: exit.room,
+        cx: c.x,
+        cy: c.y,
+        points: hexCornerPoints(c.x, c.y, r),
+        reachable: reachableExitSet.value.has(exit.door),
+      }
+    })
+    .filter(Boolean),
+)
+
 // ---- Spiral stair: a half-cylinder of glass bulging toward the river ----
+// `top` = west / river wall when north points right on the plan.
+function protrudeAngle(edge) {
+  if (edge === 'top') return 270
+  if (edge === 'bottom') return 90
+  if (edge === 'left') return 180
+  return 0
+}
+
 function arcPoints(cx, cy, r, angleDeg) {
   const pts = []
   for (let k = 90; k >= -90; k -= 15) {
@@ -381,18 +706,18 @@ function arcPoints(cx, cy, r, angleDeg) {
   return pts
 }
 
-// Radial treads centered halfway between hub and arc: short toward library, long toward kitchen.
+// Radial treads centered halfway between hub and arc: short toward hallway (south), long toward kitchen (north).
 // Layout-space angles only — map rotation is applied via toScreen (tp).
 function spiralTreads(cx, cy, radius, protrude, toScreen) {
   const base = (protrudeAngle(protrude) * Math.PI) / 180
   const westAng = base - Math.PI / 2
   const n = 7
   const midFrac = 0.5
-  const minHalf = 0.12 // half-length as a fraction of radius (library end)
-  const maxHalf = 0.42 // half-length at kitchen end
+  const minHalf = 0.12 // half-length as a fraction of radius (hallway / south end)
+  const maxHalf = 0.42 // half-length at kitchen / north end
   const out = []
   for (let i = 0; i < n; i++) {
-    const t = n > 1 ? i / (n - 1) : 0 // 0 = library (west), 1 = kitchen (east)
+    const t = n > 1 ? i / (n - 1) : 0 // 0 = hallway (south), 1 = kitchen (north)
     const ang = westAng + Math.PI * t
     let half = minHalf + t * (maxHalf - minHalf)
     half = Math.min(half, midFrac, 1 - midFrac)
@@ -537,6 +862,15 @@ const stairLandingFixture = computed(() => {
   return placedFixtures.value.find((f) => f.featureRoomId === current.value.id) ?? null
 })
 const avatarPos = computed(() => {
+  if (props.exteriorNode) {
+    const node = props.building.exterior?.nodeById?.[props.exteriorNode]
+    if (!node || props.building.exterior?.level !== props.level) return null
+    const stand = tp(node.at.x * cell.value, node.at.y * cell.value)
+    return {
+      x: stand.x,
+      y: stand.y - avatarFootOffset.value,
+    }
+  }
   if (!current.value) return null
   const landing = props.standLevel ?? props.level
   if (isStairLanding(current.value)) {
@@ -569,6 +903,18 @@ const compassTip = computed(() => {
   const a = (compassAngle.value * Math.PI) / 180
   return { x: 23 + 17 * Math.cos(a), y: 23 + 17 * Math.sin(a) }
 })
+function compassLabelPoint(baseDeg, offsetDeg) {
+  const a = ((baseDeg + offsetDeg) * Math.PI) / 180
+  return { x: 23 + 17 * Math.cos(a), y: 23 + 17 * Math.sin(a) }
+}
+const compassCardinals = computed(() => {
+  const n = compassAngle.value
+  return [
+    { id: 'E', ...compassLabelPoint(n, 90) },
+    { id: 'S', ...compassLabelPoint(n, 180) },
+    { id: 'W', ...compassLabelPoint(n, 270) },
+  ]
+})
 
 function isDiscovered(room) {
   if (props.builderView) return true
@@ -587,6 +933,10 @@ function isFixtureRevealed(fixture) {
   return !isFixtureFogged(fixture, visibility.value)
 }
 function onRoomClick(room) {
+  if (props.builderView) {
+    emit('select-item', { source: 'rooms', id: room.id })
+    return
+  }
   if (room.open) return
   if (!props.reachableRooms.includes(room.id)) return
   emit('room-click', room.id)
@@ -602,20 +952,82 @@ function onStairExitClick(f, roomId) {
   if (!props.reachableRooms.includes(roomId)) return
   emit('room-click', roomId)
 }
+function onDoorClick(doorId) {
+  if (props.builderView) {
+    emit('select-item', { source: 'doors', id: doorId })
+    return
+  }
+  if (!interactableDoorSet.value.has(doorId)) return
+  emit('door-click', doorId)
+}
+function onExitClick(e, doorId) {
+  if (props.builderView) {
+    e.preventDefault()
+    emit('select-item', { source: 'exits', id: doorId })
+    return
+  }
+  emit('exit-click', doorId)
+}
+function onExteriorNodeClick(nodeId) {
+  if (props.builderView) {
+    emit('select-item', { source: 'nodes', id: nodeId })
+    return
+  }
+  if (nodeId === props.exteriorNode) return
+  if (!reachableExteriorSet.value.has(nodeId)) return
+  emit('exterior-node-click', nodeId)
+}
 </script>
 
 <template>
-  <div class="gridmap" :class="{ expanded, 'builder-view': builderView }">
-    <button class="rotate-btn" title="Rotate 90°" @click="rotate">⟳</button>
+  <div
+    ref="gridmapRef"
+    class="gridmap"
+    :class="{
+      expanded,
+      'builder-view': builderView,
+      'builder-edit': builderEdit,
+      'add-point': addPointMode,
+    }"
+  >
+    <div class="map-controls">
+      <button class="rotate-btn" title="Rotate 90°" @click="rotate">⟳</button>
+      <svg class="compass" viewBox="0 0 46 46">
+        <circle cx="23" cy="23" r="20" class="compass-ring" />
+        <line x1="23" y1="23" :x2="compassTip.x" :y2="compassTip.y" class="compass-needle" />
+        <circle :cx="compassTip.x" :cy="compassTip.y" r="2.4" class="compass-dot" />
+        <text
+          v-for="label in compassCardinals"
+          :key="label.id"
+          :x="label.x"
+          :y="label.y"
+          class="compass-cardinal"
+        >{{ label.id }}</text>
+        <text :x="compassTip.x" :y="compassTip.y" class="compass-n">N</text>
+      </svg>
+    </div>
 
-    <svg class="compass" viewBox="0 0 46 46">
-      <circle cx="23" cy="23" r="20" class="compass-ring" />
-      <line x1="23" y1="23" :x2="compassTip.x" :y2="compassTip.y" class="compass-needle" />
-      <circle :cx="compassTip.x" :cy="compassTip.y" r="2.4" class="compass-dot" />
-      <text :x="compassTip.x" :y="compassTip.y" class="compass-n">N</text>
-    </svg>
+    <svg
+      ref="mapSvgRef"
+      :viewBox="viewBox"
+      preserveAspectRatio="xMidYMid meet"
+      @click="onSvgClick"
+    >
+      <defs>
+        <pattern
+          id="cliff-wall-stone"
+          patternUnits="userSpaceOnUse"
+          width="18"
+          height="12"
+        >
+          <rect width="18" height="12" fill="#7a7672" />
+          <rect x="0.5" y="0.5" width="8" height="5" rx="0.4" fill="#8f8b86" stroke="#5c5854" stroke-width="0.5" />
+          <rect x="9.5" y="0.5" width="8" height="5" rx="0.4" fill="#6e6a66" stroke="#5c5854" stroke-width="0.5" />
+          <rect x="5" y="6.5" width="8" height="5" rx="0.4" fill="#75716d" stroke="#5c5854" stroke-width="0.5" />
+          <rect x="0.5" y="6.5" width="4" height="5" rx="0.4" fill="#85817c" stroke="#5c5854" stroke-width="0.5" />
+        </pattern>
+      </defs>
 
-    <svg ref="mapSvgRef" :viewBox="viewBox" preserveAspectRatio="xMidYMid meet">
       <g class="grid-layer">
         <line
           v-for="(ln, i) in placedGridLines"
@@ -626,6 +1038,95 @@ function onStairExitClick(f, roomId) {
           :y2="ln.y2"
           class="grid-line"
         />
+      </g>
+
+      <!-- River cascade west of the building -->
+      <g v-if="placedRiver" class="river-layer" pointer-events="none">
+        <rect
+          :x="placedRiver.rect.x"
+          :y="placedRiver.rect.y"
+          :width="placedRiver.rect.w"
+          :height="placedRiver.rect.h"
+          class="river-fill"
+        />
+        <path
+          v-for="(d, i) in placedRiver.chevrons"
+          :key="'river-flow-' + i"
+          :d="d"
+          class="river-flow"
+        />
+      </g>
+
+      <!-- Retaining wall — cliff edge west of the driveway -->
+      <g v-if="placedCliffWall" class="cliff-wall-layer" pointer-events="none">
+        <path
+          v-for="seg in placedCliffWall.segments"
+          :key="'cliff-' + seg.key"
+          :d="seg.d"
+          class="cliff-wall-fill"
+        />
+      </g>
+
+      <!-- Building shell — true footprint, always behind interactive layers -->
+      <g v-if="placedBuildingShell.length" class="building-shell-layer" pointer-events="none">
+        <path
+          v-for="(ring, i) in placedBuildingShell"
+          :key="'shell-' + i"
+          :d="shellRingPath(ring)"
+          class="building-shell"
+          pointer-events="none"
+        />
+      </g>
+
+      <!-- Exterior footpaths -->
+      <g class="exterior-path-layer">
+        <polyline
+          v-for="path in placedExteriorPaths"
+          :key="'ext-path-' + path.id"
+          :points="path.points"
+          class="exterior-path"
+          :class="{
+            'exterior-path-builder-dim': path.dimmed,
+            'exterior-path-builder-active': path.isSelected,
+          }"
+        />
+      </g>
+
+      <!-- Exterior stand spots along the footpath -->
+      <g class="exterior-node-layer">
+        <g
+          v-for="node in placedExteriorNodes"
+          :key="'ext-node-' + node.id"
+          class="exterior-node"
+          :class="{
+            current: node.current,
+            reachable: node.reachable || builderView,
+            'builder-selected': isItemSelected(node.id),
+          }"
+          @click.stop="onExteriorNodeClick(node.id)"
+        >
+          <circle
+            :cx="node.cx"
+            :cy="node.cy"
+            :r="node.r"
+            class="exterior-node-fill"
+          />
+          <circle
+            v-if="node.current"
+            :cx="node.cx"
+            :cy="node.cy"
+            :r="node.r + 4"
+            class="exterior-node-ring"
+          />
+          <text
+            v-if="node.current || node.reachable"
+            :x="node.cx"
+            :y="node.cy - node.r - 6"
+            class="exterior-node-label"
+          >
+            {{ node.label }}
+          </text>
+        </g>
       </g>
 
       <!-- Rooms -->
@@ -641,6 +1142,7 @@ function onStairExitClick(f, roomId) {
             unvisited: (isFogged(p.room) || !isDiscovered(p.room)) && !isOpenVoid(p.room),
             open: isOpenVoid(p.room),
             overlook: p.room.open && p.room.mirror,
+            'builder-selected': isItemSelected(p.room.id),
           }"
           @click="onRoomClick(p.room)"
         >
@@ -730,8 +1232,16 @@ function onStairExitClick(f, roomId) {
           :height="d.h"
           :class="[
             d.kind === 'roll' ? 'roll-door' : 'man-door',
-            { open: d.open, closed: !d.open, locked: d.locked, 'lock-broken': d.lockBroken },
+            {
+              open: d.open,
+              closed: !d.open,
+              locked: d.locked,
+              'lock-broken': d.lockBroken,
+              'door-clickable': interactableDoorSet.has(d.id) || builderView,
+              'builder-selected': isItemSelected(d.id),
+            },
           ]"
+          @click.stop="onDoorClick(d.id)"
         />
       </g>
 
@@ -871,6 +1381,12 @@ function onStairExitClick(f, roomId) {
         class="avatar"
         :style="{ transform: `translate(${avatarPos.x}px, ${avatarPos.y}px)` }"
       >
+        <circle
+          :cx="0"
+          :cy="1 * avatarScale"
+          :r="37.5 * avatarScale"
+          class="avatar-halo"
+        />
         <ellipse :cx="0" :cy="27 * avatarScale" :rx="13 * avatarScale" :ry="3.5 * avatarScale" class="avatar-shadow" />
         <g :transform="`scale(${avatarScale})`" class="figure">
           <circle cx="0" cy="-24" r="7.5" />
@@ -880,7 +1396,93 @@ function onStairExitClick(f, roomId) {
           <line x1="0" y1="6" x2="10" y2="26" />
         </g>
       </g>
+
+      <!-- Step out to the hex travel map (on top for reliable clicks) -->
+      <g class="exit-layer">
+        <g
+          v-for="ex in placedExits"
+          :key="'exit-' + ex.doorId"
+          class="exit-hex"
+          :class="{
+            reachable: ex.reachable,
+            playable: !builderView,
+            'builder-selected': isItemSelected(ex.doorId),
+            'builder-pick': builderView,
+          }"
+          @click.stop="onExitClick($event, ex.doorId)"
+        >
+          <polygon :points="ex.points" class="exit-hex-fill" />
+          <text :x="ex.cx" :y="ex.cy + 1" class="exit-hex-icon">⬡</text>
+          <text :x="ex.cx" :y="ex.cy + 14" class="exit-hex-label">map</text>
+        </g>
+      </g>
+
+      <!-- Builder edit layer -->
+      <g v-if="builderEdit" class="edit-layer">
+        <polyline
+          v-if="editMode === 'line' && editPathControlLine.length"
+          :points="pointsAttr(editPathControlLine)"
+          class="edit-path-control"
+        />
+        <template v-if="editMode === 'room' && selectedItemId">
+          <rect
+            v-for="p in placedRooms.filter((r) => r.room.id === selectedItemId)"
+            :key="'sel-' + p.room.id"
+            :x="p.rect.x"
+            :y="p.rect.y"
+            :width="p.rect.w"
+            :height="p.rect.h"
+            class="room-selection-outline"
+            rx="4"
+          />
+        </template>
+        <circle
+          v-for="h in displayEditHandles"
+          :key="'handle-' + h.handleKey"
+          :cx="h.x"
+          :cy="h.y"
+          :r="h.role === 'path-node' ? 10 : h.role === 'move' ? 9 : 7"
+          class="edit-handle"
+          :class="{
+            selected: h.handleKey === selectedHandleId,
+            ['role-' + h.role]: !!h.role,
+            'path-node-handle': h.role === 'path-node',
+          }"
+          :style="{ stroke: handleColor(h), fill: handleFill(h) }"
+          @pointerdown="onHandleDown($event, h)"
+        />
+      </g>
     </svg>
+
+    <div v-if="pathBuilderLegend" class="path-builder-legend" aria-label="Path editor legend">
+      <div class="path-builder-legend-title">Path editor</div>
+      <div class="path-builder-legend-row">
+        <span class="swatch swatch-preview" />
+        <span>Smoothed preview (selected path)</span>
+      </div>
+      <div class="path-builder-legend-row">
+        <span class="swatch swatch-control" />
+        <span>Control polygon (straight segments between points)</span>
+      </div>
+      <div class="path-builder-legend-row">
+        <span class="swatch swatch-curve" />
+        <span>Curve waypoint — drag to bend</span>
+      </div>
+      <div class="path-builder-legend-row">
+        <span class="swatch swatch-node" />
+        <span>Path node — stand spot on the route</span>
+      </div>
+      <div class="path-builder-legend-row">
+        <span class="swatch swatch-dim" />
+        <span>Other paths (background)</span>
+      </div>
+      <p v-if="addPointHint" class="path-builder-add-hint">
+        Click the map: adds an orange waypoint on the nearest cyan segment.
+      </p>
+      <p v-else-if="addNodeHint" class="path-builder-add-hint path-builder-add-hint-node">
+        Click the map: adds a green path node (stand spot) on the route.
+      </p>
+    </div>
   </div>
 </template>
 
@@ -891,6 +1493,7 @@ function onStairExitClick(f, roomId) {
   height: 200px;
   border-radius: 10px;
   overflow: hidden;
+  container-type: size;
   background: radial-gradient(circle at 50% 30%, #2c3340, #181c24);
   box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.45);
   transition: width 0.35s ease, height 0.35s ease;
@@ -902,15 +1505,156 @@ function onStairExitClick(f, roomId) {
 .gridmap.builder-view {
   box-shadow: inset 0 0 0 2px rgba(200, 162, 255, 0.35);
 }
-.rotate-btn {
+.gridmap.builder-view:not(.expanded) {
+  width: 100%;
+  height: min(58vh, 560px);
+}
+.gridmap.builder-edit.add-point {
+  cursor: crosshair;
+}
+.room.builder-selected .floor,
+.man-door.builder-selected,
+.roll-door.builder-selected,
+.exterior-node.builder-selected .exterior-node-fill {
+  stroke: rgba(200, 162, 255, 0.95);
+  stroke-width: 3;
+}
+.edit-layer {
+  pointer-events: all;
+}
+.edit-guide {
+  fill: none;
+  stroke-width: 2;
+  stroke-dasharray: 4 5;
+  opacity: 0.85;
+  pointer-events: none;
+}
+.edit-path-control {
+  fill: none;
+  stroke: #58c4e8;
+  stroke-width: 2.5;
+  stroke-dasharray: 6 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.95;
+  pointer-events: none;
+}
+.room-selection-outline {
+  fill: rgba(200, 162, 255, 0.08);
+  stroke: rgba(200, 162, 255, 0.75);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  pointer-events: none;
+}
+.edit-handle {
+  stroke-width: 2.5;
+  cursor: grab;
+  touch-action: none;
+}
+.edit-handle.selected {
+  stroke-width: 3;
+}
+.edit-handle.path-node-handle {
+  stroke-width: 3;
+}
+.edit-handle.path-node-handle.selected {
+  stroke-width: 3.5;
+}
+.edit-handle:active {
+  cursor: grabbing;
+}
+.path-builder-legend {
   position: absolute;
-  top: 8px;
-  left: 8px;
+  left: clamp(6px, 2.5cqmin, 14px);
+  bottom: clamp(6px, 2.5cqmin, 14px);
   z-index: 2;
-  width: 30px;
-  height: 30px;
+  max-width: min(240px, 88%);
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(12, 14, 18, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 10px;
+  line-height: 1.35;
+  color: #d8dde6;
+  pointer-events: none;
+}
+.path-builder-legend-title {
+  font-weight: 700;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #a8b0bd;
+  margin-bottom: 6px;
+}
+.path-builder-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.path-builder-legend .swatch {
+  flex-shrink: 0;
+  width: 22px;
+  height: 0;
+  border-top-width: 3px;
+  border-top-style: solid;
+  border-radius: 1px;
+}
+.path-builder-legend .swatch-preview {
+  border-top-color: #e878a8;
+}
+.path-builder-legend .swatch-control {
+  border-top-color: #58c4e8;
+  border-top-style: dashed;
+}
+.path-builder-legend .swatch-curve {
+  width: 10px;
+  height: 10px;
+  border: 2.5px solid #f4a261;
+  border-radius: 50%;
+  border-top: 2.5px solid #f4a261;
+}
+.path-builder-legend .swatch-node {
+  width: 10px;
+  height: 10px;
+  border: 2.5px solid #7dcea0;
+  border-radius: 50%;
+  border-top: 2.5px solid #7dcea0;
+}
+.path-builder-legend .swatch-dim {
+  border-top-color: #5c574e;
+  border-top-style: dashed;
+  opacity: 0.7;
+}
+.path-builder-add-hint {
+  margin: 8px 0 0;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f4a261;
+  font-size: 9px;
+  line-height: 1.4;
+}
+.path-builder-add-hint-node {
+  color: #7dcea0;
+}
+.map-controls {
+  position: absolute;
+  right: clamp(6px, 2.5cqmin, 14px);
+  top: clamp(6px, 2.5cqmin, 14px);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: clamp(4px, 1.5cqmin, 10px);
+  --ctrl-size: clamp(28px, 13cqmin, 54px);
+}
+.rotate-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--ctrl-size);
+  height: var(--ctrl-size);
   padding: 0;
-  font-size: 1.05rem;
+  font-size: calc(var(--ctrl-size) * 0.62);
   line-height: 1;
   border-radius: 7px;
   background: rgba(20, 24, 30, 0.8);
@@ -922,13 +1666,10 @@ function onStairExitClick(f, roomId) {
   background: rgba(40, 48, 60, 0.9);
 }
 .compass {
-  position: absolute;
-  top: 6px;
-  right: 8px;
-  width: 40px;
-  height: 40px;
-  z-index: 2;
+  width: calc(var(--ctrl-size) * 1.35);
+  height: calc(var(--ctrl-size) * 1.35);
   pointer-events: none;
+  flex-shrink: 0;
 }
 .compass-ring {
   fill: rgba(20, 24, 30, 0.55);
@@ -953,6 +1694,16 @@ function onStairExitClick(f, roomId) {
   stroke: #181c24;
   stroke-width: 2.5px;
 }
+.compass-cardinal {
+  fill: #9aa3b2;
+  font-size: 7px;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  paint-order: stroke;
+  stroke: #181c24;
+  stroke-width: 2px;
+}
 svg:not(.compass) {
   width: 100%;
   height: 100%;
@@ -964,6 +1715,37 @@ svg:not(.compass) {
 .grid-line {
   stroke: rgba(255, 255, 255, 0.14);
   stroke-width: 1;
+}
+.building-shell-layer {
+  pointer-events: none;
+}
+.river-layer {
+  pointer-events: none;
+}
+.river-fill {
+  fill: #2a5578;
+  opacity: 0.92;
+}
+.river-flow {
+  fill: none;
+  stroke: rgba(200, 230, 255, 0.5);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.cliff-wall-layer {
+  pointer-events: none;
+}
+.cliff-wall-fill {
+  fill: url(#cliff-wall-stone);
+  stroke: #5c5854;
+  stroke-width: 2;
+  stroke-linejoin: bevel;
+}
+.building-shell {
+  fill: #14181f;
+  stroke: rgba(255, 255, 255, 0.22);
+  stroke-width: 2.5;
 }
 .room {
   cursor: pointer;
@@ -1105,9 +1887,136 @@ svg:not(.compass) {
   stroke-width: 2;
   stroke-dasharray: 4 3;
 }
+.man-door.door-clickable,
+.roll-door.door-clickable {
+  pointer-events: all;
+  cursor: pointer;
+}
+.man-door.door-clickable:hover,
+.roll-door.door-clickable:hover {
+  filter: brightness(1.15);
+}
 .entry-door {
   fill: #c39a6b;
   pointer-events: none;
+}
+.exit-hex {
+  pointer-events: none;
+  opacity: 0.45;
+}
+.exit-hex.playable,
+.exit-hex.builder-pick {
+  pointer-events: all;
+  cursor: pointer;
+}
+.exit-hex.reachable {
+  opacity: 1;
+}
+.exit-hex.playable:not(.reachable) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.gridmap.builder-view .exit-hex.builder-pick {
+  cursor: grab;
+}
+.gridmap.builder-view .exit-hex.builder-selected {
+  cursor: grab;
+}
+.exit-hex-fill {
+  fill: #3d5a4a;
+  stroke: #8ab89a;
+  stroke-width: 1.5;
+  transition: fill 0.2s ease, stroke 0.2s ease;
+}
+.exit-hex.reachable:hover .exit-hex-fill {
+  fill: #4a7560;
+  stroke: #b8e0c8;
+}
+.exit-hex.builder-selected .exit-hex-fill {
+  stroke: rgba(200, 162, 255, 0.95);
+  stroke-width: 2.5;
+}
+.exit-hex-icon {
+  fill: #c8e6d0;
+  font-size: 11px;
+  text-anchor: middle;
+  pointer-events: none;
+  opacity: 0.85;
+}
+.exit-hex-label {
+  fill: #9ab89a;
+  font-size: 7px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-anchor: middle;
+  pointer-events: none;
+}
+.exterior-path {
+  fill: none;
+  stroke: #c9b97e;
+  stroke-width: 2.8;
+  stroke-dasharray: 1.5 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.82;
+  pointer-events: none;
+}
+.exterior-path-builder-dim {
+  stroke: #5c574e;
+  stroke-width: 2;
+  stroke-dasharray: 2 8;
+  opacity: 0.45;
+}
+.exterior-path-builder-active {
+  stroke: #e878a8;
+  stroke-width: 3.5;
+  stroke-dasharray: none;
+  opacity: 0.95;
+}
+.exterior-node {
+  pointer-events: none;
+  opacity: 0.4;
+}
+.exterior-node.reachable {
+  pointer-events: all;
+  cursor: pointer;
+  opacity: 0.9;
+}
+.exterior-node.current {
+  opacity: 1;
+}
+.exterior-node-fill {
+  fill: #5c7058;
+  stroke: #c9b97e;
+  stroke-width: 2;
+  transition: fill 0.2s ease, stroke 0.2s ease;
+}
+.exterior-node-ring {
+  fill: none;
+  stroke: rgba(224, 212, 168, 0.55);
+  stroke-width: 2;
+  pointer-events: none;
+}
+.exterior-node-label {
+  fill: #e0d4a8;
+  font-size: 8px;
+  font-weight: 600;
+  text-anchor: middle;
+  pointer-events: none;
+}
+.exterior-node.reachable:hover .exterior-node-fill {
+  fill: #6a8066;
+  stroke: #e0d4a8;
+}
+.exterior-node.current .exterior-node-fill {
+  fill: #7a9474;
+  stroke: #fff;
+  stroke-width: 2.5;
+}
+.exterior-node.builder-selected .exterior-node-fill {
+  stroke: rgba(200, 162, 255, 0.95);
+  stroke-width: 3;
 }
 .fixture {
   cursor: default;
@@ -1190,6 +2099,11 @@ svg:not(.compass) {
 }
 .avatar-shadow {
   fill: rgba(0, 0, 0, 0.3);
+}
+.avatar-halo {
+  fill: #ffd166;
+  stroke: #c9970a;
+  stroke-width: 1.5;
 }
 .figure circle {
   fill: #f4f1de;

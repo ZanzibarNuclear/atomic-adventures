@@ -2,15 +2,15 @@
 # sketch. TWO floors share one footprint; the Large Bay (garage) is a single
 # double-height room, so on the 2nd floor that footprint is "open to below".
 #
-# Orientation: NORTH points RIGHT (east). The top of each plan is therefore
-# WEST — the river side, where the windows and the winding stair live.
+# Orientation: NORTH points RIGHT; SOUTH is left, WEST is up, EAST is down.
+# The top of each plan is WEST — the river side, where the windows and the winding stair live.
 #
 # Stacking:  Conference sits over Library; Kitchen sits over Small Bay;
 #            the Large Bay spans both floors.
 # Stairs:    Large Bay (garage) --straight stairs--> Conference (2nd floor)
 #            Kitchen (2F) and Hallway (1F) open onto the river-side spiral stair
 #            (a feature you can pause on — not just a through-route).
-#            Library connects west through a sloping corridor to the control room.
+#            Library connects south through a sloping corridor to the control room.
 
 id: utility-station
 name: Utility Station
@@ -19,6 +19,154 @@ gridFeet: 10 # light floor-grid lines every 10 feet
 unitFeet: 10 # one layout unit (room x/y/w/h) = 10 feet
 start: large-bay
 north: right # the compass arrow points right, per the sketch
+outdoorHex: utility-yard # hex where this building sits on the world map
+
+# Cascade west (top) of the building; layout +x is north, flow runs north → south.
+# Close-up plan crops to the building-facing half — a western border, not crossable here.
+river:
+  offsetFeet: 10
+  widthFeet: 15
+  visibleFraction: 0.5
+  onLevels: [first, second]
+
+# Retaining wall west of the driveway — blocks the cliff drop to the river.
+# Runs north→south (right→left on the plan); thickness extends west toward the river.
+cliffWall:
+  onLevels: [first, second]
+  thicknessFeet: 5
+  extendNorthToMapEdge: true
+  points:
+    - { x: 4.2, y: 0.1 } # northwest corner of building footprint (upper-right)
+
+# Footpaths and stand spots outside the building (1st-floor plan).
+# Paths use smooth curves (Catmull-Rom) like the hex-map trails.
+exterior:
+  level: first
+  entry: large-bay-roll-front
+  pad: 1
+  nodes:
+    - id: small-bay-roll-front
+      at: { x: 4.47, y: 1.02 }
+      label: "EV bay roll-up"
+      door: small-bay-roll
+      room: small-bay
+    - id: large-bay-roll-front
+      at: { x: 4.67, y: 3.26 }
+      label: "Large bay roll-up"
+      door: large-bay-roll
+      room: large-bay
+    - id: north-east-corner
+      at: { x: 4.42, y: 5.48 }
+      label: "North-east corner"
+    - id: large-bay-man-front
+      at: { x: 0.61, y: 5.55 }
+      label: "Large bay side door"
+      door: large-bay-man
+      room: large-bay
+    - id: south-east-bend
+      at: { x: -3.13, y: 5.34 }
+      label: "South-east bend"
+    - id: lobby-exterior-front
+      at: { x: -4.4, y: 3.52 }
+      label: "Control lobby"
+      door: lobby-exterior
+      room: control-lobby
+    - id: south-east-corner
+      at: { x: -6.34, y: 3.41 }
+      label: "South-east corner"
+    - id: downstream-bank
+      at: { x: -5.77, y: -1.11 }
+      label: "Riverbank downstream"
+    - id: midstream-bank
+      at: { x: -1.12, y: -1.11 }
+      label: "Midstream bank"
+    - id: upstream-bank
+      at: { x: 3.54, y: -1.1 }
+      label: "Riverbank upstream"
+  paths:
+    - id: driveway
+      smooth: true
+      nodes: [small-bay-roll-front, large-bay-roll-front]
+      points:
+        - { x: 4.09, y: 0.06 }
+        - { x: 4.75, y: 2.16 }
+        - { x: 4.65, y: 3.41 }
+    - id: perimeter
+      smooth: true
+      nodes:
+        [
+          large-bay-roll-front,
+          north-east-corner,
+          large-bay-man-front,
+          south-east-bend,
+          lobby-exterior-front,
+        ]
+      points:
+        - { x: 4.66, y: 3.57 }
+        - { x: 4.67, y: 4.74 }
+        - { x: 4.29, y: 5.53 }
+        - { x: 2.81, y: 5.53 }
+        - { x: 0.61, y: 5.55 }
+        - { x: -1.98, y: 5.56 }
+        - { x: -4.05, y: 4.65 }
+        - { x: -4.39, y: 3.48 }
+    - id: riverside
+      smooth: false
+      nodes:
+        [
+          lobby-exterior-front,
+          south-east-corner,
+          downstream-bank,
+          midstream-bank,
+          upstream-bank,
+        ]
+      points:
+        - { x: -4.4, y: 3.52 }
+        - { x: -6.34, y: 3.41 }
+        - { x: -6.29, y: -0.21 }
+        - { x: -5.77, y: -1.11 }
+        - { x: -1.12, y: -1.11 }
+        - { x: 3.54, y: -1.1 }
+    - id: river-stairs
+      smooth: false
+      nodes: [small-bay-roll-front, upstream-bank]
+      points:
+        - { x: 3.54, y: -1.1 }
+        - { x: 4.09, y: 0.06 }
+
+# Exterior doors — mini hex on the floor plan steps out to the world map.
+exits:
+  - door: small-bay-roll
+    room: small-bay
+    exteriorNode: small-bay-roll-front
+    at: { x: 5.35, y: 1 }
+    mapAt: { x: 5.08, y: 1.16 }
+    hex: utility-yard
+    standAt: { from: landmark, dx: 0.58, dy: -0.02 }
+
+  - door: large-bay-roll
+    room: large-bay
+    exteriorNode: large-bay-roll-front
+    at: { x: 5.35, y: 3.5 }
+    mapAt: { x: 5.12, y: 3.42 }
+    hex: utility-yard
+    standAt: { from: landmark, dx: 0.62, dy: 0.22 }
+
+  - door: large-bay-man
+    room: large-bay
+    exteriorNode: large-bay-man-front
+    at: { x: 0.6, y: 6.75 }
+    mapAt: { x: 0.67, y: 5.94 }
+    hex: utility-yard
+    standAt: { from: landmark, dx: 0.28, dy: 0.52 }
+
+  - door: lobby-exterior
+    room: control-lobby
+    exteriorNode: lobby-exterior-front
+    at: { x: -4.4, y: 3.28 }
+    mapAt: { x: -4.69, y: 3.81 }
+    hex: utility-yard
+    standAt: { from: landmark, dx: -0.28, dy: 0.38 }
 
 # Highest order is the top floor.
 levels:
@@ -50,11 +198,30 @@ rooms:
     x: -6
     y: 0
     w: 3
-    h: 3
+    h: 2
     name: "Control Room"
     icon: "🎛️"
+    windows: [top] # west / river side
     revealWhenDoor: corridor-control # peek once the downhill door opens
     blurb: "Plant controls and monitoring gear for the utility station — breaker panels, annunciators, and a wall of labeled switches."
+  - id: control-lobby
+    level: first
+    x: -6
+    y: 2
+    w: 2
+    h: 1
+    name: "Lobby"
+    icon: "🎛️"
+    blurb: "Entrance to the control room"
+  - id: control-bathroom
+    level: first
+    x: -4
+    y: 2
+    w: 1
+    h: 1
+    name: "Bathroom"
+    icon: "🚽"
+    blurb: "When operators have to go"
   - id: hallway
     level: first
     x: 1
@@ -62,7 +229,7 @@ rooms:
     w: 1
     h: 0.8 # 8 ft — corridor above the bathroom
     name: "Hallway"
-    blurb: "A short passage between the library, small bay, and spiral stair. Doors line the west wall and both ends."
+    blurb: "A short passage between the library, small bay, and spiral stair. Doors line the west (river) wall and the north and south ends."
   - id: bathroom
     level: first
     x: 1
@@ -146,6 +313,18 @@ links:
   - { from: library, to: hallway, kind: door, door: library-hallway }
   - { from: library, to: corridor, kind: door, door: library-corridor }
   - { from: corridor, to: control-room, kind: door, door: corridor-control }
+  - {
+      from: control-room,
+      to: control-lobby,
+      kind: door,
+      door: control-room-lobby,
+    }
+  - {
+      from: control-room,
+      to: control-bathroom,
+      kind: door,
+      door: control-room-bathroom,
+    }
   - { from: hallway, to: small-bay, kind: door, door: hallway-small-bay }
   - { from: hallway, to: spiral-stair, kind: door, door: hallway-spiral }
   - { from: hallway, to: bathroom, kind: door, door: hallway-bathroom }
@@ -158,6 +337,47 @@ links:
     }
   - { from: conference, to: kitchen, kind: door, door: conference-kitchen }
   - { from: kitchen, to: spiral-stair, kind: door, door: kitchen-spiral }
+
+# Keys and other carry items (inventory ids).
+items:
+  - id: hallway-small-bay-key
+    kind: key
+    name: Small bay door key
+    description: Brass key for the man door between the hallway and small bay — needed from the garage side.
+  - id: lobby-exterior-key
+    kind: key
+    name: Lobby exterior key
+    description: Deadbolt key for the front door — needed from outside on the footpath.
+  - id: large-bay-man-key
+    kind: key
+    name: Large bay man door key
+    description: Key for the personnel door at the corner of the large bay.
+
+# Pickups — one-time items found in a room.
+pickups:
+  - id: lobby-desk-keys
+    room: control-lobby
+    item: lobby-exterior-key
+    label: Keys on the reception desk
+  - id: hallway-key-hook
+    room: hallway
+    item: hallway-small-bay-key
+    label: Key on the hallway hook (small bay door)
+  - id: large-bay-key-peg
+    room: large-bay
+    item: large-bay-man-key
+    label: Key on the peg by the man door
+
+# Manual release toggles for roll-up doors (disengages the chain hoist).
+switches:
+  - id: small-bay-manual
+    room: small-bay
+    door: small-bay-roll
+    label: Manual release — small roll-up
+  - id: large-bay-manual
+    room: large-bay
+    door: large-bay-roll
+    label: Manual release — large roll-up
 
 # Doors: topology + visuals + initial state. All start closed.
 doors:
@@ -172,7 +392,7 @@ doors:
     level: first
     at: { x: -1, y: 0.4 }
     vertical: true
-    showWhenRoom: library # visible once the player has reached the library
+    showWhenRoom: library # hidden until library or corridor wing is explored
     initial: { closed: true, locked: false }
   - id: corridor-control
     kind: man
@@ -180,16 +400,40 @@ doors:
     at: { x: -3, y: 0.4 }
     vertical: true
     initial: { closed: true, locked: false }
+  - id: control-room-lobby
+    kind: man
+    level: first
+    at: { x: -5, y: 2 }
+    initial: { closed: true, locked: false }
+  - id: control-room-bathroom
+    kind: man
+    level: first
+    at: { x: -3.5, y: 2 }
+    initial: { closed: true, locked: false }
+  - id: lobby-exterior
+    kind: man
+    level: first
+    room: control-lobby
+    at: { x: -4.4, y: 3 } # east / bottom wall — exterior entry
+    label: "Lobby exterior door"
+    lock:
+      key: lobby-exterior-key
+      freeFrom: control-lobby # thumb turn inside the lobby
+    initial: { closed: true, locked: true }
   - id: hallway-spiral
     kind: man
     level: first
-    at: { x: 1.68, y: 0.04 } # west landing — matches spiral exitDown (hallway end)
+    selfClosing: true # push-through stair door — passable while shut
+    at: { x: 1.68, y: 0.04 } # west wall — spiral exitDown (hallway / south end)
     initial: { closed: true, locked: false }
   - id: hallway-small-bay
     kind: man
     level: first
     at: { x: 2, y: 0.38 }
     vertical: true
+    lock:
+      key: hallway-small-bay-key
+      freeFrom: hallway # lock/unlock from hallway without a key
     initial: { closed: true, locked: true }
   - id: hallway-bathroom
     kind: man
@@ -202,14 +446,23 @@ doors:
     room: large-bay
     at: { x: 0.6, y: 5 }
     label: "Large bay man door"
-    initial: { closed: true, lockBroken: true }
+    lock:
+      key: large-bay-man-key
+      freeFrom: large-bay
+    initial: { closed: true, locked: true }
   - id: small-bay-roll
     kind: roll
     room: small-bay
+    lock:
+      kind: enabler
+      enablers: [power, manual]
     initial: { closed: true, locked: true }
   - id: large-bay-roll
     kind: roll
     room: large-bay
+    lock:
+      kind: enabler
+      enablers: [power, manual]
     initial: { closed: true, locked: true }
   - id: conference-kitchen
     kind: man
@@ -219,13 +472,14 @@ doors:
     initial: { closed: true, locked: false }
   - id: conference-garage-stair
     kind: man
-    level: second
+    onLevels: [first, second] # top of the garage stair run — same spot on both plans
     at: { x: 1.62, y: 2 }
-    showWhenRoom: garage-stair # top landing — visible once you're on the stair run
+    showWhenRoom: large-bay # visible from the garage once you've arrived
     initial: { closed: true, locked: false }
   - id: kitchen-spiral
     kind: man
     level: second
+    selfClosing: true
     at: { x: 2.32, y: 0.04 }
     initial: { closed: true, locked: false }
 
