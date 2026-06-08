@@ -64,6 +64,13 @@ export {
 } from './grid/useGridLayout.js'
 
 export {
+  normalizeCompassEdge,
+  layoutSideFromEdge,
+  northOrientationBase,
+  COMPASS_EDGES,
+} from './grid/useGridCompass.js'
+
+export {
   canUseExteriorExit,
   exteriorMovesFrom,
   exteriorReachableNodes,

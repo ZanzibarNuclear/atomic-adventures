@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
+import { northOrientationBase } from '../../composables/grid/useGridCompass.js'
 import './grid-map-shared.css'
 
 const props = defineProps({
@@ -17,8 +18,7 @@ const props = defineProps({
 defineEmits(['rotate'])
 
 const compassAngle = computed(() => {
-  const base = props.north === 'right' ? 0 : 270
-  return (base + props.rotation) % 360
+  return (northOrientationBase(props.north) + props.rotation) % 360
 })
 
 const compassTip = computed(() => {

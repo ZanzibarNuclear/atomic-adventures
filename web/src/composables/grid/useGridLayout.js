@@ -5,6 +5,7 @@ import {
   roomsOnLevel,
   sharedEdge,
 } from './useGridModel.js'
+import { layoutSideFromEdge } from './useGridCompass.js'
 import { isFixtureMapped, isRoomMapped } from './useGridVisibility.js'
 
 const LAYOUT_EPS = 1e-5
@@ -221,18 +222,18 @@ function trimWindowCornerInsets(intervals, fullStart, fullEnd, inset) {
     .filter(([a, b]) => b - a > LAYOUT_EPS)
 }
 
-function spiralOpeningsOnEdge(building, levelId, edge, wallCoord) {
+function spiralOpeningsOnEdge(building, levelId, layoutSide, wallCoord) {
   const covered = []
   for (const f of building.fixtures ?? []) {
     if (f.kind !== 'spiral-stairs' || !f.at) continue
     const onLevels = f.onLevels ?? building.levels?.map((l) => l.id) ?? []
     if (!onLevels.includes(levelId)) continue
-    if ((f.protrude ?? 'top') !== edge) continue
+    if (layoutSideFromEdge(f.protrude ?? 'west') !== layoutSide) continue
     const cx = f.at.x
     const cy = f.at.y
     const r = f.radius ?? 0.6
     const m = SPIRAL_WINDOW_MARGIN
-    if (edge === 'top' || edge === 'bottom') {
+    if (layoutSide === 'top' || layoutSide === 'bottom') {
       if (Math.abs(cy - wallCoord) > LAYOUT_EPS) continue
       covered.push([cx - r - m, cx + r + m])
     } else {
@@ -258,34 +259,35 @@ function intervalsToWallSegments(room, edge, intervals) {
 
 /** Exterior wall runs where a room may show windows (layout coordinates). */
 export function roomWindowSegments(room, edge, building, levelId) {
+  const layoutSide = layoutSideFromEdge(edge)
   const rooms = roomsOnLevel(building, levelId)
   const r = layoutRect(room)
   const covered = []
   for (const o of rooms) {
     if (o.id === room.id) continue
-    const span = neighborCoverOnSide(room, o, edge)
+    const span = neighborCoverOnSide(room, o, layoutSide)
     if (span) covered.push(span)
   }
   let fullStart
   let fullEnd
   let wallCoord
-  if (edge === 'left' || edge === 'right') {
+  if (layoutSide === 'left' || layoutSide === 'right') {
     fullStart = r.y
     fullEnd = r.y + r.h
-    wallCoord = edge === 'left' ? r.x : r.x + r.w
+    wallCoord = layoutSide === 'left' ? r.x : r.x + r.w
   } else {
     fullStart = r.x
     fullEnd = r.x + r.w
-    wallCoord = edge === 'top' ? r.y : r.y + r.h
+    wallCoord = layoutSide === 'top' ? r.y : r.y + r.h
   }
-  covered.push(...spiralOpeningsOnEdge(building, levelId, edge, wallCoord))
+  covered.push(...spiralOpeningsOnEdge(building, levelId, layoutSide, wallCoord))
   const intervals = trimWindowCornerInsets(
     subtractIntervals(fullStart, fullEnd, covered),
     fullStart,
     fullEnd,
     windowCornerInset(building),
   )
-  return intervalsToWallSegments(room, edge, intervals)
+  return intervalsToWallSegments(room, layoutSide, intervals)
 }
 
 export function levelBuildingOutline(building, levelId) {
@@ -350,7 +352,7 @@ export function levelContentExtentsLayout(building, levelId, visibility = null) 
       const cx = f.at.x
       const cy = f.at.y
       const radius = f.radius ?? 0.6
-      const base = protrudeAngle(f.protrude ?? 'top')
+      const base = protrudeAngle(f.protrude ?? 'west')
       bumpLayoutExtents(ext, cx, cy)
       for (let k = 90; k >= -90; k -= 15) {
         const a = ((base + k) * Math.PI) / 180

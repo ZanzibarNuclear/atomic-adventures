@@ -1,4 +1,5 @@
 import { normalizeDoorInitial } from '../useDoors.js'
+import { layoutSideFromEdge, normalizeCompassEdge } from './useGridCompass.js'
 
 function buildExteriorModel(exterior) {
   if (!exterior) {
@@ -40,12 +41,21 @@ function buildExteriorModel(exterior) {
 
 export function buildBuilding(data) {
   const cell = data.cell ?? 64
-  const rooms = (data.rooms ?? []).map((r) => ({ w: 1, h: 1, ...r }))
+  const rooms = (data.rooms ?? []).map((r) => ({
+    w: 1,
+    h: 1,
+    ...r,
+    windows: r.windows?.map((w) => normalizeCompassEdge(w)),
+    rollDoor: r.rollDoor ? normalizeCompassEdge(r.rollDoor) : r.rollDoor,
+  }))
   const roomById = Object.fromEntries(rooms.map((r) => [r.id, r]))
   const levels = [...(data.levels ?? [])].sort((a, b) => b.order - a.order)
   const levelById = Object.fromEntries(levels.map((l) => [l.id, l]))
   const links = data.links ?? []
-  const fixtures = data.fixtures ?? []
+  const fixtures = (data.fixtures ?? []).map((f) => ({
+    ...f,
+    protrude: f.protrude ? normalizeCompassEdge(f.protrude) : f.protrude,
+  }))
   const items = data.items ?? []
   const itemById = Object.fromEntries(
     items.filter((i) => i.id).map((i) => [i.id, { kind: 'item', ...i }]),
@@ -117,15 +127,16 @@ export function roomCenter(room, cell) {
 }
 
 export function protrudeAngle(edge) {
-  if (edge === 'top') return 270
-  if (edge === 'bottom') return 90
-  if (edge === 'left') return 180
+  const side = layoutSideFromEdge(edge ?? 'west')
+  if (side === 'top') return 270
+  if (side === 'bottom') return 90
+  if (side === 'left') return 180
   return 0
 }
 
 const SPIRAL_TREAD_COUNT = 7
 
-export function spiralStandPoint(cx, cy, radius, protrude = 'top', treadIndex) {
+export function spiralStandPoint(cx, cy, radius, protrude = 'west', treadIndex) {
   const base = (protrudeAngle(protrude) * Math.PI) / 180
   const westAng = base - Math.PI / 2
   const n = SPIRAL_TREAD_COUNT
@@ -139,7 +150,7 @@ export function spiralStandPoint(cx, cy, radius, protrude = 'top', treadIndex) {
   }
 }
 
-export function spiralExitPoint(cx, cy, radius, protrude = 'top', end) {
+export function spiralExitPoint(cx, cy, radius, protrude = 'west', end) {
   const n = SPIRAL_TREAD_COUNT
   const innerDown = Math.floor((n - 1) * 0.35)
   const innerUp = Math.ceil((n - 1) * 0.65)
@@ -214,7 +225,7 @@ export function roomStandPosition(building, room) {
         fixture.at.x * cell,
         fixture.at.y * cell,
         (fixture.radius ?? 0.6) * cell,
-        fixture.protrude ?? 'top',
+        fixture.protrude ?? 'west',
       )
     }
     if (fixture?.kind === 'straight-stairs' && fixture.rect) {
@@ -274,7 +285,7 @@ export function dirBetween(building, fromRoom, toRoom) {
 export function rollDoorRect(room, cell) {
   if (!room?.rollDoor) return null
   const r = roomRect(room, cell)
-  const edge = room.rollDoor
+  const edge = layoutSideFromEdge(room.rollDoor)
   const wallLen = edge === 'top' || edge === 'bottom' ? r.w : r.h
   const span = (room.rollSpan ?? 0.6) * wallLen
   let x1, y1
@@ -450,7 +461,7 @@ export function fixturesOnLevel(building, levelId) {
         connects,
         x: f.at.x * cell,
         y: f.at.y * cell,
-        protrude: f.protrude ?? 'top',
+        protrude: f.protrude ?? 'west',
         radius: (f.radius ?? 0.6) * cell,
       })
     } else if (f.kind === 'straight-stairs') {

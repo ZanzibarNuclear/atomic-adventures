@@ -8,7 +8,7 @@ rooms:
     name: "Library"
     icon: "📚"
     blurb: "Shelves, manuals, log binders, and three holo-reader stations. Windows covered by sliding blinds. Views of the river cascade."
-    windows: [top]
+    windows: [west]
 
   - id: corridor
     level: first
@@ -28,7 +28,7 @@ rooms:
     name: "Control Room"
     icon: "🎛️"
     blurb: "Plant controls and monitoring gear for the utility station — breaker panels, annunciators, and a wall of labeled switches."
-    windows: [top]
+    windows: [west]
     revealWhenDoor: corridor-control
 
   - id: control-lobby
@@ -80,7 +80,7 @@ rooms:
     icon: "🔧"
     note: "1 story · EV bay"
     blurb: "The e-buggy is parked here under a cloth. Needs charge to move. Power cable and outlet, electrical gear, a voltage meter, assorted tools."
-    rollDoor: right
+    rollDoor: north
     rollSpan: 0.72
 
   - id: large-bay
@@ -93,7 +93,7 @@ rooms:
     icon: "🅿️"
     note: "2 stories"
     blurb: "Open to the roof. Empty now, but the tire tracks and oil stains say something big was housed and serviced here — gone elsewhere on the compound."
-    rollDoor: right
+    rollDoor: north
     rollSpan: 0.6
 
   - id: garage-stair
@@ -125,7 +125,7 @@ rooms:
     name: "Conference Room"
     icon: "🪑"
     blurb: "Table, chairs, and dirty windows framing the river rapids and sloping valley."
-    windows: [top]
+    windows: [west]
 
   - id: kitchen
     level: second

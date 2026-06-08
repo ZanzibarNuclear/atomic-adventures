@@ -1,4 +1,5 @@
 import { roomRect, roomOnLevel, exitMapAt } from './useGrid.js'
+import { normalizeCompassEdge } from './grid/useGridCompass.js'
 
 function round2(n) {
   return Math.round(n * 100) / 100
@@ -493,7 +494,7 @@ export function setRollDoorProps(data, doorId, { edge, rollSpan }) {
   if (!door?.room) return
   const room = data.rooms?.find((r) => r.id === door.room)
   if (!room) return
-  if (edge != null) room.rollDoor = edge
+  if (edge != null) room.rollDoor = normalizeCompassEdge(edge)
   if (rollSpan != null) room.rollSpan = Math.max(0.1, Math.min(1, round2(rollSpan)))
 }
 

@@ -149,6 +149,10 @@ Soon: Zanzibar thinks of the e-Buggy. Goes into the garage and plugs it in. An e
 
 Lots more to think through...
 
+Closet. Empty backpack, flashlights, coil of rope, power cables.
+
+Two doors: one to an all-gender bathroom, also with two stalls. The other to the lobby area with a coat rack, a bench, a frame for footwear, a reception desk with a phone and computer terminal (with a monitor and keyboard).
+
 ## Day 3
 
 ## The Micro-hydro Power Converter

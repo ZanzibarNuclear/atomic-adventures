@@ -1,5 +1,6 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { levelCliffWall, levelMapLayoutBounds } from './useGrid.js'
+import { northOrientationBase } from './grid/useGridCompass.js'
 import { bbox } from './useGridFixtureLayout.js'
 
 function expandFrameToAspect(frame, aspect) {
@@ -55,7 +56,10 @@ export function useGridMapTransform({ gridmapRef, building, level, visibility, c
     rotation.value = (rotation.value + 90) % 360
   }
 
-  const swapAxes = computed(() => rotation.value % 180 !== 0)
+  const baseRotation = computed(() => northOrientationBase(building.value?.north))
+  const mapRotation = computed(() => (baseRotation.value + rotation.value) % 360)
+
+  const swapAxes = computed(() => mapRotation.value % 180 !== 0)
 
   const mapLayout = computed(() =>
     levelMapLayoutBounds(building.value, level.value, visibility.value),
@@ -104,7 +108,7 @@ export function useGridMapTransform({ gridmapRef, building, level, visibility, c
   }))
 
   function tp(x, y) {
-    const rad = (rotation.value * Math.PI) / 180
+    const rad = (mapRotation.value * Math.PI) / 180
     const cx = center.value.x
     const cy = center.value.y
     const dx = x - cx
@@ -115,7 +119,7 @@ export function useGridMapTransform({ gridmapRef, building, level, visibility, c
   }
 
   function unTp(x, y) {
-    const rad = (rotation.value * Math.PI) / 180
+    const rad = (mapRotation.value * Math.PI) / 180
     const cx = center.value.x
     const cy = center.value.y
     const dx = x - cx
@@ -201,7 +205,7 @@ export function useGridMapTransform({ gridmapRef, building, level, visibility, c
     const pivot = tp(center.value.x, center.value.y)
     const cx = pivot.x
     const cy = pivot.y
-    const rad = (rotation.value * Math.PI) / 180
+    const rad = (mapRotation.value * Math.PI) / 180
     const ux = Math.cos(rad)
     const uy = Math.sin(rad)
     const vx = -Math.sin(rad)

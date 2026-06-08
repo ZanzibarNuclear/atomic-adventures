@@ -2,8 +2,8 @@
 # sketch. TWO floors share one footprint; the Large Bay (garage) is a single
 # double-height room, so on the 2nd floor that footprint is "open to below".
 #
-# Orientation: NORTH points RIGHT; SOUTH is left, WEST is up, EAST is down.
-# The top of each plan is WEST — the river side, where the windows and the winding stair live.
+# Orientation: layout +x = north, +y = east (compass-fixed; user rotation does not change these).
+# Default map view: north up, aligned with the hex map. West (−y) faces the river cascade.
 #
 # Stacking:  Conference sits over Library; Kitchen sits over Small Bay;
 #            the Large Bay spans both floors.
@@ -18,10 +18,9 @@ cell: 64
 gridFeet: 10 # light floor-grid lines every 10 feet
 unitFeet: 10 # one layout unit (room x/y/w/h) = 10 feet
 start: large-bay
-north: right # the compass arrow points right, per the sketch
 outdoorHex: utility-yard # hex where this building sits on the world map
 
-# Cascade west (top) of the building; layout +x is north, flow runs north → south.
+# Cascade west (−y) of the building; layout +x is north, flow runs north → south.
 # Close-up plan crops to the building-facing half — a western border, not crossable here.
 river:
   offsetFeet: 10
@@ -30,13 +29,13 @@ river:
   onLevels: [first, second]
 
 # Retaining wall west of the driveway — blocks the cliff drop to the river.
-# Runs north→south (right→left on the plan); thickness extends west toward the river.
+# Runs north→south (+x); thickness extends west (−y) toward the river.
 cliffWall:
   onLevels: [first, second]
   thicknessFeet: 5
   extendNorthToMapEdge: true
   points:
-    - { x: 4.2, y: 0.1 } # northwest corner of building footprint (upper-right)
+    - { x: 4.2, y: 0.1 } # northeast corner of building footprint
 
 # Footpaths and stand spots outside the building (1st-floor plan).
 # Paths use smooth curves (Catmull-Rom) like the hex-map trails.
@@ -183,11 +182,11 @@ rooms:
     h: 2
     name: "Library"
     icon: "📚"
-    windows: [top] # west / river side
+    windows: [west] # river side
     blurb: "Shelves, manuals, log binders, and three holo-reader stations. Windows covered by sliding blinds. Views of the river cascade."
   - id: corridor
     level: first
-    windows: [top] # west / river side
+    windows: [west] # river side
     x: -3
     y: 0.2
     w: 2
@@ -202,7 +201,7 @@ rooms:
     h: 2
     name: "Control Room"
     icon: "🎛️"
-    windows: [top] # west / river side
+    windows: [west] # river side
     revealWhenDoor: corridor-control # peek once the downhill door opens
     blurb: "Plant controls and monitoring gear for the utility station — breaker panels, annunciators, and a wall of labeled switches."
   - id: control-lobby
@@ -249,7 +248,7 @@ rooms:
     name: "Small Bay"
     icon: "🔧"
     note: "1 story · EV bay"
-    rollDoor: right # single-story roll-up onto the driveway (north wall)
+    rollDoor: north # roll-up onto the driveway (north wall)
     rollSpan: 0.72
     blurb: "The e-buggy is parked here under a cloth. Needs charge to move. Power cable and outlet, electrical gear, a voltage meter, assorted tools."
   - id: large-bay
@@ -261,7 +260,7 @@ rooms:
     name: "Large Bay"
     icon: "🅿️"
     note: "2 stories"
-    rollDoor: right # bigger two-story roll-up, same (north) wall / driveway
+    rollDoor: north # bigger two-story roll-up, same (north) wall / driveway
     rollSpan: 0.6
     blurb: "Open to the roof. Empty now, but the tire tracks and oil stains say something big was housed and serviced here — gone elsewhere on the compound."
   - id: garage-stair
@@ -284,7 +283,7 @@ rooms:
     h: 2
     name: "Conference Room"
     icon: "🪑"
-    windows: [top]
+    windows: [west]
     blurb: "Table, chairs, and dirty windows framing the river rapids and sloping valley."
   - id: kitchen
     level: second
@@ -294,7 +293,7 @@ rooms:
     h: 2
     name: "Kitchen / Dining"
     icon: "🍽️"
-    windows: [top] # west / river side
+    windows: [west] # river side
     blurb: "Worker kitchen and dining area. Water purifier, rations, dishes and utensils. Small table with kitchen chairs."
   - id: bay-open
     level: second
@@ -489,7 +488,7 @@ fixtures:
   - id: spiral-stair
     kind: spiral-stairs
     at: { x: 2, y: 0 }
-    protrude: top
+    protrude: west
     radius: 0.66
     onLevels: [first, second]
     connects: [kitchen, hallway]
