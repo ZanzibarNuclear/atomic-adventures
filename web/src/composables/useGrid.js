@@ -60,6 +60,7 @@ export {
   levelCliffWall,
   levelDisplayBounds,
   levelBeams,
+  roomWindowSegments,
 } from './grid/useGridLayout.js'
 
 export {

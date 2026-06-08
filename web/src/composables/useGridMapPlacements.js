@@ -15,6 +15,7 @@ import {
   fixturesOnLevel,
   sharedEdge,
   levelBuildingPerimeter,
+  roomWindowSegments,
   isRoomMapped,
   isDoorMapped,
   isFixtureMapped,
@@ -25,31 +26,6 @@ import {
 
 function rect(room, cell) {
   return roomRect(room, cell)
-}
-
-function wall(room, edge, cell) {
-  const r = rect(room, cell)
-  if (edge === 'top') return { x1: r.x, y1: r.y, x2: r.x + r.w, y2: r.y }
-  if (edge === 'bottom') return { x1: r.x, y1: r.y + r.h, x2: r.x + r.w, y2: r.y + r.h }
-  if (edge === 'left') return { x1: r.x, y1: r.y, x2: r.x, y2: r.y + r.h }
-  return { x1: r.x + r.w, y1: r.y, x2: r.x + r.w, y2: r.y + r.h }
-}
-
-function inward(edge, amount) {
-  if (edge === 'top') return { dx: 0, dy: amount }
-  if (edge === 'bottom') return { dx: 0, dy: -amount }
-  if (edge === 'left') return { dx: amount, dy: 0 }
-  return { dx: -amount, dy: 0 }
-}
-
-function windowSeg(room, edge, cell) {
-  const w = wall(room, edge, cell)
-  const { dx, dy } = inward(edge, cell * 0.14)
-  const mx = (w.x1 + w.x2) / 2
-  const my = (w.y1 + w.y2) / 2
-  const hx = ((w.x2 - w.x1) / 2) * 0.66
-  const hy = ((w.y2 - w.y1) / 2) * 0.66
-  return { x1: mx - hx + dx, y1: my - hy + dy, x2: mx + hx + dx, y2: my + hy + dy }
 }
 
 /**
@@ -123,12 +99,13 @@ export function useGridMapPlacements({
         tp(r.x + r.w, r.y + r.h),
         tp(r.x, r.y + r.h),
       ]
-      const windows = (room.windows || []).map((edge) => {
-        const s = windowSeg(room, edge, cell.value)
-        const a = tp(s.x1, s.y1)
-        const b = tp(s.x2, s.y2)
-        return { x1: a.x, y1: a.y, x2: b.x, y2: b.y }
-      })
+      const windows = (room.windows || []).flatMap((edge) =>
+        roomWindowSegments(room, edge, building.value, level.value).map((s) => {
+          const a = tp(s.x1 * cell.value, s.y1 * cell.value)
+          const b = tp(s.x2 * cell.value, s.y2 * cell.value)
+          return { x1: a.x, y1: a.y, x2: b.x, y2: b.y }
+        }),
+      )
       const railings = []
       if (room.open) {
         for (const other of levelRooms.value) {

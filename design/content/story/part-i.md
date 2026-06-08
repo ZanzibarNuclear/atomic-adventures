@@ -70,19 +70,25 @@ Tastee Tack, harkening back to hardtack, a stable of soldiers. It comes in a var
 
 Zanzibar sat at a breakroom table to one side of the kitchen. This side of the room also had windows with a view of the flowing water outside. The sun was setting on this amazing day.
 
-Having satisfied his hunger and thirst without overdoing it, there was one more place Zanzibar wanted to see. Another door led from the dining area to a spiral staircase at the side of the building. The springloaded door hinge closed automatically behind him. There he was, with the cascade of water and view into the valley below where the setting sun turned the sky a deepening orange.
+Having satisfied his hunger and thirst, there was one more place Zanzibar wanted to see. Another door led from the dining area to a spiral staircase at the side of the building. The springloaded door hinge closed automatically behind him. There he was, with the cascade of water and view into the valley below where the setting sun turned the sky a deepening orange.
 
-Between the white noise from the falls and fatigue, Zanzibar felt an overwhelming urge to sleep. Looking down the stairs, he saw another door. There was just enough light left to check it out.
+The white noise from the falls was hypnotic, and fatigue started to pour over Zanzibar. Looking down the stairs, he saw another door. Just enough light remained to check it out.
 
-A short hallway opened onto the study beyond — quiet carpeting, rows of shelves, a few stations with lamps for reading, and best of all, an overstuffed chair, perfect for an extended period of reading, or a nice long nap.
+He pull the door open and stepped into a short hallway with three more doors. The door ahead was labeled with the universal symbol for a unisex restroom. Good to know.
 
-Zanzibar fell asleep.
+The door to the left was locked. He turned the lock, opened the door, and saw the covered vehicle. So that was the way to the garage.
+
+Closing the door, he moved across the hall. That door opened into a carpeted room with shelves full of books and manuals, a couple of study carols, and some soft, low seating. Zanzibar had found a library.
+
+He sunk into one of the overstuffed chairs, streteched his legs, and drifted off to sleep.
 
 ## Day 2
 
-Zanzibar woke up. His body had absorbed what it could of the previous meal. He needed to dispose of what remained. Where to find the bathroom?
+Zanzibar opened his eyes to a thin slice of light was coming through the riverside wall. He realized that fancy wooden shutters were closed, obscuring most of the windows. He slid them open to an amazing ground-level view of the waterfall and the sloping riverbank. He also noticed that a pipe extended the length of the falls from the top to a point just below where he stood.
 
-The answer was right behind him. Back through the hallway at the foot of the spiral stair, a door marked with the universal symbols led to a small restroom — two unisex stalls and two sinks, clean enough for a facility that expected regular use.
+What an exciting day. Three days ago, he made a bold decision based on a hunch. Today, he would continue to explore this outpost that was more than a rustic getaway. While the library might have some answers, his first priority was to answer the call of Mother Nature. Time to visit the room next to the library.
+
+It was a small miracle that the facilities were in working order. Running water, a supply of paper products, even an old bar of soap. A welcome improvement after days of roughing it.
 
 ### The Study / Library
 

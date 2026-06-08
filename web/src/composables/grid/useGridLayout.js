@@ -198,6 +198,96 @@ export function levelBuildingPerimeter(building, levelId) {
   return segmentsToRings(segments)
 }
 
+/** Gap left between a window run and a spiral-stair arc tangent (layout units). */
+const SPIRAL_WINDOW_MARGIN = 0.12
+
+/** Clearance at room corners for posts / jambs (feet). */
+const WINDOW_CORNER_FEET = 2
+
+function windowCornerInset(building) {
+  const unitFeet = building.unitFeet ?? 10
+  return WINDOW_CORNER_FEET / unitFeet
+}
+
+function trimWindowCornerInsets(intervals, fullStart, fullEnd, inset) {
+  return intervals
+    .map(([a, b]) => {
+      let start = a
+      let end = b
+      if (Math.abs(start - fullStart) < LAYOUT_EPS) start += inset
+      if (Math.abs(end - fullEnd) < LAYOUT_EPS) end -= inset
+      return [start, end]
+    })
+    .filter(([a, b]) => b - a > LAYOUT_EPS)
+}
+
+function spiralOpeningsOnEdge(building, levelId, edge, wallCoord) {
+  const covered = []
+  for (const f of building.fixtures ?? []) {
+    if (f.kind !== 'spiral-stairs' || !f.at) continue
+    const onLevels = f.onLevels ?? building.levels?.map((l) => l.id) ?? []
+    if (!onLevels.includes(levelId)) continue
+    if ((f.protrude ?? 'top') !== edge) continue
+    const cx = f.at.x
+    const cy = f.at.y
+    const r = f.radius ?? 0.6
+    const m = SPIRAL_WINDOW_MARGIN
+    if (edge === 'top' || edge === 'bottom') {
+      if (Math.abs(cy - wallCoord) > LAYOUT_EPS) continue
+      covered.push([cx - r - m, cx + r + m])
+    } else {
+      if (Math.abs(cx - wallCoord) > LAYOUT_EPS) continue
+      covered.push([cy - r - m, cy + r + m])
+    }
+  }
+  return covered
+}
+
+function intervalsToWallSegments(room, edge, intervals) {
+  const r = layoutRect(room)
+  const segs = []
+  for (const [a, b] of intervals) {
+    if (b - a <= LAYOUT_EPS) continue
+    if (edge === 'top') segs.push({ x1: a, y1: r.y, x2: b, y2: r.y })
+    else if (edge === 'bottom') segs.push({ x1: a, y1: r.y + r.h, x2: b, y2: r.y + r.h })
+    else if (edge === 'left') segs.push({ x1: r.x, y1: a, x2: r.x, y2: b })
+    else segs.push({ x1: r.x + r.w, y1: a, x2: r.x + r.w, y2: b })
+  }
+  return segs
+}
+
+/** Exterior wall runs where a room may show windows (layout coordinates). */
+export function roomWindowSegments(room, edge, building, levelId) {
+  const rooms = roomsOnLevel(building, levelId)
+  const r = layoutRect(room)
+  const covered = []
+  for (const o of rooms) {
+    if (o.id === room.id) continue
+    const span = neighborCoverOnSide(room, o, edge)
+    if (span) covered.push(span)
+  }
+  let fullStart
+  let fullEnd
+  let wallCoord
+  if (edge === 'left' || edge === 'right') {
+    fullStart = r.y
+    fullEnd = r.y + r.h
+    wallCoord = edge === 'left' ? r.x : r.x + r.w
+  } else {
+    fullStart = r.x
+    fullEnd = r.x + r.w
+    wallCoord = edge === 'top' ? r.y : r.y + r.h
+  }
+  covered.push(...spiralOpeningsOnEdge(building, levelId, edge, wallCoord))
+  const intervals = trimWindowCornerInsets(
+    subtractIntervals(fullStart, fullEnd, covered),
+    fullStart,
+    fullEnd,
+    windowCornerInset(building),
+  )
+  return intervalsToWallSegments(room, edge, intervals)
+}
+
 export function levelBuildingOutline(building, levelId) {
   const cell = building.cell
   const rings = levelBuildingPerimeter(building, levelId)
