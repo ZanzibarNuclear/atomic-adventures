@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { hexCornerPoints } from '../composables/useHexGeometry.js'
 import { catmullRomSpline, pointsAttr } from '../composables/useRoutes.js'
 import {
@@ -7,13 +7,20 @@ import {
   pathNodeHandleColor,
   roomHandleColor,
 } from '../composables/useGridBuilder.js'
+import { useSvgDragHandles } from '../composables/useSvgDragHandles.js'
+import { useGridMapTransform } from '../composables/useGridMapTransform.js'
+import { bbox, layoutPlacedFixtures } from '../composables/useGridFixtureLayout.js'
+import MapAvatar from './map/MapAvatar.vue'
+import MapEditHandlesLayer from './map/MapEditHandlesLayer.vue'
+import GridSceneryLayer from './grid/GridSceneryLayer.vue'
+import GridExteriorLayer from './grid/GridExteriorLayer.vue'
+import GridRoomLayer from './grid/GridRoomLayer.vue'
+import GridDoorLayer from './grid/GridDoorLayer.vue'
+import GridFixtureLayer from './grid/GridFixtureLayer.vue'
 import {
   roomsOnLevel,
   roomRect,
   roomStandPosition,
-  spiralStandPoint,
-  spiralExitPoint,
-  stairExitRooms,
   isStairLanding,
   levelBeams,
   doorsOnLevel,
@@ -24,8 +31,6 @@ import {
   sharedEdge,
   mapVisibilityCtx,
   levelBuildingPerimeter,
-  levelMapLayoutBounds,
-  levelCliffWall,
   isRoomMapped,
   isRoomFogged,
   isDoorMapped,
@@ -98,10 +103,6 @@ const placedBuildingShell = computed(() => {
     ring.map((p) => tp(p.x * cell.value, p.y * cell.value)),
   )
 })
-function shellRingPath(ring) {
-  if (ring.length === 0) return ''
-  return ring.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ') + ' Z'
-}
 const beams = computed(() => levelBeams(props.building, props.level, visibility.value))
 const doors = computed(() =>
   doorsOnLevel(props.building, props.level, props.doorStates, props.currentRoom || null),
@@ -110,244 +111,47 @@ const fixtures = computed(() =>
   fixturesOnLevel(props.building, props.level).filter((f) => isFixtureMapped(f, visibility.value)),
 )
 
-// ---- Rotation: the player can spin the plan 90° at a time ----
-const rotation = ref(0)
-function rotate() {
-  rotation.value = (rotation.value + 90) % 360
-}
-const swapAxes = computed(() => rotation.value % 180 !== 0)
-
-const mapLayout = computed(() =>
-  levelMapLayoutBounds(props.building, props.level, visibility.value),
-)
-
 const gridmapRef = ref(null)
-const containerAspect = ref(220 / 200)
-let resizeObserver = null
 
-function attachResizeObserver() {
-  resizeObserver?.disconnect()
-  const el = gridmapRef.value
-  if (!el) return
-  const { width, height } = el.getBoundingClientRect()
-  if (height > 0) containerAspect.value = width / height
-  resizeObserver = new ResizeObserver((entries) => {
-    const cr = entries[0].contentRect
-    if (cr.height > 0) containerAspect.value = cr.width / cr.height
-  })
-  resizeObserver.observe(el)
-}
-
-onMounted(() => nextTick(attachResizeObserver))
-watch(() => props.expanded, () => nextTick(attachResizeObserver))
-onUnmounted(() => resizeObserver?.disconnect())
-
-/** Expand the minimum frame to the panel aspect ratio, centered on the building. */
-function expandFrameToAspect(frame, aspect) {
-  const { minX, maxX, minY, maxY, bcx, bcy } = frame
-  const corners = [
-    { x: minX, y: minY },
-    { x: maxX, y: minY },
-    { x: maxX, y: maxY },
-    { x: minX, y: maxY },
-  ]
-  let halfW = 0
-  let halfH = 0
-  for (const p of corners) {
-    halfW = Math.max(halfW, Math.abs(p.x - bcx))
-    halfH = Math.max(halfH, Math.abs(p.y - bcy))
-  }
-  if (halfH <= 0) halfH = 1
-  if (halfW / halfH < aspect) halfW = halfH * aspect
-  else halfH = halfW / aspect
-  return {
-    minX: bcx - halfW,
-    maxX: bcx + halfW,
-    minY: bcy - halfH,
-    maxY: bcy + halfH,
-    w: halfW * 2,
-    h: halfH * 2,
-    bcx,
-    bcy,
-  }
-}
-
-const minFramePx = computed(() => {
-  const m = mapLayout.value
-  const c = cell.value
-  return {
-    minX: m.minX * c,
-    maxX: m.maxX * c,
-    minY: m.minY * c,
-    maxY: m.maxY * c,
-    bcx: m.centerX * c,
-    bcy: m.centerY * c,
-  }
-})
-
-const layoutViewFrame = computed(() =>
-  expandFrameToAspect(minFramePx.value, containerAspect.value),
-)
-
-const center = computed(() => ({
-  x: layoutViewFrame.value.bcx,
-  y: layoutViewFrame.value.bcy,
-}))
-
-// Rotate a point about the building center (clockwise on screen).
-function tp(x, y) {
-  const rad = (rotation.value * Math.PI) / 180
-  const cx = center.value.x
-  const cy = center.value.y
-  const dx = x - cx
-  const dy = y - cy
-  const c = Math.cos(rad)
-  const s = Math.sin(rad)
-  return { x: cx + dx * c - dy * s, y: cy + dx * s + dy * c }
-}
-
-function unTp(x, y) {
-  const rad = (rotation.value * Math.PI) / 180
-  const cx = center.value.x
-  const cy = center.value.y
-  const dx = x - cx
-  const dy = y - cy
-  const c = Math.cos(rad)
-  const s = Math.sin(rad)
-  return { x: cx + dx * c + dy * s, y: cy - dx * s + dy * c }
-}
-
-const placedRiver = computed(() => {
-  const river = mapLayout.value.river
-  if (!river) return null
-  const cellV = cell.value
-  const f = layoutViewFrame.value
-  const x0 = f.minX
-  const y0 = river.y * cellV
-  const w = f.w
-  const h = river.h * cellV
-  const corners = [tp(x0, y0), tp(x0 + w, y0), tp(x0 + w, y0 + h), tp(x0, y0 + h)]
-  const cy = river.y + river.h / 2
-  const halfSpan = river.h * 0.22
-  const depth = 0.35 // layout units toward south (−x); flow is north → south
-  const spanLayout = f.w / cellV
-  const n = Math.max(4, Math.min(8, Math.round(spanLayout / 0.9)))
-  const chevrons = []
-  for (let i = 0; i < n; i++) {
-    const x = f.minX / cellV + ((i + 0.5) / n) * spanLayout
-    const wingA = tp(x * cellV, (cy - halfSpan) * cellV)
-    const tip = tp((x - depth) * cellV, cy * cellV)
-    const wingB = tp(x * cellV, (cy + halfSpan) * cellV)
-    chevrons.push(`M ${wingA.x} ${wingA.y} L ${tip.x} ${tip.y} L ${wingB.x} ${wingB.y}`)
-  }
-  return { rect: bbox(corners), chevrons }
-})
-
-/** Stone strip offset west (−y) from each spine segment. */
-function cliffWallSegmentPoly(p1, p2, thickness) {
-  return [
-    { x: p1.x, y: p1.y },
-    { x: p2.x, y: p2.y },
-    { x: p2.x, y: p2.y - thickness },
-    { x: p1.x, y: p1.y - thickness },
-  ]
-}
-
-function cliffWallPolygonPath(points) {
-  if (!points.length) return ''
-  const [first, ...rest] = points
-  return `M ${first.x} ${first.y} ${rest.map((p) => `L ${p.x} ${p.y}`).join(' ')} Z`
-}
-
-const placedCliffWall = computed(() => {
-  const wall = levelCliffWall(props.building, props.level, visibility.value)
-  if (!wall) return null
-  const cellV = cell.value
-  const t = wall.thickness
-  const segments = []
-  for (let i = 0; i < wall.points.length - 1; i++) {
-    const a = wall.points[i]
-    const b = wall.points[i + 1]
-    const poly = cliffWallSegmentPoly(a, b, t).map((p) => tp(p.x * cellV, p.y * cellV))
-    segments.push({ d: cliffWallPolygonPath(poly), key: `seg-${i}` })
-  }
-  return segments.length ? { segments } : null
-})
-
-// Viewing area = panel aspect, centered on the building; grid fills this rect.
-const viewBoxRect = computed(() => {
-  const f = layoutViewFrame.value
-  const corners = [
-    tp(f.minX, f.minY),
-    tp(f.maxX, f.minY),
-    tp(f.maxX, f.maxY),
-    tp(f.minX, f.maxY),
-  ]
-  const xs = corners.map((p) => p.x)
-  const ys = corners.map((p) => p.y)
-  const minX = Math.min(...xs)
-  const minY = Math.min(...ys)
-  const maxX = Math.max(...xs)
-  const maxY = Math.max(...ys)
-  if (!Number.isFinite(minX)) return { x: 0, y: 0, w: 100, h: 100 }
-  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
+const {
+  rotation,
+  rotate,
+  tp,
+  unTp,
+  viewBox,
+  placedRiver,
+  placedCliffWall,
+  placedGridLines,
+  swapAxes,
+} = useGridMapTransform({
+  gridmapRef,
+  building: computed(() => props.building),
+  level: computed(() => props.level),
+  visibility,
+  cell,
+  expanded: computed(() => props.expanded),
 })
 
 const mapSvgRef = ref(null)
-const dragHandle = ref(null)
 
-function svgCoords(clientX, clientY) {
-  const svg = mapSvgRef.value
-  if (!svg) return null
-  const pt = svg.createSVGPoint()
-  pt.x = clientX
-  pt.y = clientY
-  const ctm = svg.getScreenCTM()
-  if (!ctm) return null
-  const local = pt.matrixTransform(ctm.inverse())
-  return { x: local.x, y: local.y }
-}
-
-function onHandleDown(e, h) {
-  e.stopPropagation()
-  e.preventDefault()
-  dragHandle.value = h
-  emit('select-handle', h.handleKey)
-  window.addEventListener('pointermove', onPointerMove)
-  window.addEventListener('pointerup', onPointerUp)
-}
-
-function onPointerMove(e) {
-  if (!dragHandle.value) return
-  const pt = svgCoords(e.clientX, e.clientY)
-  if (!pt) return
-  const layout = unTp(pt.x, pt.y)
-  const h = dragHandle.value
-  emit('grid-handle-move', {
-    handleKey: h.handleKey,
-    index: h.index,
-    role: h.role,
-    nodeId: h.nodeId,
-    x: layout.x,
-    y: layout.y,
-  })
-}
-
-function onPointerUp() {
-  dragHandle.value = null
-  window.removeEventListener('pointermove', onPointerMove)
-  window.removeEventListener('pointerup', onPointerUp)
-}
-
-onUnmounted(onPointerUp)
+const { onHandleDown, clientToSvg } = useSvgDragHandles(mapSvgRef, {
+  onSelect: (handleKey) => emit('select-handle', handleKey),
+  onMove: (payload) => emit('grid-handle-move', payload),
+  mapPoint: (pt) => unTp(pt.x, pt.y),
+})
 
 function onSvgClick(e) {
   if (!props.builderEdit || !props.mapClickMode) return
   if (e.target.closest('.edit-handle')) return
-  const pt = svgCoords(e.clientX, e.clientY)
-  if (!pt) return
-  const layout = unTp(pt.x, pt.y)
+  const layout = clientToSvg(e.clientX, e.clientY)
+  if (!layout) return
   emit('builder-map-click', { ...layout, kind: props.mapClickMode })
+}
+
+function gridHandleRadius(h) {
+  if (h.role === 'path-node') return 10
+  if (h.role === 'move') return 9
+  return 7
 }
 
 const displayEditHandles = computed(() =>
@@ -389,73 +193,6 @@ function isItemSelected(id) {
   return props.builderView && id === props.selectedItemId
 }
 
-const viewBox = computed(() => {
-  const vb = viewBoxRect.value
-  return `${vb.x} ${vb.y} ${vb.w} ${vb.h}`
-})
-
-const gridStepPx = computed(() => {
-  const gridFeet = props.building.gridFeet ?? 10
-  const unitFeet = props.building.unitFeet ?? gridFeet
-  return cell.value * (gridFeet / unitFeet)
-})
-
-// 10' grid lines in screen space — SVG patterns fail to tile across the viewBox.
-const placedGridLines = computed(() => {
-  const vb = viewBoxRect.value
-  const step = gridStepPx.value
-  const pivot = tp(center.value.x, center.value.y)
-  const cx = pivot.x
-  const cy = pivot.y
-  const rad = (rotation.value * Math.PI) / 180
-  const ux = Math.cos(rad)
-  const uy = Math.sin(rad)
-  const vx = -Math.sin(rad)
-  const vy = Math.cos(rad)
-
-  const corners = [
-    { x: vb.x, y: vb.y },
-    { x: vb.x + vb.w, y: vb.y },
-    { x: vb.x + vb.w, y: vb.y + vb.h },
-    { x: vb.x, y: vb.y + vb.h },
-  ]
-  let minU = Infinity
-  let maxU = -Infinity
-  let minV = Infinity
-  let maxV = -Infinity
-  for (const p of corners) {
-    const dx = p.x - cx
-    const dy = p.y - cy
-    const u = dx * ux + dy * uy
-    const v = dx * vx + dy * vy
-    minU = Math.min(minU, u)
-    maxU = Math.max(maxU, u)
-    minV = Math.min(minV, v)
-    maxV = Math.max(maxV, v)
-  }
-
-  const lines = []
-  const u0 = Math.floor(minU / step) * step
-  for (let u = u0; u <= maxU; u += step) {
-    lines.push({
-      x1: cx + u * ux + minV * vx,
-      y1: cy + u * uy + minV * vy,
-      x2: cx + u * ux + maxV * vx,
-      y2: cy + u * uy + maxV * vy,
-    })
-  }
-  const v0 = Math.floor(minV / step) * step
-  for (let v = v0; v <= maxV; v += step) {
-    lines.push({
-      x1: cx + minU * ux + v * vx,
-      y1: cy + minU * uy + v * vy,
-      x2: cx + maxU * ux + v * vx,
-      y2: cy + maxU * uy + v * vy,
-    })
-  }
-  return lines
-})
-
 // ---- Geometry helpers (original, pre-rotation coordinates) ----
 function rect(room) {
   return roomRect(room, cell.value)
@@ -488,14 +225,6 @@ function doorCenter(room, edge) {
 }
 
 // ---- Placement: turn original geometry into rotated screen geometry ----
-function bbox(pts) {
-  const xs = pts.map((p) => p.x)
-  const ys = pts.map((p) => p.y)
-  const x = Math.min(...xs)
-  const y = Math.min(...ys)
-  return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y }
-}
-// A small axis-aligned rect stays axis-aligned under 90° turns (w/h swap).
 function placeRect(cxOrig, cyOrig, w, h) {
   const c = tp(cxOrig, cyOrig)
   const W = swapAxes.value ? h : w
@@ -688,170 +417,8 @@ const placedExits = computed(() =>
     .filter(Boolean),
 )
 
-// ---- Spiral stair: a half-cylinder of glass bulging toward the river ----
-// `top` = west / river wall when north points right on the plan.
-function protrudeAngle(edge) {
-  if (edge === 'top') return 270
-  if (edge === 'bottom') return 90
-  if (edge === 'left') return 180
-  return 0
-}
-
-function arcPoints(cx, cy, r, angleDeg) {
-  const pts = []
-  for (let k = 90; k >= -90; k -= 15) {
-    const a = ((angleDeg + k) * Math.PI) / 180
-    pts.push({ x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) })
-  }
-  return pts
-}
-
-// Radial treads centered halfway between hub and arc: short toward hallway (south), long toward kitchen (north).
-// Layout-space angles only — map rotation is applied via toScreen (tp).
-function spiralTreads(cx, cy, radius, protrude, toScreen) {
-  const base = (protrudeAngle(protrude) * Math.PI) / 180
-  const westAng = base - Math.PI / 2
-  const n = 7
-  const midFrac = 0.5
-  const minHalf = 0.12 // half-length as a fraction of radius (hallway / south end)
-  const maxHalf = 0.42 // half-length at kitchen / north end
-  const out = []
-  for (let i = 0; i < n; i++) {
-    const t = n > 1 ? i / (n - 1) : 0 // 0 = hallway (south), 1 = kitchen (north)
-    const ang = westAng + Math.PI * t
-    let half = minHalf + t * (maxHalf - minHalf)
-    half = Math.min(half, midFrac, 1 - midFrac)
-    const r0 = midFrac - half
-    const r1 = midFrac + half
-    const a = toScreen(cx + radius * r0 * Math.cos(ang), cy + radius * r0 * Math.sin(ang))
-    const b = toScreen(cx + radius * r1 * Math.cos(ang), cy + radius * r1 * Math.sin(ang))
-    out.push({
-      x1: a.x,
-      y1: a.y,
-      x2: b.x,
-      y2: b.y,
-      width: 1.1 + t * 1.8,
-      opacity: 0.5 + t * 0.5,
-    })
-  }
-  return out
-}
-
 const placedFixtures = computed(() =>
-  fixtures.value.map((f) => {
-    if (f.kind === 'spiral-stairs') {
-      const c0 = { x: f.x, y: f.y }
-      // Bulge is fixed to the building (west / river wall); tp() rotates it with the plan.
-      const pts = arcPoints(c0.x, c0.y, f.radius, protrudeAngle(f.protrude))
-      const tPts = pts.map((p) => tp(p.x, p.y))
-      const c = tp(c0.x, c0.y)
-      const fillPath = `M ${c.x} ${c.y} ` + tPts.map((p) => `L ${p.x} ${p.y}`).join(' ') + ' Z'
-      const arcPath = `M ${tPts[0].x} ${tPts[0].y} ` + tPts.slice(1).map((p) => `L ${p.x} ${p.y}`).join(' ')
-      const treads = spiralTreads(c0.x, c0.y, f.radius, f.protrude, tp)
-      const standLayout = spiralStandPoint(c0.x, c0.y, f.radius, f.protrude)
-      const stand = tp(standLayout.x, standLayout.y)
-      const stairId = f.featureRoomId ?? 'spiral-stair'
-      const { upRoomId, downRoomId } = stairExitRooms(props.building, stairId)
-      const exitUpLayout = spiralExitPoint(c0.x, c0.y, f.radius, f.protrude, 'up')
-      const exitDownLayout = spiralExitPoint(c0.x, c0.y, f.radius, f.protrude, 'down')
-      const exitUp = tp(exitUpLayout.x, exitUpLayout.y)
-      const exitDown = tp(exitDownLayout.x, exitDownLayout.y)
-      const fogBox = bbox([c, ...tPts])
-      return {
-        id: f.id,
-        type: 'spiral',
-        dir: f.dir,
-        toRoomId: f.toRoomId,
-        featureRoomId: stairId,
-        connects: f.connects ?? [],
-        cx: c.x,
-        cy: c.y,
-        standX: stand.x,
-        standY: stand.y,
-        exitUp,
-        exitDown,
-        exitUpRoomId: upRoomId,
-        exitDownRoomId: downRoomId,
-        fillPath,
-        arcPath,
-        treads,
-        fogBox,
-      }
-    }
-    // Straight stairs: parallel tread lines, wider toward the top (plan convention).
-    const r = f.rect
-    const corners = [tp(r.x, r.y), tp(r.x + r.w, r.y), tp(r.x + r.w, r.y + r.h), tp(r.x, r.y + r.h)]
-    const box = bbox(corners)
-    const horizontal = f.run === 'horizontal'
-    const alongLen = horizontal ? r.w : r.h
-    const crossLen = horizontal ? r.h : r.w
-    const n = Math.max(5, Math.min(9, Math.round(alongLen / (cell.value * 0.18))))
-    const minSpan = cell.value * 0.28
-    const maxSpan = crossLen * 0.88
-    const treads = []
-    for (let i = 0; i < n; i++) {
-      const t = (i + 0.5) / n
-      const towardTop = f.ascend === 'end' ? t : 1 - t
-      const span = minSpan + towardTop * (maxSpan - minSpan)
-      const pos = f.ascend === 'end' ? t : 1 - t
-      let a, b
-      if (horizontal) {
-        const x = r.x + pos * r.w
-        const cy = r.y + r.h / 2
-        a = tp(x, cy - span / 2)
-        b = tp(x, cy + span / 2)
-      } else {
-        const y = r.y + pos * r.h
-        const cx = r.x + r.w / 2
-        a = tp(cx - span / 2, y)
-        b = tp(cx + span / 2, y)
-      }
-      treads.push({
-        x1: a.x,
-        y1: a.y,
-        x2: b.x,
-        y2: b.y,
-        width: 1.2 + towardTop * 1.8,
-      })
-    }
-    const cen = tp(r.x + r.w / 2, r.y + r.h / 2)
-    const highPos = f.ascend === 'end' ? 1 : 0
-    const lowPos = f.ascend === 'end' ? 0 : 1
-    let exitUpLayout
-    let exitDownLayout
-    if (horizontal) {
-      const cy = r.y + r.h / 2
-      exitUpLayout = { x: r.x + highPos * r.w, y: cy }
-      exitDownLayout = { x: r.x + lowPos * r.w, y: cy }
-    } else {
-      const cx = r.x + r.w / 2
-      exitUpLayout = { x: cx, y: r.y + highPos * r.h }
-      exitDownLayout = { x: cx, y: r.y + lowPos * r.h }
-    }
-    const exitUp = tp(exitUpLayout.x, exitUpLayout.y)
-    const exitDown = tp(exitDownLayout.x, exitDownLayout.y)
-    const stairId = f.featureRoomId
-    const { upRoomId, downRoomId } = stairId
-      ? stairExitRooms(props.building, stairId)
-      : { upRoomId: null, downRoomId: null }
-    return {
-      id: f.id,
-      type: 'straight',
-      dir: f.dir,
-      toRoomId: f.toRoomId,
-      featureRoomId: stairId,
-      connects: f.connects ?? [],
-      visualOnly: !!f.visualOnly,
-      box,
-      treads,
-      cx: cen.x,
-      cy: cen.y,
-      exitUp,
-      exitDown,
-      exitUpRoomId: upRoomId,
-      exitDownRoomId: downRoomId,
-    }
-  }),
+  layoutPlacedFixtures(fixtures.value, props.building, cell.value, tp),
 )
 
 const avatarScale = computed(() => (cell.value / 64) * 0.42)
@@ -1028,430 +595,91 @@ function onExteriorNodeClick(nodeId) {
         </pattern>
       </defs>
 
-      <g class="grid-layer">
-        <line
-          v-for="(ln, i) in placedGridLines"
-          :key="'grid-' + i"
-          :x1="ln.x1"
-          :y1="ln.y1"
-          :x2="ln.x2"
-          :y2="ln.y2"
-          class="grid-line"
-        />
-      </g>
+      <GridSceneryLayer
+        :grid-lines="placedGridLines"
+        :river="placedRiver"
+        :cliff-wall="placedCliffWall"
+        :building-shell="placedBuildingShell"
+        :beams="placedBeams"
+      />
 
-      <!-- River cascade west of the building -->
-      <g v-if="placedRiver" class="river-layer" pointer-events="none">
-        <rect
-          :x="placedRiver.rect.x"
-          :y="placedRiver.rect.y"
-          :width="placedRiver.rect.w"
-          :height="placedRiver.rect.h"
-          class="river-fill"
-        />
-        <path
-          v-for="(d, i) in placedRiver.chevrons"
-          :key="'river-flow-' + i"
-          :d="d"
-          class="river-flow"
-        />
-      </g>
+      <GridExteriorLayer
+        :paths="placedExteriorPaths"
+        :nodes="placedExteriorNodes"
+        :exits="placedExits"
+        :builder-view="builderView"
+        :is-item-selected="isItemSelected"
+        @exterior-node-click="onExteriorNodeClick"
+        @exit-click="onExitClick"
+      />
 
-      <!-- Retaining wall — cliff edge west of the driveway -->
-      <g v-if="placedCliffWall" class="cliff-wall-layer" pointer-events="none">
-        <path
-          v-for="seg in placedCliffWall.segments"
-          :key="'cliff-' + seg.key"
-          :d="seg.d"
-          class="cliff-wall-fill"
-        />
-      </g>
+      <GridRoomLayer
+        :rooms="placedRooms"
+        :current-room="currentRoom"
+        :reachable-rooms="reachableRooms"
+        :cell="cell"
+        :is-discovered="isDiscovered"
+        :is-fogged="isFogged"
+        :is-open-void="isOpenVoid"
+        :is-item-selected="isItemSelected"
+        @room-click="onRoomClick"
+      />
 
-      <!-- Building shell — true footprint, always behind interactive layers -->
-      <g v-if="placedBuildingShell.length" class="building-shell-layer" pointer-events="none">
-        <path
-          v-for="(ring, i) in placedBuildingShell"
-          :key="'shell-' + i"
-          :d="shellRingPath(ring)"
-          class="building-shell"
-          pointer-events="none"
-        />
-      </g>
+      <GridDoorLayer
+        :doors="placedDoors"
+        :interactable-door-ids="interactableDoorSet"
+        :builder-view="builderView"
+        :is-item-selected="isItemSelected"
+        @door-click="onDoorClick"
+      />
 
-      <!-- Exterior footpaths -->
-      <g class="exterior-path-layer">
-        <polyline
-          v-for="path in placedExteriorPaths"
-          :key="'ext-path-' + path.id"
-          :points="path.points"
-          class="exterior-path"
-          :class="{
-            'exterior-path-builder-dim': path.dimmed,
-            'exterior-path-builder-active': path.isSelected,
-          }"
-        />
-      </g>
+      <GridFixtureLayer
+        :fixtures="placedFixtures"
+        :cell="cell"
+        :current-room="currentRoom"
+        :reachable-rooms="reachableRooms"
+        :is-fixture-revealed="isFixtureRevealed"
+        @stair-fixture-click="onStairFixtureClick"
+        @stair-exit-click="onStairExitClick"
+      />
 
-      <!-- Exterior stand spots along the footpath -->
-      <g class="exterior-node-layer">
-        <g
-          v-for="node in placedExteriorNodes"
-          :key="'ext-node-' + node.id"
-          class="exterior-node"
-          :class="{
-            current: node.current,
-            reachable: node.reachable || builderView,
-            'builder-selected': isItemSelected(node.id),
-          }"
-          @click.stop="onExteriorNodeClick(node.id)"
-        >
-          <circle
-            :cx="node.cx"
-            :cy="node.cy"
-            :r="node.r"
-            class="exterior-node-fill"
-          />
-          <circle
-            v-if="node.current"
-            :cx="node.cx"
-            :cy="node.cy"
-            :r="node.r + 4"
-            class="exterior-node-ring"
-          />
-          <text
-            v-if="node.current || node.reachable"
-            :x="node.cx"
-            :y="node.cy - node.r - 6"
-            class="exterior-node-label"
-          >
-            {{ node.label }}
-          </text>
-        </g>
-      </g>
-
-      <!-- Rooms -->
-      <g class="room-layer">
-        <g
-          v-for="p in placedRooms"
-          :key="p.room.id"
-          class="room"
-          :class="{
-            current: p.room.id === currentRoom,
-            reachable: reachableRooms.includes(p.room.id),
-            visited: isDiscovered(p.room),
-            unvisited: (isFogged(p.room) || !isDiscovered(p.room)) && !isOpenVoid(p.room),
-            open: isOpenVoid(p.room),
-            overlook: p.room.open && p.room.mirror,
-            'builder-selected': isItemSelected(p.room.id),
-          }"
-          @click="onRoomClick(p.room)"
-        >
-          <rect :x="p.rect.x" :y="p.rect.y" :width="p.rect.w" :height="p.rect.h" rx="4" class="floor" />
-
-          <!-- Railing at the edge of the open-to-roof void -->
-          <line
-            v-for="(rl, i) in p.railings"
-            :key="p.room.id + '-rail-' + i"
-            :x1="rl.x1"
-            :y1="rl.y1"
-            :x2="rl.x2"
-            :y2="rl.y2"
-            class="railing"
-          />
-
-          <!-- Windows (revealed rooms only) -->
-          <line
-            v-for="(w, i) in p.windows"
-            v-show="isDiscovered(p.room) || isOpenVoid(p.room)"
-            :key="p.room.id + '-win-' + i"
-            :x1="w.x1"
-            :y1="w.y1"
-            :x2="w.x2"
-            :y2="w.y2"
-            class="window"
-          />
-
-          <!-- Tall roll-up garage door (drawn in door layer) -->
-          <!-- Side man-door (exterior entry) -->
-          <rect v-if="p.entry" :x="p.entry.x" :y="p.entry.y" :width="p.entry.w" :height="p.entry.h" class="entry-door" />
-
-          <text
-            v-if="!isOpenVoid(p.room) && p.room.icon && isDiscovered(p.room)"
-            :x="p.center.x"
-            :y="p.center.y - cell * 0.16"
-            class="room-icon"
-          >
-            {{ p.room.icon }}
-          </text>
-          <text
-            :x="p.center.x"
-            :y="p.center.y + (isOpenVoid(p.room) ? 0 : isDiscovered(p.room) ? cell * 0.14 : 6)"
-            class="room-label"
-            :class="{
-              'open-label': isOpenVoid(p.room),
-              'fog-mark': !isOpenVoid(p.room) && !isDiscovered(p.room),
-            }"
-          >
-            {{ isOpenVoid(p.room) ? p.room.name : isDiscovered(p.room) ? p.room.name : '?' }}
-          </text>
-          <text
-            v-if="p.room.note && isDiscovered(p.room) && !isOpenVoid(p.room)"
-            :x="p.center.x"
-            :y="p.center.y + cell * 0.34"
-            class="room-note"
-          >
-            {{ p.room.note }}
-          </text>
-        </g>
-      </g>
-
-      <!-- Open-garage beams + support columns -->
-      <g class="beam-layer">
-        <g v-for="(b, i) in placedBeams" :key="'beam-' + i">
-          <line :x1="b.x1" :y1="b.y1" :x2="b.x2" :y2="b.y2" class="beam" />
-          <rect
-            v-for="(col, j) in b.columns"
-            :key="'col-' + i + '-' + j"
-            :x="col.x - 4"
-            :y="col.y - 4"
-            width="8"
-            height="8"
-            class="column"
-          />
-        </g>
-      </g>
-
-      <!-- Interior + roll-up doors -->
-      <g class="door-layer">
-        <rect
-          v-for="d in placedDoors"
-          :key="d.id"
-          :x="d.x"
-          :y="d.y"
-          :width="d.w"
-          :height="d.h"
-          :class="[
-            d.kind === 'roll' ? 'roll-door' : 'man-door',
-            {
-              open: d.open,
-              closed: !d.open,
-              locked: d.locked,
-              'lock-broken': d.lockBroken,
-              'door-clickable': interactableDoorSet.has(d.id) || builderView,
-              'builder-selected': isItemSelected(d.id),
-            },
-          ]"
-          @click.stop="onDoorClick(d.id)"
-        />
-      </g>
-
-      <!-- Stair fixtures: the spiral (glass half-cylinder) and the garage run -->
-      <g class="fixture-layer">
-        <g
-          v-for="f in placedFixtures"
-          :key="f.id"
-          class="fixture"
-          :class="{
-            fog: !isFixtureRevealed(f),
-            current: f.featureRoomId && currentRoom === f.featureRoomId,
-            reachable:
-              f.featureRoomId &&
-              isFixtureRevealed(f) &&
-              reachableRooms.includes(f.featureRoomId),
-            'visual-only': f.visualOnly,
-            'stair-clickable':
-              f.featureRoomId &&
-              isFixtureRevealed(f) &&
-              !f.visualOnly &&
-              currentRoom !== f.featureRoomId &&
-              reachableRooms.includes(f.featureRoomId),
-          }"
-          @click="
-            f.visualOnly
-              ? undefined
-              : f.featureRoomId && currentRoom !== f.featureRoomId
-                ? onStairFixtureClick(f)
-                : undefined
-          "
-        >
-          <template v-if="!isFixtureRevealed(f)">
-            <rect
-              :x="(f.fogBox ?? f.box).x"
-              :y="(f.fogBox ?? f.box).y"
-              :width="(f.fogBox ?? f.box).w"
-              :height="(f.fogBox ?? f.box).h"
-              rx="4"
-              class="fixture-fog-fill"
-            />
-            <text :x="f.cx" :y="f.cy + 6" class="fog-mark">?</text>
-          </template>
-          <template v-else-if="f.type === 'spiral'">
-            <path :d="f.fillPath" class="spiral-glass" />
-            <path :d="f.arcPath" class="spiral-frame" />
-            <line
-              v-for="(t, i) in f.treads"
-              :key="f.id + '-tread-' + i"
-              :x1="t.x1"
-              :y1="t.y1"
-              :x2="t.x2"
-              :y2="t.y2"
-              class="stair-tread"
-              :stroke-width="t.width"
-              :opacity="t.opacity"
-            />
-            <g v-if="f.featureRoomId && currentRoom === f.featureRoomId" class="spiral-exits">
-              <g
-                v-if="f.exitUpRoomId"
-                class="spiral-exit"
-                :class="{ reachable: reachableRooms.includes(f.exitUpRoomId) }"
-                @click.stop="onStairExitClick(f, f.exitUpRoomId)"
-              >
-                <circle :cx="f.exitUp.x" :cy="f.exitUp.y" :r="cell * 0.14" class="stair-pad" />
-                <text :x="f.exitUp.x" :y="f.exitUp.y" class="stair-icon">▲</text>
-              </g>
-              <g
-                v-if="f.exitDownRoomId"
-                class="spiral-exit"
-                :class="{ reachable: reachableRooms.includes(f.exitDownRoomId) }"
-                @click.stop="onStairExitClick(f, f.exitDownRoomId)"
-              >
-                <circle :cx="f.exitDown.x" :cy="f.exitDown.y" :r="cell * 0.14" class="stair-pad" />
-                <text :x="f.exitDown.x" :y="f.exitDown.y" class="stair-icon">▼</text>
-              </g>
-            </g>
-          </template>
-          <template v-else>
-            <rect
-              v-if="!f.visualOnly"
-              :x="f.box.x"
-              :y="f.box.y"
-              :width="f.box.w"
-              :height="f.box.h"
-              class="stair-hit"
-            />
-            <line
-              v-for="(t, i) in f.treads"
-              :key="f.id + '-tread-' + i"
-              :x1="t.x1"
-              :y1="t.y1"
-              :x2="t.x2"
-              :y2="t.y2"
-              class="stair-tread"
-              :stroke-width="t.width"
-            />
-            <g v-if="f.featureRoomId && currentRoom === f.featureRoomId" class="spiral-exits">
-              <g
-                v-if="f.exitUpRoomId"
-                class="spiral-exit"
-                :class="{ reachable: reachableRooms.includes(f.exitUpRoomId) }"
-                @click.stop="onStairExitClick(f, f.exitUpRoomId)"
-              >
-                <circle :cx="f.exitUp.x" :cy="f.exitUp.y" :r="cell * 0.14" class="stair-pad" />
-                <text :x="f.exitUp.x" :y="f.exitUp.y" class="stair-icon">▲</text>
-              </g>
-              <g
-                v-if="f.exitDownRoomId"
-                class="spiral-exit"
-                :class="{ reachable: reachableRooms.includes(f.exitDownRoomId) }"
-                @click.stop="onStairExitClick(f, f.exitDownRoomId)"
-              >
-                <circle :cx="f.exitDown.x" :cy="f.exitDown.y" :r="cell * 0.14" class="stair-pad" />
-                <text :x="f.exitDown.x" :y="f.exitDown.y" class="stair-icon">▼</text>
-              </g>
-            </g>
-            <template v-else-if="f.featureRoomId">
-              <circle :cx="f.cx" :cy="f.cy" :r="cell * 0.15" class="stair-pad" />
-              <text :x="f.cx" :y="f.cy" class="stair-icon">
-                {{ f.dir === 'up' ? '▲' : f.dir === 'down' ? '▼' : '↕' }}
-              </text>
-            </template>
-            <template v-else>
-              <circle :cx="f.cx" :cy="f.cy" :r="cell * 0.15" class="stair-pad" />
-              <text :x="f.cx" :y="f.cy" class="stair-icon">
-                {{ f.dir === 'up' ? '▲' : f.dir === 'down' ? '▼' : '↕' }}
-              </text>
-            </template>
-          </template>
-        </g>
-      </g>
-
-      <!-- Stick-figure avatar (kept upright; only translated) -->
-      <g
+      <MapAvatar
         v-if="avatarPos"
-        class="avatar"
-        :style="{ transform: `translate(${avatarPos.x}px, ${avatarPos.y}px)` }"
+        :x="avatarPos.x"
+        :y="avatarPos.y"
+        :scale="avatarScale"
+        halo
+      />
+
+      <MapEditHandlesLayer
+        :visible="builderEdit"
+        :handles="displayEditHandles"
+        :selected-handle-id="selectedHandleId"
+        :stroke-color="handleColor"
+        :fill-color="handleFill"
+        :handle-radius="gridHandleRadius"
+        @handle-down="onHandleDown"
       >
-        <circle
-          :cx="0"
-          :cy="1 * avatarScale"
-          :r="37.5 * avatarScale"
-          class="avatar-halo"
-        />
-        <ellipse :cx="0" :cy="27 * avatarScale" :rx="13 * avatarScale" :ry="3.5 * avatarScale" class="avatar-shadow" />
-        <g :transform="`scale(${avatarScale})`" class="figure">
-          <circle cx="0" cy="-24" r="7.5" />
-          <line x1="0" y1="-16.5" x2="0" y2="6" />
-          <line x1="-13" y1="-6" x2="13" y2="-6" />
-          <line x1="0" y1="6" x2="-10" y2="26" />
-          <line x1="0" y1="6" x2="10" y2="26" />
-        </g>
-      </g>
-
-      <!-- Step out to the hex travel map (on top for reliable clicks) -->
-      <g class="exit-layer">
-        <g
-          v-for="ex in placedExits"
-          :key="'exit-' + ex.doorId"
-          class="exit-hex"
-          :class="{
-            reachable: ex.reachable,
-            playable: !builderView,
-            'builder-selected': isItemSelected(ex.doorId),
-            'builder-pick': builderView,
-          }"
-          @click.stop="onExitClick($event, ex.doorId)"
-        >
-          <polygon :points="ex.points" class="exit-hex-fill" />
-          <text :x="ex.cx" :y="ex.cy + 1" class="exit-hex-icon">⬡</text>
-          <text :x="ex.cx" :y="ex.cy + 14" class="exit-hex-label">map</text>
-        </g>
-      </g>
-
-      <!-- Builder edit layer -->
-      <g v-if="builderEdit" class="edit-layer">
-        <polyline
-          v-if="editMode === 'line' && editPathControlLine.length"
-          :points="pointsAttr(editPathControlLine)"
-          class="edit-path-control"
-        />
-        <template v-if="editMode === 'room' && selectedItemId">
-          <rect
-            v-for="p in placedRooms.filter((r) => r.room.id === selectedItemId)"
-            :key="'sel-' + p.room.id"
-            :x="p.rect.x"
-            :y="p.rect.y"
-            :width="p.rect.w"
-            :height="p.rect.h"
-            class="room-selection-outline"
-            rx="4"
+        <template #overlay>
+          <polyline
+            v-if="editMode === 'line' && editPathControlLine.length"
+            :points="pointsAttr(editPathControlLine)"
+            class="edit-path-control"
           />
+          <template v-if="editMode === 'room' && selectedItemId">
+            <rect
+              v-for="p in placedRooms.filter((r) => r.room.id === selectedItemId)"
+              :key="'sel-' + p.room.id"
+              :x="p.rect.x"
+              :y="p.rect.y"
+              :width="p.rect.w"
+              :height="p.rect.h"
+              class="room-selection-outline"
+              rx="4"
+            />
+          </template>
         </template>
-        <circle
-          v-for="h in displayEditHandles"
-          :key="'handle-' + h.handleKey"
-          :cx="h.x"
-          :cy="h.y"
-          :r="h.role === 'path-node' ? 10 : h.role === 'move' ? 9 : 7"
-          class="edit-handle"
-          :class="{
-            selected: h.handleKey === selectedHandleId,
-            ['role-' + h.role]: !!h.role,
-            'path-node-handle': h.role === 'path-node',
-          }"
-          :style="{ stroke: handleColor(h), fill: handleFill(h) }"
-          @pointerdown="onHandleDown($event, h)"
-        />
-      </g>
+      </MapEditHandlesLayer>
     </svg>
 
     <div v-if="pathBuilderLegend" class="path-builder-legend" aria-label="Path editor legend">
@@ -1486,7 +714,7 @@ function onExteriorNodeClick(nodeId) {
   </div>
 </template>
 
-<style scoped>
+<style>
 .gridmap {
   position: relative;
   width: 220px;
@@ -2092,27 +1320,5 @@ svg:not(.compass) {
 .fixture.current .spiral-frame {
   stroke: #ffd166;
   stroke-width: 3.5;
-}
-.avatar {
-  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  pointer-events: none;
-}
-.avatar-shadow {
-  fill: rgba(0, 0, 0, 0.3);
-}
-.avatar-halo {
-  fill: #ffd166;
-  stroke: #c9970a;
-  stroke-width: 1.5;
-}
-.figure circle {
-  fill: #f4f1de;
-  stroke: #1c2620;
-  stroke-width: 4;
-}
-.figure line {
-  stroke: #1c2620;
-  stroke-width: 5;
-  stroke-linecap: round;
 }
 </style>

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, onUnmounted } from 'vue'
+import { computed, ref } from 'vue'
 import {
   axialToPixel,
   hexCornerPoints,
@@ -9,7 +9,10 @@ import {
 import { buildRouteDrawPieces, pointsAttr } from '../composables/useRoutes.js'
 import { lineKindColor, placementHandleColor } from '../composables/useMapBuilder.js'
 import { resolveAvatarPosition, hasLandmarkMarker } from '../composables/useAvatarStand.js'
+import { useSvgDragHandles } from '../composables/useSvgDragHandles.js'
 import UtilityStationLandmark from './UtilityStationLandmark.vue'
+import MapAvatar from './map/MapAvatar.vue'
+import MapEditHandlesLayer from './map/MapEditHandlesLayer.vue'
 
 const props = defineProps({
   mapData: { type: Object, required: true },
@@ -32,55 +35,16 @@ const props = defineProps({
 const emit = defineEmits(['hex-click', 'select-handle', 'waypoint-move', 'builder-map-click', 'building-enter'])
 
 const svgRef = ref(null)
-const dragHandle = ref(null)
 
-function svgCoords(clientX, clientY) {
-  const svg = svgRef.value
-  if (!svg) return null
-  const pt = svg.createSVGPoint()
-  pt.x = clientX
-  pt.y = clientY
-  const ctm = svg.getScreenCTM()
-  if (!ctm) return null
-  const local = pt.matrixTransform(ctm.inverse())
-  return { x: local.x, y: local.y }
-}
-
-function onHandleDown(e, h) {
-  e.stopPropagation()
-  e.preventDefault()
-  dragHandle.value = h
-  emit('select-handle', h.handleKey)
-  window.addEventListener('pointermove', onPointerMove)
-  window.addEventListener('pointerup', onPointerUp)
-}
-
-function onPointerMove(e) {
-  if (!dragHandle.value) return
-  const pt = svgCoords(e.clientX, e.clientY)
-  if (!pt) return
-  const h = dragHandle.value
-  emit('waypoint-move', {
-    handleKey: h.handleKey,
-    index: h.index,
-    role: h.role,
-    x: pt.x,
-    y: pt.y,
-  })
-}
-
-function onPointerUp() {
-  dragHandle.value = null
-  window.removeEventListener('pointermove', onPointerMove)
-  window.removeEventListener('pointerup', onPointerUp)
-}
-
-onUnmounted(onPointerUp)
+const { onHandleDown, clientToSvg } = useSvgDragHandles(svgRef, {
+  onSelect: (handleKey) => emit('select-handle', handleKey),
+  onMove: (payload) => emit('waypoint-move', payload),
+})
 
 function onSvgClick(e) {
   if (!props.builderEdit || !props.addPointMode) return
   if (e.target.closest('.edit-handle')) return
-  const pt = svgCoords(e.clientX, e.clientY)
+  const pt = clientToSvg(e.clientX, e.clientY)
   if (!pt) return
   emit('builder-map-click', pt)
 }
@@ -528,52 +492,39 @@ const hasLegend = computed(
       </g>
 
       <!-- Oversized stick-figure avatar -->
-      <g
+      <MapAvatar
         v-if="current"
-        class="avatar"
-        :style="{ transform: `translate(${avatarPos.x}px, ${avatarPos.y}px)` }"
-      >
-        <ellipse :cx="0" :cy="27 * avatarScale" :rx="13 * avatarScale" :ry="3.5 * avatarScale" class="avatar-shadow" />
-        <g :transform="`scale(${avatarScale})`" class="figure">
-          <circle cx="0" cy="-24" r="7.5" />
-          <line x1="0" y1="-16.5" x2="0" y2="6" />
-          <line x1="-13" y1="-6" x2="13" y2="-6" />
-          <line x1="0" y1="6" x2="-10" y2="26" />
-          <line x1="0" y1="6" x2="10" y2="26" />
-        </g>
-      </g>
+        :x="avatarPos.x"
+        :y="avatarPos.y"
+        :scale="avatarScale"
+      />
 
       <!-- Builder edit: on top so handles stay grabbable -->
-      <g v-if="builderEdit && editHandles.length" class="edit-layer">
-        <polyline
-          v-if="editMode === 'line'"
-          :points="pointsAttr(editPolyline)"
-          class="edit-guide"
-          :style="{ stroke: editStroke }"
-        />
-        <line
-          v-if="placementLink"
-          :x1="placementLink[0].x"
-          :y1="placementLink[0].y"
-          :x2="placementLink[1].x"
-          :y2="placementLink[1].y"
-          class="placement-link"
-        />
-        <circle
-          v-for="h in editHandles"
-          :key="'handle-' + h.handleKey"
-          :cx="h.x"
-          :cy="h.y"
-          :r="h.handleKey === selectedHandleId ? 7 : 5.5"
-          class="edit-handle"
-          :class="{
-            selected: h.handleKey === selectedHandleId,
-            ['role-' + h.role]: !!h.role,
-          }"
-          :style="{ stroke: handleColor(h), fill: handleFill(h) }"
-          @pointerdown="onHandleDown($event, h)"
-        />
-      </g>
+      <MapEditHandlesLayer
+        :visible="builderEdit && editHandles.length > 0"
+        :handles="editHandles"
+        :selected-handle-id="selectedHandleId"
+        :stroke-color="handleColor"
+        :fill-color="handleFill"
+        @handle-down="onHandleDown"
+      >
+        <template #overlay>
+          <polyline
+            v-if="editMode === 'line'"
+            :points="pointsAttr(editPolyline)"
+            class="edit-guide"
+            :style="{ stroke: editStroke }"
+          />
+          <line
+            v-if="placementLink"
+            :x1="placementLink[0].x"
+            :y1="placementLink[0].y"
+            :x2="placementLink[1].x"
+            :y2="placementLink[1].y"
+            class="placement-link"
+          />
+        </template>
+      </MapEditHandlesLayer>
     </svg>
 
     <!-- Legend, lower-right. Reflects only what's currently on the map. -->
@@ -839,8 +790,8 @@ svg {
 .hexmap.builder-edit.add-point {
   cursor: crosshair;
 }
-.edit-layer {
-  pointer-events: all;
+.edit-handle:active {
+  cursor: grabbing;
 }
 .edit-guide {
   fill: none;
@@ -862,25 +813,5 @@ svg {
   stroke-width: 1.5;
   stroke-dasharray: 3 4;
   pointer-events: none;
-}
-.edit-handle:active {
-  cursor: grabbing;
-}
-.avatar {
-  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-  pointer-events: none;
-}
-.avatar-shadow {
-  fill: rgba(0, 0, 0, 0.28);
-}
-.figure circle {
-  fill: #f4f1de;
-  stroke: #1c2620;
-  stroke-width: 4;
-}
-.figure line {
-  stroke: #1c2620;
-  stroke-width: 5;
-  stroke-linecap: round;
 }
 </style>

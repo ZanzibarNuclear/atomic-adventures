@@ -1,45 +1,11 @@
 <template>
-  <div v-if="builderView" class="grid-builder-workspace">
-    <section class="stage builder-stage" :class="{ expanded }">
-      <IndoorMapStage
-        :building="indoor.building"
-        :current-room="indoor.indoor.currentRoom ?? ''"
-        :exterior-node="indoor.indoor.exteriorNode"
-        :discovered="[...indoor.indoor.discovered]"
-        :revealed="[...indoor.indoor.revealed]"
-        :level="indoor.indoor.viewLevel"
-        :stand-level="indoor.indoor.level"
-        :reachable-rooms="indoor.reachableRooms"
-        :reachable-exterior-nodes="indoor.reachableExteriorNodes"
-        :door-states="indoor.indoor.doorState"
-        :builder-view="builderView"
-        :builder-edit="gridBuilder.gridBuilderEdit"
-        :edit-mode="gridBuilder.gridEditMode"
-        :edit-handles="gridBuilder.gridEditHandles"
-        :selected-handle-id="gridBuilder.gridSelectedHandleId"
-        :selected-item-id="gridBuilder.gridEditParsed?.id ?? ''"
-        :add-point-mode="gridBuilder.gridAddPointMode || gridBuilder.gridAddNodeMode"
-        :map-click-mode="
-          gridBuilder.gridAddNodeMode
-            ? 'node'
-            : gridBuilder.gridAddPointMode
-              ? 'point'
-              : null
-        "
-        :expanded="expanded"
-        :interactable-door-ids="indoor.interactableDoorIds"
-        :reachable-exit-doors="indoor.reachableExitDoors"
-        @room-click="indoor.moveToRoom"
-        @exterior-node-click="indoor.moveToExteriorNode"
-        @door-click="indoor.tryToggleDoor"
-        @exit-click="indoor.exitViaDoor"
-        @select-handle="gridBuilder.gridSelectedHandleId = $event"
-        @grid-handle-move="gridBuilder.onGridHandleMove"
-        @builder-map-click="gridBuilder.onGridBuilderMapClick"
-        @select-item="gridBuilder.onGridSelectItem" />
+  <div :class="{ 'grid-builder-workspace': builderView }">
+    <section class="stage" :class="{ expanded, 'builder-stage': builderView }">
+      <IndoorMapStage v-bind="mapStageProps" v-on="mapStageListeners" />
     </section>
 
     <GridBuilderSidebar
+      v-if="builderView"
       :grid-editable-items="gridBuilder.gridEditableItems"
       :grid-edit-selection="gridBuilder.gridEditSelection"
       :grid-edit-mode="gridBuilder.gridEditMode"
@@ -71,28 +37,6 @@
       @close-all-doors="indoor.closeAllInteriorDoors"
       @export="onGridExport" />
   </div>
-
-  <section v-else class="stage" :class="{ expanded }">
-    <IndoorMapStage
-      :building="indoor.building"
-      :current-room="indoor.indoor.currentRoom ?? ''"
-      :exterior-node="indoor.indoor.exteriorNode"
-      :discovered="[...indoor.indoor.discovered]"
-      :revealed="[...indoor.indoor.revealed]"
-      :level="indoor.indoor.viewLevel"
-      :stand-level="indoor.indoor.level"
-      :reachable-rooms="indoor.reachableRooms"
-      :reachable-exterior-nodes="indoor.reachableExteriorNodes"
-      :door-states="indoor.indoor.doorState"
-      :builder-view="builderView"
-      :expanded="expanded"
-      :interactable-door-ids="indoor.interactableDoorIds"
-      :reachable-exit-doors="indoor.reachableExitDoors"
-      @room-click="indoor.moveToRoom"
-      @exterior-node-click="indoor.moveToExteriorNode"
-      @door-click="indoor.tryToggleDoor"
-      @exit-click="indoor.exitViaDoor" />
-  </section>
 
   <HudPanel>
     <LocationBlock
@@ -261,6 +205,61 @@ const floorOptions = computed(() =>
     label: lv.name,
   })),
 );
+
+const mapStageProps = computed(() => {
+  const base = {
+    building: props.indoor.building,
+    currentRoom: props.indoor.indoor.currentRoom ?? "",
+    exteriorNode: props.indoor.indoor.exteriorNode,
+    discovered: [...props.indoor.indoor.discovered],
+    revealed: [...props.indoor.indoor.revealed],
+    level: props.indoor.indoor.viewLevel,
+    standLevel: props.indoor.indoor.level,
+    reachableRooms: props.indoor.reachableRooms,
+    reachableExteriorNodes: props.indoor.reachableExteriorNodes,
+    doorStates: props.indoor.indoor.doorState,
+    builderView: props.builderView,
+    expanded: props.expanded,
+    interactableDoorIds: props.indoor.interactableDoorIds,
+    reachableExitDoors: props.indoor.reachableExitDoors,
+  };
+  if (!props.builderView) return base;
+  const gb = props.gridBuilder;
+  return {
+    ...base,
+    builderEdit: gb.gridBuilderEdit,
+    editMode: gb.gridEditMode,
+    editHandles: gb.gridEditHandles,
+    selectedHandleId: gb.gridSelectedHandleId,
+    selectedItemId: gb.gridEditParsed?.id ?? "",
+    addPointMode: gb.gridAddPointMode || gb.gridAddNodeMode,
+    mapClickMode: gb.gridAddNodeMode
+      ? "node"
+      : gb.gridAddPointMode
+        ? "point"
+        : null,
+  };
+});
+
+const mapStageListeners = computed(() => {
+  const base = {
+    "room-click": props.indoor.moveToRoom,
+    "exterior-node-click": props.indoor.moveToExteriorNode,
+    "door-click": props.indoor.tryToggleDoor,
+    "exit-click": props.indoor.exitViaDoor,
+  };
+  if (!props.builderView) return base;
+  const gb = props.gridBuilder;
+  return {
+    ...base,
+    "select-handle": (id) => {
+      gb.gridSelectedHandleId = id;
+    },
+    "grid-handle-move": gb.onGridHandleMove,
+    "builder-map-click": gb.onGridBuilderMapClick,
+    "select-item": gb.onGridSelectItem,
+  };
+});
 
 function onPathNodeLabel(nodeId, label) {
   setNodeLabel(props.indoor.editableBuildingData, nodeId, label);
