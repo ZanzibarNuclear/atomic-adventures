@@ -1,7 +1,7 @@
 <template>
   <div class="builder-props">
     <p class="prop-readonly">
-      Door: {{ exit.door }} · anchor {{ exit.at?.x }}, {{ exit.at?.y }}
+      {{ exit.door ? `Door: ${exit.door}` : `Transition: ${exit.id}` }} · anchor {{ exit.at?.x }}, {{ exit.at?.y }}
     </p>
     <label class="prop-row">
       <span>Map X</span>

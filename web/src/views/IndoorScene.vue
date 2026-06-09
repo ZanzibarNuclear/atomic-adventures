@@ -303,9 +303,8 @@ function onExitMapAt(exitId, x, y) {
 }
 
 function onResetExitMapAt(exitId) {
-  const exit = props.indoor.editableBuildingData.exits?.find(
-    (e) => e.id === exitId,
-  );
+  const data = props.indoor.editableBuildingData;
+  const exit = (data.transitions ?? data.exits ?? []).find((e) => e.id === exitId);
   if (exit) exit.mapAt = undefined;
 }
 

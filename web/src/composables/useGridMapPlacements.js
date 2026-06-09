@@ -257,24 +257,30 @@ export function useGridMapPlacements({
   const placedExits = computed(() =>
     exitsOnLevel(building.value, level.value)
       .filter((exit) => {
-        const door = building.value.doorById?.[exit.door]
-        if (!door) return false
-        if (builderView.value || exteriorNode.value) return true
-        if (!isDoorMapped(door, visibility.value)) return false
-        return currentRoom.value === exit.room
+        if (exit.door) {
+          const door = building.value.doorById?.[exit.door]
+          if (!door) return false
+          if (builderView.value || exteriorNode.value) return true
+          if (!isDoorMapped(door, visibility.value)) return false
+          return currentRoom.value === exit.room
+        }
+        // Transition (no door): visible from exterior or in builder view
+        return builderView.value || !!exteriorNode.value
       })
       .map((exit) => {
+        const exitKey = exit.door ?? exit.id
         const mapAt = exitMapAt(exit)
         if (!mapAt) return null
         const c = tp(mapAt.x * cell.value, mapAt.y * cell.value)
         const r = exitHexRadius.value
         return {
-          doorId: exit.door,
+          id: exitKey,
+          doorId: exitKey,
           roomId: exit.room,
           cx: c.x,
           cy: c.y,
           points: hexCornerPoints(c.x, c.y, r),
-          reachable: reachableExitSet.value.has(exit.door),
+          reachable: reachableExitSet.value.has(exitKey),
         }
       })
       .filter(Boolean),

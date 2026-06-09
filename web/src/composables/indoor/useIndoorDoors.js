@@ -60,13 +60,17 @@ export function createIndoorDoors(deps) {
   });
 
   const reachableExitDoors = computed(() => {
+    const exitKey = (e) => e.door ?? e.id
     if (builderView.value) {
-      return (building.value.exits ?? []).map((e) => e.door);
+      return (building.value.exits ?? []).map(exitKey).filter(Boolean)
     }
     if (indoor.exteriorNode) {
-      return (building.value.exits ?? []).map((e) => e.door).filter(Boolean);
+      // All transitions reachable once on the exterior path network
+      return (building.value.exits ?? []).map(exitKey).filter(Boolean)
     }
+    // Inside a room: only door-based exits whose door is passable from here
     return (building.value.exits ?? [])
+      .filter((exit) => !!exit.door)
       .filter((exit) =>
         canUseExteriorExit(
           building.value,
@@ -83,14 +87,14 @@ export function createIndoorDoors(deps) {
           indoorVisibility.value,
         ),
       )
-      .map((exit) => exit.door);
+      .map((exit) => exit.door)
   });
 
   const worldMapExit = computed(() => {
-    for (const doorId of reachableExitDoors.value) {
-      const exit = building.value.exitByDoorId?.[doorId];
+    for (const key of reachableExitDoors.value) {
+      const exit = building.value.exitByDoorId?.[key] ?? building.value.exitById?.[key];
       if (!exit) continue;
-      return { doorId, label: "Travel world map ⬡" };
+      return { doorId: key, label: "Travel world map ⬡" };
     }
     return null;
   });

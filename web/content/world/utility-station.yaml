@@ -137,39 +137,31 @@ exterior:
         - { x: 3.54, y: -1.1 }
         - { x: 4.09, y: 0.06 }
 
-# Exterior doors — mini hex on the floor plan steps out to the world map.
-exits:
-  - door: small-bay-roll
-    room: small-bay
-    exteriorNode: small-bay-roll-front
-    at: { x: 5.35, y: 1 }
-    mapAt: { x: 5.08, y: 1.16 }
+# Hex-map transition points — geographic waypoints where the floor-plan view
+# hands off to the hex world map.  Not door-associated; just location markers.
+transitions:
+  - id: garage-exit
+    label: "Leave through the garage"
+    at: { x: 5.11, y: 2.39 }
     hex: utility-yard
-    standAt: { from: landmark, dx: 0.58, dy: -0.02 }
 
-  - door: large-bay-roll
-    room: large-bay
-    exteriorNode: large-bay-roll-front
-    at: { x: 5.35, y: 3.5 }
-    mapAt: { x: 5.12, y: 3.42 }
-    hex: utility-yard
-    standAt: { from: landmark, dx: 0.62, dy: 0.22 }
-
-  - door: large-bay-man
-    room: large-bay
+  - id: man-door-path
+    label: "Pass through the woods to the road"
     exteriorNode: large-bay-man-front
-    at: { x: 0.6, y: 6.75 }
-    mapAt: { x: 0.67, y: 5.94 }
+    at: { x: 0.58, y: 6.28 }
     hex: utility-yard
-    standAt: { from: landmark, dx: 0.28, dy: 0.52 }
 
-  - door: lobby-exterior
-    room: control-lobby
-    exteriorNode: lobby-exterior-front
-    at: { x: -4.4, y: 3.28 }
-    mapAt: { x: -4.69, y: 3.81 }
+  - id: southeast-corner
+    label: "Stroll to the living quarters"
+    exteriorNode: south-east-corner
+    at: { x: -6.71, y: 4.12 }
     hex: utility-yard
-    standAt: { from: landmark, dx: -0.28, dy: 0.38 }
+
+  - id: river-walk
+    label: "Walk upstream along the riverbank to the vista point"
+    exteriorNode: upstream-bank
+    at: { x: 4.81, y: -1.13 }
+    hex: utility-yard
 
 # Highest order is the top floor.
 levels:

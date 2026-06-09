@@ -183,21 +183,26 @@ export function createIndoorMovement(deps) {
 
   function exitViaDoor(doorId) {
     if (builderView.value) return;
-    const exit = building.value.exitByDoorId?.[doorId];
+    const exit = building.value.exitByDoorId?.[doorId] ?? building.value.exitById?.[doorId];
     if (!exit) return;
-    if (
-      !canUseExteriorExit(
-        building.value,
-        exit,
-        indoor.currentRoom,
-        indoor.doorState,
-        building.value.areaId,
-        indoor.exteriorNode,
-      )
-    ) {
-      exitTravelHint.value = indoor.exteriorNode
-        ? ""
-        : "Open the exterior door first, then use the ⬡ map marker.";
+    if (exit.door) {
+      if (
+        !canUseExteriorExit(
+          building.value,
+          exit,
+          indoor.currentRoom,
+          indoor.doorState,
+          building.value.areaId,
+          indoor.exteriorNode,
+        )
+      ) {
+        exitTravelHint.value = indoor.exteriorNode
+          ? ""
+          : "Open the exterior door first, then use the ⬡ map marker.";
+        return;
+      }
+    } else if (!indoor.exteriorNode) {
+      // Transitions (no door) are only usable from the exterior path network
       return;
     }
     exitTravelHint.value = "";

@@ -67,8 +67,9 @@ export function buildBuilding(data) {
     initial: normalizeDoorInitial(d.initial),
   }))
   const doorById = Object.fromEntries(doors.filter((d) => d.id).map((d) => [d.id, d]))
-  const exits = (data.exits ?? []).map((e) => ({ ...e }))
+  const exits = (data.transitions ?? data.exits ?? []).map((e) => ({ ...e }))
   const exitByDoorId = Object.fromEntries(exits.filter((e) => e.door).map((e) => [e.door, e]))
+  const exitById = Object.fromEntries(exits.filter((e) => e.id).map((e) => [e.id, e]))
   const exterior = buildExteriorModel(data.exterior)
   const areaId = data.id ?? data.area ?? 'building'
   return {
@@ -94,6 +95,7 @@ export function buildBuilding(data) {
     doorById,
     exits,
     exitByDoorId,
+    exitById,
     exterior,
     river: data.river ?? null,
     cliffWall: data.cliffWall ?? null,
@@ -319,6 +321,7 @@ export const EXIT_MAP_OFFSET = { dx: 0.38, dy: -0.38 }
 export function exitMapAt(exit) {
   if (exit?.mapAt) return exit.mapAt
   if (!exit?.at) return null
+  if (!exit?.door) return exit.at  // transitions: at is the display position directly
   return {
     x: exit.at.x + EXIT_MAP_OFFSET.dx,
     y: exit.at.y + EXIT_MAP_OFFSET.dy,
@@ -385,7 +388,12 @@ function manDoorOnLevel(door, building, levelId, currentRoom = null) {
 }
 
 export function exitsOnLevel(building, levelId) {
+  const exteriorLevel = building.exterior?.level
   return (building.exits ?? []).filter((exit) => {
+    if (!exit.door) {
+      // Transition (no door): lives on the exterior level
+      return exteriorLevel === levelId
+    }
     const door = building.doorById?.[exit.door]
     if (!door) return false
     if (door.kind === 'roll') {
