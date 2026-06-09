@@ -141,7 +141,10 @@ function stairEndDiscovered(stairRoom, ctx) {
 export function isDoorMapped(door, ctx) {
   if (ctx?.builderView) return true
   if (!door) return true
-  if (isOutsideBuilding(ctx) && ctx?.building?.exitByDoorId?.[door.id]) return true
+  if (isOutsideBuilding(ctx)) {
+    if (ctx?.building?.exitByDoorId?.[door.id]) return true
+    if (ctx?.building?.exterior?.entryByDoorId?.[door.id]) return true
+  }
   if (door.showWhenDiscovered && !ctx?.discovered.has(door.showWhenDiscovered)) return false
   if (door.showWhenRoom) {
     const linkedIds = linkedRoomIdsForDoor(ctx.building, door)

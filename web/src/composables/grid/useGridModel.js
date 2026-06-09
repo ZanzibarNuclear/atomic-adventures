@@ -3,7 +3,15 @@ import { layoutSideFromEdge, normalizeCompassEdge } from './useGridCompass.js'
 
 function buildExteriorModel(exterior) {
   if (!exterior) {
-    return { level: 'first', entry: null, nodes: [], nodeById: {}, adj: {}, paths: [] }
+    return {
+      level: 'first',
+      entry: null,
+      nodes: [],
+      nodeById: {},
+      entryByDoorId: {},
+      adj: {},
+      paths: [],
+    }
   }
   const nodes = exterior.nodes ?? []
   const nodeById = Object.fromEntries(nodes.map((n) => [n.id, n]))
@@ -28,12 +36,16 @@ function buildExteriorModel(exterior) {
       adj[b]?.add(a)
     }
   }
+  const entryByDoorId = Object.fromEntries(
+    nodes.filter((n) => n.door).map((n) => [n.door, n]),
+  )
   return {
     level: exterior.level ?? 'first',
     entry: exterior.entry ?? nodes[0]?.id ?? null,
     pad: exterior.pad ?? 0.8,
     nodes,
     nodeById,
+    entryByDoorId,
     adj: Object.fromEntries(Object.entries(adj).map(([k, v]) => [k, [...v]])),
     paths,
   }
