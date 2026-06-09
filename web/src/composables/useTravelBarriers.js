@@ -6,8 +6,6 @@
 import { axialToPixel } from './useHexGeometry.js'
 
 const STAND_INSET = 5
-/** x of the compound's east fence; approach points sit east of this. */
-const COMPOUND_OUTSIDE_X = -22
 
 const OPENING_RADIUS = {
   gate: 22,
@@ -95,6 +93,63 @@ export function openingAllows(kind, x, y, openings) {
   )
 }
 
+/** Distance from point P to segment AB. */
+function pointSegmentDistance(p, a, b) {
+  const abx = b.x - a.x
+  const aby = b.y - a.y
+  const lenSq = abx * abx + aby * aby
+  if (lenSq < 1e-9) return Math.hypot(p.x - a.x, p.y - a.y)
+  let t = ((p.x - a.x) * abx + (p.y - a.y) * aby) / lenSq
+  t = Math.max(0, Math.min(1, t))
+  return Math.hypot(p.x - (a.x + t * abx), p.y - (a.y + t * aby))
+}
+
+/** Does any point along the path pass within an opening allowing `kind`? */
+function pathNearOpening(path, kind, openings) {
+  const allowed = kind === 'fence' ? FENCE_OPENINGS : RIVER_OPENINGS
+  return openings.some((o) => {
+    if (!allowed.has(o.kind)) return false
+    for (let i = 0; i < path.length - 1; i++) {
+      if (pointSegmentDistance(o, path[i], path[i + 1]) <= o.r) return true
+    }
+    return false
+  })
+}
+
+/** Entering a different enclosure requires passing through a fence opening. */
+function entersEnclosureWithoutOpening(fromHex, toHex, path, openings) {
+  const enclosure = toHex?.enclosure
+  if (!enclosure || fromHex?.enclosure === enclosure) return false
+  return !pathNearOpening(path, 'fence', openings)
+}
+
+/**
+ * Deterministic passability of the edge between two adjacent hexes.
+ * Returns null when passable, else the blocking barrier kind.
+ *
+ * Independent of avatar position: uses the center-to-center segment plus the
+ * enclosure rule (the enclosure boundary acts as an implicit fence even where
+ * the authored polyline doesn't separate the two centers).
+ */
+export function edgeBlock(fromHex, toHex, size, ctx) {
+  const a = axialToPixel(fromHex.q, fromHex.r, size)
+  const b = axialToPixel(toHex.q, toHex.r, size)
+
+  for (const seg of [...ctx.fences, ...ctx.rivers]) {
+    const cross = segmentIntersection(a, b, seg.a, seg.b)
+    if (!cross) continue
+    if (!openingAllows(seg.kind, cross.x, cross.y, ctx.openings)) {
+      return seg.kind
+    }
+  }
+
+  if (entersEnclosureWithoutOpening(fromHex, toHex, [a, b], ctx.openings)) {
+    return 'fence'
+  }
+
+  return null
+}
+
 /** Samples along a route between two hex spans (inclusive). */
 export function routeMoveSamples(model, fromSpan, toSpan) {
   const idxs = [
@@ -128,47 +183,27 @@ function pathCrossesBlockedBarrier(path, ctx) {
 
 /**
  * Whether a marked-route move should be hidden / rejected.
- * Checks the actual path geometry plus enclosure access rules.
+ * Checks the actual path geometry plus the enclosure rule (a route may
+ * legitimately cross via an opening the hex centers' line misses).
  */
-export function isRouteMoveBlocked(
-  fromHex,
-  toHex,
-  pathSamples,
-  size,
-  ctx,
-  enclosureAccess,
-) {
+export function isRouteMoveBlocked(fromHex, toHex, pathSamples, ctx) {
   if (pathSamples.length < 2) return false
 
   if (pathCrossesBlockedBarrier(pathSamples, ctx)) return true
 
-  const enclosure = toHex.enclosure
-  if (!enclosure || enclosureAccess.has(enclosure)) return false
-
-  const fenceHits = pathBarrierCrossings(pathSamples, ctx).filter(
-    (h) => h.kind === 'fence',
-  )
-  if (
-    fenceHits.length > 0 &&
-    fenceHits.every((h) => openingAllows('fence', h.x, h.y, ctx.openings))
-  ) {
-    return false
-  }
-
-  const fromPos = pathSamples[0]
-  return !!resolveOffRoadBarrier(
+  return entersEnclosureWithoutOpening(
     fromHex,
     toHex,
-    fromPos,
-    size,
-    ctx,
-    enclosureAccess,
+    pathSamples,
+    ctx.openings,
   )
 }
 
 /**
- * If an off-road walk from `from` toward `to` hits a barrier without a nearby
- * opening, return where the avatar should stand (just inside the destination side).
+ * Visual stand point for a blocked move attempt: where the avatar stops when
+ * walking from `from` toward `to`, on the approach side of the first
+ * uncrossable barrier. Returns null when the straight walk hits nothing
+ * (e.g. a move blocked only by the enclosure rule).
  */
 export function findBarrierStand(from, to, { fences, rivers, openings }) {
   const dx = to.x - from.x
@@ -193,48 +228,4 @@ export function findBarrierStand(from, to, { fences, rivers, openings }) {
     y: hit.y - dir.y * STAND_INSET,
     barrierKind: hit.kind,
   }
-}
-
-/**
- * Off-road barrier check including enclosed compounds.
- *
- * A line from avatar → destination can miss the fence when both hex centres
- * sit inside the same enclosure. Until route access is granted, treat any
- * off-road move into an enclosed hex as crossing from outside.
- */
-export function resolveOffRoadBarrier(
-  fromHex,
-  toHex,
-  fromPos,
-  size,
-  ctx,
-  enclosureAccess,
-) {
-  const toCenter = axialToPixel(toHex.q, toHex.r, size)
-  const fromCenter = axialToPixel(fromHex.q, fromHex.r, size)
-
-  let hit = findBarrierStand(fromPos, toCenter, ctx)
-  if (hit) return hit
-
-  const enclosure = toHex.enclosure
-  if (!enclosure || enclosureAccess.has(enclosure)) return null
-
-  // Virtual approach from east of the compound fence.
-  const outside = {
-    x: Math.max(COMPOUND_OUTSIDE_X, fromPos.x, fromCenter.x),
-    y: fromPos.y,
-  }
-  hit = findBarrierStand(outside, toCenter, ctx)
-  if (hit) return hit
-
-  if (fromHex.enclosure === enclosure) {
-    hit = findBarrierStand(
-      { x: COMPOUND_OUTSIDE_X, y: fromPos.y },
-      toCenter,
-      ctx,
-    )
-    if (hit) return hit
-  }
-
-  return null
 }

@@ -11,7 +11,8 @@ import {
   fenceSegments,
   riverSegments,
   travelOpenings,
-  resolveOffRoadBarrier,
+  edgeBlock,
+  findBarrierStand,
 } from "./useTravelBarriers.js";
 
 export function useOutdoorWorld(mapData) {
@@ -77,10 +78,10 @@ export function useOutdoorWorld(mapData) {
   const state = reactive({
     currentId: START,
     discovered: new Set([START]),
-    /** Fixed { x, y } when an off-road move was stopped at a fence/river. */
+    /** Fixed { x, y } when a blocked move walked the avatar up to a barrier. */
     barrierStand: null,
-    /** Enclosures entered via a marked route (e.g. compound gate). */
-    enclosureAccess: new Set(),
+    /** Barrier kind ('fence' | 'river') of the last blocked move attempt. */
+    lastBlocked: null,
   });
 
   const mode = ref("explored");
@@ -110,7 +111,6 @@ export function useOutdoorWorld(mapData) {
     hexById: hexById.value,
     size,
     barriers: travelBarrierCtx.value,
-    enclosureAccess: state.enclosureAccess,
   }));
 
   const moves = computed(() =>
@@ -125,8 +125,6 @@ export function useOutdoorWorld(mapData) {
       moves.value.map((m) => m.toHexId),
       size,
       travelBarrierCtx.value,
-      avatarFromPos.value,
-      state.enclosureAccess,
     ),
   );
 
@@ -143,37 +141,41 @@ export function useOutdoorWorld(mapData) {
     if (hexId === state.currentId) return;
     if (hexDistance(fromHex, toHex) !== 1) return;
 
+    // Route legs are pre-filtered by isRouteMoveBlocked; everything else
+    // goes through the deterministic edge check.
     const routeLeg = moves.value.find((m) => m.toHexId === hexId);
-    let barrierStand = null;
-
-    if (routeLeg) {
-      if (toHex.enclosure) {
-        state.enclosureAccess.add(toHex.enclosure);
-      }
-    } else {
-      const stop = resolveOffRoadBarrier(
-        fromHex,
-        toHex,
-        avatarFromPos.value,
-        size,
-        travelBarrierCtx.value,
-        state.enclosureAccess,
-      );
-      if (stop) {
-        barrierStand = {
-          x: Math.round(stop.x),
-          y: Math.round(stop.y),
-        };
-      }
-    }
+    const blocked = routeLeg
+      ? null
+      : edgeBlock(fromHex, toHex, size, travelBarrierCtx.value);
 
     traveling.value = true;
-    state.currentId = hexId;
-    state.discovered.add(hexId);
-    state.barrierStand = barrierStand;
     setTimeout(() => {
       traveling.value = false;
     }, 650);
+
+    if (blocked) {
+      // Never commit a blocked move: the avatar stays on its current hex,
+      // walking up to the barrier when the straight line actually hits it.
+      const toCenter = axialToPixel(toHex.q, toHex.r, size);
+      const stand = findBarrierStand(
+        avatarFromPos.value,
+        toCenter,
+        travelBarrierCtx.value,
+      );
+      if (stand) {
+        state.barrierStand = {
+          x: Math.round(stand.x),
+          y: Math.round(stand.y),
+        };
+      }
+      state.lastBlocked = blocked;
+      return;
+    }
+
+    state.currentId = hexId;
+    state.discovered.add(hexId);
+    state.barrierStand = null;
+    state.lastBlocked = null;
   }
 
   async function autoTravel() {
@@ -194,7 +196,7 @@ export function useOutdoorWorld(mapData) {
     state.currentId = START;
     state.discovered = new Set([START]);
     state.barrierStand = null;
-    state.enclosureAccess.clear();
+    state.lastBlocked = null;
   }
 
   function nameOf(hexId) {

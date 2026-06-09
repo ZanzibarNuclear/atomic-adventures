@@ -153,6 +153,7 @@ export function createIndoorMovement(deps) {
 
   function goIndoors() {
     outdoor.state.barrierStand = null;
+    outdoor.state.lastBlocked = null;
     indoor.exteriorNode = building.value.exterior?.entry ?? null;
     indoor.currentRoom = null;
     indoor.discovered = new Set();
@@ -204,6 +205,7 @@ export function createIndoorMovement(deps) {
     outdoor.state.currentId = hexId;
     outdoor.state.discovered = new Set([...outdoor.state.discovered, hexId]);
     outdoor.state.barrierStand = null;
+    outdoor.state.lastBlocked = null;
     indoor.exteriorNode = null;
     indoor.currentRoom = null;
     place.value = "outdoors";
@@ -214,6 +216,7 @@ export function createIndoorMovement(deps) {
     outdoor.state.currentId = hexId;
     outdoor.state.discovered = new Set([...outdoor.state.discovered, hexId]);
     outdoor.state.barrierStand = null;
+    outdoor.state.lastBlocked = null;
     indoor.exteriorNode = null;
     indoor.currentRoom = null;
     place.value = "outdoors";

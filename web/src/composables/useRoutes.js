@@ -171,9 +171,7 @@ export function availableMoves(currentHexId, models, travelOpts = null) {
             travelOpts.fromHex,
             travelOpts.hexById[fwd.hexId],
             routeMoveSamples(m, span, fwd),
-            travelOpts.size,
             travelOpts.barriers,
-            travelOpts.enclosureAccess,
           )
         ) {
           continue
@@ -197,9 +195,7 @@ export function availableMoves(currentHexId, models, travelOpts = null) {
             travelOpts.fromHex,
             travelOpts.hexById[bwd.hexId],
             routeMoveSamples(m, span, bwd),
-            travelOpts.size,
             travelOpts.barriers,
-            travelOpts.enclosureAccess,
           )
         ) {
           continue
@@ -264,7 +260,7 @@ export function buildRouteDrawPieces(models, { isRevealed, inView, allowStub }) 
 import {
   isRouteMoveBlocked,
   routeMoveSamples,
-  resolveOffRoadBarrier,
+  edgeBlock,
 } from './useTravelBarriers.js'
 
 export { fenceSegments, segmentsCross } from './useTravelBarriers.js'
@@ -276,32 +272,18 @@ export function offRoadNeighbors(
   hexById,
   onRouteTargets,
   size,
-  barriers = {},
-  fromPos = null,
-  enclosureAccess = new Set(),
+  barriers,
 ) {
   const current = hexById[currentHexId]
   if (!current) return []
   const onRoute = new Set(onRouteTargets)
-  const from =
-    fromPos ?? axialToPixel(current.q, current.r, size)
   return hexes
     .filter((h) => hexDistance(h, current) === 1 && !onRoute.has(h.id))
-    .map((h) => {
-      const stop = resolveOffRoadBarrier(
-        current,
-        h,
-        from,
-        size,
-        barriers,
-        enclosureAccess,
-      )
-      return {
-        toHexId: h.id,
-        label: bearingLabel(current, h, size),
-        blockedBy: stop?.barrierKind ?? null,
-      }
-    })
+    .map((h) => ({
+      toHexId: h.id,
+      label: bearingLabel(current, h, size),
+      blockedBy: edgeBlock(current, h, size, barriers),
+    }))
 }
 
 export function pointsAttr(pts) {

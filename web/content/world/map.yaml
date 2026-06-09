@@ -32,8 +32,9 @@
 #   gate / hole — fence crossings   bridge / ford — river crossings
 #   { kind: gate|hole|bridge|ford, at: { x, y }, radius?: px }
 #
-# enclosure: compound — hex is inside the fenced yard. Off-road entry is
-# blocked at the fence until the player reaches it via a marked route (gate).
+# enclosure: compound — hex is inside the fenced yard. Entering from a hex
+# outside the enclosure is blocked unless the move passes through a fence
+# opening (gate/hole), even where the fence polyline misses the hex centers.
 
 orientation: pointy
 size: 44
