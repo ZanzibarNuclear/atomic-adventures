@@ -114,8 +114,9 @@ function polyPoints(pts) {
       class="gauge-needle"
     />
 
-    <!-- Turbine circle -->
+    <!-- Turbine circle — hidden in fog -->
     <circle
+      v-if="!fog"
       :cx="hydroElements.powerhouse.turbine.cx"
       :cy="hydroElements.powerhouse.turbine.cy"
       :r="hydroElements.powerhouse.turbine.r"
@@ -139,8 +140,9 @@ function polyPoints(pts) {
       class="turbine-blade"
     />
 
-    <!-- Generator box -->
+    <!-- Generator box — hidden in fog -->
     <rect
+      v-if="!fog"
       :x="hydroElements.powerhouse.generator.x"
       :y="hydroElements.powerhouse.generator.y"
       :width="hydroElements.powerhouse.generator.w"
@@ -307,9 +309,7 @@ function polyPoints(pts) {
 }
 .hydro-layer.fog .intake-box,
 .hydro-layer.fog .powerhouse-box,
-.hydro-layer.fog .valve-body,
-.hydro-layer.fog .turbine-circle,
-.hydro-layer.fog .generator-box {
+.hydro-layer.fog .valve-body {
   fill: #14181f;
   stroke: rgba(255, 255, 255, 0.22);
   stroke-width: 2;
