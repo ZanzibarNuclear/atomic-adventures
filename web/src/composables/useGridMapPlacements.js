@@ -36,6 +36,7 @@ export function useGridMapPlacements({
   level,
   currentRoom,
   exteriorNode,
+  avatarWaypoint,
   standLevel,
   doorStates,
   builderView,
@@ -290,6 +291,12 @@ export function useGridMapPlacements({
     return placedFixtures.value.find((f) => f.featureRoomId === current.value.id) ?? null
   })
   const avatarPos = computed(() => {
+    // During path animation, an intermediate waypoint overrides the node position.
+    if (avatarWaypoint?.value && building.value.exterior?.level === level.value) {
+      const at = avatarWaypoint.value
+      const pt = tp(at.x * cell.value, at.y * cell.value)
+      return { x: pt.x, y: pt.y - avatarFootOffset.value }
+    }
     if (exteriorNode.value) {
       const node = building.value.exterior?.nodeById?.[exteriorNode.value]
       if (!node || building.value.exterior?.level !== level.value) return null

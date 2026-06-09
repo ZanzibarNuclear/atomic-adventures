@@ -75,5 +75,6 @@ export {
   exteriorMovesFrom,
   exteriorReachableNodes,
   exteriorPathBetween,
+  exteriorSegmentPoints,
   exteriorStepOutMoves,
 } from './grid/useGridExterior.js'

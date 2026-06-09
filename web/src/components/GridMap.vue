@@ -20,6 +20,7 @@ const props = defineProps({
   building: { type: Object, required: true },
   currentRoom: { type: String, default: '' },
   exteriorNode: { type: String, default: null },
+  avatarWaypoint: { type: Object, default: null },
   discovered: { type: [Array, Object], default: () => [] },
   revealed: { type: [Array, Object], default: () => [] },
   level: { type: String, required: true },
@@ -125,6 +126,7 @@ const {
   level: computed(() => props.level),
   currentRoom: computed(() => props.currentRoom),
   exteriorNode: computed(() => props.exteriorNode),
+  avatarWaypoint: computed(() => props.avatarWaypoint),
   standLevel: computed(() => props.standLevel),
   doorStates: computed(() => props.doorStates),
   builderView: computed(() => props.builderView),
@@ -270,6 +272,7 @@ const {
         :x="avatarPos.x"
         :y="avatarPos.y"
         :scale="avatarScale"
+        :instant="!!props.avatarWaypoint"
         halo
       />
 

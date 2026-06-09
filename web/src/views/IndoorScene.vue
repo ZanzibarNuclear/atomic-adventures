@@ -211,6 +211,7 @@ const mapStageProps = computed(() => {
     building: props.indoor.building,
     currentRoom: props.indoor.indoor.currentRoom ?? "",
     exteriorNode: props.indoor.indoor.exteriorNode,
+    avatarWaypoint: props.indoor.indoor.avatarWaypoint,
     discovered: [...props.indoor.indoor.discovered],
     revealed: [...props.indoor.indoor.revealed],
     level: props.indoor.indoor.viewLevel,

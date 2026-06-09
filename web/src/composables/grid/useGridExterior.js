@@ -79,6 +79,45 @@ export function exteriorPathBetween(building, fromId, toId) {
   return path
 }
 
+/**
+ * Returns the drawn path points for the segment between two adjacent exterior
+ * nodes, including the start and end positions plus any intermediate waypoints.
+ * Result is in layout units ({ x, y } same scale as node.at).
+ * Returns [fromAt, toAt] if no path or points are found.
+ */
+export function exteriorSegmentPoints(building, fromNodeId, toNodeId) {
+  const nodeById = building.exterior?.nodeById ?? {}
+  const fromNode = nodeById[fromNodeId]
+  const toNode = nodeById[toNodeId]
+  if (!fromNode?.at || !toNode?.at) return []
+
+  for (const path of building.exterior?.paths ?? []) {
+    const nodeIds = path.nodeIds ?? []
+    const i1 = nodeIds.indexOf(fromNodeId)
+    const i2 = nodeIds.indexOf(toNodeId)
+    if (i1 === -1 || i2 === -1 || Math.abs(i1 - i2) !== 1) continue
+
+    const points = path.points ?? []
+    if (!points.length) return [fromNode.at, toNode.at]
+
+    // Match each node to its closest point in the drawn polyline.
+    let bestFrom = 0, bestTo = 0, dfrom = Infinity, dto = Infinity
+    for (let i = 0; i < points.length; i++) {
+      const df = (points[i].x - fromNode.at.x) ** 2 + (points[i].y - fromNode.at.y) ** 2
+      const dt = (points[i].x - toNode.at.x)   ** 2 + (points[i].y - toNode.at.y)   ** 2
+      if (df < dfrom) { dfrom = df; bestFrom = i }
+      if (dt < dto)   { dto   = dt; bestTo   = i }
+    }
+
+    const lo = Math.min(bestFrom, bestTo)
+    const hi = Math.max(bestFrom, bestTo)
+    const segment = points.slice(lo, hi + 1)
+    return bestFrom <= bestTo ? segment : [...segment].reverse()
+  }
+
+  return [fromNode.at, toNode.at]
+}
+
 export function exteriorStepOutMoves(building, roomId, doorState, areaId) {
   if (!roomId) return []
   const out = []

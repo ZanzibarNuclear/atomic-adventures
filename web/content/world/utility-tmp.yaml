@@ -18,6 +18,7 @@ rooms:
     h: 0.5
     name: "Corridor"
     blurb: "A narrow passage sloping downhill away from the station — conduit runs, pipe insulation, and a draft of cool air from below."
+    windows: [west]
 
   - id: control-room
     level: first
@@ -136,6 +137,7 @@ rooms:
     name: "Kitchen / Dining"
     icon: "🍽️"
     blurb: "Worker kitchen and dining area. Water purifier, rations, dishes and utensils. Small table with kitchen chairs."
+    windows: [west]
 
   - id: bay-open
     level: second
@@ -262,7 +264,7 @@ exits:
   - door: large-bay-roll
     room: large-bay
     exteriorNode: large-bay-roll-front
-    at: { x: 5.35, y: 3.5 }
+    at: { x: 4.46, y: 3.6 }
     mapAt: { x: 5.12, y: 3.42 }
     hex: utility-yard
     standAt: { from: landmark, dx: 0.62, dy: 0.22 }
@@ -294,7 +296,7 @@ exterior:
       door: small-bay-roll
       room: small-bay
     - id: large-bay-roll-front
-      at: { x: 4.67, y: 3.26 }
+      at: { x: 4.46, y: 3.6 }
       label: "Large bay roll-up"
       door: large-bay-roll
       room: large-bay
@@ -318,7 +320,7 @@ exterior:
       at: { x: -6.34, y: 3.41 }
       label: "South-east corner"
     - id: downstream-bank
-      at: { x: -5.77, y: -1.11 }
+      at: { x: -5.39, y: -1.12 }
       label: "Riverbank downstream"
     - id: midstream-bank
       at: { x: -1.12, y: -1.11 }
@@ -332,8 +334,8 @@ exterior:
       nodes: [small-bay-roll-front, large-bay-roll-front]
       points:
         - { x: 4.09, y: 0.06 }
-        - { x: 4.75, y: 2.16 }
-        - { x: 4.65, y: 3.41 }
+        - { x: 4.46, y: 1.04 }
+        - { x: 4.48, y: 3.6 }
     - id: perimeter
       smooth: true
       nodes:
@@ -345,13 +347,13 @@ exterior:
           lobby-exterior-front,
         ]
       points:
-        - { x: 4.66, y: 3.57 }
-        - { x: 4.67, y: 4.74 }
+        - { x: 4.47, y: 3.61 }
+        - { x: 4.49, y: 4.74 }
         - { x: 4.29, y: 5.53 }
         - { x: 2.81, y: 5.53 }
         - { x: 0.61, y: 5.55 }
-        - { x: -1.98, y: 5.56 }
-        - { x: -4.05, y: 4.65 }
+        - { x: -1.52, y: 5.54 }
+        - { x: -4, y: 4.99 }
         - { x: -4.39, y: 3.48 }
     - id: riverside
       smooth: false
@@ -367,7 +369,7 @@ exterior:
         - { x: -4.4, y: 3.52 }
         - { x: -6.34, y: 3.41 }
         - { x: -6.29, y: -0.21 }
-        - { x: -5.77, y: -1.11 }
+        - { x: -5.39, y: -1.12 }
         - { x: -1.12, y: -1.11 }
         - { x: 3.54, y: -1.1 }
     - id: river-stairs
