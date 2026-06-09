@@ -1,4 +1,4 @@
-import { computed, reactive, ref } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import {
   availableMoves,
   offRoadNeighbors,
@@ -77,12 +77,25 @@ export function useOutdoorWorld(mapData) {
 
   const state = reactive({
     currentId: START,
-    discovered: new Set([START]),
+    discovered: [START],
     /** Fixed { x, y } when a blocked move walked the avatar up to a barrier. */
     barrierStand: null,
     /** Barrier kind ('fence' | 'river') of the last blocked move attempt. */
     lastBlocked: null,
   });
+
+  function markDiscovered(hexId) {
+    if (!hexId || state.discovered.includes(hexId)) return;
+    state.discovered = [...state.discovered, hexId];
+  }
+
+  // Any code path that moves the avatar (routes, off-road, builder, indoor exits)
+  // must reveal the hex the player is standing on.
+  watch(
+    () => state.currentId,
+    (hexId) => markDiscovered(hexId),
+    { immediate: true },
+  );
 
   const mode = ref("explored");
   const traveling = ref(false);
@@ -104,7 +117,7 @@ export function useOutdoorWorld(mapData) {
       : null,
   );
 
-  const discoveredList = computed(() => [...state.discovered]);
+  const discoveredList = computed(() => state.discovered);
 
   const travelOpts = computed(() => ({
     fromHex: currentHexData.value,
@@ -161,6 +174,9 @@ export function useOutdoorWorld(mapData) {
         avatarFromPos.value,
         toCenter,
         travelBarrierCtx.value,
+        fromHex,
+        toHex,
+        size,
       );
       if (stand) {
         state.barrierStand = {
@@ -173,7 +189,6 @@ export function useOutdoorWorld(mapData) {
     }
 
     state.currentId = hexId;
-    state.discovered.add(hexId);
     state.barrierStand = null;
     state.lastBlocked = null;
   }
@@ -194,7 +209,7 @@ export function useOutdoorWorld(mapData) {
 
   function resetPlayer() {
     state.currentId = START;
-    state.discovered = new Set([START]);
+    state.discovered = [START];
     state.barrierStand = null;
     state.lastBlocked = null;
   }
@@ -225,6 +240,7 @@ export function useOutdoorWorld(mapData) {
     standOverride,
     currentHexData,
     discoveredList,
+    markDiscovered,
     moves,
     offRoad,
     atBuildingEntrance,

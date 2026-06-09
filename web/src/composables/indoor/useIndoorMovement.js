@@ -177,7 +177,6 @@ export function createIndoorMovement(deps) {
       outdoor.editableHexes.find((h) => h.area === "utility")?.id;
     if (!hexId) return;
     outdoor.state.currentId = hexId;
-    outdoor.state.discovered.add(hexId);
     goIndoors();
   }
 
@@ -209,7 +208,6 @@ export function createIndoorMovement(deps) {
     const hexId = exit.hex ?? building.value.outdoorHex;
     if (!hexId) return;
     outdoor.state.currentId = hexId;
-    outdoor.state.discovered = new Set([...outdoor.state.discovered, hexId]);
     outdoor.state.barrierStand = null;
     outdoor.state.lastBlocked = null;
     indoor.exteriorNode = null;
@@ -220,7 +218,6 @@ export function createIndoorMovement(deps) {
   function exitBuilding() {
     const hexId = building.value.outdoorHex ?? outdoor.state.currentId;
     outdoor.state.currentId = hexId;
-    outdoor.state.discovered = new Set([...outdoor.state.discovered, hexId]);
     outdoor.state.barrierStand = null;
     outdoor.state.lastBlocked = null;
     indoor.exteriorNode = null;

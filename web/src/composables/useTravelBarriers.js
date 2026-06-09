@@ -123,27 +123,70 @@ function entersEnclosureWithoutOpening(fromHex, toHex, path, openings) {
   return !pathNearOpening(path, 'fence', openings)
 }
 
+/** Both tiles are inside the same authored compound (e.g. utility yard). */
+function sharesEnclosure(fromHex, toHex) {
+  return !!(
+    fromHex?.enclosure &&
+    fromHex.enclosure === toHex?.enclosure
+  )
+}
+
+/** Fence polylines trace the compound outline and cross many internal hex edges. */
+function skipFenceForMove(fromHex, toHex, seg) {
+  return seg.kind === 'fence' && sharesEnclosure(fromHex, toHex)
+}
+
+/**
+ * The shared edge between two adjacent hexes — the geometric boundary where
+ * barriers should actually be checked, as opposed to the center-to-center
+ * segment which passes through each hex's interior.
+ *
+ * Rivers and fences often have waypoints anchored inside hexes. Checking the
+ * center-to-center path can cross a segment that runs through the target hex's
+ * interior even though the barrier never touches the shared boundary, producing
+ * false blocks. Checking the shared edge fixes this.
+ */
+function sharedHexEdge(centerA, centerB, size) {
+  const mx = (centerA.x + centerB.x) / 2
+  const my = (centerA.y + centerB.y) / 2
+  const dist = Math.hypot(centerB.x - centerA.x, centerB.y - centerA.y)
+  // Perpendicular direction (left-hand normal of A→B).
+  const px = -(centerB.y - centerA.y) / dist
+  const py = (centerB.x - centerA.x) / dist
+  // For a regular hex with circumradius = size, the side length also equals
+  // size, so the shared edge extends size/2 on each side of the midpoint.
+  const half = size / 2
+  return {
+    a: { x: mx + px * half, y: my + py * half },
+    b: { x: mx - px * half, y: my - py * half },
+  }
+}
+
 /**
  * Deterministic passability of the edge between two adjacent hexes.
  * Returns null when passable, else the blocking barrier kind.
  *
- * Independent of avatar position: uses the center-to-center segment plus the
- * enclosure rule (the enclosure boundary acts as an implicit fence even where
- * the authored polyline doesn't separate the two centers).
+ * Checks the shared hex edge (the physical boundary between the two tiles)
+ * rather than the center-to-center segment. This correctly handles barriers
+ * whose waypoints lie inside a hex's interior — a river that flows through a
+ * hex does not block entry from a direction where it never crosses the border.
+ * The enclosure rule still uses the shared edge to test proximity to openings.
  */
 export function edgeBlock(fromHex, toHex, size, ctx) {
   const a = axialToPixel(fromHex.q, fromHex.r, size)
   const b = axialToPixel(toHex.q, toHex.r, size)
+  const edge = sharedHexEdge(a, b, size)
 
   for (const seg of [...ctx.fences, ...ctx.rivers]) {
-    const cross = segmentIntersection(a, b, seg.a, seg.b)
+    if (skipFenceForMove(fromHex, toHex, seg)) continue
+    const cross = segmentIntersection(edge.a, edge.b, seg.a, seg.b)
     if (!cross) continue
     if (!openingAllows(seg.kind, cross.x, cross.y, ctx.openings)) {
       return seg.kind
     }
   }
 
-  if (entersEnclosureWithoutOpening(fromHex, toHex, [a, b], ctx.openings)) {
+  if (entersEnclosureWithoutOpening(fromHex, toHex, [edge.a, edge.b], ctx.openings)) {
     return 'fence'
   }
 
@@ -199,33 +242,56 @@ export function isRouteMoveBlocked(fromHex, toHex, pathSamples, ctx) {
   )
 }
 
-/**
- * Visual stand point for a blocked move attempt: where the avatar stops when
- * walking from `from` toward `to`, on the approach side of the first
- * uncrossable barrier. Returns null when the straight walk hits nothing
- * (e.g. a move blocked only by the enclosure rule).
- */
-export function findBarrierStand(from, to, { fences, rivers, openings }) {
-  const dx = to.x - from.x
-  const dy = to.y - from.y
+function standBeforeHit(from, hit) {
+  const dx = from.x - hit.x
+  const dy = from.y - hit.y
   const len = Math.hypot(dx, dy)
-  if (len < 1) return null
-  const dir = { x: dx / len, y: dy / len }
-
-  let hit = null
-  for (const seg of [...fences, ...rivers]) {
-    const cross = segmentIntersection(from, to, seg.a, seg.b)
-    if (!cross || cross.t < 0.02) continue
-    if (openingAllows(seg.kind, cross.x, cross.y, openings)) continue
-    if (!hit || cross.t < hit.t) hit = { ...cross, kind: seg.kind }
+  if (len < 1) {
+    return { x: hit.x, y: hit.y, barrierKind: hit.kind }
   }
-
-  if (!hit) return null
-
-  // Stop on the approach side of the barrier — never past the line.
   return {
-    x: hit.x - dir.x * STAND_INSET,
-    y: hit.y - dir.y * STAND_INSET,
+    x: hit.x + (dx / len) * STAND_INSET,
+    y: hit.y + (dy / len) * STAND_INSET,
     barrierKind: hit.kind,
   }
+}
+
+function firstBlockedCrossOnSegment(from, to, ctx, fromHex, toHex) {
+  let hit = null
+  for (const seg of [...ctx.fences, ...ctx.rivers]) {
+    if (fromHex && toHex && skipFenceForMove(fromHex, toHex, seg)) continue
+    const cross = segmentIntersection(from, to, seg.a, seg.b)
+    if (!cross || cross.t < 0.02) continue
+    if (openingAllows(seg.kind, cross.x, cross.y, ctx.openings)) continue
+    if (!hit || cross.t < hit.t) hit = { ...cross, kind: seg.kind }
+  }
+  return hit
+}
+
+/**
+ * Visual stand point for a blocked move attempt: where the avatar stops when
+ * walking from `from` toward `to`, on the approach side of the barrier that
+ * actually blocks the move (matched to edgeBlock when hexes are provided).
+ */
+export function findBarrierStand(from, to, ctx, fromHex, toHex, size) {
+  if (fromHex && toHex && size != null) {
+    const block = edgeBlock(fromHex, toHex, size, ctx)
+    if (!block) return null
+
+    const a = axialToPixel(fromHex.q, fromHex.r, size)
+    const b = axialToPixel(toHex.q, toHex.r, size)
+    const edge = sharedHexEdge(a, b, size)
+
+    for (const seg of [...ctx.fences, ...ctx.rivers]) {
+      if (skipFenceForMove(fromHex, toHex, seg)) continue
+      if (seg.kind !== block) continue
+      const cross = segmentIntersection(edge.a, edge.b, seg.a, seg.b)
+      if (!cross) continue
+      if (openingAllows(seg.kind, cross.x, cross.y, ctx.openings)) continue
+      return standBeforeHit(from, { ...cross, kind: seg.kind })
+    }
+  }
+
+  const hit = firstBlockedCrossOnSegment(from, to, ctx, fromHex, toHex)
+  return hit ? standBeforeHit(from, hit) : null
 }
