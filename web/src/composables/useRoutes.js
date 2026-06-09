@@ -128,8 +128,11 @@ function headingVec(samples, i) {
 // ordered "spans" of hexes the path passes through.
 export function buildRouteModels(routes, hexById, hexes, size) {
   const coordMap = new Map(hexes.map((h) => [`${h.q},${h.r}`, h.id]))
-  return (routes ?? []).map((route) => {
+  return (routes ?? [])
+    .filter((route) => (route.points?.length ?? 0) >= 2)
+    .map((route) => {
     const points = resolvePolyline(route, hexById, size)
+    if (points.length < 2) return null
     const samples = sampleRoute(points, size, coordMap)
     const spans = []
     for (let i = 0; i < samples.length; i++) {
@@ -139,6 +142,7 @@ export function buildRouteModels(routes, hexById, hexes, size) {
     }
     return { id: route.id, kind: route.kind, name: route.name, points, samples, spans }
   })
+    .filter(Boolean)
 }
 
 function nextSpan(model, fromSpanIdx, dir, currentHexId) {
@@ -151,7 +155,7 @@ function nextSpan(model, fromSpanIdx, dir, currentHexId) {
 
 // Travel options leaving the current hex. The label is the PATH'S heading at
 // the point it leaves the current hex — not the hex-to-hex vector.
-export function availableMoves(currentHexId, models) {
+export function availableMoves(currentHexId, models, travelOpts = null) {
   const moves = []
   const seen = new Set()
   for (const m of models) {
@@ -161,6 +165,19 @@ export function availableMoves(currentHexId, models) {
 
       const fwd = nextSpan(m, si, +1, currentHexId)
       if (fwd && !seen.has(fwd.hexId)) {
+        if (
+          travelOpts &&
+          isRouteMoveBlocked(
+            travelOpts.fromHex,
+            travelOpts.hexById[fwd.hexId],
+            routeMoveSamples(m, span, fwd),
+            travelOpts.size,
+            travelOpts.barriers,
+            travelOpts.enclosureAccess,
+          )
+        ) {
+          continue
+        }
         const h = headingVec(m.samples, span.endIdx)
         seen.add(fwd.hexId)
         moves.push({
@@ -174,6 +191,19 @@ export function availableMoves(currentHexId, models) {
 
       const bwd = nextSpan(m, si, -1, currentHexId)
       if (bwd && !seen.has(bwd.hexId)) {
+        if (
+          travelOpts &&
+          isRouteMoveBlocked(
+            travelOpts.fromHex,
+            travelOpts.hexById[bwd.hexId],
+            routeMoveSamples(m, span, bwd),
+            travelOpts.size,
+            travelOpts.barriers,
+            travelOpts.enclosureAccess,
+          )
+        ) {
+          continue
+        }
         const h = headingVec(m.samples, span.startIdx)
         seen.add(bwd.hexId)
         moves.push({
@@ -231,42 +261,47 @@ export function buildRouteDrawPieces(models, { isRevealed, inView, allowStub }) 
   return pieces
 }
 
-// Do segments AB and CD intersect?
-function segmentsCross(a, b, c, d) {
-  const ccw = (p, q, r) => (r.y - p.y) * (q.x - p.x) - (q.y - p.y) * (r.x - p.x)
-  const d1 = ccw(c, d, a)
-  const d2 = ccw(c, d, b)
-  const d3 = ccw(a, b, c)
-  const d4 = ccw(a, b, d)
-  return ((d1 > 0) !== (d2 > 0)) && ((d3 > 0) !== (d4 > 0))
-}
+import {
+  isRouteMoveBlocked,
+  routeMoveSamples,
+  resolveOffRoadBarrier,
+} from './useTravelBarriers.js'
 
-// Pull line segments out of every fence feature, for collision tests.
-export function fenceSegments(featureModels) {
-  const segs = []
-  for (const m of featureModels) {
-    if (m.kind !== 'fence') continue
-    for (let i = 0; i < m.points.length - 1; i++) {
-      segs.push({ a: m.points[i], b: m.points[i + 1] })
-    }
-  }
-  return segs
-}
+export { fenceSegments, segmentsCross } from './useTravelBarriers.js'
 
-// Adjacent hexes not reachable by a route — the off-road options.
-// A move whose center-to-center line crosses a fence is blocked.
-export function offRoadNeighbors(currentHexId, hexes, hexById, onRouteTargets, size, fences = []) {
+// Adjacent hexes not on a marked route — off-road options (barriers may stop the avatar).
+export function offRoadNeighbors(
+  currentHexId,
+  hexes,
+  hexById,
+  onRouteTargets,
+  size,
+  barriers = {},
+  fromPos = null,
+  enclosureAccess = new Set(),
+) {
   const current = hexById[currentHexId]
   if (!current) return []
   const onRoute = new Set(onRouteTargets)
-  const from = axialToPixel(current.q, current.r, size)
+  const from =
+    fromPos ?? axialToPixel(current.q, current.r, size)
   return hexes
     .filter((h) => hexDistance(h, current) === 1 && !onRoute.has(h.id))
-    .filter((h) => {
-      const to = axialToPixel(h.q, h.r, size)
-      return !fences.some((s) => segmentsCross(from, to, s.a, s.b))
+    .map((h) => {
+      const stop = resolveOffRoadBarrier(
+        current,
+        h,
+        from,
+        size,
+        barriers,
+        enclosureAccess,
+      )
+      return {
+        toHexId: h.id,
+        label: bearingLabel(current, h, size),
+        blockedBy: stop?.barrierKind ?? null,
+      }
     })
-    .map((h) => ({ toHexId: h.id, label: bearingLabel(current, h, size) }))
 }
 
 export function pointsAttr(pts) {

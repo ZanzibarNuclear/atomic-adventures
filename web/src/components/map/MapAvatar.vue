@@ -2,6 +2,7 @@
   <g
     v-if="visible"
     class="map-avatar"
+    :class="{ instant }"
     :style="{ transform: `translate(${x}px, ${y}px)` }"
   >
     <circle
@@ -35,6 +36,7 @@ defineProps({
   scale: { type: Number, required: true },
   visible: { type: Boolean, default: true },
   halo: { type: Boolean, default: false },
+  instant: { type: Boolean, default: false },
 })
 </script>
 
@@ -42,6 +44,9 @@ defineProps({
 .map-avatar {
   transition: transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
+}
+.map-avatar.instant {
+  transition: none;
 }
 .map-avatar-shadow {
   fill: rgba(0, 0, 0, 0.28);

@@ -1,6 +1,5 @@
 <script setup>
 import { ref } from "vue";
-import { Analytics } from "@vercel/analytics/vue";
 import mapData from "../content/world/map.yaml";
 import buildingData from "../content/world/utility-station.yaml";
 import { useOutdoorWorld } from "./composables/useOutdoorWorld.js";
@@ -30,7 +29,6 @@ function reset() {
 </script>
 
 <template>
-  <Analytics />
   <main>
     <AppHeader />
 
