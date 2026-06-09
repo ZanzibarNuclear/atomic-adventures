@@ -322,6 +322,127 @@ export function useGridMapPlacements({
     return tp(stand.x, stand.y)
   })
 
+  // ── Micro-hydro generator overlay ──────────────────────────────────────────
+  // Layout constants (units: +x = north, +y = east, 1 unit = cell px).
+  // Anchored to the three riverbank nodes defined in utility-station.yaml:
+  //   upstream-bank   x=3.54,  y=-1.10
+  //   midstream-bank  x=-1.12, y=-1.11
+  //   downstream-bank x=-5.77, y=-1.11
+  const placedHydroElements = computed(() => {
+    if (!building.value?.hydroSystem) return null
+    // Only render on levels where the river is visible
+    const riverCfg = building.value.river
+    if (riverCfg) {
+      const onLevels = riverCfg.onLevels ?? [building.value.exterior?.level ?? 'first']
+      if (!onLevels.includes(level.value)) return null
+    }
+    const c = cell.value
+
+    // River geometry (derived from utility-station.yaml river config):
+    //   riverY  = content.minY(-1.11) - gap(1.0) - width(1.5) = -3.61
+    //   river east edge = riverY + width = -2.11
+    //   east bank gap: y from -2.11 (river edge) to -1.11 (riverside path)
+    const PY   = -1.62   // penstock y-track — centre of east-bank gap
+    const IX   = 4.10    // intake x – just upstream of upstream-bank (3.54)
+    const IY   = -2.55   // intake y – inside the river rect (visible zone -2.86 to -2.11)
+    const IHW  = 0.155   // intake half-width/height (0.31 unit square ≈ 20 px side)
+    const PX1  = 4.10    // penstock upstream end (x)
+    const PX2  = -5.92   // penstock downstream end → powerhouse north face
+    const VX   = -1.12   // divert valve x (at midstream-bank)
+    const VR   = 0.115   // valve body radius (units)
+    const WR   = 0.26    // valve handwheel radius (units)
+    const PHX1 = -5.92   // powerhouse north face x
+    const PHX2 = -7.08   // powerhouse south face x
+    const PHY1 = -2.55   // powerhouse west face y  (river side)
+    const PHY2 = -1.10   // powerhouse east face y  (at riverside path)
+    const TCX  = -6.50   // turbine centre x
+    const TR   = 0.26    // turbine radius (units)
+    const EVR  = 0.085   // entry-valve circle radius
+    const GGR  = 0.080   // pressure-gauge circle radius
+
+    const pt = (x, y) => tp(x * c, y * c)
+
+    // ── Intake screen ──
+    const intakeCorners = [
+      pt(IX - IHW, IY - IHW),
+      pt(IX + IHW, IY - IHW),
+      pt(IX + IHW, IY + IHW),
+      pt(IX - IHW, IY + IHW),
+    ]
+    // 2×2 crosshatch grid
+    const D = IHW * 0.44
+    const intakeHatch = [
+      [pt(IX - IHW, IY - D), pt(IX + IHW, IY - D)],
+      [pt(IX - IHW, IY + D), pt(IX + IHW, IY + D)],
+      [pt(IX - D, IY - IHW), pt(IX - D, IY + IHW)],
+      [pt(IX + D, IY - IHW), pt(IX + D, IY + IHW)],
+    ]
+
+    // ── Intake-to-penstock connector ──
+    const intakeConnector = [pt(IX, IY), pt(IX, PY)]
+
+    // ── Penstock pipe ──
+    const penstock = [pt(PX1, PY), pt(PX2, PY)]
+
+    // ── Divert valve (midstream) ──
+    const vc = pt(VX, PY)
+    const valve = {
+      cx: vc.x,
+      cy: vc.y,
+      r: VR * c,
+      // handwheel – two spokes (N-S and E-W in layout)
+      spoke1: [pt(VX - WR, PY), pt(VX + WR, PY)],
+      spoke2: [pt(VX, PY - WR), pt(VX, PY + WR)],
+      // bypass pipe (dashed) – diverts west to the cascade when valve is open
+      bypass: [pt(VX, PY), pt(VX, IY - 0.10)],
+    }
+
+    // ── Powerhouse enclosure ──
+    const phCorners = [
+      pt(PHX1, PHY1), pt(PHX2, PHY1),
+      pt(PHX2, PHY2), pt(PHX1, PHY2),
+    ]
+    const phBox = bbox(phCorners)
+
+    // Entry valve (circle, where penstock pierces powerhouse north wall)
+    const evc = pt(PHX1, PY)
+
+    // Pressure gauge (small circle, east/inside of entry valve along penstock)
+    const gc = pt(PHX1, PY + 0.20)
+
+    // Turbine (circle centred on the penstock axis)
+    const tc = pt(TCX, PY)
+
+    // Generator (compact rect, east side of turbine inside enclosure)
+    const genCorners = [
+      pt(TCX - TR * 0.85, PY + TR * 0.55),
+      pt(TCX + TR * 0.85, PY + TR * 0.55),
+      pt(TCX + TR * 0.85, PHY2),
+      pt(TCX - TR * 0.85, PHY2),
+    ]
+    const genBox = bbox(genCorners)
+
+    // Drain pipe from turbine pit through west powerhouse wall to cascade
+    const drain = [pt(TCX, PHY1), pt(TCX, IY - 0.15)]
+
+    return {
+      intakeCorners,
+      intakeHatch,
+      intakeConnector,
+      penstock,
+      valve,
+      powerhouse: {
+        box: phBox,
+        corners: phCorners,
+        entryValve: { cx: evc.x, cy: evc.y, r: EVR * c },
+        gauge: { cx: gc.x, cy: gc.y, r: GGR * c },
+        turbine: { cx: tc.x, cy: tc.y, r: TR * c },
+        generator: genBox,
+        drain,
+      },
+    }
+  })
+
   return {
     current,
     levelRooms,
@@ -340,5 +461,6 @@ export function useGridMapPlacements({
     addNodeHint,
     avatarPos,
     avatarScale,
+    placedHydroElements,
   }
 }

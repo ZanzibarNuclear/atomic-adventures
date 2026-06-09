@@ -97,6 +97,7 @@ export function buildBuilding(data) {
     exterior,
     river: data.river ?? null,
     cliffWall: data.cliffWall ?? null,
+    hydroSystem: data.hydroSystem ?? false,
     start: data.start ?? rooms[0]?.id,
   }
 }

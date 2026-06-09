@@ -222,6 +222,7 @@ const mapStageProps = computed(() => {
     expanded: props.expanded,
     interactableDoorIds: props.indoor.interactableDoorIds,
     reachableExitDoors: props.indoor.reachableExitDoors,
+    hydroDiscovered: props.indoor.flags?.['hydro.discovered'] ?? false,
   };
   if (!props.builderView) return base;
   const gb = props.gridBuilder;

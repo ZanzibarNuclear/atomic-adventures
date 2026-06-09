@@ -10,6 +10,7 @@ import MapEditHandlesLayer from './map/MapEditHandlesLayer.vue'
 import GridMapShell from './grid/GridMapShell.vue'
 import GridSceneryLayer from './grid/GridSceneryLayer.vue'
 import GridExteriorLayer from './grid/GridExteriorLayer.vue'
+import GridHydroLayer from './grid/GridHydroLayer.vue'
 import GridRoomLayer from './grid/GridRoomLayer.vue'
 import GridDoorLayer from './grid/GridDoorLayer.vue'
 import GridFixtureLayer from './grid/GridFixtureLayer.vue'
@@ -30,6 +31,7 @@ const props = defineProps({
   reachableExteriorNodes: { type: Array, default: () => [] },
   builderView: { type: Boolean, default: false },
   builderEdit: { type: Boolean, default: false },
+  hydroDiscovered: { type: Boolean, default: false },
   editMode: { type: String, default: null },
   editHandles: { type: Array, default: () => [] },
   selectedHandleId: { type: String, default: null },
@@ -111,6 +113,7 @@ const {
   placedExteriorNodes,
   placedExits,
   placedFixtures,
+  placedHydroElements,
   editPathControlLine,
   pathBuilderLegend,
   addPointHint,
@@ -225,6 +228,11 @@ const {
         :is-item-selected="isItemSelected"
         @exterior-node-click="onExteriorNodeClick"
         @exit-click="onExitClick"
+      />
+
+      <GridHydroLayer
+        :hydro-elements="placedHydroElements"
+        :fog="!hydroDiscovered && !builderView"
       />
 
       <GridRoomLayer
