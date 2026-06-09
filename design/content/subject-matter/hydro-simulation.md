@@ -176,13 +176,46 @@ The **hidden elevator** requires **sustained hydro competence** — not a single
 - **Generator output** — Delivered to campus
 - **Efficiency indicator** — η at current operating point
 
+## Physical Plant State (Grid Map Sketch)
+
+The micro-hydro generator is sketched on the outdoor grid map as a static illustration.
+The components and their tracked states are:
+
+### Component Inventory
+
+| Component | ID | Location on map |
+|-----------|----|-----------------|
+| Intake screen | `hydro.intake` | Just upstream of "Riverbank upstream" node |
+| Penstock pipe | `hydro.penstock` | East bank, between river and riverside path |
+| Divert valve | `hydro.valve.divert` | At the "Midstream bank" node on the penstock |
+| Entry valve | `hydro.valve.entry` | Where the penstock enters the powerhouse |
+| Pressure gauge | `hydro.gauge` | Beside the entry valve inside the powerhouse |
+| Turbine | `hydro.turbine` | Inside the powerhouse enclosure |
+| Generator | `hydro.generator` | Above the turbine inside the powerhouse |
+| Drain pipe | `hydro.drain` | From turbine outlet to river cascade |
+
+### State Variables
+
+| Variable | Type | Values / Range | Notes |
+|----------|------|----------------|-------|
+| `hydro.intake_clear` | boolean | `true` / `false` | Whether intake screen is free of debris (branches, leaves) |
+| `hydro.valve.divert.position` | enum | `open` / `closed` | **Open** = water diverts back to cascade; **Closed** = water flows down penstock to turbine |
+| `hydro.valve.entry.position` | enum | `open` / `closed` | Valve at powerhouse entry; must be open to admit flow to turbine |
+| `hydro.pressure` | number | 0 – max psi | Head pressure in the penstock; zero when divert valve is open or intake is blocked |
+| `hydro.turbine.speed` | number | 0 – max rpm | Turbine rotational speed; proportional to flow and head |
+| `hydro.turbine.status` | enum | `stopped` / `spinning` / `synced` / `fault` | Operational status |
+| `hydro.power_kw` | number | 0 – rated kW | Electrical output; P = η ρ g Q H; zero until generator is synced |
+
+### Startup Sequence (flags set in order)
+
+1. `hydro.intake_clear = true` — debris removed from screen
+2. `hydro.valve.divert.position = closed` — stops bypass, fills penstock
+3. `hydro.pressure` rises above minimum threshold
+4. `hydro.valve.entry.position = open` — admits flow to turbine
+5. `hydro.turbine.status = synced` — generator locks to grid frequency
+6. `hydro.power_kw > 0` — power delivered; sets `hub.hydro_online`
+
 ## Reference Data
-
-- *TBD — Small diversion hydro plants for calibration (head, flow, MW)*
-- *TBD — Typical penstock length and elevation drop for Maine foothill terrain*
-- *TBD — Campus load estimate (lighting, HVAC minimal, EV L2 charge)*
-
-## Related Docs
 
 - [Part I Unlocks](../part-i-unlocks.md) — challenge IDs, ops rounds, discovery track
 - [Hydro research notes](../research/hydro.md)

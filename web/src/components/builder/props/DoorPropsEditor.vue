@@ -31,12 +31,12 @@
     <label class="prop-row">
       <span>Edge</span>
       <select
-        :value="rollDoorRoom?.rollDoor ?? 'right'"
+        :value="rollDoorRoom?.rollDoor ?? 'north'"
         @change="$emit('update-roll', { edge: $event.target.value })">
-        <option value="top">top</option>
-        <option value="bottom">bottom</option>
-        <option value="left">left</option>
-        <option value="right">right</option>
+        <option value="north">north</option>
+        <option value="south">south</option>
+        <option value="east">east</option>
+        <option value="west">west</option>
       </select>
     </label>
     <label class="prop-row">

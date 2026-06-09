@@ -27,6 +27,14 @@
 # River: upper-gorge → … → utility-yard (cascade) → off SW.
 # Roads: compound-road (paved) gate ↔ north ↔ NE stub at road-fork (0,-2).
 #        river-access-drive (granite) — side road from road-fork west to the river.
+#
+# Barriers (off-road only — routes pass through openings):
+#   gate / hole — fence crossings   bridge / ford — river crossings
+#   { kind: gate|hole|bridge|ford, at: { x, y }, radius?: px }
+#
+# enclosure: compound — hex is inside the fenced yard. Entering from a hex
+# outside the enclosure is blocked unless the move passes through a fence
+# opening (gate/hole), even where the fence polyline misses the hex centers.
 
 orientation: pointy
 size: 44
@@ -40,7 +48,7 @@ hexes:
 
   - { id: road-fork, q: 0, r: -2, terrain: forest }
 
-  - { id: north-west, q: -2, r: -1, terrain: forest }
+  - { id: north-west, q: -2, r: -1, terrain: forest, enclosure: compound }
 
   - { id: north-bend, q: 0, r: -1, terrain: forest }
 
@@ -50,15 +58,16 @@ hexes:
     q: -1
     r: -1
     terrain: forest
+    enclosure: compound
     puzzle: gate
     standAt: { x: -81, y: -58 }
     landmark:
       name: "Compound Gate"
       blurb: "A locked fence gate and a guard booth."
 
-  - { id: mid-west, q: -2, r: 0, terrain: forest }
+  - { id: mid-west, q: -2, r: 0, terrain: forest, enclosure: compound }
 
-  - { id: west-slope, q: -1, r: 0, terrain: forest }
+  - { id: west-slope, q: -1, r: 0, terrain: forest, enclosure: compound }
 
   - { id: center-pines, q: 0, r: 0, terrain: forest }
 
@@ -70,6 +79,7 @@ hexes:
     q: -2
     r: 1
     terrain: clearing
+    enclosure: compound
     area: utility
     cascade: true
     standAt: { from: landmark, dx: 0.05, dy: -0.56 }
@@ -80,7 +90,7 @@ hexes:
       dy: 0.19
       blurb: "Built beside a rocky cascade on the river, this facility is the central location for Part I of our adventure."
 
-  - { id: south-pines, q: -1, r: 1, terrain: forest }
+  - { id: south-pines, q: -1, r: 1, terrain: forest, enclosure: compound }
 
   - { id: lower-stand, q: 0, r: 1, terrain: forest }
 
@@ -93,9 +103,9 @@ features:
       - { hex: upper-gorge, dx: 0.56, dy: -0.57 }
       - { hex: north-west, dx: 0.52, dy: -0.42 }
       - { hex: mid-west, dx: -0.19, dy: -0.47 }
-      - { hex: utility-yard, dx: -0.46, dy: -0.97 }
-      - { hex: utility-yard, dx: -0.5, dy: 0.53 }
-      - { x: -159, y: 127 }
+      - { hex: utility-yard, dx: -0.34, dy: -0.66 }
+      - { hex: utility-yard, dx: -0.34, dy: 0.69 }
+      - { x: -147, y: 130 }
 
   - id: fence-run-south
     kind: fence
@@ -115,6 +125,10 @@ features:
     at: { x: -94, y: -58 }
     labelAt: { x: -81, y: -42 }
     name: Gate
+
+  - id: station-bridge
+    kind: bridge
+    at: { x: -108, y: 52 }
 
   - id: compound-road
     kind: road

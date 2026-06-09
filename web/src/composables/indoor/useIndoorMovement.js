@@ -4,6 +4,7 @@ import {
   exteriorMovesFrom,
   exteriorPathBetween,
   exteriorReachableNodes,
+  exteriorSegmentPoints,
   exteriorStepOutMoves,
   isDestinationNamed,
   movesFrom,
@@ -152,7 +153,8 @@ export function createIndoorMovement(deps) {
   const levelsTopDown = computed(() => building.value.levels);
 
   function goIndoors() {
-    outdoor.outdoorStand = null;
+    outdoor.state.barrierStand = null;
+    outdoor.state.lastBlocked = null;
     indoor.exteriorNode = building.value.exterior?.entry ?? null;
     indoor.currentRoom = null;
     indoor.discovered = new Set();
@@ -181,21 +183,26 @@ export function createIndoorMovement(deps) {
 
   function exitViaDoor(doorId) {
     if (builderView.value) return;
-    const exit = building.value.exitByDoorId?.[doorId];
+    const exit = building.value.exitByDoorId?.[doorId] ?? building.value.exitById?.[doorId];
     if (!exit) return;
-    if (
-      !canUseExteriorExit(
-        building.value,
-        exit,
-        indoor.currentRoom,
-        indoor.doorState,
-        building.value.areaId,
-        indoor.exteriorNode,
-      )
-    ) {
-      exitTravelHint.value = indoor.exteriorNode
-        ? ""
-        : "Open the exterior door first, then use the ⬡ map marker.";
+    if (exit.door) {
+      if (
+        !canUseExteriorExit(
+          building.value,
+          exit,
+          indoor.currentRoom,
+          indoor.doorState,
+          building.value.areaId,
+          indoor.exteriorNode,
+        )
+      ) {
+        exitTravelHint.value = indoor.exteriorNode
+          ? ""
+          : "Open the exterior door first, then use the ⬡ map marker.";
+        return;
+      }
+    } else if (!indoor.exteriorNode) {
+      // Transitions (no door) are only usable from the exterior path network
       return;
     }
     exitTravelHint.value = "";
@@ -203,7 +210,8 @@ export function createIndoorMovement(deps) {
     if (!hexId) return;
     outdoor.state.currentId = hexId;
     outdoor.state.discovered = new Set([...outdoor.state.discovered, hexId]);
-    outdoor.outdoorStand = null;
+    outdoor.state.barrierStand = null;
+    outdoor.state.lastBlocked = null;
     indoor.exteriorNode = null;
     indoor.currentRoom = null;
     place.value = "outdoors";
@@ -213,7 +221,8 @@ export function createIndoorMovement(deps) {
     const hexId = building.value.outdoorHex ?? outdoor.state.currentId;
     outdoor.state.currentId = hexId;
     outdoor.state.discovered = new Set([...outdoor.state.discovered, hexId]);
-    outdoor.outdoorStand = null;
+    outdoor.state.barrierStand = null;
+    outdoor.state.lastBlocked = null;
     indoor.exteriorNode = null;
     indoor.currentRoom = null;
     place.value = "outdoors";
@@ -227,10 +236,9 @@ export function createIndoorMovement(deps) {
 
     if (indoor.exteriorNode) {
       if (move.toExteriorNode) {
-        indoor.exteriorNode = move.toExteriorNode;
-        setTimeout(() => {
-          indoor.moving = false;
-        }, 400);
+        // Route through the path-follower so the avatar walks the drawn path.
+        indoor.moving = false
+        walkExteriorPath([move.toExteriorNode])
         return;
       }
       if (move.kind === "door" && move.toRoomId) {
@@ -322,20 +330,81 @@ export function createIndoorMovement(deps) {
     if (move) applyIndoorMove(move);
   }
 
+  const WALK_SPEED = 5 // layout units per second
+
   function walkExteriorPath(nodeIds) {
-    if (indoor.moving || !nodeIds.length) return;
-    indoor.moving = true;
-    let i = 0;
-    function step() {
-      if (i >= nodeIds.length) {
-        indoor.moving = false;
-        return;
+    if (indoor.moving || !nodeIds.length) return
+    indoor.moving = true
+
+    const startNode = building.value.exterior?.nodeById?.[indoor.exteriorNode]
+    if (!startNode?.at) { indoor.moving = false; return }
+
+    // Build an ordered list of { at, nodeId? } waypoints for the entire route.
+    const waypoints = [{ at: startNode.at }]
+    let prev = indoor.exteriorNode
+    for (const nodeId of nodeIds) {
+      const pts = exteriorSegmentPoints(building.value, prev, nodeId)
+      if (!pts.length) {
+        const dest = building.value.exterior?.nodeById?.[nodeId]
+        if (dest?.at) waypoints.push({ at: dest.at, nodeId })
+      } else {
+        for (let i = 1; i < pts.length - 1; i++) {
+          waypoints.push({ at: pts[i] })
+        }
+        waypoints.push({ at: pts[pts.length - 1], nodeId })
       }
-      indoor.exteriorNode = nodeIds[i];
-      i += 1;
-      setTimeout(step, 400);
+      prev = nodeId
     }
-    step();
+
+    // Arc-length parameterization so the avatar walks at constant speed.
+    const dists = [0]
+    for (let i = 1; i < waypoints.length; i++) {
+      const a = waypoints[i - 1].at, b = waypoints[i].at
+      dists.push(dists[i - 1] + Math.hypot(b.x - a.x, b.y - a.y))
+    }
+    const totalDist = dists[dists.length - 1]
+    if (!totalDist) { indoor.moving = false; return }
+
+    const totalMs = (totalDist / WALK_SPEED) * 1000
+    const startTime = performance.now()
+
+    // Real nodes queued to be committed as the avatar passes their distance.
+    const pendingNodes = waypoints
+      .map((wp, i) => ({ dist: dists[i], nodeId: wp.nodeId }))
+      .filter((n) => n.nodeId)
+
+    function frame() {
+      const elapsed = performance.now() - startTime
+      const progress = Math.min(elapsed / totalMs, 1)
+      const targetDist = progress * totalDist
+
+      // Advance exteriorNode as avatar passes real node positions.
+      while (pendingNodes.length && pendingNodes[0].dist <= targetDist) {
+        indoor.exteriorNode = pendingNodes.shift().nodeId
+      }
+
+      if (progress >= 1) {
+        indoor.avatarWaypoint = null
+        indoor.moving = false
+        return
+      }
+
+      // Interpolate position on the current segment.
+      let seg = 0
+      while (seg < dists.length - 2 && dists[seg + 1] <= targetDist) seg++
+      const segLen = dists[seg + 1] - dists[seg]
+      const segT = segLen > 0 ? (targetDist - dists[seg]) / segLen : 0
+      const a = waypoints[seg].at, b = waypoints[seg + 1].at
+      indoor.avatarWaypoint = {
+        x: a.x + (b.x - a.x) * segT,
+        y: a.y + (b.y - a.y) * segT,
+      }
+
+      requestAnimationFrame(frame)
+    }
+
+    indoor.avatarWaypoint = startNode.at
+    requestAnimationFrame(frame)
   }
 
   return {

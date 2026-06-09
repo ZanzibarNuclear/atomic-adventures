@@ -211,6 +211,7 @@ const mapStageProps = computed(() => {
     building: props.indoor.building,
     currentRoom: props.indoor.indoor.currentRoom ?? "",
     exteriorNode: props.indoor.indoor.exteriorNode,
+    avatarWaypoint: props.indoor.indoor.avatarWaypoint,
     discovered: [...props.indoor.indoor.discovered],
     revealed: [...props.indoor.indoor.revealed],
     level: props.indoor.indoor.viewLevel,
@@ -222,6 +223,7 @@ const mapStageProps = computed(() => {
     expanded: props.expanded,
     interactableDoorIds: props.indoor.interactableDoorIds,
     reachableExitDoors: props.indoor.reachableExitDoors,
+    hydroDiscovered: props.indoor.flags?.['hydro.discovered'] ?? false,
   };
   if (!props.builderView) return base;
   const gb = props.gridBuilder;
@@ -301,9 +303,8 @@ function onExitMapAt(exitId, x, y) {
 }
 
 function onResetExitMapAt(exitId) {
-  const exit = props.indoor.editableBuildingData.exits?.find(
-    (e) => e.id === exitId,
-  );
+  const data = props.indoor.editableBuildingData;
+  const exit = (data.transitions ?? data.exits ?? []).find((e) => e.id === exitId);
   if (exit) exit.mapAt = undefined;
 }
 

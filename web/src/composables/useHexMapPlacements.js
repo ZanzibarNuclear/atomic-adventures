@@ -1,6 +1,7 @@
 import { computed } from 'vue'
 import { buildRouteDrawPieces } from './useRoutes.js'
 import { resolveAvatarPosition, hasLandmarkMarker } from './useAvatarStand.js'
+import { buildForestTrees } from './forestTreePlacement.js'
 import {
   TERRAIN_COLORS,
   TERRAIN_LABELS,
@@ -21,22 +22,6 @@ function chevronPath(x, y, dx, dy, scale = 1) {
   const bx = x - ux * s * 0.25
   const by = y - uy * s * 0.25
   return `M ${bx - px * s * 0.45} ${by - py * s * 0.45} L ${tipX} ${tipY} L ${bx + px * s * 0.45} ${by + py * s * 0.45}`
-}
-
-function hashStr(s) {
-  let h = 2166136261
-  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619)
-  return h >>> 0
-}
-
-function mulberry32(a) {
-  return function () {
-    a |= 0
-    a = (a + 0x6d2b79f5) | 0
-    let t = Math.imul(a ^ (a >>> 15), 1 | a)
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
 }
 
 /**
@@ -130,27 +115,16 @@ export function useHexMapPlacements({
     return out
   })
 
-  const trees = computed(() => {
-    const out = []
-    const s = size.value
-    for (const hex of visibleHexes.value) {
-      if (hex.terrain !== 'forest') continue
-      const rng = mulberry32(hashStr(hex.id))
-      const c = center(hex)
-      const n = 3 + Math.floor(rng() * 3)
-      for (let i = 0; i < n; i++) {
-        const ang = rng() * Math.PI * 2
-        const rad = rng() * 0.55 * s
-        out.push({
-          key: hex.id + '-' + i,
-          x: c.x + Math.cos(ang) * rad,
-          y: c.y + Math.sin(ang) * rad * 0.85,
-          scale: (0.7 + rng() * 0.5) * (s / 44),
-        })
-      }
-    }
-    return out.sort((a, b) => a.y - b.y)
-  })
+  const trees = computed(() =>
+    buildForestTrees({
+      visibleHexes: visibleHexes.value,
+      routeModels: routeModels.value,
+      featureModels: featureModels.value,
+      mapFeatures: mapData.value.features,
+      size: size.value,
+      center,
+    }),
+  )
 
   const routePieces = computed(() => {
     const { isRevealed, inView } = fogMaskOpts()

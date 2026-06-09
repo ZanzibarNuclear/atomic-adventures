@@ -39,6 +39,7 @@ export function createIndoorPlayer(buildingData, builderView) {
       manualMode: {},
     },
     moving: false,
+    avatarWaypoint: null, // { x, y } layout-unit override during path animation
   });
 
   const indoorVisibility = computed(() =>
@@ -108,6 +109,7 @@ export function createIndoorPlayer(buildingData, builderView) {
     indoor.pickupsTaken = new Set();
     indoor.facility.hydroOnline = false;
     indoor.facility.manualMode = {};
+    indoor.avatarWaypoint = null;
   }
 
   return {

@@ -34,6 +34,7 @@ const props = defineProps({
   selectedHandleId: { type: String, default: null },
   addPointMode: { type: Boolean, default: false },
   standOverride: { type: Object, default: null }, // { hexId, standAt }
+  avatarInstant: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['hex-click', 'select-handle', 'waypoint-move', 'builder-map-click', 'building-enter'])
@@ -168,6 +169,7 @@ const {
         :x="avatarPos.x"
         :y="avatarPos.y"
         :scale="avatarScale"
+        :instant="props.avatarInstant"
       />
 
       <MapEditHandlesLayer

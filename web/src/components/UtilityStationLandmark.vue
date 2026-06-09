@@ -1,62 +1,184 @@
 <script setup>
-/** Map landmark: two-story industrial utility station beside the river. */
+/**
+ * Map landmark: utility station beside the river.
+ * Footprint from utility-station.yaml first-floor perimeter (L-shape + control wing).
+ * Layout +x = north, +y = east; icon shows north face (driveway) + west river side.
+ */
+const S = 5.0;
+const OX = 1;
+const OY = -22;
+
+/** Plan (layout x, y) → icon: east = screen-x, north = screen-up. */
+function P(lx, ly) {
+  return { x: (ly - 2.5) * S + OX, y: -(lx + 1) * S + OY };
+}
+
+/** West-face depth (river side recedes down-left). */
+const D = { x: -3, y: 2 };
+
+function pt(lx, ly, depth = 0) {
+  const p = P(lx, ly);
+  return { x: p.x + depth * D.x, y: p.y + depth * D.y };
+}
+
+function ring(...coords) {
+  return coords
+    .map(([x, y, d = 0]) => {
+      const p = pt(x, y, d);
+      return `${p.x},${p.y}`;
+    })
+    .join(" ");
+}
+
+// Perimeter vertices (layout units), clockwise from south-west.
+const FOOTPRINT = [
+  [-6, 0],
+  [-3, 0],
+  [-3, 0.2],
+  [-1, 0.2],
+  [-1, 0],
+  [4, 0],
+  [4, 5],
+  [0, 5],
+  [0, 2],
+  [-1, 2],
+  [-1, 0.7],
+  [-3, 0.7],
+  [-3, 3],
+  [-6, 3],
+];
 </script>
 
 <template>
   <g class="utility-station" aria-hidden="true">
-    <!-- Soft ground shadow -->
-    <ellipse cx="1" cy="2" rx="22" ry="4" class="us-shadow" />
+    <!-- Offset tuned so north facade meets station-driveway end (hex dy ≈ −0.17) -->
+    <g transform="translate(0, 21)">
+      <!-- Extruded west (river) wall -->
+      <polygon
+        :points="ring(...FOOTPRINT.map(([x, y]) => [x, y, 1]))"
+        class="us-wall-side" />
 
-    <!-- Main block -->
-    <rect x="-20" y="-25" width="36" height="25" class="us-wall" />
+      <!-- North facade (driveway) -->
+      <polygon
+        :points="ring([4, 0], [4, 5], [4, 5, 1], [4, 0, 1])"
+        class="us-wall" />
 
-    <!-- Shallow west (river) face -->
-    <polygon points="-20,-25 -24,-27 -24,-2 -20,0" class="us-wall-side" />
+      <!-- South-east wall -->
+      <polygon
+        :points="ring([4, 5], [0, 5], [0, 5, 1], [4, 5, 1])"
+        class="us-wall-side us-wall-dim" />
 
-    <!-- Floor slab between stories -->
-    <rect x="-20" y="-13.5" width="36" height="1.2" class="us-floor-slab" />
+      <!-- L-notch inner wall -->
+      <polygon
+        :points="ring([0, 2], [0, 5], [0, 5, 1], [0, 2, 1])"
+        class="us-wall-side us-wall-dim" />
 
-    <!-- River-side windows — dirty glass, intact -->
-    <rect x="-18" y="-23" width="9" height="7" rx="0.45" class="us-window" />
-    <rect x="-18" y="-12" width="9" height="7" rx="0.45" class="us-window" />
-    <line x1="-13.5" y1="-23" x2="-13.5" y2="-16" class="us-mullion" />
-    <line x1="-18" y1="-19.5" x2="-9" y2="-19.5" class="us-mullion" />
-    <line x1="-13.5" y1="-12" x2="-13.5" y2="-5" class="us-mullion" />
-    <line x1="-18" y1="-8.5" x2="-9" y2="-8.5" class="us-mullion" />
+      <!-- Control wing south wall -->
+      <polygon
+        :points="ring([-6, 0], [-3, 0], [-3, 0, 1], [-6, 0, 1])"
+        class="us-wall-side" />
 
-    <!-- Side-face windows (river wing depth) -->
-    <rect x="-23" y="-22" width="3.5" height="6" rx="0.35" class="us-window-side" />
-    <rect x="-23" y="-11" width="3.5" height="6" rx="0.35" class="us-window-side" />
+      <!-- Floor slab on 2-story section (large bay, y ≥ 2) -->
+      <line
+        :x1="pt(4, 2).x"
+        :y1="pt(4, 2).y"
+        :x2="pt(4, 5).x"
+        :y2="pt(4, 5).y"
+        class="us-floor-slab" />
+      <line
+        :x1="pt(4, 2, 1).x"
+        :y1="pt(4, 2, 1).y"
+        :x2="pt(4, 5, 1).x"
+        :y2="pt(4, 5, 1).y"
+        class="us-floor-slab" />
 
-    <!-- Upper office window over kitchen -->
-    <rect x="-7" y="-23" width="7" height="7" rx="0.4" class="us-window us-window-dim" />
-    <line x1="-3.5" y1="-23" x2="-3.5" y2="-16" class="us-mullion" />
+      <!-- River-side windows (library / conference, west face) -->
+      <polygon
+        :points="ring([-1, 0.35, 1], [-1, 1.85, 1], [-1, 1.85], [-1, 0.35])"
+        class="us-window-side" />
+      <line
+        :x1="pt(-1, 1.1, 1).x"
+        :y1="pt(-1, 1.1, 1).y"
+        :x2="pt(-1, 1.1).x"
+        :y2="pt(-1, 1.1).y"
+        class="us-mullion" />
+      <polygon
+        :points="ring([0.5, 0.4, 1], [0.5, 1.7, 1], [0.5, 1.7], [0.5, 0.4])"
+        class="us-window us-window-dim" />
 
-    <!-- Small EV bay roll-up -->
-    <rect x="-7" y="-11" width="8" height="9.5" rx="0.45" class="us-roll-door" />
-    <line v-for="i in 4" :key="'s' + i" x1="-7" :y1="-9 + i * 1.8" x2="1" :y2="-9 + i * 1.8" class="us-roll-line" />
+      <!-- Small EV bay roll-up (north face, y = 0–2) -->
+      <polygon
+        :points="ring([4, 0.12], [4, 1.88], [4, 1.88, 1], [4, 0.12, 1])"
+        class="us-roll-door" />
+      <line
+        v-for="i in 4"
+        :key="'s' + i"
+        :x1="pt(4, 0.3 + i * 0.35).x"
+        :y1="pt(4, 0.3 + i * 0.35).y"
+        :x2="pt(4, 0.3 + i * 0.35, 1).x"
+        :y2="pt(4, 0.3 + i * 0.35, 1).y"
+        class="us-roll-line" />
 
-    <!-- Large two-story bay roll-up (faces the driveway) -->
-    <rect x="2" y="-23" width="13" height="21" rx="0.45" class="us-roll-door us-roll-large" />
-    <line v-for="i in 7" :key="'l' + i" x1="2" :y1="-20.5 + i * 2.6" x2="15" :y2="-20.5 + i * 2.6" class="us-roll-line" />
+      <!-- Large two-story bay roll-up (north face, y = 2–5) -->
+      <polygon
+        :points="ring([4, 2.05], [4, 4.9], [4, 4.9, 1], [4, 2.05, 1])"
+        class="us-roll-door us-roll-large" />
+      <line
+        v-for="i in 6"
+        :key="'l' + i"
+        :x1="pt(4, 2.2 + i * 0.42).x"
+        :y1="pt(4, 2.2 + i * 0.42).y"
+        :x2="pt(4, 2.2 + i * 0.42, 1).x"
+        :y2="pt(4, 2.2 + i * 0.42, 1).y"
+        class="us-roll-line" />
 
-    <!-- Flat industrial roof — no chimney -->
-    <rect x="-21" y="-28" width="38" height="3" rx="0.35" class="us-roof" />
-    <line x1="-21" y1="-25.3" x2="17" y2="-25.3" class="us-coping" />
+      <!-- L-shaped roof -->
+      <polygon
+        :points="ring(...FOOTPRINT.map(([x, y]) => [x, y]))"
+        class="us-roof" />
+      <polyline
+        :points="
+          ring(
+            [4, 0],
+            [4, 5],
+            [0, 5],
+            [0, 2],
+            [-1, 2],
+            [-1, 0.7],
+            [-3, 0.7],
+            [-3, 3],
+            [-6, 3],
+            [-6, 0],
+            [-3, 0],
+            [-3, 0.2],
+            [-1, 0.2],
+            [-1, 0],
+            [4, 0],
+          )
+        "
+        class="us-coping" />
 
-    <!-- Weathering at the sill -->
-    <rect x="-20" y="-0.5" width="36" height="1" class="us-weather" />
+      <polyline
+        :points="
+          ring(
+            [-6, 0, 1],
+            [-3, 0, 1],
+            [-3, 0.2, 1],
+            [-1, 0.2, 1],
+            [-1, 0, 1],
+            [4, 0, 1],
+            [4, 5, 1],
+            [0, 5, 1],
+          )
+        "
+        class="us-weather" />
+    </g>
   </g>
 </template>
 
 <style scoped>
 .utility-station {
   pointer-events: all;
-}
-
-.us-shadow {
-  fill: #1a201c;
-  opacity: 0.35;
 }
 
 .us-wall {
@@ -71,8 +193,13 @@
   stroke-width: 0.75;
 }
 
+.us-wall-dim {
+  fill: #787f87;
+}
+
 .us-floor-slab {
-  fill: #6d747c;
+  stroke: #6d747c;
+  stroke-width: 1.3;
 }
 
 .us-window,
@@ -119,12 +246,15 @@
 }
 
 .us-coping {
+  fill: none;
   stroke: #737981;
   stroke-width: 0.9;
 }
 
 .us-weather {
-  fill: #5c6759;
+  fill: none;
+  stroke: #5c6759;
+  stroke-width: 1.1;
   opacity: 0.45;
 }
 </style>

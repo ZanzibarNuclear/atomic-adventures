@@ -10,6 +10,7 @@ import MapEditHandlesLayer from './map/MapEditHandlesLayer.vue'
 import GridMapShell from './grid/GridMapShell.vue'
 import GridSceneryLayer from './grid/GridSceneryLayer.vue'
 import GridExteriorLayer from './grid/GridExteriorLayer.vue'
+import GridHydroLayer from './grid/GridHydroLayer.vue'
 import GridRoomLayer from './grid/GridRoomLayer.vue'
 import GridDoorLayer from './grid/GridDoorLayer.vue'
 import GridFixtureLayer from './grid/GridFixtureLayer.vue'
@@ -19,6 +20,7 @@ const props = defineProps({
   building: { type: Object, required: true },
   currentRoom: { type: String, default: '' },
   exteriorNode: { type: String, default: null },
+  avatarWaypoint: { type: Object, default: null },
   discovered: { type: [Array, Object], default: () => [] },
   revealed: { type: [Array, Object], default: () => [] },
   level: { type: String, required: true },
@@ -30,6 +32,7 @@ const props = defineProps({
   reachableExteriorNodes: { type: Array, default: () => [] },
   builderView: { type: Boolean, default: false },
   builderEdit: { type: Boolean, default: false },
+  hydroDiscovered: { type: Boolean, default: false },
   editMode: { type: String, default: null },
   editHandles: { type: Array, default: () => [] },
   selectedHandleId: { type: String, default: null },
@@ -111,6 +114,7 @@ const {
   placedExteriorNodes,
   placedExits,
   placedFixtures,
+  placedHydroElements,
   editPathControlLine,
   pathBuilderLegend,
   addPointHint,
@@ -122,6 +126,7 @@ const {
   level: computed(() => props.level),
   currentRoom: computed(() => props.currentRoom),
   exteriorNode: computed(() => props.exteriorNode),
+  avatarWaypoint: computed(() => props.avatarWaypoint),
   standLevel: computed(() => props.standLevel),
   doorStates: computed(() => props.doorStates),
   builderView: computed(() => props.builderView),
@@ -227,6 +232,11 @@ const {
         @exit-click="onExitClick"
       />
 
+      <GridHydroLayer
+        :hydro-elements="placedHydroElements"
+        :fog="!hydroDiscovered && !builderView"
+      />
+
       <GridRoomLayer
         :rooms="placedRooms"
         :current-room="currentRoom"
@@ -262,6 +272,7 @@ const {
         :x="avatarPos.x"
         :y="avatarPos.y"
         :scale="avatarScale"
+        :instant="!!props.avatarWaypoint"
         halo
       />
 

@@ -1,4 +1,5 @@
 import { normalizeDoorInitial } from '../useDoors.js'
+import { layoutSideFromEdge, normalizeCompassEdge } from './useGridCompass.js'
 
 function buildExteriorModel(exterior) {
   if (!exterior) {
@@ -40,12 +41,21 @@ function buildExteriorModel(exterior) {
 
 export function buildBuilding(data) {
   const cell = data.cell ?? 64
-  const rooms = (data.rooms ?? []).map((r) => ({ w: 1, h: 1, ...r }))
+  const rooms = (data.rooms ?? []).map((r) => ({
+    w: 1,
+    h: 1,
+    ...r,
+    windows: r.windows?.map((w) => normalizeCompassEdge(w)),
+    rollDoor: r.rollDoor ? normalizeCompassEdge(r.rollDoor) : r.rollDoor,
+  }))
   const roomById = Object.fromEntries(rooms.map((r) => [r.id, r]))
   const levels = [...(data.levels ?? [])].sort((a, b) => b.order - a.order)
   const levelById = Object.fromEntries(levels.map((l) => [l.id, l]))
   const links = data.links ?? []
-  const fixtures = data.fixtures ?? []
+  const fixtures = (data.fixtures ?? []).map((f) => ({
+    ...f,
+    protrude: f.protrude ? normalizeCompassEdge(f.protrude) : f.protrude,
+  }))
   const items = data.items ?? []
   const itemById = Object.fromEntries(
     items.filter((i) => i.id).map((i) => [i.id, { kind: 'item', ...i }]),
@@ -57,8 +67,9 @@ export function buildBuilding(data) {
     initial: normalizeDoorInitial(d.initial),
   }))
   const doorById = Object.fromEntries(doors.filter((d) => d.id).map((d) => [d.id, d]))
-  const exits = (data.exits ?? []).map((e) => ({ ...e }))
+  const exits = (data.transitions ?? data.exits ?? []).map((e) => ({ ...e }))
   const exitByDoorId = Object.fromEntries(exits.filter((e) => e.door).map((e) => [e.door, e]))
+  const exitById = Object.fromEntries(exits.filter((e) => e.id).map((e) => [e.id, e]))
   const exterior = buildExteriorModel(data.exterior)
   const areaId = data.id ?? data.area ?? 'building'
   return {
@@ -84,9 +95,11 @@ export function buildBuilding(data) {
     doorById,
     exits,
     exitByDoorId,
+    exitById,
     exterior,
     river: data.river ?? null,
     cliffWall: data.cliffWall ?? null,
+    hydroSystem: data.hydroSystem ?? false,
     start: data.start ?? rooms[0]?.id,
   }
 }
@@ -117,15 +130,16 @@ export function roomCenter(room, cell) {
 }
 
 export function protrudeAngle(edge) {
-  if (edge === 'top') return 270
-  if (edge === 'bottom') return 90
-  if (edge === 'left') return 180
+  const side = layoutSideFromEdge(edge ?? 'west')
+  if (side === 'top') return 270
+  if (side === 'bottom') return 90
+  if (side === 'left') return 180
   return 0
 }
 
 const SPIRAL_TREAD_COUNT = 7
 
-export function spiralStandPoint(cx, cy, radius, protrude = 'top', treadIndex) {
+export function spiralStandPoint(cx, cy, radius, protrude = 'west', treadIndex) {
   const base = (protrudeAngle(protrude) * Math.PI) / 180
   const westAng = base - Math.PI / 2
   const n = SPIRAL_TREAD_COUNT
@@ -139,7 +153,7 @@ export function spiralStandPoint(cx, cy, radius, protrude = 'top', treadIndex) {
   }
 }
 
-export function spiralExitPoint(cx, cy, radius, protrude = 'top', end) {
+export function spiralExitPoint(cx, cy, radius, protrude = 'west', end) {
   const n = SPIRAL_TREAD_COUNT
   const innerDown = Math.floor((n - 1) * 0.35)
   const innerUp = Math.ceil((n - 1) * 0.65)
@@ -214,7 +228,7 @@ export function roomStandPosition(building, room) {
         fixture.at.x * cell,
         fixture.at.y * cell,
         (fixture.radius ?? 0.6) * cell,
-        fixture.protrude ?? 'top',
+        fixture.protrude ?? 'west',
       )
     }
     if (fixture?.kind === 'straight-stairs' && fixture.rect) {
@@ -274,7 +288,7 @@ export function dirBetween(building, fromRoom, toRoom) {
 export function rollDoorRect(room, cell) {
   if (!room?.rollDoor) return null
   const r = roomRect(room, cell)
-  const edge = room.rollDoor
+  const edge = layoutSideFromEdge(room.rollDoor)
   const wallLen = edge === 'top' || edge === 'bottom' ? r.w : r.h
   const span = (room.rollSpan ?? 0.6) * wallLen
   let x1, y1
@@ -307,6 +321,7 @@ export const EXIT_MAP_OFFSET = { dx: 0.38, dy: -0.38 }
 export function exitMapAt(exit) {
   if (exit?.mapAt) return exit.mapAt
   if (!exit?.at) return null
+  if (!exit?.door) return exit.at  // transitions: at is the display position directly
   return {
     x: exit.at.x + EXIT_MAP_OFFSET.dx,
     y: exit.at.y + EXIT_MAP_OFFSET.dy,
@@ -373,7 +388,12 @@ function manDoorOnLevel(door, building, levelId, currentRoom = null) {
 }
 
 export function exitsOnLevel(building, levelId) {
+  const exteriorLevel = building.exterior?.level
   return (building.exits ?? []).filter((exit) => {
+    if (!exit.door) {
+      // Transition (no door): lives on the exterior level
+      return exteriorLevel === levelId
+    }
     const door = building.doorById?.[exit.door]
     if (!door) return false
     if (door.kind === 'roll') {
@@ -450,7 +470,7 @@ export function fixturesOnLevel(building, levelId) {
         connects,
         x: f.at.x * cell,
         y: f.at.y * cell,
-        protrude: f.protrude ?? 'top',
+        protrude: f.protrude ?? 'west',
         radius: (f.radius ?? 0.6) * cell,
       })
     } else if (f.kind === 'straight-stairs') {

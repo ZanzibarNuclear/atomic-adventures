@@ -15,7 +15,8 @@
       :edit-kind="hexBuilder.editParsed?.line?.kind ?? 'path'"
       :selected-handle-id="hexBuilder.selectedHandleId"
       :add-point-mode="hexBuilder.addPointMode"
-      :stand-override="outdoor.outdoorStand"
+      :stand-override="outdoor.standOverride"
+      :avatar-instant="!!outdoor.state.barrierStand"
       @hex-click="outdoor.moveTo"
       @building-enter="indoor.enterBuilding"
       @select-handle="hexBuilder.onSelectHandle"
@@ -32,6 +33,7 @@
       <p v-if="outdoor.atGatePuzzle" class="puzzle-hint">
         Puzzle — find a way through the gate to continue.
       </p>
+      <p v-if="blockedHint" class="puzzle-hint">{{ blockedHint }}</p>
       <p v-if="outdoor.atBuildingEntrance" class="puzzle-hint">
         Click the utility station on the map to go inside.
       </p>
@@ -61,6 +63,7 @@
         :disabled="outdoor.traveling"
         @click="outdoor.moveTo(o.toHexId)">
         Go off-road {{ o.label }}
+        <span v-if="o.blockedBy" class="barrier-hint">· {{ o.blockedBy }}</span>
         <span class="dest">→ ?</span>
       </button>
     </TravelOptions>
@@ -114,6 +117,7 @@
 </template>
 
 <script setup>
+import { computed } from "vue";
 import HexMap from "../components/HexMap.vue";
 import HudPanel from "../components/hud/HudPanel.vue";
 import LocationBlock from "../components/hud/LocationBlock.vue";
@@ -131,6 +135,13 @@ const props = defineProps({
 });
 
 defineEmits(["reset", "update:expanded", "update:builderView"]);
+
+const blockedHint = computed(() => {
+  const kind = props.outdoor.state.lastBlocked;
+  if (kind === "fence") return "A fence blocks the way — find a gate or a hole.";
+  if (kind === "river") return "The river blocks the way — find a bridge or a ford.";
+  return "";
+});
 
 const viewModes = [
   { value: "slice", label: "slice" },
@@ -175,6 +186,11 @@ function onExport(key) {
 }
 .visit-station-btn:hover {
   background: #465a6e;
+}
+.barrier-hint {
+  color: #a89878;
+  font-size: 0.85em;
+  text-transform: capitalize;
 }
 .progress {
   margin: 0;

@@ -56,9 +56,9 @@ features:
       - { hex: upper-gorge, dx: 0.56, dy: -0.57 }
       - { hex: north-west, dx: 0.52, dy: -0.42 }
       - { hex: mid-west, dx: -0.19, dy: -0.47 }
-      - { hex: utility-yard, dx: -0.46, dy: -0.97 }
-      - { hex: utility-yard, dx: -0.5, dy: 0.53 }
-      - { x: -159, y: 127 }
+      - { hex: utility-yard, dx: -0.34, dy: -0.66 }
+      - { hex: utility-yard, dx: -0.34, dy: 0.69 }
+      - { x: -147, y: 130 }
 
   - id: fence-run-south
     kind: fence

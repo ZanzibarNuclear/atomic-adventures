@@ -1,4 +1,5 @@
 import { roomRect, roomOnLevel, exitMapAt } from './useGrid.js'
+import { normalizeCompassEdge } from './grid/useGridCompass.js'
 
 function round2(n) {
   return Math.round(n * 100) / 100
@@ -81,8 +82,13 @@ export function listEditableNodes(data, levelId) {
 /** World-map exit icons on a floor. */
 export function listEditableExits(data, levelId) {
   const roomById = Object.fromEntries((data.rooms ?? []).map((r) => [r.id, r]))
-  return (data.exits ?? [])
+  const exteriorLevel = data.exterior?.level
+  return (data.transitions ?? data.exits ?? [])
     .filter((exit) => {
+      if (!exit.door) {
+        // Transition (no door): lives on the exterior level
+        return exteriorLevel === levelId
+      }
       const door = data.doors?.find((d) => d.id === exit.door)
       if (!door) return false
       if (door.kind === 'roll') {
@@ -91,11 +97,14 @@ export function listEditableExits(data, levelId) {
       }
       return doorOnLevel(door, levelId)
     })
-    .map((exit) => ({
-      source: 'exits',
-      id: exit.door,
-      label: `${exit.door} (world map)`,
-    }))
+    .map((exit) => {
+      const key = exit.id ?? exit.door
+      return {
+        source: 'exits',
+        id: key,
+        label: `${key} (world map)`,
+      }
+    })
 }
 
 export function listAllGridEditable(data, levelId) {
@@ -122,7 +131,8 @@ export function findGridEditable(data, source, id) {
     return data.exterior?.nodes?.find((n) => n.id === id) ?? null
   }
   if (source === 'exits') {
-    return data.exits?.find((e) => e.door === id) ?? null
+    const arr = data.transitions ?? data.exits ?? []
+    return arr.find((e) => (e.id ?? e.door) === id) ?? null
   }
   return null
 }
@@ -150,10 +160,17 @@ export function resolvedExitHandle(exit, cell) {
   ]
 }
 
-export function setExitMapAt(data, doorId, xUnits, yUnits) {
-  const exit = data.exits?.find((e) => e.door === doorId)
+export function setExitMapAt(data, exitId, xUnits, yUnits) {
+  const arr = data.transitions ?? data.exits ?? []
+  const exit = arr.find((e) => (e.id ?? e.door) === exitId)
   if (!exit) return
-  exit.mapAt = { x: round2(xUnits), y: round2(yUnits) }
+  if (exit.door) {
+    // Door-based exit: mapAt is a separate display override
+    exit.mapAt = { x: round2(xUnits), y: round2(yUnits) }
+  } else {
+    // Transition: at IS the position — drag updates it directly
+    exit.at = { x: round2(xUnits), y: round2(yUnits) }
+  }
 }
 
 export function getExitMapAt(exit) {
@@ -223,7 +240,7 @@ function syncCoordsEverywhere(data, oldX, oldY, newX, newY) {
     }
   }
 
-  for (const exit of data.exits ?? []) {
+  for (const exit of (data.transitions ?? data.exits ?? [])) {
     if (exit.at && coordsKey(exit.at.x, exit.at.y) === oldKey) {
       exit.at.x = round2(newX)
       exit.at.y = round2(newY)
@@ -239,7 +256,8 @@ function syncNodeAtCoords(data, oldX, oldY, newX, newY) {
     node.at.x = round2(newX)
     node.at.y = round2(newY)
     if (node.door) {
-      const exit = data.exits?.find((e) => e.door === node.door)
+      const arr = data.transitions ?? data.exits ?? []
+      const exit = arr.find((e) => e.door === node.door)
       if (exit) {
         if (!exit.at) exit.at = {}
         exit.at.x = node.at.x
@@ -493,7 +511,7 @@ export function setRollDoorProps(data, doorId, { edge, rollSpan }) {
   if (!door?.room) return
   const room = data.rooms?.find((r) => r.id === door.room)
   if (!room) return
-  if (edge != null) room.rollDoor = edge
+  if (edge != null) room.rollDoor = normalizeCompassEdge(edge)
   if (rollSpan != null) room.rollSpan = Math.max(0.1, Math.min(1, round2(rollSpan)))
 }
 
@@ -507,7 +525,8 @@ export function setNodeAt(data, nodeId, xUnits, yUnits) {
   node.at.y = round2(yUnits)
   syncCoordsEverywhere(data, oldX, oldY, node.at.x, node.at.y)
   if (node.door) {
-    const exit = data.exits?.find((e) => e.door === node.door)
+    const arr = data.transitions ?? data.exits ?? []
+    const exit = arr.find((e) => e.door === node.door)
     if (exit) {
       if (!exit.at) exit.at = {}
       exit.at.x = node.at.x
@@ -610,6 +629,16 @@ function serializeNode(node, indent) {
 function serializeExit(exit, indent) {
   const pad = ' '.repeat(indent)
   const inner = ' '.repeat(indent + 2)
+  if (!exit.door) {
+    // Transition (no door)
+    const lines = [`${pad}- id: ${exit.id}`]
+    if (exit.label) lines.push(`${inner}label: ${JSON.stringify(exit.label)}`)
+    if (exit.exteriorNode) lines.push(`${inner}exteriorNode: ${exit.exteriorNode}`)
+    if (exit.at) lines.push(`${inner}at: ${fmtPoint(exit.at)}`)
+    if (exit.hex) lines.push(`${inner}hex: ${exit.hex}`)
+    return lines.join('\n')
+  }
+  // Legacy door-based exit
   const lines = [`${pad}- door: ${exit.door}`]
   if (exit.room) lines.push(`${inner}room: ${exit.room}`)
   if (exit.exteriorNode) lines.push(`${inner}exteriorNode: ${exit.exteriorNode}`)
@@ -656,12 +685,13 @@ function serializeExterior(exterior, indent = 0) {
 export function exportBuildingYaml(data) {
   const roomBlocks = (data.rooms ?? []).map((r) => serializeRoom(r, 2))
   const doorBlocks = (data.doors ?? []).map((d) => serializeDoor(d, 2))
-  const exitBlocks = (data.exits ?? []).map((e) => serializeExit(e, 2))
+  const transitionArr = data.transitions ?? data.exits ?? []
+  const exitBlocks = transitionArr.map((e) => serializeExit(e, 2))
   const exteriorYaml = data.exterior ? serializeExterior(data.exterior, 0) : ''
 
   const roomsYaml = roomBlocks.length ? `rooms:\n${roomBlocks.join('\n\n')}` : ''
   const doorsYaml = doorBlocks.length ? `doors:\n${doorBlocks.join('\n\n')}` : ''
-  const exitsYaml = exitBlocks.length ? `exits:\n${exitBlocks.join('\n\n')}` : ''
+  const exitsYaml = exitBlocks.length ? `transitions:\n${exitBlocks.join('\n\n')}` : ''
 
   return {
     rooms: roomsYaml,

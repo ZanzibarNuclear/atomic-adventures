@@ -70,33 +70,88 @@ Tastee Tack, harkening back to hardtack, a stable of soldiers. It comes in a var
 
 Zanzibar sat at a breakroom table to one side of the kitchen. This side of the room also had windows with a view of the flowing water outside. The sun was setting on this amazing day.
 
-Having satisfied his hunger and thirst without overdoing it, there was one more place Zanzibar wanted to see. Another door led from the dining area to a spiral staircase at the side of the building. The springloaded door hinge closed automatically behind him. There he was, with the cascade of water and view into the valley below where the setting sun turned the sky a deepening orange.
+Having satisfied his hunger and thirst, there was one more place Zanzibar wanted to see. Another door led from the dining area to a spiral staircase at the side of the building. The springloaded door hinge closed automatically behind him. There he was, with the cascade of water and view into the valley below where the setting sun turned the sky a deepening orange.
 
-Between the white noise from the falls and fatigue, Zanzibar felt an overwhelming urge to sleep. Looking down the stairs, he saw another door. There was just enough light left to check it out.
+The white noise from the falls was hypnotic, and fatigue started to pour over Zanzibar. Looking down the stairs, he saw another door. Just enough light remained to check it out.
 
-A short hallway opened onto the study beyond — quiet carpeting, rows of shelves, a few stations with lamps for reading, and best of all, an overstuffed chair, perfect for an extended period of reading, or a nice long nap.
+He pull the door open and stepped into a short hallway with three more doors. The door ahead was labeled with the universal symbol for a unisex restroom. Good to know.
 
-Zanzibar fell asleep.
+The door to the left was locked. He turned the lock, opened the door, and saw the covered vehicle. So that was the way to the garage.
+
+Closing the door, he moved across the hall. That door opened into a carpeted room with shelves full of books and manuals, a couple of study carols, and some soft, low seating. Zanzibar had found a library.
+
+He sunk into one of the overstuffed chairs, streteched his legs, and drifted off to sleep.
 
 ## Day 2
 
-Zanzibar woke up. His body had absorbed what it could of the previous meal. He needed to dispose of what remained. Where to find the bathroom?
+Zanzibar opened his eyes to a thin slice of light was coming through the riverside wall. He realized that fancy wooden shutters were closed, obscuring most of the windows. He slid them open to an amazing ground-level view of the waterfall and the sloping riverbank. He also noticed that a pipe extended the length of the falls from the top to a point just below where he stood.
 
-The answer was right behind him. Back through the hallway at the foot of the spiral stair, a door marked with the universal symbols led to a small restroom — two unisex stalls and two sinks, clean enough for a facility that expected regular use.
+What an exciting day. Three days ago, he made a bold decision based on a hunch. Today, he would continue to explore this outpost that was more than a rustic getaway. While the library might have some answers, his first priority was to answer the call of Mother Nature. Time to visit the room next to the library.
 
-### The Study / Library
+It was a small miracle that the facilities were in working order. Running water, a supply of paper products, even an old bar of soap. A welcome improvement after days of roughing it.
 
-Positioned under the conference room, about ten feet south of the original layout so the spiral landing could become a hallway. Standard library shelves with books, manuals, and binders full of logs.
+The next priority was to find breakfast. Zanzibar went back up the spiral staircase, enjoying the sight and sound of the cascade. He was impressed that the flow was still rather strong. It had been at least a month since the last of the snow had vanished from the mountain summit.
 
-This area features three holo-reader stations and a rack of media. Topics are technical, ranging from physics and chemistry to machanical and civil engineering.
+Back in the kitchen, Zanzibar rifled through boxes of Tasty Tack. He opened a box of Pioneer Breakfast, "a complete meal, with griddle cakes, eggs and bacon." Each pack had three bars with their distinctive flavors. Zanzibar took small bites, trying each on its own, then in combination. He washed it down with a fresh batch of purified river water.
+
+Ready for the day, Zanzibar returned to the library to continue his self-guided tour.
+
+### The Library
+
+Low shelves of binders. Large picture book - the making of the facility.
+
+This area features two holo-reader stations side-by-side with a rack of media between them. The titles were impressive.
+
+**Holo-reader media**
+
+(note: make the titles humorous, punny)
+
+- Fundamentals of Physics
+- The Chemistry of Everything
+- Mechanical Engineering, the Complete Works
+- Fluid Dynamics
+- Statistical Thermodynamics
+- Quantum Mechanics and Engineering
+- Hydro Power, Water You Waiting For?
+- Photovoltaics, PVs in Charge
+- Battery Storage Through the Years
+- Nuclear Fission
+- Power Grids
+
+With the power out, the materials were inaccessible. One fact was obvious. To make the most of this library, Zanzibar needed to find a way to turn on the power.
 
 ### The Control Room
 
+Down the sloping corridor. Bit of a steep angle. Non-slip surfacing on the floor. Landing at the bottom, door opens into the corridor.
+
 South of the library on the same floor — not a basement level. Gauges that work, based on simulator state. By what miracle does this connect to the local grid. Route excess load to the batteries. Disengage when nothing is drawing power. How will this mimic reality without becoming too much to handle.
 
-### Living Quarters
+Operation manuals for hydro power system.
 
-Good place for shut-eye, showers, bathrooms.
+Show the laminated information card. First quiz to make sure the player understands the basics on the card.
+
+Basic operational instructions on the back.
+
+1. Clear and open the intake.
+2. Water gets diverted into the cascade. Switch the bypass so water flows down the pipe.
+3. Walk down the path to the base of the pipe. Look for obvious leaks.
+4. Check the water pressure at the base of the pipe. Should be approaching 70 PSI.
+5. Open valve to the water turbine.
+6. Go back to the control room. Connect the circuit.
+7. Control room comes alive. Check the gauges.
+
+Get some lunch.
+
+Back to the control room. Observe steady state production for a while. There is enough production to power this station.
+
+Now or later: See the gauge for the battery array that is slowly charging with the excess electricity.
+Soon: Zanzibar thinks of the e-Buggy. Goes into the garage and plugs it in. An estimated N hours to full charge.
+
+Lots more to think through...
+
+Closet. Empty backpack, flashlights, coil of rope, power cables.
+
+Two doors: one to an all-gender bathroom, also with two stalls. The other to the lobby area with a coat rack, a bench, a frame for footwear, a reception desk with a phone and computer terminal (with a monitor and keyboard).
 
 ## Day 3
 
