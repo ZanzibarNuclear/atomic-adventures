@@ -6,6 +6,7 @@ import {
 } from "../useGrid.js";
 import { buildInitialDoorState } from "../useDoors.js";
 import { createInventory, addItem, inventoryItems } from "../useInventory.js";
+import { createFlags } from "../useFlags.js";
 
 export function createIndoorPlayer(buildingData, builderView) {
   const editableBuildingData = ref(structuredClone(buildingData));
@@ -38,6 +39,8 @@ export function createIndoorPlayer(buildingData, builderView) {
       hydroOnline: false,
       manualMode: {},
     },
+    flags: createFlags(),
+    completedActions: new Set(),
     moving: false,
     avatarWaypoint: null, // { x, y } layout-unit override during path animation
   });
@@ -109,6 +112,8 @@ export function createIndoorPlayer(buildingData, builderView) {
     indoor.pickupsTaken = new Set();
     indoor.facility.hydroOnline = false;
     indoor.facility.manualMode = {};
+    indoor.flags = createFlags();
+    indoor.completedActions = new Set();
     indoor.avatarWaypoint = null;
   }
 

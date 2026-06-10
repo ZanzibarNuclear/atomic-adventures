@@ -116,6 +116,16 @@
       :pickups="indoor.roomPickups"
       @pickup="indoor.tryPickup" />
 
+    <ActionsPanel
+      v-if="!builderView"
+      :actions="indoor.availableActions"
+      @action="indoor.performAction" />
+
+    <p v-if="indoor.powerOn && !builderView" class="power-status">
+      Station power is on — roll-up doors, outlets, holo-readers, and kitchen
+      gear are live.
+    </p>
+
     <div v-if="indoor.roomSwitches.length && !builderView" class="switches">
       <span class="label">Garage controls</span>
       <div v-for="sw in indoor.roomSwitches" :key="sw.id" class="switch-row">
@@ -186,6 +196,7 @@ import LocationBlock from "../components/hud/LocationBlock.vue";
 import TravelOptions from "../components/hud/TravelOptions.vue";
 import InventoryPanel from "../components/hud/InventoryPanel.vue";
 import PickupsPanel from "../components/hud/PickupsPanel.vue";
+import ActionsPanel from "../components/hud/ActionsPanel.vue";
 import DoorControls from "../components/hud/DoorControls.vue";
 import ModePillGroup from "../components/hud/ModePillGroup.vue";
 import MapControls from "../components/hud/MapControls.vue";
@@ -223,7 +234,7 @@ const mapStageProps = computed(() => {
     expanded: props.expanded,
     interactableDoorIds: props.indoor.interactableDoorIds,
     reachableExitDoors: props.indoor.reachableExitDoors,
-    hydroDiscovered: props.indoor.flags?.['hydro.discovered'] ?? false,
+    hydroDiscovered: props.indoor.hydroDiscovered ?? false,
   };
   if (!props.builderView) return base;
   const gb = props.gridBuilder;
@@ -364,5 +375,10 @@ function onGridExport(key) {
   margin: 0;
   color: #6f7787;
   font-size: 0.85rem;
+}
+.power-status {
+  margin: 0.75rem 0 0;
+  color: #8bc49a;
+  font-size: 0.9rem;
 }
 </style>

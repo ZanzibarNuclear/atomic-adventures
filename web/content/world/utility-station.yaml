@@ -207,7 +207,7 @@ rooms:
     w: 2
     h: 1
     name: "Lobby"
-    icon: "🎛️"
+    icon: "🛎️"
     blurb: "Entrance to the control room"
   - id: control-bathroom
     level: first
@@ -254,7 +254,7 @@ rooms:
     w: 4
     h: 3
     name: "Large Bay"
-    icon: "🅿️"
+    icon: "🚜"
     note: "2 stories"
     rollDoor: north # bigger two-story roll-up, same (north) wall / driveway
     rollSpan: 0.6
@@ -298,7 +298,7 @@ rooms:
     w: 4
     h: 3
     name: "Large Bay"
-    icon: "🅿️"
+    icon: "🚜"
     note: "2 stories"
     open: true # mezzanine edge — you can't stand here, but it's the same bay
     mirror: large-bay # show like the 1st-floor garage once you've been below
@@ -375,6 +375,56 @@ switches:
     room: large-bay
     door: large-bay-roll
     label: Manual release — large roll-up
+
+# Player actions — room or riverside stand spots. Flags gate the hydro startup chain.
+actions:
+  - id: library-read-hydro
+    room: library
+    verb: Read
+    label: about hydro power
+    sets: [hydro.discovered]
+
+  - id: read-micro-hydro-ops
+    room: control-room
+    verb: Read
+    label: Micro-hydro Operations
+    sets: [hydro.discovered, hydro.outdoor-actions]
+
+  - id: clear-intake-debris
+    exteriorNode: upstream-bank
+    label: Clear debris
+    require:
+      all: [hydro.outdoor-actions]
+    sets: [hydro.clear-intake-debris]
+
+  - id: align-pipeflow
+    exteriorNode: midstream-bank
+    label: Align for pipeflow
+    require:
+      all: [hydro.clear-intake-debris]
+    sets: [hydro.align-pipeflow]
+
+  - id: open-turbine-valve
+    exteriorNode: downstream-bank
+    label: Open valve to turbine
+    require:
+      all: [hydro.align-pipeflow]
+    sets: [hydro.open-turbine-valve]
+
+  - id: connect-power
+    room: control-room
+    label: Connect power
+    require:
+      all: [hydro.open-turbine-valve]
+    sets: [hydro.level-1-complete, hub.hydro_online]
+    powerOn: true
+
+  - id: charge-ev
+    room: small-bay
+    label: Plug in the EV
+    require:
+      all: [hub.hydro_online]
+    sets: [hub.buggy-charged]
 
 # Doors: topology + visuals + initial state. All start closed.
 doors:

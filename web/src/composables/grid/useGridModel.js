@@ -74,6 +74,7 @@ export function buildBuilding(data) {
   )
   const pickups = (data.pickups ?? []).filter((p) => p.id && p.item)
   const switches = (data.switches ?? []).filter((s) => s.id && s.door)
+  const actions = (data.actions ?? []).filter((a) => a.id && a.label)
   const doors = (data.doors ?? []).map((d) => ({
     ...d,
     initial: normalizeDoorInitial(d.initial),
@@ -103,6 +104,7 @@ export function buildBuilding(data) {
     itemById,
     pickups,
     switches,
+    actions,
     doors,
     doorById,
     exits,
