@@ -46,14 +46,14 @@
       <text
         v-if="!isOpenVoid(p.room) && p.room.icon && isDiscovered(p.room)"
         :x="p.center.x"
-        :y="p.center.y - cell * 0.16"
+        :y="p.center.y"
         class="room-icon"
       >
         {{ p.room.icon }}
       </text>
       <text
         :x="p.center.x"
-        :y="p.center.y + (isOpenVoid(p.room) ? 0 : isDiscovered(p.room) ? cell * 0.14 : 6)"
+        :y="p.center.y + (isOpenVoid(p.room) ? 0 : isDiscovered(p.room) ? cell * 0.24 : 6)"
         class="room-label"
         :class="{
           'open-label': isOpenVoid(p.room),
@@ -65,7 +65,7 @@
       <text
         v-if="p.room.note && isDiscovered(p.room) && !isOpenVoid(p.room)"
         :x="p.center.x"
-        :y="p.center.y + cell * 0.34"
+        :y="p.center.y + cell * 0.44"
         class="room-note"
       >
         {{ p.room.note }}

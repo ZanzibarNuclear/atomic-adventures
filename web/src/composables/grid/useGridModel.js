@@ -141,6 +141,10 @@ export function roomCenter(room, cell) {
   return { x: r.x + r.w / 2, y: r.y + r.h / 2 }
 }
 
+// Keep in sync with GridRoomLayer centered icon (p.center.y, dominant-baseline: middle).
+export const ROOM_ICON_HALF_HEIGHT = 11
+export const FEET_GAP_ABOVE_ROOM_ICON = 4
+
 export function protrudeAngle(edge) {
   const side = layoutSideFromEdge(edge ?? 'west')
   if (side === 'top') return 270

@@ -35,7 +35,7 @@
       <text
         v-if="node.current || node.reachable"
         :x="node.cx"
-        :y="node.cy - node.r - 6"
+        :y="node.cy + node.r + 6"
         class="exterior-node-label"
       >
         {{ node.label }}
@@ -127,6 +127,7 @@ defineEmits(['exterior-node-click', 'exit-click'])
   font-size: 8px;
   font-weight: 600;
   text-anchor: middle;
+  dominant-baseline: hanging;
   pointer-events: none;
 }
 .exterior-node.reachable:hover .exterior-node-fill {

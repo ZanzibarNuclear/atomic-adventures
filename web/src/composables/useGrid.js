@@ -13,6 +13,8 @@ export {
   stairExitRooms,
   spiralExitRooms,
   roomStandPosition,
+  ROOM_ICON_HALF_HEIGHT,
+  FEET_GAP_ABOVE_ROOM_ICON,
   linkedRoomIdsForDoor,
   sharedEdge,
   dirBetween,
