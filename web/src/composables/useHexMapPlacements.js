@@ -1,5 +1,6 @@
 import { computed } from 'vue'
 import { buildRouteDrawPieces } from './useRoutes.js'
+import { riverSegments } from './useTravelBarriers.js'
 import { resolveAvatarPosition, hasLandmarkMarker } from './useAvatarStand.js'
 import { buildForestTrees } from './forestTreePlacement.js'
 import {
@@ -68,6 +69,8 @@ export function useHexMapPlacements({
 
   const avatarScale = computed(() => (size.value / 44) * 0.28)
 
+  const rivers = computed(() => riverSegments(featureModels.value ?? []))
+
   const avatarPos = computed(() => {
     const hex = current.value
     if (
@@ -78,9 +81,10 @@ export function useHexMapPlacements({
       return resolveAvatarPosition(
         { ...hex, standAt: standOverride.value.standAt },
         size.value,
+        rivers.value,
       )
     }
-    return resolveAvatarPosition(hex, size.value)
+    return resolveAvatarPosition(hex, size.value, rivers.value)
   })
 
   const cascadeChevrons = computed(() => {
