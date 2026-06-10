@@ -2,6 +2,33 @@ import { computed } from 'vue'
 import { axialToPixel, boundsOf, neighborsOf } from './useHexGeometry.js'
 
 /**
+ * Hexes in the 1-ring around the current position (slice view).
+ * Returns all map hexes at current + axial neighbors, regardless of discovery.
+ */
+export function sliceRingHexes(allHexes, currentHex, currentHexId) {
+  const coordMap = new Map(allHexes.map((h) => [`${h.q},${h.r}`, h]))
+  const origin = currentHex ?? { q: 0, r: 0 }
+  const ringHexes = []
+  const ringIds = new Set()
+
+  const add = (hex) => {
+    if (!hex || ringIds.has(hex.id)) return
+    ringIds.add(hex.id)
+    ringHexes.push(hex)
+  }
+
+  if (currentHexId) {
+    add(allHexes.find((h) => h.id === currentHexId))
+  }
+
+  for (const n of neighborsOf(origin)) {
+    add(coordMap.get(`${n.q},${n.r}`))
+  }
+
+  return { ringIds, ringHexes }
+}
+
+/**
  * HexMap viewport: visible hex set, fog edge, viewBox, and center helper.
  */
 export function useHexMapViewport({
@@ -19,6 +46,17 @@ export function useHexMapViewport({
   const discoveredSet = computed(() => new Set(discovered.value))
   const current = computed(() => hexById.value[currentHex.value])
 
+  const sliceRing = computed(() => {
+    if (mode.value !== 'slice' || builderView.value) {
+      return { ringIds: new Set(), ringHexes: [] }
+    }
+    return sliceRingHexes(
+      allHexes.value,
+      current.value,
+      currentHex.value,
+    )
+  })
+
   const visibleHexes = computed(() => {
     const standingOn = currentHex.value
     const revealed = discoveredSet.value
@@ -27,22 +65,25 @@ export function useHexMapViewport({
     if (builderView.value) return allHexes.value
     if (mode.value === 'full') return allHexes.value
     if (mode.value === 'slice') {
-      const ids = new Set([
-        standingOn,
-        ...neighborsOf(current.value ?? { q: 0, r: 0 }).map((n) => {
-          const f = allHexes.value.find((h) => h.q === n.q && h.r === n.r)
-          return f?.id
-        }),
-      ])
-      return allHexes.value.filter((h) => isVisible(h) && ids.has(h.id))
+      return sliceRing.value.ringHexes.filter(isVisible)
     }
     return allHexes.value.filter(isVisible)
   })
 
   const fogHexes = computed(() => {
-    if (builderView.value || mode.value !== 'explored') return []
+    if (builderView.value) return []
+
     const standingOn = currentHex.value
     const revealed = discoveredSet.value
+
+    if (mode.value === 'slice') {
+      return sliceRing.value.ringHexes.filter(
+        (h) => !revealed.has(h.id) && h.id !== standingOn,
+      )
+    }
+
+    if (mode.value !== 'explored') return []
+
     const edge = new Map()
     for (const h of visibleHexes.value) {
       for (const n of neighborsOf(h)) {
@@ -74,14 +115,15 @@ export function useHexMapViewport({
     }
     const standingOn = currentHex.value
     const revealed = discoveredSet.value
-    const visibleIds = new Set(visibleHexes.value.map((h) => h.id))
     const isRevealed =
       mode.value === 'full'
         ? () => true
         : (id) =>
             id != null && (revealed.has(id) || id === standingOn)
     const inView =
-      mode.value === 'slice' ? (id) => visibleIds.has(id) : () => true
+      mode.value === 'slice'
+        ? (id) => sliceRing.value.ringIds.has(id)
+        : () => true
     return { isRevealed, inView }
   }
 

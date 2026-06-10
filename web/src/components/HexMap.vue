@@ -124,6 +124,7 @@ const {
         :fog-hexes="fogHexes"
         :size="size"
         :center-of="center"
+        :clickable="mode === 'slice'"
         @hex-click="onHexClick"
       />
 
