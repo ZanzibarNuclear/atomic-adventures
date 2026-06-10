@@ -194,6 +194,7 @@ export function useOutdoorWorld(mapData) {
       path,
       ctx,
       hexAtPoint,
+      size,
     });
 
     traveling.value = true;

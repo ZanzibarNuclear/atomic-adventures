@@ -310,6 +310,7 @@ export function offRoadNeighbors(
         path: [fromPos, toPos],
         ctx: barriers,
         hexAtPoint,
+        size,
       })
       return {
         toHexId: h.id,

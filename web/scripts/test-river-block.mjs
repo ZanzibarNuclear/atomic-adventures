@@ -48,6 +48,7 @@ function resolve(fromId, toId, fromPosOverride, toPosOverride) {
     path: [fromPos, toPos],
     ctx,
     hexAtPoint,
+    size,
   })
 }
 
@@ -57,16 +58,19 @@ const CASES = [
   ['utility-yard', 'mid-west', null, 'mid-west'],
   ['mid-west', 'north-west', null, 'north-west'],
   ['mid-west', 'utility-yard', null, 'utility-yard'],
-  // Enter river hexes from east via bank stands — path stays east of river
-  ['gate-woods', 'north-west', null, 'north-west'],
-  ['gate-woods', 'mid-west', null, 'mid-west'],
-  ['west-slope', 'mid-west', null, 'mid-west'],
-  ['road-fork', 'upper-gorge', null, 'upper-gorge'],
+  // Enter river hex from non-river hex — stop at near bank
+  ['gate-woods', 'north-west', 'river', 'north-west'],
+  ['gate-woods', 'mid-west', 'river', 'mid-west'],
+  ['west-slope', 'mid-west', 'river', 'mid-west'],
+  ['road-fork', 'upper-gorge', 'river', 'upper-gorge'],
   // No river between — must pass
   ['north-bend', 'gate-woods', null, 'gate-woods'],
   // Fence at compound boundary
   ['west-slope', 'center-pines', 'fence', 'west-slope'],
   ['center-pines', 'west-slope', 'fence', 'center-pines'],
+  // Enter compound from outside — avatar at fence, destination hex becomes active
+  ['lower-stand', 'south-pines', 'fence', 'south-pines'],
+  ['center-pines', 'south-pines', 'fence', 'south-pines'],
   // River block via hex-center path — active hex is destination (near bank)
   ['gate-woods', 'north-west', 'river', 'north-west', axialToPixel(-1, -1, size), axialToPixel(-2, -1, size)],
   ['gate-woods', 'mid-west', 'river', 'mid-west', axialToPixel(-1, -1, size), axialToPixel(-2, 0, size)],

@@ -5,6 +5,7 @@
  */
 
 import { axialToPixel } from './useHexGeometry.js'
+import { bankStandAt, hexOnRiverBank } from './useRiverBank.js'
 
 const STAND_INSET = 5
 const PATH_ORIGIN_EPS = 0.02
@@ -216,6 +217,26 @@ function standBeforeHit(from, hit) {
   }
 }
 
+function riverSegs(ctx) {
+  return barrierList(ctx).filter((s) => s.kind === 'river')
+}
+
+/**
+ * Entering a river hex from a non-river hex stops at the near bank.
+ * Bank-to-bank moves along the same q column (parallel to the river) pass through.
+ * Path/polyline intersection alone misses this because bank stands sit east of the river.
+ */
+function riverEntryBlock(fromHex, toHex, size, ctx) {
+  const rivers = riverSegs(ctx)
+  if (!rivers.length || !hexOnRiverBank(toHex, size, rivers)) return null
+  // Moves starting on a river hex don't use the entry rule (parallel bank walks, leaving east).
+  if (hexOnRiverBank(fromHex, size, rivers)) return null
+
+  const bank = bankStandAt(toHex, size, rivers)
+  if (!bank) return null
+  return { stand: bank, blockedKind: 'river' }
+}
+
 /** Stand at the first fence crossing when blocked by enclosure rules only. */
 function enclosureFenceStand(path, ctx, fromHex, toHex) {
   for (let i = 0; i < path.length - 1; i++) {
@@ -243,6 +264,7 @@ export function resolveMove({
   path,
   ctx,
   hexAtPoint,
+  size,
 }) {
   const walkPath = path ?? [fromPos, toPos]
   const fallbackHexId = toHex?.id ?? fromHex?.id
@@ -262,20 +284,22 @@ export function resolveMove({
   if (hit) {
     const segStart = walkPath[hit.segIndex] ?? fromPos
     stand = standBeforeHit(segStart, hit)
-  } else if (entersEnclosureWithoutOpening(fromHex, toHex, walkPath, ctx.openings)) {
-    blockedKind = 'fence'
-    stand = enclosureFenceStand(walkPath, ctx, fromHex, toHex) ?? fromPos
   } else {
-    stand = toPos
+    const riverEntry = riverEntryBlock(fromHex, toHex, size, ctx)
+    if (riverEntry) {
+      blockedKind = riverEntry.blockedKind
+      stand = riverEntry.stand
+    } else if (entersEnclosureWithoutOpening(fromHex, toHex, walkPath, ctx.openings)) {
+      blockedKind = 'fence'
+      stand = enclosureFenceStand(walkPath, ctx, fromHex, toHex) ?? fromPos
+    } else {
+      stand = toPos
+    }
   }
 
   let activeHexId = hexAtPoint(stand, fallbackHexId)
-  if (
-    blockedKind &&
-    (fromHex?.enclosure || toHex?.enclosure) &&
-    fromHex?.enclosure !== toHex?.enclosure
-  ) {
-    // Compound boundary — stay on the side we started from.
+  if (blockedKind && fromHex?.enclosure && !toHex?.enclosure) {
+    // Leaving the compound — stay on the inside; entering uses hexAtPoint(stand).
     activeHexId = fromHex.id
   }
 
