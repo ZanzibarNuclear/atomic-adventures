@@ -298,12 +298,8 @@ export function resolveMove({
   }
 
   let activeHexId = hexAtPoint(stand, fallbackHexId)
-  if (
-    blockedKind &&
-    (fromHex?.enclosure || toHex?.enclosure) &&
-    fromHex?.enclosure !== toHex?.enclosure
-  ) {
-    // Compound boundary — stay on the side we started from.
+  if (blockedKind && fromHex?.enclosure && !toHex?.enclosure) {
+    // Leaving the compound — stay on the inside; entering uses hexAtPoint(stand).
     activeHexId = fromHex.id
   }
 

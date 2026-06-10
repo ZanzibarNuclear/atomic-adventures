@@ -68,6 +68,9 @@ const CASES = [
   // Fence at compound boundary
   ['west-slope', 'center-pines', 'fence', 'west-slope'],
   ['center-pines', 'west-slope', 'fence', 'center-pines'],
+  // Enter compound from outside — avatar at fence, destination hex becomes active
+  ['lower-stand', 'south-pines', 'fence', 'south-pines'],
+  ['center-pines', 'south-pines', 'fence', 'south-pines'],
   // River block via hex-center path — active hex is destination (near bank)
   ['gate-woods', 'north-west', 'river', 'north-west', axialToPixel(-1, -1, size), axialToPixel(-2, -1, size)],
   ['gate-woods', 'mid-west', 'river', 'mid-west', axialToPixel(-1, -1, size), axialToPixel(-2, 0, size)],

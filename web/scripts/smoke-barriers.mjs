@@ -53,6 +53,9 @@ const nwMove = offRoad('gate-woods', 'north-west')
 const cpBlock = offRoad('west-slope', 'center-pines')
 const ugMove = offRoad('road-fork', 'upper-gorge')
 
+const spBlock = offRoad('lower-stand', 'south-pines')
+const cpEnter = offRoad('center-pines', 'south-pines')
+
 const fails = []
 if (nwMove.blockedKind !== 'river' || nwMove.activeHexId !== 'north-west') {
   fails.push('gate-woods->north-west should block at river and activate north-west')
@@ -66,6 +69,12 @@ if (ugMove.blockedKind !== 'river' || ugMove.activeHexId !== 'upper-gorge') {
 const parallel = offRoad('mid-west', 'north-west')
 if (parallel.blockedKind != null) {
   fails.push('mid-west->north-west should pass along the river column')
+}
+if (spBlock.blockedKind !== 'fence' || spBlock.activeHexId !== 'south-pines') {
+  fails.push('lower-stand->south-pines should block at fence and activate south-pines')
+}
+if (cpEnter.blockedKind !== 'fence' || cpEnter.activeHexId !== 'south-pines') {
+  fails.push('center-pines->south-pines should block at fence and activate south-pines')
 }
 
 if (fails.length) {
