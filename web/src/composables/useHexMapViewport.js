@@ -20,30 +20,40 @@ export function useHexMapViewport({
   const current = computed(() => hexById.value[currentHex.value])
 
   const visibleHexes = computed(() => {
+    const standingOn = currentHex.value
+    const revealed = discoveredSet.value
+    const isVisible = (hex) => revealed.has(hex.id) || hex.id === standingOn
+
     if (builderView.value) return allHexes.value
     if (mode.value === 'full') return allHexes.value
     if (mode.value === 'slice') {
       const ids = new Set([
-        currentHex.value,
+        standingOn,
         ...neighborsOf(current.value ?? { q: 0, r: 0 }).map((n) => {
           const f = allHexes.value.find((h) => h.q === n.q && h.r === n.r)
           return f?.id
         }),
       ])
-      return allHexes.value.filter(
-        (h) => discoveredSet.value.has(h.id) && ids.has(h.id),
-      )
+      return allHexes.value.filter((h) => isVisible(h) && ids.has(h.id))
     }
-    return allHexes.value.filter((h) => discoveredSet.value.has(h.id))
+    return allHexes.value.filter(isVisible)
   })
 
   const fogHexes = computed(() => {
     if (builderView.value || mode.value !== 'explored') return []
+    const standingOn = currentHex.value
+    const revealed = discoveredSet.value
     const edge = new Map()
     for (const h of visibleHexes.value) {
       for (const n of neighborsOf(h)) {
         const found = allHexes.value.find((x) => x.q === n.q && x.r === n.r)
-        if (found && !discoveredSet.value.has(found.id)) edge.set(found.id, found)
+        if (
+          found &&
+          !revealed.has(found.id) &&
+          found.id !== standingOn
+        ) {
+          edge.set(found.id, found)
+        }
       }
     }
     return [...edge.values()]
@@ -62,11 +72,14 @@ export function useHexMapViewport({
     if (builderView.value) {
       return { isRevealed: () => true, inView: () => true }
     }
+    const standingOn = currentHex.value
+    const revealed = discoveredSet.value
     const visibleIds = new Set(visibleHexes.value.map((h) => h.id))
     const isRevealed =
       mode.value === 'full'
         ? () => true
-        : (id) => id != null && discoveredSet.value.has(id)
+        : (id) =>
+            id != null && (revealed.has(id) || id === standingOn)
     const inView =
       mode.value === 'slice' ? (id) => visibleIds.has(id) : () => true
     return { isRevealed, inView }

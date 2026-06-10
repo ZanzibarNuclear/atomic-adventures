@@ -121,11 +121,15 @@ export function exteriorSegmentPoints(building, fromNodeId, toNodeId) {
 export function exteriorStepOutMoves(building, roomId, doorState, areaId) {
   if (!roomId) return []
   const out = []
+  const seen = new Set()
+
+  // Legacy schema: door-linked exits
   for (const exit of building.exits ?? []) {
-    if (exit.room !== roomId || !exit.exteriorNode) continue
+    if (!exit.door || exit.room !== roomId || !exit.exteriorNode) continue
     if (!canPassDoor(doorState, areaId, exit.door)) continue
     const node = building.exterior?.nodeById?.[exit.exteriorNode]
     if (!node) continue
+    seen.add(exit.exteriorNode)
     out.push({
       toExteriorNode: exit.exteriorNode,
       kind: 'path',
@@ -134,5 +138,21 @@ export function exteriorStepOutMoves(building, roomId, doorState, areaId) {
       toName: node.label ?? exit.exteriorNode,
     })
   }
+
+  // Current schema: exterior nodes name the door and interior room
+  for (const node of building.exterior?.nodes ?? []) {
+    if (!node.door || node.room !== roomId) continue
+    if (!canPassDoor(doorState, areaId, node.door)) continue
+    if (seen.has(node.id)) continue
+    seen.add(node.id)
+    out.push({
+      toExteriorNode: node.id,
+      kind: 'path',
+      doorId: node.door,
+      label: 'out to the footpath',
+      toName: node.label ?? node.id,
+    })
+  }
+
   return out
 }

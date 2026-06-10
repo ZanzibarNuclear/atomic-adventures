@@ -35,7 +35,7 @@ river:
 # Retaining wall west of the driveway — blocks the cliff drop to the river.
 # Runs north→south (+x); thickness extends west (−y) toward the river.
 cliffWall:
-  onLevels: [first, second]
+  onLevels: [first]
   thicknessFeet: 5
   extendNorthToMapEdge: true
   points:

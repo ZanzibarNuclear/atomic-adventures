@@ -343,12 +343,9 @@ export function useGridMapPlacements({
   //   downstream-bank x=-5.77, y=-1.11
   const placedHydroElements = computed(() => {
     if (!building.value?.hydroSystem) return null
-    // Only render on levels where the river is visible
-    const riverCfg = building.value.river
-    if (riverCfg) {
-      const onLevels = riverCfg.onLevels ?? [building.value.exterior?.level ?? 'first']
-      if (!onLevels.includes(level.value)) return null
-    }
+    // Ground-level plumbing — only on the exterior plan (not upper floors).
+    const hydroLevel = building.value.exterior?.level ?? 'first'
+    if (level.value !== hydroLevel) return null
     const c = cell.value
 
     // River geometry (derived from utility-station.yaml river config):
