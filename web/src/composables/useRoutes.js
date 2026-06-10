@@ -260,12 +260,30 @@ export function buildRouteDrawPieces(models, { isRevealed, inView, allowStub }) 
 import {
   isRouteMoveBlocked,
   routeMoveSamples,
-  edgeBlock,
+  resolveMove,
 } from './useTravelBarriers.js'
 
 export { fenceSegments, segmentsCross } from './useTravelBarriers.js'
 
-// Adjacent hexes not on a marked route — off-road options (barriers may stop the avatar).
+/** Walk path for a move — route polyline or straight line off-road. */
+export function buildMovePath(fromPos, fromHex, toHex, toPos, routeLeg, routeModels) {
+  if (routeLeg) {
+    const model = routeModels.find((r) => r.id === routeLeg.routeId)
+    const fromSpan = model?.spans.find((s) => s.hexId === fromHex.id)
+    const toSpan = model?.spans.find((s) => s.hexId === toHex.id)
+    if (model && fromSpan && toSpan) {
+      const samples = routeMoveSamples(model, fromSpan, toSpan)
+      if (samples.length >= 2) {
+        // Use the authored route geometry — do not chord from the avatar
+        // position to an interior sample (that can falsely cross fences/rivers).
+        return samples
+      }
+    }
+  }
+  return [fromPos, toPos]
+}
+
+// Adjacent hexes not on a marked route — always clickable; blockedBy is a soft hint.
 export function offRoadNeighbors(
   currentHexId,
   hexes,
@@ -273,17 +291,32 @@ export function offRoadNeighbors(
   onRouteTargets,
   size,
   barriers,
+  fromPos,
+  resolveStand,
+  hexAtPoint,
 ) {
   const current = hexById[currentHexId]
   if (!current) return []
   const onRoute = new Set(onRouteTargets)
   return hexes
     .filter((h) => hexDistance(h, current) === 1 && !onRoute.has(h.id))
-    .map((h) => ({
-      toHexId: h.id,
-      label: bearingLabel(current, h, size),
-      blockedBy: edgeBlock(current, h, size, barriers),
-    }))
+    .map((h) => {
+      const toPos = resolveStand(h)
+      const result = resolveMove({
+        fromHex: current,
+        toHex: h,
+        fromPos,
+        toPos,
+        path: [fromPos, toPos],
+        ctx: barriers,
+        hexAtPoint,
+      })
+      return {
+        toHexId: h.id,
+        label: bearingLabel(current, h, size),
+        blockedBy: result.blockedKind,
+      }
+    })
 }
 
 export function pointsAttr(pts) {

@@ -126,10 +126,6 @@ features:
     labelAt: { x: -81, y: -42 }
     name: Gate
 
-  - id: station-bridge
-    kind: bridge
-    at: { x: -108, y: 52 }
-
   - id: compound-road
     kind: road
     smooth: true

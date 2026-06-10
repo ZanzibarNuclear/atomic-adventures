@@ -1,29 +1,40 @@
 /**
- * Fence and river barriers for off-road travel.
- * Crossing is allowed only at authored openings (gate/hole, bridge/ford).
+ * Barrier features for hex travel (fence, river, cliff, ravine, …).
+ * Crossing is allowed only at authored openings (gate/hole, bridge/ford, …).
+ * All moves — on-route or off-road — use the same path-based checks.
  */
 
 import { axialToPixel } from './useHexGeometry.js'
 
 const STAND_INSET = 5
+const PATH_ORIGIN_EPS = 0.02
 
 const OPENING_RADIUS = {
   gate: 22,
   hole: 14,
   bridge: 14,
   ford: 12,
+  stair: 10,
 }
 
-const FENCE_OPENINGS = new Set(['gate', 'hole'])
-const RIVER_OPENINGS = new Set(['bridge', 'ford'])
+/** Which point-feature kinds allow crossing each barrier kind. */
+export const BARRIER_OPENINGS = {
+  fence: ['gate', 'hole'],
+  river: ['bridge', 'ford'],
+  cliff: ['stair'],
+  ravine: ['bridge'],
+}
+
+export const BARRIER_KINDS = Object.keys(BARRIER_OPENINGS)
 
 /** Point features — not drawable / routable polylines. */
-export const BARRIER_OPENING_KINDS = new Set([
-  'gate',
-  'hole',
-  'bridge',
-  'ford',
-])
+export const BARRIER_OPENING_KINDS = new Set(
+  Object.values(BARRIER_OPENINGS).flat(),
+)
+
+function allowedOpenings(kind) {
+  return new Set(BARRIER_OPENINGS[kind] ?? [])
+}
 
 /** Do segments AB and CD intersect (strict crossing, not collinear touch)? */
 export function segmentsCross(a, b, c, d) {
@@ -51,32 +62,30 @@ export function segmentIntersection(a, b, c, d) {
   }
 }
 
-export function fenceSegments(featureModels) {
+/** All barrier polylines from feature models. */
+export function barrierSegments(featureModels) {
   const segs = []
   for (const m of featureModels) {
-    if (m.kind !== 'fence') continue
+    if (!BARRIER_KINDS.includes(m.kind)) continue
     for (let i = 0; i < m.points.length - 1; i++) {
-      segs.push({ a: m.points[i], b: m.points[i + 1], kind: 'fence' })
+      segs.push({ a: m.points[i], b: m.points[i + 1], kind: m.kind })
     }
   }
   return segs
+}
+
+export function fenceSegments(featureModels) {
+  return barrierSegments(featureModels).filter((s) => s.kind === 'fence')
 }
 
 export function riverSegments(featureModels) {
-  const segs = []
-  for (const m of featureModels) {
-    if (m.kind !== 'river') continue
-    for (let i = 0; i < m.points.length - 1; i++) {
-      segs.push({ a: m.points[i], b: m.points[i + 1], kind: 'river' })
-    }
-  }
-  return segs
+  return barrierSegments(featureModels).filter((s) => s.kind === 'river')
 }
 
-/** Passable points for fence (gate/hole) and river (bridge/ford) crossings. */
+/** Passable points for barrier crossings. */
 export function travelOpenings(mapFeatures) {
   return (mapFeatures ?? [])
-    .filter((f) => f.at && ['gate', 'hole', 'bridge', 'ford'].includes(f.kind))
+    .filter((f) => f.at && BARRIER_OPENING_KINDS.has(f.kind))
     .map((f) => ({
       kind: f.kind,
       x: f.at.x,
@@ -86,10 +95,9 @@ export function travelOpenings(mapFeatures) {
 }
 
 export function openingAllows(kind, x, y, openings) {
-  const allowed = kind === 'fence' ? FENCE_OPENINGS : RIVER_OPENINGS
+  const allowed = allowedOpenings(kind)
   return openings.some(
-    (o) =>
-      allowed.has(o.kind) && Math.hypot(x - o.x, y - o.y) <= o.r,
+    (o) => allowed.has(o.kind) && Math.hypot(x - o.x, y - o.y) <= o.r,
   )
 }
 
@@ -106,7 +114,7 @@ function pointSegmentDistance(p, a, b) {
 
 /** Does any point along the path pass within an opening allowing `kind`? */
 function pathNearOpening(path, kind, openings) {
-  const allowed = kind === 'fence' ? FENCE_OPENINGS : RIVER_OPENINGS
+  const allowed = allowedOpenings(kind)
   return openings.some((o) => {
     if (!allowed.has(o.kind)) return false
     for (let i = 0; i < path.length - 1; i++) {
@@ -136,61 +144,47 @@ function skipFenceForMove(fromHex, toHex, seg) {
   return seg.kind === 'fence' && sharesEnclosure(fromHex, toHex)
 }
 
-/**
- * The shared edge between two adjacent hexes — the geometric boundary where
- * barriers should actually be checked, as opposed to the center-to-center
- * segment which passes through each hex's interior.
- *
- * Rivers and fences often have waypoints anchored inside hexes. Checking the
- * center-to-center path can cross a segment that runs through the target hex's
- * interior even though the barrier never touches the shared boundary, producing
- * false blocks. Checking the shared edge fixes this.
- */
-function sharedHexEdge(centerA, centerB, size) {
-  const mx = (centerA.x + centerB.x) / 2
-  const my = (centerA.y + centerB.y) / 2
-  const dist = Math.hypot(centerB.x - centerA.x, centerB.y - centerA.y)
-  // Perpendicular direction (left-hand normal of A→B).
-  const px = -(centerB.y - centerA.y) / dist
-  const py = (centerB.x - centerA.x) / dist
-  // For a regular hex with circumradius = size, the side length also equals
-  // size, so the shared edge extends size/2 on each side of the midpoint.
-  const half = size / 2
-  return {
-    a: { x: mx + px * half, y: my + py * half },
-    b: { x: mx - px * half, y: my - py * half },
+function barrierList(ctx) {
+  return ctx.barriers ?? [...(ctx.fences ?? []), ...(ctx.rivers ?? [])]
+}
+
+/** First barrier hit along a polyline path; null when none. */
+export function firstBlockedOnPath(path, ctx, fromHex, toHex) {
+  for (let i = 0; i < path.length - 1; i++) {
+    const a = path[i]
+    const b = path[i + 1]
+    for (const seg of barrierList(ctx)) {
+      if (skipFenceForMove(fromHex, toHex, seg)) continue
+      const cross = segmentIntersection(a, b, seg.a, seg.b)
+      if (!cross || cross.t < PATH_ORIGIN_EPS) continue
+      if (!openingAllows(seg.kind, cross.x, cross.y, ctx.openings)) {
+        return { ...cross, kind: seg.kind, segIndex: i }
+      }
+    }
   }
+  return null
 }
 
 /**
- * Deterministic passability of the edge between two adjacent hexes.
- * Returns null when passable, else the blocking barrier kind.
- *
- * Checks the shared hex edge (the physical boundary between the two tiles)
- * rather than the center-to-center segment. This correctly handles barriers
- * whose waypoints lie inside a hex's interior — a river that flows through a
- * hex does not block entry from a direction where it never crosses the border.
- * The enclosure rule still uses the shared edge to test proximity to openings.
+ * Whether a move along `path` is blocked. Returns barrier kind or null.
+ * Same rules for on-route and off-road travel.
  */
-export function edgeBlock(fromHex, toHex, size, ctx) {
-  const a = axialToPixel(fromHex.q, fromHex.r, size)
-  const b = axialToPixel(toHex.q, toHex.r, size)
-  const edge = sharedHexEdge(a, b, size)
+export function moveBlocked(fromHex, toHex, path, ctx) {
+  if (path.length < 2) return null
 
-  for (const seg of [...ctx.fences, ...ctx.rivers]) {
-    if (skipFenceForMove(fromHex, toHex, seg)) continue
-    const cross = segmentIntersection(edge.a, edge.b, seg.a, seg.b)
-    if (!cross) continue
-    if (!openingAllows(seg.kind, cross.x, cross.y, ctx.openings)) {
-      return seg.kind
-    }
-  }
+  const hit = firstBlockedOnPath(path, ctx, fromHex, toHex)
+  if (hit) return hit.kind
 
-  if (entersEnclosureWithoutOpening(fromHex, toHex, [edge.a, edge.b], ctx.openings)) {
+  if (entersEnclosureWithoutOpening(fromHex, toHex, path, ctx.openings)) {
     return 'fence'
   }
 
   return null
+}
+
+/** Convenience: straight walk from current stand to destination stand. */
+export function moveBlockedBetween(fromHex, toHex, fromPos, toPos, ctx) {
+  return moveBlocked(fromHex, toHex, [fromPos, toPos], ctx)
 }
 
 /** Samples along a route between two hex spans (inclusive). */
@@ -204,42 +198,9 @@ export function routeMoveSamples(model, fromSpan, toSpan) {
   return model.samples.slice(Math.min(...idxs), Math.max(...idxs) + 1)
 }
 
-function pathBarrierCrossings(path, ctx) {
-  const hits = []
-  for (let i = 0; i < path.length - 1; i++) {
-    const a = path[i]
-    const b = path[i + 1]
-    for (const seg of [...ctx.fences, ...ctx.rivers]) {
-      const cross = segmentIntersection(a, b, seg.a, seg.b)
-      if (!cross || cross.t < 0.02) continue
-      hits.push({ x: cross.x, y: cross.y, kind: seg.kind })
-    }
-  }
-  return hits
-}
-
-function pathCrossesBlockedBarrier(path, ctx) {
-  return pathBarrierCrossings(path, ctx).some(
-    (hit) => !openingAllows(hit.kind, hit.x, hit.y, ctx.openings),
-  )
-}
-
-/**
- * Whether a marked-route move should be hidden / rejected.
- * Checks the actual path geometry plus the enclosure rule (a route may
- * legitimately cross via an opening the hex centers' line misses).
- */
+/** Whether a marked-route move should be hidden / rejected. */
 export function isRouteMoveBlocked(fromHex, toHex, pathSamples, ctx) {
-  if (pathSamples.length < 2) return false
-
-  if (pathCrossesBlockedBarrier(pathSamples, ctx)) return true
-
-  return entersEnclosureWithoutOpening(
-    fromHex,
-    toHex,
-    pathSamples,
-    ctx.openings,
-  )
+  return moveBlocked(fromHex, toHex, pathSamples, ctx) !== null
 }
 
 function standBeforeHit(from, hit) {
@@ -247,51 +208,80 @@ function standBeforeHit(from, hit) {
   const dy = from.y - hit.y
   const len = Math.hypot(dx, dy)
   if (len < 1) {
-    return { x: hit.x, y: hit.y, barrierKind: hit.kind }
+    return { x: hit.x, y: hit.y }
   }
   return {
     x: hit.x + (dx / len) * STAND_INSET,
     y: hit.y + (dy / len) * STAND_INSET,
-    barrierKind: hit.kind,
   }
 }
 
-function firstBlockedCrossOnSegment(from, to, ctx, fromHex, toHex) {
-  let hit = null
-  for (const seg of [...ctx.fences, ...ctx.rivers]) {
-    if (fromHex && toHex && skipFenceForMove(fromHex, toHex, seg)) continue
-    const cross = segmentIntersection(from, to, seg.a, seg.b)
-    if (!cross || cross.t < 0.02) continue
-    if (openingAllows(seg.kind, cross.x, cross.y, ctx.openings)) continue
-    if (!hit || cross.t < hit.t) hit = { ...cross, kind: seg.kind }
+/** Stand at the first fence crossing when blocked by enclosure rules only. */
+function enclosureFenceStand(path, ctx, fromHex, toHex) {
+  for (let i = 0; i < path.length - 1; i++) {
+    const a = path[i]
+    const b = path[i + 1]
+    for (const seg of barrierList(ctx)) {
+      if (seg.kind !== 'fence' || skipFenceForMove(fromHex, toHex, seg)) continue
+      const cross = segmentIntersection(a, b, seg.a, seg.b)
+      if (!cross || cross.t < PATH_ORIGIN_EPS) continue
+      return standBeforeHit(a, { ...cross, kind: 'fence' })
+    }
   }
-  return hit
+  return null
 }
 
 /**
- * Visual stand point for a blocked move attempt: where the avatar stops when
- * walking from `from` toward `to`, on the approach side of the barrier that
- * actually blocks the move (matched to edgeBlock when hexes are provided).
+ * Resolve a move: walk `path` until a barrier stops the avatar.
+ * Active hex = whichever hex contains the final stand point.
  */
-export function findBarrierStand(from, to, ctx, fromHex, toHex, size) {
-  if (fromHex && toHex && size != null) {
-    const block = edgeBlock(fromHex, toHex, size, ctx)
-    if (!block) return null
+export function resolveMove({
+  fromHex,
+  toHex,
+  fromPos,
+  toPos,
+  path,
+  ctx,
+  hexAtPoint,
+}) {
+  const walkPath = path ?? [fromPos, toPos]
+  const fallbackHexId = toHex?.id ?? fromHex?.id
 
-    const a = axialToPixel(fromHex.q, fromHex.r, size)
-    const b = axialToPixel(toHex.q, toHex.r, size)
-    const edge = sharedHexEdge(a, b, size)
-
-    for (const seg of [...ctx.fences, ...ctx.rivers]) {
-      if (skipFenceForMove(fromHex, toHex, seg)) continue
-      if (seg.kind !== block) continue
-      const cross = segmentIntersection(edge.a, edge.b, seg.a, seg.b)
-      if (!cross) continue
-      if (openingAllows(seg.kind, cross.x, cross.y, ctx.openings)) continue
-      return standBeforeHit(from, { ...cross, kind: seg.kind })
+  if (walkPath.length < 2) {
+    return {
+      stand: toPos,
+      activeHexId: hexAtPoint(toPos, fallbackHexId),
+      blockedKind: null,
     }
   }
 
-  const hit = firstBlockedCrossOnSegment(from, to, ctx, fromHex, toHex)
-  return hit ? standBeforeHit(from, hit) : null
+  const hit = firstBlockedOnPath(walkPath, ctx, fromHex, toHex)
+  let blockedKind = hit?.kind ?? null
+  let stand
+
+  if (hit) {
+    const segStart = walkPath[hit.segIndex] ?? fromPos
+    stand = standBeforeHit(segStart, hit)
+  } else if (entersEnclosureWithoutOpening(fromHex, toHex, walkPath, ctx.openings)) {
+    blockedKind = 'fence'
+    stand = enclosureFenceStand(walkPath, ctx, fromHex, toHex) ?? fromPos
+  } else {
+    stand = toPos
+  }
+
+  let activeHexId = hexAtPoint(stand, fallbackHexId)
+  if (
+    blockedKind &&
+    (fromHex?.enclosure || toHex?.enclosure) &&
+    fromHex?.enclosure !== toHex?.enclosure
+  ) {
+    // Compound boundary — stay on the side we started from.
+    activeHexId = fromHex.id
+  }
+
+  return {
+    stand,
+    activeHexId,
+    blockedKind,
+  }
 }
