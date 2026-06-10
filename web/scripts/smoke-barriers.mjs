@@ -41,6 +41,7 @@ function offRoad(fromId, toId, fromPosOverride) {
     path: [fromPos, toPos],
     ctx,
     hexAtPoint,
+    size,
   })
   console.log(
     `${fromId} -> ${toId}: active=${result.activeHexId} blocked=${result.blockedKind ?? '-'}`,
@@ -53,14 +54,18 @@ const cpBlock = offRoad('west-slope', 'center-pines')
 const ugMove = offRoad('road-fork', 'upper-gorge')
 
 const fails = []
-if (nwMove.activeHexId !== 'north-west') {
-  fails.push('gate-woods->north-west should activate north-west')
+if (nwMove.blockedKind !== 'river' || nwMove.activeHexId !== 'north-west') {
+  fails.push('gate-woods->north-west should block at river and activate north-west')
 }
 if (cpBlock.blockedKind !== 'fence' || cpBlock.activeHexId !== 'west-slope') {
   fails.push('west-slope->center-pines should block at fence and stay on west-slope')
 }
-if (ugMove.activeHexId !== 'upper-gorge') {
-  fails.push('road-fork->upper-gorge should activate upper-gorge')
+if (ugMove.blockedKind !== 'river' || ugMove.activeHexId !== 'upper-gorge') {
+  fails.push('road-fork->upper-gorge should block at river and activate upper-gorge')
+}
+const parallel = offRoad('mid-west', 'north-west')
+if (parallel.blockedKind != null) {
+  fails.push('mid-west->north-west should pass along the river column')
 }
 
 if (fails.length) {
