@@ -98,33 +98,32 @@ Ready for the day, Zanzibar returned to the library to continue his self-guided 
 
 ### The Library
 
-Low shelves of binders. Large picture book - the making of the facility.
+One would think that a library in the middle of a mountainside forest would have books about nature or philosophy. Thoreau would fit right in. Perhaps a Theodore Roosevelt biography. This library was straight out of one of the elite science and engineering schools. Science, mathematics, all forms of engineering. Picture books of old-time patents and the industrial revolution.
 
-This area features two holo-reader stations side-by-side with a rack of media between them. The titles were impressive.
+Clearly the power for the facility had been cut off. Zanzibar had to make do with natural lighting from the expansive windows. That also meant that he was unable to use the holo-readers. Using 3D projection, the holo-reader was an immersive experience designed for rapid intake of information. These days people were used to the experience of disappearing into their own skulls while taking in a subject.
 
-**Holo-reader media**
-
-(note: make the titles humorous, punny)
+Between the pair of holo-readers was a rack of infopods spanning a daunting range of subjects.
 
 - Fundamentals of Physics
 - The Chemistry of Everything
 - Mechanical Engineering, the Complete Works
+- Electro-magnetism
 - Fluid Dynamics
 - Statistical Thermodynamics
-- Quantum Mechanics and Engineering
+- Einstein's Quantum Leap
 - Hydro Power, Water You Waiting For?
 - Photovoltaics, PVs in Charge
 - Battery Storage Through the Years
 - Nuclear Fission
 - Power Grids
 
-With the power out, the materials were inaccessible. One fact was obvious. To make the most of this library, Zanzibar needed to find a way to turn on the power.
+With the power out, the materials were inaccessible. To make the most of this library, Zanzibar needed to find a way to turn on the power.
+
+It might have been the sound of the waterfall.
 
 ### The Control Room
 
 Down the sloping corridor. Bit of a steep angle. Non-slip surfacing on the floor. Landing at the bottom, door opens into the corridor.
-
-South of the library on the same floor — not a basement level. Gauges that work, based on simulator state. By what miracle does this connect to the local grid. Route excess load to the batteries. Disengage when nothing is drawing power. How will this mimic reality without becoming too much to handle.
 
 Operation manuals for hydro power system.
 
@@ -140,11 +139,15 @@ Basic operational instructions on the back.
 6. Go back to the control room. Connect the circuit.
 7. Control room comes alive. Check the gauges.
 
-Get some lunch.
+Follow the directions. Switch on the power.
 
 Back to the control room. Observe steady state production for a while. There is enough production to power this station.
 
-Now or later: See the gauge for the battery array that is slowly charging with the excess electricity.
+Get some lunch.
+
+Notes for later: Gauges that work, based on simulator state. By what miracle does this connect to the local grid? Route excess load to the batteries. Disengage when nothing is drawing power. How will this mimic reality without becoming too much to handle.
+
+See the gauge for the battery array that is slowly charging with the excess electricity.
 Soon: Zanzibar thinks of the e-Buggy. Goes into the garage and plugs it in. An estimated N hours to full charge.
 
 Lots more to think through...
