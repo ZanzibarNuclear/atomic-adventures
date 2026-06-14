@@ -176,6 +176,8 @@ The main terminal on the console flickered on. Within seconds, a prompt appeared
 - "Please wait while I check our vitals." "Looking under the hood..."
 - "Ten thousand years...is much longer than you will have to wait."
 
+A live graph of the power generation - pretty much a flat line. Battery levels that rise over time. Gives a sense of the overall capacity of the battery array. A graph of the power drawn by electronics at the station.
+
 Lots of questions:
 
 Gauges that work, based on simulator state. Map of the grid. By what miracle does this connect? Excess load routes to the batteries that are always connected and started charging when the generator started. All excess generation goes to battery until full. The grid runs off of battery. Does plugging in the eBuggy add its batteries to the fleet or does it draw from the fleet? Can you use the car battery to power the station as needed? Why would it be needed?
@@ -185,22 +187,28 @@ Disengage when nothing is drawing power. How will this mimic reality without bec
 See the gauge for the battery array that is slowly charging with the excess electricity.
 Soon: Zanzibar thinks of the e-Buggy. Goes into the garage and plugs it in. An estimated N hours to full charge.
 
-Lots more to think through...
-
 Closet. Empty backpack, flashlights, coil of rope, power cables.
 
-Two doors: one to an all-gender bathroom, also with two stalls. The other to the lobby area with a coat rack, a bench, a frame for footwear, a reception desk with a phone and computer terminal (with a monitor and keyboard).
+What is in the power housing? Rake for clearing intake. Turbine, generator, conduit that goes to the wall outside of the power panel.
+
+The lobby area has a coat rack, a bench, a frame for footwear, a reception desk with a phone and terminal. Access to games (while you wait?).
+
+Lunch at some point.
+
+Plug in the eBuggy.
+
+Try a holo-reader to learn about the micro-hydro generator. Theory (lesson) vs actuals (console).
 
 ## Day 3
 
-## The Micro-hydro Power Converter
+### e-Buggy (eB)
 
-Outside, some manual adjustments are needed to get things flowing. Then routine maintenance tasks - clearing the filters, checkingn for and patching leaks, etc..
-
-## e-Buggy (eB)
+Cruising 'round the compound.
 
 Reward for turning on hydro, able to charge the buggy. Has to be plugged in with the circuit connected while the generator is running.
 
-## Entrace to the underground
+### Discovery 1 - Entrance to underground facility
 
 Hidden entrance in the control room. Discovered by accident.
+
+### Discovery 2 - Solar array
