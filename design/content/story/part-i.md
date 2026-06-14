@@ -94,58 +94,93 @@ The next priority was to find breakfast. Zanzibar went back up the spiral stairc
 
 Back in the kitchen, Zanzibar rifled through boxes of Tasty Tack. He opened a box of Pioneer Breakfast, "a complete meal, with griddle cakes, eggs and bacon." Each pack had three bars with their distinctive flavors. Zanzibar took small bites, trying each on its own, then in combination. He washed it down with a fresh batch of purified river water.
 
+After a satisfying meal, Zanzibar stepped back into the spiral stairwell. The doors at the top and bottom were on springloaded hinges, and with both doors closed and steady the sound of the rushing water, the effect was hypnotic. Zanzibar felt a sense of deep calm that he had not experienced in quite somem time. Out of this calm rose an idea. Everything is going to work out.
+
 Ready for the day, Zanzibar returned to the library to continue his self-guided tour.
 
 ### The Library
 
-One would think that a library in the middle of a mountainside forest would have books about nature or philosophy. Thoreau would fit right in. Perhaps a Theodore Roosevelt biography. This library was straight out of one of the elite science and engineering schools. Science, mathematics, all forms of engineering. Picture books of old-time patents and the industrial revolution.
+One would think that a library in the middle of a mountainside forest would have books about nature or philosophy. Thoreau would fit right in. Perhaps a Theodore Roosevelt biography. Sure enough, a number of large picture books featuring natural scenes graced one of the shelves.
 
-Clearly the power for the facility had been cut off. Zanzibar had to make do with natural lighting from the expansive windows. That also meant that he was unable to use the holo-readers. Using 3D projection, the holo-reader was an immersive experience designed for rapid intake of information. These days people were used to the experience of disappearing into their own skulls while taking in a subject.
+The vast majority of material in this library was straight out of any elite science and engineering school. The titles were best-in-show spanning a wide variety of topics.
 
-Between the pair of holo-readers was a rack of infopods spanning a daunting range of subjects.
+Zanzibar had to make do with natural lighting from the expansive windows, which was sufficient on a sunny day. The lack of power meant that he was unable to use anything electrical, such as the pair of holo-readers in the library.
+
+Holo-reader technology produced an immersive 3D experience and was designed for enhanced intake of information. It was a step above reading. Through rapid flow-state triggering, people had the sensation of disappearing into their own skulls while exploring any given topic of interest.
+
+The people at this station were into science and engineering. Between the pair of holo-readers was a rack of infopods that mirrors the physical books.
 
 - Fundamentals of Physics
-- The Chemistry of Everything
+- Partical Physics
+- Chemistry: Potions, Reactions, Surprises
 - Mechanical Engineering, the Complete Works
-- Electro-magnetism
+- Electro-magnetism, Maxwell's Faraday Cage Match
+- Quantum Machanics - Eigen see your nano banana
 - Fluid Dynamics
 - Statistical Thermodynamics
-- Einstein's Quantum Leap
 - Hydro Power, Water You Waiting For?
 - Photovoltaics, PVs in Charge
 - Battery Storage Through the Years
 - Nuclear Fission
 - Power Grids
 
-With the power out, the materials were inaccessible. To make the most of this library, Zanzibar needed to find a way to turn on the power.
+There were more, as well as a collection of games and virtual vacations.
 
-It might have been the sound of the waterfall.
+With the power out, these materials were inaccessible. To make the most of this library, Zanzibar needed to find a way to turn on the power.
 
 ### The Control Room
 
-Down the sloping corridor. Bit of a steep angle. Non-slip surfacing on the floor. Landing at the bottom, door opens into the corridor.
+The library had two doors. Zanzibar opened the one he had yet to try and found a corridor that sloped downhill. This passage led to another door that opened into some kind of control room. It too had a wall of windows as in the library. Zanzibar slid open the shutters to let in light and take in the view from this lower vantage point. Now he was near the bottom of the cascade.
 
-Operation manuals for hydro power system.
+Outside, the pipe ended at a small building just below.
 
-Show the laminated information card. First quiz to make sure the player understands the basics on the card.
+Turning and scanning the room, everything was covered as if the painters would be arriving today. Except it had probably been this way for years. Zanzibar pulled back the large sheet over the lump in the center of the room. He found a sizable desk area built into the floor with monitors and keyboards on top.
 
-Basic operational instructions on the back.
+On one side of the room was a closed closet. At the back were two doors: one went to a restroom, and the other to a lobby that buffered the room from elements and visitors of the outside world.
+
+A binder stood tall between the monitors. Zanzibar read the title on its spine: _Micro-Hydro Power Generator: Operational Guide_. He opened the binder and found a laminated card in the front pocket. On one side of the card were illustrated step-by-step instructions for turning on the micro-hydro generator. The pictures were from points along the pipe outside.
+
+These steps looked rather simple.
 
 1. Clear and open the intake.
-2. Water gets diverted into the cascade. Switch the bypass so water flows down the pipe.
-3. Walk down the path to the base of the pipe. Look for obvious leaks.
-4. Check the water pressure at the base of the pipe. Should be approaching 70 PSI.
-5. Open valve to the water turbine.
-6. Go back to the control room. Connect the circuit.
-7. Control room comes alive. Check the gauges.
+2. Walk to the mid-section. Turn the bypass valve so that water flows down the pipe.
+3. Look up and down the pipe for obvious leaks. Determine if one or more patches is needed.
+4. Walk to the base of the pipe. Open the pressure valve, and check the water pressure.
+5. Once the water pressure is high enough (above 60 PSI), open valve to power housing. You should hear the rising pitch of the turbine spinning up.
+6. Go back to the control room. Open the electrical panel, and connect the switch to the micro-generator.
+7. Turn on some lights, fire up a terminal, and enjoy the miracle of electricity.
 
-Follow the directions. Switch on the power.
+The set-up could not have been more perfect. With nothing to lose and no reason to hesitate, Zanzibar headed for the lobby, unlocked the outside door and stepped out into the cool morning.
 
-Back to the control room. Observe steady state production for a while. There is enough production to power this station.
+### A Miracle Occurs
 
-Get some lunch.
+Fortunately he was in for another day of fabulous weather. Light clouds, gentle breeze, sunlight filtered by pine needles. He saw the back of the garage uphill from where he stood with a path leading to the door he had entered the day before.
 
-Notes for later: Gauges that work, based on simulator state. By what miracle does this connect to the local grid? Route excess load to the batteries. Disengage when nothing is drawing power. How will this mimic reality without becoming too much to handle.
+In the other direction, the path turned along the outer wall of the control room toward the river. On the bank stood a sort of shed with a pipe and gauges sticking out of the uphill side. This must be the power housing. The path transitioned from decomposed granite to solid granite of the river bank. An occasional step was carved into the solid rock, making it safe to follow up the bank, past stairwell and to the upper corner of the building.
+
+At the corner, a stone staircase was wedged between the building and the stone retaining wall that he had seen at the edge of the driveway. Zanzibar's attention turned to the river. He saw a submerged concrete cube with a metal lid. He manipulated a lever at the bank that was attached to the cover, and it slid to the side. He heard water filling the pipe, and before long, water was pouring out of a pipe below at what must be the mid-section.
+
+Time for step 2. Zanzi returned along the path to the mid-section. There was a handwheel like you might find on a submarine for sealing a hatch. In this case, the wheel was connected to a valve with two positions. The position it was in diverted water back into the cascade. Step 2 was to turn the valve to direct the water down the pipe. Zanzibar flexed to overcome the relunctant valve. With a jerk it came loose. It moved into place with a few turns of the wheel.
+
+Step 3 was to check for leaks. He scanned up and down. No spraying, no gushing, just a few slow drips.
+
+The next step was to check the pressure. He walked back to the power housing and studied the gizmos attached to the pipe that went through the side. A pressure gauge was attached to the end of a short pipe with a valve. The gauge was a 0. Zanzi opened the valve. The pressure jumped to about 45 PSI and was rising. All good signs.
+
+Before long, the pressure reached 60 PSI. Zanzibar grabbed the nob for the valve to the housing and turned it slowly. He could hear the water push through. A whirring sound started low and increased in pitch and intensity as he opened the valve completely. Water started to pour out of the pipe below the housing back into the river, at this point below the cascade.
+
+So far so good. This was almost too good to be true. He had one more step to see it all come together. Apparently this had to be done from inside the control room. Zanzibar walked back around the building to the lobby and into the control room. He went to the wall with the power panel, found the switch conveniently labeled micro-hydro, and flipped it on.
+
+The main terminal on the console flickered on. Within seconds, a prompt appeared. (Would be fun to vary the boot expressions so that everyone gets a unique experience.)
+
+- "This is the first moment of the rest of your life..."
+- "Please wait while I check our vitals." "Looking under the hood..."
+- "Ten thousand years...is much longer than you will have to wait."
+
+Lots of questions:
+
+Gauges that work, based on simulator state. Map of the grid. By what miracle does this connect? Excess load routes to the batteries that are always connected and started charging when the generator started. All excess generation goes to battery until full. The grid runs off of battery. Does plugging in the eBuggy add its batteries to the fleet or does it draw from the fleet? Can you use the car battery to power the station as needed? Why would it be needed?
+
+Disengage when nothing is drawing power. How will this mimic reality without becoming too much to handle.
 
 See the gauge for the battery array that is slowly charging with the excess electricity.
 Soon: Zanzibar thinks of the e-Buggy. Goes into the garage and plugs it in. An estimated N hours to full charge.
