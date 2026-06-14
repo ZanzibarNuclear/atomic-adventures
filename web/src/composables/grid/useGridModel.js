@@ -74,6 +74,7 @@ export function buildBuilding(data) {
   )
   const pickups = (data.pickups ?? []).filter((p) => p.id && p.item)
   const switches = (data.switches ?? []).filter((s) => s.id && s.door)
+  const actions = (data.actions ?? []).filter((a) => a.id && a.label)
   const doors = (data.doors ?? []).map((d) => ({
     ...d,
     initial: normalizeDoorInitial(d.initial),
@@ -103,6 +104,7 @@ export function buildBuilding(data) {
     itemById,
     pickups,
     switches,
+    actions,
     doors,
     doorById,
     exits,
@@ -140,6 +142,10 @@ export function roomCenter(room, cell) {
   const r = roomRect(room, cell)
   return { x: r.x + r.w / 2, y: r.y + r.h / 2 }
 }
+
+// Keep in sync with GridRoomLayer centered icon (p.center.y, dominant-baseline: middle).
+export const ROOM_ICON_HALF_HEIGHT = 11
+export const FEET_GAP_ABOVE_ROOM_ICON = 4
 
 export function protrudeAngle(edge) {
   const side = layoutSideFromEdge(edge ?? 'west')

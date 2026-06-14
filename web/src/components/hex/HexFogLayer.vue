@@ -6,6 +6,8 @@ defineProps({
   fogHexes: { type: Array, default: () => [] },
   size: { type: Number, required: true },
   centerOf: { type: Function, required: true },
+  /** When true, fog tiles are valid move targets (e.g. slice mode). */
+  clickable: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['hex-click'])
@@ -17,6 +19,7 @@ const emit = defineEmits(['hex-click'])
       v-for="hex in fogHexes"
       :key="'fog-' + hex.id"
       class="hex fog"
+      :class="{ clickable }"
       @click="emit('hex-click', hex.id)"
     >
       <polygon
@@ -31,6 +34,9 @@ const emit = defineEmits(['hex-click'])
 <style scoped>
 .hex.fog {
   cursor: default;
+}
+.hex.fog.clickable {
+  cursor: pointer;
 }
 .fog polygon {
   stroke: rgba(255, 255, 255, 0.07);
