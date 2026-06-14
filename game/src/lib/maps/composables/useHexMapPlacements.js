@@ -1,4 +1,5 @@
 import { computed } from 'vue'
+import { featureLabel } from '../../displayLabel.js'
 import { buildRouteDrawPieces } from './useRoutes.js'
 import { riverSegments } from './useTravelBarriers.js'
 import { resolveAvatarPosition, hasLandmarkMarker } from './useAvatarStand.js'
@@ -56,7 +57,7 @@ export function useHexMapPlacements({
         y: f.at.y,
         labelX: f.labelAt?.x ?? f.at.x,
         labelY: f.labelAt?.y ?? f.at.y + 12,
-        name: f.name ?? 'Gate',
+        label: featureLabel(f),
       })),
   )
 

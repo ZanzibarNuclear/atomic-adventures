@@ -1,4 +1,5 @@
 import { computed, reactive, ref, watch } from "vue";
+import { hexLabel } from "../../displayLabel.js";
 import {
   availableMoves,
   offRoadNeighbors,
@@ -232,7 +233,7 @@ export function useOutdoorWorld(mapData) {
 
   function nameOf(hexId) {
     const h = hexById.value[hexId];
-    return h?.landmark?.name ?? hexId;
+    return hexLabel(h);
   }
 
   return reactive({

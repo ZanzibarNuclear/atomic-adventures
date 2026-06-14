@@ -60,7 +60,7 @@
           'fog-mark': !isOpenVoid(p.room) && !isDiscovered(p.room),
         }"
       >
-        {{ isOpenVoid(p.room) ? p.room.name : isDiscovered(p.room) ? p.room.name : '?' }}
+        {{ isOpenVoid(p.room) ? roomLabel(p.room) : isDiscovered(p.room) ? roomLabel(p.room) : '?' }}
       </text>
       <text
         v-if="p.room.note && isDiscovered(p.room) && !isOpenVoid(p.room)"
@@ -75,6 +75,8 @@
 </template>
 
 <script setup>
+import { roomLabel } from '../../../displayLabel.js'
+
 defineProps({
   rooms: { type: Array, default: () => [] },
   currentRoom: { type: String, default: '' },

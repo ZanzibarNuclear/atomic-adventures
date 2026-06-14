@@ -1,3 +1,4 @@
+import { buildingLabel } from "../../../displayLabel.js";
 import { normalizeDoorInitial } from '../useDoors.js'
 import { layoutSideFromEdge, normalizeCompassEdge } from './useGridCompass.js'
 
@@ -88,7 +89,7 @@ export function buildBuilding(data) {
   return {
     id: areaId,
     areaId,
-    name: data.name,
+    label: buildingLabel({ id: areaId, label: data.label }),
     cell,
     gridFeet: data.gridFeet ?? 10,
     unitFeet: data.unitFeet ?? data.gridFeet ?? 10,

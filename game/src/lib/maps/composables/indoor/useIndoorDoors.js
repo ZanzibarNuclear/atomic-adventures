@@ -1,3 +1,4 @@
+import { roomLabel } from "../../../displayLabel.js";
 import { computed } from "vue";
 import {
   applyRevealForDoor,
@@ -43,7 +44,7 @@ export function createIndoorDoors(deps) {
         {
           doorId: node.door,
           toRoomId: node.room,
-          toName: room?.name ?? node.room,
+          toName: roomLabel(room),
         },
       ];
     }

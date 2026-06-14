@@ -1,3 +1,4 @@
+import { roomLabel } from "../../../displayLabel.js";
 import { computed } from "vue";
 import {
   canUseExteriorExit,
@@ -49,7 +50,7 @@ export function createIndoorMovement(deps) {
           kind: "door",
           toRoomId: node.room,
           label: "through the door",
-          toName: room?.name ?? node.room,
+          toName: roomLabel(room),
         });
       }
       return moves;
@@ -103,7 +104,7 @@ export function createIndoorMovement(deps) {
           toRoomId: node.room,
           doorId: node.door,
           label: "through the door",
-          toName: room?.name ?? node.room,
+          toName: roomLabel(room),
         },
       ];
     }

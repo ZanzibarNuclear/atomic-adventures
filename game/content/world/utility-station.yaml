@@ -13,7 +13,7 @@
 #            Library connects south through a sloping corridor to the control room.
 
 id: utility-station
-name: Utility Station
+label: Utility Station
 cell: 64
 
 # Enables the micro-hydro generator overlay on the grid map.
@@ -165,8 +165,8 @@ transitions:
 
 # Highest order is the top floor.
 levels:
-  - { id: second, name: "2nd Floor", order: 1 }
-  - { id: first, name: "1st Floor", order: 0 }
+  - { id: second, label: "2nd Floor", order: 1 }
+  - { id: first, label: "1st Floor", order: 0 }
 
 rooms:
   # ---------------- 1st floor (ground) ----------------
@@ -176,7 +176,7 @@ rooms:
     y: 0
     w: 2
     h: 2
-    name: "Library"
+    label: "Library"
     icon: "📚"
     windows: [west] # river side
     blurb: "Shelves, manuals, log binders, and three holo-reader stations. Windows covered by sliding blinds. Views of the river cascade."
@@ -187,7 +187,7 @@ rooms:
     y: 0.2
     w: 2
     h: 0.5
-    name: "Corridor"
+    label: "Corridor"
     blurb: "A narrow passage sloping downhill away from the station — conduit runs, pipe insulation, and a draft of cool air from below."
   - id: control-room
     level: first
@@ -195,7 +195,7 @@ rooms:
     y: 0
     w: 3
     h: 2
-    name: "Control Room"
+    label: "Control Room"
     icon: "🎛️"
     windows: [west] # river side
     revealWhenDoor: corridor-control # peek once the downhill door opens
@@ -206,7 +206,7 @@ rooms:
     y: 2
     w: 2
     h: 1
-    name: "Lobby"
+    label: "Lobby"
     icon: "🛎️"
     blurb: "Entrance to the control room"
   - id: control-bathroom
@@ -215,7 +215,7 @@ rooms:
     y: 2
     w: 1
     h: 1
-    name: "Bathroom"
+    label: "Bathroom"
     icon: "🚽"
     blurb: "When operators have to go"
   - id: hallway
@@ -224,7 +224,7 @@ rooms:
     y: 0
     w: 1
     h: 0.8 # 8 ft — corridor above the bathroom
-    name: "Hallway"
+    label: "Hallway"
     blurb: "A short passage between the library, small bay, and spiral stair. Doors line the west (river) wall and the north and south ends."
   - id: bathroom
     level: first
@@ -232,7 +232,7 @@ rooms:
     y: 0.8
     w: 1
     h: 1.2 # 12 ft — slightly deeper than the hallway
-    name: "Bathroom"
+    label: "Bathroom"
     icon: "🚽"
     blurb: "A compact washroom off the hallway — sink, toilet, and a frosted window onto the cascade. Smells faintly of old soap."
   - id: small-bay
@@ -241,7 +241,7 @@ rooms:
     y: 0
     w: 2
     h: 2
-    name: "Small Bay"
+    label: "Small Bay"
     icon: "🔧"
     note: "1 story · EV bay"
     rollDoor: north # roll-up onto the driveway (north wall)
@@ -253,7 +253,7 @@ rooms:
     y: 2
     w: 4
     h: 3
-    name: "Large Bay"
+    label: "Large Bay"
     icon: "🚜"
     note: "2 stories"
     rollDoor: north # bigger two-story roll-up, same (north) wall / driveway
@@ -262,12 +262,12 @@ rooms:
   - id: garage-stair
     levels: [first, second]
     feature: garage-stair
-    name: "Garage Stairs"
+    label: "Garage Stairs"
     blurb: "A straight run of steps from the large bay up to the conference room landing. A closed door at the top leads into the second floor."
   - id: spiral-stair
     levels: [first, second]
     feature: spiral-stair
-    name: "Spiral Stair"
+    label: "Spiral Stair"
     blurb: "A glass half-cylinder with a spectacular view of the cascade. White noise from the river fills the stairwell. A good place to pause and take in the view or hold a semi-private conversation."
 
   # ---------------- 2nd floor ----------------
@@ -277,7 +277,7 @@ rooms:
     y: 0
     w: 3
     h: 2
-    name: "Conference Room"
+    label: "Conference Room"
     icon: "🪑"
     windows: [west]
     blurb: "Table, chairs, and dirty windows framing the river rapids and sloping valley."
@@ -287,7 +287,7 @@ rooms:
     y: 0
     w: 2
     h: 2
-    name: "Kitchen / Dining"
+    label: "Kitchen / Dining"
     icon: "🍽️"
     windows: [west] # river side
     blurb: "Worker kitchen and dining area. Water purifier, rations, dishes and utensils. Small table with kitchen chairs."
@@ -297,7 +297,7 @@ rooms:
     y: 2
     w: 4
     h: 3
-    name: "Large Bay"
+    label: "Large Bay"
     icon: "🚜"
     note: "2 stories"
     open: true # mezzanine edge — you can't stand here, but it's the same bay
@@ -339,15 +339,15 @@ links:
 items:
   - id: hallway-small-bay-key
     kind: key
-    name: Small bay door key
+    label: Small bay door key
     description: Brass key for the man door between the hallway and small bay — needed from the garage side.
   - id: lobby-exterior-key
     kind: key
-    name: Lobby exterior key
+    label: Lobby exterior key
     description: Deadbolt key for the front door — needed from outside on the footpath.
   - id: large-bay-man-key
     kind: key
-    name: Large bay man door key
+    label: Large bay man door key
     description: Key for the personnel door at the corner of the large bay.
 
 # Pickups — one-time items found in a room.

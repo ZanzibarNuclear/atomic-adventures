@@ -1,3 +1,4 @@
+import { hexLabel, landmarkLabel, routeLabel, displayLabel } from '../../displayLabel.js'
 import { axialToPixel } from './useHexGeometry.js'
 import { resolveWaypoint } from './useRoutes.js'
 import {
@@ -20,12 +21,12 @@ function roundInt(n) {
 /** Hexes with a landmark icon and/or standAt — editable placements. */
 export function listEditablePlacements(hexes) {
   return (hexes ?? [])
-    .filter((h) => hasLandmarkMarker(h) || h.standAt || h.landmark?.name)
+    .filter((h) => hasLandmarkMarker(h) || h.standAt || h.landmark?.label)
     .map((h) => ({
       source: 'hexes',
       id: h.id,
       kind: 'placement',
-      label: h.landmark?.name ?? h.id,
+      label: h.landmark ? landmarkLabel(h.landmark) : hexLabel(h),
     }))
 }
 
@@ -44,7 +45,7 @@ export function resolvedPlacementHandles(hex, size) {
   if (
     hasLandmarkMarker(hex) ||
     hex.standAt ||
-    hex.landmark?.name
+    hex.landmark?.label
   ) {
     const p = resolveAvatarPosition(hex, size)
     handles.push({ role: 'stand', x: p.x, y: p.y })
@@ -102,7 +103,7 @@ export function listEditableLines(routes, features) {
       source: 'routes',
       id: r.id,
       kind: r.kind,
-      label: r.name ? `${r.name} (${r.id})` : r.id,
+      label: `${routeLabel(r)} (${r.id})`,
     })
   }
   for (const f of features ?? []) {
@@ -178,7 +179,7 @@ function serializeLine(line, indent) {
   const pad = ' '.repeat(indent)
   const inner = ' '.repeat(indent + 2)
   const lines = [`${pad}- id: ${line.id}`, `${inner}kind: ${line.kind}`]
-  if (line.name) lines.push(`${inner}name: ${JSON.stringify(line.name)}`)
+  if (line.label) lines.push(`${inner}label: ${JSON.stringify(line.label)}`)
   if (line.smooth === false) lines.push(`${inner}smooth: false`)
   else if (line.smooth) lines.push(`${inner}smooth: true`)
   if (line.flow) lines.push(`${inner}flow: ${line.flow}`)
@@ -203,7 +204,7 @@ function serializeGate(feature, indent) {
       `${inner}labelAt: { x: ${roundInt(feature.labelAt.x)}, y: ${roundInt(feature.labelAt.y)} }`,
     )
   }
-  if (feature.name) lines.push(`${inner}name: ${feature.name}`)
+  if (feature.label) lines.push(`${inner}label: ${feature.label}`)
   return lines.join('\n')
 }
 
@@ -247,7 +248,7 @@ function serializeHexBlock(hex, indent) {
     const lm = hex.landmark
     if (lm.building) lines.push(`${inner}  building: ${lm.building}`)
     if (lm.icon) lines.push(`${inner}  icon: ${JSON.stringify(lm.icon)}`)
-    if (lm.name) lines.push(`${inner}  name: ${JSON.stringify(lm.name)}`)
+    if (lm.label) lines.push(`${inner}  label: ${JSON.stringify(lm.label)}`)
     if (lm.dx !== undefined && lm.dx !== 0) lines.push(`${inner}  dx: ${round2(lm.dx)}`)
     if (lm.dy !== undefined && lm.dy !== 0) lines.push(`${inner}  dy: ${round2(lm.dy)}`)
     if (lm.blurb) lines.push(`${inner}  blurb: ${JSON.stringify(lm.blurb)}`)
@@ -259,7 +260,7 @@ function fmtLandmarkInline(lm) {
   const parts = []
   if (lm.building) parts.push(`building: ${lm.building}`)
   if (lm.icon) parts.push(`icon: ${JSON.stringify(lm.icon)}`)
-  if (lm.name) parts.push(`name: ${JSON.stringify(lm.name)}`)
+  if (lm.label) parts.push(`label: ${JSON.stringify(lm.label)}`)
   if (lm.dx !== undefined && lm.dx !== 0) parts.push(`dx: ${round2(lm.dx)}`)
   if (lm.dy !== undefined && lm.dy !== 0) parts.push(`dy: ${round2(lm.dy)}`)
   return parts.join(', ')

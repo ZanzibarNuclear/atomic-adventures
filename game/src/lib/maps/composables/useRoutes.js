@@ -5,6 +5,7 @@
 // So a path can run due north while passing through a hex that sits to the
 // northwest — the hex lights up, but the reported direction is still north.
 
+import { routeLabel } from "../../displayLabel.js";
 import { axialToPixel, pixelToHex, hexDistance } from './useHexGeometry.js'
 
 const COMPASS = [
@@ -140,7 +141,7 @@ export function buildRouteModels(routes, hexById, hexes, size) {
       if (last && last.hexId === samples[i].hexId) last.endIdx = i
       else spans.push({ hexId: samples[i].hexId, startIdx: i, endIdx: i })
     }
-    return { id: route.id, kind: route.kind, name: route.name, points, samples, spans }
+    return { id: route.id, kind: route.kind, label: routeLabel(route), points, samples, spans }
   })
     .filter(Boolean)
 }
@@ -180,7 +181,7 @@ export function availableMoves(currentHexId, models, travelOpts = null) {
         seen.add(fwd.hexId)
         moves.push({
           routeId: m.id,
-          routeName: m.name,
+          routeName: m.label,
           kind: m.kind,
           toHexId: fwd.hexId,
           label: bearingFromVector(h.dx, h.dy),
@@ -204,7 +205,7 @@ export function availableMoves(currentHexId, models, travelOpts = null) {
         seen.add(bwd.hexId)
         moves.push({
           routeId: m.id,
-          routeName: m.name,
+          routeName: m.label,
           kind: m.kind,
           toHexId: bwd.hexId,
           label: bearingFromVector(-h.dx, -h.dy),

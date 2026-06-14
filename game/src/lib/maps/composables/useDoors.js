@@ -8,6 +8,7 @@
 //   lock.enablers     — [power, manual] for enabler locks
 
 import { hasItem } from './useInventory.js'
+import { displayLabel, roomLabel } from '../../displayLabel.js'
 
 export function doorStateKey(areaId, doorId) {
   return `${areaId}:${doorId}`
@@ -316,7 +317,7 @@ export function doorsFromRoom(building, roomId) {
     out.push({
       doorId: link.door,
       toRoomId: otherId,
-      toName: building.roomById[otherId]?.name ?? otherId,
+      toName: roomLabel(building.roomById[otherId]),
     })
   }
   for (const door of building.doors ?? []) {
@@ -334,10 +335,14 @@ export function doorLabel(building, doorId, toName) {
   if (door?.label) return door.label
   if (door?.kind === 'roll') {
     const room = building.roomById[door.room]
-    return `${room?.name ?? door.room} roll-up`
+    return `${roomLabel(room)} roll-up`
   }
   if (toName) return `Door to ${toName}`
-  return doorId.replace(/-/g, ' ')
+  return displayLabel({ id: doorId })
+}
+
+function itemLabel(catalog, keyId) {
+  return displayLabel(catalog[keyId] ?? { id: keyId })
 }
 
 export function doorStatusText(state, door = null, facilityState = null) {
@@ -369,9 +374,7 @@ export function lockHintForDoor(door, playerRoomId, inventory, facilityState, ca
   const keyId = requiredKeyId(door)
   if (!keyId) return ''
   if (hasItem(inventory, keyId)) {
-    const name = catalog[keyId]?.name ?? keyId.replace(/-/g, ' ')
-    return `Key in pocket (${name})`
+    return `Key in pocket (${itemLabel(catalog, keyId)})`
   }
-  const name = catalog[keyId]?.name ?? keyId.replace(/-/g, ' ')
-  return `Need key: ${name}`
+  return `Need key: ${itemLabel(catalog, keyId)}`
 }

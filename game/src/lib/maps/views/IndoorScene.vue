@@ -1,14 +1,14 @@
 <template>
   <section class="stage">
     <IndoorMapStage v-bind="mapStageProps" v-on="mapStageListeners" />
+    <MapCaption :title="locationTitle" />
   </section>
 
-  <PlayPanel>
-    <LocationBlock
-      :label="indoor.building.name"
-      :title="locationTitle"
-      :blurb="locationBlurb" />
+  <NarrativeCard
+    :beat="narrativeBeat"
+    @choose="$emit('narrative-choose', $event)" />
 
+  <PlayPanel>
     <StatusLines :lines="statusLines" />
 
     <TravelOptions label="Move">
@@ -48,13 +48,15 @@
 
 <script setup>
 import { computed } from "vue";
+import { displayLabel, roomLabel } from "../../displayLabel.js";
 import IndoorMapStage from "../components/IndoorMapStage.vue";
 import PlayPanel from "../../../components/hud/PlayPanel.vue";
-import LocationBlock from "../components/hud/LocationBlock.vue";
+import MapCaption from "../components/hud/MapCaption.vue";
 import TravelOptions from "../components/hud/TravelOptions.vue";
 import InventoryPanel from "../components/hud/InventoryPanel.vue";
 import StatusLines from "../../../components/hud/StatusLines.vue";
 import PlayActions from "../../../components/hud/PlayActions.vue";
+import NarrativeCard from "../../../components/story/NarrativeCard.vue";
 import {
   buildIndoorPlayActions,
   buildIndoorStatusLines,
@@ -63,24 +65,17 @@ import {
 
 const props = defineProps({
   indoor: { type: Object, required: true },
+  narrativeBeat: { type: Object, default: null },
 });
 
-const locationTitle = computed(
-  () =>
-    props.indoor.currentExteriorNode?.label ??
-    props.indoor.currentRoomData?.name ??
-    props.indoor.currentRoomData?.id ??
-    "",
-);
+defineEmits(["narrative-choose"]);
 
-const locationBlurb = computed(() => {
-  if (props.indoor.currentRoomData?.blurb) {
-    return props.indoor.currentRoomData.blurb;
+const locationTitle = computed(() => {
+  const { indoor } = props;
+  if (indoor.currentExteriorNode) {
+    return displayLabel(indoor.currentExteriorNode);
   }
-  if (props.indoor.currentExteriorNode) {
-    return "Outside on the footpath.";
-  }
-  return "";
+  return roomLabel(indoor.currentRoomData);
 });
 
 const statusLines = computed(() => buildIndoorStatusLines(props.indoor));
@@ -119,6 +114,6 @@ const mapStageListeners = computed(() => ({
 <style scoped>
 .stage {
   display: block;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 </style>

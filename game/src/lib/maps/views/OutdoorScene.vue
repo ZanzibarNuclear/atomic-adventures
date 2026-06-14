@@ -11,15 +11,14 @@
       :avatar-instant="!!outdoor.state.barrierStand"
       @hex-click="outdoor.moveTo"
       @building-enter="indoor.enterBuilding" />
+    <MapCaption :title="hexLabel(outdoor.currentHexData)" />
   </section>
 
-  <PlayPanel>
-    <LocationBlock
-      :title="
-        outdoor.currentHexData.landmark?.name ?? outdoor.currentHexData.id
-      "
-      :blurb="outdoor.currentHexData.landmark?.blurb ?? ''" />
+  <NarrativeCard
+    :beat="narrativeBeat"
+    @choose="$emit('narrative-choose', $event)" />
 
+  <PlayPanel>
     <StatusLines :lines="statusLines" />
 
     <TravelOptions label="Follow a route">
@@ -54,12 +53,14 @@
 
 <script setup>
 import { computed } from "vue";
+import { hexLabel } from "../../displayLabel.js";
 import HexMap from "../components/HexMap.vue";
 import PlayPanel from "../../../components/hud/PlayPanel.vue";
-import LocationBlock from "../components/hud/LocationBlock.vue";
+import MapCaption from "../components/hud/MapCaption.vue";
 import TravelOptions from "../components/hud/TravelOptions.vue";
 import StatusLines from "../../../components/hud/StatusLines.vue";
 import PlayActions from "../../../components/hud/PlayActions.vue";
+import NarrativeCard from "../../../components/story/NarrativeCard.vue";
 import {
   buildOutdoorStatusLines,
 } from "../../../composables/usePlayPanel.js";
@@ -67,7 +68,10 @@ import {
 const props = defineProps({
   outdoor: { type: Object, required: true },
   indoor: { type: Object, required: true },
+  narrativeBeat: { type: Object, default: null },
 });
+
+defineEmits(["narrative-choose"]);
 
 const statusLines = computed(() =>
   buildOutdoorStatusLines(props.outdoor, props.indoor),
@@ -78,7 +82,7 @@ const playActions = computed(() => {
   return [
     {
       id: "enter-building",
-      label: `Enter the ${props.indoor.building.name}`,
+      label: `Enter the ${props.indoor.building.label}`,
     },
   ];
 });
@@ -91,7 +95,7 @@ function onPlayAction(id) {
 <style scoped>
 .stage {
   display: block;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 .barrier-hint {
   color: #a89878;

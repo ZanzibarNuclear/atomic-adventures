@@ -1,11 +1,13 @@
 // Player inventory — keys and other carry items (story engine will share this shape).
 
+import { displayLabel } from '../../displayLabel.js'
+
 export function normalizeItem(raw = {}) {
   if (!raw.id) return null
   return {
     id: raw.id,
     kind: raw.kind ?? 'item',
-    name: raw.name ?? raw.id.replace(/-/g, ' '),
+    label: displayLabel(raw),
     description: raw.description ?? '',
   }
 }

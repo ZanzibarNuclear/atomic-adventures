@@ -3,6 +3,8 @@
 # HEX REFERENCE
 # -------------
 # Each hex has a unique `id` (kebab-case) — use this in story, flags, and code.
+# Optional `label` overrides the caption; otherwise id is shown as Title Case
+# (e.g. east-pines → East Pines). Landmark icons may have their own `label`.
 # Layout uses axial coordinates (q, r), pointy-top. North = decreasing r / screen-up.
 #   https://www.redblobgames.com/grids/hexagons/
 #
@@ -62,7 +64,7 @@ hexes:
     puzzle: gate
     standAt: { x: -81, y: -58 }
     landmark:
-      name: "Compound Gate"
+      label: "Compound Gate"
       blurb: "A locked fence gate and a guard booth."
 
   - { id: mid-west, q: -2, r: 0, terrain: forest, enclosure: compound }
@@ -85,7 +87,7 @@ hexes:
     standAt: { from: landmark, dx: 0.05, dy: -0.56 }
     landmark:
       building: utility-station
-      name: "Utility Station"
+      label: "Utility Station"
       dx: 0.06
       dy: 0.19
       blurb: "Built beside a rocky cascade on the river, this facility is the central location for Part I of our adventure."
@@ -124,7 +126,7 @@ features:
     hex: gate-woods
     at: { x: -94, y: -58 }
     labelAt: { x: -81, y: -42 }
-    name: Gate
+    label: Gate
 
   - id: compound-road
     kind: road
@@ -158,7 +160,7 @@ features:
 routes:
   - id: hero-route
     kind: path
-    name: "the trail"
+    label: "the trail"
     smooth: true
     points:
       - { x: 152, y: 2 }

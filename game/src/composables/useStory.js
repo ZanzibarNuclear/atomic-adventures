@@ -2,20 +2,26 @@ import { computed, ref, watch } from "vue";
 import { hasFlag, requireSatisfied, setFlags } from "../lib/maps/composables/useFlags.js";
 
 /**
- * Location- and flag-triggered story beats from YAML.
- * Shows one beat at a time; dismissed beats are tracked in gameState.storySeen.
+ * Location-triggered narrative for the card between map and play panel.
+ * Milestone beats acknowledge once; revisit text shows on return.
  */
 export function useStory(storyData, ctx) {
   const { gameState, place, outdoor, indoor } = ctx;
   const beats = storyData.beats ?? {};
   const previousPlace = ref(place.value);
 
-  const activeBeat = ref(null);
+  /** Beat awaiting player acknowledgment (blocks narrative updates). */
+  const pendingBeat = ref(null);
+  /** Current location narrative (revisit or ambient). */
+  const locationNarrative = ref(null);
+
   const showEndCard = computed(
     () =>
       hasFlag(gameState.flags, "day1.complete") &&
       !gameState.endCardDismissed,
   );
+
+  const narrativeBeat = computed(() => pendingBeat.value ?? locationNarrative.value);
 
   function beatSeen(id) {
     return gameState.storySeen.has(id);
@@ -55,30 +61,61 @@ export function useStory(storyData, ctx) {
     return true;
   }
 
-  function beatEligible(id, beat, loc, event) {
-    if (beat.once !== false && beatSeen(id)) return false;
+  function beatMatchesLocation(id, beat, loc) {
     if (!requireSatisfied(beat.require, gameState.flags)) return false;
-    return triggerMatches(beat, loc, event);
+    return triggerMatches(beat, loc);
   }
 
-  function findBeat(loc, event = null) {
+  function findNewBeat(loc, event = null) {
     for (const [id, beat] of Object.entries(beats)) {
-      if (beatEligible(id, beat, loc, event)) {
-        return { id, ...beat };
-      }
+      if (beat.once !== false && beatSeen(id)) continue;
+      if (!requireSatisfied(beat.require, gameState.flags)) continue;
+      if (!triggerMatches(beat, loc, event)) continue;
+      return {
+        id,
+        eyebrow: beat.eyebrow,
+        heading: beat.heading,
+        text: beat.text,
+        choices: beat.choices,
+        acknowledge: beat.acknowledge !== false,
+      };
     }
     return null;
   }
 
-  function tryShowBeat(event = null) {
-    if (activeBeat.value || showEndCard.value) return;
+  function findRevisitBeat(loc) {
+    for (const [id, beat] of Object.entries(beats)) {
+      if (beat.once === false || !beatSeen(id) || !beat.revisit) continue;
+      if (!beatMatchesLocation(id, beat, loc)) continue;
+      return {
+        id,
+        eyebrow: beat.eyebrow,
+        heading: beat.heading,
+        text: beat.revisit,
+        revisit: true,
+        acknowledge: false,
+      };
+    }
+    return null;
+  }
+
+  function refreshNarrative(event = null) {
+    if (pendingBeat.value || showEndCard.value) return;
+
     const loc = locationContext();
-    const beat = findBeat(loc, event);
-    if (beat) activeBeat.value = beat;
+    const fresh = findNewBeat(loc, event);
+    if (fresh) {
+      pendingBeat.value = fresh;
+      locationNarrative.value = null;
+      return;
+    }
+
+    pendingBeat.value = null;
+    locationNarrative.value = findRevisitBeat(loc);
   }
 
   function dismissBeat(choiceIndex = 0) {
-    const beat = activeBeat.value;
+    const beat = pendingBeat.value;
     if (!beat) return;
 
     const choice = beat.choices?.[choiceIndex];
@@ -86,7 +123,8 @@ export function useStory(storyData, ctx) {
     if (choice?.set_flags) setFlags(gameState.flags, choice.set_flags);
 
     markSeen(beat.id);
-    activeBeat.value = null;
+    pendingBeat.value = null;
+    refreshNarrative();
   }
 
   function dismissEndCard() {
@@ -106,20 +144,23 @@ export function useStory(storyData, ctx) {
         previousPlace.value === "outdoors" && place.value === "indoors";
       previousPlace.value = place.value;
 
+      if (pendingBeat.value) return;
+
       if (enteredIndoors) {
-        tryShowBeat("enter-building");
+        refreshNarrative("enter-building");
       } else {
-        tryShowBeat();
+        refreshNarrative();
       }
     },
     { flush: "post" },
   );
 
   return {
-    activeBeat,
+    narrativeBeat,
+    pendingBeat,
     showEndCard,
     dismissBeat,
     dismissEndCard,
-    tryShowBeat,
+    refreshNarrative,
   };
 }

@@ -6,7 +6,7 @@
         <polygon points="-7.5,-8 7.5,-8 0,-11.5" class="gate-roof" />
         <rect x="-2.5" y="-6" width="5" height="3.5" rx="0.4" class="gate-window" />
       </g>
-      <text :x="g.labelX" :y="g.labelY" class="gate-label">{{ g.name }}</text>
+      <text :x="g.labelX" :y="g.labelY" class="gate-label">{{ g.label }}</text>
     </g>
   </g>
 </template>

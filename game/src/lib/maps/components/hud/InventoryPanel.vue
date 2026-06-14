@@ -3,7 +3,7 @@
     <span class="label">Carrying</span>
     <ul class="inventory-list">
       <li v-for="item in items" :key="item.id">
-        <strong>{{ item.name }}</strong>
+        <strong>{{ item.label }}</strong>
         <em v-if="item.description">{{ item.description }}</em>
       </li>
     </ul>

@@ -1,5 +1,6 @@
 <script setup>
 import UtilityStationLandmark from '../UtilityStationLandmark.vue'
+import { landmarkLabel } from '../../../displayLabel.js'
 
 defineProps({
   landmarkHexes: { type: Array, default: () => [] },
@@ -39,7 +40,7 @@ const emit = defineEmits(['building-enter'])
         :y="centerOf(hex).y + size * 0.78"
         class="landmark-label"
       >
-        {{ hex.landmark.name }}
+        {{ landmarkLabel(hex.landmark) }}
       </text>
     </g>
   </g>

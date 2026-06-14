@@ -1,3 +1,4 @@
+import { exteriorNodeLabel } from "../../../displayLabel.js";
 import { canPassDoor } from '../useDoors.js'
 
 export function canUseExteriorExit(
@@ -24,7 +25,7 @@ export function exteriorMovesFrom(building, nodeId) {
       toNodeId,
       kind: 'path',
       label: 'along the footpath',
-      toName: other?.label ?? toNodeId,
+      toName: exteriorNodeLabel(other),
     }
   })
 }
@@ -135,7 +136,7 @@ export function exteriorStepOutMoves(building, roomId, doorState, areaId) {
       kind: 'path',
       doorId: exit.door,
       label: 'out to the footpath',
-      toName: node.label ?? exit.exteriorNode,
+      toName: exteriorNodeLabel(node),
     })
   }
 
@@ -150,7 +151,7 @@ export function exteriorStepOutMoves(building, roomId, doorState, areaId) {
       kind: 'path',
       doorId: node.door,
       label: 'out to the footpath',
-      toName: node.label ?? node.id,
+      toName: exteriorNodeLabel(node),
     })
   }
 

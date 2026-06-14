@@ -1,3 +1,4 @@
+import { roomLabel } from '../../displayLabel.js'
 import { roomRect, roomOnLevel, exitMapAt } from './useGrid.js'
 import { normalizeCompassEdge } from './grid/useGridCompass.js'
 
@@ -37,7 +38,7 @@ export function listEditableRooms(data, levelId) {
     .map((r) => ({
       source: 'rooms',
       id: r.id,
-      label: r.name ? `${r.name} (${r.id})` : r.id,
+      label: `${roomLabel(r)} (${r.id})`,
     }))
 }
 
@@ -451,10 +452,10 @@ export function setRoomRect(data, roomId, { x, y, w, h }) {
   if (h != null) room.h = Math.max(0.5, snapHalf(h))
 }
 
-export function setRoomName(data, roomId, name) {
+export function setRoomLabel(data, roomId, label) {
   const room = data.rooms?.find((r) => r.id === roomId)
   if (!room) return
-  room.name = name
+  room.label = label
 }
 
 /** Move or resize room from a handle drag (layout units). */
@@ -559,7 +560,7 @@ function serializeRoom(room, indent) {
     `${inner}w: ${room.w ?? 1}`,
     `${inner}h: ${room.h ?? 1}`,
   )
-  if (room.name) lines.push(`${inner}name: ${JSON.stringify(room.name)}`)
+  if (room.label) lines.push(`${inner}label: ${JSON.stringify(room.label)}`)
   if (room.icon) lines.push(`${inner}icon: ${JSON.stringify(room.icon)}`)
   if (room.note) lines.push(`${inner}note: ${JSON.stringify(room.note)}`)
   if (room.blurb) lines.push(`${inner}blurb: ${JSON.stringify(room.blurb)}`)

@@ -1,6 +1,6 @@
-# Part I — Day 1 story beats
-# Triggers fire when location matches and require conditions are met.
-# Each beat shows once (once: true) until dismissed via a choice.
+# Part I — Day 1 narrative
+# Rich prose lives here; the play panel stays mechanical (location, move, actions).
+# Milestone beats acknowledge once; revisit text shows when you return.
 
 area: part-i
 name: "Day 1 — Into the Station"
@@ -8,106 +8,229 @@ name: "Day 1 — Into the Station"
 beats:
   intro:
     once: true
+    eyebrow: Day 1 · Opening
     heading: Lost in the woods
     trigger:
       place: outdoors
       hex: trailhead
     text: |
       Zanzibar had been walking in the forest for days. He parted company with
-      his small group of explorers, following an unshakable intuition — and
-      now the situation is growing desperate. Food and water are running low.
+      his small group of explorers, following an unshakable intuition — and an
+      impasse. Now the situation is growing desperate. Food and water are running
+      low, and his hunch has yet to play out.
 
-      Early afternoon on a pleasant summer day. Pine scent and a fasting edge
-      to his senses. Turning back would be a mistake.
+      Not one to wallow for long, Zanzibar parries desperation with optimism.
+      Things will be better. He will survive.
 
-      Review your inventory in the panel below when you need it.
+      Early afternoon on a pleasant summer day. The sun is still high, the weather
+      is pleasant, a gentle warm breeze meets his face. Fresh pine scent keeps him
+      alert. His fasting stomach gives an edge to his senses.
+
+      At the split in the path, he was certain the best strategy was to head west.
+      Everyone else thought east was better. What seemed like a path dwindled to a
+      suggestion, then nothing at all but pine cones among the tall trees. Turning
+      back would be a mistake.
+    revisit: |
+      The trail west through the pines. Zanzibar's stomach reminds him how far
+      he has come — and how far he still has to go.
     choices:
       - text: Keep walking west
         sets: [story.intro]
 
   the-gate:
     once: true
+    eyebrow: Day 1
+    heading: The compound gate
     trigger:
       place: outdoors
       hex: gate-woods
     require:
       all: [story.intro]
     text: |
-      A chain-link fence covered in vines. A paved road, a gate, and a guard
-      house — closed and locked. Or so it seems.
+      After a time, Zanzibar found the first sign of humanity in days. A chain-link
+      fence covered in thick vines grew out of the ground, stretching in a straight
+      line up the mountainside. He turned uphill, hoping higher ground would offer
+      a vantage point. As he walked, he wondered what was on the other side.
 
-      On closer inspection, the chain holding the gate closed is unattached —
-      more theater than security. Zanzibar slips through and restores the
-      illusion behind him.
+      He followed the fence for what might have been half a mile, rounded a corner,
+      and headed west. Before long: a paved road, a gate, and a guard house — closed
+      and locked. Bolt cutters or a blow torch would come in handy. Or a tank.
+
+      As he sipped some water and nibbled at his last energy bar, Zanzibar studied
+      the gate. Something seemed off. On closer inspection, the chain holding the
+      gate closed was unattached — more theater than security. He slipped through
+      and replaced the chain to restore the illusion, then headed down the paved
+      road.
+    revisit: |
+      The gate and guard house. From a distance they look impenetrable; up close,
+      the chain was never really locked.
     choices:
       - text: Head down the road
         sets: [story.the-gate]
 
   the-compound:
     once: true
+    eyebrow: Day 1
+    heading: The utility station
     trigger:
       place: outdoors
       hex: utility-yard
     require:
       all: [story.the-gate]
     text: |
-      The road opens onto a gravel driveway and a two-story building beside a
-      spectacular river cascade. A large industrial garage dominates the
-      structure — one roll-up door wider and twice the height of the other.
+      The road was in decent shape, obscured by years of pine needle drops. Shrubs
+      and thickets lined the way. White noise from running water entered his
+      awareness — a stream or river nearby, somewhere over the ridge to the west.
 
-      No way to open the roll-ups from here. A path leads around to a man
-      door at the side.
+      Half a mile along, a gravel driveway split off toward the sound of rushing
+      water. A two-story building stood before him. To the west, a spectacular
+      river cascade — not accessible from the driveway.
+
+      A bigger surprise: a large industrial garage. One roll-up door was wider
+      and twice the height of the other. Seeing no way to open the roll-ups,
+      Zanzibar noted a path around to a man door at the side.
+    revisit: |
+      The utility station beside the cascade. Tire tracks, silence, and the steady
+      roar of water over stone.
     choices:
       - text: Find a way inside
         sets: [story.the-compound]
 
   the-garage:
     once: true
+    eyebrow: Day 1
+    heading: Outside the station
     trigger:
       event: enter-building
     require:
       all: [story.the-compound]
     text: |
-      Zanzibar steps onto the footpath beside the building. Through a side
-      door he can reach the bays — tire marks and oil stains, pulleys on a
-      cross beam, charging cables on the wall.
+      Zanzibar stepped onto the footpath beside the building. Whoever left this
+      place might have realized they would never return. It seemed an ideal spot
+      to take shelter and make sense of things — if he could get in.
 
-      In the next bay, something under a cover has the shape of a small
-      vehicle. His stomach overrides curiosity for now.
+      The side door was locked. He had bested more formidable locks before, though
+      he would have preferred to leave this one functional. For now, getting inside
+      mattered more.
+    revisit: |
+      The footpath around the garage. Locked doors, charging cables visible
+      through grimy windows, and the sound of the falls close by.
     choices:
-      - text: Explore the station
+      - text: Look for a way in
         sets: [story.the-garage]
 
-  food-and-water:
+  large-bay:
     once: true
+    eyebrow: Day 1
+    heading: The large bay
+    trigger:
+      place: indoors
+      room: large-bay
+    require:
+      all: [story.the-garage]
+    text: |
+      He stepped into the larger garage bay — rather empty, but tire marks and oil
+      stains made it clear that something large had been parked here. Directly
+      opposite, a staircase to a door on the second story. Grimy windows above the
+      stairs. Strong posts and beams; a cross beam with pulleys and chains hanging
+      down — rigging to unload heavy objects, he imagined.
+
+      Something in the next bay caught his eye. Under a cover, the distinctive
+      shape of a small vehicle. He lifted the cover just enough to peek at shiny
+      chrome and knobby wheels — a stylish dune buggy. As much fun as that looked,
+      his stomach told him to come back later.
+
+      A tool rack, charging cables, and a locked door in the back wall. Perhaps
+      the stairs would offer a more civilized entry.
+    revisit: |
+      The empty large bay. Oil stains, pulleys on the beam, and a covered shape
+      in the next bay that might be worth a second look — after food.
+    choices:
+      - text: Continue exploring
+        sets: [story.large-bay]
+
+  conference:
+    once: true
+    eyebrow: Day 1
+    heading: Conference room
+    trigger:
+      place: indoors
+      room: conference
+    require:
+      all: [story.large-bay]
+    text: |
+      A bit of good luck at the top of the stairs: the door was unlocked. A stylish
+      conference room — formal without being stuffy. A large rustic wooden table
+      circled by sturdy chairs. Windows overlooked the garage on one side; larger
+      windows on the other must frame a spectacular view, though they needed
+      cleaning inside and out.
+
+      Wooden panels at the end of the room slid apart to reveal a large screen.
+      Presentations, conference calls, movie night. Whoever stayed here was doing
+      more than camping. This was a serious facility. What happened?
+
+      A second door at the back of the room was unlocked. As Zanzibar opened it,
+      adrenaline flooded his body with the instant recognition of what he had found.
+    revisit: |
+      The conference room. Dust on the table, dirty windows, and the lingering
+      sense that important work happened here.
+    choices:
+      - text: See what is through the door
+        sets: [story.conference]
+
+  kitchen:
+    once: true
+    eyebrow: Day 1
+    heading: Kitchen
     trigger:
       place: indoors
       room: kitchen
     require:
-      all: [story.the-garage]
+      all: [story.conference]
     text: |
-      Proper labeling makes short work of the rations cabinet. Tastee Tack —
-      turkey-cranberry tonight. The faucet sputters, then clears. Water
-      purifier tablets, a rinsed glass, and a tall drink.
+      In a facility where people come and go, proper labeling is essential.
+      Zanzibar found the rations cabinet in no time.
 
-      Windows frame the cascade as the sun sets on an amazing day.
+      Decades ago, food preservation had evolved — nutrition packing, flavor loading,
+      irradiation, impenetrable wrapping. Energy bars with a shelf life measured
+      in decades. Tastee Tack, harkening back to hardtack. He settled on
+      turkey-cranberry. After a couple of bites, he realized how thirsty he was.
+
+      He tried the faucet. It sputtered, then cleared. A container, water purifier
+      tablets, a rinsed glass, and a tall drink. He sat at a breakroom table with
+      windows framing the flowing water outside. The sun was setting on an amazing
+      day.
+    revisit: |
+      The kitchen. Running water, labeled rations, and a view of the cascade as
+      the light fades.
     choices:
       - text: Eat and drink
-        sets: [story.food-and-water, day1.found-food, day1.found-water]
+        sets: [story.kitchen, day1.found-food, day1.found-water]
 
   library-arrival:
     once: true
+    eyebrow: Day 1 · Evening
+    heading: The library
     trigger:
       place: indoors
       room: library
     require:
       all: [day1.found-food, day1.found-water]
     text: |
-      Shelves of books and manuals, study carrels, soft low seating. The white
-      noise from the falls is hypnotic. Fatigue pours over Zanzibar.
+      Shelves of books and manuals, study carrels, soft low seating. One might
+      expect nature writing or philosophy in a mountainside library — and there
+      were picture books of natural scenes — but the vast majority of material was
+      straight out of an elite science and engineering school.
 
-      He sinks into an overstuffed chair, stretches his legs, and drifts off
-      to sleep.
+      Natural light from expansive windows was enough on a sunny day. Without
+      power, the holo-readers and infopods were silent — immersive learning would
+      have to wait.
+
+      White noise from the falls was hypnotic. Fatigue poured over Zanzibar. He
+      sank into an overstuffed chair, stretched his legs, and drifted off to sleep.
+    revisit: |
+      The library. Manuals, holo-readers dark without power, and the murmur of
+      the cascade through the walls.
     choices:
       - text: Sleep
         sets: [day1.complete, story.library-arrival]

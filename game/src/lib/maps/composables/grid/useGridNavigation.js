@@ -1,3 +1,4 @@
+import { roomLabel } from "../../../displayLabel.js";
 import { canPassDoor, canBargeThroughDoor } from '../useDoors.js'
 import {
   dirBetween,
@@ -16,14 +17,14 @@ function linkPassableOrBarge(link, doorState, areaId, building) {
 
 function moveLabel(kind, dir, from, to) {
   if (to?.feature) {
-    const name = (to.name ?? 'stairs').toLowerCase()
+    const name = roomLabel(to).toLowerCase() || "stairs";
     return `onto the ${name}`
   }
   if (from?.feature) {
     if (to.id === 'kitchen') return 'up to the kitchen'
     if (to.id === 'hallway') return 'down to the hallway'
     if (to.id === 'large-bay') return 'down to the large bay'
-    const short = (to.name ?? '').split('/')[0].trim().toLowerCase()
+    const short = roomLabel(to).split("/")[0].trim().toLowerCase();
     if (dir === 'up') return short ? `up to the ${short}` : 'up the stairs'
     if (dir === 'down') return short ? `down to the ${short}` : 'down the stairs'
     return short ? `into the ${short}` : 'into the next room'
@@ -87,7 +88,7 @@ export function movesFrom(
         dir,
         doorId: link.door ?? null,
         label: moveLabel(link.kind, dir, from, other),
-        toName: other.name ?? otherId,
+        toName: roomLabel(other),
         toLevel: otherLevel,
       })
     }
@@ -111,7 +112,7 @@ export function movesFrom(
       dir,
       doorId: link.door ?? null,
       label: moveLabel(link.kind, dir, from, to),
-      toName: to.name ?? toId,
+      toName: roomLabel(to),
       toLevel: isStairLanding(to) ? fromLevel : toLevel,
     })
   }

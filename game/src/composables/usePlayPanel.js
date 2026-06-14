@@ -173,7 +173,7 @@ export function buildOutdoorStatusLines(outdoor, indoor) {
     lines.push("The river blocks the way.");
   }
   if (outdoor.atBuildingEntrance) {
-    lines.push(`The ${indoor.building.name} is here — enter from the map or below.`);
+    lines.push(`The ${indoor.building.label} is here — enter from the map or below.`);
   }
   return lines;
 }

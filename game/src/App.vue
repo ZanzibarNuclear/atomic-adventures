@@ -26,11 +26,11 @@ const { lastSavedAt, loadError, hasSave, save: saveGame, load, clearSave } = sav
 
 const storyCtx = { gameState, place, outdoor, indoor };
 const {
-  activeBeat,
+  narrativeBeat,
   showEndCard,
   dismissBeat,
   dismissEndCard,
-  tryShowBeat,
+  refreshNarrative,
 } = useStory(storyData, storyCtx);
 
 const saveCtx = computed(() => ({
@@ -44,7 +44,7 @@ onMounted(() => {
   if (hasSave()) {
     load(saveCtx.value);
   }
-  tryShowBeat();
+  refreshNarrative();
 });
 
 function handleSave() {
@@ -60,12 +60,12 @@ function handleNewGame() {
   }
   clearSave();
   resetGameState(saveCtx.value);
-  tryShowBeat();
+  refreshNarrative();
 }
 
 function handleReset() {
   resetGameState(saveCtx.value);
-  tryShowBeat();
+  refreshNarrative();
 }
 </script>
 
@@ -82,14 +82,18 @@ function handleReset() {
     <OutdoorScene
       v-if="place === 'outdoors'"
       :outdoor="outdoor"
-      :indoor="indoor" />
+      :indoor="indoor"
+      :narrative-beat="narrativeBeat"
+      @narrative-choose="dismissBeat" />
 
-    <IndoorScene v-else :indoor="indoor" />
+    <IndoorScene
+      v-else
+      :indoor="indoor"
+      :narrative-beat="narrativeBeat"
+      @narrative-choose="dismissBeat" />
 
     <StoryOverlay
-      :beat="activeBeat"
       :show-end-card="showEndCard"
-      @choose="dismissBeat"
       @dismiss-end="dismissEndCard" />
   </main>
 </template>
