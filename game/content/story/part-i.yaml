@@ -1,0 +1,113 @@
+# Part I — Day 1 story beats
+# Triggers fire when location matches and require conditions are met.
+# Each beat shows once (once: true) until dismissed via a choice.
+
+area: part-i
+name: "Day 1 — Into the Station"
+
+beats:
+  intro:
+    once: true
+    heading: Lost in the woods
+    trigger:
+      place: outdoors
+      hex: trailhead
+    text: |
+      Zanzibar had been walking in the forest for days. He parted company with
+      his small group of explorers, following an unshakable intuition — and
+      now the situation is growing desperate. Food and water are running low.
+
+      Early afternoon on a pleasant summer day. Pine scent and a fasting edge
+      to his senses. Turning back would be a mistake.
+
+      Review your inventory in the panel below when you need it.
+    choices:
+      - text: Keep walking west
+        sets: [story.intro]
+
+  the-gate:
+    once: true
+    trigger:
+      place: outdoors
+      hex: gate-woods
+    require:
+      all: [story.intro]
+    text: |
+      A chain-link fence covered in vines. A paved road, a gate, and a guard
+      house — closed and locked. Or so it seems.
+
+      On closer inspection, the chain holding the gate closed is unattached —
+      more theater than security. Zanzibar slips through and restores the
+      illusion behind him.
+    choices:
+      - text: Head down the road
+        sets: [story.the-gate]
+
+  the-compound:
+    once: true
+    trigger:
+      place: outdoors
+      hex: utility-yard
+    require:
+      all: [story.the-gate]
+    text: |
+      The road opens onto a gravel driveway and a two-story building beside a
+      spectacular river cascade. A large industrial garage dominates the
+      structure — one roll-up door wider and twice the height of the other.
+
+      No way to open the roll-ups from here. A path leads around to a man
+      door at the side.
+    choices:
+      - text: Find a way inside
+        sets: [story.the-compound]
+
+  the-garage:
+    once: true
+    trigger:
+      event: enter-building
+    require:
+      all: [story.the-compound]
+    text: |
+      Zanzibar steps onto the footpath beside the building. Through a side
+      door he can reach the bays — tire marks and oil stains, pulleys on a
+      cross beam, charging cables on the wall.
+
+      In the next bay, something under a cover has the shape of a small
+      vehicle. His stomach overrides curiosity for now.
+    choices:
+      - text: Explore the station
+        sets: [story.the-garage]
+
+  food-and-water:
+    once: true
+    trigger:
+      place: indoors
+      room: kitchen
+    require:
+      all: [story.the-garage]
+    text: |
+      Proper labeling makes short work of the rations cabinet. Tastee Tack —
+      turkey-cranberry tonight. The faucet sputters, then clears. Water
+      purifier tablets, a rinsed glass, and a tall drink.
+
+      Windows frame the cascade as the sun sets on an amazing day.
+    choices:
+      - text: Eat and drink
+        sets: [story.food-and-water, day1.found-food, day1.found-water]
+
+  library-arrival:
+    once: true
+    trigger:
+      place: indoors
+      room: library
+    require:
+      all: [day1.found-food, day1.found-water]
+    text: |
+      Shelves of books and manuals, study carrels, soft low seating. The white
+      noise from the falls is hypnotic. Fatigue pours over Zanzibar.
+
+      He sinks into an overstuffed chair, stretches his legs, and drifts off
+      to sleep.
+    choices:
+      - text: Sleep
+        sets: [day1.complete, story.library-arrival]

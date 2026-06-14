@@ -378,6 +378,32 @@ switches:
 
 # Player actions — room or riverside stand spots. Flags gate the hydro startup chain.
 actions:
+  - id: eat-rations
+    room: kitchen
+    verb: Eat
+    label: Tastee Tack rations
+    require:
+      all: [story.the-garage]
+      not: [day1.found-food]
+    sets: [day1.found-food]
+
+  - id: purify-water
+    room: kitchen
+    verb: Purify
+    label: river water
+    require:
+      all: [story.the-garage]
+      not: [day1.found-water]
+    sets: [day1.found-water]
+
+  - id: rest-in-library
+    room: library
+    label: Rest in the overstuffed chair
+    require:
+      all: [day1.found-food, day1.found-water]
+      not: [day1.complete]
+    sets: [day1.complete, story.library-arrival]
+
   - id: library-read-hydro
     room: library
     verb: Read

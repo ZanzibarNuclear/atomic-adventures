@@ -6,6 +6,7 @@ export function createIndoorActions({
   indoor,
   setHydroOnline,
   builderView,
+  flagsAreShared = false,
 }) {
   const availableActions = computed(() => {
     if (builderView.value) return [];
@@ -46,7 +47,9 @@ export function createIndoorActions({
   }
 
   function resetActions() {
-    indoor.flags.clear();
+    if (!flagsAreShared) {
+      indoor.flags.clear();
+    }
     indoor.completedActions.clear();
   }
 

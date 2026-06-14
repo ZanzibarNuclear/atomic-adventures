@@ -6,9 +6,11 @@ import { createIndoorFacility } from "./indoor/useIndoorFacility.js";
 import { createIndoorActions } from "./indoor/useIndoorActions.js";
 
 export function useIndoorBuilding(buildingData, outdoor, ctx) {
-  const { place, builderView } = ctx;
+  const { place, builderView, gameState } = ctx;
 
-  const player = createIndoorPlayer(buildingData, builderView);
+  const player = createIndoorPlayer(buildingData, builderView, {
+    flags: gameState?.flags,
+  });
 
   const openDoorRef = { fn: () => {} };
 
@@ -51,11 +53,12 @@ export function useIndoorBuilding(buildingData, outdoor, ctx) {
     indoor: player.indoor,
     setHydroOnline: facility.setHydroOnline,
     builderView,
+    flagsAreShared: player.flagsAreShared,
   });
 
   const resetIndoor = () => {
     player.resetIndoor();
-    actions.resetActions();
+    player.indoor.completedActions = new Set();
   };
 
   return reactive({

@@ -8,7 +8,8 @@ import { buildInitialDoorState } from "../useDoors.js";
 import { createInventory, addItem, inventoryItems } from "../useInventory.js";
 import { createFlags } from "../useFlags.js";
 
-export function createIndoorPlayer(buildingData, builderView) {
+export function createIndoorPlayer(buildingData, builderView, { flags: sharedFlags } = {}) {
+  const flagsAreShared = !!sharedFlags;
   const editableBuildingData = ref(structuredClone(buildingData));
   const building = computed(() => buildBuilding(editableBuildingData.value));
 
@@ -39,7 +40,7 @@ export function createIndoorPlayer(buildingData, builderView) {
       hydroOnline: false,
       manualMode: {},
     },
-    flags: createFlags(),
+    flags: sharedFlags ?? createFlags(),
     completedActions: new Set(),
     moving: false,
     avatarWaypoint: null, // { x, y } layout-unit override during path animation
@@ -112,7 +113,9 @@ export function createIndoorPlayer(buildingData, builderView) {
     indoor.pickupsTaken = new Set();
     indoor.facility.hydroOnline = false;
     indoor.facility.manualMode = {};
-    indoor.flags = createFlags();
+    if (!flagsAreShared) {
+      indoor.flags = createFlags();
+    }
     indoor.completedActions = new Set();
     indoor.avatarWaypoint = null;
   }
@@ -132,5 +135,6 @@ export function createIndoorPlayer(buildingData, builderView) {
     discoverIndoorRoom,
     tryPickup,
     resetIndoor,
+    flagsAreShared,
   };
 }
