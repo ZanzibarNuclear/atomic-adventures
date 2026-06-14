@@ -109,8 +109,8 @@ defineExpose({ rootRef })
 <style scoped>
 .gridmap {
   position: relative;
-  width: 220px;
-  height: 200px;
+  width: 100%;
+  height: var(--map-height);
   border-radius: 10px;
   overflow: hidden;
   container-type: size;
@@ -119,8 +119,7 @@ defineExpose({ rootRef })
   transition: width 0.35s ease, height 0.35s ease;
 }
 .gridmap.expanded {
-  width: 100%;
-  height: 72vh;
+  height: var(--map-height-expanded);
 }
 .gridmap.builder-view {
   box-shadow: inset 0 0 0 2px rgba(200, 162, 255, 0.35);

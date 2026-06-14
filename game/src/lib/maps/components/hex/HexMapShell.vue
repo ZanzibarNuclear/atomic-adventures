@@ -53,8 +53,8 @@ defineExpose({ rootRef })
 <style scoped>
 .hexmap {
   position: relative;
-  width: 220px;
-  height: 200px;
+  width: 100%;
+  height: var(--map-height);
   border-radius: 10px;
   overflow: hidden;
   background: radial-gradient(circle at 50% 25%, #34433a, #1d241f);
@@ -62,8 +62,7 @@ defineExpose({ rootRef })
   transition: width 0.35s ease, height 0.35s ease;
 }
 .hexmap.expanded {
-  width: 100%;
-  height: 72vh;
+  height: var(--map-height-expanded);
 }
 .hexmap :deep(svg.map-svg) {
   width: 100%;

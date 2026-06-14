@@ -15,13 +15,14 @@ import IndoorScene from "./lib/maps/views/IndoorScene.vue";
 
 const place = ref("outdoors");
 const builderView = ref(false);
-const expanded = ref(false);
 
 const gameState = createGameState({ mapData, buildingData });
 const outdoor = useOutdoorWorld(mapData);
+outdoor.mode = "explored";
 const ctx = { place, builderView, gameState };
 const indoor = useIndoorBuilding(buildingData, outdoor, ctx);
 const save = useSaveGame();
+const { lastSavedAt, loadError, hasSave, save: saveGame, load, clearSave } = save;
 
 const storyCtx = { gameState, place, outdoor, indoor };
 const {
@@ -40,24 +41,24 @@ const saveCtx = computed(() => ({
 }));
 
 onMounted(() => {
-  if (save.hasSave()) {
-    save.load(saveCtx.value);
+  if (hasSave()) {
+    load(saveCtx.value);
   }
   tryShowBeat();
 });
 
 function handleSave() {
-  save.save(saveCtx.value);
+  saveGame(saveCtx.value);
 }
 
 function handleNewGame() {
   if (
-    save.hasSave() &&
+    hasSave() &&
     !window.confirm("Start a new game? Your saved progress will be erased.")
   ) {
     return;
   }
-  save.clearSave();
+  clearSave();
   resetGameState(saveCtx.value);
   tryShowBeat();
 }
@@ -71,9 +72,9 @@ function handleReset() {
 <template>
   <main>
     <AppHeader
-      :has-save="save.hasSave()"
-      :last-saved-at="save.lastSavedAt"
-      :load-error="save.loadError"
+      :has-save="hasSave()"
+      :last-saved-at="lastSavedAt"
+      :load-error="loadError"
       @save="handleSave"
       @new-game="handleNewGame"
       @reset="handleReset" />
@@ -81,16 +82,9 @@ function handleReset() {
     <OutdoorScene
       v-if="place === 'outdoors'"
       :outdoor="outdoor"
-      :indoor="indoor"
-      :expanded="expanded"
-      @reset="handleReset"
-      @update:expanded="expanded = $event" />
+      :indoor="indoor" />
 
-    <IndoorScene
-      v-else
-      :indoor="indoor"
-      :expanded="expanded"
-      @update:expanded="expanded = $event" />
+    <IndoorScene v-else :indoor="indoor" />
 
     <StoryOverlay
       :beat="activeBeat"

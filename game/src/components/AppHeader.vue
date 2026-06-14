@@ -1,22 +1,24 @@
 <template>
   <header>
     <div class="header-row">
-      <div>
+      <div class="title-block">
         <h1>Atomic Adventures</h1>
         <p class="sub">Part I — Zanzibar's World of Energy</p>
       </div>
-      <div class="game-controls">
-        <button class="sm" @click="$emit('save')">Save</button>
-        <button v-if="hasSave" class="sm muted" @click="$emit('new-game')">
-          New game
-        </button>
-        <button class="sm muted" @click="$emit('reset')">Reset</button>
+      <div class="controls-column">
+        <div class="game-controls">
+          <button class="sm" @click="$emit('save')">Save</button>
+          <button v-if="hasSave" class="sm muted" @click="$emit('new-game')">
+            New game
+          </button>
+          <button class="sm muted" @click="$emit('reset')">Reset</button>
+        </div>
+        <p v-if="showSaveHint" class="save-hint">
+          Last saved {{ formattedSavedAt }}
+        </p>
+        <p v-if="loadError" class="error-hint">{{ loadError }}</p>
       </div>
     </div>
-    <p v-if="lastSavedAt" class="save-hint">
-      Last saved {{ formattedSavedAt }}
-    </p>
-    <p v-if="loadError" class="error-hint">{{ loadError }}</p>
   </header>
 </template>
 
@@ -32,13 +34,14 @@ const props = defineProps({
 defineEmits(["save", "new-game", "reset"]);
 
 const formattedSavedAt = computed(() => {
-  if (!props.lastSavedAt) return "";
-  try {
-    return new Date(props.lastSavedAt).toLocaleString();
-  } catch {
-    return props.lastSavedAt;
-  }
+  const raw = props.lastSavedAt;
+  if (!raw) return "";
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString();
 });
+
+const showSaveHint = computed(() => formattedSavedAt.value.length > 0);
 </script>
 
 <style scoped>
@@ -49,7 +52,7 @@ const formattedSavedAt = computed(() => {
   gap: 1rem;
   flex-wrap: wrap;
 }
-header h1 {
+.title-block h1 {
   font-size: 1.4rem;
   margin: 0 0 0.25rem;
 }
@@ -58,19 +61,28 @@ header h1 {
   margin: 0;
   font-size: 0.92rem;
 }
+.controls-column {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
 .game-controls {
   display: flex;
   gap: 0.4rem;
   flex-wrap: wrap;
+  justify-content: flex-end;
 }
 .save-hint {
-  margin: 0.5rem 0 0;
+  margin: 0;
   font-size: 0.78rem;
   color: #6f7787;
+  text-align: right;
 }
 .error-hint {
-  margin: 0.35rem 0 0;
+  margin: 0;
   font-size: 0.82rem;
   color: #e07a7a;
+  text-align: right;
 }
 </style>

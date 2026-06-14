@@ -1,10 +1,15 @@
-import { reactive } from "vue";
+import { reactive, toRaw } from "vue";
 import { buildBuilding } from "../lib/maps/composables/useGrid.js";
 import { buildInitialDoorState } from "../lib/maps/composables/useDoors.js";
 import { createFlags } from "../lib/maps/composables/useFlags.js";
 import { createInventory } from "../lib/maps/composables/useInventory.js";
 
 export const SAVE_VERSION = 1;
+
+/** Plain JSON-safe clone — structuredClone fails on Vue reactive proxies. */
+function clonePlain(value) {
+  return JSON.parse(JSON.stringify(toRaw(value)));
+}
 
 export function createGameState({ mapData, buildingData }) {
   const startHex = mapData.start ?? mapData.journey?.[0];
@@ -44,10 +49,10 @@ export function captureSnapshot({ gameState, place, outdoor, indoor }) {
       revealed: [...i.revealed],
       level: i.level,
       viewLevel: i.viewLevel,
-      doorState: structuredClone(i.doorState),
+      doorState: clonePlain(i.doorState),
       inventory: [...i.inventory],
       pickupsTaken: [...i.pickupsTaken],
-      facility: structuredClone(i.facility),
+      facility: clonePlain(i.facility),
       completedActions: [...i.completedActions],
       avatarWaypoint: i.avatarWaypoint ? { ...i.avatarWaypoint } : null,
     },
