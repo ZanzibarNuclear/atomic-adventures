@@ -1,0 +1,94 @@
+:root {
+  color-scheme: dark;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: #181b21;
+  color: #e8eaed;
+}
+
+.label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.7rem;
+  color: #6f7787;
+}
+
+button {
+  background: #2f3a4d;
+  color: #e8eaed;
+  border: 1px solid #3f4c63;
+  border-radius: 8px;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+button:hover:not(:disabled) {
+  background: #3a4860;
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+button.sm {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.82rem;
+}
+button.sm.muted {
+  background: #252a33;
+  border-color: #3a404a;
+  color: #9aa0ac;
+}
+
+.mode-pill {
+  border: 1px solid #3f4c63;
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-transform: capitalize;
+}
+.mode-pill.active {
+  background: #ffd166;
+  color: #1a1d23;
+  border-color: #ffd166;
+}
+.mode-pill input {
+  display: none;
+}
+.mode-pill.sm {
+  font-size: 0.8rem;
+  padding: 0.2rem 0.6rem;
+}
+
+.route-btn {
+  text-align: left;
+  border-left-width: 4px;
+}
+.route-btn.k-path {
+  border-left-color: #c39a6b;
+}
+.route-btn.k-road {
+  border-left-color: #9aa0a6;
+}
+.route-btn.k-trail {
+  border-left-color: #d7c48f;
+}
+.route-btn.off {
+  border-left-color: #5a6270;
+  color: #aeb4c0;
+  font-style: italic;
+}
+.dest {
+  color: #7f8794;
+  font-size: 0.82rem;
+}
+
+.builder-export-note {
+  /* shared hint style anchor */
+}

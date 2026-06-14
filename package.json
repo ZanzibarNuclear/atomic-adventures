@@ -1,0 +1,14 @@
+{
+  "name": "atomic-adventures",
+  "private": true,
+  "workspaces": [
+    "web",
+    "game"
+  ],
+  "scripts": {
+    "dev:prototype": "npm run dev -w web",
+    "dev:game": "npm run dev -w game",
+    "build:prototype": "npm run build -w web",
+    "build:game": "npm run build -w game"
+  }
+}
