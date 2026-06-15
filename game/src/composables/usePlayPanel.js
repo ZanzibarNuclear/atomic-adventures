@@ -17,10 +17,8 @@ function actionButtonLabel(action) {
 
 /**
  * Story choice buttons for the play panel (prose stays in NarrativeCard).
- */
-/**
  * Story choices use adjacency only — a choice may walk the player to a fence
- * and stop. Travel buttons use full reachability (no fence-blocked directions).
+ * and stop. Movement options use enterability (may stop at an in-hex barrier).
  */
 export function buildStoryChoices(pendingBeat, isAdjacentHex = () => true) {
   if (!pendingBeat?.choices?.length || pendingBeat.revisit) return [];
@@ -29,6 +27,7 @@ export function buildStoryChoices(pendingBeat, isAdjacentHex = () => true) {
     .filter(({ choice }) => !choice.go_hex || isAdjacentHex(choice.go_hex))
     .map(({ choice, index }) => ({
       id: `story:${index}`,
+      toHexId: choice.go_hex ?? null,
       label: choice.text,
       kind: "story",
     }));
@@ -38,15 +37,13 @@ export function handleStoryChoice(index, applyChoice) {
   applyChoice(Number(index));
 }
 
-/** Authoring label for leaving a hex toward a neighbor (map hex `travel` field). */
-export function resolveHexTravelLabel(fromHex, toHexId, move) {
-  const custom = fromHex?.travel?.[toHexId];
-  if (custom) return custom;
+/** Default compass label for a reachable move (route or direct hex step). */
+export function defaultMovementLabel(move) {
   if (move?.label) return `Go ${move.label}`;
   return "Go onward";
 }
 
-function storyChoiceDestinations(pendingBeat) {
+export function storyChoiceDestinations(pendingBeat) {
   const hexes = new Set();
   const rooms = new Set();
   for (const choice of pendingBeat?.choices ?? []) {
@@ -57,27 +54,35 @@ function storyChoiceDestinations(pendingBeat) {
   return { hexes, rooms };
 }
 
-/** Outdoor items for "Choose an Action" — story choices, then travel (deduped). */
-export function buildOutdoorChooseActions(outdoor, pendingBeat) {
+/**
+ * Reachable outdoor moves for "Choose an Action".
+ * Story choice labels (part-i.yaml) override; otherwise compass defaults from path geometry.
+ * Blocked directions are omitted — outdoor.moves / directMoves are pre-filtered.
+ */
+export function getMovementOptions(outdoor, pendingBeat) {
   const isAdjacent = (hexId) => outdoor.isAdjacentHex?.(hexId) ?? true;
   const items = [...buildStoryChoices(pendingBeat, isAdjacent)];
   const { hexes: storyHexes } = storyChoiceDestinations(pendingBeat);
-  const fromHex = outdoor.currentHexData;
+  const seen = new Set(storyHexes);
 
   for (const m of outdoor.moves ?? []) {
-    if (storyHexes.has(m.toHexId)) continue;
+    if (seen.has(m.toHexId)) continue;
+    seen.add(m.toHexId);
     items.push({
       id: `move:${m.toHexId}`,
-      label: resolveHexTravelLabel(fromHex, m.toHexId, m),
+      toHexId: m.toHexId,
+      label: defaultMovementLabel(m),
       kind: m.kind,
     });
   }
 
   for (const o of outdoor.directMoves ?? []) {
-    if (storyHexes.has(o.toHexId)) continue;
+    if (seen.has(o.toHexId)) continue;
+    seen.add(o.toHexId);
     items.push({
       id: `hex:${o.toHexId}`,
-      label: resolveHexTravelLabel(fromHex, o.toHexId, o),
+      toHexId: o.toHexId,
+      label: defaultMovementLabel(o),
       kind: "hex",
     });
   }

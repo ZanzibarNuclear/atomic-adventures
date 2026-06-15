@@ -177,7 +177,7 @@ export function availableMoves(currentHexId, models, travelOpts = null) {
           travelOpts.routeModels ?? models,
         )
       : pathSamples ?? [fromPos, toPos]
-    return canReachNeighbor({
+    return canOfferNeighbor({
       fromHex,
       toHex,
       fromPos,
@@ -185,7 +185,6 @@ export function availableMoves(currentHexId, models, travelOpts = null) {
       path,
       ctx: travelOpts.barriers,
       hexAtPoint: travelOpts.hexAtPoint,
-      size: travelOpts.size,
     })
   }
 
@@ -301,6 +300,7 @@ export function buildRouteDrawPieces(models, { isRevealed, inView, allowStub }) 
 import {
   routeMoveSamples,
   resolveMove,
+  canOfferNeighbor,
   canReachNeighbor,
 } from './useTravelBarriers.js'
 
@@ -324,7 +324,8 @@ export function buildMovePath(fromPos, fromHex, toHex, toPos, routeLeg, routeMod
   return [fromPos, toPos]
 }
 
-// Adjacent hexes not on a marked route — excludes moves blocked by fence or river.
+// Adjacent hexes not on a marked route — all neighbors unless a barrier in the
+// departure hex blocks exit (barriers in destination hexes are ignored here).
 export function directNeighbors(
   currentHexId,
   hexes,
@@ -341,9 +342,9 @@ export function directNeighbors(
   const onRoute = new Set(onRouteTargets)
   return hexes
     .filter((h) => hexDistance(h, current) === 1 && !onRoute.has(h.id))
-    .map((h) => {
+    .filter((h) => {
       const toPos = resolveStand(h)
-      const result = resolveMove({
+      return canOfferNeighbor({
         fromHex: current,
         toHex: h,
         fromPos,
@@ -351,15 +352,12 @@ export function directNeighbors(
         path: [fromPos, toPos],
         ctx: barriers,
         hexAtPoint,
-        size,
       })
-      return {
-        toHexId: h.id,
-        label: bearingLabel(current, h, size),
-        blockedBy: result.blockedKind,
-      }
     })
-    .filter((move) => !move.blockedBy)
+    .map((h) => ({
+      toHexId: h.id,
+      label: bearingLabel(current, h, size),
+    }))
 }
 
 export function pointsAttr(pts) {

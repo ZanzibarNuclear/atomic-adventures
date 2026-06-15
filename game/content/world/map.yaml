@@ -5,7 +5,8 @@
 # Each hex has a unique `id` (kebab-case) — use this in story, flags, and code.
 # Optional `label` overrides the caption; otherwise id is shown as Title Case
 # (e.g. east-pines → East Pines). Landmark icons may have their own `label`.
-# Optional `travel` maps neighbor hex id → action button label (builder-editable).
+# Action labels for travel come from story choices (part-i.yaml) or default
+# compass wording ("Go west") from reachable directions — not authored here.
 # Layout uses axial coordinates (q, r), pointy-top. North = decreasing r / screen-up.
 #   https://www.redblobgames.com/grids/hexagons/
 #
@@ -53,33 +54,13 @@ hexes:
 
   - { id: far-pines, q: 1, r: -1, terrain: forest }
 
-  - id: trailhead
-    q: 2
-    r: 0
-    terrain: forest
-    travel:
-      east-pines: Keep walking west
+  - { id: trailhead, q: 2, r: 0, terrain: forest }
 
-  - id: east-pines
-    q: 1
-    r: 0
-    terrain: forest
-    travel:
-      center-pines: Continue west on the trail
+  - { id: east-pines, q: 1, r: 0, terrain: forest }
 
-  - id: center-pines
-    q: 0
-    r: 0
-    terrain: forest
-    travel:
-      north-bend: Follow the trail west
+  - { id: center-pines, q: 0, r: 0, terrain: forest }
 
-  - id: north-bend
-    q: 0
-    r: -1
-    terrain: forest
-    travel:
-      gate-woods: Continue toward the fence line
+  - { id: north-bend, q: 0, r: -1, terrain: forest }
 
   - id: gate-woods
     q: -1
@@ -90,8 +71,6 @@ hexes:
     landmark:
       label: "Compound Gate"
       blurb: "A locked fence gate and a guard booth."
-    travel:
-      utility-yard: Head down the road to the station
 
   - { id: mid-west, q: -2, r: 0, terrain: forest }
 
@@ -111,22 +90,9 @@ hexes:
       dy: 0.19
       blurb: "Built beside a rocky cascade on the river, this facility is the central location for Part I of our adventure."
 
-  - id: south-pines
-    q: -1
-    r: 1
-    terrain: forest
-    travel:
-      west-slope: Go north along the fence
-      lower-stand: Go east
+  - { id: south-pines, q: -1, r: 1, terrain: forest }
 
-  - id: lower-stand
-    q: 0
-    r: 1
-    terrain: forest
-    travel:
-      south-pines: Go west
-      center-pines: Go northwest
-      east-pines: Go northeast
+  - { id: lower-stand, q: 0, r: 1, terrain: forest }
 
 features:
   - id: mountain-river

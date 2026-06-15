@@ -17,9 +17,13 @@ import {
   riverSegments,
   travelOpenings,
   resolveMove,
+  canOfferNeighbor,
   canReachNeighbor,
+  canEnterNeighbor,
   firstBlockedOnPath,
   openingAllows,
+  pathInDepartureHex,
+  blockedLeavingDepartureHex,
 } from '../composables/useTravelBarriers.js'
 
 export { openingAllows, firstBlockedOnPath }
@@ -134,10 +138,12 @@ export function evaluateNeighborMove(world, fromHex, toHex, fromPos) {
   }
 
   const result = resolveMove(moveArgs)
+  const offerable = canOfferNeighbor(moveArgs)
+  const enters = canEnterNeighbor(moveArgs)
   const reachable = canReachNeighbor(moveArgs)
   const hit = firstBlockedOnPath(path, world.ctx)
 
-  return { path, result, reachable, hit, toPos, routeLeg }
+  return { path, result, offerable, enters, reachable, hit, toPos, routeLeg }
 }
 
 /** Every adjacent hex pair at each hex's default stand. */
@@ -162,7 +168,7 @@ function barrierStandKey(fromHexId, stand) {
 
 /**
  * Positions where a blocked move left the avatar at a barrier (matches applyMove rounding).
- * Derived by approaching each neighbor from the hex default stand.
+ * Uses activeHexId from resolveMove — after a fence block the player is on the destination hex.
  */
 export function* enumerateBarrierStandPositions(world) {
   /** @type {Set<string>} */
@@ -174,19 +180,21 @@ export function* enumerateBarrierStandPositions(world) {
       const approach = evaluateNeighborMove(world, fromHex, toHex, defaultPos)
       if (!approach.result.blockedKind || !approach.result.stand) continue
 
+      const activeHex = world.hexById[approach.result.activeHexId] ?? fromHex
       const barrierStand = {
         x: Math.round(approach.result.stand.x),
         y: Math.round(approach.result.stand.y),
       }
-      const key = barrierStandKey(fromHex.id, barrierStand)
+      const key = barrierStandKey(activeHex.id, barrierStand)
       if (seen.has(key)) continue
       seen.add(key)
 
       yield {
-        fromHex,
+        fromHex: activeHex,
         barrierStand,
         blockedBy: approach.result.blockedKind,
-        approachedVia: toHex.id,
+        approachedVia: fromHex.id,
+        attemptedHex: toHex.id,
       }
     }
   }

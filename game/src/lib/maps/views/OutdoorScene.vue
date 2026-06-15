@@ -51,7 +51,7 @@ import StatusLines from "../../../components/hud/StatusLines.vue";
 import PlayActions from "../../../components/hud/PlayActions.vue";
 import NarrativeCard from "../../../components/story/NarrativeCard.vue";
 import {
-  buildOutdoorChooseActions,
+  getMovementOptions,
   buildOutdoorStatusLines,
   handleOutdoorChooseAction,
 } from "../../../composables/usePlayPanel.js";
@@ -71,7 +71,7 @@ const statusLines = computed(() =>
 );
 
 const chooseActions = computed(() =>
-  buildOutdoorChooseActions(props.outdoor, props.pendingBeat),
+  getMovementOptions(props.outdoor, props.pendingBeat),
 );
 
 const playActions = computed(() => {

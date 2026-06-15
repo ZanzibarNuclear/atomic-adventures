@@ -76,7 +76,7 @@ beats:
       Tall pines and solitude. Hunger and thirst are constant companions
       now.
     choices:
-      - text: Continue west on the trail
+      - text: Head west
         sets: [story.lower-stand]
         go_hex: south-pines
 
@@ -120,7 +120,7 @@ beats:
     revisit: |
       The bend in the fence line. The road is close now; the gate not much farther.
     choices:
-      - text: Continue toward the fence line
+      - text: Continue west along the fence
         sets: [story.north-bend]
         go_hex: gate-woods
 

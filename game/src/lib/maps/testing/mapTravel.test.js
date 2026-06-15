@@ -9,6 +9,7 @@ import {
   offeredMoves,
   openingAllows,
 } from './travelWorld.js'
+import { blockedLeavingDepartureHex } from '../composables/useTravelBarriers.js'
 
 const world = buildTravelWorld(mapData)
 
@@ -22,12 +23,16 @@ function moveLabel(move) {
 }
 
 function assertGeometryAgreesWithResolveMove(move) {
-  const { fromHex, toHex, path, result, hit, reachable } = move
+  const { toHex, path, result, hit, enters, reachable } = move
   const label = moveLabel(move)
+
+  expect(enters, label).toBe(result.activeHexId === toHex.id)
 
   if (hit && !openingAllows(hit.kind, hit.x, hit.y, world.ctx.openings)) {
     expect(result.blockedKind, label).toBe(hit.kind)
-    expect(result.activeHexId, label).not.toBe(toHex.id)
+    expect(result.activeHexId, label).toBe(toHex.id)
+    expect(result.stand, label).not.toEqual(move.toPos)
+    expect(enters, label).toBe(true)
     expect(reachable, label).toBe(false)
     return
   }
@@ -39,6 +44,7 @@ function assertGeometryAgreesWithResolveMove(move) {
 
   expect(result.activeHexId, label).toBe(toHex.id)
   expect(result.stand, label).toEqual(move.toPos)
+  expect(enters, label).toBe(true)
   expect(reachable, label).toBe(true)
   expect(path.length, label).toBeGreaterThanOrEqual(2)
 }
@@ -49,15 +55,53 @@ function assertReachableMatchesResult(move) {
   expect(reachable, moveLabel(move)).toBe(shouldReach)
 }
 
-function assertSegmentBlocksStopBeforeDestination(move) {
-  const { fromHex, toHex, result, hit } = move
+function assertOfferableMatchesResult(move) {
+  const { offerable, fromHex, path } = move
+  const blocked = blockedLeavingDepartureHex(
+    path,
+    fromHex.id,
+    world.ctx,
+    world.hexAtPoint,
+  )
+  expect(offerable, moveLabel(move)).toBe(blocked === null)
+}
+
+function assertSegmentBarrierBlock(move) {
+  const { toHex, result, hit } = move
   if (!hit || openingAllows(hit.kind, hit.x, hit.y, world.ctx.openings)) {
     return
   }
   const label = moveLabel(move)
   expect(result.blockedKind, label).toBe(hit.kind)
-  expect(result.activeHexId, label).not.toBe(toHex.id)
+  expect(result.activeHexId, label).toBe(toHex.id)
+  expect(result.stand, label).not.toEqual(move.toPos)
 }
+
+describe('Part I map — known fence approaches', () => {
+  it('lower-stand → south-pines: enters at fence, active hex is south-pines', () => {
+    const from = world.hexById['lower-stand']
+    const to = world.hexById['south-pines']
+    const m = evaluateNeighborMove(world, from, to, world.resolveStand(from))
+
+    expect(m.result.blockedKind).toBe('fence')
+    expect(m.offerable).toBe(true)
+    expect(m.enters).toBe(true)
+    expect(m.reachable).toBe(false)
+    expect(m.result.activeHexId).toBe('south-pines')
+    expect(m.result.stand).not.toEqual(m.toPos)
+  })
+
+  it('offeredMoves includes lower-stand → south-pines (enter at fence)', () => {
+    const from = world.hexById['lower-stand']
+    const { directMoves, routeMoves } = offeredMoves(
+      world,
+      from,
+      world.resolveStand(from),
+    )
+    const dests = [...routeMoves, ...directMoves].map((m) => m.toHexId)
+    expect(dests).toContain('south-pines')
+  })
+})
 
 describe('Part I map — movement invariants (default stand)', () => {
   it('loads the world map with hexes, barriers, and openings', () => {
@@ -78,44 +122,50 @@ describe('Part I map — movement invariants (default stand)', () => {
     }
   })
 
-  it('every offered route and direct move is actually reachable', () => {
+  it('offerable flag matches departure-hex barrier rules for every adjacent move', () => {
+    for (const move of enumerateDefaultStandMoves(world)) {
+      assertOfferableMatchesResult(move)
+    }
+  })
+
+  it('every offered route and direct move is offerable from the departure hex', () => {
     for (const fromHex of world.hexes) {
       const fromPos = world.resolveStand(fromHex)
       const { routeMoves, directMoves } = offeredMoves(world, fromHex, fromPos)
 
       for (const move of routeMoves) {
         const toHex = world.hexById[move.toHexId]
-        const { reachable } = evaluateNeighborMove(
+        const { offerable } = evaluateNeighborMove(
           world,
           fromHex,
           toHex,
           fromPos,
         )
         expect(
-          reachable,
+          offerable,
           `${fromHex.id} route → ${move.toHexId} (${move.label})`,
         ).toBe(true)
       }
 
       for (const move of directMoves) {
         const toHex = world.hexById[move.toHexId]
-        const { reachable } = evaluateNeighborMove(
+        const { offerable } = evaluateNeighborMove(
           world,
           fromHex,
           toHex,
           fromPos,
         )
         expect(
-          reachable,
+          offerable,
           `${fromHex.id} direct → ${move.toHexId} (${move.label})`,
         ).toBe(true)
       }
     }
   })
 
-  it('segment barrier blocks stop before the destination hex', () => {
+  it('segment barrier blocks land on the destination hex without reaching its stand', () => {
     for (const move of enumerateDefaultStandMoves(world)) {
-      assertSegmentBlocksStopBeforeDestination(move)
+      assertSegmentBarrierBlock(move)
     }
   })
 })
@@ -124,6 +174,11 @@ describe('Part I map — movement invariants (barrierStand)', () => {
   it('discovers barrierStand positions from blocked default-stand approaches', () => {
     const positions = [...enumerateBarrierStandPositions(world)]
     expect(positions.length).toBeGreaterThan(0)
+    expect(
+      positions.some(
+        (p) => p.fromHex.id === 'south-pines' && p.approachedVia === 'lower-stand',
+      ),
+    ).toBe(true)
   })
 
   it('geometry and resolveMove agree on every adjacent barrierStand move', () => {
@@ -138,7 +193,7 @@ describe('Part I map — movement invariants (barrierStand)', () => {
     }
   })
 
-  it('every offered route and direct move is reachable from each barrierStand', () => {
+  it('every offered route and direct move is offerable from each barrierStand', () => {
     for (const { fromHex, barrierStand } of enumerateBarrierStandPositions(
       world,
     )) {
@@ -150,37 +205,37 @@ describe('Part I map — movement invariants (barrierStand)', () => {
 
       for (const move of routeMoves) {
         const toHex = world.hexById[move.toHexId]
-        const { reachable } = evaluateNeighborMove(
+        const { offerable } = evaluateNeighborMove(
           world,
           fromHex,
           toHex,
           barrierStand,
         )
         expect(
-          reachable,
+          offerable,
           `${fromHex.id} @(${barrierStand.x},${barrierStand.y}) route → ${move.toHexId}`,
         ).toBe(true)
       }
 
       for (const move of directMoves) {
         const toHex = world.hexById[move.toHexId]
-        const { reachable } = evaluateNeighborMove(
+        const { offerable } = evaluateNeighborMove(
           world,
           fromHex,
           toHex,
           barrierStand,
         )
         expect(
-          reachable,
+          offerable,
           `${fromHex.id} @(${barrierStand.x},${barrierStand.y}) direct → ${move.toHexId}`,
         ).toBe(true)
       }
     }
   })
 
-  it('segment barrier blocks stop before the destination hex', () => {
+  it('segment barrier blocks land on the destination hex without reaching its stand', () => {
     for (const move of enumerateBarrierStandMoves(world)) {
-      assertSegmentBlocksStopBeforeDestination(move)
+      assertSegmentBarrierBlock(move)
     }
   })
 })
@@ -203,14 +258,13 @@ describe('Part I map — walk simulation from start', () => {
 
       for (const move of [...routeMoves, ...directMoves]) {
         const toHex = world.hexById[move.toHexId]
-        const { result, reachable } = evaluateNeighborMove(
+        const { result, offerable } = evaluateNeighborMove(
           world,
           fromHex,
           toHex,
           fromPos,
         )
-        expect(reachable).toBe(true)
-        expect(result.blockedKind).toBeNull()
+        expect(offerable).toBe(true)
         expect(result.activeHexId).toBe(toHex.id)
 
         if (!visited.has(toHex.id)) {

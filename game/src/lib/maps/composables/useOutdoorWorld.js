@@ -14,6 +14,7 @@ import {
   riverSegments,
   travelOpenings,
   resolveMove,
+  canOfferNeighbor,
   canReachNeighbor,
 } from "./useTravelBarriers.js";
 
@@ -198,7 +199,7 @@ export function useOutdoorWorld(mapData) {
       routeLeg,
       routeModels.value,
     );
-    return canReachNeighbor({
+    return canOfferNeighbor({
       fromHex,
       toHex,
       fromPos,
@@ -206,7 +207,6 @@ export function useOutdoorWorld(mapData) {
       path,
       ctx: travelBarrierCtx.value,
       hexAtPoint,
-      size,
     });
   }
 

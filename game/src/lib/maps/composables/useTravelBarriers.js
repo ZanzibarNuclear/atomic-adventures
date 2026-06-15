@@ -123,6 +123,69 @@ export function firstBlockedOnPath(path, ctx) {
 }
 
 /**
+ * First barrier hit along `path` whose intersection lies in `hexId`.
+ * Used for movement options — barriers in neighboring hexes are ignored.
+ */
+export function firstBlockedOnPathInHex(path, ctx, hexId, hexAtPoint) {
+  for (let i = 0; i < path.length - 1; i++) {
+    const a = path[i]
+    const b = path[i + 1]
+    for (const seg of barrierList(ctx)) {
+      const cross = segmentIntersection(a, b, seg.a, seg.b)
+      if (!cross || cross.t < PATH_ORIGIN_EPS) continue
+      if (!openingAllows(seg.kind, cross.x, cross.y, ctx.openings)) {
+        if (hexAtPoint({ x: cross.x, y: cross.y }, hexId) === hexId) {
+          return { ...cross, kind: seg.kind, segIndex: i }
+        }
+      }
+    }
+  }
+  return null
+}
+
+/**
+ * Path samples from the stand until the walk exits fromHex (includes the
+ * first sample outside the departure hex when present).
+ */
+export function pathInDepartureHex(path, fromHexId, hexAtPoint) {
+  if (path.length < 2) return path
+  const out = [path[0]]
+  for (let i = 1; i < path.length; i++) {
+    out.push(path[i])
+    if (hexAtPoint(path[i], fromHexId) !== fromHexId) break
+  }
+  return out
+}
+
+/**
+ * Barrier blocking exit from the departure hex along `path`, if any.
+ * Barriers in neighboring hexes are ignored for movement options.
+ */
+export function blockedLeavingDepartureHex(path, fromHexId, ctx, hexAtPoint) {
+  const sub = pathInDepartureHex(path, fromHexId, hexAtPoint)
+  if (sub.length < 2) return null
+  return firstBlockedOnPathInHex(sub, ctx, fromHexId, hexAtPoint)
+}
+
+/**
+ * Whether a neighbor should appear as a movement option.
+ * All adjacent hexes are offered unless a barrier in the current hex blocks exit.
+ */
+export function canOfferNeighbor({
+  fromHex,
+  toHex,
+  fromPos,
+  toPos,
+  path,
+  ctx,
+  hexAtPoint,
+}) {
+  if (!fromHex?.id) return false
+  const walkPath = path ?? [fromPos, toPos]
+  return blockedLeavingDepartureHex(walkPath, fromHex.id, ctx, hexAtPoint) === null
+}
+
+/**
  * Whether a move along `path` is blocked. Returns barrier kind or null.
  * Same rules for route-following and direct hex-to-hex travel.
  */
@@ -148,9 +211,12 @@ export function routeMoveSamples(model, fromSpan, toSpan) {
   return model.samples.slice(Math.min(...idxs), Math.max(...idxs) + 1)
 }
 
-/** Whether a marked-route move should be hidden / rejected. */
-export function isRouteMoveBlocked(fromHex, toHex, pathSamples, ctx) {
-  return moveBlocked(fromHex, toHex, pathSamples, ctx) !== null
+/** Whether a marked-route move should be hidden / rejected (departure hex only). */
+export function isRouteMoveBlocked(fromHex, toHex, pathSamples, ctx, hexAtPoint) {
+  if (!fromHex?.id || !hexAtPoint) {
+    return moveBlocked(fromHex, toHex, pathSamples, ctx) !== null
+  }
+  return blockedLeavingDepartureHex(pathSamples, fromHex.id, ctx, hexAtPoint) !== null
 }
 
 function standBeforeHit(from, hit) {
@@ -228,11 +294,11 @@ export function resolveMove({
     }
   }
 
-  // Segment barrier stop — stay on the departure hex even when the inset stand
-  // pixel falls in the destination hex (common near diagonal fence crossings).
+  // Blocked at a barrier while entering toHex — stand at the boundary but the
+  // active tile is the destination (reveals fog, matches where the player clicked).
   const activeHexId =
     hit && blockedKind
-      ? (fromHex?.id ?? hexAtPoint(stand, fallbackHexId))
+      ? (toHex?.id ?? hexAtPoint(stand, fallbackHexId))
       : hexAtPoint(stand, fallbackHexId)
 
   return {
@@ -242,7 +308,31 @@ export function resolveMove({
   }
 }
 
-/** Whether the player can complete a move to an adjacent hex from their current stand. */
+/** Whether a move ends on the destination hex (may stop at an in-hex barrier). */
+export function canEnterNeighbor({
+  fromHex,
+  toHex,
+  fromPos,
+  toPos,
+  path,
+  ctx,
+  hexAtPoint,
+  size,
+}) {
+  const result = resolveMove({
+    fromHex,
+    toHex,
+    fromPos,
+    toPos,
+    path,
+    ctx,
+    hexAtPoint,
+    size,
+  })
+  return result.activeHexId === toHex.id
+}
+
+/** Whether the player fully arrives at the destination stand with no barrier stop. */
 export function canReachNeighbor({
   fromHex,
   toHex,

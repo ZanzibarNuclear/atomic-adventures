@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { pixelToHex } from './useHexGeometry.js'
+import mapData from '../../../../content/world/map.yaml'
+import { buildTravelWorld, evaluateNeighborMove } from '../testing/travelWorld.js'
 import {
   firstBlockedOnPath,
   moveBlocked,
@@ -7,6 +8,7 @@ import {
   resolveMove,
   segmentsCross,
   segmentIntersection,
+  blockedLeavingDepartureHex,
 } from './useTravelBarriers.js'
 
 const verticalFence = {
@@ -175,20 +177,12 @@ describe('resolveMove', () => {
     expect(result.stand).toEqual(toPos)
   })
 
-  it('keeps the departure hex when a fence stop pixel falls in the destination hex', () => {
+  it('uses the destination hex when blocked at a fence (reveals fog on approach)', () => {
     const size = 44
-    const fromHex = { id: 'center-pines', q: 0, r: 0 }
+    const fromHex = { id: 'lower-stand', q: 0, r: 1 }
     const toHex = { id: 'south-pines', q: -1, r: 1 }
-    const fromPos = { x: 0, y: 0 }
+    const fromPos = { x: 38.1, y: 66 }
     const toPos = { x: -38.1, y: 66 }
-    const coordMap = new Map([
-      ['0,0', 'center-pines'],
-      ['-1,1', 'south-pines'],
-    ])
-    const hexAtPointReal = (pt, fallback) => {
-      const { q, r } = pixelToHex(pt.x, pt.y, size)
-      return coordMap.get(`${q},${r}`) ?? fallback
-    }
     const eastFence = {
       barriers: [{ a: { x: -30, y: -50 }, b: { x: -30, y: 140 }, kind: 'fence' }],
       openings: [],
@@ -201,11 +195,38 @@ describe('resolveMove', () => {
       toPos,
       path: [fromPos, toPos],
       ctx: eastFence,
-      hexAtPoint: hexAtPointReal,
+      hexAtPoint,
       size,
     })
 
     expect(result.blockedKind).toBe('fence')
-    expect(result.activeHexId).toBe('center-pines')
+    expect(result.activeHexId).toBe('south-pines')
+    expect(result.stand).not.toEqual(toPos)
+  })
+})
+
+describe('canOfferNeighbor vs canReachNeighbor', () => {
+  it('offers south-pines from lower-stand even though the fence is in the destination hex', () => {
+    const world = buildTravelWorld(mapData)
+    const from = world.hexById['lower-stand']
+    const to = world.hexById['south-pines']
+    const m = evaluateNeighborMove(world, from, to, world.resolveStand(from))
+
+    expect(m.offerable).toBe(true)
+    expect(m.reachable).toBe(false)
+    expect(m.enters).toBe(true)
+  })
+})
+
+describe('blockedLeavingDepartureHex', () => {
+  it('ignores fence hits in the neighboring hex when offering a move', () => {
+    const world = buildTravelWorld(mapData)
+    const from = world.hexById['lower-stand']
+    const to = world.hexById['south-pines']
+    const fromPos = world.resolveStand(from)
+    const toPos = world.resolveStand(to)
+    const path = [fromPos, toPos]
+
+    expect(blockedLeavingDepartureHex(path, from.id, world.ctx, world.hexAtPoint)).toBeNull()
   })
 })

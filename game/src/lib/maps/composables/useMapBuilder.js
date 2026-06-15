@@ -243,12 +243,6 @@ function serializeHexBlock(hex, indent) {
   if (hex.cascade) lines.push(`${inner}cascade: true`)
   if (hex.puzzle) lines.push(`${inner}puzzle: ${hex.puzzle}`)
   if (hex.standAt) lines.push(`${inner}standAt: ${fmtStandAt(hex.standAt)}`)
-  if (hex.travel && Object.keys(hex.travel).length) {
-    lines.push(`${inner}travel:`)
-    for (const [to, label] of Object.entries(hex.travel)) {
-      lines.push(`${inner}  ${to}: ${JSON.stringify(label)}`)
-    }
-  }
   if (hex.landmark) {
     lines.push(`${inner}landmark:`)
     const lm = hex.landmark
@@ -280,8 +274,7 @@ export function serializeHex(hex, indent = 2) {
     !hex.area &&
     !hex.cascade &&
     !hex.puzzle &&
-    !hex.landmark &&
-    !hex.travel
+    !hex.landmark
   if (simple) {
     return `${pad}- { id: ${hex.id}, q: ${hex.q}, r: ${hex.r}, terrain: ${hex.terrain} }`
   }
