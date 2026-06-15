@@ -55,6 +55,7 @@ const props = defineProps({
   narrativeBeat: { type: Object, default: null },
   pendingBeat: { type: Object, default: null },
   applyChoice: { type: Function, required: true },
+  travelToRoom: { type: Function, required: true },
 });
 
 const locationTitle = computed(() => {
@@ -74,7 +75,12 @@ const statusLines = computed(() => buildIndoorStatusLines(props.indoor));
 const playActions = computed(() => buildIndoorPlayActions(props.indoor));
 
 function onChooseAction(id) {
-  handleIndoorChooseAction(props.indoor, props.applyChoice, id);
+  handleIndoorChooseAction(
+    props.indoor,
+    props.applyChoice,
+    id,
+    props.travelToRoom,
+  );
 }
 
 function onPlayAction(id) {
@@ -99,7 +105,7 @@ const mapStageProps = computed(() => ({
 }));
 
 const mapStageListeners = computed(() => ({
-  "room-click": props.indoor.moveToRoom,
+  "room-click": props.travelToRoom,
   "exterior-node-click": props.indoor.moveToExteriorNode,
   "door-click": props.indoor.tryToggleDoor,
   "exit-click": props.indoor.exitViaDoor,

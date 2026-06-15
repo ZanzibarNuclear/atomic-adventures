@@ -30,6 +30,9 @@ const {
   pendingBeat,
   showEndCard,
   applyChoice,
+  travelToHex,
+  enterBuilding,
+  travelToRoom,
   dismissEndCard,
   refreshNarrative,
 } = useStory(storyData, storyCtx);
@@ -86,14 +89,17 @@ function handleReset() {
       :indoor="indoor"
       :narrative-beat="narrativeBeat"
       :pending-beat="pendingBeat"
-      :apply-choice="applyChoice" />
+      :apply-choice="applyChoice"
+      :travel-to-hex="travelToHex"
+      :enter-building="enterBuilding" />
 
     <IndoorScene
       v-else
       :indoor="indoor"
       :narrative-beat="narrativeBeat"
       :pending-beat="pendingBeat"
-      :apply-choice="applyChoice" />
+      :apply-choice="applyChoice"
+      :travel-to-room="travelToRoom" />
 
     <StoryOverlay
       :show-end-card="showEndCard"

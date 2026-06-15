@@ -135,6 +135,16 @@ export function useStory(storyData, ctx) {
     locationNarrative.value = findRevisitBeat(loc);
   }
 
+  function findChoiceIndex(beat, dest) {
+    if (!beat?.choices?.length) return -1;
+    return beat.choices.findIndex((choice) => {
+      if (dest.go_hex && choice.go_hex === dest.go_hex) return true;
+      if (dest.go_room && choice.go_room === dest.go_room) return true;
+      if (dest.enter && choice.enter) return true;
+      return false;
+    });
+  }
+
   function applyChoice(choiceIndex = 0) {
     const beat = pendingBeat.value;
     if (!beat) return;
@@ -166,6 +176,34 @@ export function useStory(storyData, ctx) {
     }
 
     if (!movesPlayer) refreshNarrative();
+  }
+
+  /** Map / travel UI — apply matching story choice when one advances to this destination. */
+  function travelToHex(hexId) {
+    const idx = findChoiceIndex(pendingBeat.value, { go_hex: hexId });
+    if (idx >= 0) {
+      applyChoice(idx);
+      return;
+    }
+    outdoor.moveTo(hexId);
+  }
+
+  function enterBuilding() {
+    const idx = findChoiceIndex(pendingBeat.value, { enter: true });
+    if (idx >= 0) {
+      applyChoice(idx);
+      return;
+    }
+    indoor.enterBuilding();
+  }
+
+  function travelToRoom(roomId) {
+    const idx = findChoiceIndex(pendingBeat.value, { go_room: roomId });
+    if (idx >= 0) {
+      applyChoice(idx);
+      return;
+    }
+    indoor.moveToRoom(roomId);
   }
 
   function dismissEndCard() {
@@ -207,6 +245,9 @@ export function useStory(storyData, ctx) {
     pendingBeat,
     showEndCard,
     applyChoice,
+    travelToHex,
+    enterBuilding,
+    travelToRoom,
     dismissEndCard,
     refreshNarrative,
   };

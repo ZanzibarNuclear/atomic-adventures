@@ -78,7 +78,12 @@ export function buildOutdoorChooseActions(outdoor, pendingBeat) {
   return items;
 }
 
-export function handleOutdoorChooseAction(outdoor, applyChoice, actionId) {
+export function handleOutdoorChooseAction(
+  outdoor,
+  applyChoice,
+  actionId,
+  travelToHex = (hexId) => outdoor.moveTo(hexId),
+) {
   if (actionId.startsWith("story:")) {
     handleStoryChoice(actionId.slice("story:".length), applyChoice);
     return;
@@ -87,7 +92,7 @@ export function handleOutdoorChooseAction(outdoor, applyChoice, actionId) {
     const hexId = actionId.includes("hex:")
       ? actionId.slice("hex:".length)
       : actionId.slice("move:".length);
-    outdoor.moveTo(hexId);
+    travelToHex(hexId);
   }
 }
 
@@ -116,7 +121,12 @@ export function buildIndoorChooseActions(indoor, pendingBeat) {
   return items;
 }
 
-export function handleIndoorChooseAction(indoor, applyChoice, actionId) {
+export function handleIndoorChooseAction(
+  indoor,
+  applyChoice,
+  actionId,
+  travelToRoom = (roomId) => indoor.moveToRoom(roomId),
+) {
   if (actionId.startsWith("story:")) {
     handleStoryChoice(actionId.slice("story:".length), applyChoice);
     return;
@@ -124,7 +134,12 @@ export function handleIndoorChooseAction(indoor, applyChoice, actionId) {
   if (actionId.startsWith("move:")) {
     const key = actionId.slice("move:".length);
     const m = indoor.indoorMoves.find((mv) => indoor.moveKey(mv) === key);
-    if (m) indoor.applyIndoorMove(m);
+    if (!m) return;
+    if (m.toRoomId) {
+      travelToRoom(m.toRoomId);
+      return;
+    }
+    indoor.applyIndoorMove(m);
   }
 }
 

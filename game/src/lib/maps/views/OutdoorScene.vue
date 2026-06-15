@@ -9,8 +9,8 @@
       :mode="outdoor.mode"
       :stand-override="outdoor.standOverride"
       :avatar-instant="!!outdoor.state.barrierStand"
-      @hex-click="outdoor.moveTo"
-      @building-enter="indoor.enterBuilding" />
+      @hex-click="travelToHex"
+      @building-enter="enterBuilding" />
     <MapCaption :title="hexLabel(outdoor.currentHexData)" />
   </section>
 
@@ -62,6 +62,8 @@ const props = defineProps({
   narrativeBeat: { type: Object, default: null },
   pendingBeat: { type: Object, default: null },
   applyChoice: { type: Function, required: true },
+  travelToHex: { type: Function, required: true },
+  enterBuilding: { type: Function, required: true },
 });
 
 const statusLines = computed(() =>
@@ -83,11 +85,16 @@ const playActions = computed(() => {
 });
 
 function onChooseAction(id) {
-  handleOutdoorChooseAction(props.outdoor, props.applyChoice, id);
+  handleOutdoorChooseAction(
+    props.outdoor,
+    props.applyChoice,
+    id,
+    props.travelToHex,
+  );
 }
 
 function onPlayAction(id) {
-  if (id === "enter-building") props.indoor.enterBuilding();
+  if (id === "enter-building") props.enterBuilding();
 }
 </script>
 
