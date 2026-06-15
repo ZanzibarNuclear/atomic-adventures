@@ -1,0 +1,9 @@
+#!/bin/sh
+# Run game tests before allowing git push.
+set -e
+
+root="$(git rev-parse --show-toplevel)"
+cd "$root"
+
+echo "pre-push: running game tests..."
+npm run test -w game

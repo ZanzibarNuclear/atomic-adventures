@@ -9,6 +9,8 @@
     "dev:prototype": "npm run dev -w web",
     "dev:game": "npm run dev -w game",
     "build:prototype": "npm run build -w web",
-    "build:game": "npm run build -w game"
+    "build:game": "npm run build -w game",
+    "test": "npm run test -w game",
+    "prepare": "sh scripts/install-githooks.sh"
   }
 }
