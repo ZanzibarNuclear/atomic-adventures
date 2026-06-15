@@ -30,9 +30,11 @@ function assertGeometryAgreesWithResolveMove(move) {
 
   if (hit && !openingAllows(hit.kind, hit.x, hit.y, world.ctx.openings)) {
     expect(result.blockedKind, label).toBe(hit.kind)
-    expect(result.activeHexId, label).toBe(toHex.id)
     expect(result.stand, label).not.toEqual(move.toPos)
-    expect(enters, label).toBe(true)
+    expect(result.activeHexId, label).toBe(
+      world.hexAtPoint(result.stand, move.fromHex.id),
+    )
+    expect(enters, label).toBe(result.activeHexId === toHex.id)
     expect(reachable, label).toBe(false)
     return
   }
@@ -67,13 +69,15 @@ function assertOfferableMatchesResult(move) {
 }
 
 function assertSegmentBarrierBlock(move) {
-  const { toHex, result, hit } = move
+  const { fromHex, toHex, result, hit } = move
   if (!hit || openingAllows(hit.kind, hit.x, hit.y, world.ctx.openings)) {
     return
   }
   const label = moveLabel(move)
   expect(result.blockedKind, label).toBe(hit.kind)
-  expect(result.activeHexId, label).toBe(toHex.id)
+  expect(result.activeHexId, label).toBe(
+    world.hexAtPoint(result.stand, fromHex.id),
+  )
   expect(result.stand, label).not.toEqual(move.toPos)
 }
 

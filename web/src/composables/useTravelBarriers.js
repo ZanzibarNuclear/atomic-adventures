@@ -313,12 +313,8 @@ export function resolveMove({
     }
   }
 
-  // Blocked at a barrier while entering toHex — stand at the boundary but the
-  // active tile is the destination (reveals fog, matches where the player clicked).
-  const activeHexId =
-    hit && blockedKind
-      ? (toHex?.id ?? hexAtPoint(stand, fallbackHexId))
-      : hexAtPoint(stand, fallbackHexId)
+  // Blocked at a barrier — active hex follows where the avatar actually stands.
+  const activeHexId = hexAtPoint(stand, fallbackHexId)
 
   return {
     stand,
