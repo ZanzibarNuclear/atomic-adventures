@@ -27,8 +27,9 @@ const { lastSavedAt, loadError, hasSave, save: saveGame, load, clearSave } = sav
 const storyCtx = { gameState, place, outdoor, indoor };
 const {
   narrativeBeat,
+  pendingBeat,
   showEndCard,
-  dismissBeat,
+  applyChoice,
   dismissEndCard,
   refreshNarrative,
 } = useStory(storyData, storyCtx);
@@ -84,13 +85,15 @@ function handleReset() {
       :outdoor="outdoor"
       :indoor="indoor"
       :narrative-beat="narrativeBeat"
-      @narrative-choose="dismissBeat" />
+      :pending-beat="pendingBeat"
+      :apply-choice="applyChoice" />
 
     <IndoorScene
       v-else
       :indoor="indoor"
       :narrative-beat="narrativeBeat"
-      @narrative-choose="dismissBeat" />
+      :pending-beat="pendingBeat"
+      :apply-choice="applyChoice" />
 
     <StoryOverlay
       :show-end-card="showEndCard"

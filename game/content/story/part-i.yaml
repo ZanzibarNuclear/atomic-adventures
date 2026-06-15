@@ -1,6 +1,6 @@
 # Part I — Day 1 narrative
-# Rich prose lives here; the play panel stays mechanical (location, move, actions).
-# Milestone beats acknowledge once; revisit text shows when you return.
+# Prose in the narrative card; choices appear under "Choose an Action" in the play panel.
+# Choice effects (optional): sets, go_hex, go_room, enter (building)
 
 area: part-i
 name: "Day 1 — Into the Station"
@@ -36,6 +36,7 @@ beats:
     choices:
       - text: Keep walking west
         sets: [story.intro]
+        go_hex: east-pines
 
   the-gate:
     once: true
@@ -67,6 +68,7 @@ beats:
     choices:
       - text: Head down the road
         sets: [story.the-gate]
+        go_hex: utility-yard
 
   the-compound:
     once: true
@@ -95,6 +97,7 @@ beats:
     choices:
       - text: Find a way inside
         sets: [story.the-compound]
+        enter: building
 
   the-garage:
     once: true
@@ -177,6 +180,7 @@ beats:
     choices:
       - text: See what is through the door
         sets: [story.conference]
+        go_room: kitchen
 
   kitchen:
     once: true

@@ -14,39 +14,28 @@
     <MapCaption :title="hexLabel(outdoor.currentHexData)" />
   </section>
 
-  <NarrativeCard
-    :beat="narrativeBeat"
-    @choose="$emit('narrative-choose', $event)" />
+  <NarrativeCard :beat="narrativeBeat" />
 
   <PlayPanel>
     <StatusLines :lines="statusLines" />
 
-    <TravelOptions label="Follow a route">
+    <TravelOptions v-if="chooseActions.length" label="Choose an Action">
       <button
-        v-for="m in outdoor.moves"
-        :key="m.routeId + m.toHexId"
+        v-for="item in chooseActions"
+        :key="item.id"
         class="route-btn"
-        :class="'k-' + m.kind"
+        :class="item.kind ? 'k-' + item.kind : 'k-story'"
         :disabled="outdoor.traveling"
-        @click="outdoor.moveTo(m.toHexId)">
-        Take {{ m.routeName }} {{ m.label }}
-        <span class="dest">→ {{ outdoor.nameOf(m.toHexId) }}</span>
-      </button>
-      <button
-        v-for="o in outdoor.offRoad"
-        :key="'off-' + o.toHexId"
-        class="route-btn off"
-        :disabled="outdoor.traveling"
-        @click="outdoor.moveTo(o.toHexId)">
-        Go off-road {{ o.label }}
-        <span v-if="o.blockedBy" class="barrier-hint">· {{ o.blockedBy }}</span>
-        <span class="dest">→ ?</span>
+        :title="item.hint ?? ''"
+        @click="onChooseAction(item.id)">
+        {{ item.label }}
       </button>
     </TravelOptions>
 
     <PlayActions
       v-if="playActions.length"
       :items="playActions"
+      label="Actions"
       @select="onPlayAction" />
   </PlayPanel>
 </template>
@@ -62,19 +51,25 @@ import StatusLines from "../../../components/hud/StatusLines.vue";
 import PlayActions from "../../../components/hud/PlayActions.vue";
 import NarrativeCard from "../../../components/story/NarrativeCard.vue";
 import {
+  buildOutdoorChooseActions,
   buildOutdoorStatusLines,
+  handleOutdoorChooseAction,
 } from "../../../composables/usePlayPanel.js";
 
 const props = defineProps({
   outdoor: { type: Object, required: true },
   indoor: { type: Object, required: true },
   narrativeBeat: { type: Object, default: null },
+  pendingBeat: { type: Object, default: null },
+  applyChoice: { type: Function, required: true },
 });
-
-defineEmits(["narrative-choose"]);
 
 const statusLines = computed(() =>
   buildOutdoorStatusLines(props.outdoor, props.indoor),
+);
+
+const chooseActions = computed(() =>
+  buildOutdoorChooseActions(props.outdoor, props.pendingBeat),
 );
 
 const playActions = computed(() => {
@@ -87,6 +82,10 @@ const playActions = computed(() => {
   ];
 });
 
+function onChooseAction(id) {
+  handleOutdoorChooseAction(props.outdoor, props.applyChoice, id);
+}
+
 function onPlayAction(id) {
   if (id === "enter-building") props.indoor.enterBuilding();
 }
@@ -96,10 +95,5 @@ function onPlayAction(id) {
 .stage {
   display: block;
   margin-bottom: 1rem;
-}
-.barrier-hint {
-  color: #a89878;
-  font-size: 0.85em;
-  text-transform: capitalize;
 }
 </style>

@@ -3,7 +3,8 @@ import { hasFlag, requireSatisfied, setFlags } from "../lib/maps/composables/use
 
 /**
  * Location-triggered narrative for the card between map and play panel.
- * Milestone beats acknowledge once; revisit text shows on return.
+ * First visit: full beat + acknowledge. Return visit: revisit text, or original
+ * text if no revisit is authored.
  */
 export function useStory(storyData, ctx) {
   const { gameState, place, outdoor, indoor } = ctx;
@@ -14,6 +15,17 @@ export function useStory(storyData, ctx) {
   const pendingBeat = ref(null);
   /** Current location narrative (revisit or ambient). */
   const locationNarrative = ref(null);
+  /** Suppress revisit for a beat until the player leaves this location. */
+  const suppressedRevisit = ref(null);
+
+  function locationKey(loc) {
+    return [
+      loc.place,
+      loc.hex ?? "",
+      loc.room ?? "",
+      loc.exteriorNode ?? "",
+    ].join("|");
+  }
 
   const showEndCard = computed(
     () =>
@@ -84,14 +96,23 @@ export function useStory(storyData, ctx) {
   }
 
   function findRevisitBeat(loc) {
+    const key = locationKey(loc);
     for (const [id, beat] of Object.entries(beats)) {
-      if (beat.once === false || !beatSeen(id) || !beat.revisit) continue;
+      if (beat.once === false || !beatSeen(id)) continue;
+      const text = beat.revisit ?? beat.text;
+      if (!text) continue;
+      if (
+        suppressedRevisit.value?.beatId === id &&
+        suppressedRevisit.value?.locationKey === key
+      ) {
+        continue;
+      }
       if (!beatMatchesLocation(id, beat, loc)) continue;
       return {
         id,
         eyebrow: beat.eyebrow,
         heading: beat.heading,
-        text: beat.revisit,
+        text,
         revisit: true,
         acknowledge: false,
       };
@@ -114,17 +135,37 @@ export function useStory(storyData, ctx) {
     locationNarrative.value = findRevisitBeat(loc);
   }
 
-  function dismissBeat(choiceIndex = 0) {
+  function applyChoice(choiceIndex = 0) {
     const beat = pendingBeat.value;
     if (!beat) return;
 
     const choice = beat.choices?.[choiceIndex];
-    if (choice?.sets) setFlags(gameState.flags, choice.sets);
-    if (choice?.set_flags) setFlags(gameState.flags, choice.set_flags);
+    if (!choice) return;
+
+    if (choice.sets) setFlags(gameState.flags, choice.sets);
+    if (choice.set_flags) setFlags(gameState.flags, choice.set_flags);
 
     markSeen(beat.id);
     pendingBeat.value = null;
-    refreshNarrative();
+    suppressedRevisit.value = {
+      beatId: beat.id,
+      locationKey: locationKey(locationContext()),
+    };
+
+    const movesPlayer =
+      (choice.go_hex && place.value === "outdoors") ||
+      (choice.enter && place.value === "outdoors") ||
+      (choice.go_room && place.value === "indoors");
+
+    if (choice.go_hex && place.value === "outdoors") {
+      outdoor.moveTo(choice.go_hex);
+    } else if (choice.enter && place.value === "outdoors") {
+      indoor.enterBuilding();
+    } else if (choice.go_room && place.value === "indoors") {
+      indoor.moveToRoom(choice.go_room);
+    }
+
+    if (!movesPlayer) refreshNarrative();
   }
 
   function dismissEndCard() {
@@ -140,6 +181,12 @@ export function useStory(storyData, ctx) {
       [...gameState.flags].join("\0"),
     ],
     () => {
+      const loc = locationContext();
+      const key = locationKey(loc);
+      if (suppressedRevisit.value?.locationKey !== key) {
+        suppressedRevisit.value = null;
+      }
+
       const enteredIndoors =
         previousPlace.value === "outdoors" && place.value === "indoors";
       previousPlace.value = place.value;
@@ -159,7 +206,7 @@ export function useStory(storyData, ctx) {
     narrativeBeat,
     pendingBeat,
     showEndCard,
-    dismissBeat,
+    applyChoice,
     dismissEndCard,
     refreshNarrative,
   };

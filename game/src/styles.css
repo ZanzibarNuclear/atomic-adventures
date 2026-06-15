@@ -69,8 +69,14 @@ button.sm.muted {
 }
 
 .route-btn {
-  text-align: left;
+  width: auto;
+  flex: 0 1 auto;
+  max-width: 100%;
+  text-align: center;
   border-left-width: 4px;
+}
+.route-btn.k-story {
+  border-left-color: #8bc49a;
 }
 .route-btn.k-path {
   border-left-color: #c39a6b;

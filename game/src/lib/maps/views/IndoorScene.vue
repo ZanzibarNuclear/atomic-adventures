@@ -4,36 +4,20 @@
     <MapCaption :title="locationTitle" />
   </section>
 
-  <NarrativeCard
-    :beat="narrativeBeat"
-    @choose="$emit('narrative-choose', $event)" />
+  <NarrativeCard :beat="narrativeBeat" />
 
   <PlayPanel>
     <StatusLines :lines="statusLines" />
 
-    <TravelOptions label="Move">
+    <TravelOptions v-if="chooseActions.length" label="Choose an Action">
       <button
-        v-for="m in indoor.indoorMoves"
-        :key="indoor.moveKey(m)"
+        v-for="item in chooseActions"
+        :key="item.id"
         class="route-btn"
-        :class="
-          'k-' +
-          (m.kind === 'door' ? 'path' : m.kind === 'path' ? 'trail' : 'road')
-        "
+        :class="item.kind ? 'k-' + item.kind : 'k-story'"
         :disabled="indoor.indoor.moving"
-        @click="indoor.applyIndoorMove(m)">
-        Go {{ m.label }}
-        <span class="dest"
-          >→
-          {{
-            m.toExteriorNode
-              ? m.toName
-              : m.onSpiral ||
-                  indoor.isDestinationNamed(m.toRoomId, indoor.indoorVisibility)
-                ? m.toName
-                : "?"
-          }}</span
-        >
+        @click="onChooseAction(item.id)">
+        {{ item.label }}
       </button>
     </TravelOptions>
 
@@ -42,6 +26,7 @@
     <PlayActions
       v-if="playActions.length"
       :items="playActions"
+      label="Actions"
       @select="onPlayAction" />
   </PlayPanel>
 </template>
@@ -58,17 +43,19 @@ import StatusLines from "../../../components/hud/StatusLines.vue";
 import PlayActions from "../../../components/hud/PlayActions.vue";
 import NarrativeCard from "../../../components/story/NarrativeCard.vue";
 import {
+  buildIndoorChooseActions,
   buildIndoorPlayActions,
   buildIndoorStatusLines,
+  handleIndoorChooseAction,
   handleIndoorPlayAction,
 } from "../../../composables/usePlayPanel.js";
 
 const props = defineProps({
   indoor: { type: Object, required: true },
   narrativeBeat: { type: Object, default: null },
+  pendingBeat: { type: Object, default: null },
+  applyChoice: { type: Function, required: true },
 });
-
-defineEmits(["narrative-choose"]);
 
 const locationTitle = computed(() => {
   const { indoor } = props;
@@ -78,9 +65,17 @@ const locationTitle = computed(() => {
   return roomLabel(indoor.currentRoomData);
 });
 
+const chooseActions = computed(() =>
+  buildIndoorChooseActions(props.indoor, props.pendingBeat),
+);
+
 const statusLines = computed(() => buildIndoorStatusLines(props.indoor));
 
 const playActions = computed(() => buildIndoorPlayActions(props.indoor));
+
+function onChooseAction(id) {
+  handleIndoorChooseAction(props.indoor, props.applyChoice, id);
+}
 
 function onPlayAction(id) {
   handleIndoorPlayAction(props.indoor, id);

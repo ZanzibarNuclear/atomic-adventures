@@ -3,30 +3,13 @@
     <p v-if="beat.eyebrow" class="narrative-eyebrow">{{ beat.eyebrow }}</p>
     <h2 v-if="beat.heading" class="narrative-heading">{{ beat.heading }}</h2>
     <div class="narrative-body">{{ beat.text }}</div>
-    <div v-if="needsAcknowledge" class="narrative-actions">
-      <button
-        v-for="(choice, idx) in beat.choices ?? [{ text: 'Continue' }]"
-        :key="idx"
-        class="sm"
-        @click="$emit('choose', idx)">
-        {{ choice.text }}
-      </button>
-    </div>
   </section>
 </template>
 
 <script setup>
-import { computed } from "vue";
-
-const props = defineProps({
+defineProps({
   beat: { type: Object, default: null },
 });
-
-defineEmits(["choose"]);
-
-const needsAcknowledge = computed(
-  () => props.beat?.acknowledge && !props.beat?.revisit,
-);
 </script>
 
 <style scoped>
@@ -57,13 +40,5 @@ const needsAcknowledge = computed(
   line-height: 1.6;
   color: #c8cdd6;
   font-size: 0.94rem;
-}
-.narrative-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 1rem;
-  padding-top: 0.85rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 </style>

@@ -9,15 +9,15 @@
 
 <script setup>
 defineProps({
-  label: { type: String, default: "Move" },
+  label: { type: String, default: "Choose an Action" },
 });
 </script>
 
 <style scoped>
 .travel .options {
   display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
+  flex-wrap: wrap;
+  gap: 0.45rem;
   margin-top: 0.35rem;
 }
 </style>

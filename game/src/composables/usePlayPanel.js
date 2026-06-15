@@ -16,6 +16,120 @@ function actionButtonLabel(action) {
 }
 
 /**
+ * Story choice buttons for the play panel (prose stays in NarrativeCard).
+ */
+export function buildStoryChoices(pendingBeat) {
+  if (!pendingBeat?.choices?.length || pendingBeat.revisit) return [];
+  return pendingBeat.choices.map((choice, index) => ({
+    id: `story:${index}`,
+    label: choice.text,
+    kind: "story",
+  }));
+}
+
+export function handleStoryChoice(index, applyChoice) {
+  applyChoice(Number(index));
+}
+
+/** Authoring label for leaving a hex toward a neighbor (map hex `travel` field). */
+export function resolveHexTravelLabel(fromHex, toHexId, move) {
+  const custom = fromHex?.travel?.[toHexId];
+  if (custom) return custom;
+  if (move?.label) return `Go ${move.label}`;
+  return "Go onward";
+}
+
+function storyChoiceDestinations(pendingBeat) {
+  const hexes = new Set();
+  const rooms = new Set();
+  for (const choice of pendingBeat?.choices ?? []) {
+    if (choice.go_hex) hexes.add(choice.go_hex);
+    if (choice.go_room) rooms.add(choice.go_room);
+    if (choice.enter) hexes.add("__enter__");
+  }
+  return { hexes, rooms };
+}
+
+/** Outdoor items for "Choose an Action" — story choices, then travel (deduped). */
+export function buildOutdoorChooseActions(outdoor, pendingBeat) {
+  const items = [...buildStoryChoices(pendingBeat)];
+  const { hexes: storyHexes } = storyChoiceDestinations(pendingBeat);
+  const fromHex = outdoor.currentHexData;
+
+  for (const m of outdoor.moves ?? []) {
+    if (storyHexes.has(m.toHexId)) continue;
+    items.push({
+      id: `move:${m.toHexId}`,
+      label: resolveHexTravelLabel(fromHex, m.toHexId, m),
+      kind: m.kind,
+    });
+  }
+
+  for (const o of outdoor.offRoad ?? []) {
+    if (storyHexes.has(o.toHexId)) continue;
+    const custom = fromHex?.travel?.[o.toHexId];
+    items.push({
+      id: `off:${o.toHexId}`,
+      label: custom ?? `Go off-road ${o.label}`,
+      kind: "off",
+      hint: o.blockedBy,
+    });
+  }
+
+  return items;
+}
+
+export function handleOutdoorChooseAction(outdoor, applyChoice, actionId) {
+  if (actionId.startsWith("story:")) {
+    handleStoryChoice(actionId.slice("story:".length), applyChoice);
+    return;
+  }
+  if (actionId.startsWith("move:") || actionId.startsWith("off:")) {
+    const hexId = actionId.includes("off:")
+      ? actionId.slice("off:".length)
+      : actionId.slice("move:".length);
+    outdoor.moveTo(hexId);
+  }
+}
+
+/** Indoor items for "Choose an Action" — story choices, then moves (deduped). */
+export function buildIndoorChooseActions(indoor, pendingBeat) {
+  const items = [...buildStoryChoices(pendingBeat)];
+  const { hexes: storyHexes, rooms: storyRooms } =
+    storyChoiceDestinations(pendingBeat);
+  if (storyHexes.has("__enter__")) {
+    // enter-building is handled via story applyChoice, not move list
+  }
+
+  const fromRoom = indoor.currentRoomData;
+  for (const m of indoor.indoorMoves ?? []) {
+    const dest = m.toExteriorNode ?? m.toRoomId;
+    if (dest && storyRooms.has(dest)) continue;
+    const custom = fromRoom?.travel?.[dest];
+    items.push({
+      id: `move:${indoor.moveKey(m)}`,
+      label: custom ?? `Go ${m.label}`,
+      kind: m.kind === "door" ? "path" : m.kind === "path" ? "trail" : "road",
+      move: m,
+    });
+  }
+
+  return items;
+}
+
+export function handleIndoorChooseAction(indoor, applyChoice, actionId) {
+  if (actionId.startsWith("story:")) {
+    handleStoryChoice(actionId.slice("story:".length), applyChoice);
+    return;
+  }
+  if (actionId.startsWith("move:")) {
+    const key = actionId.slice("move:".length);
+    const m = indoor.indoorMoves.find((mv) => indoor.moveKey(mv) === key);
+    if (m) indoor.applyIndoorMove(m);
+  }
+}
+
+/**
  * Build a flat action list for the play panel (pickups, room actions, doors, switches).
  */
 export function buildIndoorPlayActions(indoor) {
