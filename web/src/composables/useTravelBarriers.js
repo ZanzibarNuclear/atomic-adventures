@@ -140,9 +140,29 @@ function sharesEnclosure(fromHex, toHex) {
   )
 }
 
-/** Fence polylines trace the compound outline and cross many internal hex edges. */
-function skipFenceForMove(fromHex, toHex, seg) {
-  return seg.kind === 'fence' && sharesEnclosure(fromHex, toHex)
+/**
+ * Compound interior lies west of the east fence (fence-run-south, x ≈ -30).
+ * When the avatar stand is east of that line they are at the fence line, not inside.
+ */
+function standInsideCompound(stand, ctx) {
+  const eastFence = barrierList(ctx).find(
+    (s) => s.kind === 'fence' && Math.abs(s.a.x - s.b.x) < 2,
+  )
+  if (!eastFence) return true
+  const boundaryX = eastFence.a.x
+  return stand.x < boundaryX - STAND_INSET
+}
+
+/**
+ * Fence polylines trace the compound outline and cross many internal hex edges.
+ * Skip fence checks for compound-to-compound moves only when both path endpoints
+ * are inside the yard — not when standing at the east fence after a blocked entry.
+ */
+function skipFenceForMove(fromHex, toHex, path, ctx) {
+  if (!sharesEnclosure(fromHex, toHex)) return false
+  const start = path[0]
+  const end = path[path.length - 1]
+  return standInsideCompound(start, ctx) && standInsideCompound(end, ctx)
 }
 
 function barrierList(ctx) {
@@ -151,11 +171,12 @@ function barrierList(ctx) {
 
 /** First barrier hit along a polyline path; null when none. */
 export function firstBlockedOnPath(path, ctx, fromHex, toHex) {
+  const skipFence = skipFenceForMove(fromHex, toHex, path, ctx)
   for (let i = 0; i < path.length - 1; i++) {
     const a = path[i]
     const b = path[i + 1]
     for (const seg of barrierList(ctx)) {
-      if (skipFenceForMove(fromHex, toHex, seg)) continue
+      if (seg.kind === 'fence' && skipFence) continue
       const cross = segmentIntersection(a, b, seg.a, seg.b)
       if (!cross || cross.t < PATH_ORIGIN_EPS) continue
       if (!openingAllows(seg.kind, cross.x, cross.y, ctx.openings)) {
@@ -243,7 +264,7 @@ function enclosureFenceStand(path, ctx, fromHex, toHex) {
     const a = path[i]
     const b = path[i + 1]
     for (const seg of barrierList(ctx)) {
-      if (seg.kind !== 'fence' || skipFenceForMove(fromHex, toHex, seg)) continue
+      if (seg.kind !== 'fence' || skipFenceForMove(fromHex, toHex, path, ctx)) continue
       const cross = segmentIntersection(a, b, seg.a, seg.b)
       if (!cross || cross.t < PATH_ORIGIN_EPS) continue
       return standBeforeHit(a, { ...cross, kind: 'fence' })

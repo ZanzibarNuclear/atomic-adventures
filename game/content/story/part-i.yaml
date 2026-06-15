@@ -70,17 +70,19 @@ beats:
     require:
       all: [story.east-pines]
     text: |
-      After a time, Zanzibar found the first sign of humanity in days. A chain-link
+      After a time, Zanzibar found a sign of humanity. A chain-link
       fence covered in thick vines grew out of the ground, stretching in a straight
       line up the mountainside. He turned uphill, hoping higher ground would offer
       a vantage point. As he walked, he wondered what was on the other side.
     revisit: |
-      The vine-choked fence climbing the slope. Whatever lies beyond stays hidden
-      until you follow the line far enough.
+      The vine-choked fence climbs the slope, blocking westward passage.
     choices:
       - text: Walk north along the fence line
         sets: [story.center-pines]
         go_hex: north-bend
+      - text: Head downhill to the south
+        sets: [story.center-pines]
+        go_hex: south-pines
 
   north-bend:
     once: true

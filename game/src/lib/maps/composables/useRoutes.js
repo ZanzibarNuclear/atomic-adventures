@@ -159,6 +159,36 @@ function nextSpan(model, fromSpanIdx, dir, currentHexId) {
 export function availableMoves(currentHexId, models, travelOpts = null) {
   const moves = []
   const seen = new Set()
+
+  function reachable(toHexId, routeLeg, pathSamples) {
+    if (!travelOpts?.fromPos) return true
+    const fromHex = travelOpts.fromHex
+    const toHex = travelOpts.hexById[toHexId]
+    if (!fromHex || !toHex) return false
+    const fromPos = travelOpts.fromPos
+    const toPos = travelOpts.resolveStand(toHex)
+    const path = routeLeg
+      ? buildMovePath(
+          fromPos,
+          fromHex,
+          toHex,
+          toPos,
+          routeLeg,
+          travelOpts.routeModels ?? models,
+        )
+      : pathSamples ?? [fromPos, toPos]
+    return canReachNeighbor({
+      fromHex,
+      toHex,
+      fromPos,
+      toPos,
+      path,
+      ctx: travelOpts.barriers,
+      hexAtPoint: travelOpts.hexAtPoint,
+      size: travelOpts.size,
+    })
+  }
+
   for (const m of models) {
     for (let si = 0; si < m.spans.length; si++) {
       if (m.spans[si].hexId !== currentHexId) continue
@@ -166,13 +196,18 @@ export function availableMoves(currentHexId, models, travelOpts = null) {
 
       const fwd = nextSpan(m, si, +1, currentHexId)
       if (fwd && !seen.has(fwd.hexId)) {
+        const routeLeg = {
+          routeId: m.id,
+          routeName: m.label,
+          kind: m.kind,
+          toHexId: fwd.hexId,
+        }
         if (
           travelOpts &&
-          isRouteMoveBlocked(
-            travelOpts.fromHex,
-            travelOpts.hexById[fwd.hexId],
+          !reachable(
+            fwd.hexId,
+            routeLeg,
             routeMoveSamples(m, span, fwd),
-            travelOpts.barriers,
           )
         ) {
           continue
@@ -190,13 +225,18 @@ export function availableMoves(currentHexId, models, travelOpts = null) {
 
       const bwd = nextSpan(m, si, -1, currentHexId)
       if (bwd && !seen.has(bwd.hexId)) {
+        const routeLeg = {
+          routeId: m.id,
+          routeName: m.label,
+          kind: m.kind,
+          toHexId: bwd.hexId,
+        }
         if (
           travelOpts &&
-          isRouteMoveBlocked(
-            travelOpts.fromHex,
-            travelOpts.hexById[bwd.hexId],
+          !reachable(
+            bwd.hexId,
+            routeLeg,
             routeMoveSamples(m, span, bwd),
-            travelOpts.barriers,
           )
         ) {
           continue
@@ -259,9 +299,9 @@ export function buildRouteDrawPieces(models, { isRevealed, inView, allowStub }) 
 }
 
 import {
-  isRouteMoveBlocked,
   routeMoveSamples,
   resolveMove,
+  canReachNeighbor,
 } from './useTravelBarriers.js'
 
 export { fenceSegments, segmentsCross } from './useTravelBarriers.js'
@@ -284,7 +324,7 @@ export function buildMovePath(fromPos, fromHex, toHex, toPos, routeLeg, routeMod
   return [fromPos, toPos]
 }
 
-// Adjacent hexes not on a marked route — always clickable; blockedBy is a soft hint.
+// Adjacent hexes not on a marked route — excludes moves blocked by fence or river.
 export function directNeighbors(
   currentHexId,
   hexes,
@@ -319,6 +359,7 @@ export function directNeighbors(
         blockedBy: result.blockedKind,
       }
     })
+    .filter((move) => !move.blockedBy)
 }
 
 export function pointsAttr(pts) {

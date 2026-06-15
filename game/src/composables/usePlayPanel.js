@@ -18,13 +18,16 @@ function actionButtonLabel(action) {
 /**
  * Story choice buttons for the play panel (prose stays in NarrativeCard).
  */
-export function buildStoryChoices(pendingBeat) {
+export function buildStoryChoices(pendingBeat, canReachHex = () => true) {
   if (!pendingBeat?.choices?.length || pendingBeat.revisit) return [];
-  return pendingBeat.choices.map((choice, index) => ({
-    id: `story:${index}`,
-    label: choice.text,
-    kind: "story",
-  }));
+  return pendingBeat.choices
+    .map((choice, index) => ({ choice, index }))
+    .filter(({ choice }) => !choice.go_hex || canReachHex(choice.go_hex))
+    .map(({ choice, index }) => ({
+      id: `story:${index}`,
+      label: choice.text,
+      kind: "story",
+    }));
 }
 
 export function handleStoryChoice(index, applyChoice) {
@@ -52,7 +55,8 @@ function storyChoiceDestinations(pendingBeat) {
 
 /** Outdoor items for "Choose an Action" — story choices, then travel (deduped). */
 export function buildOutdoorChooseActions(outdoor, pendingBeat) {
-  const items = [...buildStoryChoices(pendingBeat)];
+  const canReach = (hexId) => outdoor.canReachHex?.(hexId) ?? true;
+  const items = [...buildStoryChoices(pendingBeat, canReach)];
   const { hexes: storyHexes } = storyChoiceDestinations(pendingBeat);
   const fromHex = outdoor.currentHexData;
 
@@ -71,7 +75,6 @@ export function buildOutdoorChooseActions(outdoor, pendingBeat) {
       id: `hex:${o.toHexId}`,
       label: resolveHexTravelLabel(fromHex, o.toHexId, o),
       kind: "hex",
-      hint: o.blockedBy,
     });
   }
 

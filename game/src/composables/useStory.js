@@ -145,6 +145,18 @@ export function useStory(storyData, ctx) {
     });
   }
 
+  function atBeatTrigger(beat, loc) {
+    const trigger = beat.trigger ?? {};
+    if (trigger.event) return true;
+    if (trigger.place && trigger.place !== loc.place) return false;
+    if (trigger.hex) return loc.place === "outdoors" && trigger.hex === loc.hex;
+    if (trigger.room) return loc.place === "indoors" && trigger.room === loc.room;
+    if (trigger.exteriorNode) {
+      return loc.place === "indoors" && trigger.exteriorNode === loc.exteriorNode;
+    }
+    return true;
+  }
+
   function applyChoice(choiceIndex = 0) {
     const beat = pendingBeat.value;
     if (!beat) return;
@@ -229,7 +241,11 @@ export function useStory(storyData, ctx) {
         previousPlace.value === "outdoors" && place.value === "indoors";
       previousPlace.value = place.value;
 
-      if (pendingBeat.value) return;
+      if (pendingBeat.value) {
+        const beatDef = beats[pendingBeat.value.id];
+        if (beatDef && atBeatTrigger(beatDef, loc)) return;
+        pendingBeat.value = null;
+      }
 
       if (enteredIndoors) {
         refreshNarrative("enter-building");

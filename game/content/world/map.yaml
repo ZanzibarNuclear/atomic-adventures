@@ -117,7 +117,14 @@ hexes:
       dy: 0.19
       blurb: "Built beside a rocky cascade on the river, this facility is the central location for Part I of our adventure."
 
-  - { id: south-pines, q: -1, r: 1, terrain: forest, enclosure: compound }
+  - id: south-pines
+    q: -1
+    r: 1
+    terrain: forest
+    enclosure: compound
+    travel:
+      west-slope: Go north along the fence
+      lower-stand: Go east
 
   - { id: lower-stand, q: 0, r: 1, terrain: forest }
 

@@ -14,6 +14,7 @@ import {
   riverSegments,
   travelOpenings,
   resolveMove,
+  canReachNeighbor,
 } from "./useTravelBarriers.js";
 
 export function useOutdoorWorld(mapData) {
@@ -132,6 +133,10 @@ export function useOutdoorWorld(mapData) {
     hexById: hexById.value,
     size,
     barriers: travelBarrierCtx.value,
+    fromPos: avatarFromPos.value,
+    resolveStand: (hex) => resolveAvatarPosition(hex, size, rivers.value),
+    hexAtPoint,
+    routeModels: routeModels.value,
   }));
 
   const moves = computed(() =>
@@ -165,6 +170,38 @@ export function useOutdoorWorld(mapData) {
     () => currentHexData.value?.area === "utility",
   );
   const atGatePuzzle = computed(() => currentHexData.value?.puzzle === "gate");
+
+  function canReachHex(hexId) {
+    const fromHex = hexById.value[state.currentId];
+    const toHex = hexById.value[hexId];
+    if (!fromHex || !toHex) return false;
+    if (hexId === state.currentId) return true;
+    if (hexDistance(fromHex, toHex) !== 1) return false;
+
+    const fromPos = avatarFromPos.value;
+    const toPos = resolveAvatarPosition(toHex, size, rivers.value);
+    const routeLeg = availableMoves(state.currentId, routeModels.value, null).find(
+      (m) => m.toHexId === hexId,
+    );
+    const path = buildMovePath(
+      fromPos,
+      fromHex,
+      toHex,
+      toPos,
+      routeLeg,
+      routeModels.value,
+    );
+    return canReachNeighbor({
+      fromHex,
+      toHex,
+      fromPos,
+      toPos,
+      path,
+      ctx: travelBarrierCtx.value,
+      hexAtPoint,
+      size,
+    });
+  }
 
   function moveTo(hexId) {
     if (traveling.value || !hexById.value[hexId]) return;
@@ -262,6 +299,7 @@ export function useOutdoorWorld(mapData) {
     atBuildingEntrance,
     atGatePuzzle,
     moveTo,
+    canReachHex,
     autoTravel,
     resetPlayer,
     nameOf,
