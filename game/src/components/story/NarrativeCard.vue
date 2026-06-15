@@ -2,14 +2,21 @@
   <section v-if="beat" class="narrative-card" aria-live="polite">
     <p v-if="beat.eyebrow" class="narrative-eyebrow">{{ beat.eyebrow }}</p>
     <h2 v-if="beat.heading" class="narrative-heading">{{ beat.heading }}</h2>
-    <div class="narrative-body">{{ beat.text }}</div>
+    <div class="narrative-body">
+      <p v-for="(para, i) in paragraphs" :key="i">{{ para }}</p>
+    </div>
   </section>
 </template>
 
 <script setup>
-defineProps({
+import { computed } from "vue";
+import { proseParagraphs } from "../../lib/prose.js";
+
+const props = defineProps({
   beat: { type: Object, default: null },
 });
+
+const paragraphs = computed(() => proseParagraphs(props.beat?.text));
 </script>
 
 <style scoped>
@@ -36,9 +43,14 @@ defineProps({
   line-height: 1.3;
 }
 .narrative-body {
-  white-space: pre-wrap;
   line-height: 1.6;
   color: #c8cdd6;
   font-size: 0.94rem;
+}
+.narrative-body p {
+  margin: 0;
+}
+.narrative-body p + p {
+  margin-top: 0.85rem;
 }
 </style>
