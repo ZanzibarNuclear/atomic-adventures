@@ -5,7 +5,7 @@
  */
 
 
-import { bankStandAt, hexOnRiverBank } from './useRiverBank.js'
+import { bankStandAt, hexOnRiverBank, isAdjacentRiverBankPair } from './useRiverBank.js'
 
 const STAND_INSET = 5
 const PATH_ORIGIN_EPS = 0.02
@@ -107,11 +107,13 @@ function barrierList(ctx) {
 }
 
 /** First barrier hit along a polyline path; null when none. */
-export function firstBlockedOnPath(path, ctx) {
+export function firstBlockedOnPath(path, ctx, { skipKinds = [] } = {}) {
+  const skip = new Set(skipKinds)
   for (let i = 0; i < path.length - 1; i++) {
     const a = path[i]
     const b = path[i + 1]
     for (const seg of barrierList(ctx)) {
+      if (skip.has(seg.kind)) continue
       const cross = segmentIntersection(a, b, seg.a, seg.b)
       if (!cross || cross.t < PATH_ORIGIN_EPS) continue
       if (!openingAllows(seg.kind, cross.x, cross.y, ctx.openings)) {
@@ -126,11 +128,13 @@ export function firstBlockedOnPath(path, ctx) {
  * First barrier hit along `path` whose intersection lies in `hexId`.
  * Used for movement options — barriers in neighboring hexes are ignored.
  */
-export function firstBlockedOnPathInHex(path, ctx, hexId, hexAtPoint) {
+export function firstBlockedOnPathInHex(path, ctx, hexId, hexAtPoint, { skipKinds = [] } = {}) {
+  const skip = new Set(skipKinds)
   for (let i = 0; i < path.length - 1; i++) {
     const a = path[i]
     const b = path[i + 1]
     for (const seg of barrierList(ctx)) {
+      if (skip.has(seg.kind)) continue
       const cross = segmentIntersection(a, b, seg.a, seg.b)
       if (!cross || cross.t < PATH_ORIGIN_EPS) continue
       if (!openingAllows(seg.kind, cross.x, cross.y, ctx.openings)) {
@@ -161,10 +165,10 @@ export function pathInDepartureHex(path, fromHexId, hexAtPoint) {
  * Barrier blocking exit from the departure hex along `path`, if any.
  * Barriers in neighboring hexes are ignored for movement options.
  */
-export function blockedLeavingDepartureHex(path, fromHexId, ctx, hexAtPoint) {
+export function blockedLeavingDepartureHex(path, fromHexId, ctx, hexAtPoint, barrierOpts = {}) {
   const sub = pathInDepartureHex(path, fromHexId, hexAtPoint)
   if (sub.length < 2) return null
-  return firstBlockedOnPathInHex(sub, ctx, fromHexId, hexAtPoint)
+  return firstBlockedOnPathInHex(sub, ctx, fromHexId, hexAtPoint, barrierOpts)
 }
 
 /**
@@ -179,10 +183,15 @@ export function canOfferNeighbor({
   path,
   ctx,
   hexAtPoint,
+  size,
 }) {
   if (!fromHex?.id) return false
   const walkPath = path ?? [fromPos, toPos]
-  return blockedLeavingDepartureHex(walkPath, fromHex.id, ctx, hexAtPoint) === null
+  const skipKinds = barrierSkipKinds(fromHex, toHex, size, ctx)
+  return (
+    blockedLeavingDepartureHex(walkPath, fromHex.id, ctx, hexAtPoint, { skipKinds }) ===
+    null
+  )
 }
 
 /**
@@ -236,6 +245,15 @@ function riverSegs(ctx) {
   return barrierList(ctx).filter((s) => s.kind === 'river')
 }
 
+function parallelRiverBankMove(fromHex, toHex, size, ctx) {
+  const rivers = riverSegs(ctx)
+  return !!(size && rivers.length && isAdjacentRiverBankPair(fromHex, toHex, size, rivers))
+}
+
+function barrierSkipKinds(fromHex, toHex, size, ctx) {
+  return parallelRiverBankMove(fromHex, toHex, size, ctx) ? ['river'] : []
+}
+
 /**
  * Entering a river hex from a non-river hex stops at the near bank.
  * Bank-to-bank moves along the same q column (parallel to the river) pass through.
@@ -267,6 +285,7 @@ export function resolveMove({
   size,
 }) {
   const walkPath = path ?? [fromPos, toPos]
+  const skipKinds = barrierSkipKinds(fromHex, toHex, size, ctx)
   const fallbackHexId = toHex?.id ?? fromHex?.id
 
   if (walkPath.length < 2) {
@@ -277,7 +296,7 @@ export function resolveMove({
     }
   }
 
-  const hit = firstBlockedOnPath(walkPath, ctx)
+  const hit = firstBlockedOnPath(walkPath, ctx, { skipKinds })
   let blockedKind = hit?.kind ?? null
   let stand
 

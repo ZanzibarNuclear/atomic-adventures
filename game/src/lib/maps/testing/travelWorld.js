@@ -22,8 +22,6 @@ import {
   canEnterNeighbor,
   firstBlockedOnPath,
   openingAllows,
-  pathInDepartureHex,
-  blockedLeavingDepartureHex,
 } from '../composables/useTravelBarriers.js'
 
 export { openingAllows, firstBlockedOnPath }

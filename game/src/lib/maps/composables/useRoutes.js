@@ -185,6 +185,7 @@ export function availableMoves(currentHexId, models, travelOpts = null) {
       path,
       ctx: travelOpts.barriers,
       hexAtPoint: travelOpts.hexAtPoint,
+      size: travelOpts.size,
     })
   }
 
@@ -352,6 +353,7 @@ export function directNeighbors(
         path: [fromPos, toPos],
         ctx: barriers,
         hexAtPoint,
+        size,
       })
     })
     .map((h) => ({

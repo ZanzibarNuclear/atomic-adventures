@@ -218,13 +218,27 @@ describe('canOfferNeighbor vs canReachNeighbor', () => {
   })
 })
 
+describe('parallel river bank moves', () => {
+  it('does not treat river polyline crossings as blocking when walking along the bank', () => {
+    const world = buildTravelWorld(mapData)
+    const from = world.hexById['mid-west']
+    const to = world.hexById['utility-yard']
+    const bank = world.resolveStand(from)
+    const fromPos = { x: bank.x, y: bank.y + 20 }
+    const m = evaluateNeighborMove(world, from, to, fromPos)
+
+    expect(m.reachable).toBe(true)
+    expect(m.offerable).toBe(true)
+    expect(m.result.blockedKind).toBeNull()
+  })
+})
+
 describe('blockedLeavingDepartureHex', () => {
   it('ignores fence hits in the neighboring hex when offering a move', () => {
     const world = buildTravelWorld(mapData)
     const from = world.hexById['lower-stand']
-    const to = world.hexById['south-pines']
     const fromPos = world.resolveStand(from)
-    const toPos = world.resolveStand(to)
+    const toPos = world.resolveStand(world.hexById['south-pines'])
     const path = [fromPos, toPos]
 
     expect(blockedLeavingDepartureHex(path, from.id, world.ctx, world.hexAtPoint)).toBeNull()

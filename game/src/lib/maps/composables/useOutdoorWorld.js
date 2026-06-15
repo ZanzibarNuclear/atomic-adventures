@@ -207,6 +207,7 @@ export function useOutdoorWorld(mapData) {
       path,
       ctx: travelBarrierCtx.value,
       hexAtPoint,
+      size,
     });
   }
 
