@@ -2,8 +2,8 @@
   <header>
     <h1>Atomic Adventures — Travel Map Prototype</h1>
     <p class="sub">
-      Follow the marked routes (or strike off-road). Unexplored hexes stay hidden,
-      but a path may hint at what lies beyond.
+      Move in any direction from your hex. Unexplored areas stay hidden until you
+      reach them.
     </p>
   </header>
 </template>

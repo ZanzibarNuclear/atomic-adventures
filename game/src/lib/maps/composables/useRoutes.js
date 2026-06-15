@@ -36,7 +36,7 @@ function bearingFromVector(dx, dy) {
   return best.name
 }
 
-// Direction between two hex centers (used for off-road moves, which have no path).
+// Direction between two hex centers (direct hex-to-hex moves with no route polyline).
 export function bearingLabel(from, to, size) {
   const a = axialToPixel(from.q, from.r, size)
   const b = axialToPixel(to.q, to.r, size)
@@ -266,7 +266,7 @@ import {
 
 export { fenceSegments, segmentsCross } from './useTravelBarriers.js'
 
-/** Walk path for a move — route polyline or straight line off-road. */
+/** Walk path for a move — route polyline or straight line between hex centers. */
 export function buildMovePath(fromPos, fromHex, toHex, toPos, routeLeg, routeModels) {
   if (routeLeg) {
     const model = routeModels.find((r) => r.id === routeLeg.routeId)
@@ -285,7 +285,7 @@ export function buildMovePath(fromPos, fromHex, toHex, toPos, routeLeg, routeMod
 }
 
 // Adjacent hexes not on a marked route — always clickable; blockedBy is a soft hint.
-export function offRoadNeighbors(
+export function directNeighbors(
   currentHexId,
   hexes,
   hexById,

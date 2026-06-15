@@ -2,7 +2,7 @@ import { computed, reactive, ref, watch } from "vue";
 import { hexLabel } from "../../displayLabel.js";
 import {
   availableMoves,
-  offRoadNeighbors,
+  directNeighbors,
   buildRouteModels,
   buildMovePath,
 } from "./useRoutes.js";
@@ -97,7 +97,7 @@ export function useOutdoorWorld(mapData) {
     state.discovered = [...state.discovered, hexId];
   }
 
-  // Any code path that moves the avatar (routes, off-road, builder, indoor exits)
+  // Any code path that moves the avatar (routes, direct hex moves, builder, indoor exits)
   // must reveal the hex the player is standing on.
   watch(
     () => state.currentId,
@@ -138,8 +138,8 @@ export function useOutdoorWorld(mapData) {
     availableMoves(state.currentId, routeModels.value, travelOpts.value),
   );
 
-  const offRoad = computed(() =>
-    offRoadNeighbors(
+  const directMoves = computed(() =>
+    directNeighbors(
       state.currentId,
       editableHexes.value,
       hexById.value,
@@ -258,7 +258,7 @@ export function useOutdoorWorld(mapData) {
     discoveredList,
     markDiscovered,
     moves,
-    offRoad,
+    directMoves,
     atBuildingEntrance,
     atGatePuzzle,
     moveTo,

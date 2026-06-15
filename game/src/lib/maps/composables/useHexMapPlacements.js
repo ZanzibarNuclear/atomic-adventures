@@ -133,7 +133,9 @@ export function useHexMapPlacements({
 
   const routePieces = computed(() => {
     const { isRevealed, inView } = fogMaskOpts()
-    return buildRouteDrawPieces(routeModels.value, {
+    // Omit authored path overlays — they suggest a single intended story route.
+    const drawableRoutes = routeModels.value.filter((m) => m.kind !== 'path')
+    return buildRouteDrawPieces(drawableRoutes, {
       isRevealed,
       inView,
       allowStub: mode.value !== 'full',

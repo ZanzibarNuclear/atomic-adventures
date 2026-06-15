@@ -31,7 +31,7 @@
 # Roads: compound-road (paved) gate ↔ north ↔ NE stub at road-fork (0,-2).
 #        river-access-drive (granite) — side road from road-fork west to the river.
 #
-# Barriers (off-road only — routes pass through openings):
+# Barriers (direct hex moves — marked routes pass through openings):
 #   gate / hole — fence crossings   bridge / ford — river crossings
 #   { kind: gate|hole|bridge|ford, at: { x, y }, radius?: px }
 #

@@ -65,13 +65,12 @@ export function buildOutdoorChooseActions(outdoor, pendingBeat) {
     });
   }
 
-  for (const o of outdoor.offRoad ?? []) {
+  for (const o of outdoor.directMoves ?? []) {
     if (storyHexes.has(o.toHexId)) continue;
-    const custom = fromHex?.travel?.[o.toHexId];
     items.push({
-      id: `off:${o.toHexId}`,
-      label: custom ?? `Go off-road ${o.label}`,
-      kind: "off",
+      id: `hex:${o.toHexId}`,
+      label: resolveHexTravelLabel(fromHex, o.toHexId, o),
+      kind: "hex",
       hint: o.blockedBy,
     });
   }
@@ -84,9 +83,9 @@ export function handleOutdoorChooseAction(outdoor, applyChoice, actionId) {
     handleStoryChoice(actionId.slice("story:".length), applyChoice);
     return;
   }
-  if (actionId.startsWith("move:") || actionId.startsWith("off:")) {
-    const hexId = actionId.includes("off:")
-      ? actionId.slice("off:".length)
+  if (actionId.startsWith("move:") || actionId.startsWith("hex:")) {
+    const hexId = actionId.includes("hex:")
+      ? actionId.slice("hex:".length)
       : actionId.slice("move:".length);
     outdoor.moveTo(hexId);
   }

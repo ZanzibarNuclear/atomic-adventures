@@ -1,7 +1,7 @@
 /**
  * Barrier features for hex travel (fence, river, cliff, ravine, …).
  * Crossing is allowed only at authored openings (gate/hole, bridge/ford, …).
- * All moves — on-route or off-road — use the same path-based checks.
+ * All moves — along a route or direct hex-to-hex — use the same path-based checks.
  */
 
 import { axialToPixel } from './useHexGeometry.js'
@@ -168,7 +168,7 @@ export function firstBlockedOnPath(path, ctx, fromHex, toHex) {
 
 /**
  * Whether a move along `path` is blocked. Returns barrier kind or null.
- * Same rules for on-route and off-road travel.
+ * Same rules for route-following and direct hex-to-hex travel.
  */
 export function moveBlocked(fromHex, toHex, path, ctx) {
   if (path.length < 2) return null
