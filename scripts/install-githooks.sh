@@ -1,5 +1,5 @@
 #!/bin/sh
-# Point this clone at the version-controlled hooks in .githooks/
+# Install version-controlled hooks into this clone's .git/hooks/
 set -e
 
 if ! git rev-parse --git-dir >/dev/null 2>&1; then
@@ -8,5 +8,16 @@ fi
 
 root="$(git rev-parse --show-toplevel)"
 cd "$root"
-git config core.hooksPath .githooks
-echo "Installed git hooks from .githooks/"
+
+gitdir="$(git rev-parse --git-dir)"
+case "$gitdir" in
+  /*) ;;
+  *) gitdir="$root/$gitdir" ;;
+esac
+
+hookdir="$gitdir/hooks"
+mkdir -p "$hookdir"
+chmod +x .githooks/pre-push
+ln -sf "$root/.githooks/pre-push" "$hookdir/pre-push"
+
+echo "Installed pre-push hook ($hookdir/pre-push -> .githooks/pre-push)"
