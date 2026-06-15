@@ -26,6 +26,30 @@ Key components:
 
 See [Next Steps Plan](../../docs/next-steps-plan.md#6-tech-stack--scaffold--decided) for full architecture diagram.
 
+## Prose rendering
+
+Story beat text (`game/content/story/`) is rendered in the narrative card. **Today:** `proseParagraphs()` in `game/src/lib/prose.js` normalizes YAML block scalars — single newlines become spaces; blank lines become paragraph breaks.
+
+**Planned:** add `renderProse()` as a **remark/rehype pipeline** in the same module (or adjacent), used by `NarrativeCard` and eventually choice labels. Stay on Vue 3 + Vite; no framework switch for rich text.
+
+**Incremental path:**
+
+| Step | Scope | Notes |
+| ---- | ----- | ----- |
+| Now | Paragraph normalization | `proseParagraphs()` — done |
+| Next | Inline emphasis | `**bold**`, `*italic*`, `<u>underline</u>` via remark parse + sanitize |
+| Later | Block Markdown | Lists, blockquotes, code in beat `text:` / `revisit:` |
+| With wiki | Math & components | `remark-math` / KaTeX; MDC-style custom blocks for callouts |
+| Shared | Document panel | Same `renderProse()` (or shared plugin set) for wiki-sourced artifacts |
+
+**Design rules:**
+
+- **Metadata** (triggers, choices, flags) stays in YAML; **body** prose can contain Markdown.
+- Sanitize HTML output even for author-controlled content.
+- Document the supported Markdown subset in [story-data-format.md](../design/content/story/story-data-format.md) when `renderProse()` lands.
+
+The technical documentation wiki (below) can reuse this pipeline so in-game narrative and artifact panels render consistently.
+
 ## Implementation Phases (Future)
 
 ### Phase 1: Foundation
@@ -61,7 +85,7 @@ See [Next Steps Plan](../../docs/next-steps-plan.md#6-tech-stack--scaffold--deci
 
 In-game artifacts (operations manuals, schematics, reference sheets) need **full rich text**: lists, blockquotes, math, diagrams, and styled callouts. That is a different problem from **story beats** (`game/content/story/`) and **world data** (`game/content/world/`).
 
-**Do not migrate the playable `game/` app to Nuxt for this.** The game stays Vue 3 + Vite with its bespoke CYOA engine, maps, save/load, and simulation embeds. Rich narrative in story beats can grow via a remark/rehype pipeline in `game/` when needed (see prose rendering in the narrative card).
+**Do not migrate the playable `game/` app to Nuxt for this.** The game stays Vue 3 + Vite with its bespoke CYOA engine, maps, save/load, and simulation embeds. Rich narrative in story beats grows via `renderProse()` (remark/rehype — see [Prose rendering](#prose-rendering)).
 
 **Separate wiki app** for technical documentation:
 
@@ -88,7 +112,7 @@ In-game artifacts (operations manuals, schematics, reference sheets) need **full
 **Open decisions (when scoped):**
 
 - Static bundle in game build vs. hosted wiki API
-- Shared remark/MDC component set between wiki preview and in-game panel renderer
+- Shared remark/MDC component set between wiki preview and in-game panel renderer (align with `renderProse()`)
 - Localization and versioning for facility-specific manual revisions
 
 ## Dependencies
@@ -98,6 +122,7 @@ In-game artifacts (operations manuals, schematics, reference sheets) need **full
 - **Simulation specs** → Drive implementation scope
 - **Art** → Can proceed in parallel with design
 - **Mini-game projects** → Must define integration contract (Phase 1) before embedding (Phase 2)
+- **Prose rendering** → `renderProse()` remark pipeline; narrative card now, document panel with wiki (Phase 2+)
 - **Technical wiki** → Artifact ids in story/world YAML; document panel in game UI (Phase 2+)
 
 ## Real-World Tech Tracking

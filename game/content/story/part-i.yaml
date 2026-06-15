@@ -1,6 +1,10 @@
 # Part I — Day 1 narrative
 # Prose in the narrative card; choices appear under "Choose an Action" in the play panel.
 # Choice effects (optional): sets, go_hex, go_room, enter (building)
+#
+# Outdoor journey (map.yaml `journey`): one beat per hex on the westward path —
+# trailhead → east-pines → center-pines → north-bend → gate-woods → utility-yard.
+# Off-trail hexes have no Day-1 beats unless added later.
 
 area: part-i
 name: "Day 1 — Into the Station"
@@ -21,15 +25,6 @@ beats:
 
       Not one to wallow for long, Zanzibar parries desperation with optimism.
       Things will be better. He will survive.
-
-      Early afternoon on a pleasant summer day. The sun is still high, the weather
-      is pleasant, a gentle warm breeze meets his face. Fresh pine scent keeps him
-      alert. His fasting stomach gives an edge to his senses.
-
-      At the split in the path, he was certain the best strategy was to head west.
-      Everyone else thought east was better. What seemed like a path dwindled to a
-      suggestion, then nothing at all but pine cones among the tall trees. Turning
-      back would be a mistake.
     revisit: |
       The trail west through the pines. Zanzibar's stomach reminds him how far
       he has come — and how far he still has to go.
@@ -37,6 +32,75 @@ beats:
       - text: Keep walking west
         sets: [story.intro]
         go_hex: east-pines
+
+  east-pines:
+    once: true
+    eyebrow: Day 1
+    heading: West through the pines
+    trigger:
+      place: outdoors
+      hex: east-pines
+    require:
+      all: [story.intro]
+    text: |
+      Early afternoon on a pleasant summer day. The sun is still high, the weather
+      is pleasant, a gentle warm breeze meets his face. Fresh pine scent keeps him
+      alert. His fasting stomach gives an edge to his senses.
+
+      At the split in the path, he was certain the best strategy was to head west.
+      Everyone else thought east was better. What seemed like a path dwindled to a
+      suggestion, then nothing at all but pine cones among the tall trees. 
+
+      Turning back would be a mistake.
+    revisit: |
+      Tall pines and a fading trail west. Hunger and thirst are constant companions
+      now.
+    choices:
+      - text: Continue west on the trail
+        sets: [story.east-pines]
+        go_hex: center-pines
+
+  center-pines:
+    once: true
+    eyebrow: Day 1
+    heading: The fence line
+    trigger:
+      place: outdoors
+      hex: center-pines
+    require:
+      all: [story.east-pines]
+    text: |
+      After a time, Zanzibar found the first sign of humanity in days. A chain-link
+      fence covered in thick vines grew out of the ground, stretching in a straight
+      line up the mountainside. He turned uphill, hoping higher ground would offer
+      a vantage point. As he walked, he wondered what was on the other side.
+    revisit: |
+      The vine-choked fence climbing the slope. Whatever lies beyond stays hidden
+      until you follow the line far enough.
+    choices:
+      - text: Walk north along the fence line
+        sets: [story.center-pines]
+        go_hex: north-bend
+
+  north-bend:
+    once: true
+    eyebrow: Day 1
+    heading: Toward the gate
+    trigger:
+      place: outdoors
+      hex: north-bend
+    require:
+      all: [story.center-pines]
+    text: |
+      He followed the fence for what might have been half a mile, rounded a corner,
+      and headed west. The chain-link gave way to glimpses of graded gravel through
+      the trees — a road, and something built to watch over it.
+    revisit: |
+      The bend in the fence line. The road is close now; the gate not much farther.
+    choices:
+      - text: Continue toward the fence line
+        sets: [story.north-bend]
+        go_hex: gate-woods
 
   the-gate:
     once: true
@@ -46,16 +110,10 @@ beats:
       place: outdoors
       hex: gate-woods
     require:
-      all: [story.intro]
+      all: [story.north-bend]
     text: |
-      After a time, Zanzibar found the first sign of humanity in days. A chain-link
-      fence covered in thick vines grew out of the ground, stretching in a straight
-      line up the mountainside. He turned uphill, hoping higher ground would offer
-      a vantage point. As he walked, he wondered what was on the other side.
-
-      He followed the fence for what might have been half a mile, rounded a corner,
-      and headed west. Before long: a paved road, a gate, and a guard house — closed
-      and locked. Bolt cutters or a blow torch would come in handy. Or a tank.
+      Before long: a paved road, a gate, and a guard house — closed and locked.
+      Bolt cutters or a blow torch would come in handy. Or a tank.
 
       As he sipped some water and nibbled at his last energy bar, Zanzibar studied
       the gate. Something seemed off. On closer inspection, the chain holding the
