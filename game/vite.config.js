@@ -1,8 +1,13 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import yaml from '@rollup/plugin-yaml'
 
 export default defineConfig({
+  test: {
+    environment: 'node',
+    include: ['src/**/*.test.js'],
+  },
   plugins: [
     vue(),
     yaml(),

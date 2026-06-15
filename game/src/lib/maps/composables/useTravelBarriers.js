@@ -4,7 +4,7 @@
  * All moves — along a route or direct hex-to-hex — use the same path-based checks.
  */
 
-import { axialToPixel } from './useHexGeometry.js'
+
 import { bankStandAt, hexOnRiverBank } from './useRiverBank.js'
 
 const STAND_INSET = 5
@@ -102,81 +102,16 @@ export function openingAllows(kind, x, y, openings) {
   )
 }
 
-/** Distance from point P to segment AB. */
-function pointSegmentDistance(p, a, b) {
-  const abx = b.x - a.x
-  const aby = b.y - a.y
-  const lenSq = abx * abx + aby * aby
-  if (lenSq < 1e-9) return Math.hypot(p.x - a.x, p.y - a.y)
-  let t = ((p.x - a.x) * abx + (p.y - a.y) * aby) / lenSq
-  t = Math.max(0, Math.min(1, t))
-  return Math.hypot(p.x - (a.x + t * abx), p.y - (a.y + t * aby))
-}
-
-/** Does any point along the path pass within an opening allowing `kind`? */
-function pathNearOpening(path, kind, openings) {
-  const allowed = allowedOpenings(kind)
-  return openings.some((o) => {
-    if (!allowed.has(o.kind)) return false
-    for (let i = 0; i < path.length - 1; i++) {
-      if (pointSegmentDistance(o, path[i], path[i + 1]) <= o.r) return true
-    }
-    return false
-  })
-}
-
-/** Entering a different enclosure requires passing through a fence opening. */
-function entersEnclosureWithoutOpening(fromHex, toHex, path, openings) {
-  const enclosure = toHex?.enclosure
-  if (!enclosure || fromHex?.enclosure === enclosure) return false
-  return !pathNearOpening(path, 'fence', openings)
-}
-
-/** Both tiles are inside the same authored compound (e.g. utility yard). */
-function sharesEnclosure(fromHex, toHex) {
-  return !!(
-    fromHex?.enclosure &&
-    fromHex.enclosure === toHex?.enclosure
-  )
-}
-
-/**
- * Compound interior lies west of the east fence (fence-run-south, x ≈ -30).
- * When the avatar stand is east of that line they are at the fence line, not inside.
- */
-function standInsideCompound(stand, ctx) {
-  const eastFence = barrierList(ctx).find(
-    (s) => s.kind === 'fence' && Math.abs(s.a.x - s.b.x) < 2,
-  )
-  if (!eastFence) return true
-  const boundaryX = eastFence.a.x
-  return stand.x < boundaryX - STAND_INSET
-}
-
-/**
- * Fence polylines trace the compound outline and cross many internal hex edges.
- * Skip fence checks for compound-to-compound moves only when both path endpoints
- * are inside the yard — not when standing at the east fence after a blocked entry.
- */
-function skipFenceForMove(fromHex, toHex, path, ctx) {
-  if (!sharesEnclosure(fromHex, toHex)) return false
-  const start = path[0]
-  const end = path[path.length - 1]
-  return standInsideCompound(start, ctx) && standInsideCompound(end, ctx)
-}
-
 function barrierList(ctx) {
   return ctx.barriers ?? [...(ctx.fences ?? []), ...(ctx.rivers ?? [])]
 }
 
 /** First barrier hit along a polyline path; null when none. */
-export function firstBlockedOnPath(path, ctx, fromHex, toHex) {
-  const skipFence = skipFenceForMove(fromHex, toHex, path, ctx)
+export function firstBlockedOnPath(path, ctx) {
   for (let i = 0; i < path.length - 1; i++) {
     const a = path[i]
     const b = path[i + 1]
     for (const seg of barrierList(ctx)) {
-      if (seg.kind === 'fence' && skipFence) continue
       const cross = segmentIntersection(a, b, seg.a, seg.b)
       if (!cross || cross.t < PATH_ORIGIN_EPS) continue
       if (!openingAllows(seg.kind, cross.x, cross.y, ctx.openings)) {
@@ -193,15 +128,8 @@ export function firstBlockedOnPath(path, ctx, fromHex, toHex) {
  */
 export function moveBlocked(fromHex, toHex, path, ctx) {
   if (path.length < 2) return null
-
-  const hit = firstBlockedOnPath(path, ctx, fromHex, toHex)
-  if (hit) return hit.kind
-
-  if (entersEnclosureWithoutOpening(fromHex, toHex, path, ctx.openings)) {
-    return 'fence'
-  }
-
-  return null
+  const hit = firstBlockedOnPath(path, ctx)
+  return hit?.kind ?? null
 }
 
 /** Convenience: straight walk from current stand to destination stand. */
@@ -258,21 +186,6 @@ function riverEntryBlock(fromHex, toHex, size, ctx) {
   return { stand: bank, blockedKind: 'river' }
 }
 
-/** Stand at the first fence crossing when blocked by enclosure rules only. */
-function enclosureFenceStand(path, ctx, fromHex, toHex) {
-  for (let i = 0; i < path.length - 1; i++) {
-    const a = path[i]
-    const b = path[i + 1]
-    for (const seg of barrierList(ctx)) {
-      if (seg.kind !== 'fence' || skipFenceForMove(fromHex, toHex, path, ctx)) continue
-      const cross = segmentIntersection(a, b, seg.a, seg.b)
-      if (!cross || cross.t < PATH_ORIGIN_EPS) continue
-      return standBeforeHit(a, { ...cross, kind: 'fence' })
-    }
-  }
-  return null
-}
-
 /**
  * Resolve a move: walk `path` until a barrier stops the avatar.
  * Active hex = whichever hex contains the final stand point.
@@ -298,7 +211,7 @@ export function resolveMove({
     }
   }
 
-  const hit = firstBlockedOnPath(walkPath, ctx, fromHex, toHex)
+  const hit = firstBlockedOnPath(walkPath, ctx)
   let blockedKind = hit?.kind ?? null
   let stand
 
@@ -310,19 +223,17 @@ export function resolveMove({
     if (riverEntry) {
       blockedKind = riverEntry.blockedKind
       stand = riverEntry.stand
-    } else if (entersEnclosureWithoutOpening(fromHex, toHex, walkPath, ctx.openings)) {
-      blockedKind = 'fence'
-      stand = enclosureFenceStand(walkPath, ctx, fromHex, toHex) ?? fromPos
     } else {
       stand = toPos
     }
   }
 
-  let activeHexId = hexAtPoint(stand, fallbackHexId)
-  if (blockedKind && fromHex?.enclosure && !toHex?.enclosure) {
-    // Leaving the compound — stay on the inside; entering uses hexAtPoint(stand).
-    activeHexId = fromHex.id
-  }
+  // Segment barrier stop — stay on the departure hex even when the inset stand
+  // pixel falls in the destination hex (common near diagonal fence crossings).
+  const activeHexId =
+    hit && blockedKind
+      ? (fromHex?.id ?? hexAtPoint(stand, fallbackHexId))
+      : hexAtPoint(stand, fallbackHexId)
 
   return {
     stand,

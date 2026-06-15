@@ -34,10 +34,6 @@
 # Barriers (direct hex moves — marked routes pass through openings):
 #   gate / hole — fence crossings   bridge / ford — river crossings
 #   { kind: gate|hole|bridge|ford, at: { x, y }, radius?: px }
-#
-# enclosure: compound — hex is inside the fenced yard. Entering from a hex
-# outside the enclosure is blocked unless the move passes through a fence
-# opening (gate/hole), even where the fence polyline misses the hex centers.
 
 orientation: pointy
 size: 44
@@ -51,7 +47,7 @@ hexes:
 
   - { id: road-fork, q: 0, r: -2, terrain: forest }
 
-  - { id: north-west, q: -2, r: -1, terrain: forest, enclosure: compound }
+  - { id: north-west, q: -2, r: -1, terrain: forest }
 
   - { id: north-bend, q: 0, r: -1, terrain: forest }
 
@@ -89,7 +85,6 @@ hexes:
     q: -1
     r: -1
     terrain: forest
-    enclosure: compound
     puzzle: gate
     standAt: { x: -81, y: -58 }
     landmark:
@@ -98,15 +93,14 @@ hexes:
     travel:
       utility-yard: Head down the road to the station
 
-  - { id: mid-west, q: -2, r: 0, terrain: forest, enclosure: compound }
+  - { id: mid-west, q: -2, r: 0, terrain: forest }
 
-  - { id: west-slope, q: -1, r: 0, terrain: forest, enclosure: compound }
+  - { id: west-slope, q: -1, r: 0, terrain: forest }
 
   - id: utility-yard
     q: -2
     r: 1
     terrain: clearing
-    enclosure: compound
     area: utility
     cascade: true
     standAt: { from: landmark, dx: 0.05, dy: -0.56 }
@@ -121,12 +115,18 @@ hexes:
     q: -1
     r: 1
     terrain: forest
-    enclosure: compound
     travel:
       west-slope: Go north along the fence
       lower-stand: Go east
 
-  - { id: lower-stand, q: 0, r: 1, terrain: forest }
+  - id: lower-stand
+    q: 0
+    r: 1
+    terrain: forest
+    travel:
+      south-pines: Go west
+      center-pines: Go northwest
+      east-pines: Go northeast
 
 features:
   - id: mountain-river

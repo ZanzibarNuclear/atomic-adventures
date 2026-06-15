@@ -18,11 +18,15 @@ function actionButtonLabel(action) {
 /**
  * Story choice buttons for the play panel (prose stays in NarrativeCard).
  */
-export function buildStoryChoices(pendingBeat, canReachHex = () => true) {
+/**
+ * Story choices use adjacency only — a choice may walk the player to a fence
+ * and stop. Travel buttons use full reachability (no fence-blocked directions).
+ */
+export function buildStoryChoices(pendingBeat, isAdjacentHex = () => true) {
   if (!pendingBeat?.choices?.length || pendingBeat.revisit) return [];
   return pendingBeat.choices
     .map((choice, index) => ({ choice, index }))
-    .filter(({ choice }) => !choice.go_hex || canReachHex(choice.go_hex))
+    .filter(({ choice }) => !choice.go_hex || isAdjacentHex(choice.go_hex))
     .map(({ choice, index }) => ({
       id: `story:${index}`,
       label: choice.text,
@@ -55,8 +59,8 @@ function storyChoiceDestinations(pendingBeat) {
 
 /** Outdoor items for "Choose an Action" — story choices, then travel (deduped). */
 export function buildOutdoorChooseActions(outdoor, pendingBeat) {
-  const canReach = (hexId) => outdoor.canReachHex?.(hexId) ?? true;
-  const items = [...buildStoryChoices(pendingBeat, canReach)];
+  const isAdjacent = (hexId) => outdoor.isAdjacentHex?.(hexId) ?? true;
+  const items = [...buildStoryChoices(pendingBeat, isAdjacent)];
   const { hexes: storyHexes } = storyChoiceDestinations(pendingBeat);
   const fromHex = outdoor.currentHexData;
 

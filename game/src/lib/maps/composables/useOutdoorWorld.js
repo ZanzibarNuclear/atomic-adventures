@@ -171,12 +171,19 @@ export function useOutdoorWorld(mapData) {
   );
   const atGatePuzzle = computed(() => currentHexData.value?.puzzle === "gate");
 
+  function isAdjacentHex(hexId) {
+    const fromHex = hexById.value[state.currentId];
+    const toHex = hexById.value[hexId];
+    if (!fromHex || !toHex) return false;
+    return hexDistance(fromHex, toHex) === 1;
+  }
+
   function canReachHex(hexId) {
     const fromHex = hexById.value[state.currentId];
     const toHex = hexById.value[hexId];
     if (!fromHex || !toHex) return false;
     if (hexId === state.currentId) return true;
-    if (hexDistance(fromHex, toHex) !== 1) return false;
+    if (!isAdjacentHex(hexId)) return false;
 
     const fromPos = avatarFromPos.value;
     const toPos = resolveAvatarPosition(toHex, size, rivers.value);
@@ -300,6 +307,7 @@ export function useOutdoorWorld(mapData) {
     atGatePuzzle,
     moveTo,
     canReachHex,
+    isAdjacentHex,
     autoTravel,
     resetPlayer,
     nameOf,

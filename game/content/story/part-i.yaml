@@ -19,15 +19,16 @@ beats:
       hex: trailhead
     text: |
       Zanzibar had been walking in the forest for days. He parted company with
-      his small group of explorers, following an unshakable intuition and an
-      impasse. Now the situation is growing desperate. Food and water are running
+      his small group of explorers, following an unshakable intuition to go uphill toward the west. The others thought it best to stay on the road around toward the east. 
+
+      Now the situation is growing desperate. Food and water are running
       low, and his hunch has yet to play out.
 
-      Not one to wallow for long, Zanzibar parries desperation with optimism.
+      Not one to wallow, Zanzibar parries desperation with optimism.
       Things will be better. He will survive.
     revisit: |
       The trail west through the pines. Zanzibar's stomach reminds him how far
-      he has come — and how far he still has to go.
+      he has come and how far he still has to go.
     choices:
       - text: Keep walking west
         sets: [story.intro]
@@ -60,6 +61,25 @@ beats:
         sets: [story.east-pines]
         go_hex: center-pines
 
+  lower-stand:
+    once: true
+    eyebrow: Day 1
+    heading: Westward through the pines
+    trigger:
+      place: outdoors
+      hex: lower-stand
+    require:
+      all: []
+    text: |
+      You are surrounded by mature pines.
+    revisit: |
+      Tall pines and solitude. Hunger and thirst are constant companions
+      now.
+    choices:
+      - text: Continue west on the trail
+        sets: [story.lower-stand]
+        go_hex: south-pines
+
   center-pines:
     once: true
     eyebrow: Day 1
@@ -87,7 +107,7 @@ beats:
   north-bend:
     once: true
     eyebrow: Day 1
-    heading: Toward the gate
+    heading: Round the Bend
     trigger:
       place: outdoors
       hex: north-bend
