@@ -49,7 +49,7 @@ hexes:
     q: -1
     r: -2
     terrain: forest
-    standAt: { dx: 0.45, dy: 0.15 }  # east bank, inside hex (not road-fork)
+    standAt: { dx: 0.45, dy: 0.15 } # east bank, inside hex (not road-fork)
 
   - id: road-fork
     q: 0
@@ -148,8 +148,7 @@ features:
     kind: bridge
     hex: upper-gorge
     visibility: obvious
-    at: { x: -155, y: -113 }
-    label: Bridge
+    at: { x: -138, y: -144 }
 
   - id: mid-west-ford
     kind: ford

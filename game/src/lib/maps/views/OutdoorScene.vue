@@ -70,9 +70,12 @@ const statusLines = computed(() =>
   buildOutdoorStatusLines(props.outdoor, props.indoor),
 );
 
-const chooseActions = computed(() =>
-  getMovementOptions(props.outdoor, props.pendingBeat),
-);
+const chooseActions = computed(() => {
+  // Stand changes within a hex (passage crossings) must refresh travel options.
+  void props.outdoor.state?.stand?.x;
+  void props.outdoor.state?.stand?.y;
+  return getMovementOptions(props.outdoor, props.pendingBeat);
+});
 
 const playActions = computed(() => {
   if (!props.outdoor.atBuildingEntrance) return [];

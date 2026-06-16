@@ -36,7 +36,12 @@
         <line x1="8" y1="2" x2="8" y2="5" class="bridge-pier" />
       </g>
 
-      <text :x="m.labelX" :y="m.labelY" class="passage-label">{{ m.label }}</text>
+      <text
+        v-if="m.label"
+        :x="m.labelX"
+        :y="m.labelY"
+        class="passage-label"
+      >{{ m.label }}</text>
     </g>
   </g>
 </template>

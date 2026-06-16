@@ -181,6 +181,18 @@ export function blockedLeavingDepartureHex(path, fromHexId, ctx, hexAtPoint) {
   return firstBlockedOnPathInHex(sub, ctx, fromHexId, hexAtPoint)
 }
 
+/** True when any step of `path` strictly crosses a barrier segment (ignores openings). */
+export function pathCrossesAnyBarrier(path, ctx) {
+  for (let i = 0; i < path.length - 1; i++) {
+    const a = path[i]
+    const b = path[i + 1]
+    for (const seg of ctx.barriers ?? []) {
+      if (pathCrossesBarrier(a, b, seg.a, seg.b)) return seg.kind
+    }
+  }
+  return null
+}
+
 /**
  * Whether a neighbor should appear as a movement option.
  * All adjacent hexes are offered unless a barrier in the current hex blocks exit.

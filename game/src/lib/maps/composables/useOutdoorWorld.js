@@ -5,11 +5,11 @@ import {
   directNeighbors,
   buildRouteModels,
   buildMovePath,
-  bearingLabel,
 } from "./useRoutes.js";
 import { hexDistance, pixelToHex } from "./useHexGeometry.js";
 import {
   resolveAvatarPosition,
+  resolveNeighborStand,
 } from "./useAvatarStand.js";
 import {
   BARRIER_OPENING_KINDS,
@@ -17,13 +17,15 @@ import {
   travelOpenings,
   resolveMove,
   canOfferNeighbor,
-  canReachNeighbor,
-  chordCrossesBarrierKind,
 } from "./useTravelBarriers.js";
 import {
   barrierKindForOpening,
   hiddenOpeningsInHex,
 } from "./useBarrierOpenings.js";
+import {
+  availablePassageCrossings,
+  standAcrossOpening,
+} from "./usePassageCrossing.js";
 
 function initialStand(mapData, size) {
   const START = mapData.start ?? mapData.journey[0];
@@ -187,7 +189,14 @@ export function useOutdoorWorld(mapData) {
     size,
     barriers: travelBarrierCtx.value,
     fromPos: avatarFromPos.value,
-    resolveStand: (hex) => resolveAvatarPosition(hex, size),
+    resolveStand: (toHex, fromHex, fromPos) =>
+      resolveNeighborStand(
+        fromHex ?? currentHexData.value,
+        toHex,
+        fromPos ?? avatarFromPos.value,
+        size,
+        travelBarrierCtx.value,
+      ),
     hexAtPoint,
     routeModels: routeModels.value,
   }));
@@ -205,62 +214,53 @@ export function useOutdoorWorld(mapData) {
       size,
       travelBarrierCtx.value,
       avatarFromPos.value,
-      (hex) => resolveAvatarPosition(hex, size),
+      (toHex, fromHex, fromPos) =>
+        resolveNeighborStand(
+          fromHex ?? hexById.value[state.currentId],
+          toHex,
+          fromPos ?? avatarFromPos.value,
+          size,
+          travelBarrierCtx.value,
+        ),
       hexAtPoint,
     ),
   );
 
-  /** Barrier crossing moves at a stop or beside an obvious bridge/ford. */
-  const crossingMoves = computed(() => {
+  /** In-hex passage crossings (bridge, ford, gate, hole) — same hex, other side of barrier. */
+  const passageCrossings = computed(() =>
+    availablePassageCrossings({
+      hexId: state.currentId,
+      fromPos: avatarFromPos.value,
+      mapFeatures: editableFeatures.value,
+      ctx: travelBarrierCtx.value,
+      hexById: hexById.value,
+      size,
+      discoveredOpenings: state.discoveredOpenings,
+      atBarrier: state.atBarrier ?? state.lastBlocked,
+    }),
+  );
+
+  function crossPassage(openingId) {
     const fromHex = currentHexData.value;
-    if (!fromHex) return [];
+    if (!fromHex || !openingId) return;
     const fromPos = avatarFromPos.value;
     const ctx = travelBarrierCtx.value;
-    const barrier = state.atBarrier ?? state.lastBlocked;
-    const hasObviousBridge = editableFeatures.value.some(
-      (f) =>
-        f.kind === "bridge" &&
-        f.hex === fromHex.id &&
-        (f.visibility ?? "obvious") === "obvious",
-    );
-    const crossingBarrier = barrier ?? (hasObviousBridge ? "river" : null);
-    if (!crossingBarrier) return [];
-    const onRoute = new Set(moves.value.map((m) => m.toHexId));
-    const out = [];
-    for (const toHex of editableHexes.value) {
-      if (hexDistance(fromHex, toHex) !== 1) continue;
-      if (onRoute.has(toHex.id)) continue;
-      const toPos = resolveAvatarPosition(toHex, size);
-      const path = [fromPos, toPos];
-      if (
-        !canReachNeighbor({
-          fromHex,
-          toHex,
-          fromPos,
-          toPos,
-          path,
-          ctx,
-          hexAtPoint,
-        })
-      ) {
-        continue;
-      }
-      if (
-        !chordCrossesBarrierKind(fromPos, toPos, crossingBarrier, ctx)
-      ) {
-        continue;
-      }
-      const compass = bearingLabel(fromHex, toHex, size);
-      const label =
-        crossingBarrier === "river" && hasObviousBridge
-          ? `Cross the bridge — Go ${compass}`
-          : crossingBarrier === "river"
-            ? `Cross the river — Go ${compass}`
-            : `Through the opening — Go ${compass}`;
-      out.push({ toHexId: toHex.id, label, kind: crossingBarrier });
-    }
-    return out;
-  });
+    const opening = ctx.openings.find((o) => o.id === openingId);
+    if (!opening) return;
+    const feature = editableFeatures.value.find((f) => f.id === openingId);
+    if (feature?.hex !== fromHex.id) return;
+
+    const stand = standAcrossOpening(opening, fromPos, ctx, size);
+    if (!stand) return;
+    if (hexAtPoint(stand, fromHex.id) !== fromHex.id) return;
+
+    applyMove({
+      hexId: fromHex.id,
+      stand,
+      blocked: null,
+      atBarrier: null,
+    });
+  }
 
   /** Atomically commit hex + avatar position + barrier hints. */
   function applyMove({ hexId, stand, blocked, atBarrier }) {
@@ -293,7 +293,8 @@ export function useOutdoorWorld(mapData) {
     if (!isAdjacentHex(hexId)) return false;
 
     const fromPos = avatarFromPos.value;
-    const toPos = resolveAvatarPosition(toHex, size);
+    const ctx = travelBarrierCtx.value;
+    const toPos = resolveNeighborStand(fromHex, toHex, fromPos, size, ctx);
     const routeLeg = availableMoves(state.currentId, routeModels.value, null).find(
       (m) => m.toHexId === hexId,
     );
@@ -304,6 +305,7 @@ export function useOutdoorWorld(mapData) {
       toPos,
       routeLeg,
       routeModels.value,
+      { barriers: ctx, size },
     );
     return canOfferNeighbor({
       fromHex,
@@ -311,7 +313,7 @@ export function useOutdoorWorld(mapData) {
       fromPos,
       toPos,
       path,
-      ctx: travelBarrierCtx.value,
+      ctx,
       hexAtPoint,
     });
   }
@@ -326,7 +328,7 @@ export function useOutdoorWorld(mapData) {
 
     const fromPos = avatarFromPos.value;
     const ctx = travelBarrierCtx.value;
-    const toPos = resolveAvatarPosition(toHex, size);
+    const toPos = resolveNeighborStand(fromHex, toHex, fromPos, size, ctx);
     const routeLeg = moves.value.find((m) => m.toHexId === hexId);
     const path = buildMovePath(
       fromPos,
@@ -335,6 +337,7 @@ export function useOutdoorWorld(mapData) {
       toPos,
       routeLeg,
       routeModels.value,
+      { barriers: ctx, size },
     );
 
     const result = resolveMove({
@@ -419,10 +422,11 @@ export function useOutdoorWorld(mapData) {
     searchableOpenings,
     moves,
     directMoves,
-    crossingMoves,
+    passageCrossings,
     atBuildingEntrance,
     atGatePuzzle,
     moveTo,
+    crossPassage,
     canReachHex,
     isAdjacentHex,
     autoTravel,

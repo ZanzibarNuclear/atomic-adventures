@@ -69,23 +69,23 @@ export function buildOutdoorSearchActions(outdoor) {
   return [{ id: "search:barrier", label, kind: "search" }];
 }
 
-export function buildOutdoorCrossingActions(outdoor) {
-  return (outdoor.crossingMoves ?? []).map((m) => ({
-    id: `cross:${m.toHexId}`,
-    toHexId: m.toHexId,
+export function buildOutdoorPassageActions(outdoor) {
+  return (outdoor.passageCrossings ?? []).map((m) => ({
+    id: `passage:${m.openingId}`,
+    openingId: m.openingId,
     label: m.label,
-    kind: m.kind === "river" ? "river" : "fence",
+    kind: m.barrierKind === "river" ? "river" : "fence",
   }));
 }
+
+/** @deprecated Use buildOutdoorPassageActions */
+export const buildOutdoorCrossingActions = buildOutdoorPassageActions;
 
 export function getMovementOptions(outdoor, pendingBeat) {
   const isAdjacent = (hexId) => outdoor.isAdjacentHex?.(hexId) ?? true;
   const items = [...buildStoryChoices(pendingBeat, isAdjacent)];
   const { hexes: storyHexes } = storyChoiceDestinations(pendingBeat);
   const seen = new Set(storyHexes);
-  const crossingDests = new Set(
-    (outdoor.crossingMoves ?? []).map((m) => m.toHexId),
-  );
 
   for (const m of outdoor.moves ?? []) {
     if (seen.has(m.toHexId)) continue;
@@ -99,7 +99,7 @@ export function getMovementOptions(outdoor, pendingBeat) {
   }
 
   for (const o of outdoor.directMoves ?? []) {
-    if (seen.has(o.toHexId) || crossingDests.has(o.toHexId)) continue;
+    if (seen.has(o.toHexId)) continue;
     seen.add(o.toHexId);
     items.push({
       id: `hex:${o.toHexId}`,
@@ -109,7 +109,7 @@ export function getMovementOptions(outdoor, pendingBeat) {
     });
   }
 
-  items.push(...buildOutdoorCrossingActions(outdoor));
+  items.push(...buildOutdoorPassageActions(outdoor));
   items.push(...buildOutdoorSearchActions(outdoor));
 
   return items;
@@ -129,12 +129,14 @@ export function handleOutdoorChooseAction(
     handleStoryChoice(actionId.slice("story:".length), applyChoice);
     return;
   }
-  if (actionId.startsWith("cross:") || actionId.startsWith("move:") || actionId.startsWith("hex:")) {
+  if (actionId.startsWith("passage:")) {
+    outdoor.crossPassage?.(actionId.slice("passage:".length));
+    return;
+  }
+  if (actionId.startsWith("move:") || actionId.startsWith("hex:")) {
     const hexId = actionId.includes("hex:")
       ? actionId.slice("hex:".length)
-      : actionId.includes("cross:")
-        ? actionId.slice("cross:".length)
-        : actionId.slice("move:".length);
+      : actionId.slice("move:".length);
     travelToHex(hexId);
   }
 }

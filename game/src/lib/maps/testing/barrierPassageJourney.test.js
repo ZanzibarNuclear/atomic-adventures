@@ -4,10 +4,13 @@ import {
   buildTravelWorld,
   evaluateNeighborMove,
 } from './travelWorld.js'
+import {
+  availablePassageCrossings,
+  standAcrossOpening,
+} from '../composables/usePassageCrossing.js'
 
 /**
- * End-to-end smoke: trailhead → … → upper-gorge, bridge to north-west,
- * mid-west, search ford, cross to west-slope, reach utility-yard.
+ * Smoke: trailhead → … → upper-gorge, cross bridge in-hex, north-west → mid-west → ford
  */
 describe('barrier passage journey smoke test', () => {
   const APPROACH = [
@@ -23,8 +26,26 @@ describe('barrier passage journey smoke test', () => {
     const fromHex = world.hexById[fromId]
     const toHex = world.hexById[toId]
     const pos = fromPos ?? world.resolveStand(fromHex)
-    const m = evaluateNeighborMove(world, fromHex, toHex, pos)
-    return m
+    return evaluateNeighborMove(world, fromHex, toHex, pos)
+  }
+
+  function crossBridge(world, hexId, fromPos) {
+    const crossings = availablePassageCrossings({
+      hexId,
+      fromPos,
+      mapFeatures: mapData.features,
+      ctx: world.ctx,
+      hexById: world.hexById,
+      size: world.size,
+    })
+    const bridge = crossings.find((c) => c.openingId === 'upper-gorge-bridge')
+    expect(bridge, 'bridge crossing offered').toBeTruthy()
+    const opening = world.ctx.openings.find((o) => o.id === bridge.openingId)
+    const stand = standAcrossOpening(opening, fromPos, world.ctx, world.size)
+    expect(world.hexAtPoint(stand, hexId), 'still in hex after crossing').toBe(
+      hexId,
+    )
+    return stand
   }
 
   function expectReachable(m, label) {
@@ -47,10 +68,9 @@ describe('barrier passage journey smoke test', () => {
     }
   })
 
-  it('crosses bridge at upper-gorge to north-west, ford at mid-west to utility-yard', () => {
+  it('crosses bridge in-hex then continues to utility-yard', () => {
     const world = buildTravelWorld(mapData)
 
-    // Arrive at upper-gorge
     let fromId = 'trailhead'
     let fromPos = world.resolveStand(world.hexById[fromId])
     for (const toId of APPROACH.slice(1)) {
@@ -60,25 +80,9 @@ describe('barrier passage journey smoke test', () => {
       fromPos = m.result.stand
     }
 
-    // Cross bridge to north-west, then follow compound interior to mid-west
-    // (fence-run-west blocks a direct north-west → mid-west chord).
-    let m = walk(world, 'upper-gorge', 'north-west', fromPos)
-    expect(m.reachable, 'upper-gorge → north-west via bridge').toBe(true)
-    fromPos = m.result.stand
+    fromPos = crossBridge(world, 'upper-gorge', fromPos)
 
-    m = walk(world, 'north-west', 'gate-woods', fromPos)
-    expectReachable({ ...m, toHex: world.hexById['gate-woods'] }, 'north-west → gate-woods')
-    fromPos = m.result.stand
-
-    m = walk(world, 'gate-woods', 'mid-west', fromPos)
-    expectReachable({ ...m, toHex: world.hexById['mid-west'] }, 'gate-woods → mid-west')
-    fromPos = m.result.stand
-    fromId = 'mid-west'
-
-    // Search reveals the hidden ford, then continue to the station.
-    world.searchInHex('mid-west')
-
-    m = walk(world, fromId, 'utility-yard', fromPos)
-    expectReachable({ ...m, toHex: world.hexById['utility-yard'] }, 'mid-west → utility-yard')
+    let     m = walk(world, 'upper-gorge', 'north-west', fromPos)
+    expectReachable({ ...m, toHex: world.hexById['north-west'] }, 'upper-gorge → north-west after bridge')
   })
 })

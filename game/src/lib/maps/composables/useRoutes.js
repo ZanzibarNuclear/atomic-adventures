@@ -21,7 +21,7 @@ const COMPASS = [
 
 // Compass word from a screen-space direction vector.
 // Screen-y grows downward, so negate dy to make "up" = north.
-function bearingFromVector(dx, dy) {
+export function bearingFromVector(dx, dy) {
   let deg = (Math.atan2(-dy, dx) * 180) / Math.PI
   if (deg < 0) deg += 360
   let best = COMPASS[0]
@@ -34,6 +34,10 @@ function bearingFromVector(dx, dy) {
     }
   }
   return best.name
+}
+
+export function bearingBetween(fromPos, toPos) {
+  return bearingFromVector(toPos.x - fromPos.x, toPos.y - fromPos.y)
 }
 
 // Direction between two hex centers (direct hex-to-hex moves with no route polyline).
@@ -166,6 +170,14 @@ export function availableMoves(currentHexId, models, travelOpts = null) {
     const toHex = travelOpts.hexById[toHexId]
     if (!fromHex || !toHex) return false
     const fromPos = travelOpts.fromPos
+    const barriers = travelOpts.barriers?.barriers ?? []
+    if (
+      routeLeg &&
+      isWestOfRiverAt(fromPos, barriers) &&
+      (routeLeg.kind === 'drive' || routeLeg.toHexId === 'road-fork')
+    ) {
+      return false
+    }
     const toPos = travelOpts.resolveStand(toHex, fromHex, fromPos)
     const path = routeLeg
       ? buildMovePath(
@@ -175,6 +187,7 @@ export function availableMoves(currentHexId, models, travelOpts = null) {
           toPos,
           routeLeg,
           travelOpts.routeModels ?? models,
+          { barriers: travelOpts.barriers, size: travelOpts.size },
         )
       : pathSamples ?? [fromPos, toPos]
     return canOfferNeighbor({
@@ -298,6 +311,7 @@ export function buildRouteDrawPieces(models, { isRevealed, inView, allowStub }) 
   return pieces
 }
 
+import { isWestOfRiverAt } from './usePassageCrossing.js'
 import {
   routeMoveSamples,
   resolveMove,
@@ -308,7 +322,15 @@ import {
 export { fenceSegments, segmentsCross } from './useTravelBarriers.js'
 
 /** Walk path for a move — route polyline or straight line between hex centers. */
-export function buildMovePath(fromPos, fromHex, toHex, toPos, routeLeg, routeModels) {
+export function buildMovePath(
+  fromPos,
+  fromHex,
+  toHex,
+  toPos,
+  routeLeg,
+  routeModels,
+  moveOpts = null,
+) {
   if (routeLeg) {
     const model = routeModels.find((r) => r.id === routeLeg.routeId)
     const fromSpan = model?.spans.find((s) => s.hexId === fromHex.id)
@@ -345,6 +367,13 @@ export function directNeighbors(
     .filter((h) => hexDistance(h, current) === 1 && !onRoute.has(h.id))
     .filter((h) => {
       const toPos = resolveStand(h, current, fromPos)
+      if (
+        fromPos &&
+        isWestOfRiverAt(fromPos, barriers?.barriers ?? []) &&
+        h.q > current.q
+      ) {
+        return false
+      }
       return canOfferNeighbor({
         fromHex: current,
         toHex: h,
@@ -356,10 +385,16 @@ export function directNeighbors(
         size,
       })
     })
-    .map((h) => ({
-      toHexId: h.id,
-      label: bearingLabel(current, h, size),
-    }))
+    .map((h) => {
+      const toPos = resolveStand(h, current, fromPos)
+      const label = fromPos
+        ? bearingBetween(fromPos, toPos)
+        : bearingLabel(current, h, size)
+      return {
+        toHexId: h.id,
+        label,
+      }
+    })
 }
 
 export function pointsAttr(pts) {

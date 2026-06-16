@@ -99,7 +99,7 @@ export function buildPassageMarkers(mapFeatures, hexById, size) {
         y: at.y,
         labelX: labelAt?.x ?? at.x,
         labelY: labelAt?.y ?? at.y + 12,
-        label: featureLabel(f),
+        label: f.label ?? (f.kind === 'bridge' ? '' : featureLabel(f)),
       }
     })
     .filter(Boolean)

@@ -10,7 +10,7 @@ import {
   directNeighbors,
   buildMovePath,
 } from '../composables/useRoutes.js'
-import { resolveAvatarPosition } from '../composables/useAvatarStand.js'
+import { resolveAvatarPosition, resolveNeighborStand } from '../composables/useAvatarStand.js'
 import {
   BARRIER_OPENING_KINDS,
   barrierSegments,
@@ -55,8 +55,11 @@ export function buildTravelWorld(mapData, opts = {}) {
     return hexCoordMap.get(`${q},${r}`) ?? fallbackHexId
   }
 
-  function resolveStand(hex) {
-    return resolveAvatarPosition(hex, size)
+  function resolveStand(toHex, fromHex, fromPos) {
+    if (fromHex && fromPos) {
+      return resolveNeighborStand(fromHex, toHex, fromPos, size, ctx)
+    }
+    return resolveAvatarPosition(toHex, size)
   }
 
   return {
@@ -123,7 +126,7 @@ export function offeredMoves(world, fromHex, fromPos) {
     world.size,
     world.ctx,
     fromPos,
-    world.resolveStand,
+    (toHex, from, pos) => world.resolveStand(toHex, from ?? fromHex, pos ?? fromPos),
     world.hexAtPoint,
   )
   return { routeMoves, directMoves: direct }
@@ -133,7 +136,7 @@ export function offeredMoves(world, fromHex, fromPos) {
  * Evaluate a single step to an adjacent hex using the same path rules as gameplay.
  */
 export function evaluateNeighborMove(world, fromHex, toHex, fromPos) {
-  const toPos = world.resolveStand(toHex)
+  const toPos = world.resolveStand(toHex, fromHex, fromPos)
   const routeLegs = availableMoves(fromHex.id, world.routeModels, null)
   const routeLeg = routeLegs.find((m) => m.toHexId === toHex.id)
   const path = buildMovePath(
@@ -143,6 +146,7 @@ export function evaluateNeighborMove(world, fromHex, toHex, fromPos) {
     toPos,
     routeLeg,
     world.routeModels,
+    { barriers: world.ctx, size: world.size },
   )
 
   const moveArgs = {
