@@ -9,6 +9,7 @@ import {
   availableMoves,
   directNeighbors,
   buildMovePath,
+  routeLegBetween,
 } from '../composables/useRoutes.js'
 import { resolveAvatarPosition, resolveNeighborStand } from '../composables/useAvatarStand.js'
 import {
@@ -137,8 +138,7 @@ export function offeredMoves(world, fromHex, fromPos) {
  */
 export function evaluateNeighborMove(world, fromHex, toHex, fromPos) {
   const toPos = world.resolveStand(toHex, fromHex, fromPos)
-  const routeLegs = availableMoves(fromHex.id, world.routeModels, null)
-  const routeLeg = routeLegs.find((m) => m.toHexId === toHex.id)
+  const routeLeg = routeLegBetween(fromHex.id, toHex.id, world.routeModels)
   const path = buildMovePath(
     fromPos,
     fromHex,

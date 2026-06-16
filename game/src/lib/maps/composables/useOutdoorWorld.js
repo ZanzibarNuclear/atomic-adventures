@@ -5,6 +5,7 @@ import {
   directNeighbors,
   buildRouteModels,
   buildMovePath,
+  routeLegBetween,
 } from "./useRoutes.js";
 import { hexDistance, pixelToHex } from "./useHexGeometry.js";
 import {
@@ -296,9 +297,7 @@ export function useOutdoorWorld(mapData) {
     const fromPos = avatarFromPos.value;
     const ctx = travelBarrierCtx.value;
     const toPos = resolveNeighborStand(fromHex, toHex, fromPos, size, ctx);
-    const routeLeg = availableMoves(state.currentId, routeModels.value, null).find(
-      (m) => m.toHexId === hexId,
-    );
+    const routeLeg = routeLegBetween(state.currentId, hexId, routeModels.value);
     const path = buildMovePath(
       fromPos,
       fromHex,
@@ -330,7 +329,9 @@ export function useOutdoorWorld(mapData) {
     const fromPos = avatarFromPos.value;
     const ctx = travelBarrierCtx.value;
     const toPos = resolveNeighborStand(fromHex, toHex, fromPos, size, ctx);
-    const routeLeg = moves.value.find((m) => m.toHexId === hexId);
+    const routeLeg =
+      moves.value.find((m) => m.toHexId === hexId) ??
+      routeLegBetween(state.currentId, hexId, routeModels.value);
     const path = buildMovePath(
       fromPos,
       fromHex,

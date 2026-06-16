@@ -81,9 +81,15 @@ export function riverSegments(featureModels) {
 
 export function openingAllows(kind, x, y, openings) {
   const allowed = allowedOpenings(kind)
-  return openings.some(
-    (o) => allowed.has(o.kind) && Math.hypot(x - o.x, y - o.y) <= o.r,
-  )
+  return openings.some((o) => {
+    if (!allowed.has(o.kind)) return false
+    const r = o.r ?? 12
+    if (Math.hypot(x - o.x, y - o.y) > r) return false
+    // River openings sit on the barrier line — reject shortcut chords that
+    // cross the river at a different y but fall inside the opening disc.
+    if (kind === 'river' && Math.abs(y - o.y) > r * 0.6) return false
+    return true
+  })
 }
 
 function barrierList(ctx) {

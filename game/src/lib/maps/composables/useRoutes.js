@@ -335,6 +335,15 @@ import {
 
 export { fenceSegments, segmentsCross } from './useTravelBarriers.js'
 
+/** Marked route leg between adjacent hexes, ignoring travel filters (for path geometry). */
+export function routeLegBetween(fromHexId, toHexId, routeModels) {
+  return (
+    availableMoves(fromHexId, routeModels, null).find(
+      (m) => m.toHexId === toHexId,
+    ) ?? null
+  )
+}
+
 /** Walk path for a move — route polyline or straight line between hex centers. */
 export function buildMovePath(
   fromPos,

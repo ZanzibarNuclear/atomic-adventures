@@ -10,12 +10,12 @@ Fence and river barriers block direct hex travel except at authored **openings**
 
 ## Design decisions
 
-| Opening | Visibility | Travel | Reveal |
-|---------|------------|--------|--------|
-| Gate | Obvious | Always passable | Hex discovered |
-| Bridge | Obvious | Always passable | Hex discovered |
-| Hole | Hidden | Passable after search | Search in hex |
-| Ford | Hidden | Passable after search* | Search in hex |
+| Opening | Visibility | Travel                  | Reveal         |
+| ------- | ---------- | ----------------------- | -------------- |
+| Gate    | Obvious    | Always passable         | Hex discovered |
+| Bridge  | Obvious    | Always passable         | Hex discovered |
+| Hole    | Hidden     | Passable after search   | Search in hex  |
+| Ford    | Hidden     | Passable after search\* | Search in hex  |
 
 \*Ford at `mid-west` is authored at the river waypoint; bank-column `standAt` offsets keep most moves parallel to the river. Search demonstrates the ford; `mid-west → utility-yard` uses the west-bank column without a river crossing.
 
@@ -30,7 +30,7 @@ Openings use point features in [`game/content/world/map.yaml`](../game/content/w
   kind: bridge
   hex: upper-gorge
   visibility: obvious
-  at: { x: -155, y: -113 }   # tuned to path–river intersection
+  at: { x: -155, y: -113 } # tuned to path–river intersection
   label: Bridge
 ```
 
@@ -40,26 +40,26 @@ Openings use point features in [`game/content/world/map.yaml`](../game/content/w
 
 ## Authored openings (Part I)
 
-| ID | Kind | Hex | Notes |
-|----|------|-----|-------|
-| `compound-gate` | gate | `gate-woods` | Existing compound gate |
-| `south-pines-hole` | hole | `south-pines` | Fence breach; search to reveal |
-| `upper-gorge-bridge` | bridge | `upper-gorge` | Cross to `north-west` |
-| `mid-west-ford` | ford | `mid-west` | Search to reveal |
+| ID                   | Kind   | Hex           | Notes                          |
+| -------------------- | ------ | ------------- | ------------------------------ |
+| `compound-gate`      | gate   | `gate-woods`  | Existing compound gate         |
+| `south-pines-hole`   | hole   | `south-pines` | Fence breach; search to reveal |
+| `upper-gorge-bridge` | bridge | `upper-gorge` | Cross to `north-west`          |
+| `mid-west-ford`      | ford   | `mid-west`    | Search to reveal               |
 
 `river-access-drive` was promoted from feature-only to a **marked route** so `road-fork → upper-gorge` follows the drive polyline (avoids false river chord blocks).
 
 ## Code map
 
-| Concern | File |
-|---------|------|
-| Opening resolution + discovery filter | [`useBarrierOpenings.js`](../game/src/lib/maps/composables/useBarrierOpenings.js) |
-| Path intersection checks | [`useTravelBarriers.js`](../game/src/lib/maps/composables/useTravelBarriers.js) |
-| `discoveredOpenings` state + search | [`useOutdoorWorld.js`](../game/src/lib/maps/composables/useOutdoorWorld.js) |
-| Save/load | [`useGameState.js`](../game/src/composables/useGameState.js) |
-| Search UI | [`usePlayPanel.js`](../game/src/composables/usePlayPanel.js) |
-| Map symbols | [`HexPassageLayer.vue`](../game/src/lib/maps/components/hex/HexPassageLayer.vue) |
-| Marker visibility | [`useHexMapPlacements.js`](../game/src/lib/maps/composables/useHexMapPlacements.js) |
+| Concern                               | File                                                                                |
+| ------------------------------------- | ----------------------------------------------------------------------------------- |
+| Opening resolution + discovery filter | [`useBarrierOpenings.js`](../game/src/lib/maps/composables/useBarrierOpenings.js)   |
+| Path intersection checks              | [`useTravelBarriers.js`](../game/src/lib/maps/composables/useTravelBarriers.js)     |
+| `discoveredOpenings` state + search   | [`useOutdoorWorld.js`](../game/src/lib/maps/composables/useOutdoorWorld.js)         |
+| Save/load                             | [`useGameState.js`](../game/src/composables/useGameState.js)                        |
+| Search UI                             | [`usePlayPanel.js`](../game/src/composables/usePlayPanel.js)                        |
+| Map symbols                           | [`HexPassageLayer.vue`](../game/src/lib/maps/components/hex/HexPassageLayer.vue)    |
+| Marker visibility                     | [`useHexMapPlacements.js`](../game/src/lib/maps/composables/useHexMapPlacements.js) |
 
 ## Smoke test (end-to-end)
 
@@ -86,29 +86,28 @@ When this file passes, all four opening kinds are wired correctly.
 
 ### Related tests (not duplicated in smoke)
 
-| Test file | Covers |
-|-----------|--------|
-| [`openingDiscovery.test.js`](../game/src/lib/maps/testing/openingDiscovery.test.js) | `travelOpenings` filter, hole reveal |
-| [`usePassageCrossing.test.js`](../game/src/lib/maps/testing/usePassageCrossing.test.js) | Bridge stand flip, ford UI gating |
-| [`westBankColumn.test.js`](../game/src/lib/maps/testing/westBankColumn.test.js) | Play-mode west-bank column + UI labels |
+| Test file                                                                               | Covers                                          |
+| --------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| [`openingDiscovery.test.js`](../game/src/lib/maps/testing/openingDiscovery.test.js)     | `travelOpenings` filter, hole reveal            |
+| [`usePassageCrossing.test.js`](../game/src/lib/maps/testing/usePassageCrossing.test.js) | Bridge stand flip, ford UI gating               |
+| [`westBankColumn.test.js`](../game/src/lib/maps/testing/westBankColumn.test.js)         | Play-mode west-bank column + UI labels          |
 | [`roadForkUpperGorge.test.js`](../game/src/lib/maps/testing/roadForkUpperGorge.test.js) | Drive route lands on east bank at `upper-gorge` |
-| [`fenceRegression.test.js`](../game/src/lib/maps/testing/fenceRegression.test.js) | No accidental fence leaks at default stands |
+| [`fenceRegression.test.js`](../game/src/lib/maps/testing/fenceRegression.test.js)       | No accidental fence leaks at default stands     |
 
 ## Implementation checklist
 
 Verified 2026-06-16 against `game/` sources and `npm run test` (92 tests passing).
 
 - [x] Write this plan
-- [x] `resolveOpeningPosition` / hex-anchored `at` in `useBarrierOpenings.js` *(plan previously said `resolveOpeningAt`; actual export is `resolveOpeningPosition`)*
+- [x] `resolveOpeningPosition` / hex-anchored `at` in `useBarrierOpenings.js` _(plan previously said `resolveOpeningAt`; actual export is `resolveOpeningPosition`)_
 - [x] `outdoor.discoveredOpenings` + save/load in [`useGameState.js`](../game/src/composables/useGameState.js) (`captureSnapshot` / `applyOutdoorSnapshot`)
 - [x] Author hole, ford, bridge in `map.yaml`; tune bridge coords
 - [x] `HexPassageLayer` symbols (gate, hole, ford, bridge)
 - [x] Outdoor search action in play panel (`buildOutdoorSearchActions`, `search:barrier` handler)
 - [x] Forest tree exclusions for all opening kinds (`openingExclusions` in `forestTreePlacement.js`)
-- [x] Unit tests + smoke test journey *(smoke test extended to cover full west-bank leg + gate/hole cases)*
-- [ ] Save/load round-trip test for `discoveredOpenings` *(state is serialized but not yet asserted in tests)*
+- [x] Unit tests + smoke test journey _(smoke test extended to cover full west-bank leg + gate/hole cases)_
+- [ ] Save/load round-trip test for `discoveredOpenings` _(state is serialized but not yet asserted in tests)_
 - [ ] Builder `serializeOpening` for hole/ford/bridge (fast follow — no implementation yet)
-- [ ] Sync to `web/` prototype (optional — `web/` still uses legacy `travelOpenings` without discovery)
 - [ ] Outdoor gate lock open/closed state (later)
 - [ ] Fence cutter item (later)
 - [ ] Story beats for search success prose (later — search works mechanically, no narrative hook)

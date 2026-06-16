@@ -148,6 +148,14 @@ describe('openingAllows', () => {
     expect(openingAllows('fence', 9, 0, openings)).toBe(true)
     expect(openingAllows('fence', 11, 0, openings)).toBe(false)
   })
+
+  it('rejects river shortcut chords that only graze the opening disc off-axis', () => {
+    const openings = [{ kind: 'bridge', x: -138, y: -144, r: 14 }]
+    // Horizontal chord crossing the river 12px below the bridge anchor.
+    expect(openingAllows('river', -143, -132, openings)).toBe(false)
+    // Path that crosses at the bridge.
+    expect(openingAllows('river', -138, -144, openings)).toBe(true)
+  })
 })
 
 describe('resolveMove', () => {
