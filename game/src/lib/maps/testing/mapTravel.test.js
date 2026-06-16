@@ -48,12 +48,21 @@ function assertGeometryAgreesWithResolveMove(move) {
   const pathEnd = path[path.length - 1]
   const midOnPath =
     path.length > 2 ? routeStandInHex(path, toHex.id, world.hexAtPoint) : null
+  const authored =
+    toHex.standAt?.x != null &&
+    toHex.standAt?.y != null &&
+    !toHex.standAt.from
+      ? { x: toHex.standAt.x, y: toHex.standAt.y }
+      : null
   const standOk =
     (result.stand.x === move.toPos.x && result.stand.y === move.toPos.y) ||
     (result.stand.x === pathEnd.x && result.stand.y === pathEnd.y) ||
     (midOnPath &&
       result.stand.x === midOnPath.x &&
-      result.stand.y === midOnPath.y)
+      result.stand.y === midOnPath.y) ||
+    (authored &&
+      result.stand.x === authored.x &&
+      result.stand.y === authored.y)
   expect(standOk, label).toBe(true)
   expect(enters, label).toBe(true)
   expect(reachable, label).toBe(true)

@@ -28,6 +28,16 @@ import {
   standAcrossOpening,
 } from "./usePassageCrossing.js";
 import { barrierHintAtStand } from "./useBarrierStand.js";
+import {
+  COMPOUND_GATE_ID,
+  GATE_HEX_ID,
+  filterOpeningsForGateState,
+  gateStateFromFlags,
+  isNorthOfCompoundGate,
+  isSouthOfCompoundGate,
+  markCompoundGatePassed,
+  unlockCompoundGate,
+} from "./useCompoundGate.js";
 
 function initialStand(mapData, size) {
   const START = mapData.start ?? mapData.journey[0];
@@ -37,7 +47,7 @@ function initialStand(mapData, size) {
   return resolveAvatarPosition(hex, size);
 }
 
-export function useOutdoorWorld(mapData) {
+export function useOutdoorWorld(mapData, gameState = null) {
   const size = mapData.size ?? 44;
   const START = mapData.start ?? mapData.journey[0];
 
@@ -101,14 +111,18 @@ export function useOutdoorWorld(mapData) {
     return hexCoordMap.value.get(`${q},${r}`) ?? fallbackHexId;
   }
 
-  const travelBarrierCtx = computed(() => ({
-    barriers: barrierSegments(featureModels.value),
-    openings: travelOpenings(editableFeatures.value, {
+  const travelBarrierCtx = computed(() => {
+    const allOpenings = travelOpenings(editableFeatures.value, {
       hexById: hexById.value,
       size,
       discoveredOpenings: state.discoveredOpenings,
-    }),
-  }));
+    });
+    return {
+      barriers: barrierSegments(featureModels.value),
+      allOpenings,
+      openings: filterOpeningsForGateState(allOpenings, gameState?.flags),
+    };
+  });
 
   const state = reactive({
     currentId: START,
@@ -178,6 +192,32 @@ export function useOutdoorWorld(mapData) {
 
   const avatarFromPos = computed(() => state.stand);
 
+  const gateUnlocked = computed(
+    () => gateStateFromFlags(gameState?.flags).unlocked,
+  );
+
+  const gatePassed = computed(() => {
+    const { passed } = gateStateFromFlags(gameState?.flags);
+    if (passed) return true;
+    if (state.currentId !== GATE_HEX_ID) return false;
+    return isSouthOfCompoundGate(avatarFromPos.value, travelBarrierCtx.value);
+  });
+
+  function moveBlockedByLockedGate(toHexId) {
+    if (state.currentId !== GATE_HEX_ID || gatePassed.value) return false;
+    if (!isNorthOfCompoundGate(avatarFromPos.value, travelBarrierCtx.value)) {
+      return false;
+    }
+    const gw = hexById.value[GATE_HEX_ID];
+    const dest = hexById.value[toHexId];
+    if (!gw || !dest) return false;
+    return dest.r > gw.r || toHexId === "west-slope";
+  }
+
+  function filterGateMoves(moveList) {
+    return moveList.filter((m) => !moveBlockedByLockedGate(m.toHexId));
+  }
+
   const standOverride = computed(() => ({
     hexId: state.currentId,
     standAt: state.stand,
@@ -204,27 +244,31 @@ export function useOutdoorWorld(mapData) {
   }));
 
   const moves = computed(() =>
-    availableMoves(state.currentId, routeModels.value, travelOpts.value),
+    filterGateMoves(
+      availableMoves(state.currentId, routeModels.value, travelOpts.value),
+    ),
   );
 
   const directMoves = computed(() =>
-    directNeighbors(
-      state.currentId,
-      editableHexes.value,
-      hexById.value,
-      moves.value.map((m) => m.toHexId),
-      size,
-      travelBarrierCtx.value,
-      avatarFromPos.value,
-      (toHex, fromHex, fromPos) =>
-        resolveNeighborStand(
-          fromHex ?? hexById.value[state.currentId],
-          toHex,
-          fromPos ?? avatarFromPos.value,
-          size,
-          travelBarrierCtx.value,
-        ),
-      hexAtPoint,
+    filterGateMoves(
+      directNeighbors(
+        state.currentId,
+        editableHexes.value,
+        hexById.value,
+        moves.value.map((m) => m.toHexId),
+        size,
+        travelBarrierCtx.value,
+        avatarFromPos.value,
+        (toHex, fromHex, fromPos) =>
+          resolveNeighborStand(
+            fromHex ?? hexById.value[state.currentId],
+            toHex,
+            fromPos ?? avatarFromPos.value,
+            size,
+            travelBarrierCtx.value,
+          ),
+        hexAtPoint,
+      ),
     ),
   );
 
@@ -262,6 +306,16 @@ export function useOutdoorWorld(mapData) {
       blocked: null,
       atBarrier: barrierHintAtStand(stand, ctx.barriers),
     });
+
+    if (openingId === COMPOUND_GATE_ID) {
+      markCompoundGatePassed(gameState?.flags);
+    }
+  }
+
+  function solveGatePuzzle() {
+    if (currentHexData.value?.puzzle !== "gate") return;
+    if (gateUnlocked.value) return;
+    unlockCompoundGate(gameState?.flags);
   }
 
   /** Atomically commit hex + avatar position + barrier hints. */
@@ -278,7 +332,19 @@ export function useOutdoorWorld(mapData) {
   const atBuildingEntrance = computed(
     () => currentHexData.value?.area === "utility",
   );
-  const atGatePuzzle = computed(() => currentHexData.value?.puzzle === "gate");
+  const atGatePuzzle = computed(
+    () =>
+      currentHexData.value?.puzzle === "gate" &&
+      !gatePassed.value &&
+      isNorthOfCompoundGate(avatarFromPos.value, travelBarrierCtx.value),
+  );
+
+  const atLockedCompoundGate = computed(
+    () =>
+      currentHexData.value?.puzzle === "gate" &&
+      !gatePassed.value &&
+      !gateUnlocked.value,
+  );
 
   function isAdjacentHex(hexId) {
     const fromHex = hexById.value[state.currentId];
@@ -440,6 +506,10 @@ export function useOutdoorWorld(mapData) {
     passageCrossings,
     atBuildingEntrance,
     atGatePuzzle,
+    atLockedCompoundGate,
+    gateUnlocked,
+    gatePassed,
+    solveGatePuzzle,
     moveTo,
     crossPassage,
     canReachHex,

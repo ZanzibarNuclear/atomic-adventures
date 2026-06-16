@@ -301,6 +301,10 @@ export function pathEndInHex(path, hexId, hexAtPoint) {
  * otherwise the requested destination (hex center for direct steps).
  */
 export function resolveArrivalStand(walkPath, toHex, toPos, hexAtPoint) {
+  const stand = toHex?.standAt
+  if (stand?.x != null && stand?.y != null && stand.from == null) {
+    return { x: stand.x, y: stand.y }
+  }
   if (walkPath.length <= 2) return toPos
   const last = walkPath[walkPath.length - 1]
   if (
@@ -311,6 +315,30 @@ export function resolveArrivalStand(walkPath, toHex, toPos, hexAtPoint) {
     return { x: last.x, y: last.y }
   }
   return routeStandInHex(walkPath, toHex.id, hexAtPoint) ?? toPos
+}
+
+/**
+ * Route legs between spans include the full destination span — clip before
+ * walking south through a hex that has a fixed arrival stand (e.g. gate approach).
+ */
+export function clipPathForAuthoredArrival(walkPath, toHex, hexAtPoint) {
+  const stand = toHex?.standAt
+  if (stand?.x == null || stand?.y == null || stand.from) return walkPath
+
+  let northernIdx = -1
+  let northernY = Infinity
+  for (let i = 0; i < walkPath.length; i++) {
+    const p = walkPath[i]
+    if (hexAtPoint(p, toHex.id) !== toHex.id) continue
+    if (p.y < northernY) {
+      northernY = p.y
+      northernIdx = i
+    }
+  }
+  if (northernIdx < 0) return walkPath
+
+  const clipped = walkPath.slice(0, northernIdx + 1)
+  return clipped.length >= 2 ? clipped : walkPath
 }
 
 /** Whether a marked-route move should be hidden / rejected (departure hex only). */
@@ -334,7 +362,11 @@ export function resolveMove({
   ctx,
   hexAtPoint,
 }) {
-  const walkPath = path ?? [fromPos, toPos]
+  const walkPath = clipPathForAuthoredArrival(
+    path ?? [fromPos, toPos],
+    toHex,
+    hexAtPoint,
+  )
   const moveCtx = moveHexContext(fromHex, toHex)
   const fallbackHexId = toHex?.id ?? fromHex?.id
 

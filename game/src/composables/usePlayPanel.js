@@ -79,6 +79,17 @@ export function buildOutdoorPassageActions(outdoor) {
   }));
 }
 
+export function buildOutdoorGatePuzzleActions(outdoor) {
+  if (!outdoor.atLockedCompoundGate) return [];
+  return [
+    {
+      id: "gate:solve",
+      label: "Solve the puzzle to unlock",
+      kind: "puzzle",
+    },
+  ];
+}
+
 /** @deprecated Use buildOutdoorPassageActions */
 export const buildOutdoorCrossingActions = buildOutdoorPassageActions;
 
@@ -87,6 +98,8 @@ export function getMovementOptions(outdoor, pendingBeat) {
   const items = [...buildStoryChoices(pendingBeat, isAdjacent)];
   const { hexes: storyHexes } = storyChoiceDestinations(pendingBeat);
   const seen = new Set(storyHexes);
+
+  items.push(...buildOutdoorGatePuzzleActions(outdoor));
 
   for (const m of outdoor.moves ?? []) {
     if (seen.has(m.toHexId)) continue;
@@ -124,6 +137,10 @@ export function handleOutdoorChooseAction(
 ) {
   if (actionId === "search:barrier") {
     outdoor.searchBarrier?.();
+    return;
+  }
+  if (actionId === "gate:solve") {
+    outdoor.solveGatePuzzle?.();
     return;
   }
   if (actionId.startsWith("story:")) {

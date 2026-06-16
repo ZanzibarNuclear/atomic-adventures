@@ -12,6 +12,9 @@ import {
 /**
  * Smoke: northern approach → bridge → west-bank column → ford search.
  * Gate and hole are covered in companion tests in this file.
+ *
+ * Uses travelWorld (geometry/barriers). For mainline gameplay (moveTo + gameState),
+ * see storyJourneySmoke.test.js.
  */
 describe('barrier passage journey smoke test', () => {
   const APPROACH = [
@@ -115,13 +118,16 @@ describe('barrier passage journey smoke test', () => {
     expectReachable({ ...m, toHex: world.hexById['utility-yard'] }, 'mid-west → utility-yard')
   })
 
-  it('compound gate allows gate-woods → south-pines', () => {
+  it('compound gate allows gate-woods → south-pines after passing the gate', () => {
     const world = buildTravelWorld(mapData)
+    const gate = world.ctx.openings.find((o) => o.id === 'compound-gate')
+    const northStand = world.resolveStand(world.hexById['gate-woods'])
+    const southStand = standAcrossOpening(gate, northStand, world.ctx, world.size)
     const m = walk(
       world,
       'gate-woods',
       'south-pines',
-      world.resolveStand(world.hexById['gate-woods']),
+      southStand,
     )
     expectReachable({ ...m, toHex: world.hexById['south-pines'] }, 'gate-woods → south-pines')
   })

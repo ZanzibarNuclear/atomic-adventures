@@ -17,7 +17,7 @@ const place = ref("outdoors");
 const builderView = ref(false);
 
 const gameState = createGameState({ mapData, buildingData });
-const outdoor = useOutdoorWorld(mapData);
+const outdoor = useOutdoorWorld(mapData, gameState);
 outdoor.mode = "explored";
 const ctx = { place, builderView, gameState };
 const indoor = useIndoorBuilding(buildingData, outdoor, ctx);

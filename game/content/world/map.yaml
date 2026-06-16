@@ -80,7 +80,7 @@ hexes:
     r: -1
     terrain: forest
     puzzle: gate
-    standAt: { x: -81, y: -58 }
+    standAt: { x: -81, y: -76 }
     landmark:
       label: "Compound Gate"
       blurb: "A locked fence gate and a guard booth."
@@ -128,20 +128,20 @@ features:
     kind: fence
     points:
       - { x: -30, y: 140 }
-      - { x: -30, y: -50 }
+      - { x: -30, y: -62 }
 
   - id: fence-run-west
     kind: fence
     points:
-      - { x: -30, y: -50 }
-      - { x: -164, y: -49 }
+      - { x: -30, y: -62 }
+      - { x: -164, y: -61 }
 
   - id: compound-gate
     kind: gate
     hex: gate-woods
     visibility: obvious
-    at: { x: -94, y: -58 }
-    labelAt: { x: -81, y: -42 }
+    at: { x: -94, y: -72 }
+    labelAt: { x: -81, y: -56 }
     label: Gate
 
   - id: upper-gorge-bridge
@@ -179,8 +179,8 @@ features:
       - { x: -81, y: 150 }
       - { x: -81, y: 60 }
       - { x: -81, y: -40 }
-      - { x: -81, y: -58 }
-      - { x: -81, y: -88 }
+      - { x: -81, y: -72 }
+      - { x: -81, y: -76 }
       - { x: -82, y: -104 }
       - { hex: road-fork, dx: -0.07, dy: 0.16 }
       - { hex: road-fork, dx: 0.32, dy: -0.13 }
@@ -194,6 +194,21 @@ features:
       - { hex: utility-yard, dx: 0.09, dy: -0.17 }
 
 routes:
+  - id: compound-road
+    kind: road
+    label: "compound road"
+    smooth: true
+    points:
+      - { x: -81, y: 150 }
+      - { x: -81, y: 60 }
+      - { x: -81, y: -40 }
+      - { x: -81, y: -72 }
+      - { x: -81, y: -76 }
+      - { x: -82, y: -104 }
+      - { hex: road-fork, dx: -0.07, dy: 0.16 }
+      - { hex: road-fork, dx: 0.32, dy: -0.13 }
+      - { hex: road-fork, dx: 0.66, dy: -0.55 }
+
   - id: river-access-drive
     kind: drive
     label: "river access drive"
@@ -217,8 +232,9 @@ routes:
       - { x: -24, y: -3 }
       - { x: -24, y: -28 }
       - { x: -26, y: -55 }
-      - { x: -55, y: -57 }
-      - { x: -80, y: -59 }
+      - { x: -24, y: -64 }
+      - { hex: gate-woods, dx: 0.75, dy: -0.23 }
+      - { x: -81, y: -72 }
       - { x: -81, y: -35 }
       - { x: -81, y: -9 }
       - { x: -81, y: 24 }

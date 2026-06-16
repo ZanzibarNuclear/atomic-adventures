@@ -23,6 +23,9 @@ const PASSAGE_LABELS = {
   hole: 'Go through the hole',
 }
 
+/** Shift both ford bank stands east so gaps to the river line match. */
+const FORD_STAND_EAST_BIAS = 8
+
 function barrierSegmentsOfKind(kind, barriers) {
   return (barriers ?? []).filter((seg) => seg.kind === kind)
 }
@@ -67,11 +70,11 @@ function standAcrossRiver(opening, fromPos, ctx, size = 44) {
   if (riverX == null) return null
 
   const westStand = {
-    x: riverX - size * 0.55,
+    x: riverX - size * 0.55 + FORD_STAND_EAST_BIAS,
     y: y - size * 0.04,
   }
   const eastStand = standBesideBarrierLine({
-    xAtY: riverX,
+    xAtY: riverX + FORD_STAND_EAST_BIAS,
     side: 'east',
     y,
     inset: BARRIER_STAND_INSET.river,
@@ -181,7 +184,10 @@ export function availablePassageCrossings({
   discoveredOpenings = [],
   atBarrier = null,
 }) {
-  return travelOpenings(mapFeatures, { hexById, size, discoveredOpenings })
+  const openings =
+    ctx?.openings ??
+    travelOpenings(mapFeatures, { hexById, size, discoveredOpenings })
+  return openings
     .filter((opening) => {
       const feature = (mapFeatures ?? []).find((f) => f.id === opening.id)
       return feature?.hex === hexId
