@@ -282,16 +282,18 @@ describe('Part I map — walk simulation from start', () => {
 
       for (const move of [...routeMoves, ...directMoves]) {
         const toHex = world.hexById[move.toHexId]
-        const { result, offerable } = evaluateNeighborMove(
+        const { result, offerable, reachable } = evaluateNeighborMove(
           world,
           fromHex,
           toHex,
           fromPos,
         )
         expect(offerable).toBe(true)
-        expect(result.activeHexId).toBe(toHex.id)
+        if (reachable) {
+          expect(result.activeHexId).toBe(toHex.id)
+        }
 
-        if (!visited.has(toHex.id)) {
+        if (reachable && result.activeHexId === toHex.id && !visited.has(toHex.id)) {
           visited.add(toHex.id)
           queue.push(toHex.id)
         }

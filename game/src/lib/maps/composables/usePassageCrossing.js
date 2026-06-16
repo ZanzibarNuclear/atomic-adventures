@@ -13,6 +13,7 @@ import {
   BARRIER_STAND_INSET,
   barrierXAtY,
   standBesideBarrierLine,
+  isNearBarrierKind,
 } from './useBarrierStand.js'
 
 const PASSAGE_LABELS = {
@@ -59,26 +60,40 @@ function riverXAtY(kind, y, barriers) {
   return barrierXAtY(barrierSegmentsOfKind(kind, barriers), y)
 }
 
-function riverXNearOpening(opening, barriers) {
-  return riverXAtY('river', opening.y, barriers)
-}
-
 function standAcrossRiver(opening, fromPos, ctx, size = 44) {
-  const riverX = riverXNearOpening(opening, ctx.barriers)
+  const barriers = ctx.barriers
+  const y = opening.y
+  const riverX = riverXAtY('river', y, barriers)
   if (riverX == null) return null
-  const onEast = fromPos.x > riverX
-  if (onEast) {
-    return {
-      x: riverX - size * 0.55,
-      y: opening.y - size * 0.04,
-    }
+
+  const westStand = {
+    x: riverX - size * 0.55,
+    y: y - size * 0.04,
   }
-  return standBesideBarrierLine({
+  const eastStand = standBesideBarrierLine({
     xAtY: riverX,
     side: 'east',
-    y: opening.y,
+    y,
     inset: BARRIER_STAND_INSET.river,
   })
+  if (!eastStand) return westStand
+
+  let target
+  if (isWestOfRiverAt(fromPos, barriers)) target = eastStand
+  else if (isEastOfRiverAt(fromPos, barriers)) target = westStand
+  else {
+    const dW = Math.hypot(fromPos.x - westStand.x, fromPos.y - westStand.y)
+    const dE = Math.hypot(fromPos.x - eastStand.x, fromPos.y - eastStand.y)
+    target = dE >= dW ? eastStand : westStand
+  }
+
+  if (isWestOfRiverAt(fromPos, barriers) && isWestOfRiverAt(target, barriers)) {
+    return eastStand
+  }
+  if (isEastOfRiverAt(fromPos, barriers) && isEastOfRiverAt(target, barriers)) {
+    return westStand
+  }
+  return target
 }
 
 function isWestOfRiverAt(fromPos, barriers) {
@@ -92,9 +107,7 @@ function isEastOfRiverAt(fromPos, barriers) {
 }
 
 function isOnRiverBank(fromPos, barriers) {
-  const riverX = riverXAtY('river', fromPos.y, barriers)
-  if (riverX == null) return false
-  return Math.abs(fromPos.x - riverX) > 1
+  return isNearBarrierKind(fromPos, 'river', barriers)
 }
 
 export { isWestOfRiverAt, isEastOfRiverAt, isOnRiverBank }

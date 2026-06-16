@@ -1,0 +1,69 @@
+import { describe, expect, it } from 'vitest'
+import mapData from '../../../../content/world/map.yaml'
+import { useOutdoorWorld } from '../composables/useOutdoorWorld.js'
+import { buildTravelWorld, evaluateNeighborMove } from './travelWorld.js'
+import {
+  standAcrossOpening,
+  isWestOfRiverAt,
+  isEastOfRiverAt,
+} from '../composables/usePassageCrossing.js'
+import { hexCenterStand } from '../composables/useAvatarStand.js'
+
+describe('mid-west ford and bank column return', () => {
+  const world = buildTravelWorld(mapData)
+  world.revealOpening('mid-west-ford')
+  const ford = world.ctx.openings.find((o) => o.id === 'mid-west-ford')
+  const mw = world.hexById['mid-west']
+  const uy = world.hexById['utility-yard']
+  const nw = world.hexById['north-west']
+
+  function westBankAtMidWest() {
+    return evaluateNeighborMove(
+      world,
+      nw,
+      mw,
+      hexCenterStand(nw, world.size),
+    ).result.stand
+  }
+
+  it('crosses ford in one click from the west bank', () => {
+    const fromPos = westBankAtMidWest()
+    expect(isWestOfRiverAt(fromPos, world.ctx.barriers)).toBe(true)
+
+    const cross = standAcrossOpening(ford, fromPos, world.ctx, world.size)
+    expect(isEastOfRiverAt(cross, world.ctx.barriers)).toBe(true)
+    expect(isWestOfRiverAt(cross, world.ctx.barriers)).toBe(false)
+  })
+
+  it('round-trips utility-yard after a single ford crossing', async () => {
+    const outdoor = useOutdoorWorld(mapData)
+    outdoor.state.currentId = 'mid-west'
+    outdoor.state.stand = westBankAtMidWest()
+    outdoor.state.discoveredOpenings = ['mid-west-ford']
+
+    outdoor.crossPassage('mid-west-ford')
+    expect(isEastOfRiverAt(outdoor.state.stand, outdoor.rivers)).toBe(true)
+
+    outdoor.moveTo('utility-yard')
+    await new Promise((r) => setTimeout(r, 700))
+    expect(outdoor.state.currentId).toBe('utility-yard')
+    expect(isEastOfRiverAt(outdoor.state.stand, outdoor.rivers)).toBe(true)
+
+    expect(outdoor.directMoves.map((m) => m.toHexId)).toContain('mid-west')
+
+    outdoor.moveTo('mid-west')
+    await new Promise((r) => setTimeout(r, 700))
+    expect(outdoor.state.currentId).toBe('mid-west')
+    expect(isEastOfRiverAt(outdoor.state.stand, outdoor.rivers)).toBe(true)
+  })
+
+  it('west-bank column does not require a ford', () => {
+    const fromMw = westBankAtMidWest()
+    const toUy = evaluateNeighborMove(world, mw, uy, fromMw)
+    const back = evaluateNeighborMove(world, uy, mw, toUy.result.stand)
+
+    expect(toUy.reachable).toBe(true)
+    expect(back.offerable).toBe(true)
+    expect(back.reachable).toBe(true)
+  })
+})

@@ -26,8 +26,8 @@ import {
 import {
   availablePassageCrossings,
   standAcrossOpening,
-  isOnRiverBank,
 } from "./usePassageCrossing.js";
+import { barrierHintAtStand } from "./useBarrierStand.js";
 
 function initialStand(mapData, size) {
   const START = mapData.start ?? mapData.journey[0];
@@ -260,7 +260,7 @@ export function useOutdoorWorld(mapData) {
       hexId: fromHex.id,
       stand,
       blocked: null,
-      atBarrier: null,
+      atBarrier: barrierHintAtStand(stand, ctx.barriers),
     });
   }
 
@@ -361,8 +361,8 @@ export function useOutdoorWorld(mapData) {
     const failedCrossing = result.blockedKind && !enteredDest;
     let atBarrier =
       result.blockedKind && enteredDest ? result.blockedKind : null;
-    if (!atBarrier && enteredDest && isOnRiverBank(result.stand, ctx.barriers)) {
-      atBarrier = "river";
+    if (!atBarrier && enteredDest) {
+      atBarrier = barrierHintAtStand(result.stand, ctx.barriers);
     }
 
     applyMove({
@@ -401,6 +401,13 @@ export function useOutdoorWorld(mapData) {
     return hexLabel(h);
   }
 
+  function hintAtStand() {
+    return barrierHintAtStand(
+      state.stand,
+      travelBarrierCtx.value.barriers,
+    );
+  }
+
   return reactive({
     mapData,
     size,
@@ -415,6 +422,8 @@ export function useOutdoorWorld(mapData) {
     mapFeatures,
     featureModels,
     rivers,
+    travelBarrierCtx,
+    barrierHintAtStand: hintAtStand,
     state,
     mode,
     traveling,

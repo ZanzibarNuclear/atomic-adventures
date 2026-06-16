@@ -10,6 +10,58 @@ export const BARRIER_STAND_INSET = {
   ravine: 5,
 }
 
+/** Max distance from a barrier line to count as "at" a river bank (status / crossings). */
+export const RIVER_BANK_MAX_DIST = BARRIER_STAND_INSET.river * 3
+
+/** Max distance from a fence segment to count as "at" the fence line. */
+export const FENCE_LINE_MAX_DIST = BARRIER_STAND_INSET.fence * 4
+
+function distToSegment(px, py, ax, ay, bx, by) {
+  const dx = bx - ax
+  const dy = by - ay
+  const lenSq = dx * dx + dy * dy
+  if (lenSq === 0) return Math.hypot(px - ax, py - ay)
+  let t = ((px - ax) * dx + (py - ay) * dy) / lenSq
+  t = Math.max(0, Math.min(1, t))
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy))
+}
+
+/** Shortest distance from a point to any segment of `kind`. */
+export function distToBarrierKind(pos, kind, barriers) {
+  let min = Infinity
+  for (const seg of barriers ?? []) {
+    if (seg.kind !== kind) continue
+    const d = distToSegment(pos.x, pos.y, seg.a.x, seg.a.y, seg.b.x, seg.b.y)
+    if (d < min) min = d
+  }
+  return min === Infinity ? null : min
+}
+
+export function isNearBarrierKind(pos, kind, barriers, maxDist) {
+  const d = distToBarrierKind(pos, kind, barriers)
+  if (d == null) return false
+  const limit =
+    maxDist ??
+    (kind === 'river' ? RIVER_BANK_MAX_DIST : FENCE_LINE_MAX_DIST)
+  return d <= limit
+}
+
+/**
+ * Which barrier kind the avatar is standing beside, if any — for status hints
+ * and atBarrier state. Picks the nearest barrier within kind-specific range.
+ */
+export function barrierHintAtStand(stand, barriers) {
+  let best = null
+  for (const kind of ['fence', 'river']) {
+    const maxDist = kind === 'river' ? RIVER_BANK_MAX_DIST : FENCE_LINE_MAX_DIST
+    const d = distToBarrierKind(stand, kind, barriers)
+    if (d != null && d <= maxDist && (!best || d < best.dist)) {
+      best = { kind, dist: d }
+    }
+  }
+  return best?.kind ?? null
+}
+
 /**
  * Stand just before a path–barrier intersection, inset along the approach vector.
  * Used when a walk hits a fence/cliff/ravine segment without a nearby opening.

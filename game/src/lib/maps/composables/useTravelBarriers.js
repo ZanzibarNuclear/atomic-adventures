@@ -9,10 +9,13 @@ import {
   BARRIER_STAND_INSET,
   standBeforeBarrierHit,
 } from './useBarrierStand.js'
-import { isWestOfRiverAt } from './usePassageCrossing.js'
+import { isWestOfRiverAt, isEastOfRiverAt } from './usePassageCrossing.js'
 
 export { travelOpenings } from './useBarrierOpenings.js'
 const PATH_ORIGIN_EPS = 0.02
+
+/** West-bank river column on the Part I map — parallel walks may ignore the river. */
+export const BANK_COLUMN_HEXES = new Set(['north-west', 'mid-west', 'utility-yard'])
 
 /** Which point-feature kinds allow crossing each barrier kind. */
 export const BARRIER_OPENINGS = {
@@ -125,20 +128,35 @@ export function chordCrossesBarrierKind(fromPos, toPos, kind, ctx) {
   return false
 }
 
-/** West-bank neighbors share a column — chord walks do not cross the river. */
-function skipRiverForWestBankWalk(a, b, seg, ctx) {
+/** Parallel walks along the same river bank ignore the barrier polyline. */
+function skipRiverForParallelBankWalk(a, b, seg, ctx, moveCtx) {
   if (seg.kind !== 'river') return false
   const barriers = ctx.barriers ?? []
+  const bankPair =
+    moveCtx &&
+    BANK_COLUMN_HEXES.has(moveCtx.fromHexId) &&
+    BANK_COLUMN_HEXES.has(moveCtx.toHexId)
+  if (bankPair) {
+    return (
+      (isWestOfRiverAt(a, barriers) && isWestOfRiverAt(b, barriers)) ||
+      (isEastOfRiverAt(a, barriers) && isEastOfRiverAt(b, barriers))
+    )
+  }
   return isWestOfRiverAt(a, barriers) && isWestOfRiverAt(b, barriers)
 }
 
+function moveHexContext(fromHex, toHex) {
+  if (!fromHex?.id || !toHex?.id) return null
+  return { fromHexId: fromHex.id, toHexId: toHex.id }
+}
+
 /** First barrier hit along a polyline path; null when none. */
-export function firstBlockedOnPath(path, ctx) {
+export function firstBlockedOnPath(path, ctx, moveCtx = null) {
   for (let i = 0; i < path.length - 1; i++) {
     const a = path[i]
     const b = path[i + 1]
     for (const seg of barrierList(ctx)) {
-      if (skipRiverForWestBankWalk(a, b, seg, ctx)) continue
+      if (skipRiverForParallelBankWalk(a, b, seg, ctx, moveCtx)) continue
       const cross = segmentIntersection(a, b, seg.a, seg.b)
       if (!cross || cross.t < PATH_ORIGIN_EPS) continue
       if (!pathCrossesBarrier(a, b, seg.a, seg.b)) continue
@@ -154,12 +172,12 @@ export function firstBlockedOnPath(path, ctx) {
  * First barrier hit along `path` whose intersection lies in `hexId`.
  * Used for movement options — barriers in neighboring hexes are ignored.
  */
-export function firstBlockedOnPathInHex(path, ctx, hexId, hexAtPoint) {
+export function firstBlockedOnPathInHex(path, ctx, hexId, hexAtPoint, moveCtx = null) {
   for (let i = 0; i < path.length - 1; i++) {
     const a = path[i]
     const b = path[i + 1]
     for (const seg of barrierList(ctx)) {
-      if (skipRiverForWestBankWalk(a, b, seg, ctx)) continue
+      if (skipRiverForParallelBankWalk(a, b, seg, ctx, moveCtx)) continue
       const cross = segmentIntersection(a, b, seg.a, seg.b)
       if (!cross || cross.t < PATH_ORIGIN_EPS) continue
       if (!pathCrossesBarrier(a, b, seg.a, seg.b)) continue
@@ -191,10 +209,10 @@ export function pathInDepartureHex(path, fromHexId, hexAtPoint) {
  * Barrier blocking exit from the departure hex along `path`, if any.
  * Barriers in neighboring hexes are ignored for movement options.
  */
-export function blockedLeavingDepartureHex(path, fromHexId, ctx, hexAtPoint) {
+export function blockedLeavingDepartureHex(path, fromHexId, ctx, hexAtPoint, moveCtx = null) {
   const sub = pathInDepartureHex(path, fromHexId, hexAtPoint)
   if (sub.length < 2) return null
-  return firstBlockedOnPathInHex(sub, ctx, fromHexId, hexAtPoint)
+  return firstBlockedOnPathInHex(sub, ctx, fromHexId, hexAtPoint, moveCtx)
 }
 
 /** True when any step of `path` strictly crosses a barrier segment (ignores openings). */
@@ -224,7 +242,13 @@ export function canOfferNeighbor({
 }) {
   if (!fromHex?.id) return false
   const walkPath = path ?? [fromPos, toPos]
-  return blockedLeavingDepartureHex(walkPath, fromHex.id, ctx, hexAtPoint) === null
+  return blockedLeavingDepartureHex(
+    walkPath,
+    fromHex.id,
+    ctx,
+    hexAtPoint,
+    moveHexContext(fromHex, toHex),
+  ) === null
 }
 
 /**
@@ -233,7 +257,7 @@ export function canOfferNeighbor({
  */
 export function moveBlocked(fromHex, toHex, path, ctx) {
   if (path.length < 2) return null
-  const hit = firstBlockedOnPath(path, ctx)
+  const hit = firstBlockedOnPath(path, ctx, moveHexContext(fromHex, toHex))
   return hit?.kind ?? null
 }
 
@@ -311,6 +335,7 @@ export function resolveMove({
   hexAtPoint,
 }) {
   const walkPath = path ?? [fromPos, toPos]
+  const moveCtx = moveHexContext(fromHex, toHex)
   const fallbackHexId = toHex?.id ?? fromHex?.id
 
   if (walkPath.length < 2) {
@@ -321,7 +346,7 @@ export function resolveMove({
     }
   }
 
-  const hit = firstBlockedOnPath(walkPath, ctx)
+  const hit = firstBlockedOnPath(walkPath, ctx, moveCtx)
   let blockedKind = hit?.kind ?? null
   let stand
 
