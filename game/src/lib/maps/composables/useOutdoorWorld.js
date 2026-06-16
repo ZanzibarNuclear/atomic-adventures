@@ -5,6 +5,7 @@ import {
   directNeighbors,
   buildRouteModels,
   buildMovePath,
+  bearingLabel,
 } from "./useRoutes.js";
 import { hexDistance, pixelToHex } from "./useHexGeometry.js";
 import {
@@ -16,7 +17,13 @@ import {
   travelOpenings,
   resolveMove,
   canOfferNeighbor,
+  canReachNeighbor,
+  chordCrossesBarrierKind,
 } from "./useTravelBarriers.js";
+import {
+  barrierKindForOpening,
+  hiddenOpeningsInHex,
+} from "./useBarrierOpenings.js";
 
 function initialStand(mapData, size) {
   const START = mapData.start ?? mapData.journey[0];
@@ -92,12 +99,17 @@ export function useOutdoorWorld(mapData) {
 
   const travelBarrierCtx = computed(() => ({
     barriers: barrierSegments(featureModels.value),
-    openings: travelOpenings(editableFeatures.value),
+    openings: travelOpenings(editableFeatures.value, {
+      hexById: hexById.value,
+      size,
+      discoveredOpenings: state.discoveredOpenings,
+    }),
   }));
 
   const state = reactive({
     currentId: START,
     discovered: [START],
+    discoveredOpenings: [],
     /** Avatar world position — always persisted. */
     stand: initialStand(mapData, size),
     /** Barrier kind when a crossing failed before entering the destination hex. */
@@ -110,6 +122,38 @@ export function useOutdoorWorld(mapData) {
     const hex = hexById.value[hexId];
     if (!hex) return { x: 0, y: 0 };
     return resolveAvatarPosition(hex, size);
+  }
+
+  function markOpeningDiscovered(openingId) {
+    if (!openingId || state.discoveredOpenings.includes(openingId)) return;
+    state.discoveredOpenings = [...state.discoveredOpenings, openingId];
+  }
+
+  function searchableOpenings() {
+    const hexId = state.currentId;
+    const hidden = hiddenOpeningsInHex(
+      editableFeatures.value,
+      hexId,
+      state.discoveredOpenings,
+    );
+    if (!hidden.length) return [];
+    const barrier = state.atBarrier ?? state.lastBlocked;
+    if (barrier) {
+      return hidden.filter((f) => barrierKindForOpening(f.kind) === barrier);
+    }
+    return hidden;
+  }
+
+  function canSearchHere() {
+    return searchableOpenings().length > 0;
+  }
+
+  function searchBarrier() {
+    const found = searchableOpenings();
+    for (const f of found) {
+      markOpeningDiscovered(f.id);
+    }
+    return found.map((f) => f.id);
   }
 
   function markDiscovered(hexId) {
@@ -165,6 +209,58 @@ export function useOutdoorWorld(mapData) {
       hexAtPoint,
     ),
   );
+
+  /** Barrier crossing moves at a stop or beside an obvious bridge/ford. */
+  const crossingMoves = computed(() => {
+    const fromHex = currentHexData.value;
+    if (!fromHex) return [];
+    const fromPos = avatarFromPos.value;
+    const ctx = travelBarrierCtx.value;
+    const barrier = state.atBarrier ?? state.lastBlocked;
+    const hasObviousBridge = editableFeatures.value.some(
+      (f) =>
+        f.kind === "bridge" &&
+        f.hex === fromHex.id &&
+        (f.visibility ?? "obvious") === "obvious",
+    );
+    const crossingBarrier = barrier ?? (hasObviousBridge ? "river" : null);
+    if (!crossingBarrier) return [];
+    const onRoute = new Set(moves.value.map((m) => m.toHexId));
+    const out = [];
+    for (const toHex of editableHexes.value) {
+      if (hexDistance(fromHex, toHex) !== 1) continue;
+      if (onRoute.has(toHex.id)) continue;
+      const toPos = resolveAvatarPosition(toHex, size);
+      const path = [fromPos, toPos];
+      if (
+        !canReachNeighbor({
+          fromHex,
+          toHex,
+          fromPos,
+          toPos,
+          path,
+          ctx,
+          hexAtPoint,
+        })
+      ) {
+        continue;
+      }
+      if (
+        !chordCrossesBarrierKind(fromPos, toPos, crossingBarrier, ctx)
+      ) {
+        continue;
+      }
+      const compass = bearingLabel(fromHex, toHex, size);
+      const label =
+        crossingBarrier === "river" && hasObviousBridge
+          ? `Cross the bridge — Go ${compass}`
+          : crossingBarrier === "river"
+            ? `Cross the river — Go ${compass}`
+            : `Through the opening — Go ${compass}`;
+      out.push({ toHexId: toHex.id, label, kind: crossingBarrier });
+    }
+    return out;
+  });
 
   /** Atomically commit hex + avatar position + barrier hints. */
   function applyMove({ hexId, stand, blocked, atBarrier }) {
@@ -285,6 +381,7 @@ export function useOutdoorWorld(mapData) {
   function resetPlayer() {
     state.currentId = START;
     state.discovered = [START];
+    state.discoveredOpenings = [];
     state.stand = defaultStandForHex(START);
     state.lastBlocked = null;
     state.atBarrier = null;
@@ -316,8 +413,13 @@ export function useOutdoorWorld(mapData) {
     currentHexData,
     discoveredList,
     markDiscovered,
+    markOpeningDiscovered,
+    canSearchHere,
+    searchBarrier,
+    searchableOpenings,
     moves,
     directMoves,
+    crossingMoves,
     atBuildingEntrance,
     atGatePuzzle,
     moveTo,

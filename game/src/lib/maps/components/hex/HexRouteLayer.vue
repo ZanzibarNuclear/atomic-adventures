@@ -34,6 +34,10 @@ defineProps({
   stroke: #6b6f76;
   stroke-width: 6;
 }
+.route-drive {
+  stroke: #9b917f;
+  stroke-width: 4.5;
+}
 .route-trail {
   stroke: #c9b97e;
   stroke-width: 2.5;

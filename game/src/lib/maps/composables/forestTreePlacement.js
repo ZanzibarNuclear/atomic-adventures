@@ -1,5 +1,6 @@
 import { pixelToHex } from './useHexGeometry.js'
 import { landmarkAnchor } from './useAvatarStand.js'
+import { resolveOpeningPosition } from './useBarrierOpenings.js'
 
 const MIN_TREE_SPACING_RATIO = 0.24
 const MAX_ATTEMPTS = 56
@@ -76,10 +77,20 @@ function hexSamples(model, hexId) {
   return model.samples.filter((s) => s.hexId === hexId)
 }
 
-function gateExclusions(hexId, mapFeatures) {
+function openingExclusions(hexId, mapFeatures, hexById, size) {
   return (mapFeatures ?? [])
-    .filter((f) => f.kind === 'gate' && f.at && (!f.hex || f.hex === hexId))
-    .map((f) => ({ x: f.at.x, y: f.at.y, r: GATE_EXCLUSION_RADIUS }))
+    .filter(
+      (f) =>
+        f.at &&
+        ['gate', 'hole', 'bridge', 'ford'].includes(f.kind) &&
+        (!f.hex || f.hex === hexId),
+    )
+    .map((f) => {
+      const pos = resolveOpeningPosition(f.at, hexById, size)
+      if (!pos) return null
+      return { x: pos.x, y: pos.y, r: GATE_EXCLUSION_RADIUS }
+    })
+    .filter(Boolean)
 }
 
 function landmarkExclusions(hex, size) {
@@ -152,6 +163,7 @@ export function buildForestTrees({
   routeModels,
   featureModels,
   mapFeatures,
+  hexById,
   size,
   center,
 }) {
@@ -166,7 +178,7 @@ export function buildForestTrees({
       kind: m.kind,
       samples: hexSamples(m, hex.id),
     }))
-    const circles = gateExclusions(hex.id, mapFeatures)
+    const circles = openingExclusions(hex.id, mapFeatures, hexById, size)
     const ellipses = landmarkExclusions(hex, size)
 
     out.push(

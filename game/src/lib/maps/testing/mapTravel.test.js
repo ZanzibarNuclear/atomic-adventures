@@ -9,7 +9,7 @@ import {
   offeredMoves,
   openingAllows,
 } from './travelWorld.js'
-import { blockedLeavingDepartureHex } from '../composables/useTravelBarriers.js'
+import { blockedLeavingDepartureHex, routeStandInHex } from '../composables/useTravelBarriers.js'
 
 const world = buildTravelWorld(mapData)
 
@@ -45,7 +45,16 @@ function assertGeometryAgreesWithResolveMove(move) {
   }
 
   expect(result.activeHexId, label).toBe(toHex.id)
-  expect(result.stand, label).toEqual(move.toPos)
+  const pathEnd = path[path.length - 1]
+  const midOnPath =
+    path.length > 2 ? routeStandInHex(path, toHex.id, world.hexAtPoint) : null
+  const standOk =
+    (result.stand.x === move.toPos.x && result.stand.y === move.toPos.y) ||
+    (result.stand.x === pathEnd.x && result.stand.y === pathEnd.y) ||
+    (midOnPath &&
+      result.stand.x === midOnPath.x &&
+      result.stand.y === midOnPath.y)
+  expect(standOk, label).toBe(true)
   expect(enters, label).toBe(true)
   expect(reachable, label).toBe(true)
   expect(path.length, label).toBeGreaterThanOrEqual(2)

@@ -13,7 +13,7 @@ import HexTerrainLayer from './hex/HexTerrainLayer.vue'
 import HexSceneryLayer from './hex/HexSceneryLayer.vue'
 import HexFeatureLayer from './hex/HexFeatureLayer.vue'
 import HexCascadeLayer from './hex/HexCascadeLayer.vue'
-import HexGateLayer from './hex/HexGateLayer.vue'
+import HexPassageLayer from './hex/HexPassageLayer.vue'
 import HexRouteLayer from './hex/HexRouteLayer.vue'
 import HexLandmarkLayer from './hex/HexLandmarkLayer.vue'
 import HexBuilderLayer from './hex/HexBuilderLayer.vue'
@@ -24,6 +24,7 @@ const props = defineProps({
   featureModels: { type: Array, default: () => [] },
   currentHex: { type: String, required: true },
   discovered: { type: [Array, Object], default: () => [] },
+  discoveredOpenings: { type: Array, default: () => [] },
   mode: { type: String, default: 'explored' }, // slice | explored | full
   expanded: { type: Boolean, default: false },
   builderView: { type: Boolean, default: false },
@@ -60,13 +61,14 @@ const {
   mapData: computed(() => props.mapData),
   currentHex: computed(() => props.currentHex),
   discovered: computed(() => props.discovered),
+  discoveredOpenings: computed(() => props.discoveredOpenings),
   mode: computed(() => props.mode),
   builderView: computed(() => props.builderView),
 })
 
 const {
   landmarkHexes,
-  visibleGateMarkers,
+  visiblePassageMarkers,
   avatarScale,
   avatarPos,
   cascadeChevrons,
@@ -84,6 +86,7 @@ const {
   builderView: computed(() => props.builderView),
   standOverride: computed(() => props.standOverride),
   discoveredSet,
+  discoveredOpenings: computed(() => props.discoveredOpenings),
   visibleHexes,
   fogMaskOpts,
   size,
@@ -145,7 +148,7 @@ const {
 
       <HexCascadeLayer :cascade-chevrons="cascadeChevrons" />
 
-      <HexGateLayer :gate-markers="visibleGateMarkers" />
+      <HexPassageLayer :passage-markers="visiblePassageMarkers" />
 
       <HexRouteLayer :route-pieces="routePieces" />
 

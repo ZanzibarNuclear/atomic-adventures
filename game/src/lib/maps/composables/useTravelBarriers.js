@@ -9,15 +9,9 @@ import {
   BARRIER_STAND_INSET,
   standBeforeBarrierHit,
 } from './useBarrierStand.js'
-const PATH_ORIGIN_EPS = 0.02
 
-const OPENING_RADIUS = {
-  gate: 22,
-  hole: 14,
-  bridge: 14,
-  ford: 12,
-  stair: 10,
-}
+export { travelOpenings } from './useBarrierOpenings.js'
+const PATH_ORIGIN_EPS = 0.02
 
 /** Which point-feature kinds allow crossing each barrier kind. */
 export const BARRIER_OPENINGS = {
@@ -84,18 +78,6 @@ export function riverSegments(featureModels) {
   return barrierSegments(featureModels).filter((s) => s.kind === 'river')
 }
 
-/** Passable points for barrier crossings. */
-export function travelOpenings(mapFeatures) {
-  return (mapFeatures ?? [])
-    .filter((f) => f.at && BARRIER_OPENING_KINDS.has(f.kind))
-    .map((f) => ({
-      kind: f.kind,
-      x: f.at.x,
-      y: f.at.y,
-      r: f.radius ?? OPENING_RADIUS[f.kind] ?? 12,
-    }))
-}
-
 export function openingAllows(kind, x, y, openings) {
   const allowed = allowedOpenings(kind)
   return openings.some(
@@ -125,6 +107,15 @@ export function pathCrossesBarrier(a, b, c, d) {
     return segmentIntersection(a, b, c, d) != null
   }
   return sa * sb < 0
+}
+
+/** True when chord AB crosses any segment of `kind`. */
+export function chordCrossesBarrierKind(fromPos, toPos, kind, ctx) {
+  for (const seg of ctx.barriers ?? []) {
+    if (seg.kind !== kind) continue
+    if (pathCrossesBarrier(fromPos, toPos, seg.a, seg.b)) return true
+  }
+  return false
 }
 
 /** First barrier hit along a polyline path; null when none. */
@@ -234,6 +225,16 @@ export function routeMoveSamples(model, fromSpan, toSpan) {
   return model.samples.slice(Math.min(...idxs), Math.max(...idxs) + 1)
 }
 
+/** Midpoint along a route polyline while still inside `hexId` (avoids hex-edge stops). */
+export function routeStandInHex(path, hexId, hexAtPoint) {
+  const inHex = []
+  for (const p of path) {
+    if (hexAtPoint(p, hexId) === hexId) inHex.push(p)
+  }
+  if (!inHex.length) return null
+  return inHex[Math.floor(inHex.length / 2)]
+}
+
 /** Whether a marked-route move should be hidden / rejected (departure hex only). */
 export function isRouteMoveBlocked(fromHex, toHex, pathSamples, ctx, hexAtPoint) {
   if (!fromHex?.id || !hexAtPoint) {
@@ -276,7 +277,14 @@ export function resolveMove({
       inset: BARRIER_STAND_INSET[hit.kind] ?? BARRIER_STAND_INSET.fence,
     })
   } else {
-    stand = toPos
+    if (toHex?.standAt && toHex.id) {
+      // Authored bank / gate stands — not the route endpoint in-hex.
+      stand = toPos
+    } else if (walkPath.length > 2 && toHex?.id) {
+      stand = routeStandInHex(walkPath, toHex.id, hexAtPoint) ?? toPos
+    } else {
+      stand = toPos
+    }
   }
 
   // Blocked at a barrier — active hex follows where the avatar actually stands.

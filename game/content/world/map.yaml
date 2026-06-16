@@ -34,7 +34,8 @@
 #
 # Barriers (direct hex moves — marked routes pass through openings):
 #   gate / hole — fence crossings   bridge / ford — river crossings
-#   { kind: gate|hole|bridge|ford, at: { x, y }, radius?: px }
+#   { kind: gate|hole|bridge|ford, hex: <hex-id>, visibility: obvious|hidden,
+#     at: { hex, dx, dy } | { x, y }, radius?: px, label?: text }
 
 orientation: pointy
 size: 44
@@ -44,9 +45,17 @@ journey:
   [trailhead, east-pines, center-pines, north-bend, gate-woods, utility-yard]
 
 hexes:
-  - { id: upper-gorge, q: -1, r: -2, terrain: forest }
+  - id: upper-gorge
+    q: -1
+    r: -2
+    terrain: forest
+    standAt: { dx: 0.45, dy: 0.15 }  # east bank, inside hex (not road-fork)
 
-  - { id: road-fork, q: 0, r: -2, terrain: forest }
+  - id: road-fork
+    q: 0
+    r: -2
+    terrain: forest
+    standAt: { dx: -0.15, dy: 0.23 }
 
   - id: north-west
     q: -2
@@ -130,9 +139,39 @@ features:
   - id: compound-gate
     kind: gate
     hex: gate-woods
+    visibility: obvious
     at: { x: -94, y: -58 }
     labelAt: { x: -81, y: -42 }
     label: Gate
+
+  - id: upper-gorge-bridge
+    kind: bridge
+    hex: upper-gorge
+    visibility: obvious
+    at: { x: -155, y: -113 }
+    label: Bridge
+
+  - id: mid-west-ford
+    kind: ford
+    hex: mid-west
+    visibility: hidden
+    at: { hex: mid-west, dx: -0.19, dy: -0.47 }
+    label: Ford
+
+  - id: south-pines-hole
+    kind: hole
+    hex: south-pines
+    visibility: hidden
+    at: { hex: south-pines, dx: 0.18, dy: 0 }
+    label: Hole
+
+  - id: river-access-drive
+    kind: drive
+    smooth: true
+    points:
+      - { hex: road-fork, dx: -0.15, dy: 0.23 }
+      - { hex: upper-gorge, dx: 0.91, dy: 0.3 }
+      - { x: -133, y: -130 }
 
   - id: compound-road
     kind: road
@@ -148,14 +187,6 @@ features:
       - { hex: road-fork, dx: 0.32, dy: -0.13 }
       - { hex: road-fork, dx: 0.66, dy: -0.55 }
 
-  - id: river-access-drive
-    kind: drive
-    smooth: true
-    points:
-      - { hex: road-fork, dx: -0.15, dy: 0.23 }
-      - { hex: upper-gorge, dx: 0.91, dy: 0.3 }
-      - { x: -133, y: -130 }
-
   - id: station-driveway
     kind: drive
     points:
@@ -164,6 +195,15 @@ features:
       - { hex: utility-yard, dx: 0.09, dy: -0.17 }
 
 routes:
+  - id: river-access-drive
+    kind: drive
+    label: "river access drive"
+    smooth: true
+    points:
+      - { hex: road-fork, dx: -0.15, dy: 0.23 }
+      - { hex: upper-gorge, dx: 0.91, dy: 0.3 }
+      - { x: -133, y: -130 }
+
   - id: hero-route
     kind: path
     label: "the trail"

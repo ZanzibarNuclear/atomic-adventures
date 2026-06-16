@@ -1,9 +1,12 @@
 import { computed } from 'vue'
-import { featureLabel } from '../../displayLabel.js'
 import { buildRouteDrawPieces } from './useRoutes.js'
 import { riverSegments } from './useTravelBarriers.js'
 import { resolveAvatarPosition, hasLandmarkMarker } from './useAvatarStand.js'
 import { buildForestTrees } from './forestTreePlacement.js'
+import {
+  buildPassageMarkers,
+  visiblePassageMarkers,
+} from './useBarrierOpenings.js'
 import {
   TERRAIN_COLORS,
   TERRAIN_LABELS,
@@ -37,6 +40,7 @@ export function useHexMapPlacements({
   builderView,
   standOverride,
   discoveredSet,
+  discoveredOpenings,
   visibleHexes,
   fogMaskOpts,
   size,
@@ -47,26 +51,26 @@ export function useHexMapPlacements({
     visibleHexes.value.filter((h) => hasLandmarkMarker(h)),
   )
 
-  const gateMarkers = computed(() =>
-    (mapData.value.features ?? [])
-      .filter((f) => f.kind === 'gate' && f.at)
-      .map((f) => ({
-        id: f.id,
-        hex: f.hex ?? null,
-        x: f.at.x,
-        y: f.at.y,
-        labelX: f.labelAt?.x ?? f.at.x,
-        labelY: f.labelAt?.y ?? f.at.y + 12,
-        label: featureLabel(f),
-      })),
+  const passageMarkers = computed(() =>
+    buildPassageMarkers(mapData.value.features ?? [], hexByIdFromMap(), size.value),
   )
 
-  const visibleGateMarkers = computed(() => {
-    if (mode.value === 'full' || builderView.value) return gateMarkers.value
-    return gateMarkers.value.filter(
-      (g) => !g.hex || discoveredSet.value.has(g.hex),
-    )
-  })
+  function hexByIdFromMap() {
+    return Object.fromEntries((mapData.value.hexes ?? []).map((h) => [h.id, h]))
+  }
+
+  const visiblePassageMarkersList = computed(() =>
+    visiblePassageMarkers(passageMarkers.value, {
+      mode: mode.value,
+      builderView: builderView.value,
+      discoveredHexes: discoveredSet.value,
+      discoveredOpenings: discoveredOpenings?.value ?? discoveredOpenings ?? [],
+    }),
+  )
+
+  // Legacy alias — gate-only consumers
+  const gateMarkers = passageMarkers
+  const visibleGateMarkers = visiblePassageMarkersList
 
   const avatarScale = computed(() => (size.value / 44) * 0.28)
 
@@ -125,6 +129,7 @@ export function useHexMapPlacements({
       routeModels: routeModels.value,
       featureModels: featureModels.value,
       mapFeatures: mapData.value.features,
+      hexById: hexByIdFromMap(),
       size: size.value,
       center,
     }),
@@ -132,8 +137,12 @@ export function useHexMapPlacements({
 
   const routePieces = computed(() => {
     const { isRevealed, inView } = fogMaskOpts()
-    // Omit authored path overlays — they suggest a single intended story route.
-    const drawableRoutes = routeModels.value.filter((m) => m.kind !== 'path')
+    const featureIds = new Set(
+      (mapData.value.features ?? []).map((f) => f.id),
+    )
+    const drawableRoutes = routeModels.value.filter(
+      (m) => !featureIds.has(m.id),
+    )
     return buildRouteDrawPieces(drawableRoutes, {
       isRevealed,
       inView,
@@ -143,7 +152,9 @@ export function useHexMapPlacements({
 
   const featurePieces = computed(() => {
     const { isRevealed, inView } = fogMaskOpts()
-    const linear = featureModels.value.filter((m) => m.kind !== 'gate')
+    const linear = featureModels.value.filter(
+      (m) => !['gate', 'hole', 'bridge', 'ford'].includes(m.kind),
+    )
     const roadish = linear.filter((m) => m.kind === 'road' || m.kind === 'drive')
     const other = linear.filter((m) => m.kind !== 'road' && m.kind !== 'drive')
     const stub = mode.value !== 'full'
@@ -180,6 +191,8 @@ export function useHexMapPlacements({
     landmarkHexes,
     gateMarkers,
     visibleGateMarkers,
+    passageMarkers,
+    visiblePassageMarkers: visiblePassageMarkersList,
     avatarScale,
     avatarPos,
     cascadeChevrons,

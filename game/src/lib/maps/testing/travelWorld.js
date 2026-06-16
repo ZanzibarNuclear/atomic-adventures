@@ -14,7 +14,6 @@ import { resolveAvatarPosition } from '../composables/useAvatarStand.js'
 import {
   BARRIER_OPENING_KINDS,
   barrierSegments,
-  riverSegments,
   travelOpenings,
   resolveMove,
   canOfferNeighbor,
@@ -23,6 +22,7 @@ import {
   firstBlockedOnPath,
   openingAllows,
 } from '../composables/useTravelBarriers.js'
+import { hiddenOpeningsInHex } from '../composables/useBarrierOpenings.js'
 
 export { openingAllows, firstBlockedOnPath }
 
@@ -30,21 +30,22 @@ export { openingAllows, firstBlockedOnPath }
 
 /**
  * @param {object} mapData — parsed map.yaml
+ * @param {{ discoveredOpenings?: string[] }} [opts]
  */
-export function buildTravelWorld(mapData) {
+export function buildTravelWorld(mapData, opts = {}) {
   const hexes = mapData.hexes ?? []
   const hexById = Object.fromEntries(hexes.map((h) => [h.id, h]))
   const size = mapData.size ?? 44
   const features = mapData.features ?? []
   const routes = mapData.routes ?? []
+  const discoveredOpenings = opts.discoveredOpenings ?? []
 
   const routeModels = buildRouteModels(routes, hexById, hexes, size)
   const mapFeatures = features.filter((f) => !BARRIER_OPENING_KINDS.has(f.kind))
   const featureModels = buildRouteModels(mapFeatures, hexById, hexes, size)
-  const rivers = riverSegments(featureModels)
   const ctx = {
     barriers: barrierSegments(featureModels),
-    openings: travelOpenings(features),
+    openings: travelOpenings(features, { hexById, size, discoveredOpenings }),
   }
 
   const hexCoordMap = new Map(hexes.map((h) => [`${h.q},${h.r}`, h.id]))
@@ -65,10 +66,30 @@ export function buildTravelWorld(mapData) {
     size,
     routeModels,
     featureModels,
-    rivers,
     ctx,
     hexAtPoint,
     resolveStand,
+    discoveredOpenings,
+    revealOpening(id) {
+      if (!discoveredOpenings.includes(id)) discoveredOpenings.push(id)
+      ctx.openings = travelOpenings(features, {
+        hexById,
+        size,
+        discoveredOpenings,
+      })
+    },
+    searchInHex(hexId) {
+      const hidden = hiddenOpeningsInHex(features, hexId, discoveredOpenings)
+      for (const f of hidden) {
+        if (!discoveredOpenings.includes(f.id)) discoveredOpenings.push(f.id)
+      }
+      ctx.openings = travelOpenings(features, {
+        hexById,
+        size,
+        discoveredOpenings,
+      })
+      return hidden.map((f) => f.id)
+    },
   }
 }
 

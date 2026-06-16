@@ -39,6 +39,7 @@ export function captureSnapshot({ gameState, place, outdoor, indoor }) {
       stand: { ...outdoor.state.stand },
       lastBlocked: outdoor.state.lastBlocked,
       atBarrier: outdoor.state.atBarrier,
+      discoveredOpenings: [...outdoor.state.discoveredOpenings],
       mode: outdoor.mode,
     },
     indoor: {
@@ -72,6 +73,7 @@ function applyOutdoorSnapshot(o, outdoor) {
 
   outdoor.state.lastBlocked = o.lastBlocked ?? null;
   outdoor.state.atBarrier = o.atBarrier ?? null;
+  outdoor.state.discoveredOpenings = [...(o.discoveredOpenings ?? [])];
   if (o.mode) outdoor.mode = o.mode;
 }
 

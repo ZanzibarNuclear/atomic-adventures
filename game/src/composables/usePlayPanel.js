@@ -59,11 +59,33 @@ export function storyChoiceDestinations(pendingBeat) {
  * Story choice labels (part-i.yaml) override; otherwise compass defaults from path geometry.
  * Blocked directions are omitted — outdoor.moves / directMoves are pre-filtered.
  */
+export function buildOutdoorSearchActions(outdoor) {
+  if (!outdoor.canSearchHere?.()) return [];
+  const barrier = outdoor.state.atBarrier ?? outdoor.state.lastBlocked;
+  const label =
+    barrier === "fence"
+      ? "Search along the fence"
+      : "Search the riverbank";
+  return [{ id: "search:barrier", label, kind: "search" }];
+}
+
+export function buildOutdoorCrossingActions(outdoor) {
+  return (outdoor.crossingMoves ?? []).map((m) => ({
+    id: `cross:${m.toHexId}`,
+    toHexId: m.toHexId,
+    label: m.label,
+    kind: m.kind === "river" ? "river" : "fence",
+  }));
+}
+
 export function getMovementOptions(outdoor, pendingBeat) {
   const isAdjacent = (hexId) => outdoor.isAdjacentHex?.(hexId) ?? true;
   const items = [...buildStoryChoices(pendingBeat, isAdjacent)];
   const { hexes: storyHexes } = storyChoiceDestinations(pendingBeat);
   const seen = new Set(storyHexes);
+  const crossingDests = new Set(
+    (outdoor.crossingMoves ?? []).map((m) => m.toHexId),
+  );
 
   for (const m of outdoor.moves ?? []) {
     if (seen.has(m.toHexId)) continue;
@@ -77,7 +99,7 @@ export function getMovementOptions(outdoor, pendingBeat) {
   }
 
   for (const o of outdoor.directMoves ?? []) {
-    if (seen.has(o.toHexId)) continue;
+    if (seen.has(o.toHexId) || crossingDests.has(o.toHexId)) continue;
     seen.add(o.toHexId);
     items.push({
       id: `hex:${o.toHexId}`,
@@ -86,6 +108,9 @@ export function getMovementOptions(outdoor, pendingBeat) {
       kind: "hex",
     });
   }
+
+  items.push(...buildOutdoorCrossingActions(outdoor));
+  items.push(...buildOutdoorSearchActions(outdoor));
 
   return items;
 }
@@ -96,14 +121,20 @@ export function handleOutdoorChooseAction(
   actionId,
   travelToHex = (hexId) => outdoor.moveTo(hexId),
 ) {
+  if (actionId === "search:barrier") {
+    outdoor.searchBarrier?.();
+    return;
+  }
   if (actionId.startsWith("story:")) {
     handleStoryChoice(actionId.slice("story:".length), applyChoice);
     return;
   }
-  if (actionId.startsWith("move:") || actionId.startsWith("hex:")) {
+  if (actionId.startsWith("cross:") || actionId.startsWith("move:") || actionId.startsWith("hex:")) {
     const hexId = actionId.includes("hex:")
       ? actionId.slice("hex:".length)
-      : actionId.slice("move:".length);
+      : actionId.includes("cross:")
+        ? actionId.slice("cross:".length)
+        : actionId.slice("move:".length);
     travelToHex(hexId);
   }
 }
@@ -315,6 +346,14 @@ export function buildOutdoorStatusLines(outdoor, indoor) {
     lines.push("The fence line is here.");
   } else if (outdoor.state.atBarrier === "river") {
     lines.push("The river bank is here.");
+  }
+  if (outdoor.canSearchHere?.()) {
+    const barrier = outdoor.state.atBarrier ?? outdoor.state.lastBlocked;
+    if (barrier === "fence") {
+      lines.push("The fence line might hide a way through — search carefully.");
+    } else if (barrier === "river") {
+      lines.push("The riverbank might hide a crossing — search carefully.");
+    }
   }
   if (outdoor.atBuildingEntrance) {
     lines.push(`The ${indoor.building.label} is here — enter from the map or below.`);

@@ -6,6 +6,7 @@
       :feature-models="outdoor.featureModels"
       :current-hex="outdoor.state.currentId"
       :discovered="outdoor.discoveredList"
+      :discovered-openings="outdoor.state.discoveredOpenings"
       :mode="outdoor.mode"
       :stand-override="outdoor.standOverride"
       @hex-click="travelToHex"
