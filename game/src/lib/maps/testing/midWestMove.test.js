@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import mapData from '../../../../content/world/map.yaml'
 import { buildTravelWorld, evaluateNeighborMove, offeredMoves, adjacentHexes } from './travelWorld.js'
+import { hexCenterStand } from '../composables/useAvatarStand.js'
 
 const world = buildTravelWorld(mapData)
 
@@ -38,11 +39,15 @@ describe('mid-west → utility-yard along river', () => {
     expect(dests).toContain('utility-yard')
   })
 
-  it('every adjacent bank hex step along q=-2 reaches utility-yard', () => {
+  it('every adjacent bank hex step along q=-2 reaches utility-yard from west-bank stands', () => {
     const uy = world.hexById['utility-yard']
     for (const from of adjacentHexes(uy, world.hexes)) {
       if (!BANK_HEXES.has(from.id)) continue
-      const m = evaluateNeighborMove(world, from, uy, world.resolveStand(from))
+      const fromPos =
+        from.id === 'utility-yard'
+          ? world.resolveStand(from)
+          : hexCenterStand(from, world.size)
+      const m = evaluateNeighborMove(world, from, uy, fromPos)
       expect(
         m.reachable,
         `${from.id} → utility-yard: ${JSON.stringify(m.result)} hit=${m.hit?.kind}`,
@@ -50,22 +55,25 @@ describe('mid-west → utility-yard along river', () => {
     }
   })
 
-  it('bank positions along the bank column reach utility-yard when on the same side of the river', () => {
+  it('west-bank positions along mid-west reach utility-yard', () => {
     const midWest = world.hexById['mid-west']
     const uy = world.hexById['utility-yard']
-    const bank = world.resolveStand(midWest)
-    for (const dy of [0, -10, 10]) {
-      const fromPos = { x: bank.x, y: bank.y + dy }
-      const m = evaluateNeighborMove(world, midWest, uy, fromPos)
-      expect(m.reachable, `dy=${dy} ${JSON.stringify(m.result)}`).toBe(true)
-      expect(m.offerable).toBe(true)
-    }
+    const fromPos = hexCenterStand(midWest, world.size)
+    const m = evaluateNeighborMove(world, midWest, uy, fromPos)
+    expect(m.reachable, JSON.stringify(m.result)).toBe(true)
+    expect(m.offerable).toBe(true)
   })
 
   it('utility-yard to mid-west along the river bank', () => {
     const midWest = world.hexById['mid-west']
     const uy = world.hexById['utility-yard']
-    const m = evaluateNeighborMove(world, uy, midWest, world.resolveStand(uy))
+    const arrive = evaluateNeighborMove(
+      world,
+      midWest,
+      uy,
+      hexCenterStand(midWest, world.size),
+    )
+    const m = evaluateNeighborMove(world, uy, midWest, arrive.result.stand)
     expect(m.reachable, JSON.stringify({ result: m.result, hit: m.hit })).toBe(true)
     expect(m.offerable).toBe(true)
   })

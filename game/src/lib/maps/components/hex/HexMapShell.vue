@@ -23,7 +23,7 @@ defineExpose({ rootRef })
   >
     <slot />
 
-    <div v-if="expanded && hasLegend" class="legend" aria-label="Map legend">
+    <div v-if="hasLegend" class="legend" aria-label="Map legend">
       <div class="legend-title">Legend</div>
       <ul class="legend-items">
         <li v-for="t in legendTerrains" :key="'lt-' + t.key" class="legend-item">

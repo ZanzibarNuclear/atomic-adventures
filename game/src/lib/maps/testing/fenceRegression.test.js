@@ -37,22 +37,19 @@ describe('fence regression sweep', () => {
     expect(bad).toEqual([])
   })
 
-  it('gate-woods to north-west arrives when direct path misses fence line', () => {
+  it('gate-woods to north-west crosses the river without a bridge', () => {
     const from = world.hexById['gate-woods']
     const to = world.hexById['north-west']
     const m = evaluateNeighborMove(world, from, to, world.resolveStand(from))
-    expect(m.hit).toBeNull()
-    expect(m.enters).toBe(true)
-    expect(m.reachable).toBe(true)
+    expect(m.reachable).toBe(false)
+    expect(m.result.blockedKind).toBe('river')
   })
 
-  it('north-west to mid-west parallel bank: stays on north-west at fence', () => {
+  it('north-west to mid-west from authored stand crosses the river', () => {
     const from = world.hexById['north-west']
     const to = world.hexById['mid-west']
     const m = evaluateNeighborMove(world, from, to, world.resolveStand(from))
-    expect(m.result.activeHexId).toBe('north-west')
-    expect(m.result.blockedKind).toBe('fence')
     expect(m.reachable).toBe(false)
-    expect(m.enters).toBe(false)
+    expect(m.result.blockedKind).toBe('river')
   })
 })

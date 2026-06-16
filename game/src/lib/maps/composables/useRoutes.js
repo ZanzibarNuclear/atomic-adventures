@@ -179,6 +179,20 @@ export function availableMoves(currentHexId, models, travelOpts = null) {
       return false
     }
     const toPos = travelOpts.resolveStand(toHex, fromHex, fromPos)
+    if (
+      fromPos &&
+      isWestOfRiverAt(fromPos, barriers) &&
+      !isWestOfRiverAt(toPos, barriers)
+    ) {
+      return false
+    }
+    if (
+      fromPos &&
+      isEastOfRiverAt(fromPos, barriers) &&
+      isWestOfRiverAt(toPos, barriers)
+    ) {
+      return false
+    }
     const path = routeLeg
       ? buildMovePath(
           fromPos,
@@ -311,7 +325,7 @@ export function buildRouteDrawPieces(models, { isRevealed, inView, allowStub }) 
   return pieces
 }
 
-import { isWestOfRiverAt } from './usePassageCrossing.js'
+import { isWestOfRiverAt, isEastOfRiverAt } from './usePassageCrossing.js'
 import {
   routeMoveSamples,
   resolveMove,
@@ -367,9 +381,24 @@ export function directNeighbors(
     .filter((h) => hexDistance(h, current) === 1 && !onRoute.has(h.id))
     .filter((h) => {
       const toPos = resolveStand(h, current, fromPos)
+      const barriersList = barriers?.barriers ?? barriers ?? []
       if (
         fromPos &&
-        isWestOfRiverAt(fromPos, barriers?.barriers ?? []) &&
+        isWestOfRiverAt(fromPos, barriersList) &&
+        !isWestOfRiverAt(toPos, barriersList)
+      ) {
+        return false
+      }
+      if (
+        fromPos &&
+        isEastOfRiverAt(fromPos, barriersList) &&
+        isWestOfRiverAt(toPos, barriersList)
+      ) {
+        return false
+      }
+      if (
+        fromPos &&
+        isWestOfRiverAt(fromPos, barriersList) &&
         h.q > current.q
       ) {
         return false
@@ -385,16 +414,10 @@ export function directNeighbors(
         size,
       })
     })
-    .map((h) => {
-      const toPos = resolveStand(h, current, fromPos)
-      const label = fromPos
-        ? bearingBetween(fromPos, toPos)
-        : bearingLabel(current, h, size)
-      return {
-        toHexId: h.id,
-        label,
-      }
-    })
+    .map((h) => ({
+      toHexId: h.id,
+      label: bearingLabel(current, h, size),
+    }))
 }
 
 export function pointsAttr(pts) {

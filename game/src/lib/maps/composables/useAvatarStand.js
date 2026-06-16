@@ -1,5 +1,6 @@
 import { axialToPixel } from './useHexGeometry.js'
 import { isWestOfRiverAt } from './usePassageCrossing.js'
+import { barrierXAtY } from './useBarrierStand.js'
 
 /** Default offset from a landmark icon when standAt is omitted (hex-size units). */
 export const DEFAULT_BESIDE_LANDMARK = { dx: 0.34, dy: 0.42 }
@@ -55,19 +56,38 @@ export function resolveAvatarPosition(hex, size) {
   return c
 }
 
+/** Hex center — default destination for adjacent hex moves. */
+export function hexCenterStand(hex, size) {
+  return axialToPixel(hex.q, hex.r, size)
+}
+
+/** West-bank river column (q = -2 on the Part I map). */
+const WEST_BANK_HEX_Q = -2
+
+function westBankStandInHex(point, size, barriers) {
+  if (!barriers?.length || isWestOfRiverAt(point, barriers)) return point
+  const riverX = barrierXAtY(
+    barriers.filter((s) => s.kind === 'river'),
+    point.y,
+  )
+  if (riverX == null) return point
+  return { x: riverX - size * 0.35, y: point.y }
+}
+
 /**
- * Stand when stepping to an adjacent hex — west-bank upper-gorge departures use
- * the neighbor hex center so the avatar stays on the west side of the river.
+ * Stand when stepping to an adjacent hex — hex center, or west-bank in-hex when
+ * the center lies across the river and the player is arriving from the west bank.
  */
 export function resolveNeighborStand(fromHex, toHex, fromPos, size, barrierCtx) {
-  const barriers = barrierCtx?.barriers ?? barrierCtx
+  const barriers = barrierCtx?.barriers ?? barrierCtx ?? []
+  const center = hexCenterStand(toHex, size)
   if (
-    fromHex?.id === 'upper-gorge' &&
-    fromPos &&
-    barriers &&
-    isWestOfRiverAt(fromPos, barriers)
+    fromPos?.x != null &&
+    barriers.length &&
+    isWestOfRiverAt(fromPos, barriers) &&
+    toHex.q === WEST_BANK_HEX_Q
   ) {
-    return axialToPixel(toHex.q, toHex.r, size)
+    return westBankStandInHex(center, size, barriers)
   }
-  return resolveAvatarPosition(toHex, size)
+  return center
 }

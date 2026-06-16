@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import mapData from '../../../../content/world/map.yaml'
 import { buildTravelWorld, evaluateNeighborMove } from './travelWorld.js'
+import { hexCenterStand } from '../composables/useAvatarStand.js'
 
 describe('stand hex after fence block', () => {
   it('lower-stand → south-pines', () => {
@@ -31,26 +32,24 @@ describe('stand hex after fence block', () => {
     `)
   })
 
-  it('north-west → mid-west', () => {
+  it('north-west → mid-west from hex center', () => {
     const world = buildTravelWorld(mapData)
-    const m = evaluateNeighborMove(
-      world,
-      world.hexById['north-west'],
-      world.hexById['mid-west'],
-      world.resolveStand(world.hexById['north-west']),
-    )
+    const from = world.hexById['north-west']
+    const to = world.hexById['mid-west']
+    const fromPos = hexCenterStand(from, world.size)
+    const m = evaluateNeighborMove(world, from, to, fromPos)
     expect({
       activeHexId: m.result.activeHexId,
       blockedKind: m.result.blockedKind,
       offerable: m.offerable,
       enters: m.enters,
-    }).toMatchInlineSnapshot(`
-      {
-        "activeHexId": "north-west",
-        "blockedKind": "fence",
-        "enters": false,
-        "offerable": false,
-      }
-    `)
+      reachable: m.reachable,
+    }).toEqual({
+      activeHexId: 'mid-west',
+      blockedKind: null,
+      offerable: true,
+      enters: true,
+      reachable: true,
+    })
   })
 })

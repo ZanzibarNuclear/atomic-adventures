@@ -9,6 +9,7 @@ import {
   isManualEnablerActive,
   isSelfClosingDoor,
 } from "../lib/maps/composables/useDoors.js";
+import { searchActionLabel } from "../lib/maps/composables/useBarrierOpenings.js";
 
 function actionButtonLabel(action) {
   if (action.verb) return `${action.verb} — ${action.label}`;
@@ -61,11 +62,11 @@ export function storyChoiceDestinations(pendingBeat) {
  */
 export function buildOutdoorSearchActions(outdoor) {
   if (!outdoor.canSearchHere?.()) return [];
-  const barrier = outdoor.state.atBarrier ?? outdoor.state.lastBlocked;
-  const label =
-    barrier === "fence"
-      ? "Search along the fence"
-      : "Search the riverbank";
+  const label = searchActionLabel({
+    openings: outdoor.searchableOpenings?.() ?? [],
+    atBarrier: outdoor.state.atBarrier,
+    lastBlocked: outdoor.state.lastBlocked,
+  });
   return [{ id: "search:barrier", label, kind: "search" }];
 }
 
@@ -348,14 +349,6 @@ export function buildOutdoorStatusLines(outdoor, indoor) {
     lines.push("The fence line is here.");
   } else if (outdoor.state.atBarrier === "river") {
     lines.push("The river bank is here.");
-  }
-  if (outdoor.canSearchHere?.()) {
-    const barrier = outdoor.state.atBarrier ?? outdoor.state.lastBlocked;
-    if (barrier === "fence") {
-      lines.push("The fence line might hide a way through — search carefully.");
-    } else if (barrier === "river") {
-      lines.push("The riverbank might hide a crossing — search carefully.");
-    }
   }
   if (outdoor.atBuildingEntrance) {
     lines.push(`The ${indoor.building.label} is here — enter from the map or below.`);

@@ -118,7 +118,7 @@ beats:
       and headed west. The chain-link gave way to glimpses of graded gravel through
       the trees — a road, and something built to watch over it.
     revisit: |
-      The bend in the fence line. The road is close now; the gate not much farther.
+      The bend in the fence line.
     choices:
       - text: Continue west along the fence
         sets: [story.north-bend]

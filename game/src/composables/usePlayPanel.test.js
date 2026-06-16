@@ -8,7 +8,10 @@ import {
 import {
   defaultMovementLabel,
   getMovementOptions,
+  buildOutdoorSearchActions,
 } from './usePlayPanel.js'
+import { hiddenOpeningsInHex } from '../lib/maps/composables/useBarrierOpenings.js'
+import { useOutdoorWorld } from '../lib/maps/composables/useOutdoorWorld.js'
 
 const world = buildTravelWorld(mapData)
 
@@ -110,5 +113,22 @@ describe('getMovementOptions', () => {
 
     expect(world.hexById['lower-stand'].travel).toBeUndefined()
     expect(center?.label).toBe(defaultMovementLabel(centerMove))
+  })
+
+  it('labels fence search from hidden hole openings, not riverbank default', () => {
+    const outdoor = useOutdoorWorld(mapData)
+    outdoor.state.currentId = 'south-pines'
+    outdoor.state.stand = outdoor.defaultStandForHex('south-pines')
+    outdoor.state.atBarrier = null
+    outdoor.state.lastBlocked = null
+
+    const actions = buildOutdoorSearchActions(outdoor)
+    expect(actions).toHaveLength(1)
+    expect(actions[0].label).toBe('Search along the fence')
+    expect(
+      hiddenOpeningsInHex(mapData.features, 'south-pines').some(
+        (f) => f.kind === 'hole',
+      ),
+    ).toBe(true)
   })
 })

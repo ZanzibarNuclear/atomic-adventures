@@ -3,7 +3,6 @@
  */
 
 import { resolveWaypoint } from './useRoutes.js'
-import { featureLabel } from '../../displayLabel.js'
 import { BARRIER_OPENING_KINDS } from './useTravelBarriers.js'
 
 export const OPENING_RADIUS = {
@@ -24,6 +23,25 @@ export function barrierKindForOpening(kind) {
   if (kind === 'gate' || kind === 'hole') return 'fence'
   if (kind === 'bridge' || kind === 'ford') return 'river'
   return null
+}
+
+/** Barrier kind for a search action — from player state or hidden openings in hex. */
+export function searchBarrierKind({ openings = [], atBarrier = null, lastBlocked = null } = {}) {
+  if (atBarrier) return atBarrier
+  if (lastBlocked) return lastBlocked
+  const kinds = new Set(
+    openings.map((f) => barrierKindForOpening(f.kind)).filter(Boolean),
+  )
+  if (kinds.has('fence')) return 'fence'
+  if (kinds.has('river')) return 'river'
+  return null
+}
+
+export function searchActionLabel(opts) {
+  const kind = searchBarrierKind(opts)
+  if (kind === 'fence') return 'Search along the fence'
+  if (kind === 'river') return 'Search the riverbank'
+  return 'Search carefully'
 }
 
 /** Resolve opening anchor to world pixels (hex-anchored or raw x/y). */
@@ -99,7 +117,7 @@ export function buildPassageMarkers(mapFeatures, hexById, size) {
         y: at.y,
         labelX: labelAt?.x ?? at.x,
         labelY: labelAt?.y ?? at.y + 12,
-        label: f.label ?? (f.kind === 'bridge' ? '' : featureLabel(f)),
+        label: '',
       }
     })
     .filter(Boolean)

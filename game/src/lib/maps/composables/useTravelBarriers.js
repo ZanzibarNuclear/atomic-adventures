@@ -9,6 +9,7 @@ import {
   BARRIER_STAND_INSET,
   standBeforeBarrierHit,
 } from './useBarrierStand.js'
+import { isWestOfRiverAt } from './usePassageCrossing.js'
 
 export { travelOpenings } from './useBarrierOpenings.js'
 const PATH_ORIGIN_EPS = 0.02
@@ -118,12 +119,20 @@ export function chordCrossesBarrierKind(fromPos, toPos, kind, ctx) {
   return false
 }
 
+/** West-bank neighbors share a column — chord walks do not cross the river. */
+function skipRiverForWestBankWalk(a, b, seg, ctx) {
+  if (seg.kind !== 'river') return false
+  const barriers = ctx.barriers ?? []
+  return isWestOfRiverAt(a, barriers) && isWestOfRiverAt(b, barriers)
+}
+
 /** First barrier hit along a polyline path; null when none. */
 export function firstBlockedOnPath(path, ctx) {
   for (let i = 0; i < path.length - 1; i++) {
     const a = path[i]
     const b = path[i + 1]
     for (const seg of barrierList(ctx)) {
+      if (skipRiverForWestBankWalk(a, b, seg, ctx)) continue
       const cross = segmentIntersection(a, b, seg.a, seg.b)
       if (!cross || cross.t < PATH_ORIGIN_EPS) continue
       if (!pathCrossesBarrier(a, b, seg.a, seg.b)) continue
@@ -144,6 +153,7 @@ export function firstBlockedOnPathInHex(path, ctx, hexId, hexAtPoint) {
     const a = path[i]
     const b = path[i + 1]
     for (const seg of barrierList(ctx)) {
+      if (skipRiverForWestBankWalk(a, b, seg, ctx)) continue
       const cross = segmentIntersection(a, b, seg.a, seg.b)
       if (!cross || cross.t < PATH_ORIGIN_EPS) continue
       if (!pathCrossesBarrier(a, b, seg.a, seg.b)) continue
@@ -288,15 +298,10 @@ export function resolveMove({
     stand = standBeforeBarrierHit(segStart, hit, {
       inset: BARRIER_STAND_INSET[hit.kind] ?? BARRIER_STAND_INSET.fence,
     })
+  } else if (walkPath.length > 2 && toHex?.id) {
+    stand = routeStandInHex(walkPath, toHex.id, hexAtPoint) ?? toPos
   } else {
-    if (toHex?.standAt && toHex.id) {
-      // Authored bank / gate stands — not the route endpoint in-hex.
-      stand = toPos
-    } else if (walkPath.length > 2 && toHex?.id) {
-      stand = routeStandInHex(walkPath, toHex.id, hexAtPoint) ?? toPos
-    } else {
-      stand = toPos
-    }
+    stand = toPos
   }
 
   // Blocked at a barrier — active hex follows where the avatar actually stands.
