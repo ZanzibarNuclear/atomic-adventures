@@ -10,7 +10,8 @@ import {
 } from '../composables/usePassageCrossing.js'
 
 /**
- * Smoke: trailhead → … → upper-gorge, cross bridge in-hex, north-west → mid-west → ford
+ * Smoke: northern approach → bridge → west-bank column → ford search.
+ * Gate and hole are covered in companion tests in this file.
  */
 describe('barrier passage journey smoke test', () => {
   const APPROACH = [
@@ -68,7 +69,7 @@ describe('barrier passage journey smoke test', () => {
     }
   })
 
-  it('crosses bridge in-hex then continues to utility-yard', () => {
+  it('crosses bridge then walks west-bank column to utility-yard', () => {
     const world = buildTravelWorld(mapData)
 
     let fromId = 'trailhead'
@@ -82,7 +83,58 @@ describe('barrier passage journey smoke test', () => {
 
     fromPos = crossBridge(world, 'upper-gorge', fromPos)
 
-    let     m = walk(world, 'upper-gorge', 'north-west', fromPos)
+    let m = walk(world, 'upper-gorge', 'north-west', fromPos)
     expectReachable({ ...m, toHex: world.hexById['north-west'] }, 'upper-gorge → north-west after bridge')
+    fromPos = m.result.stand
+
+    const blockedFromCenter = walk(
+      world,
+      'north-west',
+      'mid-west',
+      world.resolveStand(world.hexById['north-west']),
+    )
+    expect(blockedFromCenter.reachable, 'hex-center NW→MW blocked by river').toBe(false)
+
+    m = walk(world, 'north-west', 'mid-west', fromPos)
+    expectReachable({ ...m, toHex: world.hexById['mid-west'] }, 'west bank NW→MW')
+    fromPos = m.result.stand
+
+    const fordBefore = availablePassageCrossings({
+      hexId: 'mid-west',
+      fromPos,
+      mapFeatures: mapData.features,
+      ctx: world.ctx,
+      hexById: world.hexById,
+      size: world.size,
+    })
+    expect(fordBefore.some((c) => c.openingId === 'mid-west-ford')).toBe(false)
+
+    expect(world.searchInHex('mid-west')).toContain('mid-west-ford')
+
+    m = walk(world, 'mid-west', 'utility-yard', fromPos)
+    expectReachable({ ...m, toHex: world.hexById['utility-yard'] }, 'mid-west → utility-yard')
+  })
+
+  it('compound gate allows gate-woods → south-pines', () => {
+    const world = buildTravelWorld(mapData)
+    const m = walk(
+      world,
+      'gate-woods',
+      'south-pines',
+      world.resolveStand(world.hexById['gate-woods']),
+    )
+    expectReachable({ ...m, toHex: world.hexById['south-pines'] }, 'gate-woods → south-pines')
+  })
+
+  it('south-pines hole requires search before lower-stand crossing', () => {
+    const world = buildTravelWorld(mapData)
+    const from = world.hexById['lower-stand']
+    const to = world.hexById['south-pines']
+    const blocked = walk(world, from.id, to.id, world.resolveStand(from))
+    expect(blocked.reachable).toBe(false)
+
+    world.revealOpening('south-pines-hole')
+    const open = walk(world, from.id, to.id, world.resolveStand(from))
+    expectReachable({ ...open, toHex: to }, 'lower-stand → south-pines after hole')
   })
 })

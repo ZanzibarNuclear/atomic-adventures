@@ -60,6 +60,18 @@ npm run dev:prototype   # web/ — map prototype demo
 npm run dev:game        # game/ — playable vertical slice
 ```
 
+### Tests
+
+Gameplay and map changes live in `game/`. **Before finishing work** on travel, barriers, story integration, composables, or world YAML, run the test suite and fix failures:
+
+```bash
+npm run test            # from repo root (runs game/ vitest)
+```
+
+Run tests again after each meaningful code change in those areas — not only at the end of a large task. A pre-push hook also runs tests locally; do not rely on it as the first time you learn something broke.
+
+When adding or changing movement, barrier, or arrival behavior, add or update a test in `game/src/lib/maps/testing/` or `game/src/composables/`.
+
 ## Architecture
 
 **Bespoke web-native CYOA engine built with Vue 3 + Vite.**

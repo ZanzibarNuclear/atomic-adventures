@@ -1,6 +1,6 @@
 # Barrier Passage Openings — Gate, Hole, Ford, Bridge
 
-**Status:** Implemented (Part I map)  
+**Status:** Implemented (Part I map) — verified 2026-06-16  
 **Scope:** `game/` — playable vertical slice  
 **Related:** [part-i-alpha-slice.md](part-i-alpha-slice.md)
 
@@ -63,30 +63,69 @@ Openings use point features in [`game/content/world/map.yaml`](../game/content/w
 
 ## Smoke test (end-to-end)
 
-[`barrierPassageJourney.test.js`](../game/src/lib/maps/testing/barrierPassageJourney.test.js) walks:
+[`barrierPassageJourney.test.js`](../game/src/lib/maps/testing/barrierPassageJourney.test.js) is the primary smoke file. Run with:
+
+```bash
+npm run test -- barrierPassageJourney
+```
+
+### Northern approach + west bank (bridge + ford)
 
 1. `trailhead → east-pines → far-pines → north-bend → road-fork → upper-gorge` (via `river-access-drive` route)
-2. `upper-gorge → north-west` (bridge)
-3. `north-west → gate-woods → mid-west` (fence blocks direct `north-west → mid-west`)
-4. Search ford at `mid-west`
-5. `mid-west → utility-yard`
+2. Cross `upper-gorge-bridge` in-hex, then `upper-gorge → north-west`
+3. West-bank column: `north-west → mid-west` (hex-center `north-west → mid-west` is blocked by the river — not a fence issue)
+4. Search ford at `mid-west` (`mid-west-ford` hidden until search)
+5. `mid-west → utility-yard` on the west bank (no ford crossing required)
 
-When this test passes, all four opening kinds are wired correctly.
+### Southern fence openings (same file)
+
+6. `gate-woods → south-pines` through `compound-gate`
+7. `lower-stand → south-pines` blocked until `south-pines-hole` is discovered
+
+When this file passes, all four opening kinds are wired correctly.
+
+### Related tests (not duplicated in smoke)
+
+| Test file | Covers |
+|-----------|--------|
+| [`openingDiscovery.test.js`](../game/src/lib/maps/testing/openingDiscovery.test.js) | `travelOpenings` filter, hole reveal |
+| [`usePassageCrossing.test.js`](../game/src/lib/maps/testing/usePassageCrossing.test.js) | Bridge stand flip, ford UI gating |
+| [`westBankColumn.test.js`](../game/src/lib/maps/testing/westBankColumn.test.js) | Play-mode west-bank column + UI labels |
+| [`roadForkUpperGorge.test.js`](../game/src/lib/maps/testing/roadForkUpperGorge.test.js) | Drive route lands on east bank at `upper-gorge` |
+| [`fenceRegression.test.js`](../game/src/lib/maps/testing/fenceRegression.test.js) | No accidental fence leaks at default stands |
 
 ## Implementation checklist
 
+Verified 2026-06-16 against `game/` sources and `npm run test` (92 tests passing).
+
 - [x] Write this plan
-- [x] `resolveOpeningAt` / hex-anchored `at` in `useBarrierOpenings.js`
-- [x] `outdoor.discoveredOpenings` + save/load
+- [x] `resolveOpeningPosition` / hex-anchored `at` in `useBarrierOpenings.js` *(plan previously said `resolveOpeningAt`; actual export is `resolveOpeningPosition`)*
+- [x] `outdoor.discoveredOpenings` + save/load in [`useGameState.js`](../game/src/composables/useGameState.js) (`captureSnapshot` / `applyOutdoorSnapshot`)
 - [x] Author hole, ford, bridge in `map.yaml`; tune bridge coords
 - [x] `HexPassageLayer` symbols (gate, hole, ford, bridge)
-- [x] Outdoor search action in play panel
-- [x] Forest tree exclusions for all opening kinds
-- [x] Unit tests + smoke test journey
-- [ ] Builder `serializeOpening` for hole/ford/bridge (fast follow)
-- [ ] Sync to `web/` prototype (optional)
+- [x] Outdoor search action in play panel (`buildOutdoorSearchActions`, `search:barrier` handler)
+- [x] Forest tree exclusions for all opening kinds (`openingExclusions` in `forestTreePlacement.js`)
+- [x] Unit tests + smoke test journey *(smoke test extended to cover full west-bank leg + gate/hole cases)*
+- [ ] Save/load round-trip test for `discoveredOpenings` *(state is serialized but not yet asserted in tests)*
+- [ ] Builder `serializeOpening` for hole/ford/bridge (fast follow — no implementation yet)
+- [ ] Sync to `web/` prototype (optional — `web/` still uses legacy `travelOpenings` without discovery)
 - [ ] Outdoor gate lock open/closed state (later)
 - [ ] Fence cutter item (later)
+- [ ] Story beats for search success prose (later — search works mechanically, no narrative hook)
+
+## Review notes (2026-06-16)
+
+**What works:** All four opening kinds are authored, rendered, filtered by discovery, integrated with travel barriers, searchable from the play panel, persisted in save snapshots, and covered by tests. The northern approach route and west-bank column play correctly end-to-end.
+
+**Smoke test gap (fixed):** The smoke test previously stopped at `upper-gorge → north-west`. Steps 3–5 and gate/hole cases were only covered in scattered unit tests. The smoke file now includes the full west-bank leg plus gate and hole assertions.
+
+**Plan correction:** Step 3 is not `north-west → gate-woods → mid-west`. `gate-woods` is east of the river; from `north-west` the player stays on the west bank and walks `north-west → mid-west` directly after crossing the bridge.
+
+**Minor gaps to consider:**
+
+- No automated test reloads a save and asserts `discoveredOpenings` survives round-trip.
+- `web/` prototype lacks discovery/search — intentional deferral but diverges from game.
+- Ford search reveals the crossing UI; the west-bank `utility-yard` leg does not require using the ford (by design).
 
 ## Out of scope (later)
 

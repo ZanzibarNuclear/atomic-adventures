@@ -25,6 +25,7 @@ import {
 import {
   availablePassageCrossings,
   standAcrossOpening,
+  isOnRiverBank,
 } from "./usePassageCrossing.js";
 
 function initialStand(mapData, size) {
@@ -357,13 +358,17 @@ export function useOutdoorWorld(mapData) {
 
     const enteredDest = result.activeHexId === toHex.id;
     const failedCrossing = result.blockedKind && !enteredDest;
+    let atBarrier =
+      result.blockedKind && enteredDest ? result.blockedKind : null;
+    if (!atBarrier && enteredDest && isOnRiverBank(result.stand, ctx.barriers)) {
+      atBarrier = "river";
+    }
 
     applyMove({
       hexId: result.activeHexId,
       stand: result.stand,
       blocked: failedCrossing ? result.blockedKind : null,
-      atBarrier:
-        result.blockedKind && enteredDest ? result.blockedKind : null,
+      atBarrier,
     });
   }
 

@@ -257,6 +257,32 @@ export function routeStandInHex(path, hexId, hexAtPoint) {
   return inHex[Math.floor(inHex.length / 2)]
 }
 
+/** Last sample along `path` inside `hexId` — route dead-ends (e.g. drive at a river bank). */
+export function pathEndInHex(path, hexId, hexAtPoint) {
+  for (let i = path.length - 1; i >= 0; i--) {
+    if (hexAtPoint(path[i], hexId) === hexId) return path[i]
+  }
+  return null
+}
+
+/**
+ * Where to stand after an unblocked move: route midpoint when the path passes
+ * through the hex, route endpoint when it dead-ends at an authored standAt hex,
+ * otherwise the requested destination (hex center for direct steps).
+ */
+export function resolveArrivalStand(walkPath, toHex, toPos, hexAtPoint) {
+  if (walkPath.length <= 2) return toPos
+  const last = walkPath[walkPath.length - 1]
+  if (
+    toHex?.standAt &&
+    toHex.id &&
+    hexAtPoint(last, toHex.id) === toHex.id
+  ) {
+    return { x: last.x, y: last.y }
+  }
+  return routeStandInHex(walkPath, toHex.id, hexAtPoint) ?? toPos
+}
+
 /** Whether a marked-route move should be hidden / rejected (departure hex only). */
 export function isRouteMoveBlocked(fromHex, toHex, pathSamples, ctx, hexAtPoint) {
   if (!fromHex?.id || !hexAtPoint) {
@@ -298,10 +324,8 @@ export function resolveMove({
     stand = standBeforeBarrierHit(segStart, hit, {
       inset: BARRIER_STAND_INSET[hit.kind] ?? BARRIER_STAND_INSET.fence,
     })
-  } else if (walkPath.length > 2 && toHex?.id) {
-    stand = routeStandInHex(walkPath, toHex.id, hexAtPoint) ?? toPos
   } else {
-    stand = toPos
+    stand = resolveArrivalStand(walkPath, toHex, toPos, hexAtPoint)
   }
 
   // Blocked at a barrier — active hex follows where the avatar actually stands.
