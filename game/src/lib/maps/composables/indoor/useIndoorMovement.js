@@ -153,9 +153,14 @@ export function createIndoorMovement(deps) {
 
   const levelsTopDown = computed(() => building.value.levels);
 
-  function goIndoors() {
-    outdoor.state.barrierStand = null;
+  function resetOutdoorStand(hexId) {
+    outdoor.state.stand = outdoor.defaultStandForHex(hexId);
     outdoor.state.lastBlocked = null;
+    outdoor.state.atBarrier = null;
+  }
+
+  function goIndoors() {
+    resetOutdoorStand(outdoor.state.currentId);
     indoor.exteriorNode = building.value.exterior?.entry ?? null;
     indoor.currentRoom = null;
     indoor.discovered = new Set();
@@ -209,8 +214,7 @@ export function createIndoorMovement(deps) {
     const hexId = exit.hex ?? building.value.outdoorHex;
     if (!hexId) return;
     outdoor.state.currentId = hexId;
-    outdoor.state.barrierStand = null;
-    outdoor.state.lastBlocked = null;
+    resetOutdoorStand(hexId);
     indoor.exteriorNode = null;
     indoor.currentRoom = null;
     place.value = "outdoors";
@@ -219,8 +223,7 @@ export function createIndoorMovement(deps) {
   function exitBuilding() {
     const hexId = building.value.outdoorHex ?? outdoor.state.currentId;
     outdoor.state.currentId = hexId;
-    outdoor.state.barrierStand = null;
-    outdoor.state.lastBlocked = null;
+    resetOutdoorStand(hexId);
     indoor.exteriorNode = null;
     indoor.currentRoom = null;
     place.value = "outdoors";

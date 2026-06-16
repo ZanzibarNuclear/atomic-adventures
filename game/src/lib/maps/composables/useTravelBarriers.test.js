@@ -122,6 +122,18 @@ describe('barrier crossings', () => {
     ]
     expect(firstBlockedOnPath(path, ctx)).toBeNull()
   })
+
+  it('allows walking parallel to a river without crossing it', () => {
+    const ctx = {
+      barriers: [{ a: { x: 0, y: 50 }, b: { x: 200, y: 50 }, kind: 'river' }],
+      openings: [],
+    }
+    const path = [
+      { x: 100, y: 60 },
+      { x: 100, y: 120 },
+    ]
+    expect(firstBlockedOnPath(path, ctx)).toBeNull()
+  })
 })
 
 describe('openingAllows', () => {
@@ -153,7 +165,6 @@ describe('resolveMove', () => {
       path: [fromPos, toPos],
       ctx: verticalFence,
       hexAtPoint,
-      size: 44,
     })
     expect(result.blockedKind).toBe('fence')
     expect(result.stand.x).toBeLessThan(100)
@@ -171,7 +182,6 @@ describe('resolveMove', () => {
       path: [fromPos, toPos],
       ctx: verticalFence,
       hexAtPoint,
-      size: 44,
     })
     expect(result.blockedKind).toBeNull()
     expect(result.stand).toEqual(toPos)
@@ -218,13 +228,12 @@ describe('canOfferNeighbor vs canReachNeighbor', () => {
   })
 })
 
-describe('parallel river bank moves', () => {
-  it('does not treat river polyline crossings as blocking when walking along the bank', () => {
+describe('parallel barrier walks', () => {
+  it('does not block when both path endpoints stay on the same side of a river segment', () => {
     const world = buildTravelWorld(mapData)
     const from = world.hexById['mid-west']
     const to = world.hexById['utility-yard']
-    const bank = world.resolveStand(from)
-    const fromPos = { x: bank.x, y: bank.y + 20 }
+    const fromPos = world.resolveStand(from)
     const m = evaluateNeighborMove(world, from, to, fromPos)
 
     expect(m.reachable).toBe(true)

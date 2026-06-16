@@ -4,7 +4,7 @@ import { buildInitialDoorState } from "../lib/maps/composables/useDoors.js";
 import { createFlags } from "../lib/maps/composables/useFlags.js";
 import { createInventory } from "../lib/maps/composables/useInventory.js";
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 /** Plain JSON-safe clone — structuredClone fails on Vue reactive proxies. */
 function clonePlain(value) {
@@ -36,10 +36,9 @@ export function captureSnapshot({ gameState, place, outdoor, indoor }) {
     outdoor: {
       currentId: outdoor.state.currentId,
       discovered: [...outdoor.state.discovered],
-      barrierStand: outdoor.state.barrierStand
-        ? { ...outdoor.state.barrierStand }
-        : null,
+      stand: { ...outdoor.state.stand },
       lastBlocked: outdoor.state.lastBlocked,
+      atBarrier: outdoor.state.atBarrier,
       mode: outdoor.mode,
     },
     indoor: {
@@ -59,20 +58,32 @@ export function captureSnapshot({ gameState, place, outdoor, indoor }) {
   };
 }
 
+function applyOutdoorSnapshot(o, outdoor) {
+  outdoor.state.currentId = o.currentId ?? outdoor.START;
+  outdoor.state.discovered = [...(o.discovered ?? [outdoor.state.currentId])];
+
+  if (o.stand) {
+    outdoor.state.stand = { ...o.stand };
+  } else if (o.barrierStand) {
+    outdoor.state.stand = { ...o.barrierStand };
+  } else {
+    outdoor.state.stand = outdoor.defaultStandForHex(outdoor.state.currentId);
+  }
+
+  outdoor.state.lastBlocked = o.lastBlocked ?? null;
+  outdoor.state.atBarrier = o.atBarrier ?? null;
+  if (o.mode) outdoor.mode = o.mode;
+}
+
 export function applySnapshot(snapshot, { gameState, place, outdoor, indoor }) {
-  if (!snapshot || snapshot.version !== SAVE_VERSION) return false;
+  if (!snapshot || snapshot.version > SAVE_VERSION) return false;
 
   gameState.flags = createFlags(snapshot.flags ?? []);
   indoor.indoor.flags = gameState.flags;
   gameState.storySeen = new Set(snapshot.storySeen ?? []);
   gameState.endCardDismissed = snapshot.endCardDismissed ?? false;
 
-  const o = snapshot.outdoor ?? {};
-  outdoor.state.currentId = o.currentId ?? gameState._startHex;
-  outdoor.state.discovered = [...(o.discovered ?? [outdoor.state.currentId])];
-  outdoor.state.barrierStand = o.barrierStand ? { ...o.barrierStand } : null;
-  outdoor.state.lastBlocked = o.lastBlocked ?? null;
-  if (o.mode) outdoor.mode = o.mode;
+  applyOutdoorSnapshot(snapshot.outdoor ?? {}, outdoor);
 
   const building = indoor.building;
   const i = snapshot.indoor ?? {};

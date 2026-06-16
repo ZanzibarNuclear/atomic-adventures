@@ -166,7 +166,7 @@ export function availableMoves(currentHexId, models, travelOpts = null) {
     const toHex = travelOpts.hexById[toHexId]
     if (!fromHex || !toHex) return false
     const fromPos = travelOpts.fromPos
-    const toPos = travelOpts.resolveStand(toHex)
+    const toPos = travelOpts.resolveStand(toHex, fromHex, fromPos)
     const path = routeLeg
       ? buildMovePath(
           fromPos,
@@ -344,7 +344,7 @@ export function directNeighbors(
   return hexes
     .filter((h) => hexDistance(h, current) === 1 && !onRoute.has(h.id))
     .filter((h) => {
-      const toPos = resolveStand(h)
+      const toPos = resolveStand(h, current, fromPos)
       return canOfferNeighbor({
         fromHex: current,
         toHex: h,

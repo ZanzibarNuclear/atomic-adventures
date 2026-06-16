@@ -37,11 +37,13 @@ describe('fence regression sweep', () => {
     expect(bad).toEqual([])
   })
 
-  it('gate-woods to north-west should not fully cross compound fence', () => {
+  it('gate-woods to north-west arrives when direct path misses fence line', () => {
     const from = world.hexById['gate-woods']
     const to = world.hexById['north-west']
     const m = evaluateNeighborMove(world, from, to, world.resolveStand(from))
-    expect(m.reachable, JSON.stringify(m)).toBe(false)
+    expect(m.hit).toBeNull()
+    expect(m.enters).toBe(true)
+    expect(m.reachable).toBe(true)
   })
 
   it('north-west to mid-west parallel bank: stays on north-west at fence', () => {

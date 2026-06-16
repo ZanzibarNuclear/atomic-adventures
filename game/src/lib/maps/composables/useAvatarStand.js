@@ -1,5 +1,4 @@
 import { axialToPixel } from './useHexGeometry.js'
-import { bankStandAt, hexOnRiverBank } from './useRiverBank.js'
 
 /** Default offset from a landmark icon when standAt is omitted (hex-size units). */
 export const DEFAULT_BESIDE_LANDMARK = { dx: 0.34, dy: 0.42 }
@@ -21,14 +20,14 @@ export function landmarkAnchor(hex, size) {
 }
 
 /**
- * Where the player stands on a hex.
+ * Where the player stands on a hex (YAML / landmark / center).
  *
  * standAt forms (see map.yaml header):
  *   { x, y }                    — fixed world coords (e.g. gate approach)
  *   { from: landmark, dx, dy }  — beside the building; moves when landmark moves
- *   { dx, dy }                  — offset from hex center
+ *   { dx, dy }                  — offset from hex center (e.g. river bank)
  */
-export function resolveAvatarPosition(hex, size, riverSegments = null) {
+export function resolveAvatarPosition(hex, size) {
   if (!hex) return { x: 0, y: 0 }
   const c = axialToPixel(hex.q, hex.r, size)
   const stand = hex.standAt
@@ -50,11 +49,6 @@ export function resolveAvatarPosition(hex, size, riverSegments = null) {
       x: base.x + size * DEFAULT_BESIDE_LANDMARK.dx,
       y: base.y + size * DEFAULT_BESIDE_LANDMARK.dy,
     }
-  }
-
-  if (riverSegments?.length && hexOnRiverBank(hex, size, riverSegments)) {
-    const bank = bankStandAt(hex, size, riverSegments)
-    if (bank) return bank
   }
 
   return c

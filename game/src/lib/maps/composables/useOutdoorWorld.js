@@ -7,16 +7,24 @@ import {
   buildMovePath,
 } from "./useRoutes.js";
 import { hexDistance, pixelToHex } from "./useHexGeometry.js";
-import { resolveAvatarPosition } from "./useAvatarStand.js";
+import {
+  resolveAvatarPosition,
+} from "./useAvatarStand.js";
 import {
   BARRIER_OPENING_KINDS,
   barrierSegments,
-  riverSegments,
   travelOpenings,
   resolveMove,
   canOfferNeighbor,
-  canReachNeighbor,
 } from "./useTravelBarriers.js";
+
+function initialStand(mapData, size) {
+  const START = mapData.start ?? mapData.journey[0];
+  const hexes = mapData.hexes ?? [];
+  const hex = hexes.find((h) => h.id === START);
+  if (!hex) return { x: 0, y: 0 };
+  return resolveAvatarPosition(hex, size);
+}
 
 export function useOutdoorWorld(mapData) {
   const size = mapData.size ?? 44;
@@ -70,7 +78,9 @@ export function useOutdoorWorld(mapData) {
     ),
   );
 
-  const rivers = computed(() => riverSegments(featureModels.value));
+  const rivers = computed(() =>
+    barrierSegments(featureModels.value).filter((s) => s.kind === "river"),
+  );
   const hexCoordMap = computed(
     () => new Map(editableHexes.value.map((h) => [`${h.q},${h.r}`, h.id])),
   );
@@ -88,19 +98,25 @@ export function useOutdoorWorld(mapData) {
   const state = reactive({
     currentId: START,
     discovered: [START],
-    /** Fixed { x, y } when a blocked move walked the avatar up to a barrier. */
-    barrierStand: null,
-    /** Barrier kind ('fence' | 'river') of the last blocked move attempt. */
+    /** Avatar world position — always persisted. */
+    stand: initialStand(mapData, size),
+    /** Barrier kind when a crossing failed before entering the destination hex. */
     lastBlocked: null,
+    /** Barrier kind when standing at a barrier line inside the current hex. */
+    atBarrier: null,
   });
+
+  function defaultStandForHex(hexId) {
+    const hex = hexById.value[hexId];
+    if (!hex) return { x: 0, y: 0 };
+    return resolveAvatarPosition(hex, size);
+  }
 
   function markDiscovered(hexId) {
     if (!hexId || state.discovered.includes(hexId)) return;
     state.discovered = [...state.discovered, hexId];
   }
 
-  // Any code path that moves the avatar (routes, direct hex moves, builder, indoor exits)
-  // must reveal the hex the player is standing on.
   watch(
     () => state.currentId,
     (hexId) => markDiscovered(hexId),
@@ -112,20 +128,12 @@ export function useOutdoorWorld(mapData) {
 
   const currentHexData = computed(() => hexById.value[state.currentId]);
 
-  const avatarFromPos = computed(() => {
-    const hex = currentHexData.value;
-    if (!hex) return { x: 0, y: 0 };
-    if (state.barrierStand) {
-      return state.barrierStand;
-    }
-    return resolveAvatarPosition(hex, size, rivers.value);
-  });
+  const avatarFromPos = computed(() => state.stand);
 
-  const standOverride = computed(() =>
-    state.barrierStand
-      ? { hexId: state.currentId, standAt: state.barrierStand }
-      : null,
-  );
+  const standOverride = computed(() => ({
+    hexId: state.currentId,
+    standAt: state.stand,
+  }));
 
   const discoveredList = computed(() => state.discovered);
 
@@ -135,7 +143,7 @@ export function useOutdoorWorld(mapData) {
     size,
     barriers: travelBarrierCtx.value,
     fromPos: avatarFromPos.value,
-    resolveStand: (hex) => resolveAvatarPosition(hex, size, rivers.value),
+    resolveStand: (hex) => resolveAvatarPosition(hex, size),
     hexAtPoint,
     routeModels: routeModels.value,
   }));
@@ -153,18 +161,20 @@ export function useOutdoorWorld(mapData) {
       size,
       travelBarrierCtx.value,
       avatarFromPos.value,
-      (hex) => resolveAvatarPosition(hex, size, rivers.value),
+      (hex) => resolveAvatarPosition(hex, size),
       hexAtPoint,
     ),
   );
 
-  /** Atomically commit hex + avatar position + block state. */
-  function applyMove({ hexId, stand, blocked }) {
+  /** Atomically commit hex + avatar position + barrier hints. */
+  function applyMove({ hexId, stand, blocked, atBarrier }) {
     state.currentId = hexId;
-    state.barrierStand = stand
-      ? { x: Math.round(stand.x), y: Math.round(stand.y) }
-      : null;
+    state.stand = {
+      x: Math.round(stand.x),
+      y: Math.round(stand.y),
+    };
     state.lastBlocked = blocked ?? null;
+    state.atBarrier = atBarrier ?? null;
   }
 
   const atBuildingEntrance = computed(
@@ -187,7 +197,7 @@ export function useOutdoorWorld(mapData) {
     if (!isAdjacentHex(hexId)) return false;
 
     const fromPos = avatarFromPos.value;
-    const toPos = resolveAvatarPosition(toHex, size, rivers.value);
+    const toPos = resolveAvatarPosition(toHex, size);
     const routeLeg = availableMoves(state.currentId, routeModels.value, null).find(
       (m) => m.toHexId === hexId,
     );
@@ -207,7 +217,6 @@ export function useOutdoorWorld(mapData) {
       path,
       ctx: travelBarrierCtx.value,
       hexAtPoint,
-      size,
     });
   }
 
@@ -221,7 +230,7 @@ export function useOutdoorWorld(mapData) {
 
     const fromPos = avatarFromPos.value;
     const ctx = travelBarrierCtx.value;
-    const toPos = resolveAvatarPosition(toHex, size, rivers.value);
+    const toPos = resolveAvatarPosition(toHex, size);
     const routeLeg = moves.value.find((m) => m.toHexId === hexId);
     const path = buildMovePath(
       fromPos,
@@ -240,7 +249,6 @@ export function useOutdoorWorld(mapData) {
       path,
       ctx,
       hexAtPoint,
-      size,
     });
 
     traveling.value = true;
@@ -248,10 +256,15 @@ export function useOutdoorWorld(mapData) {
       traveling.value = false;
     }, 650);
 
+    const enteredDest = result.activeHexId === toHex.id;
+    const failedCrossing = result.blockedKind && !enteredDest;
+
     applyMove({
       hexId: result.activeHexId,
-      stand: result.blockedKind ? result.stand : null,
-      blocked: result.blockedKind,
+      stand: result.stand,
+      blocked: failedCrossing ? result.blockedKind : null,
+      atBarrier:
+        result.blockedKind && enteredDest ? result.blockedKind : null,
     });
   }
 
@@ -272,8 +285,9 @@ export function useOutdoorWorld(mapData) {
   function resetPlayer() {
     state.currentId = START;
     state.discovered = [START];
-    state.barrierStand = null;
+    state.stand = defaultStandForHex(START);
     state.lastBlocked = null;
+    state.atBarrier = null;
   }
 
   function nameOf(hexId) {
@@ -311,6 +325,7 @@ export function useOutdoorWorld(mapData) {
     isAdjacentHex,
     autoTravel,
     resetPlayer,
+    defaultStandForHex,
     nameOf,
   });
 }

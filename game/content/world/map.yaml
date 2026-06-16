@@ -17,7 +17,7 @@
 # standAt — where the player stands (independent of routes):
 #   { x, y }                     fixed world coords (e.g. gate-woods)
 #   { from: landmark, dx, dy }   offset from the landmark icon; moves with the building
-#   { dx, dy }                   offset from hex center
+#   { dx, dy }                   offset from hex center (e.g. beside a barrier in hex)
 # dx/dy are in hex-size units (-y = north). Omit standAt on icon hexes for a default
 # "beside the landmark" offset (0.34, 0.42).
 #
@@ -48,7 +48,11 @@ hexes:
 
   - { id: road-fork, q: 0, r: -2, terrain: forest }
 
-  - { id: north-west, q: -2, r: -1, terrain: forest }
+  - id: north-west
+    q: -2
+    r: -1
+    terrain: forest
+    standAt: { dx: 0.65, dy: 0 }
 
   - { id: north-bend, q: 0, r: -1, terrain: forest }
 
@@ -72,7 +76,11 @@ hexes:
       label: "Compound Gate"
       blurb: "A locked fence gate and a guard booth."
 
-  - { id: mid-west, q: -2, r: 0, terrain: forest }
+  - id: mid-west
+    q: -2
+    r: 0
+    terrain: forest
+    standAt: { dx: 0.23, dy: 0 }
 
   - { id: west-slope, q: -1, r: 0, terrain: forest }
 

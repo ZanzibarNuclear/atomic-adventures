@@ -311,6 +311,10 @@ export function buildOutdoorStatusLines(outdoor, indoor) {
     lines.push("A fence blocks the way.");
   } else if (outdoor.state.lastBlocked === "river") {
     lines.push("The river blocks the way.");
+  } else if (outdoor.state.atBarrier === "fence") {
+    lines.push("The fence line is here.");
+  } else if (outdoor.state.atBarrier === "river") {
+    lines.push("The river bank is here.");
   }
   if (outdoor.atBuildingEntrance) {
     lines.push(`The ${indoor.building.label} is here — enter from the map or below.`);

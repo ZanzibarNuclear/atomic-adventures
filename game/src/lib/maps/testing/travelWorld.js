@@ -55,7 +55,7 @@ export function buildTravelWorld(mapData) {
   }
 
   function resolveStand(hex) {
-    return resolveAvatarPosition(hex, size, rivers)
+    return resolveAvatarPosition(hex, size)
   }
 
   return {
@@ -132,7 +132,6 @@ export function evaluateNeighborMove(world, fromHex, toHex, fromPos) {
     path,
     ctx: world.ctx,
     hexAtPoint: world.hexAtPoint,
-    size: world.size,
   }
 
   const result = resolveMove(moveArgs)

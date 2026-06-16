@@ -8,7 +8,6 @@
       :discovered="outdoor.discoveredList"
       :mode="outdoor.mode"
       :stand-override="outdoor.standOverride"
-      :avatar-instant="!!outdoor.state.barrierStand"
       @hex-click="travelToHex"
       @building-enter="enterBuilding" />
     <MapCaption :title="hexLabel(outdoor.currentHexData)" />

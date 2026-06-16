@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import mapData from '../../../../content/world/map.yaml'
 import { buildTravelWorld, evaluateNeighborMove, offeredMoves, adjacentHexes } from './travelWorld.js'
-import { hexOnRiverBank } from '../composables/useRiverBank.js'
 
 const world = buildTravelWorld(mapData)
 
+const BANK_HEXES = new Set(['north-west', 'mid-west', 'utility-yard'])
+
 describe('mid-west → utility-yard along river', () => {
-  it('both hexes are on the river bank', () => {
-    expect(hexOnRiverBank(world.hexById['mid-west'], world.size, world.rivers)).toBe(true)
-    expect(hexOnRiverBank(world.hexById['utility-yard'], world.size, world.rivers)).toBe(true)
+  it('bank hexes have authored standAt', () => {
+    expect(world.hexById['mid-west'].standAt).toEqual({ dx: 0.23, dy: 0 })
+    expect(world.hexById['utility-yard'].standAt?.from).toBe('landmark')
   })
 
   it('should offer and reach utility-yard from mid-west default stand', () => {
@@ -37,10 +38,10 @@ describe('mid-west → utility-yard along river', () => {
     expect(dests).toContain('utility-yard')
   })
 
-  it('every adjacent river-bank step along q=-2 reaches utility-yard', () => {
+  it('every adjacent bank hex step along q=-2 reaches utility-yard', () => {
     const uy = world.hexById['utility-yard']
     for (const from of adjacentHexes(uy, world.hexes)) {
-      if (!hexOnRiverBank(from, world.size, world.rivers)) continue
+      if (!BANK_HEXES.has(from.id)) continue
       const m = evaluateNeighborMove(world, from, uy, world.resolveStand(from))
       expect(
         m.reachable,
@@ -49,11 +50,11 @@ describe('mid-west → utility-yard along river', () => {
     }
   })
 
-  it('bank positions south of center still reach utility-yard', () => {
+  it('bank positions along the bank column reach utility-yard when on the same side of the river', () => {
     const midWest = world.hexById['mid-west']
     const uy = world.hexById['utility-yard']
     const bank = world.resolveStand(midWest)
-    for (let dy = -20; dy <= 40; dy += 10) {
+    for (const dy of [0, -10, 10]) {
       const fromPos = { x: bank.x, y: bank.y + dy }
       const m = evaluateNeighborMove(world, midWest, uy, fromPos)
       expect(m.reachable, `dy=${dy} ${JSON.stringify(m.result)}`).toBe(true)

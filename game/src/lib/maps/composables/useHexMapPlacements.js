@@ -82,10 +82,9 @@ export function useHexMapPlacements({
       return resolveAvatarPosition(
         { ...hex, standAt: standOverride.value.standAt },
         size.value,
-        rivers.value,
       )
     }
-    return resolveAvatarPosition(hex, size.value, rivers.value)
+    return resolveAvatarPosition(hex, size.value)
   })
 
   const cascadeChevrons = computed(() => {

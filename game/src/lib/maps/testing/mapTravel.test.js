@@ -105,6 +105,17 @@ describe('Part I map — known fence approaches', () => {
     const dests = [...routeMoves, ...directMoves].map((m) => m.toHexId)
     expect(dests).toContain('south-pines')
   })
+
+  it('utility-yard → south-pines: interior move crosses no fence', () => {
+    const from = world.hexById['utility-yard']
+    const to = world.hexById['south-pines']
+    const m = evaluateNeighborMove(world, from, to, world.resolveStand(from))
+
+    expect(m.result.blockedKind).toBeNull()
+    expect(m.enters).toBe(true)
+    expect(m.reachable).toBe(true)
+    expect(m.result.activeHexId).toBe('south-pines')
+  })
 })
 
 describe('Part I map — movement invariants (default stand)', () => {
