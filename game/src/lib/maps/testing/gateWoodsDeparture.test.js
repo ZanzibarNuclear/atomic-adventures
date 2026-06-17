@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import mapData from '../../../../content/world/map.yaml'
 import { buildGameplayWorld, gameplayMoveTo, offeredDestinations } from './gameplayTravel.js'
-import { isNorthOfCompoundGate, isSouthOfCompoundGate } from '../composables/useCompoundGate.js'
 
 describe('gate-woods departure', () => {
   function atGateApproach(outdoor) {
@@ -14,20 +13,13 @@ describe('gate-woods departure', () => {
   it('north to road-fork stays north of the fence and locked gate', () => {
     const { outdoor } = buildGameplayWorld(mapData)
     atGateApproach(outdoor)
-    expect(
-      isNorthOfCompoundGate(outdoor.state.stand, outdoor.travelBarrierCtx),
-    ).toBe(true)
+    expect(outdoor.state.stand.y).toBeLessThan(-62)
 
     expect(offeredDestinations(outdoor)).toContain('road-fork')
 
     gameplayMoveTo(outdoor, 'road-fork')
     expect(outdoor.state.currentId).toBe('road-fork')
-    expect(
-      isNorthOfCompoundGate(outdoor.state.stand, outdoor.travelBarrierCtx),
-    ).toBe(true)
-    expect(isSouthOfCompoundGate(outdoor.state.stand, outdoor.travelBarrierCtx)).toBe(
-      false,
-    )
+    expect(outdoor.state.stand.y).toBeLessThan(-62)
     expect(outdoor.state.lastBlocked).toBeNull()
   })
 

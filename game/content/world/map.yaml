@@ -38,6 +38,10 @@
 # then move from the new stand position.
 #   { kind: gate|hole|bridge|ford, hex: <hex-id>, visibility: obvious|hidden,
 #     at: { hex, dx, dy } | { x, y }, radius?: px, label?: text }
+# Optional passage state:
+#   require: { all: [flag], any: [flag], not: [flag] }
+#   unlock: { label: text, status: text, set_flags: [flag] }
+#   on_cross: { set_flags: [flag] }
 
 orientation: pointy
 size: 44
@@ -83,7 +87,6 @@ hexes:
     q: -1
     r: -1
     terrain: forest
-    puzzle: gate
     standAt: { x: -81, y: -76 }
     landmark:
       label: "Compound Gate"
@@ -146,6 +149,14 @@ features:
     visibility: obvious
     at: { x: -81, y: -62 } # compound road crosses fence-run-west
     boothAt: { x: -94, y: -72 }
+    require:
+      all: [compound.gate-unlocked]
+    unlock:
+      label: "Solve the puzzle to unlock"
+      status: "A locked gate blocks the road — look closer."
+      set_flags: [compound.gate-unlocked]
+    on_cross:
+      set_flags: [compound.gate-passed]
 
   - id: upper-gorge-bridge
     kind: bridge

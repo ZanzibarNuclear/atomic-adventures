@@ -79,15 +79,13 @@ export function buildOutdoorPassageActions(outdoor) {
   }));
 }
 
-export function buildOutdoorGatePuzzleActions(outdoor) {
-  if (!outdoor.atLockedCompoundGate) return [];
-  return [
-    {
-      id: "gate:solve",
-      label: "Solve the puzzle to unlock",
-      kind: "puzzle",
-    },
-  ];
+export function buildOutdoorPassageUnlockActions(outdoor) {
+  return (outdoor.lockedPassageActions ?? []).map((action) => ({
+    id: `passage-unlock:${action.openingId}`,
+    openingId: action.openingId,
+    label: action.label,
+    kind: "puzzle",
+  }));
 }
 
 /** @deprecated Use buildOutdoorPassageActions */
@@ -99,7 +97,7 @@ export function getMovementOptions(outdoor, pendingBeat) {
   const { hexes: storyHexes } = storyChoiceDestinations(pendingBeat);
   const seen = new Set(storyHexes);
 
-  items.push(...buildOutdoorGatePuzzleActions(outdoor));
+  items.push(...buildOutdoorPassageUnlockActions(outdoor));
 
   for (const m of outdoor.moves ?? []) {
     if (seen.has(m.toHexId)) continue;
@@ -139,8 +137,8 @@ export function handleOutdoorChooseAction(
     outdoor.searchBarrier?.();
     return;
   }
-  if (actionId === "gate:solve") {
-    outdoor.solveGatePuzzle?.();
+  if (actionId.startsWith("passage-unlock:")) {
+    outdoor.unlockPassage?.(actionId.slice("passage-unlock:".length));
     return;
   }
   if (actionId.startsWith("story:")) {
@@ -355,8 +353,8 @@ export function buildIndoorStatusLines(indoor) {
 
 export function buildOutdoorStatusLines(outdoor, indoor) {
   const lines = [];
-  if (outdoor.atGatePuzzle) {
-    lines.push("A locked gate blocks the road — look closer.");
+  for (const action of outdoor.lockedPassageActions ?? []) {
+    if (action.status) lines.push(action.status);
   }
   if (outdoor.state.lastBlocked === "fence") {
     lines.push("A fence blocks the way.");

@@ -2,12 +2,9 @@ import { describe, expect, it } from 'vitest'
 import mapData from '../../../../content/world/map.yaml'
 import { useOutdoorWorld } from '../composables/useOutdoorWorld.js'
 import { buildTravelWorld, evaluateNeighborMove } from './travelWorld.js'
-import {
-  standAcrossOpening,
-  isWestOfRiverAt,
-  isEastOfRiverAt,
-} from '../composables/usePassageCrossing.js'
+import { standAcrossOpening } from '../composables/usePassageCrossing.js'
 import { firstBlockedOnPath } from '../composables/useTravelBarriers.js'
+import { isWestOfRiverAt, isEastOfRiverAt } from './riverSide.js'
 
 describe('mid-west ford and bank column return', () => {
   const world = buildTravelWorld(mapData)
@@ -83,7 +80,7 @@ describe('mid-west ford and bank column return', () => {
 
     const closedBarriers = { barriers: outdoor.travelBarrierCtx.barriers, openings: [] }
     expect(outdoor.state.currentId).toBe('gate-woods')
-    expect(outdoor.state.atBarrier).toBeNull()
+    expect(outdoor.state.atBarrier).toBe('fence')
     expect(outdoor.state.stand.y).toBeGreaterThan(-61)
     expect(firstBlockedOnPath([beforeGate, outdoor.state.stand], closedBarriers)).toBeNull()
   })

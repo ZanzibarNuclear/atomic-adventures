@@ -3,7 +3,7 @@ import mapData from '../../../../content/world/map.yaml'
 import { buildTravelWorld, evaluateNeighborMove } from './travelWorld.js'
 import { standAcrossOpening } from '../composables/usePassageCrossing.js'
 import { hexCenterStand } from '../composables/useAvatarStand.js'
-import { isEastOfRiverAt, isWestOfRiverAt } from '../composables/usePassageCrossing.js'
+import { isEastOfRiverAt, isWestOfRiverAt } from './riverSide.js'
 
 describe('upper-gorge east bank', () => {
   const world = buildTravelWorld(mapData)

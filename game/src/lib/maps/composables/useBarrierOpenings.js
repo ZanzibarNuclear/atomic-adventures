@@ -3,8 +3,8 @@
  */
 
 import { resolveWaypoint } from './useRoutes.js'
-import { isGateOpeningOpen } from './useCompoundGate.js'
 import { BARRIER_OPENING_KINDS } from './useTravelBarriers.js'
+import { passageRequirementSatisfied } from './usePassageState.js'
 
 function distToSegment(px, py, ax, ay, bx, by) {
   const dx = bx - ax
@@ -115,6 +115,9 @@ export function travelOpenings(
         x: pos.x,
         y: pos.y,
         r: f.radius ?? OPENING_RADIUS[f.kind] ?? 12,
+        require: f.require ?? null,
+        unlock: f.unlock ?? null,
+        on_cross: f.on_cross ?? null,
       }
     })
     .filter(Boolean)
@@ -156,7 +159,7 @@ export function buildPassageMarkers(mapFeatures, hexById, size, { flags, barrier
         labelX: labelAt?.x ?? at.x,
         labelY: labelAt?.y ?? at.y + 12,
         label: f.label ?? '',
-        open: f.kind === 'gate' ? isGateOpeningOpen(f.id, flags) : undefined,
+        open: f.kind === 'gate' ? passageRequirementSatisfied(f, flags) : undefined,
         angle: f.kind === 'gate' ? openingFenceAngleDeg(at, barriers) : undefined,
         boothX: boothAt?.x,
         boothY: boothAt?.y,

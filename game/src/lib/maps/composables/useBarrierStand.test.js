@@ -10,7 +10,6 @@ import {
   standBeforeBarrierHit,
   standBesideBarrierLine,
 } from './useBarrierStand.js'
-import { isOnRiverBank } from './usePassageCrossing.js'
 
 describe('standBeforeBarrierHit', () => {
   it('insets along the approach vector from the intersection', () => {
@@ -64,15 +63,15 @@ describe('barrierHintAtStand', () => {
 
   it('flags upper-gorge drive end as river bank', () => {
     const pos = { x: -133, y: -130 }
-    expect(isOnRiverBank(pos, barriers)).toBe(true)
+    expect(isNearBarrierKind(pos, 'river', barriers)).toBe(true)
     expect(barrierHintAtStand(pos, barriers)).toBe('river')
   })
 
   it('does not flag south-pines or lower-stand as river bank', () => {
     const south = { x: -38, y: 66 }
     const lower = world.resolveStand(world.hexById['lower-stand'])
-    expect(isOnRiverBank(south, barriers)).toBe(false)
-    expect(isOnRiverBank(lower, barriers)).toBe(false)
+    expect(isNearBarrierKind(south, 'river', barriers)).toBe(false)
+    expect(isNearBarrierKind(lower, 'river', barriers)).toBe(false)
     expect(barrierHintAtStand(south, barriers)).not.toBe('river')
     expect(barrierHintAtStand(lower, barriers)).toBeNull()
   })

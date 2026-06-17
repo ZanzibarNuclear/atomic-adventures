@@ -3,11 +3,8 @@ import mapData from '../../../../content/world/map.yaml'
 import { useOutdoorWorld } from '../composables/useOutdoorWorld.js'
 import { hexCenterStand } from '../composables/useAvatarStand.js'
 import { buildTravelWorld, offeredMoves } from './travelWorld.js'
-import {
-  isEastOfRiverAt,
-  isWestOfRiverAt,
-  standAcrossOpening,
-} from '../composables/usePassageCrossing.js'
+import { standAcrossOpening } from '../composables/usePassageCrossing.js'
+import { isEastOfRiverAt, isWestOfRiverAt } from './riverSide.js'
 
 describe('west bank direct moves', () => {
   const world = buildTravelWorld(mapData)
@@ -42,7 +39,8 @@ describe('west bank direct moves', () => {
     const east = world.resolveStand(ug)
     const bridge = world.ctx.openings.find((o) => o.id === 'upper-gorge-bridge')
     const west = standAcrossOpening(bridge, east, world.ctx, world.size)
-    const { directMoves } = offeredMoves(world, ug, west)
+    const { routeMoves, directMoves } = offeredMoves(world, ug, west)
+    expect(routeMoves.map((m) => m.toHexId)).not.toContain('road-fork')
     expect(directMoves.map((m) => m.toHexId)).toContain('north-west')
   })
 

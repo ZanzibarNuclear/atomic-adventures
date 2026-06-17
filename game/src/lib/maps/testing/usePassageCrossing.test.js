@@ -7,11 +7,10 @@ import {
   PASSAGE_CROSSING_INSET,
   standAcrossOpening,
   shouldOfferPassageCrossing,
-  isEastOfRiverAt,
-  isWestOfRiverAt,
 } from '../composables/usePassageCrossing.js'
 import { distToBarrierKind } from '../composables/useBarrierStand.js'
 import { barrierKindForOpening } from '../composables/useBarrierOpenings.js'
+import { isEastOfRiverAt, isWestOfRiverAt } from './riverSide.js'
 
 describe('usePassageCrossing', () => {
   const world = buildTravelWorld(mapData)

@@ -190,26 +190,56 @@ function serializeLine(line, indent) {
   return lines.join('\n')
 }
 
-function serializeGate(feature, indent) {
+function serializeFlagRequirement(require, indent) {
+  if (!require) return []
+  const pad = ' '.repeat(indent)
+  const lines = [`${pad}require:`]
+  for (const key of ['all', 'any', 'not']) {
+    if (require[key]?.length) {
+      lines.push(`${pad}  ${key}: [${require[key].join(', ')}]`)
+    }
+  }
+  return lines
+}
+
+function serializePassageAction(key, action, indent) {
+  if (!action) return []
+  const pad = ' '.repeat(indent)
+  const lines = [`${pad}${key}:`]
+  if (action.label) lines.push(`${pad}  label: ${JSON.stringify(action.label)}`)
+  if (action.status) lines.push(`${pad}  status: ${JSON.stringify(action.status)}`)
+  if (action.set_flags?.length) {
+    lines.push(`${pad}  set_flags: [${action.set_flags.join(', ')}]`)
+  }
+  return lines
+}
+
+function serializePassage(feature, indent) {
   const pad = ' '.repeat(indent)
   const inner = ' '.repeat(indent + 2)
   const lines = [
     `${pad}- id: ${feature.id}`,
-    `${inner}kind: gate`,
+    `${inner}kind: ${feature.kind}`,
     `${inner}hex: ${feature.hex}`,
-    `${inner}at: { x: ${roundInt(feature.at.x)}, y: ${roundInt(feature.at.y)} }`,
+    `${inner}visibility: ${feature.visibility ?? 'obvious'}`,
+    `${inner}at: ${fmtWaypoint(feature.at)}`,
   ]
   if (feature.labelAt) {
-    lines.push(
-      `${inner}labelAt: { x: ${roundInt(feature.labelAt.x)}, y: ${roundInt(feature.labelAt.y)} }`,
-    )
+    lines.push(`${inner}labelAt: ${fmtWaypoint(feature.labelAt)}`)
   }
-  if (feature.label) lines.push(`${inner}label: ${feature.label}`)
+  if (feature.boothAt) lines.push(`${inner}boothAt: ${fmtWaypoint(feature.boothAt)}`)
+  if (feature.radius != null) lines.push(`${inner}radius: ${feature.radius}`)
+  if (feature.label) lines.push(`${inner}label: ${JSON.stringify(feature.label)}`)
+  lines.push(...serializeFlagRequirement(feature.require, indent + 2))
+  lines.push(...serializePassageAction('unlock', feature.unlock, indent + 2))
+  lines.push(...serializePassageAction('on_cross', feature.on_cross, indent + 2))
   return lines.join('\n')
 }
 
 function serializeFeature(feature, indent) {
-  if (feature.kind === 'gate') return serializeGate(feature, indent)
+  if (feature.at && ['gate', 'hole', 'bridge', 'ford', 'stair'].includes(feature.kind)) {
+    return serializePassage(feature, indent)
+  }
   if (!feature.points?.length) return null
   return serializeLine(feature, indent)
 }

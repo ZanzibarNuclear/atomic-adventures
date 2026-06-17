@@ -31,15 +31,11 @@ import {
 } from "./usePassageCrossing.js";
 import { barrierHintAtStand } from "./useBarrierStand.js";
 import {
-  COMPOUND_GATE_ID,
-  GATE_HEX_ID,
-  filterOpeningsForGateState,
-  gateStateFromFlags,
-  isNorthOfCompoundGate,
-  isSouthOfCompoundGate,
-  markCompoundGatePassed,
-  unlockCompoundGate,
-} from "./useCompoundGate.js";
+  applyPassageCrossEffects,
+  applyPassageUnlock,
+  filterAvailablePassages,
+  passageRequirementSatisfied,
+} from "./usePassageState.js";
 
 function initialStand(mapData, size) {
   const START = mapData.start ?? mapData.journey[0];
@@ -122,7 +118,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
     return {
       barriers: barrierSegments(featureModels.value),
       allOpenings,
-      openings: filterOpeningsForGateState(allOpenings, gameState?.flags),
+      openings: filterAvailablePassages(allOpenings, gameState?.flags),
     };
   });
 
@@ -194,33 +190,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
 
   const avatarFromPos = computed(() => state.stand);
 
-  const gateUnlocked = computed(
-    () => gateStateFromFlags(gameState?.flags).unlocked,
-  )
-
   const flags = computed(() => gameState?.flags ?? null);
-
-  const gatePassed = computed(() => {
-    const { passed } = gateStateFromFlags(gameState?.flags);
-    if (passed) return true;
-    if (state.currentId !== GATE_HEX_ID) return false;
-    return isSouthOfCompoundGate(avatarFromPos.value, travelBarrierCtx.value);
-  });
-
-  function moveBlockedByLockedGate(toHexId) {
-    if (state.currentId !== GATE_HEX_ID || gatePassed.value) return false;
-    if (!isNorthOfCompoundGate(avatarFromPos.value, travelBarrierCtx.value)) {
-      return false;
-    }
-    const gw = hexById.value[GATE_HEX_ID];
-    const dest = hexById.value[toHexId];
-    if (!gw || !dest) return false;
-    return dest.r > gw.r || toHexId === "west-slope";
-  }
-
-  function filterGateMoves(moveList) {
-    return moveList.filter((m) => !moveBlockedByLockedGate(m.toHexId));
-  }
 
   const standOverride = computed(() => ({
     hexId: state.currentId,
@@ -248,31 +218,27 @@ export function useOutdoorWorld(mapData, gameState = null) {
   }));
 
   const moves = computed(() =>
-    filterGateMoves(
-      availableMoves(state.currentId, routeModels.value, travelOpts.value),
-    ),
+    availableMoves(state.currentId, routeModels.value, travelOpts.value),
   );
 
   const directMoves = computed(() =>
-    filterGateMoves(
-      directNeighbors(
-        state.currentId,
-        editableHexes.value,
-        hexById.value,
-        moves.value.map((m) => m.toHexId),
-        size,
-        travelBarrierCtx.value,
-        avatarFromPos.value,
-        (toHex, fromHex, fromPos) =>
-          resolveNeighborStand(
-            fromHex ?? hexById.value[state.currentId],
-            toHex,
-            fromPos ?? avatarFromPos.value,
-            size,
-            travelBarrierCtx.value,
-          ),
-        hexAtPoint,
-      ),
+    directNeighbors(
+      state.currentId,
+      editableHexes.value,
+      hexById.value,
+      moves.value.map((m) => m.toHexId),
+      size,
+      travelBarrierCtx.value,
+      avatarFromPos.value,
+      (toHex, fromHex, fromPos) =>
+        resolveNeighborStand(
+          fromHex ?? hexById.value[state.currentId],
+          toHex,
+          fromPos ?? avatarFromPos.value,
+          size,
+          travelBarrierCtx.value,
+        ),
+      hexAtPoint,
     ),
   );
 
@@ -292,6 +258,31 @@ export function useOutdoorWorld(mapData, gameState = null) {
         state.lastBlocked,
     }),
   );
+
+  const lockedPassageActions = computed(() => {
+    const ctx = travelBarrierCtx.value;
+    const atBarrier =
+      barrierHintAtStand(avatarFromPos.value, ctx.barriers) ??
+      state.atBarrier ??
+      state.lastBlocked;
+    return ctx.allOpenings
+      .filter((opening) => opening.hex === state.currentId)
+      .filter((opening) => opening.unlock)
+      .filter((opening) => !passageRequirementSatisfied(opening, gameState?.flags))
+      .filter((opening) =>
+        shouldOfferPassageCrossing(
+          opening,
+          avatarFromPos.value,
+          ctx,
+          atBarrier,
+        ),
+      )
+      .map((opening) => ({
+        openingId: opening.id,
+        label: opening.unlock.label ?? "Unlock the passage",
+        status: opening.unlock.status ?? null,
+      }));
+  });
 
   function crossPassage(openingId) {
     const fromHex = currentHexData.value;
@@ -326,15 +317,21 @@ export function useOutdoorWorld(mapData, gameState = null) {
       atBarrier: barrierHintAtStand(stand, ctx.barriers),
     });
 
-    if (openingId === COMPOUND_GATE_ID) {
-      markCompoundGatePassed(gameState?.flags);
-    }
+    applyPassageCrossEffects(opening, gameState?.flags);
   }
 
-  function solveGatePuzzle() {
-    if (currentHexData.value?.puzzle !== "gate") return;
-    if (gateUnlocked.value) return;
-    unlockCompoundGate(gameState?.flags);
+  function unlockPassage(openingId) {
+    if (
+      !lockedPassageActions.value.some(
+        (action) => action.openingId === openingId,
+      )
+    ) {
+      return false;
+    }
+    const opening = travelBarrierCtx.value.allOpenings.find(
+      (candidate) => candidate.id === openingId,
+    );
+    return applyPassageUnlock(opening, gameState?.flags);
   }
 
   /** Atomically commit hex + avatar position + barrier hints. */
@@ -358,20 +355,6 @@ export function useOutdoorWorld(mapData, gameState = null) {
         size,
       ),
   );
-  const atGatePuzzle = computed(
-    () =>
-      currentHexData.value?.puzzle === "gate" &&
-      !gatePassed.value &&
-      isNorthOfCompoundGate(avatarFromPos.value, travelBarrierCtx.value),
-  );
-
-  const atLockedCompoundGate = computed(
-    () =>
-      currentHexData.value?.puzzle === "gate" &&
-      !gatePassed.value &&
-      !gateUnlocked.value,
-  );
-
   function isAdjacentHex(hexId) {
     const fromHex = hexById.value[state.currentId];
     const toHex = hexById.value[hexId];
@@ -396,7 +379,6 @@ export function useOutdoorWorld(mapData, gameState = null) {
   function canReachHex(hexId) {
     if (hexId === state.currentId) return true;
     if (!isAdjacentHex(hexId)) return false;
-    if (moveBlockedByLockedGate(hexId)) return false;
     const fromHex = hexById.value[state.currentId];
     const toHex = hexById.value[hexId];
     if (!fromHex || !toHex) return false;
@@ -534,13 +516,10 @@ export function useOutdoorWorld(mapData, gameState = null) {
     moves,
     directMoves,
     passageCrossings,
+    lockedPassageActions,
     atBuildingEntrance,
-    atGatePuzzle,
-    atLockedCompoundGate,
-    gateUnlocked,
-    gatePassed,
     flags,
-    solveGatePuzzle,
+    unlockPassage,
     moveTo,
     crossPassage,
     canReachHex,

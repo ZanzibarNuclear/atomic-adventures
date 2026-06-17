@@ -123,14 +123,11 @@ From the current hex, the play panel combines:
 1. **Route moves** — destinations reachable via marked routes (`availableMoves`).
 2. **Direct moves** — adjacent hexes not already covered by a route (`directNeighbors`).
 3. **Passage crossings** — in-hex `crossPassage` actions (`availablePassageCrossings`).
-4. **Story / puzzle actions** — e.g. “Solve the puzzle to unlock” at the locked compound gate.
+4. **Passage unlock actions** — authored actions such as “Solve the puzzle to unlock” for a passage whose requirements are not yet satisfied.
 
 **Deduping:** If a neighbor is reachable by route, it is omitted from direct moves.
 
-**Gameplay gates (not geometry):**
-
-- **Locked compound gate** — while in `gate-woods`, north of the gate, and gate not passed: southward moves and `west-slope` are unavailable. The UI and `moveTo` must enforce the same rule.
-- **West-bank drive** — while west of the river, hide route moves that are `drive` kind or target `road-fork` (`availableMoves` only).
+Passage requirements affect whether the local crossing action is available. They do not add map-specific filters to route or adjacent movement. Ordinary barrier geometry remains responsible for preventing movement through the locked passage.
 
 ### Player state relevant to movement
 
@@ -156,15 +153,14 @@ This section describes the current `game/` implementation. It is not the full de
 Play panel movement options
   → route moves (availableMoves) + direct moves (directNeighbors)
   → each filtered by canEnterNeighbor → resolveMove
-  → gameplay gates
 
 moveTo(hexId)
-  → canReachHex → gameplay gates + canEnterNeighbor → resolveMove
+  → canReachHex → canEnterNeighbor → resolveMove
   → applyMove(hexId, stand, atBarrier, lastBlocked)
 
 crossPassage(openingId)
   → shouldOfferPassageCrossing → standAcrossOpening (same hex)
-  → markCompoundGatePassed when compound-gate
+  → apply authored on_cross effects
 ```
 
 ### Code map
@@ -177,8 +173,8 @@ crossPassage(openingId)
 | Stand hints (`toPos`)                            | [`useAvatarStand.js`](../../game/src/lib/maps/composables/useAvatarStand.js)         | `resolveAvatarPosition`, `resolveNeighborStand`, `hexCenterStand`                                                          |
 | In-hex crossings                                 | [`usePassageCrossing.js`](../../game/src/lib/maps/composables/usePassageCrossing.js) | `standAcrossOpening`, `availablePassageCrossings`, `shouldOfferPassageCrossing`                                            |
 | Opening models, discovery                        | [`useBarrierOpenings.js`](../../game/src/lib/maps/composables/useBarrierOpenings.js) | `travelOpenings`, `hiddenOpeningsInHex`, `resolveOpeningPosition`                                                          |
+| Passage requirements and effects                 | [`usePassageState.js`](../../game/src/lib/maps/composables/usePassageState.js)       | `filterAvailablePassages`, `applyPassageUnlock`, `applyPassageCrossEffects`                                                |
 | Barrier-adjacent stands, status                  | [`useBarrierStand.js`](../../game/src/lib/maps/composables/useBarrierStand.js)       | `BARRIER_STAND_INSET`, `barrierHintAtStand`, `isNearBarrierKind`                                                           |
-| Compound gate story                              | [`useCompoundGate.js`](../../game/src/lib/maps/composables/useCompoundGate.js)       | `filterOpeningsForGateState`, `isNorthOfCompoundGate`, gate flags                                                          |
 | Hex geometry                                     | [`useHexGeometry.js`](../../game/src/lib/maps/composables/useHexGeometry.js)         | `pixelToHex`, `hexDistance`, `axialToPixel`                                                                                |
 | Play panel wiring                                | [`usePlayPanel.js`](../../game/src/composables/usePlayPanel.js)                      | `getMovementOptions`, `buildOutdoorStatusLines`                                                                            |
 | Save/load                                        | [`useGameState.js`](../../game/src/composables/useGameState.js)                      | outdoor snapshot includes `stand`, `discoveredOpenings`                                                                    |
@@ -240,22 +236,19 @@ Adjacent move options and execution use one geometry authority:
 ```javascript
 {
   barriers: barrierSegments(featureModels),  // fence, river, cliff, ravine polylines
-  allOpenings: travelOpenings(...),          // includes hidden until discovered
-  openings: filterOpeningsForGateState(...), // compound-gate removed when locked
+  allOpenings: travelOpenings(...),          // discovered passages, including locked
+  openings: filterAvailablePassages(...),    // passages whose authored requirements pass
 }
 ```
 
-`allOpenings` is used for north/south gate heuristics; `openings` drives passage UI.
+`allOpenings` supports locked-passage actions and markers; `openings` drives crossing availability.
 
-### Compound gate layers
+### Authored passage locks
 
-1. **Opening filter** — locked gate removes `compound-gate` from `ctx.openings` → no “Go through the gate” in passage list.
-2. **Move gate** — north of gate → reject south moves and `west-slope` in both move lists and `moveTo`.
-3. **Puzzle UI** — `atLockedCompoundGate` → solve puzzle action.
-4. **`crossPassage('compound-gate')`** — sets `compound.gate-passed` flag.
-5. **Position heuristic** — in `gate-woods`, south of gate opening y → treated as gate passed even without flag.
-
-North/south of gate uses **y vs gate opening y**, not fence segment geometry.
+1. **Requirement** — a passage may define `require` using the shared flag condition format. Until satisfied, it is omitted from `ctx.openings` and cannot be crossed.
+2. **Unlock action** — a passage may define `unlock` with player-facing `label` / `status` text and `set_flags`. The action is offered only from the same eligibility position that would allow crossing the passage.
+3. **Crossing effects** — a passage may define `on_cross.set_flags`, applied after a successful crossing.
+4. **Adjacent movement** — no passage ID, hex ID, destination ID, or coordinate-side heuristic participates in route or adjacent-move eligibility. The barrier itself blocks illegal movement.
 
 ### Opening discovery
 
@@ -292,14 +285,27 @@ standAt: { dx: -0.3, dy: 0.1 }             # offset from hex center
   at: { x: -155, y: -113 }
 ```
 
+An optional lock is authored on the passage itself:
+
+```yaml
+require:
+  all: [compound.gate-unlocked]
+unlock:
+  label: "Solve the puzzle to unlock"
+  status: "A locked gate blocks the road — look closer."
+  set_flags: [compound.gate-unlocked]
+on_cross:
+  set_flags: [compound.gate-passed]
+```
+
 **Tuning:** Adjust opening `at` until **`crossPassage`** places the avatar correctly and journey tests pass. In the current Part I implementation, do not tune openings against neighbor moves; adjacent movement does not consume openings.
 
 ### Test harnesses
 
 | Harness                                                                  | Use when                                                            |
 | ------------------------------------------------------------------------ | ------------------------------------------------------------------- |
-| [`travelWorld.js`](../../game/src/lib/maps/testing/travelWorld.js)       | Pure geometry — `evaluateNeighborMove`, no gate UI filters          |
-| [`gameplayTravel.js`](../../game/src/lib/maps/testing/gameplayTravel.js) | Full `useOutdoorWorld` + `gameState` — gate puzzle, `moveTo`, flags |
+| [`travelWorld.js`](../../game/src/lib/maps/testing/travelWorld.js)       | Pure geometry — `evaluateNeighborMove`, no gameplay flags           |
+| [`gameplayTravel.js`](../../game/src/lib/maps/testing/gameplayTravel.js) | Full `useOutdoorWorld` + `gameState` — passage locks, `moveTo`, flags |
 
 ### Regression tests (representative)
 
@@ -313,6 +319,9 @@ standAt: { dx: -0.3, dy: 0.1 }             # offset from hex center
 | `storyJourneySmoke.test.js`                               | Mainline journey with gameplay stack                   |
 | `barrierStatus.test.js`                                   | Status lines, `atBarrier`, hole before `lower-stand`   |
 | `usePassageCrossing.test.js`                              | Bridge/ford stand flip, bank gating                    |
+| `usePassageState.test.js`                                 | Generic passage requirements, unlocks, crossing effects |
+| `useGameState.test.js`                                    | Stand and discovered-opening save/load round trips     |
+| `useMapBuilder.test.js`                                   | Passage feature serialization for builder export       |
 | `gateWoodsDeparture.test.js`, `westBankGateWoods.test.js` | Gate-woods / west-bank columns                         |
 | `landmarkReachability.test.js`                            | Landmark stands vs barriers                            |
 
@@ -349,47 +358,15 @@ Run: `npm run test` from repo root.
 
 ## Implementation Punch List
 
-These are the remaining movement tasks. They are written as things to do, not open design questions.
+These are the remaining movement tasks. Completed work and standing maintenance rules belong in the contract and test inventory above, not in this list.
 
 ### Geometry and stands
 
-1. **Replace local grid search with explicit reachable sub-areas.** Determine the barrier-bounded sub-area containing the avatar or destination entry border, then use that sub-area for border reachability and destination stand selection. The current local cell-bounded grid search is useful but still an approximation.
-
-2. **Replace sample-driven destination fallback.** When preferred stands are blocked, choose a stable stand in the entry-side sub-area, preferably near the midpoint of the blocking barrier segment. The current `hexInteriorCandidates` / `standBeforeFirstHit` behavior is a temporary approximation.
-
-3. **Make fallback ordering entry-aware.** `hexInteriorCandidates` currently sorts by barrier clearance and distance from the departure point. Destination fallback should prioritize the reachable sub-area from the border entry.
-
-4. **Harden barrier endpoint handling.** A path can slip past a short finite segment when the visual intent is that the barrier blocks movement. Joined barrier endpoints currently use conservative local-search clearance; replace this with explicit sub-area topology and cover tuned fence endpoints with regressions.
-
-5. **Keep smooth barrier collision aligned with visuals.** Smooth barrier features should use the same sampled curve for collision that the player sees. Add regression coverage around smoothing and feature-model generation.
-
-6. **Preserve approach-dependent stands.** Route approach from `north-bend` can land at the gate approach north of the fence; western approach from `mid-west` should land south of the fence. Keep this covered as the resolver changes.
-
-### Movement authority and gates
-
-7. **Keep one adjacent-move authority.** `resolveMove` / `canEnterNeighbor` should remain the source of truth for offering and executing adjacent moves. Do not reintroduce separate `canOfferNeighbor` / `canReachNeighbor`-style predicates without a new gameplay contract.
-
-8. **Consider renaming `canReachHex`.** `canReachHex` means enterable, not "clean arrival without `blockedKind`." A local code comment now documents this; a future rename could make it self-explanatory.
-
-9. **Move hardcoded route gates into data.** The west-bank drive filter (`isWestOfRiverAt` + `drive` / `road-fork`) is intentional but hardcoded in `availableMoves`; express it in map data or route metadata.
-
-10. **Use the same gate path for future gameplay locks.** The compound gate now gates both UI and `moveTo`; future story/puzzle gates should follow that pattern.
+1. **As needed: replace sampled local search with explicit reachable sub-areas.** Try this when authored geometry exposes a failure that the current resolver cannot handle reliably, such as a U-shaped barrier, three or more barrier-bounded areas in one cell, a narrow corridor, an endpoint-connected enclosure, or an approach-dependent stand that requires walking around a barrier end. The upgrade should determine the entry-side sub-area, use it for border reachability and stand selection, prefer the barrier-midpoint fallback described above, and make endpoint blocking topological rather than sample-dependent. Do not undertake this deeper rewrite without a concrete failing map case or content requirement.
 
 ### Passages and openings
 
-11. **Keep passage stand regressions broad.** `standAcrossOpening` uses one shared inset/separation rule. Current coverage includes bridge, ford, gate, and hole. Add stair coverage when a stair/cliff/ravine example exists, and keep future passage kinds covered so crossings visibly clear the barrier while staying near the opening.
-
-12. **Maintain direct-call passage guard tests.** `crossPassage` re-checks `shouldOfferPassageCrossing`; regressions now cover locked, hidden, wrong-hex, stale-status, and not-near-barrier attempts.
-
-13. **Exercise non-Part-I passage kinds.** Cliff / ravine / stair entries exist in `BARRIER_OPENINGS` but have little dedicated UX or test coverage.
-
-### Content, docs, and tooling
-
-14. **Keep `web/` marked non-authoritative.** The prototype still uses older movement assumptions. Re-port from `game/` only when intentionally refreshing the prototype.
-
-17. **Add save/load round-trip coverage for openings.** `discoveredOpenings` is serialized, but the round trip is not directly asserted.
-
-18. **Add builder serialization for openings.** Builder export still needs full serialization for hole/ford/bridge/stair-style openings.
+2. **Exercise non-Part-I passage kinds when content uses them.** Define the barrier association and player-facing behavior for cliff, ravine, and stair passages when the first such outdoor feature is authored, then add the same crossing-placement, guard, and round-trip coverage used by Part I passage kinds.
 
 ---
 

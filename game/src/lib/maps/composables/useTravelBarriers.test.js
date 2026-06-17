@@ -3,7 +3,9 @@ import mapData from '../../../../content/world/map.yaml'
 import { buildTravelWorld, evaluateNeighborMove } from '../testing/travelWorld.js'
 import { axialToPixel, NEIGHBOR_DIRS, pixelToHex } from './useHexGeometry.js'
 import { hexCenterStand } from './useAvatarStand.js'
+import { buildRouteModels } from './useRoutes.js'
 import {
+  barrierSegments,
   firstBlockedOnPath,
   moveBlocked,
   resolveMove,
@@ -77,6 +79,28 @@ describe('segment geometry', () => {
 })
 
 describe('barrier crossings', () => {
+  it('builds collision segments from the same sampled curve used for a smooth barrier', () => {
+    const hexes = [{ id: 'origin', q: 0, r: 0 }]
+    const feature = {
+      id: 'curved-fence',
+      kind: 'fence',
+      smooth: true,
+      points: [
+        { x: -40, y: 0 },
+        { x: 0, y: 30 },
+        { x: 40, y: 0 },
+      ],
+    }
+    const [model] = buildRouteModels([feature], { origin: hexes[0] }, hexes, TEST_HEX_SIZE)
+    const segments = barrierSegments([model])
+
+    expect(model.points.length).toBeGreaterThan(feature.points.length)
+    expect(segments).toHaveLength(model.points.length - 1)
+    expect(segments[0].a).toBe(model.points[0])
+    expect(segments[0].b).toBe(model.points[1])
+    expect(segments.at(-1).b).toBe(model.points.at(-1))
+  })
+
   it('blocks crossing a fence without an opening', () => {
     const path = [
       { x: 50, y: 100 },

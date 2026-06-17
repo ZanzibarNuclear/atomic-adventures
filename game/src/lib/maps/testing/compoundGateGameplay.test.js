@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import mapData from '../../../../content/world/map.yaml'
-import { buildGameplayWorld, gameplayMoveTo } from './gameplayTravel.js'
-import { getMovementOptions } from '../../../composables/usePlayPanel.js'
 import {
+  buildGameplayWorld,
+  gameplayMoveTo,
   GATE_FLAG_PASSED,
   GATE_FLAG_UNLOCKED,
-  isNorthOfCompoundGate,
-} from '../composables/useCompoundGate.js'
+} from './gameplayTravel.js'
+import { getMovementOptions } from '../../../composables/usePlayPanel.js'
 import { distToBarrierKind } from '../composables/useBarrierStand.js'
 
 /**
@@ -45,9 +45,7 @@ describe('compound gate gameplay', () => {
 
     expect(outdoor.state.currentId).toBe('gate-woods')
     expect(outdoor.state.stand).toEqual({ x: -81, y: -76 })
-    expect(
-      isNorthOfCompoundGate(outdoor.state.stand, outdoor.travelBarrierCtx),
-    ).toBe(true)
+    expect(outdoor.state.stand.y).toBeLessThan(-62)
     expect(outdoor.state.atBarrier).not.toBe('fence')
     expect(outdoor.state.lastBlocked).toBeNull()
   })
@@ -82,7 +80,7 @@ describe('compound gate gameplay', () => {
     const { outdoor, gameState } = buildGameplayWorld(mapData)
     atGateApproach(outdoor)
 
-    outdoor.solveGatePuzzle()
+    outdoor.unlockPassage('compound-gate')
     let options = getMovementOptions(outdoor, null).map((o) => o.label)
     expect(options).toContain('Go through the gate')
     expect(options).not.toContain('Solve the puzzle to unlock')

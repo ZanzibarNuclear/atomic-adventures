@@ -9,10 +9,7 @@ import {
 } from './useBarrierOpenings.js'
 import { featureLabel } from '../../displayLabel.js'
 import { sideOfLine } from './useTravelBarriers.js'
-import {
-  barrierXAtY,
-  isNearBarrierKind,
-} from './useBarrierStand.js'
+import { isNearBarrierKind } from './useBarrierStand.js'
 
 const PASSAGE_LABELS = {
   bridge: 'Cross the bridge',
@@ -23,10 +20,6 @@ const PASSAGE_LABELS = {
 
 /** Shared separation after crossing any passage type. */
 export const PASSAGE_CROSSING_INSET = 12
-
-function barrierSegmentsOfKind(kind, barriers) {
-  return (barriers ?? []).filter((seg) => seg.kind === kind)
-}
 
 function nearestPointOnSegment(point, seg) {
   const vx = seg.b.x - seg.a.x
@@ -55,26 +48,6 @@ function nearestBarrierSegment(point, kind, barriers) {
   }
   return best
 }
-
-function riverXAtY(kind, y, barriers) {
-  return barrierXAtY(barrierSegmentsOfKind(kind, barriers), y)
-}
-
-function isWestOfRiverAt(fromPos, barriers) {
-  const riverX = riverXAtY('river', fromPos.y, barriers)
-  return riverX != null && fromPos.x < riverX - 1
-}
-
-function isEastOfRiverAt(fromPos, barriers) {
-  const riverX = riverXAtY('river', fromPos.y, barriers)
-  return riverX != null && fromPos.x > riverX + 1
-}
-
-function isOnRiverBank(fromPos, barriers) {
-  return isNearBarrierKind(fromPos, 'river', barriers)
-}
-
-export { isWestOfRiverAt, isEastOfRiverAt, isOnRiverBank }
 
 /** Stand on the far side of the barrier from `fromPos`, at an opening. */
 export function standAcrossOpening(opening, fromPos, ctx, size = 44) {
@@ -105,22 +78,11 @@ export function standAcrossOpening(opening, fromPos, ctx, size = 44) {
     x: anchor.x + nx * inset,
     y: anchor.y + ny * inset,
   }
-
-  if (kind === 'river') {
-    if (
-      isWestOfRiverAt(fromPos, ctx.barriers) &&
-      !isEastOfRiverAt(farStand, ctx.barriers) &&
-      isEastOfRiverAt(alternateStand, ctx.barriers)
-    ) {
-      return alternateStand
-    }
-    if (
-      isEastOfRiverAt(fromPos, ctx.barriers) &&
-      !isWestOfRiverAt(farStand, ctx.barriers) &&
-      isWestOfRiverAt(alternateStand, ctx.barriers)
-    ) {
-      return alternateStand
-    }
+  const fromSide = sideOfLine(fromPos, seg.a, seg.b)
+  const farSide = sideOfLine(farStand, seg.a, seg.b)
+  const alternateSide = sideOfLine(alternateStand, seg.a, seg.b)
+  if (fromSide * farSide >= 0 && fromSide * alternateSide < 0) {
+    return alternateStand
   }
 
   return farStand
@@ -135,10 +97,6 @@ export function shouldOfferPassageCrossing(opening, fromPos, ctx, atBarrier) {
   const stand = standAcrossOpening(opening, fromPos, ctx)
   if (!stand) return false
   if (Math.hypot(stand.x - fromPos.x, stand.y - fromPos.y) < 1) return false
-
-  if (kind === 'river') {
-    return isOnRiverBank(fromPos, ctx.barriers)
-  }
 
   if (!isNearBarrierKind(fromPos, kind, ctx.barriers)) return false
 

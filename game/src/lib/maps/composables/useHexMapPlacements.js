@@ -102,8 +102,10 @@ export function useHexMapPlacements({
       (mapData.value.hexes ?? []).filter((h) => h.cascade).map((h) => h.id),
     )
     if (!cascadeIds.size) return []
-    const river = featureModels.value.find((m) => m.id === 'mountain-river')
-    if (!river?.samples?.length) return []
+    const riverModels = featureModels.value.filter(
+      (model) => model.kind === 'river' && model.samples?.length,
+    )
+    if (!riverModels.length) return []
     const isRevealed =
       mode.value === 'full' || builderView.value
         ? () => true
@@ -111,6 +113,10 @@ export function useHexMapPlacements({
     const out = []
     for (const hexId of cascadeIds) {
       if (!isRevealed(hexId)) continue
+      const river = riverModels.find((model) =>
+        model.samples.some((sample) => sample.hexId === hexId),
+      )
+      if (!river) continue
       const pts = river.samples.filter((s) => s.hexId === hexId)
       if (pts.length < 4) continue
       const picks = [0.35, 0.55, 0.75].map((t) =>

@@ -7,10 +7,9 @@
 import utilityData from '../../../../content/world/utility-station.yaml'
 import { createGameState } from '../../../composables/useGameState.js'
 import { useOutdoorWorld } from '../composables/useOutdoorWorld.js'
-import {
-  GATE_FLAG_PASSED,
-  GATE_FLAG_UNLOCKED,
-} from '../composables/useCompoundGate.js'
+
+export const GATE_FLAG_UNLOCKED = 'compound.gate-unlocked'
+export const GATE_FLAG_PASSED = 'compound.gate-passed'
 import { hexDistance } from '../composables/useHexGeometry.js'
 
 /**
@@ -55,7 +54,7 @@ export function gameplayMoveTo(outdoor, hexId) {
 
 /** Solve gate puzzle and cross the compound gate (required before heading south). */
 export function passCompoundGate(outdoor) {
-  outdoor.solveGatePuzzle()
+  outdoor.unlockPassage('compound-gate')
   outdoor.crossPassage('compound-gate')
 }
 
@@ -76,5 +75,3 @@ export function isAdjacent(mapData, aId, bId) {
   if (!a || !b) return false
   return hexDistance(a, b) === 1
 }
-
-export { GATE_FLAG_PASSED, GATE_FLAG_UNLOCKED }

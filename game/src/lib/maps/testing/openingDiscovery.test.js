@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import mapData from '../../../../content/world/map.yaml'
 import { travelOpenings, buildPassageMarkers } from '../composables/useBarrierOpenings.js'
-import { GATE_FLAG_UNLOCKED } from '../composables/useCompoundGate.js'
 import { buildRouteModels } from '../composables/useRoutes.js'
 import { barrierSegments } from '../composables/useTravelBarriers.js'
 import { useOutdoorWorld } from '../composables/useOutdoorWorld.js'
 import { buildTravelWorld, evaluateNeighborMove } from './travelWorld.js'
+
+const GATE_FLAG_UNLOCKED = 'compound.gate-unlocked'
 
 describe('opening discovery', () => {
   const hexById = Object.fromEntries(mapData.hexes.map((h) => [h.id, h]))

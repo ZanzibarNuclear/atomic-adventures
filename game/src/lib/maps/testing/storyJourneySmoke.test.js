@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import mapData from '../../../../content/world/map.yaml'
 import { getMovementOptions } from '../../../composables/usePlayPanel.js'
-import {
-  isNorthOfCompoundGate,
-  isSouthOfCompoundGate,
-} from '../composables/useCompoundGate.js'
 import { resolveAvatarPosition } from '../composables/useAvatarStand.js'
 import {
   buildGameplayWorld,
@@ -52,13 +48,7 @@ describe('story journey smoke test (gameplay)', () => {
 
     const gateStand = mapData.hexes.find((h) => h.id === 'gate-woods')?.standAt
     expect(outdoor.state.stand).toEqual({ x: gateStand.x, y: gateStand.y })
-    expect(
-      isNorthOfCompoundGate(outdoor.state.stand, outdoor.travelBarrierCtx),
-      'north of locked gate on arrival',
-    ).toBe(true)
-    expect(isSouthOfCompoundGate(outdoor.state.stand, outdoor.travelBarrierCtx)).toBe(
-      false,
-    )
+    expect(outdoor.state.stand.y, 'north of locked gate on arrival').toBeLessThan(-62)
 
     const lockedOptions = getMovementOptions(outdoor, null).map((o) => o.label)
     expect(lockedOptions).toContain('Solve the puzzle to unlock')
@@ -69,9 +59,7 @@ describe('story journey smoke test (gameplay)', () => {
     expect(gameState.flags.has(GATE_FLAG_UNLOCKED), 'gate puzzle solved').toBe(true)
     expect(gameState.flags.has(GATE_FLAG_PASSED), 'gate crossed').toBe(true)
 
-    expect(isSouthOfCompoundGate(outdoor.state.stand, outdoor.travelBarrierCtx)).toBe(
-      true,
-    )
+    expect(outdoor.state.stand.y).toBeGreaterThan(-62)
     const southOptions = getMovementOptions(outdoor, null).map((o) => o.label)
     expect(southOptions.some((l) => /^Go south/i.test(l))).toBe(true)
 

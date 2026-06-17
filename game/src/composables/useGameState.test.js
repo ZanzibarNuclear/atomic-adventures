@@ -70,6 +70,26 @@ describe('useGameState save roundtrip', () => {
     expect(outdoor.state.lastBlocked).toBe(savedLastBlocked)
   })
 
+  it('persists discovered barrier openings through capture and apply', () => {
+    const { outdoor, indoor, gameState, place } = buildTestHarness()
+    outdoor.state.discoveredOpenings = ['mid-west-ford', 'south-pines-hole']
+
+    const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
+    expect(snapshot.outdoor.discoveredOpenings).toEqual([
+      'mid-west-ford',
+      'south-pines-hole',
+    ])
+
+    outdoor.state.discoveredOpenings = []
+    const ok = applySnapshot(snapshot, { gameState, place, outdoor, indoor })
+
+    expect(ok).toBe(true)
+    expect(outdoor.state.discoveredOpenings).toEqual([
+      'mid-west-ford',
+      'south-pines-hole',
+    ])
+  })
+
   it('migrates v1 barrierStand saves to stand', () => {
     const { outdoor, indoor, gameState, place } = buildTestHarness()
     const legacy = {

@@ -170,14 +170,6 @@ export function availableMoves(currentHexId, models, travelOpts = null) {
     const toHex = travelOpts.hexById[toHexId]
     if (!fromHex || !toHex) return false
     const fromPos = travelOpts.fromPos
-    const barriers = travelOpts.barriers?.barriers ?? []
-    if (
-      routeLeg &&
-      isWestOfRiverAt(fromPos, barriers) &&
-      (routeLeg.kind === 'drive' || routeLeg.toHexId === 'road-fork')
-    ) {
-      return false
-    }
     const toPos = travelOpts.resolveStand(toHex, fromHex, fromPos)
     const path = buildMovePath(
       fromPos,
@@ -308,7 +300,6 @@ export function buildRouteDrawPieces(models, { isRevealed, inView, allowStub }) 
   return pieces
 }
 
-import { isWestOfRiverAt } from './usePassageCrossing.js'
 import {
   routeMoveSamples,
   canEnterNeighbor,
