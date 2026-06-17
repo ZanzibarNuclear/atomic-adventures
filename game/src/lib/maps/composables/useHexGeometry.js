@@ -22,14 +22,20 @@ export function axialToPixel(q, r, size) {
 }
 
 // The six corner points of a pointy-top hex, as an SVG "points" string.
-export function hexCornerPoints(cx, cy, size) {
+export function hexCorners(cx, cy, size) {
   const pts = []
   for (let i = 0; i < 6; i++) {
     // Pointy-top: first corner at 30deg (top point straight up).
     const angle = (Math.PI / 180) * (60 * i - 30)
-    pts.push(`${cx + size * Math.cos(angle)},${cy + size * Math.sin(angle)}`)
+    pts.push({ x: cx + size * Math.cos(angle), y: cy + size * Math.sin(angle) })
   }
-  return pts.join(' ')
+  return pts
+}
+
+// The six corner points of a pointy-top hex, as an SVG "points" string.
+export function hexCornerPoints(cx, cy, size) {
+  const pts = hexCorners(cx, cy, size)
+  return pts.map((p) => `${p.x},${p.y}`).join(' ')
 }
 
 // Pixel -> axial (pointy-top), rounded to the containing hex.

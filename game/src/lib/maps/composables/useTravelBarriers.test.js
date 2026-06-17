@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import mapData from '../../../../content/world/map.yaml'
 import { buildTravelWorld, evaluateNeighborMove } from '../testing/travelWorld.js'
+import { axialToPixel, NEIGHBOR_DIRS, pixelToHex } from './useHexGeometry.js'
 import {
   firstBlockedOnPath,
   moveBlocked,
@@ -9,6 +10,7 @@ import {
   segmentsCross,
   segmentIntersection,
   blockedLeavingDepartureHex,
+  canEnterNeighbor,
 } from './useTravelBarriers.js'
 
 const verticalFence = {
@@ -247,6 +249,72 @@ describe('parallel barrier walks', () => {
     expect(m.reachable).toBe(true)
     expect(m.offerable).toBe(true)
     expect(m.result.blockedKind).toBeNull()
+  })
+
+  it('enters adjacent hexes along a barrier in every hex direction', () => {
+    const size = 44
+    for (const dir of NEIGHBOR_DIRS) {
+      const fromHex = { id: 'from', q: 0, r: 0 }
+      const toHex = { id: `to-${dir.q}-${dir.r}`, q: dir.q, r: dir.r }
+      const fromCenter = axialToPixel(fromHex.q, fromHex.r, size)
+      const toCenter = axialToPixel(toHex.q, toHex.r, size)
+      const vx = toCenter.x - fromCenter.x
+      const vy = toCenter.y - fromCenter.y
+      const len = Math.hypot(vx, vy)
+      const ux = vx / len
+      const uy = vy / len
+      const nx = -uy
+      const ny = ux
+      const mid = {
+        x: (fromCenter.x + toCenter.x) / 2,
+        y: (fromCenter.y + toCenter.y) / 2,
+      }
+      const fromPos = {
+        x: fromCenter.x + nx * size * 0.35,
+        y: fromCenter.y + ny * size * 0.35,
+      }
+      const toPos = {
+        x: toCenter.x - nx * size * 0.35,
+        y: toCenter.y - ny * size * 0.35,
+      }
+      const ctx = {
+        barriers: [
+          {
+            a: { x: mid.x - ux * size * 2, y: mid.y - uy * size * 2 },
+            b: { x: mid.x + ux * size * 2, y: mid.y + uy * size * 2 },
+            kind: 'fence',
+          },
+        ],
+        openings: [],
+      }
+      const coordMap = new Map([
+        ['0,0', fromHex.id],
+        [`${toHex.q},${toHex.r}`, toHex.id],
+      ])
+      const hexAt = (pt, fallback) => {
+        const h = pixelToHex(pt.x, pt.y, size)
+        return coordMap.get(`${h.q},${h.r}`) ?? fallback
+      }
+      const args = {
+        fromHex,
+        toHex,
+        fromPos,
+        toPos,
+        path: [fromPos, toPos],
+        ctx,
+        hexAtPoint: hexAt,
+        size,
+      }
+
+      expect(
+        firstBlockedOnPath([fromPos, toPos], ctx),
+        `${toHex.id} direct stand path should hit the barrier`,
+      ).not.toBeNull()
+      expect(canEnterNeighbor(args), `${toHex.id} should be enterable`).toBe(true)
+      const result = resolveMove(args)
+      expect(result.blockedKind, `${toHex.id} should not be blocked`).toBeNull()
+      expect(result.activeHexId, `${toHex.id} should become active`).toBe(toHex.id)
+    }
   })
 })
 

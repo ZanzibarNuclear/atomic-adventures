@@ -1,6 +1,4 @@
 import { axialToPixel } from './useHexGeometry.js'
-import { isWestOfRiverAt, isEastOfRiverAt } from './usePassageCrossing.js'
-import { barrierXAtY } from './useBarrierStand.js'
 
 /** Default offset from a landmark icon when standAt is omitted (hex-size units). */
 export const DEFAULT_BESIDE_LANDMARK = { dx: 0.34, dy: 0.42 }
@@ -61,56 +59,11 @@ export function hexCenterStand(hex, size) {
   return axialToPixel(hex.q, hex.r, size)
 }
 
-/** West-bank river column (q = -2 on the Part I map). */
-const WEST_BANK_HEX_Q = -2
-
-function westBankStandInHex(point, size, barriers) {
-  if (!barriers?.length || isWestOfRiverAt(point, barriers)) return point
-  const riverX = barrierXAtY(
-    barriers.filter((s) => s.kind === 'river'),
-    point.y,
-  )
-  if (riverX == null) return point
-  return { x: riverX - size * 0.35, y: point.y }
-}
-
-function eastBankStandInHex(point, size, barriers) {
-  if (!barriers?.length || isEastOfRiverAt(point, barriers)) return point
-  const riverX = barrierXAtY(
-    barriers.filter((s) => s.kind === 'river'),
-    point.y,
-  )
-  if (riverX == null) return point
-  return { x: riverX + size * 0.35, y: point.y }
-}
-
-/**
- * Stand when stepping to an adjacent hex — hex center, or bank-column in-hex when
- * the center lies across the river and the player stays on the same side.
- */
+/** Preferred stand when stepping to an adjacent hex: authored `standAt`, else center. */
 export function resolveNeighborStand(fromHex, toHex, fromPos, size, barrierCtx) {
-  const barriers = barrierCtx?.barriers ?? barrierCtx ?? []
   const stand = toHex?.standAt
-  if (stand?.x != null && stand?.y != null && stand.from == null) {
-    return { x: stand.x, y: stand.y }
-  }
-  if (
-    stand &&
-    fromPos?.x != null &&
-    barriers.length &&
-    isEastOfRiverAt(fromPos, barriers) &&
-    toHex.q !== WEST_BANK_HEX_Q
-  ) {
+  if (stand) {
     return resolveAvatarPosition(toHex, size)
   }
-  const center = hexCenterStand(toHex, size)
-  if (fromPos?.x != null && barriers.length && toHex.q === WEST_BANK_HEX_Q && fromHex?.q === WEST_BANK_HEX_Q) {
-    if (isWestOfRiverAt(fromPos, barriers)) {
-      return westBankStandInHex(center, size, barriers)
-    }
-    if (isEastOfRiverAt(fromPos, barriers)) {
-      return eastBankStandInHex(center, size, barriers)
-    }
-  }
-  return center
+  return hexCenterStand(toHex, size)
 }

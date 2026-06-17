@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import mapData from '../../../../content/world/map.yaml'
 import { axialToPixel } from '../composables/useHexGeometry.js'
-import { hexCenterStand } from '../composables/useAvatarStand.js'
-import { buildTravelWorld, evaluateNeighborMove } from './travelWorld.js'
+import { buildTravelWorld } from './travelWorld.js'
 import {
   availablePassageCrossings,
   standAcrossOpening,
   shouldOfferPassageCrossing,
   isEastOfRiverAt,
+  isWestOfRiverAt,
 } from '../composables/usePassageCrossing.js'
 
 describe('usePassageCrossing', () => {
@@ -53,14 +53,8 @@ describe('usePassageCrossing', () => {
   it('ford crossing flips river side in one step from the west bank', () => {
     world.revealOpening('mid-west-ford')
     const ford = world.ctx.openings.find((o) => o.id === 'mid-west-ford')
-    const nw = world.hexById['north-west']
-    const mw = world.hexById['mid-west']
-    const from = evaluateNeighborMove(
-      world,
-      nw,
-      mw,
-      hexCenterStand(nw, world.size),
-    ).result.stand
+    const from = { x: ford.x - world.size * 0.5, y: ford.y }
+    expect(isWestOfRiverAt(from, world.ctx.barriers)).toBe(true)
     const cross = standAcrossOpening(ford, from, world.ctx, world.size)
     expect(isEastOfRiverAt(cross, world.ctx.barriers)).toBe(true)
   })

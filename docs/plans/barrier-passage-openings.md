@@ -17,7 +17,7 @@ Fence and river barriers block direct hex travel except at authored **openings**
 | Hole    | Hidden     | Passable after search   | Search in hex  |
 | Ford    | Hidden     | Passable after search\* | Search in hex  |
 
-\*Ford at `mid-west` is authored at the river waypoint; bank-column `standAt` offsets keep most moves parallel to the river. Search demonstrates the ford; `mid-west → utility-yard` uses the west-bank column without a river crossing.
+\*Ford at `mid-west` is authored at the river waypoint. Search demonstrates the ford; `mid-west → utility-yard` can also resolve as adjacent barrier-following movement without requiring the ford.
 
 Hole crossing (confirmed): pre-cut breach at `south-pines`; discover → passable. Fence cutter deferred.
 
@@ -90,7 +90,7 @@ When this file passes, all four opening kinds are wired correctly.
 | --------------------------------------------------------------------------------------- | ----------------------------------------------- |
 | [`openingDiscovery.test.js`](../game/src/lib/maps/testing/openingDiscovery.test.js)     | `travelOpenings` filter, hole reveal            |
 | [`usePassageCrossing.test.js`](../game/src/lib/maps/testing/usePassageCrossing.test.js) | Bridge stand flip, ford UI gating               |
-| [`westBankColumn.test.js`](../game/src/lib/maps/testing/westBankColumn.test.js)         | Play-mode west-bank column + UI labels          |
+| [`midWestFord.test.js`](../game/src/lib/maps/testing/midWestFord.test.js)               | Ford crossing + adjacent barrier-following      |
 | [`roadForkUpperGorge.test.js`](../game/src/lib/maps/testing/roadForkUpperGorge.test.js) | Drive route lands on east bank at `upper-gorge` |
 | [`fenceRegression.test.js`](../game/src/lib/maps/testing/fenceRegression.test.js)       | No accidental fence leaks at default stands     |
 
@@ -114,7 +114,7 @@ Verified 2026-06-16 against `game/` sources and `npm run test` (92 tests passing
 
 ## Review notes (2026-06-16)
 
-**What works:** All four opening kinds are authored, rendered, filtered by discovery, integrated with travel barriers, searchable from the play panel, persisted in save snapshots, and covered by tests. The northern approach route and west-bank column play correctly end-to-end.
+**What works:** All four opening kinds are authored, rendered, filtered by discovery, integrated with travel barriers, searchable from the play panel, persisted in save snapshots, and covered by tests. The northern approach route and adjacent barrier-following movement play correctly end-to-end.
 
 **Smoke test gap (fixed):** The smoke test previously stopped at `upper-gorge → north-west`. Steps 3–5 and gate/hole cases were only covered in scattered unit tests. The smoke file now includes the full west-bank leg plus gate and hole assertions.
 
@@ -124,7 +124,7 @@ Verified 2026-06-16 against `game/` sources and `npm run test` (92 tests passing
 
 - No automated test reloads a save and asserts `discoveredOpenings` survives round-trip.
 - `web/` prototype lacks discovery/search — intentional deferral but diverges from game.
-- Ford search reveals the crossing UI; the west-bank `utility-yard` leg does not require using the ford (by design).
+- Ford search reveals the crossing UI; the adjacent `utility-yard` leg does not require using the ford (by design).
 
 ## Out of scope (later)
 

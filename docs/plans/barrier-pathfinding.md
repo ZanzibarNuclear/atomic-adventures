@@ -1,6 +1,6 @@
-# Barrier Pathfinding — Smarter Open Routes
+# Barrier Pathfinding — Adjacent Movement Contract
 
-**Status:** Plan (follow-up to barrier passage openings)  
+**Status:** Active design + implementation guide  
 **Scope:** `game/src/lib/maps/` — travel, barriers, routes  
 **Related:** [barrier-passage-openings.md](barrier-passage-openings.md)
 
@@ -13,18 +13,30 @@ Direct hex-to-hex chords and coarse side-of-river heuristics break down when:
 - Openings (bridge, ford) sit at a different **y** than the avatar stand
 - A move is geometrically “open” along a bank but blocked by a chord that crosses barrier geometry elsewhere
 
-Recent mid-west fixes (2026-06) addressed two symptoms:
+Earlier mid-west fixes (2026-06) addressed two symptoms:
 
 1. Ford used `fromPos.x > riverXAtOpeningY` — wrong side when the avatar y ≠ ford y
 2. Return from utility-yard after an east-bank ford failed because destination stands snapped to the west bank
 
-These are patches on a model that still defaults to **straight chords + global east/west filters**.
+Those fixes were patches on a model that defaulted to **straight chords + global east/west filters**. The current implementation uses a generic shared-edge fallback for barrier-following adjacent movement.
 
 ## Design goal
 
-> A move is allowed when there exists a **walkable path** from stand A to stand B that crosses barriers only at authored openings (or follows an authored corridor).
+> A move is allowed when there exists a **walkable adjacent step** from stand A into the neighboring hex that crosses barriers only at authored openings.
 
-Players should not need to reason about implementation details (bank column q, chord vs route). Authors should mark **corridors** where parallel travel is intended.
+Players should not need to reason about implementation details (bank column q, chord vs route). Authors should only need to mark routes, barriers, openings, and preferred stand points.
+
+## Movement priority order
+
+Adjacent outdoor movement resolves in this order:
+
+1. **Authored route first.** If a trail, road, drive, or other route connects the current hex to the neighbor, movement follows that route geometry.
+2. **Authored stand points are preferred.** If the destination hex has `standAt`, that is the preferred arrival stand. It is used when reachable without crossing a closed barrier.
+3. **Closed barriers truly block movement.** A move is rejected when every plausible adjacent entry into the destination hex would cross a barrier without an allowed opening.
+4. **Shared-edge barrier-following fallback.** When the preferred stand/center path is blocked, sample the shared edge between the two hexes. If the avatar can reach an entry point on that edge and can stand just inside the destination hex on the same side of the barrier, allow the move.
+5. **Center-to-center remains the default.** When no route, authored stand, barrier, or opening affects the move, the avatar moves to the destination hex center.
+
+The shared-edge fallback is a recovery path for barrier-adjacent movement, not the default. It should not replace ordinary center-to-center walking on open terrain.
 
 ## Current model (summary)
 
@@ -32,19 +44,32 @@ Players should not need to reason about implementation details (bank column q, c
 |-------|----------|
 | Path | Route polyline if marked route connects hexes; else `[fromPos, toPos]` chord |
 | Block check | `firstBlockedOnPath` on polyline; openings allow crossing at intersection |
-| Special cases | `skipRiverForParallelBankWalk` — both endpoints same side of river |
-| Neighbor filter | Preemptive east↔west blocks in `directNeighbors` / `availableMoves` |
+| Special cases | Shared-edge fallback for blocked direct adjacent moves that are mostly parallel to the blocking barrier |
+| Neighbor filter | Route/direct candidates defer to `canEnterNeighbor` / `resolveMove`; broad east↔west filters have been removed |
 | In-hex | `crossPassage` toggles stand across opening |
+
+## Generic adjacent fallback
+
+When the route/stand/center path is blocked, the movement resolver should:
+
+1. Compute the shared edge between the adjacent hexes.
+2. Sample several points along that edge, excluding exact corners.
+3. Nudge each sample slightly into the destination hex.
+4. Keep samples reachable from the current stand without crossing a closed barrier.
+5. Prefer the authored destination `standAt` if it is reachable from that sample.
+6. Otherwise stand at the nudged inside-edge point.
+
+This works for fences, rivers, cliffs, ravines, and future barrier kinds because it relies on the same barrier segment + opening geometry used everywhere else.
 
 ## Proposed directions (in priority order)
 
-### 1. Same-side bank column stands (done — partial)
+### 1. Shared-edge adjacent fallback (done)
 
-When moving between `q = -2` hexes, `resolveNeighborStand` keeps the avatar on the **same river bank** as `fromPos` (west or east offset from center).
+When a preferred direct stand/center path is blocked, `resolveMove` samples the shared edge between the neighboring hexes. If the avatar can reach an inside-edge sample without crossing a closed barrier, the move is allowed.
 
-**Gap:** Only covers the authored west-bank column. East-bank corridors still rely on chord + skip logic.
+This replaces the previous q-specific bank-column workaround.
 
-### 2. Authored bank corridors (recommended next)
+### 2. Authored bank corridors (optional later)
 
 Add optional route kind or feature flag:
 
@@ -58,7 +83,7 @@ routes:
 
 - Movement between hexes touched by the corridor uses the **corridor polyline** as path (like `river-access-drive`)
 - `firstBlockedOnPath` sees a path that never crosses the river
-- Replaces hard-coded `q = -2` and `skipRiverForParallelBankWalk` over time
+- Useful only when designers want an explicit visible/authored corridor rather than implicit adjacent barrier-following
 
 **Authoring workflow:** trace the walkable bank in builder; smoke test with journey tests per corridor.
 
@@ -112,9 +137,11 @@ Add regression any time a **move is offerable but path crosses a barrier** witho
 ## Checklist
 
 - [x] Fix ford side detection (`isWestOfRiverAt` / `isEastOfRiverAt`, not x vs riverX at ford y)
-- [x] Same-side bank stands for `q = -2` column
-- [x] `skipRiverForParallelBankWalk` (west and east same-side)
-- [ ] Author `west-bank-trail` (or similar) YAML corridor
-- [ ] Route builder support for `bank-corridor` kind
-- [ ] Remove redundant east↔west preemptive filters once corridors cover Part I
-- [ ] Document corridor authoring in `map.yaml` header
+- [x] Same-side bank stands for `q = -2` column _(removed after generic fallback covered it)_
+- [x] `skipRiverForParallelBankWalk` (west and east same-side) _(removed after generic fallback covered it)_
+- [x] Implement shared-edge fallback for adjacent moves
+- [x] Remove hard-coded river-bank column behavior
+- [x] Remove redundant east↔west preemptive filters once generic fallback covers Part I
+- [x] Add orientation-agnostic barrier-following regression tests
+- [ ] Author `west-bank-trail` (or similar) YAML corridor only if future map design needs explicit walkable bank routes
+- [ ] Route builder support for `bank-corridor` kind only if authored corridors become necessary

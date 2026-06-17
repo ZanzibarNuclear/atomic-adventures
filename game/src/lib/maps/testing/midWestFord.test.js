@@ -7,7 +7,6 @@ import {
   isWestOfRiverAt,
   isEastOfRiverAt,
 } from '../composables/usePassageCrossing.js'
-import { hexCenterStand } from '../composables/useAvatarStand.js'
 
 describe('mid-west ford and bank column return', () => {
   const world = buildTravelWorld(mapData)
@@ -15,15 +14,12 @@ describe('mid-west ford and bank column return', () => {
   const ford = world.ctx.openings.find((o) => o.id === 'mid-west-ford')
   const mw = world.hexById['mid-west']
   const uy = world.hexById['utility-yard']
-  const nw = world.hexById['north-west']
 
   function westBankAtMidWest() {
-    return evaluateNeighborMove(
-      world,
-      nw,
-      mw,
-      hexCenterStand(nw, world.size),
-    ).result.stand
+    return {
+      x: ford.x - world.size * 0.5,
+      y: ford.y,
+    }
   }
 
   it('crosses ford in one click from the west bank', () => {
@@ -57,7 +53,7 @@ describe('mid-west ford and bank column return', () => {
     expect(isEastOfRiverAt(outdoor.state.stand, outdoor.rivers)).toBe(true)
   })
 
-  it('west-bank column does not require a ford', () => {
+  it('adjacent utility-yard movement does not require a ford', () => {
     const fromMw = westBankAtMidWest()
     const toUy = evaluateNeighborMove(world, mw, uy, fromMw)
     const back = evaluateNeighborMove(world, uy, mw, toUy.result.stand)

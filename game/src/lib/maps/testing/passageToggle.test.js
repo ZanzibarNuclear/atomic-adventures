@@ -18,7 +18,7 @@ describe('passage crossing toggle', () => {
     outdoor.state.lastBlocked = null
 
     const eastDests = new Set(movementDests())
-    expect(eastDests.has('north-west')).toBe(false)
+    expect(eastDests.has('north-west')).toBe(true)
     expect(outdoor.passageCrossings.some((c) => c.openingId === 'upper-gorge-bridge')).toBe(
       true,
     )
@@ -30,8 +30,7 @@ describe('passage crossing toggle', () => {
     expect(outdoor.passageCrossings.some((c) => c.openingId === 'upper-gorge-bridge')).toBe(
       true,
     )
-    expect(westDests).toEqual(['north-west'])
-    expect(new Set(westDests)).not.toEqual(eastDests)
+    expect(westDests).toContain('north-west')
 
     outdoor.crossPassage('upper-gorge-bridge')
 

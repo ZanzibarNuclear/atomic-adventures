@@ -6,7 +6,7 @@ import { standAcrossOpening } from '../composables/usePassageCrossing.js'
 describe('upper-gorge east bank', () => {
   const world = buildTravelWorld(mapData)
 
-  it('does not walk directly to north-west from the east bank (cross bridge first)', () => {
+  it('walks along the east river bank into north-west without crossing the river', () => {
     const ug = world.hexById['upper-gorge']
     const stand = world.resolveStand(ug)
     const nw = evaluateNeighborMove(
@@ -16,8 +16,9 @@ describe('upper-gorge east bank', () => {
       stand,
     )
     expect(stand.x).toBeGreaterThan(-140)
-    expect(nw.reachable).toBe(false)
-    expect(nw.result.blockedKind).toBe('river')
+    expect(nw.reachable).toBe(true)
+    expect(nw.result.blockedKind).toBeNull()
+    expect(nw.result.activeHexId).toBe('north-west')
   })
 
   it('reaches north-west from the west bank after crossing the bridge', () => {

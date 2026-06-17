@@ -10,13 +10,11 @@ import {
   standBeforeBarrierHit,
 } from './useBarrierStand.js'
 import { resolveAvatarPosition, hasLandmarkMarker } from './useAvatarStand.js'
-import { isWestOfRiverAt, isEastOfRiverAt } from './usePassageCrossing.js'
+import { axialToPixel, hexCorners, hexDistance } from './useHexGeometry.js'
+import { isWestOfRiverAt } from './usePassageCrossing.js'
 
 export { travelOpenings } from './useBarrierOpenings.js'
 const PATH_ORIGIN_EPS = 0.02
-
-/** West-bank river column on the Part I map — parallel walks may ignore the river. */
-export const BANK_COLUMN_HEXES = new Set(['north-west', 'mid-west', 'utility-yard'])
 
 /** Which point-feature kinds allow crossing each barrier kind. */
 export const BARRIER_OPENINGS = {
@@ -129,26 +127,122 @@ export function chordCrossesBarrierKind(fromPos, toPos, kind, ctx) {
   return false
 }
 
-/** Parallel walks along the same river bank ignore the barrier polyline. */
-function skipRiverForParallelBankWalk(a, b, seg, ctx, moveCtx) {
-  if (seg.kind !== 'river') return false
-  const barriers = ctx.barriers ?? []
-  const bankPair =
-    moveCtx &&
-    BANK_COLUMN_HEXES.has(moveCtx.fromHexId) &&
-    BANK_COLUMN_HEXES.has(moveCtx.toHexId)
-  if (bankPair) {
-    return (
-      (isWestOfRiverAt(a, barriers) && isWestOfRiverAt(b, barriers)) ||
-      (isEastOfRiverAt(a, barriers) && isEastOfRiverAt(b, barriers))
-    )
-  }
-  return isWestOfRiverAt(a, barriers) && isWestOfRiverAt(b, barriers)
-}
-
 function moveHexContext(fromHex, toHex) {
   if (!fromHex?.id || !toHex?.id) return null
   return { fromHexId: fromHex.id, toHexId: toHex.id }
+}
+
+function pointDistance(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y)
+}
+
+function sharedHexEdge(fromHex, toHex, size) {
+  if (!fromHex || !toHex || hexDistance(fromHex, toHex) !== 1) return null
+  const fromCenter = axialToPixel(fromHex.q, fromHex.r, size)
+  const toCenter = axialToPixel(toHex.q, toHex.r, size)
+  const fromCorners = hexCorners(fromCenter.x, fromCenter.y, size)
+  const toCorners = hexCorners(toCenter.x, toCenter.y, size)
+  const shared = []
+  for (const a of fromCorners) {
+    for (const b of toCorners) {
+      if (pointDistance(a, b) < 1e-6) {
+        shared.push({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 })
+      }
+    }
+  }
+  if (shared.length !== 2) return null
+  return { a: shared[0], b: shared[1], toCenter }
+}
+
+function sampleSharedEdge(edge, toHex, size) {
+  if (!edge) return []
+  const nudges = [0.15, 0.3, 0.5, 0.7, 0.85]
+  const inset = Math.max(2, size * 0.08)
+  return nudges.map((t) => {
+    const edgePoint = {
+      x: edge.a.x + (edge.b.x - edge.a.x) * t,
+      y: edge.a.y + (edge.b.y - edge.a.y) * t,
+    }
+    const vx = edge.toCenter.x - edgePoint.x
+    const vy = edge.toCenter.y - edgePoint.y
+    const len = Math.hypot(vx, vy) || 1
+    return {
+      edgePoint,
+      insidePoint: {
+        x: edgePoint.x + (vx / len) * inset,
+        y: edgePoint.y + (vy / len) * inset,
+      },
+    }
+  })
+}
+
+function pathClear(path, ctx, moveCtx = null) {
+  return firstBlockedOnPath(path, ctx, moveCtx) == null
+}
+
+function mostlyParallelToBarrier(fromPos, toPos, hit) {
+  if (!fromPos || !toPos || !hit) return false
+  const vx = toPos.x - fromPos.x
+  const vy = toPos.y - fromPos.y
+  const wx = hit.b.x - hit.a.x
+  const wy = hit.b.y - hit.a.y
+  const vLen = Math.hypot(vx, vy)
+  const wLen = Math.hypot(wx, wy)
+  if (!vLen || !wLen) return false
+  return Math.abs((vx * wx + vy * wy) / (vLen * wLen)) >= 0.6
+}
+
+function resolveSharedEdgeMove({
+  fromHex,
+  toHex,
+  fromPos,
+  toPos,
+  ctx,
+  hexAtPoint,
+  size,
+  hit,
+}) {
+  if (!size || !hexAtPoint) return null
+  const edge = sharedHexEdge(fromHex, toHex, size)
+  if (!edge) return null
+  const moveCtx = moveHexContext(fromHex, toHex)
+  const preferred = toHex?.standAt ? resolveAvatarPosition(toHex, size) : null
+
+  for (const candidate of sampleSharedEdge(edge, toHex, size)) {
+    if (!mostlyParallelToBarrier(fromPos, candidate.insidePoint, hit)) continue
+    const entryPath = [fromPos, candidate.insidePoint]
+    if (!pathClear(entryPath, ctx, moveCtx)) continue
+    if (hexAtPoint(candidate.insidePoint, toHex.id) !== toHex.id) continue
+
+    if (
+      preferred &&
+      pathClear([candidate.insidePoint, preferred], ctx, moveCtx)
+    ) {
+      return {
+        stand: preferred,
+        activeHexId: toHex.id,
+        blockedKind: null,
+        path: [fromPos, candidate.insidePoint, preferred],
+      }
+    }
+
+    if (toPos && pathClear([candidate.insidePoint, toPos], ctx, moveCtx)) {
+      return {
+        stand: toPos,
+        activeHexId: toHex.id,
+        blockedKind: null,
+        path: [fromPos, candidate.insidePoint, toPos],
+      }
+    }
+
+    return {
+      stand: candidate.insidePoint,
+      activeHexId: toHex.id,
+      blockedKind: null,
+      path: entryPath,
+    }
+  }
+  return null
 }
 
 /** First barrier hit along a polyline path; null when none. */
@@ -157,12 +251,11 @@ export function firstBlockedOnPath(path, ctx, moveCtx = null) {
     const a = path[i]
     const b = path[i + 1]
     for (const seg of barrierList(ctx)) {
-      if (skipRiverForParallelBankWalk(a, b, seg, ctx, moveCtx)) continue
       const cross = segmentIntersection(a, b, seg.a, seg.b)
       if (!cross || cross.t < PATH_ORIGIN_EPS) continue
       if (!pathCrossesBarrier(a, b, seg.a, seg.b)) continue
       if (!openingAllows(seg.kind, cross.x, cross.y, ctx.openings)) {
-        return { ...cross, kind: seg.kind, segIndex: i }
+        return { ...cross, kind: seg.kind, segIndex: i, a: seg.a, b: seg.b }
       }
     }
   }
@@ -178,13 +271,12 @@ export function firstBlockedOnPathInHex(path, ctx, hexId, hexAtPoint, moveCtx = 
     const a = path[i]
     const b = path[i + 1]
     for (const seg of barrierList(ctx)) {
-      if (skipRiverForParallelBankWalk(a, b, seg, ctx, moveCtx)) continue
       const cross = segmentIntersection(a, b, seg.a, seg.b)
       if (!cross || cross.t < PATH_ORIGIN_EPS) continue
       if (!pathCrossesBarrier(a, b, seg.a, seg.b)) continue
       if (!openingAllows(seg.kind, cross.x, cross.y, ctx.openings)) {
         if (hexAtPoint({ x: cross.x, y: cross.y }, hexId) === hexId) {
-          return { ...cross, kind: seg.kind, segIndex: i }
+          return { ...cross, kind: seg.kind, segIndex: i, a: seg.a, b: seg.b }
         }
       }
     }
@@ -312,15 +404,8 @@ export function resolveArrivalStand(walkPath, toHex, toPos, hexAtPoint, opts = {
 
   // Route dead-ends at a landmark stand (e.g. utility station driveway).
   if (stand?.from === 'landmark' && size != null && walkPath.length > 2) {
-    const bankArrival =
-      (fromHex?.id &&
-        BANK_COLUMN_HEXES.has(fromHex.id) &&
-        fromPos &&
-        isWestOfRiverAt(fromPos, barriers)) ||
-      (() => {
-        const last = walkPath[walkPath.length - 1]
-        return last && isWestOfRiverAt(last, barriers)
-      })()
+    const last = walkPath[walkPath.length - 1]
+    const bankArrival = last && isWestOfRiverAt(last, barriers)
     if (!bankArrival) {
       return resolveAvatarPosition(toHex, size)
     }
@@ -410,6 +495,20 @@ export function resolveMove({
   let stand
 
   if (hit) {
+    if (walkPath.length <= 2) {
+      const edgeMove = resolveSharedEdgeMove({
+        fromHex,
+        toHex,
+        fromPos,
+        toPos,
+        ctx,
+        hexAtPoint,
+        size,
+        hit,
+      })
+      if (edgeMove) return edgeMove
+    }
+
     const authored =
       toHex?.standAt?.x != null &&
       toHex.standAt?.y != null &&

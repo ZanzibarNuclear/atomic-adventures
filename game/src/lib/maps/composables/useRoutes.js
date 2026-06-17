@@ -179,20 +179,6 @@ export function availableMoves(currentHexId, models, travelOpts = null) {
       return false
     }
     const toPos = travelOpts.resolveStand(toHex, fromHex, fromPos)
-    if (
-      fromPos &&
-      isWestOfRiverAt(fromPos, barriers) &&
-      !isWestOfRiverAt(toPos, barriers)
-    ) {
-      return false
-    }
-    if (
-      fromPos &&
-      isEastOfRiverAt(fromPos, barriers) &&
-      isWestOfRiverAt(toPos, barriers)
-    ) {
-      return false
-    }
     const path = buildMovePath(
       fromPos,
       fromHex,
@@ -323,7 +309,7 @@ export function buildRouteDrawPieces(models, { isRevealed, inView, allowStub }) 
   return pieces
 }
 
-import { isWestOfRiverAt, isEastOfRiverAt } from './usePassageCrossing.js'
+import { isWestOfRiverAt } from './usePassageCrossing.js'
 import {
   routeMoveSamples,
   resolveMove,
@@ -394,23 +380,6 @@ export function directNeighbors(
     .filter((h) => hexDistance(h, current) === 1 && !onRoute.has(h.id))
     .filter((h) => {
       const toPos = resolveStand(h, current, fromPos)
-      const barriersList = barriers?.barriers ?? barriers ?? []
-      if (
-        fromPos &&
-        isEastOfRiverAt(fromPos, barriersList) &&
-        isWestOfRiverAt(toPos, barriersList)
-      ) {
-        return false
-      }
-      // Same-row eastward steps from the west bank cross the river (use bridge/ford).
-      if (
-        fromPos &&
-        isWestOfRiverAt(fromPos, barriersList) &&
-        isEastOfRiverAt(toPos, barriersList) &&
-        h.r === current.r
-      ) {
-        return false
-      }
       const path = buildMovePath(fromPos, current, h, toPos, null, [])
       return canEnterNeighbor({
         fromHex: current,
