@@ -6,7 +6,6 @@ import { hexCenterStand } from './useAvatarStand.js'
 import {
   firstBlockedOnPath,
   moveBlocked,
-  openingAllows,
   resolveMove,
   segmentsCross,
   segmentIntersection,
@@ -148,28 +147,6 @@ describe('barrier crossings', () => {
       { x: 100, y: 120 },
     ]
     expect(firstBlockedOnPath(path, ctx)).toBeNull()
-  })
-})
-
-describe('openingAllows', () => {
-  it('accepts only matching opening kinds for the barrier', () => {
-    const openings = [{ kind: 'gate', x: 10, y: 10, r: 20 }]
-    expect(openingAllows('fence', 10, 10, openings)).toBe(true)
-    expect(openingAllows('river', 10, 10, openings)).toBe(false)
-  })
-
-  it('respects opening radius', () => {
-    const openings = [{ kind: 'gate', x: 0, y: 0, r: 10 }]
-    expect(openingAllows('fence', 9, 0, openings)).toBe(true)
-    expect(openingAllows('fence', 11, 0, openings)).toBe(false)
-  })
-
-  it('rejects river shortcut chords that only graze the opening disc off-axis', () => {
-    const openings = [{ kind: 'bridge', x: -138, y: -144, r: 14 }]
-    // Horizontal chord crossing the river 12px below the bridge anchor.
-    expect(openingAllows('river', -143, -132, openings)).toBe(false)
-    // Path that crosses at the bridge.
-    expect(openingAllows('river', -138, -144, openings)).toBe(true)
   })
 })
 

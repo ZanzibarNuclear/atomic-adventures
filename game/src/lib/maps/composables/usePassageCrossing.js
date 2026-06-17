@@ -131,7 +131,6 @@ export function shouldOfferPassageCrossing(opening, fromPos, ctx, atBarrier) {
   const kind = barrierKindForOpening(opening.kind)
   if (!kind) return false
   if (atBarrier && atBarrier !== kind) return false
-  if (atBarrier === kind) return true
 
   const stand = standAcrossOpening(opening, fromPos, ctx)
   if (!stand) return false
@@ -140,6 +139,8 @@ export function shouldOfferPassageCrossing(opening, fromPos, ctx, atBarrier) {
   if (kind === 'river') {
     return isOnRiverBank(fromPos, ctx.barriers)
   }
+
+  if (!isNearBarrierKind(fromPos, kind, ctx.barriers)) return false
 
   const near = nearestBarrierSegment(fromPos, kind, ctx.barriers)
   if (!near) return false

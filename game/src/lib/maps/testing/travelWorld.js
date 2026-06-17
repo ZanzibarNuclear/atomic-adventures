@@ -18,11 +18,10 @@ import {
   travelOpenings,
   resolveMove,
   firstBlockedOnPath,
-  openingAllows,
 } from '../composables/useTravelBarriers.js'
 import { hiddenOpeningsInHex } from '../composables/useBarrierOpenings.js'
 
-export { openingAllows, firstBlockedOnPath }
+export { firstBlockedOnPath }
 
 /** @typedef {import('../composables/useTravelBarriers.js').resolveMove} ResolveMoveResult */
 

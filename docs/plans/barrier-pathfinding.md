@@ -67,7 +67,7 @@ Route-following moves use the **same two-step contract**:
 When evaluating or executing an adjacent move:
 
 1. **Authored route first** — if a marked route connects the hexes, build the path from route geometry.
-2. **Two-step resolver** — `findReachableBorderEntry` then `resolveDestinationStand` in [`useTravelBarriers.js`](../game/src/lib/maps/composables/useTravelBarriers.js).
+2. **Two-step resolver** — `findReachableBorderEntry` then `resolveDestinationStand` in [`useTravelBarriers.js`](../../game/src/lib/maps/composables/useTravelBarriers.js).
 3. **Neighbor filters** — gameplay rules (e.g. locked compound gate UI) may hide moves; geometry is still authoritative via `canEnterNeighbor` / `canReachNeighbor`.
 
 ## Implementation map
@@ -78,7 +78,7 @@ When evaluating or executing an adjacent move:
 | Step 2 | `resolveDestinationStand` — route stand → authored → `toPos` → center → accessible-side fallback |
 | Block check | `firstBlockedOnPath` — barriers block; **no** `openingAllows` on travel paths |
 | Routes | `buildMovePath` + route stand via `resolveArrivalStand` |
-| In-hex | `crossPassage` in [`usePassageCrossing.js`](../game/src/lib/maps/composables/usePassageCrossing.js); `openingAllows` used only there |
+| In-hex | `crossPassage` in [`usePassageCrossing.js`](../../game/src/lib/maps/composables/usePassageCrossing.js) |
 | Active hex | `hexAtPoint(finalStand)` |
 
 ## Examples
@@ -97,9 +97,11 @@ When evaluating or executing an adjacent move:
 |------|---------|
 | `midWestGateWoods.test.js` | `mid-west → gate-woods` enters hex south of compound fence |
 | `midWestFord.test.js` | Ford is in-hex `crossPassage`; adjacent bank walks without ford |
-| `barrierPassageJourney.test.js` | Full northern approach; gate/hole via `crossPassage` where required |
+| `passageGuards.test.js` | Direct-call guards for locked, hidden, wrong-hex, stale-status, and not-near-barrier passage attempts |
+| `passageToggle.test.js` | Reversible in-hex passage crossing and refreshed travel options |
+| `storyJourneySmoke.test.js` | Full story path stays unblocked across the current slice |
 | `useTravelBarriers.test.js` | Two-step stand selection; openings irrelevant to `firstBlockedOnPath` |
-| `openingDiscovery.test.js` | Hole enables `crossPassage`, not neighbor `openingAllows` bypass |
+| `usePassageCrossing.test.js` | Passage availability and shared crossing inset for bridge, ford, gate, and hole |
 
 Add regression when a **move is offerable but step 1 crosses a barrier**, or when **step 2 places the stand on the wrong side of an in-hex barrier** relative to the approach direction.
 

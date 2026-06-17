@@ -292,7 +292,7 @@ standAt: { dx: -0.3, dy: 0.1 }             # offset from hex center
   at: { x: -155, y: -113 }
 ```
 
-**Tuning:** Adjust opening `at` until **`crossPassage`** places the avatar correctly and journey tests pass. In the current Part I implementation, do not tune against neighbor-move `openingAllows`; adjacent movement does not consume openings.
+**Tuning:** Adjust opening `at` until **`crossPassage`** places the avatar correctly and journey tests pass. In the current Part I implementation, do not tune openings against neighbor moves; adjacent movement does not consume openings.
 
 ### Test harnesses
 
@@ -377,19 +377,15 @@ These are the remaining movement tasks. They are written as things to do, not op
 
 ### Passages and openings
 
-11. **Keep passage stand regressions broad.** `standAcrossOpening` uses one shared inset/separation rule. Maintain tests for bridge, ford, gate, hole, stair, and future passage kinds so crossings visibly clear the barrier while staying near the opening.
+11. **Keep passage stand regressions broad.** `standAcrossOpening` uses one shared inset/separation rule. Current coverage includes bridge, ford, gate, and hole. Add stair coverage when a stair/cliff/ravine example exists, and keep future passage kinds covered so crossings visibly clear the barrier while staying near the opening.
 
-12. **Add direct-call passage guard tests.** `crossPassage` re-checks `shouldOfferPassageCrossing`; add regressions for locked, hidden, wrong-hex, stale-status, and not-near-barrier attempts.
+12. **Maintain direct-call passage guard tests.** `crossPassage` re-checks `shouldOfferPassageCrossing`; regressions now cover locked, hidden, wrong-hex, stale-status, and not-near-barrier attempts.
 
-13. **Decide the home for `openingAllows`.** It is still exported and unit-tested in `useTravelBarriers.test.js`, but inter-hex travel does not use it. Move it to the passage module or delete it if no longer needed.
-
-14. **Exercise non-Part-I passage kinds.** Cliff / ravine / stair entries exist in `BARRIER_OPENINGS` but have little dedicated UX or test coverage.
+13. **Exercise non-Part-I passage kinds.** Cliff / ravine / stair entries exist in `BARRIER_OPENINGS` but have little dedicated UX or test coverage.
 
 ### Content, docs, and tooling
 
-15. **Clean stale smoke-test references.** `barrierPassageJourney.test.js` is referenced in old comments/plans but does not exist. Either create that smoke test or update references to the current coverage split.
-
-16. **Keep `web/` marked non-authoritative.** The prototype still uses older movement assumptions. Re-port from `game/` only when intentionally refreshing the prototype.
+14. **Keep `web/` marked non-authoritative.** The prototype still uses older movement assumptions. Re-port from `game/` only when intentionally refreshing the prototype.
 
 17. **Add save/load round-trip coverage for openings.** `discoveredOpenings` is serialized, but the round trip is not directly asserted.
 

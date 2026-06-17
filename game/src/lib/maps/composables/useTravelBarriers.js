@@ -35,10 +35,6 @@ export const BARRIER_OPENING_KINDS = new Set(
   Object.values(BARRIER_OPENINGS).flat(),
 )
 
-function allowedOpenings(kind) {
-  return new Set(BARRIER_OPENINGS[kind] ?? [])
-}
-
 /** Do segments AB and CD intersect (strict crossing, not collinear touch)? */
 export function segmentsCross(a, b, c, d) {
   const ccw = (p, q, r) => (r.y - p.y) * (q.x - p.x) - (q.y - p.y) * (r.x - p.x)
@@ -83,23 +79,6 @@ export function fenceSegments(featureModels) {
 
 export function riverSegments(featureModels) {
   return barrierSegments(featureModels).filter((s) => s.kind === 'river')
-}
-
-export function openingAllows(kind, x, y, openings) {
-  return matchingOpening(kind, x, y, openings) != null
-}
-
-function matchingOpening(kind, x, y, openings) {
-  const allowed = allowedOpenings(kind)
-  return openings.find((o) => {
-    if (!allowed.has(o.kind)) return null
-    const r = o.r ?? 12
-    if (Math.hypot(x - o.x, y - o.y) > r) return null
-    // River openings sit on the barrier line — reject shortcut chords that
-    // cross the river at a different y but fall inside the opening disc.
-    if (kind === 'river' && Math.abs(y - o.y) > r * 0.6) return null
-    return o
-  }) ?? null
 }
 
 function barrierList(ctx) {

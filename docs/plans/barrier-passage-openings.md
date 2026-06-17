@@ -40,9 +40,9 @@ Openings use point features in [`game/content/world/map.yaml`](../game/content/w
   label: Bridge
 ```
 
-`at` accepts hex-anchored coords (`{ hex, dx, dy }`) or raw `{ x, y }` via [`resolveOpeningPosition`](../game/src/lib/maps/composables/useBarrierOpenings.js).
+`at` accepts hex-anchored coords (`{ hex, dx, dy }`) or raw `{ x, y }` via [`resolveOpeningPosition`](../../game/src/lib/maps/composables/useBarrierOpenings.js).
 
-**Tuning workflow:** run travel / passage tests and smoke journeys; adjust `at` until **`crossPassage`** places the avatar correctly on the far side of the barrier and discovery/search UI behaves as intended. Do **not** tune openings against `openingAllows` on neighbor moves — that workflow is superseded (see [barrier-pathfinding.md — Superseded documentation](barrier-pathfinding.md#superseded-documentation-do-not-follow)).
+**Tuning workflow:** run travel / passage tests and smoke journeys; adjust `at` until **`crossPassage`** places the avatar correctly on the far side of the barrier and discovery/search UI behaves as intended. Do **not** tune openings against neighbor moves — that workflow is superseded (see [barrier-pathfinding.md — Superseded documentation](barrier-pathfinding.md#superseded-documentation-do-not-follow)).
 
 ## Authored openings (Part I)
 
@@ -59,23 +59,23 @@ Openings use point features in [`game/content/world/map.yaml`](../game/content/w
 
 | Concern                               | File                                                                                |
 | ------------------------------------- | ----------------------------------------------------------------------------------- |
-| Opening resolution + discovery filter | [`useBarrierOpenings.js`](../game/src/lib/maps/composables/useBarrierOpenings.js)   |
-| Inter-hex path checks (no openings)   | [`useTravelBarriers.js`](../game/src/lib/maps/composables/useTravelBarriers.js)     |
-| In-hex `crossPassage` + `openingAllows` | [`usePassageCrossing.js`](../game/src/lib/maps/composables/usePassageCrossing.js) |
-| `discoveredOpenings` state + search   | [`useOutdoorWorld.js`](../game/src/lib/maps/composables/useOutdoorWorld.js)         |
-| Save/load                             | [`useGameState.js`](../game/src/composables/useGameState.js)                        |
-| Search UI                             | [`usePlayPanel.js`](../game/src/composables/usePlayPanel.js)                        |
-| Map symbols                           | [`HexPassageLayer.vue`](../game/src/lib/maps/components/hex/HexPassageLayer.vue)    |
-| Marker visibility                     | [`useHexMapPlacements.js`](../game/src/lib/maps/composables/useHexMapPlacements.js) |
+| Opening resolution + discovery filter | [`useBarrierOpenings.js`](../../game/src/lib/maps/composables/useBarrierOpenings.js)   |
+| Inter-hex path checks (no openings)   | [`useTravelBarriers.js`](../../game/src/lib/maps/composables/useTravelBarriers.js)     |
+| In-hex `crossPassage`                 | [`usePassageCrossing.js`](../../game/src/lib/maps/composables/usePassageCrossing.js)   |
+| `discoveredOpenings` state + search   | [`useOutdoorWorld.js`](../../game/src/lib/maps/composables/useOutdoorWorld.js)         |
+| Save/load                             | [`useGameState.js`](../../game/src/composables/useGameState.js)                        |
+| Search UI                             | [`usePlayPanel.js`](../../game/src/composables/usePlayPanel.js)                        |
+| Map symbols                           | [`HexPassageLayer.vue`](../../game/src/lib/maps/components/hex/HexPassageLayer.vue)    |
+| Marker visibility                     | [`useHexMapPlacements.js`](../../game/src/lib/maps/composables/useHexMapPlacements.js) |
 
-`openingAllows` remains exported from `useTravelBarriers.js` for **passage crossing** and tests; it is **not** called from `firstBlockedOnPath` during inter-hex travel.
+The old `openingAllows` helper has been removed from the game implementation; passage crossings use `crossPassage` / `shouldOfferPassageCrossing` directly, and adjacent travel does not consume openings.
 
 ## Smoke test (end-to-end)
 
-[`barrierPassageJourney.test.js`](../game/src/lib/maps/testing/barrierPassageJourney.test.js) is the primary smoke file. Run with:
+The current coverage is split across passage, gate, and journey smoke tests. Run with:
 
 ```bash
-npm run test -- barrierPassageJourney
+npm run test -- usePassageCrossing passageGuards passageToggle compoundGateGameplay storyJourneySmoke
 ```
 
 ### Northern approach + west bank (bridge + ford)
@@ -97,12 +97,13 @@ When this file passes, all four opening kinds are wired correctly for **in-hex p
 
 | Test file                                                                               | Covers                                          |
 | --------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| [`openingDiscovery.test.js`](../game/src/lib/maps/testing/openingDiscovery.test.js)     | `travelOpenings` filter, hole → `crossPassage`  |
-| [`usePassageCrossing.test.js`](../game/src/lib/maps/testing/usePassageCrossing.test.js) | Bridge stand flip, ford UI gating               |
-| [`midWestFord.test.js`](../game/src/lib/maps/testing/midWestFord.test.js)               | Ford `crossPassage` + adjacent bank walks       |
-| [`midWestGateWoods.test.js`](../game/src/lib/maps/testing/midWestGateWoods.test.js)       | `mid-west → gate-woods` enters south of fence   |
-| [`roadForkUpperGorge.test.js`](../game/src/lib/maps/testing/roadForkUpperGorge.test.js) | Drive route lands on east bank at `upper-gorge` |
-| [`fenceRegression.test.js`](../game/src/lib/maps/testing/fenceRegression.test.js)       | No accidental fence leaks at default stands     |
+| [`openingDiscovery.test.js`](../../game/src/lib/maps/testing/openingDiscovery.test.js)     | `travelOpenings` filter, hole → `crossPassage`  |
+| [`usePassageCrossing.test.js`](../../game/src/lib/maps/testing/usePassageCrossing.test.js) | Shared crossing inset, bridge, ford, gate, hole |
+| [`passageGuards.test.js`](../../game/src/lib/maps/testing/passageGuards.test.js)           | Direct-call passage guards                      |
+| [`midWestFord.test.js`](../../game/src/lib/maps/testing/midWestFord.test.js)               | Ford `crossPassage` + adjacent bank walks       |
+| [`midWestGateWoods.test.js`](../../game/src/lib/maps/testing/midWestGateWoods.test.js)     | `mid-west → gate-woods` enters south of fence   |
+| [`northWestUpperGorge.test.js`](../../game/src/lib/maps/testing/northWestUpperGorge.test.js) | Bridge route from `upper-gorge` to `north-west` |
+| [`useTravelBarriers.test.js`](../../game/src/lib/maps/composables/useTravelBarriers.test.js) | No accidental fence leaks at default stands     |
 
 ## Implementation checklist
 
@@ -110,7 +111,7 @@ Verified against `game/` sources; re-verify after movement contract changes with
 
 - [x] Write this plan
 - [x] `resolveOpeningPosition` / hex-anchored `at` in `useBarrierOpenings.js`
-- [x] `outdoor.discoveredOpenings` + save/load in [`useGameState.js`](../game/src/composables/useGameState.js)
+- [x] `outdoor.discoveredOpenings` + save/load in [`useGameState.js`](../../game/src/composables/useGameState.js)
 - [x] Author hole, ford, bridge in `map.yaml`; tune bridge coords for `crossPassage`
 - [x] `HexPassageLayer` symbols (gate, hole, ford, bridge)
 - [x] Outdoor search action in play panel

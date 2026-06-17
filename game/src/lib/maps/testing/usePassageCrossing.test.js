@@ -4,11 +4,14 @@ import { axialToPixel } from '../composables/useHexGeometry.js'
 import { buildTravelWorld } from './travelWorld.js'
 import {
   availablePassageCrossings,
+  PASSAGE_CROSSING_INSET,
   standAcrossOpening,
   shouldOfferPassageCrossing,
   isEastOfRiverAt,
   isWestOfRiverAt,
 } from '../composables/usePassageCrossing.js'
+import { distToBarrierKind } from '../composables/useBarrierStand.js'
+import { barrierKindForOpening } from '../composables/useBarrierOpenings.js'
 
 describe('usePassageCrossing', () => {
   const world = buildTravelWorld(mapData)
@@ -57,5 +60,32 @@ describe('usePassageCrossing', () => {
     expect(isWestOfRiverAt(from, world.ctx.barriers)).toBe(true)
     const cross = standAcrossOpening(ford, from, world.ctx, world.size)
     expect(isEastOfRiverAt(cross, world.ctx.barriers)).toBe(true)
+  })
+
+  it('uses the same visible separation for bridge, ford, gate, and hole crossings', () => {
+    world.revealOpening('mid-west-ford')
+    world.revealOpening('south-pines-hole')
+    const cases = [
+      ['upper-gorge-bridge', { dx: 20, dy: 0 }],
+      ['mid-west-ford', { dx: -world.size * 0.5, dy: 0 }],
+      ['compound-gate', { dx: 0, dy: -14 }],
+      ['south-pines-hole', { dx: 14, dy: 0 }],
+    ]
+
+    for (const [openingId, offset] of cases) {
+      const opening = world.ctx.openings.find((o) => o.id === openingId)
+      const from = { x: opening.x + offset.dx, y: opening.y + offset.dy }
+      const stand = standAcrossOpening(opening, from, world.ctx, world.size)
+      const barrierKind = barrierKindForOpening(opening.kind)
+
+      expect(stand, openingId).toBeTruthy()
+      expect(distToBarrierKind(stand, barrierKind, world.ctx.barriers)).toBeCloseTo(
+        PASSAGE_CROSSING_INSET,
+        0,
+      )
+      expect(Math.hypot(stand.x - opening.x, stand.y - opening.y)).toBeLessThan(
+        PASSAGE_CROSSING_INSET + 3,
+      )
+    }
   })
 })
