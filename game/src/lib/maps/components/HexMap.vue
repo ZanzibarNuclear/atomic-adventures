@@ -124,6 +124,14 @@ const {
       preserveAspectRatio="xMidYMid meet"
       @click="onSvgClick"
     >
+      <HexFogLayer
+        :fog-hexes="fogHexes"
+        :size="size"
+        :center-of="center"
+        :clickable="mode === 'slice'"
+        @hex-click="onHexClick"
+      />
+
       <HexTerrainLayer
         :visible-hexes="visibleHexes"
         :size="size"
@@ -160,14 +168,6 @@ const {
         :builder-view="builderView"
         :all-hexes="allHexes"
         :center-of="center"
-      />
-
-      <HexFogLayer
-        :fog-hexes="fogHexes"
-        :size="size"
-        :center-of="center"
-        :clickable="mode === 'slice'"
-        @hex-click="onHexClick"
       />
 
       <MapAvatar
