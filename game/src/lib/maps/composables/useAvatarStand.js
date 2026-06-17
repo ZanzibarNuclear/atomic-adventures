@@ -62,7 +62,7 @@ export function hexCenterStand(hex, size) {
 /**
  * Preferred stand when stepping to an adjacent hex: authored `standAt`, else center.
  * For barrier-aware arrival (accessible side of in-hex barriers), use
- * `resolveNeighborArrivalStand` from useTravelBarriers.js.
+ * `resolveMove` from useTravelBarriers.js.
  */
 export function resolveNeighborStand(fromHex, toHex, fromPos, size, barrierCtx) {
   const stand = toHex?.standAt

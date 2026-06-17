@@ -291,6 +291,138 @@ function standInDestinationHex(point, toHex, hexAtPoint) {
   return !!point && !!toHex?.id && hexAtPoint(point, toHex.id) === toHex.id
 }
 
+function hexPolygon(hex, size) {
+  if (!hex || size == null) return []
+  const center = axialToPixel(hex.q, hex.r, size)
+  return hexCorners(center.x, center.y, size)
+}
+
+function pointInHexPolygon(point, hex, size) {
+  if (!point || !hex || size == null) return false
+  const corners = hexPolygon(hex, size)
+  if (corners.length < 3) return false
+  const eps = 1e-6
+  let sign = 0
+  for (let i = 0; i < corners.length; i++) {
+    const a = corners[i]
+    const b = corners[(i + 1) % corners.length]
+    const cross = sideOfLine(point, a, b)
+    if (Math.abs(cross) <= eps) continue
+    const nextSign = Math.sign(cross)
+    if (sign && nextSign !== sign) return false
+    sign = nextSign
+  }
+  return true
+}
+
+function segmentInsideHex(a, b, hex, size) {
+  for (const t of [0, 0.2, 0.4, 0.6, 0.8, 1]) {
+    if (!pointInHexPolygon(interpolate(a, b, t), hex, size)) return false
+  }
+  return true
+}
+
+function uniquePush(points, point) {
+  if (!point) return
+  if (points.some((p) => samePoint(p, point))) return
+  points.push(point)
+}
+
+function barrierJunctions(ctx) {
+  const endpoints = []
+  for (const seg of barrierList(ctx)) {
+    endpoints.push(seg.a, seg.b)
+  }
+  return endpoints.filter((point, index) =>
+    endpoints.some((other, otherIndex) =>
+      otherIndex !== index && pointDistance(point, other) < 1,
+    ),
+  )
+}
+
+function segmentClearsBarrierJunctions(a, b, ctx, minClearance) {
+  for (const junction of barrierJunctions(ctx)) {
+    if (pointToSegmentDistance(junction, { a, b }) < minClearance) {
+      return false
+    }
+  }
+  return true
+}
+
+function localReachablePath({ hex, from, to, ctx, size }) {
+  if (!hex || !from || !to || !ctx || size == null) return null
+  if (!pointInHexPolygon(from, hex, size) || !pointInHexPolygon(to, hex, size)) {
+    return null
+  }
+  if (segmentInsideHex(from, to, hex, size) && pathClear([from, to], ctx)) {
+    return [from, to]
+  }
+
+  const corners = hexPolygon(hex, size)
+  const xs = corners.map((p) => p.x)
+  const ys = corners.map((p) => p.y)
+  const minX = Math.min(...xs)
+  const maxX = Math.max(...xs)
+  const minY = Math.min(...ys)
+  const maxY = Math.max(...ys)
+  const step = Math.max(6, size / 4)
+  const maxEdge = step * 1.55
+  const nodes = []
+  uniquePush(nodes, from)
+  uniquePush(nodes, to)
+
+  const center = hexCenterStand(hex, size)
+  uniquePush(nodes, center)
+  for (const corner of corners) {
+    uniquePush(nodes, interpolate(corner, center, 0.12))
+  }
+  for (let x = minX; x <= maxX + 0.01; x += step) {
+    for (let y = minY; y <= maxY + 0.01; y += step) {
+      const point = { x, y }
+      if (pointInHexPolygon(point, hex, size)) uniquePush(nodes, point)
+    }
+  }
+
+  const startIdx = 0
+  const targetIdx = 1
+  const queue = [startIdx]
+  const prev = new Map([[startIdx, null]])
+
+  while (queue.length) {
+    const idx = queue.shift()
+    if (idx === targetIdx) break
+    const current = nodes[idx]
+    for (let nextIdx = 0; nextIdx < nodes.length; nextIdx++) {
+      if (prev.has(nextIdx) || nextIdx === idx) continue
+      const next = nodes[nextIdx]
+      const dist = pointDistance(current, next)
+      if (nextIdx !== targetIdx && dist > maxEdge) continue
+      if (nextIdx === targetIdx && dist > maxEdge && idx !== startIdx) continue
+      if (!segmentInsideHex(current, next, hex, size)) continue
+      if (
+        !segmentClearsBarrierJunctions(
+          current,
+          next,
+          ctx,
+          BARRIER_STAND_INSET.fence * 2.5,
+        )
+      ) {
+        continue
+      }
+      if (!pathClear([current, next], ctx)) continue
+      prev.set(nextIdx, idx)
+      queue.push(nextIdx)
+    }
+  }
+
+  if (!prev.has(targetIdx)) return null
+  const path = []
+  for (let idx = targetIdx; idx != null; idx = prev.get(idx)) {
+    path.unshift(nodes[idx])
+  }
+  return path
+}
+
 /**
  * Step 1: find a path from the current stand into the destination hex that
  * does not cross any barrier. Tries the movement polyline first, then shared-edge samples.
@@ -354,6 +486,26 @@ function findReachableBorderEntry({
       }
     }
   }
+  if (edge) {
+    for (const sample of sampleSharedEdge(edge, toHex, size)) {
+      if (!pathClear([sample.edgePoint, sample.insidePoint], travelCtx, moveCtx)) {
+        continue
+      }
+      const localPath = localReachablePath({
+        hex: fromHex,
+        from: fromPos,
+        to: sample.edgePoint,
+        ctx: travelCtx,
+        size,
+      })
+      if (localPath) {
+        return {
+          entryPoint: sample.insidePoint,
+          approachPath: [...localPath, sample.insidePoint],
+        }
+      }
+    }
+  }
   return null
 }
 
@@ -399,7 +551,14 @@ function resolveDestinationStand({
   )
 
   for (const target of preferred) {
-    if (pathClear([entryPoint, target], travelCtx, moveCtx)) {
+    const localPath = localReachablePath({
+      hex: toHex,
+      from: entryPoint,
+      to: target,
+      ctx: travelCtx,
+      size,
+    })
+    if (localPath) {
       return { stand: target, blockedKind: null }
     }
   }

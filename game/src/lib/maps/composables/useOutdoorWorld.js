@@ -391,6 +391,8 @@ export function useOutdoorWorld(mapData, gameState = null) {
     );
   }
 
+  // "Reach" in the outdoor UI means "enter the destination cell"; the final
+  // stand may still be an accessible-side barrier stop inside that cell.
   function canReachHex(hexId) {
     if (hexId === state.currentId) return true;
     if (!isAdjacentHex(hexId)) return false;
@@ -410,7 +412,6 @@ export function useOutdoorWorld(mapData, gameState = null) {
       toPos,
       routeLeg,
       routeModels.value,
-      { barriers: ctx, size },
     );
     return canEnterNeighbor({
       fromHex,
@@ -444,7 +445,6 @@ export function useOutdoorWorld(mapData, gameState = null) {
       toPos,
       routeLeg,
       routeModels.value,
-      { barriers: ctx, size },
     );
 
     const result = resolveMove({

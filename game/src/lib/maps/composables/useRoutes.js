@@ -186,7 +186,6 @@ export function availableMoves(currentHexId, models, travelOpts = null) {
       toPos,
       routeLeg,
       travelOpts.routeModels ?? models,
-      { barriers: travelOpts.barriers, size: travelOpts.size },
     )
     return canEnterNeighbor({
       fromHex,
@@ -370,7 +369,6 @@ export function buildMovePath(
   toPos,
   routeLeg,
   routeModels,
-  moveOpts = null,
 ) {
   if (routeLeg) {
     const model = routeModels.find((r) => r.id === routeLeg.routeId)

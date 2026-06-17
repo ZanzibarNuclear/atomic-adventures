@@ -143,7 +143,6 @@ export function evaluateNeighborMove(world, fromHex, toHex, fromPos) {
     toPos,
     routeLeg,
     world.routeModels,
-    { barriers: world.ctx, size: world.size },
   )
 
   const moveArgs = {

@@ -190,12 +190,13 @@ crossPassage(openingId)
 1. If `walkPath` is barrier-clear, walk backward for the last point in the destination hex that is **near the shared edge** (`distance ≤ size × 0.2`).
 2. Else try direct chords to `toPos` (if near edge) and shared-edge inside samples (five points along edge at t = 0.15…0.85, nudged inward).
 3. Else partial interpolation from `fromPos` toward each inside-edge sample (t = 0.1…0.9).
+4. Else run a local cell-bounded search from the current stand to shared-edge samples, with conservative clearance around joined barrier endpoints.
 
 All checks use `interHexTravelCtx(ctx)` which sets `openings: []`. In the current Part I implementation, adjacent movement never consumes passages; passages are separate `crossPassage` actions.
 
 **Step 2 — `resolveDestinationStand`**
 
-Preferred stands: `resolveArrivalStand` (routes) → authored → `toPos` → center → `hexInteriorCandidates` → `standBeforeFirstHit` → `entryPoint`. This approximates the intended destination stand priority, but does not yet explicitly model the reachable sub-area or barrier-midpoint fallback described above.
+Preferred stands: `resolveArrivalStand` (routes) → authored → `toPos` → center → `hexInteriorCandidates` → `standBeforeFirstHit` → `entryPoint`. Preferred stands use the local cell-bounded search when direct reachability is blocked. Interior fallback samples are still direct-check only. This approximates the intended destination stand priority, but does not yet explicitly model the reachable sub-area or barrier-midpoint fallback described above.
 
 `standInDestinationHex` rejects targets outside the destination hex (via `pixelToHex` + hex coord map).
 
@@ -293,8 +294,6 @@ standAt: { dx: -0.3, dy: 0.1 }             # offset from hex center
 
 **Tuning:** Adjust opening `at` until **`crossPassage`** places the avatar correctly and journey tests pass. In the current Part I implementation, do not tune against neighbor-move `openingAllows`; adjacent movement does not consume openings.
 
-**Stale comment in `map.yaml` (lines 35–38):** Header still says “direct hex moves — marked routes pass through openings.” That described the **old** model. Inter-hex travel ignores openings; update the header when editing the map file.
-
 ### Test harnesses
 
 | Harness                                                                  | Use when                                                            |
@@ -354,13 +353,13 @@ These are the remaining movement tasks. They are written as things to do, not op
 
 ### Geometry and stands
 
-1. **Implement explicit reachable sub-areas.** Determine the barrier-bounded sub-area containing the avatar or destination entry border, then use that sub-area for border reachability and destination stand selection. The current sample/chord approach is useful but incomplete.
+1. **Replace local grid search with explicit reachable sub-areas.** Determine the barrier-bounded sub-area containing the avatar or destination entry border, then use that sub-area for border reachability and destination stand selection. The current local cell-bounded grid search is useful but still an approximation.
 
 2. **Replace sample-driven destination fallback.** When preferred stands are blocked, choose a stable stand in the entry-side sub-area, preferably near the midpoint of the blocking barrier segment. The current `hexInteriorCandidates` / `standBeforeFirstHit` behavior is a temporary approximation.
 
 3. **Make fallback ordering entry-aware.** `hexInteriorCandidates` currently sorts by barrier clearance and distance from the departure point. Destination fallback should prioritize the reachable sub-area from the border entry.
 
-4. **Harden barrier endpoint handling.** A path can slip past a short finite segment when the visual intent is that the barrier blocks movement. Extend authored barrier geometry or add conservative endpoint handling, then cover tuned fence endpoints with regressions.
+4. **Harden barrier endpoint handling.** A path can slip past a short finite segment when the visual intent is that the barrier blocks movement. Joined barrier endpoints currently use conservative local-search clearance; replace this with explicit sub-area topology and cover tuned fence endpoints with regressions.
 
 5. **Keep smooth barrier collision aligned with visuals.** Smooth barrier features should use the same sampled curve for collision that the player sees. Add regression coverage around smoothing and feature-model generation.
 
@@ -370,7 +369,7 @@ These are the remaining movement tasks. They are written as things to do, not op
 
 7. **Keep one adjacent-move authority.** `resolveMove` / `canEnterNeighbor` should remain the source of truth for offering and executing adjacent moves. Do not reintroduce separate `canOfferNeighbor` / `canReachNeighbor`-style predicates without a new gameplay contract.
 
-8. **Clarify `canReachHex` naming.** `canReachHex` means enterable, not "clean arrival without `blockedKind`." Rename it or add local code comments where that distinction matters.
+8. **Consider renaming `canReachHex`.** `canReachHex` means enterable, not "clean arrival without `blockedKind`." A local code comment now documents this; a future rename could make it self-explanatory.
 
 9. **Move hardcoded route gates into data.** The west-bank drive filter (`isWestOfRiverAt` + `drive` / `road-fork`) is intentional but hardcoded in `availableMoves`; express it in map data or route metadata.
 
@@ -388,17 +387,13 @@ These are the remaining movement tasks. They are written as things to do, not op
 
 ### Content, docs, and tooling
 
-15. **Update `map.yaml` header.** Lines 35-38 still describe openings on direct hex moves; revise that comment to match this contract.
+15. **Clean stale smoke-test references.** `barrierPassageJourney.test.js` is referenced in old comments/plans but does not exist. Either create that smoke test or update references to the current coverage split.
 
-16. **Clean stale smoke-test references.** `barrierPassageJourney.test.js` is referenced in old comments/plans but does not exist. Either create that smoke test or update references to the current coverage split.
+16. **Keep `web/` marked non-authoritative.** The prototype still uses older movement assumptions. Re-port from `game/` only when intentionally refreshing the prototype.
 
-17. **Keep `web/` marked non-authoritative.** The prototype still uses older movement assumptions. Re-port from `game/` only when intentionally refreshing the prototype.
+17. **Add save/load round-trip coverage for openings.** `discoveredOpenings` is serialized, but the round trip is not directly asserted.
 
-18. **Add save/load round-trip coverage for openings.** `discoveredOpenings` is serialized, but the round trip is not directly asserted.
-
-19. **Add builder serialization for openings.** Builder export still needs full serialization for hole/ford/bridge/stair-style openings.
-
-20. **Remove or use `buildMovePath` `moveOpts`.** The function accepts `{ barriers, size }` but does not read them; barriers are applied later in `resolveMove`.
+18. **Add builder serialization for openings.** Builder export still needs full serialization for hole/ford/bridge/stair-style openings.
 
 ---
 
