@@ -9,7 +9,11 @@ import {
   BARRIER_STAND_INSET,
   standBeforeBarrierHit,
 } from './useBarrierStand.js'
-import { resolveAvatarPosition, hasLandmarkMarker } from './useAvatarStand.js'
+import {
+  resolveAvatarPosition,
+  hexCenterStand,
+  hasLandmarkMarker,
+} from './useAvatarStand.js'
 import { axialToPixel, hexCorners, hexDistance } from './useHexGeometry.js'
 import { isWestOfRiverAt } from './usePassageCrossing.js'
 
@@ -227,6 +231,38 @@ function sameSideOfHit(a, b, hit) {
   return Math.abs(sa) <= eps || Math.abs(sb) <= eps || sa * sb > 0
 }
 
+function samePoint(a, b) {
+  return !!a && !!b && Math.hypot(a.x - b.x, a.y - b.y) < 1e-6
+}
+
+function firstReachableArrivalCandidate({
+  fromHex,
+  toHex,
+  fromPos,
+  toPos,
+  ctx,
+  hexAtPoint,
+  size,
+}) {
+  if (!toHex || !fromPos || !ctx || !hexAtPoint || size == null) return null
+  const moveCtx = moveHexContext(fromHex, toHex)
+  const candidates = []
+  const add = (stand) => {
+    if (!stand) return
+    if (hexAtPoint(stand, toHex.id) !== toHex.id) return
+    if (candidates.some((candidate) => samePoint(candidate, stand))) return
+    candidates.push(stand)
+  }
+
+  add(toPos)
+  add(hexCenterStand(toHex, size))
+
+  for (const candidate of candidates) {
+    if (pathClear([fromPos, candidate], ctx, moveCtx)) return candidate
+  }
+  return null
+}
+
 function resolveSharedEdgeMove({
   fromHex,
   toHex,
@@ -242,6 +278,7 @@ function resolveSharedEdgeMove({
   if (!edge) return null
   const moveCtx = moveHexContext(fromHex, toHex)
   const preferred = toHex?.standAt ? resolveAvatarPosition(toHex, size) : null
+  const center = toHex ? hexCenterStand(toHex, size) : null
 
   for (const candidate of sampleSharedEdge(edge, toHex, size)) {
     if (!mostlyParallelToBarrier(fromPos, candidate.insidePoint, hit)) continue
@@ -258,6 +295,19 @@ function resolveSharedEdgeMove({
         activeHexId: toHex.id,
         blockedKind: null,
         path: [fromPos, candidate.insidePoint, preferred],
+      }
+    }
+
+    if (
+      center &&
+      !samePoint(center, preferred) &&
+      pathClear([candidate.insidePoint, center], ctx, moveCtx)
+    ) {
+      return {
+        stand: center,
+        activeHexId: toHex.id,
+        blockedKind: null,
+        path: [fromPos, candidate.insidePoint, center],
       }
     }
 
@@ -573,6 +623,24 @@ export function resolveMove({
 
   if (hit) {
     if (walkPath.length <= 2) {
+      const reachableStand = firstReachableArrivalCandidate({
+        fromHex,
+        toHex,
+        fromPos,
+        toPos,
+        ctx,
+        hexAtPoint,
+        size,
+      })
+      if (reachableStand) {
+        return {
+          stand: reachableStand,
+          activeHexId: toHex.id,
+          blockedKind: null,
+          path: [fromPos, reachableStand],
+        }
+      }
+
       const edgeMove = resolveSharedEdgeMove({
         fromHex,
         toHex,

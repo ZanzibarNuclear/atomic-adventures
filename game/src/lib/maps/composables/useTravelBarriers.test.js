@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import mapData from '../../../../content/world/map.yaml'
 import { buildTravelWorld, evaluateNeighborMove } from '../testing/travelWorld.js'
 import { axialToPixel, NEIGHBOR_DIRS, pixelToHex } from './useHexGeometry.js'
+import { hexCenterStand } from './useAvatarStand.js'
 import {
   firstBlockedOnPath,
   moveBlocked,
@@ -222,6 +223,69 @@ describe('resolveMove', () => {
     expect(result.blockedKind).toBe('fence')
     expect(result.activeHexId).toBe('south-pines')
     expect(result.stand).not.toEqual(toPos)
+  })
+})
+
+describe('reachable arrival stand selection', () => {
+  const size = 44
+  const fromHex = { id: 'from', q: 0, r: 0 }
+  const toHex = { id: 'to', q: 1, r: 0, standAt: { x: 120, y: 0 } }
+  const fromPos = { x: 0, y: 0 }
+  const authoredStand = { x: 120, y: 0 }
+  const centerStand = hexCenterStand(toHex, size)
+
+  it('uses an authored stand when it is reachable', () => {
+    const result = resolveMove({
+      fromHex,
+      toHex: { ...toHex, standAt: { x: 70, y: 20 } },
+      fromPos,
+      toPos: { x: 70, y: 20 },
+      path: [fromPos, { x: 70, y: 20 }],
+      ctx: verticalFence,
+      hexAtPoint,
+      size,
+    })
+
+    expect(result.blockedKind).toBeNull()
+    expect(result.stand).toEqual({ x: 70, y: 20 })
+  })
+
+  it('uses the destination center when an authored stand is across a closed barrier', () => {
+    const result = resolveMove({
+      fromHex,
+      toHex,
+      fromPos,
+      toPos: authoredStand,
+      path: [fromPos, authoredStand],
+      ctx: verticalFence,
+      hexAtPoint,
+      size,
+    })
+
+    expect(result.blockedKind).toBeNull()
+    expect(result.stand.x).toBeCloseTo(centerStand.x)
+    expect(result.stand.y).toBeCloseTo(centerStand.y)
+  })
+
+  it('stops before the barrier when no destination stand is reachable', () => {
+    const blockedCenter = {
+      barriers: [{ a: { x: 40, y: -50 }, b: { x: 40, y: 50 }, kind: 'fence' }],
+      openings: [],
+    }
+    const result = resolveMove({
+      fromHex,
+      toHex,
+      fromPos,
+      toPos: authoredStand,
+      path: [fromPos, authoredStand],
+      ctx: blockedCenter,
+      hexAtPoint,
+      size,
+    })
+
+    expect(result.blockedKind).toBe('fence')
+    expect(result.stand).not.toEqual(authoredStand)
+    expect(result.stand).not.toEqual(centerStand)
   })
 })
 

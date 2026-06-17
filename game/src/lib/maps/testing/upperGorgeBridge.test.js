@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import mapData from '../../../../content/world/map.yaml'
 import { buildTravelWorld, evaluateNeighborMove } from './travelWorld.js'
 import { standAcrossOpening } from '../composables/usePassageCrossing.js'
+import { hexCenterStand } from '../composables/useAvatarStand.js'
+import { isEastOfRiverAt, isWestOfRiverAt } from '../composables/usePassageCrossing.js'
 
 describe('upper-gorge east bank', () => {
   const world = buildTravelWorld(mapData)
@@ -19,6 +21,9 @@ describe('upper-gorge east bank', () => {
     expect(nw.reachable).toBe(true)
     expect(nw.result.blockedKind).toBeNull()
     expect(nw.result.activeHexId).toBe('north-west')
+    expect(isEastOfRiverAt(nw.result.stand, world.ctx.barriers)).toBe(true)
+    expect(isWestOfRiverAt(nw.result.stand, world.ctx.barriers)).toBe(false)
+    expect(nw.result.stand).not.toEqual(hexCenterStand(world.hexById['north-west'], world.size))
   })
 
   it('reaches north-west from the west bank after crossing the bridge', () => {
