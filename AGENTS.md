@@ -35,8 +35,6 @@ Map rendering and interaction logic was **copied** (not moved) from `web/src` in
 
 **Rule:** Never add game features (story, save/load, narrative overlay) to `web/`. Fix gameplay in `game/`, not by patching `web/`.
 
-See [docs/plans/part-i-alpha-slice.md](docs/plans/part-i-alpha-slice.md) for Part I slice goals and integration details.
-
 ### Builder mode
 
 Builder tools (edit handles, builder sidebars, placement overlays) exist so **authors** can edit maps and preview changes. **Players** must never see them — not because builder code is omitted from builds, but because it is **disabled for their role**.

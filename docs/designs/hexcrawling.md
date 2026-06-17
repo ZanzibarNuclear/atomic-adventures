@@ -2,8 +2,6 @@
 
 **Status:** Source of truth for outdoor hex-map movement in the playable game  
 **Scope:** `game/` — `game/src/lib/maps/` and `game/content/world/map.yaml`  
-**Supersedes:** [`docs/plans/barrier-pathfinding.md`](../plans/barrier-pathfinding.md), [`docs/plans/barrier-passage-openings.md`](../plans/barrier-passage-openings.md) (historical; safe to delete when no longer linked)
-
 Outdoor play is **adjacent-step hexcrawling**: the player is represented by an avatar standing at a specific point inside one hex cell. From that point, the player may move within the current cell, cross an available local passage in that cell, follow a marked route, or move to a neighboring hex when the shared border is reachable. Multi-hex auto-pathfinding is not defined yet, but the feature is allowable and welcome given the time and motivation to implement it.
 
 ---
@@ -165,19 +163,19 @@ crossPassage(openingId)
 
 ### Code map
 
-| Concern                                          | File                                                                                 | Key exports                                                                                                                |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| Orchestration, state, `moveTo`                   | [`useOutdoorWorld.js`](../../game/src/lib/maps/composables/useOutdoorWorld.js)       | `moveTo`, `canReachHex`, `moves`, `directMoves`, `crossPassage`, `travelBarrierCtx`                                        |
-| Current adjacent-move resolver, barrier geometry | [`useTravelBarriers.js`](../../game/src/lib/maps/composables/useTravelBarriers.js)   | `resolveMove`, `canEnterNeighbor`, `firstBlockedOnPath`, `firstBlockedOnPathInHex` |
-| Routes, move lists                               | [`useRoutes.js`](../../game/src/lib/maps/composables/useRoutes.js)                   | `availableMoves`, `directNeighbors`, `buildMovePath`, `routeLegBetween`                                                    |
-| Stand hints (`toPos`)                            | [`useAvatarStand.js`](../../game/src/lib/maps/composables/useAvatarStand.js)         | `resolveAvatarPosition`, `resolveNeighborStand`, `hexCenterStand`                                                          |
-| In-hex crossings                                 | [`usePassageCrossing.js`](../../game/src/lib/maps/composables/usePassageCrossing.js) | `standAcrossOpening`, `availablePassageCrossings`, `shouldOfferPassageCrossing`                                            |
-| Opening models, discovery                        | [`useBarrierOpenings.js`](../../game/src/lib/maps/composables/useBarrierOpenings.js) | `travelOpenings`, `hiddenOpeningsInHex`, `resolveOpeningPosition`                                                          |
-| Passage requirements and effects                 | [`usePassageState.js`](../../game/src/lib/maps/composables/usePassageState.js)       | `filterAvailablePassages`, `applyPassageUnlock`, `applyPassageCrossEffects`                                                |
-| Barrier-adjacent stands, status                  | [`useBarrierStand.js`](../../game/src/lib/maps/composables/useBarrierStand.js)       | `BARRIER_STAND_INSET`, `barrierHintAtStand`, `isNearBarrierKind`                                                           |
-| Hex geometry                                     | [`useHexGeometry.js`](../../game/src/lib/maps/composables/useHexGeometry.js)         | `pixelToHex`, `hexDistance`, `axialToPixel`                                                                                |
-| Play panel wiring                                | [`usePlayPanel.js`](../../game/src/composables/usePlayPanel.js)                      | `getMovementOptions`, `buildOutdoorStatusLines`                                                                            |
-| Save/load                                        | [`useGameState.js`](../../game/src/composables/useGameState.js)                      | outdoor snapshot includes `stand`, `discoveredOpenings`                                                                    |
+| Concern                                          | File                                                                                 | Key exports                                                                         |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| Orchestration, state, `moveTo`                   | [`useOutdoorWorld.js`](../../game/src/lib/maps/composables/useOutdoorWorld.js)       | `moveTo`, `canReachHex`, `moves`, `directMoves`, `crossPassage`, `travelBarrierCtx` |
+| Current adjacent-move resolver, barrier geometry | [`useTravelBarriers.js`](../../game/src/lib/maps/composables/useTravelBarriers.js)   | `resolveMove`, `canEnterNeighbor`, `firstBlockedOnPath`, `firstBlockedOnPathInHex`  |
+| Routes, move lists                               | [`useRoutes.js`](../../game/src/lib/maps/composables/useRoutes.js)                   | `availableMoves`, `directNeighbors`, `buildMovePath`, `routeLegBetween`             |
+| Stand hints (`toPos`)                            | [`useAvatarStand.js`](../../game/src/lib/maps/composables/useAvatarStand.js)         | `resolveAvatarPosition`, `resolveNeighborStand`, `hexCenterStand`                   |
+| In-hex crossings                                 | [`usePassageCrossing.js`](../../game/src/lib/maps/composables/usePassageCrossing.js) | `standAcrossOpening`, `availablePassageCrossings`, `shouldOfferPassageCrossing`     |
+| Opening models, discovery                        | [`useBarrierOpenings.js`](../../game/src/lib/maps/composables/useBarrierOpenings.js) | `travelOpenings`, `hiddenOpeningsInHex`, `resolveOpeningPosition`                   |
+| Passage requirements and effects                 | [`usePassageState.js`](../../game/src/lib/maps/composables/usePassageState.js)       | `filterAvailablePassages`, `applyPassageUnlock`, `applyPassageCrossEffects`         |
+| Barrier-adjacent stands, status                  | [`useBarrierStand.js`](../../game/src/lib/maps/composables/useBarrierStand.js)       | `BARRIER_STAND_INSET`, `barrierHintAtStand`, `isNearBarrierKind`                    |
+| Hex geometry                                     | [`useHexGeometry.js`](../../game/src/lib/maps/composables/useHexGeometry.js)         | `pixelToHex`, `hexDistance`, `axialToPixel`                                         |
+| Play panel wiring                                | [`usePlayPanel.js`](../../game/src/composables/usePlayPanel.js)                      | `getMovementOptions`, `buildOutdoorStatusLines`                                     |
+| Save/load                                        | [`useGameState.js`](../../game/src/composables/useGameState.js)                      | outdoor snapshot includes `stand`, `discoveredOpenings`                             |
 
 ### `resolveMove` (current two-phase resolver)
 
@@ -302,28 +300,28 @@ on_cross:
 
 ### Test harnesses
 
-| Harness                                                                  | Use when                                                            |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------- |
-| [`travelWorld.js`](../../game/src/lib/maps/testing/travelWorld.js)       | Pure geometry — `evaluateNeighborMove`, no gameplay flags           |
+| Harness                                                                  | Use when                                                              |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| [`travelWorld.js`](../../game/src/lib/maps/testing/travelWorld.js)       | Pure geometry — `evaluateNeighborMove`, no gameplay flags             |
 | [`gameplayTravel.js`](../../game/src/lib/maps/testing/gameplayTravel.js) | Full `useOutdoorWorld` + `gameState` — passage locks, `moveTo`, flags |
 
 ### Regression tests (representative)
 
-| Test file                                                 | Covers                                                 |
-| --------------------------------------------------------- | ------------------------------------------------------ |
-| `useTravelBarriers.test.js`                               | Current resolver, geometry, enterability               |
-| `midWestGateWoods.test.js`                                | `mid-west → gate-woods` enters south of fence          |
-| `midWestFord.test.js`                                     | Ford `crossPassage`; west-bank adjacent walks          |
-| `openingDiscovery.test.js`                                | Hole → `crossPassage`, not opening bypass on neighbors |
-| `compoundGateGameplay.test.js`                            | Gate lock UI, passage, south moves after cross         |
-| `storyJourneySmoke.test.js`                               | Mainline journey with gameplay stack                   |
-| `barrierStatus.test.js`                                   | Status lines, `atBarrier`, hole before `lower-stand`   |
-| `usePassageCrossing.test.js`                              | Bridge/ford stand flip, bank gating                    |
+| Test file                                                 | Covers                                                  |
+| --------------------------------------------------------- | ------------------------------------------------------- |
+| `useTravelBarriers.test.js`                               | Current resolver, geometry, enterability                |
+| `midWestGateWoods.test.js`                                | `mid-west → gate-woods` enters south of fence           |
+| `midWestFord.test.js`                                     | Ford `crossPassage`; west-bank adjacent walks           |
+| `openingDiscovery.test.js`                                | Hole → `crossPassage`, not opening bypass on neighbors  |
+| `compoundGateGameplay.test.js`                            | Gate lock UI, passage, south moves after cross          |
+| `storyJourneySmoke.test.js`                               | Mainline journey with gameplay stack                    |
+| `barrierStatus.test.js`                                   | Status lines, `atBarrier`, hole before `lower-stand`    |
+| `usePassageCrossing.test.js`                              | Bridge/ford stand flip, bank gating                     |
 | `usePassageState.test.js`                                 | Generic passage requirements, unlocks, crossing effects |
-| `useGameState.test.js`                                    | Stand and discovered-opening save/load round trips     |
-| `useMapBuilder.test.js`                                   | Passage feature serialization for builder export       |
-| `gateWoodsDeparture.test.js`, `westBankGateWoods.test.js` | Gate-woods / west-bank columns                         |
-| `landmarkReachability.test.js`                            | Landmark stands vs barriers                            |
+| `useGameState.test.js`                                    | Stand and discovered-opening save/load round trips      |
+| `useMapBuilder.test.js`                                   | Passage feature serialization for builder export        |
+| `gateWoodsDeparture.test.js`, `westBankGateWoods.test.js` | Gate-woods / west-bank columns                          |
+| `landmarkReachability.test.js`                            | Landmark stands vs barriers                             |
 
 Run: `npm run test` from repo root.
 
@@ -346,14 +344,6 @@ Run: `npm run test` from repo root.
 4. Search ford at `mid-west`; `mid-west → utility-yard` on west bank without requiring ford on inter-hex path
 5. Southern fence: `crossPassage` through gate/hole where needed before inter-hex steps
 
-### Out of scope (current game)
-
-- Multi-hex auto-travel / A\* around barrier polygons
-- Player-cut holes (fence cutter item)
-- Builder UI for placing openings
-- Border-mounted openings as inter-hex gates (Part I)
-- Separate player vs author builds (builder is role-gated in the same `game/` app)
-
 ---
 
 ## Implementation Punch List
@@ -362,11 +352,7 @@ These are the remaining movement tasks. Completed work and standing maintenance 
 
 ### Geometry and stands
 
-1. **As needed: replace sampled local search with explicit reachable sub-areas.** Try this when authored geometry exposes a failure that the current resolver cannot handle reliably, such as a U-shaped barrier, three or more barrier-bounded areas in one cell, a narrow corridor, an endpoint-connected enclosure, or an approach-dependent stand that requires walking around a barrier end. The upgrade should determine the entry-side sub-area, use it for border reachability and stand selection, prefer the barrier-midpoint fallback described above, and make endpoint blocking topological rather than sample-dependent. Do not undertake this deeper rewrite without a concrete failing map case or content requirement.
-
-### Passages and openings
-
-2. **Exercise non-Part-I passage kinds when content uses them.** Define the barrier association and player-facing behavior for cliff, ravine, and stair passages when the first such outdoor feature is authored, then add the same crossing-placement, guard, and round-trip coverage used by Part I passage kinds.
+1. **As needed: replace sampled local search with explicit reachable sub-areas.** Try this when authored geometry exposes a failure that the current resolver cannot handle reliably, such as a U-shaped barrier, three or more barrier-bounded areas in one cell, a narrow corridor, an endpoint-connected enclosure, or an approach-dependent stand that requires walking around a barrier end. The upgrade should determine the entry-side sub-area, use it for border reachability and stand selection, prefer the barrier-midpoint fallback described above, and make endpoint blocking topological rather than sample-dependent. Do not undertake this deeper rewrite without a concrete failing map case or content requirement. **Implementation plan:** [reachable-sub-areas.md](../plans/reachable-sub-areas.md).
 
 ---
 
@@ -376,3 +362,4 @@ These are the remaining movement tasks. Completed work and standing maintenance 
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 2026-06 | Initial source-of-truth doc; consolidates `barrier-pathfinding.md` and `barrier-passage-openings.md`; aligned to `game/` two-step implementation |
 | 2026-06 | Moved to `docs/designs/hexcrawling.md`; references updated                                                                                       |
+| 2026-06 | Deleted superseded plans `barrier-pathfinding.md` and `barrier-passage-openings.md`                                                                |
