@@ -56,9 +56,9 @@ If no path from the current stand reaches the intended border, the movement opti
 
 ### What blocks movement
 
-**Barriers** are authored map features such as rivers, fences, cliffs, and ravines. They are defined by feature points, usually as polylines, with possible smoothing for curved features. A barrier divides a cell into reachable sub-areas. The avatar may move within a sub-area and along the barrier edge, but may not cross into another sub-area except through an available local passage.
+**Barriers** are authored map features such as rivers, fences, cliffs, and ravines. They are defined by feature points, usually as polylines, with possible smoothing for curved features. Collision should use the same sampled curve the player sees. A barrier divides a cell into reachable sub-areas. The avatar may move within a sub-area and along the barrier edge, but may not cross into another sub-area except through an available local passage.
 
-Barriers block path segments that strictly cross them. Walking parallel to a barrier, standing on one side of it, or following its bank/edge does not count as crossing. Endpoint and grazing cases should be handled conservatively: if the visual intent is that the barrier blocks movement, authored geometry and tests should make that unambiguous.
+Barriers block path segments that strictly cross them. Walking parallel to a barrier, standing on one side of it, or following its bank/edge does not count as crossing. Barrier-adjacent stands should keep a small visible gap so the avatar does not stand on top of the barrier. Endpoint and grazing cases should be handled conservatively: if the visual intent is that the barrier blocks movement, authored geometry and tests should make that unambiguous.
 
 **Local passages** are authored openings in a barrier inside a cell: gate, hole, bridge, ford, stair, and future equivalents. A passage can allow the avatar to cross that local barrier when the passage is available and the avatar is close enough or otherwise eligible to use it. After crossing any passage type, the avatar should stand near the passage on the far side, separated from the barrier by a consistent inset that is large enough for the player to see that the avatar is through the passage.
 
@@ -114,7 +114,7 @@ The stand rule is the same for every passage type:
 | Hole    | Hidden     | After search reveals it      | Pre-cut breach at `south-pines`                |
 | Ford    | Hidden     | After search                 | Also demonstrates river crossing at `mid-west` |
 
-River crossings require bank proximity (`isOnRiverBank`). Fence/cliff crossings use perpendicular inset from the nearest barrier segment.
+River crossings require bank proximity (`isOnRiverBank`). All passage crossings use the same placement rule: near the opening, on the far side, with consistent visible separation from the barrier.
 
 ### Movement options the player sees
 
@@ -232,7 +232,7 @@ Adjacent move options and execution use one geometry authority:
 - **`segmentIntersection`** — hit must lie on both segments (finite segments, not infinite lines).
 - **`pathCrossesBarrier`** — endpoints on opposite sides of the barrier line (`sideOfLine`).
 - **`PATH_ORIGIN_EPS` (0.02)** — ignores hits at the start of a segment so the avatar does not block itself.
-- **Grazing / endpoint gaps** — a path can pass near a fence endpoint without counting as a crossing if the intersection falls outside the barrier segment’s y/x extent. This is geometrically correct but can surprise authors if fence segments are short (see Open issues).
+- **Grazing / endpoint gaps** — a path can pass near a fence endpoint without counting as a crossing if the intersection falls outside the barrier segment’s y/x extent. This is geometrically correct but can surprise authors if fence segments are short (see Implementation Punch List).
 
 ### `travelBarrierCtx`
 
@@ -306,7 +306,7 @@ standAt: { dx: -0.3, dy: 0.1 }             # offset from hex center
 
 | Test file                                                 | Covers                                                 |
 | --------------------------------------------------------- | ------------------------------------------------------ |
-| `useTravelBarriers.test.js`                               | Current resolver, geometry, `canOffer` vs `canEnter`   |
+| `useTravelBarriers.test.js`                               | Current resolver, geometry, enterability               |
 | `midWestGateWoods.test.js`                                | `mid-west → gate-woods` enters south of fence          |
 | `midWestFord.test.js`                                     | Ford `crossPassage`; west-bank adjacent walks          |
 | `openingDiscovery.test.js`                                | Hole → `crossPassage`, not opening bypass on neighbors |
@@ -348,90 +348,57 @@ Run: `npm run test` from repo root.
 
 ---
 
-## Open issues
+## Implementation Punch List
 
-Issues below are **known gaps, ambiguities, or doc/code mismatches** as of the current `game/` implementation. Resolve these before treating the system as “complete.”
+These are the remaining movement tasks. They are written as things to do, not open design questions.
 
-### Highest-priority corrections
+### Geometry and stands
 
-1. **Make reachable sub-areas explicit.** The resolver should determine the barrier-bounded sub-area containing the avatar or entry border, then use that sub-area for border reachability and destination stand selection. The current sample/chord approach is useful but incomplete.
+1. **Implement explicit reachable sub-areas.** Determine the barrier-bounded sub-area containing the avatar or destination entry border, then use that sub-area for border reachability and destination stand selection. The current sample/chord approach is useful but incomplete.
 
-2. **Offer and execute from the same authority.** The movement options shown to the player and the code path that executes a move must use the same reachability and gameplay rules. UI-only filters are allowed for presentation, but they must not be the only thing preventing illegal movement. Initial locked-gate and passage-guard consistency is implemented; continue this pattern for future gates.
+2. **Replace sample-driven destination fallback.** When preferred stands are blocked, choose a stable stand in the entry-side sub-area, preferably near the midpoint of the blocking barrier segment. The current `hexInteriorCandidates` / `standBeforeFirstHit` behavior is a temporary approximation.
 
-3. **Separate geometry from gameplay gates.** Geometry answers "can this stand reach that border or point without illegal barrier crossing?" Gameplay answers "is this gate unlocked, hole discovered, route allowed, or puzzle state satisfied?" Both must be checked before an option is offered or executed.
+3. **Make fallback ordering entry-aware.** `hexInteriorCandidates` currently sorts by barrier clearance and distance from the departure point. Destination fallback should prioritize the reachable sub-area from the border entry.
 
-4. **Make passage scope unambiguous.** Part I passages are explicit local actions (`crossPassage`). If a future route combines passage crossing with adjacent movement, that route must name and traverse the local passage instead of relying on a generic opening exemption.
+4. **Harden barrier endpoint handling.** A path can slip past a short finite segment when the visual intent is that the barrier blocks movement. Extend authored barrier geometry or add conservative endpoint handling, then cover tuned fence endpoints with regressions.
 
-5. **Codify destination fallback.** When preferred stands are blocked, the fallback should choose a stable stand in the entry-side sub-area, preferably near the midpoint of the blocking barrier segment. The current `hexInteriorCandidates` / `standBeforeFirstHit` behavior should be revised or documented as a temporary approximation.
+5. **Keep smooth barrier collision aligned with visuals.** Smooth barrier features should use the same sampled curve for collision that the player sees. Add regression coverage around smoothing and feature-model generation.
 
-6. **Unify passage-crossing stands.** Gate, bridge, ford, hole, stair, and future passage types should all use the same "near the passage, far side, consistent inset" placement rule, with authored overrides only for exceptional geometry.
+6. **Preserve approach-dependent stands.** Route approach from `north-bend` can land at the gate approach north of the fence; western approach from `mid-west` should land south of the fence. Keep this covered as the resolver changes.
 
-### Geometry and stand placement
+### Movement authority and gates
 
-1. **No explicit reachable-region model** — The current resolver does not build the accessible sub-area defined by cell borders plus barrier geometry. This is the biggest gap relative to the design above and explains many shaky edge cases around rivers, fences, and non-straight bank movement.
+7. **Keep one adjacent-move authority.** `resolveMove` / `canEnterNeighbor` should remain the source of truth for offering and executing adjacent moves. Do not reintroduce separate `canOfferNeighbor` / `canReachNeighbor`-style predicates without a new gameplay contract.
 
-2. **Fence segment endpoints** — `segmentIntersection` uses finite segments. A path can slip past a short fence segment if the intersection lies outside the segment’s extent (e.g. chord passes above/below the fence line’s y-range). Prefer long-enough barrier segments in YAML; add regression tests when tuning fences.
+8. **Clarify `canReachHex` naming.** `canReachHex` means enterable, not "clean arrival without `blockedKind`." Rename it or add local code comments where that distinction matters.
 
-3. **Keep curved barrier collision aligned with visuals** — Smooth barrier features should use the same sampled curve for collision that the player sees. Add regression coverage when changing smoothing or route/feature model generation.
+9. **Move hardcoded route gates into data.** The west-bank drive filter (`isWestOfRiverAt` + `drive` / `road-fork`) is intentional but hardcoded in `availableMoves`; express it in map data or route metadata.
 
-4. **`north-bend → gate-woods` vs `mid-west → gate-woods`** — Both can enter `gate-woods`, but stand selection depends on approach direction. Route approach from the north can land at the authored gate approach (north of fence) when that path is barrier-clear; western approach should land south of the fence.
+10. **Use the same gate path for future gameplay locks.** The compound gate now gates both UI and `moveTo`; future story/puzzle gates should follow that pattern.
 
-5. **`hexInteriorCandidates` ordering** — Sorted by barrier clearance then distance from `fromPos` (departure), not from border entry. May affect which accessible-side stand is chosen when multiple interior points are valid.
+### Passages and openings
 
-6. **Barrier-side fallback does not match the design yet** — The desired fallback is in the entry-side sub-area near the midpoint of the blocking barrier segment. Current fallback points are sample-driven and can be hard to reason about.
+11. **Keep passage stand regressions broad.** `standAcrossOpening` uses one shared inset/separation rule. Maintain tests for bridge, ford, gate, hole, stair, and future passage kinds so crossings visibly clear the barrier while staying near the opening.
 
-7. **Passage-crossing separation needs continued regression coverage** — `standAcrossOpening` now uses one shared inset/separation rule for all passage types. Keep tests around bridges, fords, gates, and holes so authored openings continue to visibly clear the barrier while remaining near the opening.
+12. **Add direct-call passage guard tests.** `crossPassage` re-checks `shouldOfferPassageCrossing`; add regressions for locked, hidden, wrong-hex, stale-status, and not-near-barrier attempts.
 
-### API and naming
+13. **Decide the home for `openingAllows`.** It is still exported and unit-tested in `useTravelBarriers.test.js`, but inter-hex travel does not use it. Move it to the passage module or delete it if no longer needed.
 
-8. **Clarify helper naming around `canReachHex`** — `canReachHex` means enterable, not "clean arrival without `blockedKind`." Rename or document in UI code comments (partially done in play panel).
+14. **Exercise non-Part-I passage kinds.** Cliff / ravine / stair entries exist in `BARRIER_OPENINGS` but have little dedicated UX or test coverage.
 
-9. **Keep deleted predicates out** — `canOfferNeighbor` and `canReachNeighbor` were removed from `useTravelBarriers.js`; avoid reintroducing separate movement predicates unless there is a clear new gameplay contract.
+### Content, docs, and tooling
 
-10. **Stale comment in `useAvatarStand.js`** — References `resolveNeighborArrivalStand` which does not exist; should point to `resolveDestinationStand` in `useTravelBarriers.js`.
+15. **Update `map.yaml` header.** Lines 35-38 still describe openings on direct hex moves; revise that comment to match this contract.
 
-### Gameplay vs geometry
+16. **Clean stale smoke-test references.** `barrierPassageJourney.test.js` is referenced in old comments/plans but does not exist. Either create that smoke test or update references to the current coverage split.
 
-11. **Continue checking gameplay gates in execution paths** — The compound gate is now enforced by `canReachHex` / `moveTo`; future story gates should follow the same pattern.
+17. **Keep `web/` marked non-authoritative.** The prototype still uses older movement assumptions. Re-port from `game/` only when intentionally refreshing the prototype.
 
-12. **West-bank drive filter is hardcoded** — `isWestOfRiverAt` + `drive` / `road-fork` only in `availableMoves`, not in `directNeighbors` or `canReachHex`. Intentional design filter, but not expressed in map data.
+18. **Add save/load round-trip coverage for openings.** `discoveredOpenings` is serialized, but the round trip is not directly asserted.
 
-13. **`crossPassage` guard coverage** — `crossPassage` now re-checks `shouldOfferPassageCrossing`; add regressions for locked/hidden/unreachable passages as more content is added.
+19. **Add builder serialization for openings.** Builder export still needs full serialization for hole/ford/bridge/stair-style openings.
 
-14. **Compound gate north/south** — Uses opening y coordinate, not fence polyline. Fragile if gate or fence moves in YAML.
-
-### Content and docs
-
-15. **`map.yaml` header contradicts this doc** — Lines 35–38 describe openings on direct hex moves; should be updated to match hexcrawling contract.
-
-16. **`barrierPassageJourney.test.js`** — Referenced in old plans and `storyJourneySmoke.test.js` comment but **file does not exist**; smoke coverage split between `storyJourneySmoke.test.js` (gameplay) and scattered unit tests.
-
-17. **`web/` prototype divergence** — `web/src/composables/useTravelBarriers.js` still uses `openingAllows` on inter-hex paths. Re-port from `game/` or mark prototype as non-authoritative for movement.
-
-### Persistence and tooling
-
-18. **No save round-trip test** for `discoveredOpenings` (serialized in snapshots, not asserted in tests).
-
-19. **Builder opening serialization** — No `serializeOpening` for hole/ford/bridge in builder (fast follow).
-
-20. **`buildMovePath` `moveOpts`** — Accepts `{ barriers, size }` but does not read them; barriers applied only in `resolveMove`.
-
-### Barrier kinds
-
-21. **Cliff / ravine / stair** — In `BARRIER_OPENINGS` table but no dedicated passage UX like river banks; generic segment blocking and `standAcrossOpening` perpendicular inset only. Untested on Part I map?
-
-22. **`openingAllows` on inter-hex** — Still exported and unit-tested in `useTravelBarriers.test.js` for disc matching; not used by `firstBlockedOnPath` during travel. Keep for `crossPassage` tests or move to passage module?
-
-### Resolved design decisions
-
-| Decision | Resolution |
-| -------- | ---------- |
-| Passage use | Part I passages are explicit, player-driven `crossPassage` actions. The player may cross back and forth and may choose another direction instead. |
-| Story triggers | Story maps to cells. Entering a cell is enough to trigger cell-level story/description, even if the avatar stops at an in-cell barrier. |
-| UI/execution consistency | `moveTo` and movement option generation must enforce the same gameplay gates. |
-| Movement predicates | Use one authoritative adjacent-move resolver. Delete redundant predicates unless a new gameplay contract requires them. |
-| Curved barriers | Collision should use the same sampled curve the player sees. |
-| Barrier-adjacent stands | Walking along or standing beside a barrier should keep a small visible gap so the avatar does not stand on the barrier. |
+20. **Remove or use `buildMovePath` `moveOpts`.** The function accepts `{ barriers, size }` but does not read them; barriers are applied later in `resolveMove`.
 
 ---
 
