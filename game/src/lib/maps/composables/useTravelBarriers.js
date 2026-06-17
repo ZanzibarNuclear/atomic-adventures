@@ -326,6 +326,10 @@ export function resolveArrivalStand(walkPath, toHex, toPos, hexAtPoint, opts = {
     }
   }
 
+  if (stand?.from === 'landmark' && size != null && walkPath.length <= 2) {
+    return resolveAvatarPosition(toHex, size)
+  }
+
   if (walkPath.length <= 2) return toPos
   const last = walkPath[walkPath.length - 1]
   if (

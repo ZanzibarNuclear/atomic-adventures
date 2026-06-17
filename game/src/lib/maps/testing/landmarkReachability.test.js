@@ -24,17 +24,26 @@ describe('landmark reachability', () => {
     ).toBe(true)
   })
 
-  it('west-bank stand cannot reach the utility station landmark', () => {
+  it('lands at the driveway stand when arriving from mid-west', () => {
     const mw = world.hexById['mid-west']
     const m = evaluateNeighborMove(world, mw, uy, world.resolveStand(mw))
 
-    expect(m.result.stand.x).not.toBeCloseTo(drivewayStand.x, 0)
-    expect(barrierBlocksReach(m.result.stand, drivewayStand, world.ctx)).toBe(
-      true,
-    )
+    expect(m.result.stand.x).toBeCloseTo(drivewayStand.x, 0)
+    expect(m.result.stand.y).toBeCloseTo(drivewayStand.y, 0)
     expect(
       isLandmarkReachable(uy, m.result.stand, world.ctx, world.size),
-    ).toBe(false)
+    ).toBe(true)
+  })
+
+  it('lands at the driveway stand when arriving from south-pines', () => {
+    const sp = world.hexById['south-pines']
+    const m = evaluateNeighborMove(world, sp, uy, world.resolveStand(sp))
+
+    expect(m.result.stand.x).toBeCloseTo(drivewayStand.x, 0)
+    expect(m.result.stand.y).toBeCloseTo(drivewayStand.y, 0)
+    expect(
+      isLandmarkReachable(uy, m.result.stand, world.ctx, world.size),
+    ).toBe(true)
   })
 
   it('blocks reachability across a fence without an opening', () => {
@@ -68,17 +77,9 @@ describe('landmark reachability', () => {
 
     expect(outdoor.atBuildingEntrance).toBe(true)
 
-    const mw = world.hexById['mid-west']
-    const bankArrival = evaluateNeighborMove(
-      world,
-      mw,
-      uy,
-      world.resolveStand(mw),
-    ).result.stand
-    outdoor.state.stand = {
-      x: Math.round(bankArrival.x),
-      y: Math.round(bankArrival.y),
-    }
-    expect(outdoor.atBuildingEntrance).toBe(false)
+    outdoor.state.currentId = 'mid-west'
+    outdoor.state.stand = outdoor.defaultStandForHex('mid-west')
+    gameplayMoveTo(outdoor, 'utility-yard')
+    expect(outdoor.atBuildingEntrance).toBe(true)
   })
 })
