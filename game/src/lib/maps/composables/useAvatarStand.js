@@ -59,7 +59,11 @@ export function hexCenterStand(hex, size) {
   return axialToPixel(hex.q, hex.r, size)
 }
 
-/** Preferred stand when stepping to an adjacent hex: authored `standAt`, else center. */
+/**
+ * Preferred stand when stepping to an adjacent hex: authored `standAt`, else center.
+ * For barrier-aware arrival (accessible side of in-hex barriers), use
+ * `resolveNeighborArrivalStand` from useTravelBarriers.js.
+ */
 export function resolveNeighborStand(fromHex, toHex, fromPos, size, barrierCtx) {
   const stand = toHex?.standAt
   if (stand) {

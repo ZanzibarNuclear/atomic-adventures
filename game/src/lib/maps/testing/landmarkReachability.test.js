@@ -56,14 +56,14 @@ describe('landmark reachability', () => {
     expect(barrierBlocksReach(from, to, ctx)).toBe(true)
   })
 
-  it('allows reachability through an authored fence opening', () => {
+  it('allows reachability along the accessible side without using an opening', () => {
     const from = { x: 0, y: 0 }
     const to = { x: 0, y: 40 }
     const ctx = {
       barriers: [{ a: { x: -20, y: 20 }, b: { x: 20, y: 20 }, kind: 'fence' }],
       openings: [{ kind: 'hole', x: 0, y: 20, r: 12 }],
     }
-    expect(barrierBlocksReach(from, to, ctx)).toBe(false)
+    expect(barrierBlocksReach(from, to, ctx)).toBe(true)
   })
 
   it('offers enter only when the landmark is reachable (gameplay)', () => {

@@ -24,6 +24,7 @@ describe('outdoor barrier status lines', () => {
     outdoor.state.stand = outdoor.defaultStandForHex('south-pines')
     outdoor.state.discoveredOpenings = ['south-pines-hole']
     outdoor.state.atBarrier = 'river'
+    outdoor.crossPassage('south-pines-hole')
 
     outdoor.moveTo('lower-stand')
     await new Promise((r) => setTimeout(r, 700))

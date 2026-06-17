@@ -62,7 +62,7 @@ describe('useGameState save roundtrip', () => {
     expect(ok).toBe(true)
     expect(outdoor.state.currentId).toBe('south-pines')
     expect(outdoor.state.stand).toEqual(savedStand)
-    expect(outdoor.state.atBarrier).toBe('fence')
+    expect(outdoor.state.atBarrier).toBeNull()
     expect(outdoor.state.lastBlocked).toBeNull()
   })
 

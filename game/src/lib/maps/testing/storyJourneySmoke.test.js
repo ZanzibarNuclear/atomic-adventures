@@ -17,7 +17,7 @@ import {
 
 /**
  * Smoke: Day-1 mainline journey using real gameplay (moveTo + gameState).
- * Complements barrierPassageJourney.test.js (barrier geometry via travelWorld).
+ * Complements geometry coverage in travelWorld tests; see docs/designs/hexcrawling.md.
  *
  * map.yaml `journey` is one story beat per hex; after the gate, gameplay walks
  * gate-woods → west-slope → utility-yard using generic adjacent travel.

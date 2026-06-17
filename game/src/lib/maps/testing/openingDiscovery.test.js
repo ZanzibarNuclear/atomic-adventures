@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import mapData from '../../../../content/world/map.yaml'
 import { travelOpenings } from '../composables/useBarrierOpenings.js'
+import { useOutdoorWorld } from '../composables/useOutdoorWorld.js'
 import { buildTravelWorld, evaluateNeighborMove } from './travelWorld.js'
 
 describe('opening discovery', () => {
@@ -19,15 +20,21 @@ describe('opening discovery', () => {
     expect(without.some((o) => o.id === 'upper-gorge-bridge')).toBe(true)
   })
 
-  it('south-pines hole enables lower-stand crossing after search', () => {
+  it('south-pines hole enables in-hex crossing after search', () => {
     const world = buildTravelWorld(mapData)
     const from = world.hexById['lower-stand']
     const to = world.hexById['south-pines']
-    const blocked = evaluateNeighborMove(world, from, to, world.resolveStand(from))
-    expect(blocked.reachable).toBe(false)
+    const before = evaluateNeighborMove(world, from, to, world.resolveStand(from))
+    expect(before.enters).toBe(true)
+    expect(before.reachable).toBe(true)
 
     world.revealOpening('south-pines-hole')
-    const open = evaluateNeighborMove(world, from, to, world.resolveStand(from))
-    expect(open.reachable).toBe(true)
+    const outdoor = useOutdoorWorld(mapData)
+    outdoor.state.currentId = 'south-pines'
+    outdoor.state.stand = before.result.stand
+    outdoor.state.discoveredOpenings = ['south-pines-hole']
+    expect(outdoor.passageCrossings.some((c) => c.openingId === 'south-pines-hole')).toBe(
+      true,
+    )
   })
 })

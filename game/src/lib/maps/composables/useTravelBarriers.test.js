@@ -15,7 +15,7 @@ import {
 } from './useTravelBarriers.js'
 
 const verticalFence = {
-  barriers: [{ a: { x: 100, y: 0 }, b: { x: 100, y: 200 }, kind: 'fence' }],
+  barriers: [{ a: { x: 100, y: -80 }, b: { x: 100, y: 200 }, kind: 'fence' }],
   openings: [],
 }
 
@@ -24,8 +24,20 @@ const gateAtFence = {
   openings: [{ kind: 'gate', x: 100, y: 100, r: 22 }],
 }
 
+const TEST_HEX_SIZE = 44
+
 function hexAtPoint(pt, fallback) {
-  return fallback
+  const { q, r } = pixelToHex(pt.x, pt.y, TEST_HEX_SIZE)
+  const key = `${q},${r}`
+  if (fallback === 'from' || fallback === 'to') {
+    return { '0,0': 'from', '1,0': 'to' }[key] ?? fallback
+  }
+  return {
+    '0,0': 'west',
+    '1,0': 'east',
+    '0,1': 'lower-stand',
+    '-1,1': 'south-pines',
+  }[key] ?? fallback
 }
 
 describe('segment geometry', () => {
@@ -75,13 +87,13 @@ describe('barrier crossings', () => {
     expect(moveBlocked(null, null, path, verticalFence)).toBe('fence')
   })
 
-  it('allows crossing at a gate opening', () => {
+  it('treats passage openings as irrelevant to path barrier checks', () => {
     const path = [
       { x: 50, y: 100 },
       { x: 150, y: 100 },
     ]
-    expect(firstBlockedOnPath(path, gateAtFence)).toBeNull()
-    expect(moveBlocked(null, null, path, gateAtFence)).toBeNull()
+    expect(firstBlockedOnPath(path, gateAtFence)?.kind).toBe('fence')
+    expect(moveBlocked(null, null, path, gateAtFence)).toBe('fence')
   })
 
   it('allows walking parallel to a fence without crossing it', () => {
@@ -114,7 +126,7 @@ describe('barrier crossings', () => {
     expect(firstBlockedOnPath(path, ctx)?.kind).toBe('river')
   })
 
-  it('allows a river crossing at a bridge', () => {
+  it('blocks a river crossing even when a bridge opening exists off the path', () => {
     const ctx = {
       barriers: [{ a: { x: 0, y: 50 }, b: { x: 200, y: 50 }, kind: 'river' }],
       openings: [{ kind: 'bridge', x: 100, y: 50, r: 14 }],
@@ -123,7 +135,7 @@ describe('barrier crossings', () => {
       { x: 100, y: 20 },
       { x: 100, y: 80 },
     ]
-    expect(firstBlockedOnPath(path, ctx)).toBeNull()
+    expect(firstBlockedOnPath(path, ctx)?.kind).toBe('river')
   })
 
   it('allows walking parallel to a river without crossing it', () => {
@@ -162,10 +174,11 @@ describe('openingAllows', () => {
 })
 
 describe('resolveMove', () => {
+  const size = TEST_HEX_SIZE
   const fromHex = { id: 'west', q: 0, r: 0 }
   const toHex = { id: 'east', q: 1, r: 0 }
 
-  it('stops before a fence with stand short of the crossing', () => {
+  it('enters the destination hex on the accessible side when the chord crosses a fence', () => {
     const fromPos = { x: 50, y: 100 }
     const toPos = { x: 150, y: 100 }
     const result = resolveMove({
@@ -176,15 +189,18 @@ describe('resolveMove', () => {
       path: [fromPos, toPos],
       ctx: verticalFence,
       hexAtPoint,
+      size,
     })
-    expect(result.blockedKind).toBe('fence')
-    expect(result.stand.x).toBeLessThan(100)
-    expect(result.stand.y).toBeCloseTo(100, 0)
+    expect(result.blockedKind).toBeNull()
+    expect(result.activeHexId).toBe('east')
+    const center = hexCenterStand(toHex, size)
+    expect(result.stand.x).toBeCloseTo(center.x, 0)
+    expect(result.stand.y).toBeCloseTo(center.y, 0)
   })
 
   it('completes an unblocked move at the destination stand', () => {
-    const fromPos = { x: 80, y: 40 }
-    const toPos = { x: 80, y: 160 }
+    const fromPos = { x: 76, y: -20 }
+    const toPos = { x: 76, y: 20 }
     const result = resolveMove({
       fromHex,
       toHex,
@@ -193,13 +209,14 @@ describe('resolveMove', () => {
       path: [fromPos, toPos],
       ctx: verticalFence,
       hexAtPoint,
+      size,
     })
     expect(result.blockedKind).toBeNull()
+    expect(result.activeHexId).toBe('east')
     expect(result.stand).toEqual(toPos)
   })
 
-  it('uses the destination hex when blocked at a fence (reveals fog on approach)', () => {
-    const size = 44
+  it('enters the destination hex on the accessible side of an in-hex fence', () => {
     const fromHex = { id: 'lower-stand', q: 0, r: 1 }
     const toHex = { id: 'south-pines', q: -1, r: 1 }
     const fromPos = { x: 38.1, y: 66 }
@@ -220,9 +237,9 @@ describe('resolveMove', () => {
       size,
     })
 
-    expect(result.blockedKind).toBe('fence')
+    expect(result.blockedKind).toBeNull()
     expect(result.activeHexId).toBe('south-pines')
-    expect(result.stand).not.toEqual(toPos)
+    expect(result.stand.x).toBeGreaterThan(-30)
   })
 })
 
@@ -297,7 +314,7 @@ describe('canOfferNeighbor vs canReachNeighbor', () => {
     const m = evaluateNeighborMove(world, from, to, world.resolveStand(from))
 
     expect(m.offerable).toBe(true)
-    expect(m.reachable).toBe(false)
+    expect(m.reachable).toBe(true)
     expect(m.enters).toBe(true)
   })
 })

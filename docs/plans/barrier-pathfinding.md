@@ -1,8 +1,10 @@
 # Barrier Pathfinding — Adjacent Movement Contract
 
-**Status:** Active design + implementation guide  
+> **Superseded:** Consolidated into [hexcrawling.md](../designs/hexcrawling.md). This file is kept for historical reference only.
+
+**Status:** Superseded  
 **Scope:** `game/src/lib/maps/` — travel, barriers, routes  
-**Related:** [barrier-passage-openings.md](barrier-passage-openings.md)
+**Related:** [hexcrawling.md](../designs/hexcrawling.md), [barrier-passage-openings.md](barrier-passage-openings.md)
 
 ## Problem
 
@@ -10,123 +12,109 @@ Direct hex-to-hex chords and coarse side-of-river heuristics break down when:
 
 - Barriers wind through hexes (river cascade, fence runs)
 - The same hex column has **parallel corridors** (west bank vs east bank at `q = -2`)
-- Openings (bridge, ford) sit at a different **y** than the avatar stand
 - A move is geometrically “open” along a bank but blocked by a chord that crosses barrier geometry elsewhere
+- In-hex openings (gate, hole, ford, bridge) were incorrectly treated as exemptions on **inter-hex** travel paths
 
-Earlier mid-west fixes (2026-06) addressed two symptoms:
-
-1. Ford used `fromPos.x > riverXAtOpeningY` — wrong side when the avatar y ≠ ford y
-2. Return from utility-yard after an east-bank ford failed because destination stands snapped to the west bank
-
-Those fixes were patches on a model that defaulted to **straight chords + global east/west filters**. The current implementation uses a generic shared-edge fallback for barrier-following adjacent movement.
+Earlier mid-west fixes (2026-06) addressed symptoms of a model that defaulted to **straight chords + global east/west filters + opening bypass on paths**. The current implementation uses a **two-step border-then-stand** resolver.
 
 ## Design goal
 
-> A move is allowed when there exists a **walkable adjacent step** from stand A into the neighboring hex that crosses barriers only at authored openings.
+> Adjacent hex movement is a **two-step** process: (1) reach the shared border with the destination hex without crossing a barrier, then (2) enter the destination hex and stand in the best reachable place inside that hex.
 
-Players should not need to reason about implementation details (bank column q, chord vs route). Authors should only need to mark routes, barriers, openings, and preferred stand points.
+Players should not need to reason about implementation details (bank column q, chord vs route). Authors mark routes, barriers, openings, and preferred stand points; the resolver applies one consistent contract everywhere.
 
-## Movement priority order
+## Two-step movement model
 
-Adjacent outdoor movement resolves in this order:
+### Step 1 — Reach the shared border
 
-1. **Authored route first.** If a trail, road, drive, or other route connects the current hex to the neighbor, movement follows that route geometry.
-2. **Authored stand points are preferred.** If the destination hex has `standAt`, that is the preferred arrival stand. It is used when reachable without crossing a closed barrier.
-3. **Closed barriers truly block movement.** A move is rejected when every plausible adjacent entry into the destination hex would cross a barrier without an allowed opening.
-4. **Shared-edge barrier-following fallback.** When the preferred stand/center path is blocked, sample the shared edge between the two hexes. If the avatar can reach an entry point on that edge and can stand just inside the destination hex on the same side of the barrier, allow the move.
-5. **Center-to-center remains the default.** When no route, authored stand, barrier, or opening affects the move, the avatar moves to the destination hex center.
+**Question:** Can the avatar reach the shared edge with the intended destination hex?
 
-The shared-edge fallback is a recovery path for barrier-adjacent movement, not the default. It should not replace ordinary center-to-center walking on open terrain.
+- The approach path may follow **any polyline that does not cross a barrier** — a straight chord is fine to try first, but it is not required.
+- **Marked routes** use their authored geometry as the approach path when the full polyline is barrier-clear up to the destination hex.
+- When the direct chord is blocked, sample the **shared edge** between the two hexes (inside-edge nudges, partial chords along the edge).
+- **Passage openings do not apply** on inter-hex paths. Barriers always block path segments during adjacent travel. (Openings are for in-hex `crossPassage` — see [barrier-passage-openings.md](barrier-passage-openings.md).)
+- If no barrier-clear path reaches the shared border, the move **stops in the departure hex** before the blocking barrier.
 
-## Current model (summary)
+### Step 2 — Cross in and find a stand
+
+**Question:** From a point just inside the destination hex on the shared border, where should the avatar stand?
+
+Priority order:
+
+1. **Route stand** — when following a marked route, stand on the route where it enters the destination hex.
+2. **Authored `standAt`** — when a barrier-clear path exists from the border entry to the authored stand **inside the destination hex**.
+3. **Intended arrival point (`toPos`)** — same rule as authored stand (must be inside the destination hex).
+4. **Hex center** — when reachable without crossing a barrier.
+5. **Accessible side of a blocking barrier** — interior samples and `standBeforeFirstHit` along paths toward the preferred targets above; stand on the entry side of any barrier that blocks those targets.
+6. **Border entry** — last resort when nothing else is reachable.
+
+The **active hex** is whichever hex contains the final stand point (`hexAtPoint(stand)`), not merely the intended destination.
+
+### Routes
+
+Route-following moves use the **same two-step contract**:
+
+- Step 1 follows the **route polyline** to the shared border (not a shortcut chord).
+- Step 2 prefers standing **on the route** in the destination hex when the route continues there.
+- Route moves are only offered when step 1 succeeds from the current stand.
+
+### In-hex passage (`crossPassage`)
+
+**Separate from inter-hex travel.** When the avatar deliberately crosses a barrier **within the same hex** (gate, hole, bridge, ford), `crossPassage` flips the stand to the opposite side of that barrier at the opening. This is how locked gates, fence holes, and river crossings work without treating openings as global path exemptions.
+
+## Movement priority (offer + resolve)
+
+When evaluating or executing an adjacent move:
+
+1. **Authored route first** — if a marked route connects the hexes, build the path from route geometry.
+2. **Two-step resolver** — `findReachableBorderEntry` then `resolveDestinationStand` in [`useTravelBarriers.js`](../game/src/lib/maps/composables/useTravelBarriers.js).
+3. **Neighbor filters** — gameplay rules (e.g. locked compound gate UI) may hide moves; geometry is still authoritative via `canEnterNeighbor` / `canReachNeighbor`.
+
+## Implementation map
 
 | Layer | Behavior |
 |-------|----------|
-| Path | Route polyline if marked route connects hexes; else `[fromPos, toPos]` chord |
-| Block check | `firstBlockedOnPath` on polyline; openings allow crossing at intersection |
-| Special cases | Shared-edge fallback for blocked direct adjacent moves that are mostly parallel to the blocking barrier |
-| Neighbor filter | Route/direct candidates defer to `canEnterNeighbor` / `resolveMove`; broad east↔west filters have been removed |
-| In-hex | `crossPassage` toggles stand across opening |
+| Step 1 | `findReachableBorderEntry` — walk polyline, shared-edge samples, partial chords; `firstBlockedOnPath` with openings stripped (`interHexTravelCtx`) |
+| Step 2 | `resolveDestinationStand` — route stand → authored → `toPos` → center → accessible-side fallback |
+| Block check | `firstBlockedOnPath` — barriers block; **no** `openingAllows` on travel paths |
+| Routes | `buildMovePath` + route stand via `resolveArrivalStand` |
+| In-hex | `crossPassage` in [`usePassageCrossing.js`](../game/src/lib/maps/composables/usePassageCrossing.js); `openingAllows` used only there |
+| Active hex | `hexAtPoint(finalStand)` |
 
-## Generic adjacent fallback
+## Examples
 
-When the route/stand/center path is blocked, the movement resolver should:
-
-1. Compute the shared edge between the adjacent hexes.
-2. Sample several points along that edge, excluding exact corners.
-3. Nudge each sample slightly into the destination hex.
-4. Keep samples reachable from the current stand without crossing a closed barrier.
-5. Prefer the authored destination `standAt` if it is reachable from that sample.
-6. Otherwise stand at the nudged inside-edge point.
-
-This works for fences, rivers, cliffs, ravines, and future barrier kinds because it relies on the same barrier segment + opening geometry used everywhere else.
-
-## Proposed directions (in priority order)
-
-### 1. Shared-edge adjacent fallback (done)
-
-When a preferred direct stand/center path is blocked, `resolveMove` samples the shared edge between the neighboring hexes. If the avatar can reach an inside-edge sample without crossing a closed barrier, the move is allowed.
-
-This replaces the previous q-specific bank-column workaround.
-
-### 2. Authored bank corridors (optional later)
-
-Add optional route kind or feature flag:
-
-```yaml
-routes:
-  - id: west-bank-trail
-    kind: bank-corridor
-    side: west   # west | east
-    points: [...]  # polyline hugging the bank
-```
-
-- Movement between hexes touched by the corridor uses the **corridor polyline** as path (like `river-access-drive`)
-- `firstBlockedOnPath` sees a path that never crosses the river
-- Useful only when designers want an explicit visible/authored corridor rather than implicit adjacent barrier-following
-
-**Authoring workflow:** trace the walkable bank in builder; smoke test with journey tests per corridor.
-
-### 3. Path sampling instead of chords
-
-For direct hex moves without a marked route:
-
-1. Build a small path: stand → (optional corridor waypoint) → destination stand
-2. Waypoints from: same-side bank offset, hex `standAt`, or corridor nearest point
-3. Run barrier check on polyline, not single chord
-
-Avoids false blocks/opens when the chord crosses a barrier segment far from the actual walk.
-
-### 4. Side detection at path endpoints only
-
-Replace global `isEastOfRiverAt(from) && isWestOfRiverAt(to)` filters with:
-
-- Compute `toPos` via same-side / corridor rules first
-- Let `canOfferNeighbor` + `firstBlockedOnPath` be the single gate
-- Keep only rules that encode **game design** (e.g. hide `river-access-drive` from west bank)
-
-Ford/bridge crossings already use side at **fromPos.y** (fixed 2026-06).
-
-### 5. Reachability graph (later)
-
-For complex maps, precompute per-hex **stand regions** (west bank, east bank, interior) and legal edges:
-
-- Direct step within region
-- Opening edge (bridge, ford, gate, hole)
-- Route edge (marked polylines)
-
-Movement UI queries the graph; barrier geometry stays authoritative for new hexes until recomputed.
+| Scenario | Step 1 | Step 2 |
+|----------|--------|--------|
+| Open terrain | Chord to shared edge | Authored stand or center |
+| Fence between hexes | Shared-edge sample reachable along west side | Stand in destination on accessible side of fence |
+| `mid-west → gate-woods` | Reach east border without crossing in-hex compound fence | Stand south of fence (center or accessible side); **not** at gate approach north of fence unless that path is barrier-clear from the approach direction |
+| `south-pines → lower-stand` with fence on border | Blocked from west of fence until `crossPassage('south-pines-hole')` | Then border reachable; stand in `lower-stand` |
+| `road-fork → upper-gorge` via drive | Follow route polyline to border | Stand on drive end in `upper-gorge` |
 
 ## Testing strategy
 
 | Test | Asserts |
 |------|---------|
-| `midWestFord.test.js` | One-click ford; east-bank round trip utility-yard ↔ mid-west |
-| `midWestMove.test.js` | West-bank column without ford |
-| `barrierPassageJourney.test.js` | Full northern approach + west column |
-| Future corridor tests | Path follows YAML polyline; no chord cross |
+| `midWestGateWoods.test.js` | `mid-west → gate-woods` enters hex south of compound fence |
+| `midWestFord.test.js` | Ford is in-hex `crossPassage`; adjacent bank walks without ford |
+| `barrierPassageJourney.test.js` | Full northern approach; gate/hole via `crossPassage` where required |
+| `useTravelBarriers.test.js` | Two-step stand selection; openings irrelevant to `firstBlockedOnPath` |
+| `openingDiscovery.test.js` | Hole enables `crossPassage`, not neighbor `openingAllows` bypass |
 
-Add regression any time a **move is offerable but path crosses a barrier** without an opening (the utility-yard return bug class).
+Add regression when a **move is offerable but step 1 crosses a barrier**, or when **step 2 places the stand on the wrong side of an in-hex barrier** relative to the approach direction.
+
+## Superseded documentation (do not follow)
+
+The following **older statements are wrong** under the unified model. They remain in git history or parallel copies; this file supersedes them.
+
+| Location | Superseded claim |
+|----------|------------------|
+| **This file (prior revision)** | “A move is allowed when there exists a walkable adjacent step that crosses barriers only at authored openings.” |
+| **This file (prior revision)** | `firstBlockedOnPath` table row: “openings allow crossing at intersection” for adjacent travel |
+| **This file (prior revision)** | Priority list item implying openings affect inter-hex entry |
+| [`barrier-passage-openings.md`](barrier-passage-openings.md) (prior overview) | “Fence and river barriers block direct hex travel **except at authored openings**” |
+| [`barrier-passage-openings.md`](barrier-passage-openings.md) (prior tuning) | “Adjust `at` until `openingAllows` passes for the intended **neighbor move**” |
+| [`web/src/composables/useTravelBarriers.js`](../../web/src/composables/useTravelBarriers.js) | Prototype still applies `openingAllows` on path checks — **diverges from game**; port from `game/` when syncing |
 
 ## Out of scope
 
@@ -136,12 +124,11 @@ Add regression any time a **move is offerable but path crosses a barrier** witho
 
 ## Checklist
 
-- [x] Fix ford side detection (`isWestOfRiverAt` / `isEastOfRiverAt`, not x vs riverX at ford y)
-- [x] Same-side bank stands for `q = -2` column _(removed after generic fallback covered it)_
-- [x] `skipRiverForParallelBankWalk` (west and east same-side) _(removed after generic fallback covered it)_
-- [x] Implement shared-edge fallback for adjacent moves
-- [x] Remove hard-coded river-bank column behavior
-- [x] Remove redundant east↔west preemptive filters once generic fallback covers Part I
-- [x] Add orientation-agnostic barrier-following regression tests
-- [ ] Author `west-bank-trail` (or similar) YAML corridor only if future map design needs explicit walkable bank routes
-- [ ] Route builder support for `bank-corridor` kind only if authored corridors become necessary
+- [x] Two-step border-then-stand resolver in `game/`
+- [x] Strip openings from inter-hex path checks
+- [x] Shared-edge fallback for step 1
+- [x] Route stand preference in step 2
+- [x] `mid-west → gate-woods` regression
+- [x] Document unified contract (this file)
+- [x] Update [barrier-passage-openings.md](barrier-passage-openings.md) opening scope
+- [ ] Port two-step model to `web/` prototype when next syncing map code
