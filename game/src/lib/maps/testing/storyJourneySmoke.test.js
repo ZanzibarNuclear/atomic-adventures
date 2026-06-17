@@ -20,7 +20,7 @@ import {
  * Complements barrierPassageJourney.test.js (barrier geometry via travelWorld).
  *
  * map.yaml `journey` is one story beat per hex; after the gate, gameplay walks
- * gate-woods → west-slope → utility-yard on hero-route (west-slope is not in journey).
+ * gate-woods → west-slope → utility-yard using generic adjacent travel.
  */
 describe('story journey smoke test (gameplay)', () => {
   const JOURNEY = mapData.journey ?? []
@@ -75,7 +75,7 @@ describe('story journey smoke test (gameplay)', () => {
     const southOptions = getMovementOptions(outdoor, null).map((o) => o.label)
     expect(southOptions.some((l) => /^Go south/i.test(l))).toBe(true)
 
-    // Hero-route south: gate-woods → west-slope → utility-yard (journey skips the middle hex).
+    // Adjacent travel south: gate-woods → west-slope → utility-yard (journey skips the middle hex).
     expectMoveOk(outdoor, 'gate-woods', 'west-slope')
     expectMoveOk(outdoor, 'west-slope', 'utility-yard')
 

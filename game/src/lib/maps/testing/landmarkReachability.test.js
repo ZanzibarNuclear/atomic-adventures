@@ -13,7 +13,7 @@ describe('landmark reachability', () => {
   const uy = world.hexById['utility-yard']
   const drivewayStand = resolveAvatarPosition(uy, world.size)
 
-  it('lands at the driveway stand when arriving via hero-route', () => {
+  it('lands at the driveway stand when arriving from west-slope', () => {
     const ws = world.hexById['west-slope']
     const m = evaluateNeighborMove(world, ws, uy, world.resolveStand(ws))
 

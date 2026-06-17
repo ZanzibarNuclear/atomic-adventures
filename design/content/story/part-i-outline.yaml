@@ -4,7 +4,7 @@
 # Use this to expand game/content/story/part-i.yaml scene by scene.
 #
 # Scene kinds:
-#   main    — hero journey; acknowledge once, advances story flags
+#   main    — canonical journey; acknowledge once, advances story flags
 #   ambient — off-path hex or optional room; short prose + nudge back toward journey
 #
 # Fields:
@@ -26,7 +26,7 @@ when_phases:
   dusk: Hallway and library approach
   night: Sleep in the library
 
-# Canonical outdoor path (hero route in map.yaml)
+# Canonical outdoor journey
 journey:
   hexes: [trailhead, east-pines, center-pines, north-bend, gate-woods, utility-yard]
 
@@ -242,7 +242,7 @@ scenes:
 
 # ---------------------------------------------------------------------------
 # Ambient / off-path — keyed to hex (or room), nudge toward journey
-# Show when: player is off hero route, relevant require flags met, once per id.
+# Show when: player is off the canonical journey, relevant require flags met, once per id.
 # ---------------------------------------------------------------------------
 ambient:
 

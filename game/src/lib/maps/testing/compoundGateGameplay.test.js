@@ -7,6 +7,7 @@ import {
   GATE_FLAG_UNLOCKED,
   isNorthOfCompoundGate,
 } from '../composables/useCompoundGate.js'
+import { distToBarrierKind } from '../composables/useBarrierStand.js'
 
 /**
  * Gameplay smoke: locked compound gate with real moveTo + gameState.
@@ -27,15 +28,18 @@ describe('compound gate gameplay', () => {
     }
   }
 
-  it('stops west of the fence when walking center-pines → north-bend (locked gate)', () => {
+  it('stops outside the fence when walking center-pines → north-bend (locked gate)', () => {
     const { outdoor } = buildGameplayWorld(mapData)
     gameplayMoveTo(outdoor, 'east-pines')
     gameplayMoveTo(outdoor, 'center-pines')
     gameplayMoveTo(outdoor, 'north-bend')
 
     expect(outdoor.state.currentId).toBe('north-bend')
-    expect(outdoor.state.stand).toEqual({ x: -35, y: -66 })
-    expect(outdoor.state.stand.x).toBeLessThan(FENCE_X)
+    expect(outdoor.state.stand.x).toBeGreaterThan(FENCE_X)
+    expect(
+      distToBarrierKind(outdoor.state.stand, 'fence', outdoor.travelBarrierCtx.barriers),
+    ).toBeLessThanOrEqual(6)
+    expect(outdoor.state.atBarrier).toBe('fence')
   })
 
   it('road-fork south lands north of the locked gate, not inside the fence', () => {
@@ -48,6 +52,7 @@ describe('compound gate gameplay', () => {
     expect(
       isNorthOfCompoundGate(outdoor.state.stand, outdoor.travelBarrierCtx),
     ).toBe(true)
+    expect(outdoor.state.atBarrier).not.toBe('fence')
     expect(outdoor.state.lastBlocked).toBeNull()
   })
 
@@ -56,7 +61,11 @@ describe('compound gate gameplay', () => {
     gameplayMoveTo(outdoor, 'east-pines')
     gameplayMoveTo(outdoor, 'center-pines')
     gameplayMoveTo(outdoor, 'north-bend')
-    expect(outdoor.state.stand).toEqual({ x: -35, y: -66 })
+    expect(outdoor.state.stand.x).toBeGreaterThan(FENCE_X)
+    expect(
+      distToBarrierKind(outdoor.state.stand, 'fence', outdoor.travelBarrierCtx.barriers),
+    ).toBeLessThanOrEqual(6)
+    expect(outdoor.state.atBarrier).toBe('fence')
 
     gameplayMoveTo(outdoor, 'gate-woods')
     expect(outdoor.state.stand).toEqual({ x: -81, y: -76 })

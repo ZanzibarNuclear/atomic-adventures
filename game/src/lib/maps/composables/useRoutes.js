@@ -329,7 +329,43 @@ export function routeLegBetween(fromHexId, toHexId, routeModels) {
   )
 }
 
-/** Walk path for a move — chord from a fixed departure stand, else route polyline. */
+function closestSpanForPosition(model, hexId, pos) {
+  const spans = model?.spans.filter((s) => s.hexId === hexId) ?? []
+  if (!spans.length) return null
+  if (!pos) return spans[0]
+  let best = spans[0]
+  let bestDist = Infinity
+  for (const span of spans) {
+    for (let i = span.startIdx; i <= span.endIdx; i++) {
+      const sample = model.samples[i]
+      if (!sample) continue
+      const d = Math.hypot(sample.x - pos.x, sample.y - pos.y)
+      if (d < bestDist) {
+        best = span
+        bestDist = d
+      }
+    }
+  }
+  return best
+}
+
+function closestSampleIndexInSpan(model, span, pos) {
+  if (!span || !pos) return null
+  let bestIdx = span.startIdx
+  let bestDist = Infinity
+  for (let i = span.startIdx; i <= span.endIdx; i++) {
+    const sample = model.samples[i]
+    if (!sample) continue
+    const d = Math.hypot(sample.x - pos.x, sample.y - pos.y)
+    if (d < bestDist) {
+      bestIdx = i
+      bestDist = d
+    }
+  }
+  return bestIdx
+}
+
+/** Walk path for a move — authored route first, else direct chord. */
 export function buildMovePath(
   fromPos,
   fromHex,
@@ -339,21 +375,19 @@ export function buildMovePath(
   routeModels,
   moveOpts = null,
 ) {
-  const fixedDeparture =
-    fromHex?.standAt?.x != null &&
-    fromHex?.standAt?.y != null &&
-    fromHex?.standAt?.from == null
-  if (fixedDeparture) {
-    return [fromPos, toPos]
-  }
   if (routeLeg) {
     const model = routeModels.find((r) => r.id === routeLeg.routeId)
-    const fromSpan = model?.spans.find((s) => s.hexId === fromHex.id)
-    const toSpan = model?.spans.find((s) => s.hexId === toHex.id)
+    const fromSpan = closestSpanForPosition(model, fromHex.id, fromPos)
+    const toSpan = closestSpanForPosition(model, toHex.id, toPos)
     if (model && fromSpan && toSpan) {
-      const samples = routeMoveSamples(model, fromSpan, toSpan)
+      const fromIdx = closestSampleIndexInSpan(model, fromSpan, fromPos)
+      const toIdx = closestSampleIndexInSpan(model, toSpan, toPos)
+      const samples =
+        fromIdx != null && toIdx != null
+          ? model.samples.slice(Math.min(fromIdx, toIdx), Math.max(fromIdx, toIdx) + 1)
+          : routeMoveSamples(model, fromSpan, toSpan)
       if (samples.length >= 2) {
-        return samples
+        return [fromPos, ...samples]
       }
     }
   }

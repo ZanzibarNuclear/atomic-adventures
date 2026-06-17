@@ -465,20 +465,6 @@ export function useOutdoorWorld(mapData, gameState = null) {
     });
   }
 
-  async function autoTravel() {
-    const main =
-      routeModels.value.find((r) => r.id === "hero-route") ??
-      routeModels.value[0];
-    if (!main) return;
-    const sequence = main.spans.map((s) => s.hexId).filter((id) => id != null);
-    let idx = sequence.indexOf(state.currentId);
-    if (idx === -1) idx = 0;
-    for (let i = idx + 1; i < sequence.length; i++) {
-      moveTo(sequence[i]);
-      await new Promise((r) => setTimeout(r, 750));
-    }
-  }
-
   function resetPlayer() {
     state.currentId = START;
     state.discovered = [START];
@@ -540,7 +526,6 @@ export function useOutdoorWorld(mapData, gameState = null) {
     crossPassage,
     canReachHex,
     isAdjacentHex,
-    autoTravel,
     resetPlayer,
     defaultStandForHex,
     nameOf,

@@ -180,6 +180,33 @@ function pathClear(path, ctx, moveCtx = null) {
   return firstBlockedOnPath(path, ctx, moveCtx) == null
 }
 
+function approachCtx(ctx) {
+  if (!ctx?.allOpenings) return ctx
+  return { ...ctx, openings: ctx.allOpenings }
+}
+
+function authoredStandApproachesOpening(authored, hit, ctx) {
+  const openings = ctx?.allOpenings ?? ctx?.openings ?? []
+  const allowed = allowedOpenings(hit?.kind)
+  return openings.some((o) => {
+    if (!allowed.has(o.kind)) return false
+    const r = o.r ?? 12
+    return Math.hypot(authored.x - o.x, authored.y - o.y) <= r
+  })
+}
+
+function standBeforeFirstHit(path, ctx, moveCtx = null) {
+  const hit = firstBlockedOnPath(path, ctx, moveCtx)
+  if (!hit) return null
+  const segStart = path[hit.segIndex] ?? path[0]
+  return {
+    stand: standBeforeBarrierHit(segStart, hit, {
+      inset: BARRIER_STAND_INSET[hit.kind] ?? BARRIER_STAND_INSET.fence,
+    }),
+    hit,
+  }
+}
+
 function mostlyParallelToBarrier(fromPos, toPos, hit) {
   if (!fromPos || !toPos || !hit) return false
   const vx = toPos.x - fromPos.x
@@ -190,6 +217,14 @@ function mostlyParallelToBarrier(fromPos, toPos, hit) {
   const wLen = Math.hypot(wx, wy)
   if (!vLen || !wLen) return false
   return Math.abs((vx * wx + vy * wy) / (vLen * wLen)) >= 0.6
+}
+
+function sameSideOfHit(a, b, hit) {
+  if (!a || !b || !hit) return false
+  const sa = sideOfLine(a, hit.a, hit.b)
+  const sb = sideOfLine(b, hit.a, hit.b)
+  const eps = 1e-3
+  return Math.abs(sa) <= eps || Math.abs(sb) <= eps || sa * sb > 0
 }
 
 function resolveSharedEdgeMove({
@@ -399,7 +434,49 @@ export function resolveArrivalStand(walkPath, toHex, toPos, hexAtPoint, opts = {
   const barriers = ctx?.barriers ?? ctx ?? []
 
   if (stand?.x != null && stand?.y != null && stand.from == null) {
-    return { x: stand.x, y: stand.y }
+    const authored = { x: stand.x, y: stand.y }
+    if (walkPath.length > 2 && ctx) {
+      const standCtx = approachCtx(ctx)
+      const routeStand = routeStandInHex(walkPath, toHex.id, hexAtPoint)
+      const blockedFromStart = standBeforeFirstHit(
+        [fromPos, authored],
+        standCtx,
+        moveHexContext(fromHex, toHex),
+      )
+      if (
+        blockedFromStart &&
+        authoredStandApproachesOpening(authored, blockedFromStart.hit, ctx)
+      ) {
+        return authored
+      }
+      if (
+        blockedFromStart &&
+        hexAtPoint(blockedFromStart.stand, toHex.id) === toHex.id
+      ) {
+        return blockedFromStart.stand
+      }
+      const blockedFromRouteStand = routeStand
+        ? standBeforeFirstHit(
+          [routeStand, authored],
+          standCtx,
+          moveHexContext(fromHex, toHex),
+        )
+        : null
+      if (
+        blockedFromRouteStand &&
+        authoredStandApproachesOpening(authored, blockedFromRouteStand.hit, ctx)
+      ) {
+        return authored
+      }
+      if (
+        routeStand &&
+        blockedFromRouteStand &&
+        hexAtPoint(blockedFromRouteStand.stand, toHex.id) === toHex.id
+      ) {
+        return blockedFromRouteStand.stand
+      }
+    }
+    return authored
   }
 
   // Route dead-ends at a landmark stand (e.g. utility station driveway).
@@ -515,13 +592,10 @@ export function resolveMove({
       toHex.standAt.from == null
         ? { x: toHex.standAt.x, y: toHex.standAt.y }
         : null
-    if (
-      authored &&
-      fromPos?.y != null &&
-      fromPos.y < authored.y &&
-      hit.kind === 'fence' &&
-      !openingAllows(hit.kind, hit.x, hit.y, ctx.openings)
-    ) {
+    if (authored && sameSideOfHit(fromPos, authored, hit)) {
+      stand = authored
+      blockedKind = null
+    } else if (authored && authoredStandApproachesOpening(authored, hit, ctx)) {
       stand = authored
       blockedKind = null
     } else {
