@@ -46,6 +46,19 @@ export function isNearBarrierKind(pos, kind, barriers, maxDist) {
   return d <= limit
 }
 
+function nearFenceSegment(pos, seg, maxDist) {
+  const d = distToSegment(pos.x, pos.y, seg.a.x, seg.a.y, seg.b.x, seg.b.y)
+  if (d > maxDist) return false
+  const dx = Math.abs(seg.b.x - seg.a.x)
+  const dy = Math.abs(seg.b.y - seg.a.y)
+  // Horizontal fence runs (north boundary): interior is south (larger y).
+  if (dx > dy) {
+    const segY = (seg.a.y + seg.b.y) / 2
+    return pos.y > segY - 1
+  }
+  return true
+}
+
 /**
  * Which barrier kind the avatar is standing beside, if any — for status hints
  * and atBarrier state. Picks the nearest barrier within kind-specific range.
@@ -54,8 +67,15 @@ export function barrierHintAtStand(stand, barriers) {
   let best = null
   for (const kind of ['fence', 'river']) {
     const maxDist = kind === 'river' ? RIVER_BANK_MAX_DIST : FENCE_LINE_MAX_DIST
-    const d = distToBarrierKind(stand, kind, barriers)
-    if (d != null && d <= maxDist && (!best || d < best.dist)) {
+    let d = null
+    for (const seg of barriers ?? []) {
+      if (seg.kind !== kind) continue
+      const segDist = distToSegment(stand.x, stand.y, seg.a.x, seg.a.y, seg.b.x, seg.b.y)
+      if (segDist > maxDist) continue
+      if (kind === 'fence' && !nearFenceSegment(stand, seg, maxDist)) continue
+      if (d == null || segDist < d) d = segDist
+    }
+    if (d != null && (!best || d < best.dist)) {
       best = { kind, dist: d }
     }
   }

@@ -90,6 +90,10 @@ function eastBankStandInHex(point, size, barriers) {
  */
 export function resolveNeighborStand(fromHex, toHex, fromPos, size, barrierCtx) {
   const barriers = barrierCtx?.barriers ?? barrierCtx ?? []
+  const stand = toHex?.standAt
+  if (stand?.x != null && stand?.y != null && stand.from == null) {
+    return { x: stand.x, y: stand.y }
+  }
   const center = hexCenterStand(toHex, size)
   if (fromPos?.x != null && barriers.length && toHex.q === WEST_BANK_HEX_Q && fromHex?.q === WEST_BANK_HEX_Q) {
     if (isWestOfRiverAt(fromPos, barriers)) {

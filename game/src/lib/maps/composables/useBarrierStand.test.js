@@ -82,6 +82,11 @@ describe('barrierHintAtStand', () => {
     expect(barrierHintAtStand(south, barriers)).toBe('fence')
   })
 
+  it('does not flag gate approach north of the compound west fence run', () => {
+    const approach = { x: -81, y: -76 }
+    expect(barrierHintAtStand(approach, barriers)).toBeNull()
+  })
+
   it('uses a tight river proximity threshold', () => {
     expect(RIVER_BANK_MAX_DIST).toBeLessThan(30)
     const inland = { x: -38, y: 66 }

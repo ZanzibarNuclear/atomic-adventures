@@ -18,6 +18,7 @@ import {
   travelOpenings,
   resolveMove,
   canOfferNeighbor,
+  canEnterNeighbor,
   isLandmarkReachable,
 } from "./useTravelBarriers.js";
 import {
@@ -376,10 +377,33 @@ export function useOutdoorWorld(mapData, gameState = null) {
   function canReachHex(hexId) {
     if (hexId === state.currentId) return true;
     if (!isAdjacentHex(hexId)) return false;
-    return (
-      moves.value.some((m) => m.toHexId === hexId) ||
-      directMoves.value.some((m) => m.toHexId === hexId)
+    const fromHex = hexById.value[state.currentId];
+    const toHex = hexById.value[hexId];
+    if (!fromHex || !toHex) return false;
+
+    const fromPos = avatarFromPos.value;
+    const ctx = travelBarrierCtx.value;
+    const toPos = resolveNeighborStand(fromHex, toHex, fromPos, size, ctx);
+    const routeLeg = resolveRouteLeg(hexId);
+    const path = buildMovePath(
+      fromPos,
+      fromHex,
+      toHex,
+      toPos,
+      routeLeg,
+      routeModels.value,
+      { barriers: ctx, size },
     );
+    return canEnterNeighbor({
+      fromHex,
+      toHex,
+      fromPos,
+      toPos,
+      path,
+      ctx,
+      hexAtPoint,
+      size,
+    });
   }
 
   function moveTo(hexId) {
