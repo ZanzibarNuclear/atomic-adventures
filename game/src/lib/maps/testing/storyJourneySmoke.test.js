@@ -5,6 +5,7 @@ import {
   isNorthOfCompoundGate,
   isSouthOfCompoundGate,
 } from '../composables/useCompoundGate.js'
+import { resolveAvatarPosition } from '../composables/useAvatarStand.js'
 import {
   buildGameplayWorld,
   canReachHex,
@@ -77,6 +78,12 @@ describe('story journey smoke test (gameplay)', () => {
     // Hero-route south: gate-woods → west-slope → utility-yard (journey skips the middle hex).
     expectMoveOk(outdoor, 'gate-woods', 'west-slope')
     expectMoveOk(outdoor, 'west-slope', 'utility-yard')
+
+    const uyHex = mapData.hexes.find((h) => h.id === 'utility-yard')
+    const driveway = resolveAvatarPosition(uyHex, outdoor.size)
+    expect(outdoor.state.stand.x).toBeCloseTo(driveway.x, 0)
+    expect(outdoor.state.stand.y).toBeCloseTo(driveway.y, 0)
+    expect(outdoor.atBuildingEntrance).toBe(true)
     expect(gameState.flags.has(GATE_FLAG_UNLOCKED)).toBe(true)
     expect(gameState.flags.has(GATE_FLAG_PASSED)).toBe(true)
   })

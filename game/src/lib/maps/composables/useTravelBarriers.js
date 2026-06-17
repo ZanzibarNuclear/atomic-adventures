@@ -9,6 +9,7 @@ import {
   BARRIER_STAND_INSET,
   standBeforeBarrierHit,
 } from './useBarrierStand.js'
+import { resolveAvatarPosition, hasLandmarkMarker } from './useAvatarStand.js'
 import { isWestOfRiverAt, isEastOfRiverAt } from './usePassageCrossing.js'
 
 export { travelOpenings } from './useBarrierOpenings.js'
@@ -241,7 +242,12 @@ export function canOfferNeighbor({
   hexAtPoint,
 }) {
   if (!fromHex?.id) return false
-  const walkPath = path ?? [fromPos, toPos]
+  const walkPath = clipPathForDeparture(
+    path ?? [fromPos, toPos],
+    fromHex,
+    fromPos,
+    hexAtPoint,
+  )
   return blockedLeavingDepartureHex(
     walkPath,
     fromHex.id,
@@ -300,11 +306,31 @@ export function pathEndInHex(path, hexId, hexAtPoint) {
  * through the hex, route endpoint when it dead-ends at an authored standAt hex,
  * otherwise the requested destination (hex center for direct steps).
  */
-export function resolveArrivalStand(walkPath, toHex, toPos, hexAtPoint) {
+export function resolveArrivalStand(walkPath, toHex, toPos, hexAtPoint, opts = {}) {
   const stand = toHex?.standAt
+  const { size, fromPos, fromHex, ctx } = opts
+  const barriers = ctx?.barriers ?? ctx ?? []
+
   if (stand?.x != null && stand?.y != null && stand.from == null) {
     return { x: stand.x, y: stand.y }
   }
+
+  // Route dead-ends at a landmark stand (e.g. utility station driveway).
+  if (stand?.from === 'landmark' && size != null && walkPath.length > 2) {
+    const bankArrival =
+      (fromHex?.id &&
+        BANK_COLUMN_HEXES.has(fromHex.id) &&
+        fromPos &&
+        isWestOfRiverAt(fromPos, barriers)) ||
+      (() => {
+        const last = walkPath[walkPath.length - 1]
+        return last && isWestOfRiverAt(last, barriers)
+      })()
+    if (!bankArrival) {
+      return resolveAvatarPosition(toHex, size)
+    }
+  }
+
   if (walkPath.length <= 2) return toPos
   const last = walkPath[walkPath.length - 1]
   if (
@@ -318,12 +344,100 @@ export function resolveArrivalStand(walkPath, toHex, toPos, hexAtPoint) {
 }
 
 /**
+ * Whether a direct walk from `from` to `to` is blocked by any barrier (river, fence, …).
+ * Uses path intersection first; falls back to opposite-side checks when the chord
+ * misses curved barrier geometry.
+ */
+export function barrierBlocksReach(from, to, ctx) {
+  if (firstBlockedOnPath([from, to], ctx)) return true
+
+  for (const seg of barrierList(ctx)) {
+    const sa = sideOfLine(from, seg.a, seg.b)
+    const sb = sideOfLine(to, seg.a, seg.b)
+    const eps = 1e-3
+    if (Math.abs(sa) <= eps || Math.abs(sb) <= eps) continue
+    if (sa * sb >= 0) continue
+
+    const cross = segmentIntersection(from, to, seg.a, seg.b)
+    if (!cross) return true
+    if (!openingAllows(seg.kind, cross.x, cross.y, ctx.openings)) return true
+  }
+  return false
+}
+
+/** True when `stand` can reach the hex landmark stand without crossing a closed barrier. */
+export function isLandmarkReachable(hex, stand, ctx, size) {
+  if (!hasLandmarkMarker(hex)) return false
+  const target = resolveAvatarPosition(hex, size)
+  return !barrierBlocksReach(stand, target, ctx)
+}
+
+/**
+ * Route legs revisit the full departure hex span — trim to the stand and the
+ * exit direction so the path does not loop south through the compound before
+ * heading out (e.g. gate-woods → road-fork north).
+ */
+export function clipPathForDeparture(walkPath, fromHex, fromPos, hexAtPoint) {
+  if (!fromHex?.id || !fromPos || walkPath.length < 2) return walkPath
+  const stand = fromHex.standAt
+  if (stand?.x == null || stand?.y == null || stand.from) return walkPath
+
+  let anchor = 0
+  let best = Infinity
+  for (let i = 0; i < walkPath.length; i++) {
+    const d = Math.hypot(walkPath[i].x - fromPos.x, walkPath[i].y - fromPos.y)
+    if (d < best) {
+      best = d
+      anchor = i
+    }
+  }
+
+  let exitIdx = anchor
+  for (let i = anchor + 1; i < walkPath.length; i++) {
+    exitIdx = i
+    if (hexAtPoint(walkPath[i], fromHex.id) !== fromHex.id) break
+  }
+  const exit = walkPath[exitIdx]
+  const exitingNorth = exit.y < fromPos.y - 1
+  const exitingSouth = exit.y > fromPos.y + 1
+
+  const out = [fromPos]
+  for (let i = anchor; i < walkPath.length; i++) {
+    const p = walkPath[i]
+    const inside = hexAtPoint(p, fromHex.id) === fromHex.id
+    if (inside) {
+      if (exitingNorth && p.y > fromPos.y + 2) continue
+      if (exitingSouth && p.y < fromPos.y - 2) continue
+    }
+    const prev = out[out.length - 1]
+    if (Math.hypot(prev.x - p.x, prev.y - p.y) < 0.5) continue
+    out.push(p)
+  }
+  return out.length >= 2 ? out : walkPath
+}
+
+/**
  * Route legs between spans include the full destination span — clip before
  * walking south through a hex that has a fixed arrival stand (e.g. gate approach).
  */
-export function clipPathForAuthoredArrival(walkPath, toHex, hexAtPoint) {
+export function clipPathForAuthoredArrival(walkPath, toHex, hexAtPoint, fromPos) {
   const stand = toHex?.standAt
   if (stand?.x == null || stand?.y == null || stand.from) return walkPath
+
+  // Approaching from the north: do not walk past the authored arrival latitude.
+  if (fromPos?.y != null && fromPos.y < stand.y) {
+    let clipIdx = -1
+    for (let i = 0; i < walkPath.length; i++) {
+      const p = walkPath[i]
+      if (hexAtPoint(p, toHex.id) !== toHex.id) continue
+      if (p.y > stand.y + 1) break
+      clipIdx = i
+    }
+    if (clipIdx >= 1) {
+      const clipped = walkPath.slice(0, clipIdx + 1)
+      if (clipped.length >= 2) return clipped
+    }
+  }
 
   let northernIdx = -1
   let northernY = Infinity
@@ -361,11 +475,18 @@ export function resolveMove({
   path,
   ctx,
   hexAtPoint,
+  size,
 }) {
   const walkPath = clipPathForAuthoredArrival(
-    path ?? [fromPos, toPos],
+    clipPathForDeparture(
+      path ?? [fromPos, toPos],
+      fromHex,
+      fromPos,
+      hexAtPoint,
+    ),
     toHex,
     hexAtPoint,
+    fromPos,
   )
   const moveCtx = moveHexContext(fromHex, toHex)
   const fallbackHexId = toHex?.id ?? fromHex?.id
@@ -383,12 +504,34 @@ export function resolveMove({
   let stand
 
   if (hit) {
-    const segStart = walkPath[hit.segIndex] ?? fromPos
-    stand = standBeforeBarrierHit(segStart, hit, {
-      inset: BARRIER_STAND_INSET[hit.kind] ?? BARRIER_STAND_INSET.fence,
-    })
+    const authored =
+      toHex?.standAt?.x != null &&
+      toHex.standAt?.y != null &&
+      toHex.standAt.from == null
+        ? { x: toHex.standAt.x, y: toHex.standAt.y }
+        : null
+    if (
+      authored &&
+      fromPos?.y != null &&
+      fromPos.y < authored.y &&
+      hit.kind === 'fence' &&
+      !openingAllows(hit.kind, hit.x, hit.y, ctx.openings)
+    ) {
+      stand = authored
+      blockedKind = null
+    } else {
+      const segStart = walkPath[hit.segIndex] ?? fromPos
+      stand = standBeforeBarrierHit(segStart, hit, {
+        inset: BARRIER_STAND_INSET[hit.kind] ?? BARRIER_STAND_INSET.fence,
+      })
+    }
   } else {
-    stand = resolveArrivalStand(walkPath, toHex, toPos, hexAtPoint)
+    stand = resolveArrivalStand(walkPath, toHex, toPos, hexAtPoint, {
+      size,
+      fromHex,
+      fromPos,
+      ctx,
+    })
   }
 
   // Blocked at a barrier — active hex follows where the avatar actually stands.
@@ -410,6 +553,7 @@ export function canEnterNeighbor({
   path,
   ctx,
   hexAtPoint,
+  size,
 }) {
   const result = resolveMove({
     fromHex,
@@ -419,6 +563,7 @@ export function canEnterNeighbor({
     path,
     ctx,
     hexAtPoint,
+    size,
   })
   return result.activeHexId === toHex.id
 }
@@ -432,6 +577,7 @@ export function canReachNeighbor({
   path,
   ctx,
   hexAtPoint,
+  size,
 }) {
   const result = resolveMove({
     fromHex,
@@ -441,6 +587,7 @@ export function canReachNeighbor({
     path,
     ctx,
     hexAtPoint,
+    size,
   })
   return !result.blockedKind && result.activeHexId === toHex.id
 }

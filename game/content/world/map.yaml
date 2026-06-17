@@ -63,7 +63,11 @@ hexes:
     terrain: forest
     standAt: { dx: 0.65, dy: 0 }
 
-  - { id: north-bend, q: 0, r: -1, terrain: forest }
+  - id: north-bend
+    q: 0
+    r: -1
+    terrain: forest
+    standAt: { x: -35, y: -66 } # trail west of compound fence (x: -30)
 
   - { id: far-pines, q: 1, r: -1, terrain: forest }
 
@@ -72,8 +76,6 @@ hexes:
   - { id: east-pines, q: 1, r: 0, terrain: forest }
 
   - { id: center-pines, q: 0, r: 0, terrain: forest }
-
-  - { id: north-bend, q: 0, r: -1, terrain: forest }
 
   - id: gate-woods
     q: -1

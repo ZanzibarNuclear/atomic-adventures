@@ -157,6 +157,7 @@ export function evaluateNeighborMove(world, fromHex, toHex, fromPos) {
     path,
     ctx: world.ctx,
     hexAtPoint: world.hexAtPoint,
+    size: world.size,
   }
 
   const result = resolveMove(moveArgs)

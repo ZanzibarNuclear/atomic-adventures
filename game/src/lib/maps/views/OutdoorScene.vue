@@ -9,6 +9,7 @@
       :discovered-openings="outdoor.state.discoveredOpenings"
       :mode="outdoor.mode"
       :stand-override="outdoor.standOverride"
+      :building-enterable="outdoor.atBuildingEntrance"
       @hex-click="travelToHex"
       @building-enter="enterBuilding" />
     <MapCaption :title="hexLabel(outdoor.currentHexData)" />

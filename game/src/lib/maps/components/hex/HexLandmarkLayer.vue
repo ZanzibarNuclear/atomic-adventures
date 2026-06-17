@@ -7,6 +7,7 @@ defineProps({
   size: { type: Number, required: true },
   centerOf: { type: Function, required: true },
   currentHex: { type: String, required: true },
+  buildingEnterable: { type: Boolean, default: false },
   builderEdit: { type: Boolean, default: false },
   expanded: { type: Boolean, default: false },
 })
@@ -20,7 +21,7 @@ const emit = defineEmits(['building-enter'])
       <g
         v-if="hex.landmark.building === 'utility-station'"
         class="building-enter"
-        :class="{ 'can-enter': hex.id === currentHex && !builderEdit }"
+        :class="{ 'can-enter': hex.id === currentHex && buildingEnterable && !builderEdit }"
         :transform="`translate(${centerOf(hex).x + (hex.landmark.dx ?? 0) * size}, ${centerOf(hex).y + (hex.landmark.dy ?? 0) * size}) scale(0.54)`"
         @click.stop="emit('building-enter', hex)"
       >

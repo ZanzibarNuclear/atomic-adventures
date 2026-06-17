@@ -18,6 +18,7 @@ import {
   travelOpenings,
   resolveMove,
   canOfferNeighbor,
+  isLandmarkReachable,
 } from "./useTravelBarriers.js";
 import {
   barrierKindForOpening,
@@ -330,7 +331,14 @@ export function useOutdoorWorld(mapData, gameState = null) {
   }
 
   const atBuildingEntrance = computed(
-    () => currentHexData.value?.area === "utility",
+    () =>
+      !!currentHexData.value?.landmark?.building &&
+      isLandmarkReachable(
+        currentHexData.value,
+        avatarFromPos.value,
+        travelBarrierCtx.value,
+        size,
+      ),
   );
   const atGatePuzzle = computed(
     () =>
@@ -353,39 +361,30 @@ export function useOutdoorWorld(mapData, gameState = null) {
     return hexDistance(fromHex, toHex) === 1;
   }
 
+  function resolveRouteLeg(toHexId) {
+    const opts = travelOpts.value;
+    const fromId = state.currentId;
+    return (
+      moves.value.find((m) => m.toHexId === toHexId) ??
+      availableMoves(fromId, routeModels.value, opts).find(
+        (m) => m.toHexId === toHexId,
+      ) ??
+      routeLegBetween(fromId, toHexId, routeModels.value)
+    );
+  }
+
   function canReachHex(hexId) {
-    const fromHex = hexById.value[state.currentId];
-    const toHex = hexById.value[hexId];
-    if (!fromHex || !toHex) return false;
     if (hexId === state.currentId) return true;
     if (!isAdjacentHex(hexId)) return false;
-
-    const fromPos = avatarFromPos.value;
-    const ctx = travelBarrierCtx.value;
-    const toPos = resolveNeighborStand(fromHex, toHex, fromPos, size, ctx);
-    const routeLeg = routeLegBetween(state.currentId, hexId, routeModels.value);
-    const path = buildMovePath(
-      fromPos,
-      fromHex,
-      toHex,
-      toPos,
-      routeLeg,
-      routeModels.value,
-      { barriers: ctx, size },
+    return (
+      moves.value.some((m) => m.toHexId === hexId) ||
+      directMoves.value.some((m) => m.toHexId === hexId)
     );
-    return canOfferNeighbor({
-      fromHex,
-      toHex,
-      fromPos,
-      toPos,
-      path,
-      ctx,
-      hexAtPoint,
-    });
   }
 
   function moveTo(hexId) {
     if (traveling.value || !hexById.value[hexId]) return;
+    if (!canReachHex(hexId)) return;
     const fromHex = hexById.value[state.currentId];
     const toHex = hexById.value[hexId];
     if (!fromHex || !toHex) return;
@@ -395,9 +394,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
     const fromPos = avatarFromPos.value;
     const ctx = travelBarrierCtx.value;
     const toPos = resolveNeighborStand(fromHex, toHex, fromPos, size, ctx);
-    const routeLeg =
-      moves.value.find((m) => m.toHexId === hexId) ??
-      routeLegBetween(state.currentId, hexId, routeModels.value);
+    const routeLeg = resolveRouteLeg(hexId);
     const path = buildMovePath(
       fromPos,
       fromHex,
@@ -416,6 +413,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
       path,
       ctx,
       hexAtPoint,
+      size,
     });
 
     traveling.value = true;
@@ -425,6 +423,10 @@ export function useOutdoorWorld(mapData, gameState = null) {
 
     const enteredDest = result.activeHexId === toHex.id;
     const failedCrossing = result.blockedKind && !enteredDest;
+    const blockedInPlace =
+      result.blockedKind &&
+      result.activeHexId === fromHex.id &&
+      !enteredDest;
     let atBarrier =
       result.blockedKind && enteredDest ? result.blockedKind : null;
     if (!atBarrier && enteredDest) {
@@ -433,9 +435,9 @@ export function useOutdoorWorld(mapData, gameState = null) {
 
     applyMove({
       hexId: result.activeHexId,
-      stand: result.stand,
-      blocked: failedCrossing ? result.blockedKind : null,
-      atBarrier,
+      stand: blockedInPlace ? fromPos : result.stand,
+      blocked: failedCrossing || blockedInPlace ? result.blockedKind : null,
+      atBarrier: blockedInPlace ? result.blockedKind : atBarrier,
     });
   }
 

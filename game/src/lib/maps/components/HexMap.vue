@@ -36,6 +36,7 @@ const props = defineProps({
   addPointMode: { type: Boolean, default: false },
   standOverride: { type: Object, default: null }, // { hexId, standAt }
   avatarInstant: { type: Boolean, default: false },
+  buildingEnterable: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['hex-click', 'select-handle', 'waypoint-move', 'builder-map-click', 'building-enter'])
@@ -149,6 +150,7 @@ const {
         :size="size"
         :center-of="center"
         :current-hex="currentHex"
+        :building-enterable="buildingEnterable"
         :builder-edit="builderEdit"
         :expanded="expanded"
         @building-enter="onBuildingClick"

@@ -179,19 +179,21 @@ export function availableMoves(currentHexId, models, travelOpts = null) {
       return false
     }
     const toPos = travelOpts.resolveStand(toHex, fromHex, fromPos)
-    if (
-      fromPos &&
-      isWestOfRiverAt(fromPos, barriers) &&
-      !isWestOfRiverAt(toPos, barriers)
-    ) {
-      return false
-    }
-    if (
-      fromPos &&
-      isEastOfRiverAt(fromPos, barriers) &&
-      isWestOfRiverAt(toPos, barriers)
-    ) {
-      return false
+    if (!routeLeg) {
+      if (
+        fromPos &&
+        isWestOfRiverAt(fromPos, barriers) &&
+        !isWestOfRiverAt(toPos, barriers)
+      ) {
+        return false
+      }
+      if (
+        fromPos &&
+        isEastOfRiverAt(fromPos, barriers) &&
+        isWestOfRiverAt(toPos, barriers)
+      ) {
+        return false
+      }
     }
     const path = routeLeg
       ? buildMovePath(
