@@ -7,6 +7,7 @@
       :current-hex="outdoor.state.currentId"
       :discovered="outdoor.discoveredList"
       :discovered-openings="outdoor.state.discoveredOpenings"
+      :flags="outdoor.flags"
       :mode="outdoor.mode"
       :stand-override="outdoor.standOverride"
       :building-enterable="outdoor.atBuildingEntrance"

@@ -3,7 +3,41 @@
  */
 
 import { resolveWaypoint } from './useRoutes.js'
+import { isGateOpeningOpen } from './useCompoundGate.js'
 import { BARRIER_OPENING_KINDS } from './useTravelBarriers.js'
+
+function distToSegment(px, py, ax, ay, bx, by) {
+  const dx = bx - ax
+  const dy = by - ay
+  const lenSq = dx * dx + dy * dy
+  if (lenSq === 0) return Math.hypot(px - ax, py - ay)
+  let t = ((px - ax) * dx + (py - ay) * dy) / lenSq
+  t = Math.max(0, Math.min(1, t))
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy))
+}
+
+function nearestFenceSegment(point, barriers) {
+  let best = null
+  let bestDist = Infinity
+  for (const seg of barriers ?? []) {
+    if (seg.kind !== 'fence') continue
+    const d = distToSegment(point.x, point.y, seg.a.x, seg.a.y, seg.b.x, seg.b.y)
+    if (d < bestDist) {
+      bestDist = d
+      best = seg
+    }
+  }
+  return best
+}
+
+/** Degrees to rotate gate/hole-style symbols so local +X aligns with the fence tangent. */
+export function openingFenceAngleDeg(point, barriers) {
+  const seg = nearestFenceSegment(point, barriers)
+  if (!seg) return 90
+  const dx = seg.b.x - seg.a.x
+  const dy = seg.b.y - seg.a.y
+  return (Math.atan2(dy, dx) * 180) / Math.PI
+}
 
 export const OPENING_RADIUS = {
   gate: 22,
@@ -100,7 +134,7 @@ export function hiddenOpeningsInHex(mapFeatures, hexId, discoveredOpenings = [])
 }
 
 /** Build passage marker models for map rendering. */
-export function buildPassageMarkers(mapFeatures, hexById, size) {
+export function buildPassageMarkers(mapFeatures, hexById, size, { flags, barriers } = {}) {
   return (mapFeatures ?? [])
     .filter((f) => f.at && BARRIER_OPENING_KINDS.has(f.kind))
     .map((f) => {
@@ -108,6 +142,9 @@ export function buildPassageMarkers(mapFeatures, hexById, size) {
       if (!at) return null
       const labelAt = f.labelAt
         ? resolveOpeningPosition(f.labelAt, hexById, size)
+        : null
+      const boothAt = f.boothAt
+        ? resolveOpeningPosition(f.boothAt, hexById, size)
         : null
       return {
         id: f.id,
@@ -118,7 +155,11 @@ export function buildPassageMarkers(mapFeatures, hexById, size) {
         y: at.y,
         labelX: labelAt?.x ?? at.x,
         labelY: labelAt?.y ?? at.y + 12,
-        label: '',
+        label: f.label ?? '',
+        open: f.kind === 'gate' ? isGateOpeningOpen(f.id, flags) : undefined,
+        angle: f.kind === 'gate' ? openingFenceAngleDeg(at, barriers) : undefined,
+        boothX: boothAt?.x,
+        boothY: boothAt?.y,
       }
     })
     .filter(Boolean)

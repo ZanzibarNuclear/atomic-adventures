@@ -196,7 +196,9 @@ export function useOutdoorWorld(mapData, gameState = null) {
 
   const gateUnlocked = computed(
     () => gateStateFromFlags(gameState?.flags).unlocked,
-  );
+  )
+
+  const flags = computed(() => gameState?.flags ?? null);
 
   const gatePassed = computed(() => {
     const { passed } = gateStateFromFlags(gameState?.flags);
@@ -521,6 +523,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
     atLockedCompoundGate,
     gateUnlocked,
     gatePassed,
+    flags,
     solveGatePuzzle,
     moveTo,
     crossPassage,

@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from 'vue'
+import LegendPassageIcon from './LegendPassageIcon.vue'
 import './hex-map-shared.css'
 
 defineProps({
@@ -9,6 +10,7 @@ defineProps({
   hasLegend: { type: Boolean, default: false },
   legendTerrains: { type: Array, default: () => [] },
   legendLines: { type: Array, default: () => [] },
+  legendPassages: { type: Array, default: () => [] },
 })
 
 const rootRef = ref(null)
@@ -44,6 +46,10 @@ defineExpose({ rootRef })
             />
           </svg>
           <span class="legend-label">{{ l.label }}</span>
+        </li>
+        <li v-for="p in legendPassages" :key="'lp-' + p.key" class="legend-item">
+          <LegendPassageIcon :kind="p.kind" />
+          <span class="legend-label">{{ p.label }}</span>
         </li>
       </ul>
     </div>

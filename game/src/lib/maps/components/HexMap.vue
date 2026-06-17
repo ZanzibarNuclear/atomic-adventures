@@ -25,6 +25,8 @@ const props = defineProps({
   currentHex: { type: String, required: true },
   discovered: { type: [Array, Object], default: () => [] },
   discoveredOpenings: { type: Array, default: () => [] },
+  /** Story flags — drives gate open/closed symbols. */
+  flags: { type: [Set, Array, Object], default: null },
   mode: { type: String, default: 'explored' }, // slice | explored | full
   expanded: { type: Boolean, default: false },
   builderView: { type: Boolean, default: false },
@@ -78,6 +80,7 @@ const {
   featurePieces,
   legendTerrains,
   legendLines,
+  legendPassages,
   hasLegend,
 } = useHexMapPlacements({
   mapData: computed(() => props.mapData),
@@ -88,6 +91,7 @@ const {
   standOverride: computed(() => props.standOverride),
   discoveredSet,
   discoveredOpenings: computed(() => props.discoveredOpenings),
+  flags: computed(() => props.flags),
   visibleHexes,
   fogMaskOpts,
   size,
@@ -116,6 +120,7 @@ const {
     :has-legend="hasLegend"
     :legend-terrains="legendTerrains"
     :legend-lines="legendLines"
+    :legend-passages="legendPassages"
   >
     <svg
       ref="mapSvgRef"

@@ -1,12 +1,23 @@
 import { describe, expect, it } from 'vitest'
 import mapData from '../../../../content/world/map.yaml'
-import { travelOpenings } from '../composables/useBarrierOpenings.js'
+import { travelOpenings, buildPassageMarkers } from '../composables/useBarrierOpenings.js'
+import { GATE_FLAG_UNLOCKED } from '../composables/useCompoundGate.js'
+import { buildRouteModels } from '../composables/useRoutes.js'
+import { barrierSegments } from '../composables/useTravelBarriers.js'
 import { useOutdoorWorld } from '../composables/useOutdoorWorld.js'
 import { buildTravelWorld, evaluateNeighborMove } from './travelWorld.js'
 
 describe('opening discovery', () => {
   const hexById = Object.fromEntries(mapData.hexes.map((h) => [h.id, h]))
   const size = mapData.size ?? 44
+  const barriers = barrierSegments(
+    buildRouteModels(
+      (mapData.features ?? []).filter((f) => f.kind !== 'gate' && f.kind !== 'hole' && f.kind !== 'bridge' && f.kind !== 'ford'),
+      hexById,
+      mapData.hexes ?? [],
+      size,
+    ),
+  )
 
   it('omits hidden openings until discovered', () => {
     const without = travelOpenings(mapData.features, { hexById, size })
@@ -18,6 +29,30 @@ describe('opening discovery', () => {
     expect(without.some((o) => o.id === 'south-pines-hole')).toBe(false)
     expect(withHole.some((o) => o.id === 'south-pines-hole')).toBe(true)
     expect(without.some((o) => o.id === 'upper-gorge-bridge')).toBe(true)
+  })
+
+  it('compound gate marker is closed until unlocked', () => {
+    const locked = buildPassageMarkers(mapData.features, hexById, size, {
+      flags: new Set(),
+      barriers,
+    })
+    const unlocked = buildPassageMarkers(mapData.features, hexById, size, {
+      flags: new Set([GATE_FLAG_UNLOCKED]),
+      barriers,
+    })
+    const gateLocked = locked.find((m) => m.id === 'compound-gate')
+    const gateUnlocked = unlocked.find((m) => m.id === 'compound-gate')
+    expect(gateLocked?.open).toBe(false)
+    expect(gateUnlocked?.open).toBe(true)
+  })
+
+  it('compound gate sits on road fence crossing with guard booth', () => {
+    const markers = buildPassageMarkers(mapData.features, hexById, size, { barriers })
+    const gate = markers.find((m) => m.id === 'compound-gate')
+    expect(gate?.x).toBe(-81)
+    expect(gate?.y).toBe(-62)
+    expect(gate?.boothX).toBe(-94)
+    expect(gate?.boothY).toBe(-72)
   })
 
   it('south-pines hole enables in-hex crossing after search', () => {

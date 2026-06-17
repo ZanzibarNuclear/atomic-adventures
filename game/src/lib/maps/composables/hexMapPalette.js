@@ -27,3 +27,12 @@ export const LINE_STYLE = {
 }
 
 export const LINE_ORDER = ['river', 'road', 'drive', 'fence', 'path', 'trail']
+
+export const PASSAGE_LABELS = {
+  gate: 'Gate',
+  hole: 'Hole',
+  ford: 'Ford',
+  bridge: 'Bridge',
+}
+
+export const PASSAGE_ORDER = ['gate', 'hole', 'ford', 'bridge']

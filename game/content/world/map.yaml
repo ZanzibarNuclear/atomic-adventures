@@ -142,9 +142,8 @@ features:
     kind: gate
     hex: gate-woods
     visibility: obvious
-    at: { x: -94, y: -72 }
-    labelAt: { x: -81, y: -56 }
-    label: Gate
+    at: { x: -81, y: -62 } # compound road crosses fence-run-west
+    boothAt: { x: -94, y: -72 }
 
   - id: upper-gorge-bridge
     kind: bridge

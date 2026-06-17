@@ -39,6 +39,14 @@ export function filterOpeningsForGateState(openings, flags) {
   return openings.filter((o) => o.id !== COMPOUND_GATE_ID)
 }
 
+/** Map symbol: compound gate shows closed until unlocked; other gates default open. */
+export function isGateOpeningOpen(openingId, flags) {
+  if (openingId === COMPOUND_GATE_ID) {
+    return gateStateFromFlags(flags).unlocked
+  }
+  return true
+}
+
 export function unlockCompoundGate(flags) {
   if (!flags) return
   setFlags(flags, [GATE_FLAG_UNLOCKED])

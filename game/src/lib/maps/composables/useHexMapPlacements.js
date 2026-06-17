@@ -1,6 +1,6 @@
 import { computed } from 'vue'
 import { buildRouteDrawPieces } from './useRoutes.js'
-import { riverSegments } from './useTravelBarriers.js'
+import { riverSegments, barrierSegments } from './useTravelBarriers.js'
 import { resolveAvatarPosition, hasLandmarkMarker } from './useAvatarStand.js'
 import { buildForestTrees } from './forestTreePlacement.js'
 import {
@@ -13,6 +13,8 @@ import {
   TERRAIN_ORDER,
   LINE_STYLE,
   LINE_ORDER,
+  PASSAGE_LABELS,
+  PASSAGE_ORDER,
 } from './hexMapPalette.js'
 
 function chevronPath(x, y, dx, dy, scale = 1) {
@@ -43,6 +45,7 @@ export function useHexMapPlacements({
   discoveredOpenings,
   visibleHexes,
   fogMaskOpts,
+  flags,
   size,
   center,
   current,
@@ -52,7 +55,10 @@ export function useHexMapPlacements({
   )
 
   const passageMarkers = computed(() =>
-    buildPassageMarkers(mapData.value.features ?? [], hexByIdFromMap(), size.value),
+    buildPassageMarkers(mapData.value.features ?? [], hexByIdFromMap(), size.value, {
+      flags: flags?.value ?? flags ?? null,
+      barriers: barrierSegments(featureModels.value ?? []),
+    }),
   )
 
   function hexByIdFromMap() {
@@ -183,8 +189,20 @@ export function useHexMapPlacements({
     }))
   })
 
+  const legendPassages = computed(() => {
+    const kinds = new Set(visiblePassageMarkersList.value.map((m) => m.kind))
+    return PASSAGE_ORDER.filter((k) => kinds.has(k)).map((k) => ({
+      key: k,
+      kind: k,
+      label: PASSAGE_LABELS[k] ?? k,
+    }))
+  })
+
   const hasLegend = computed(
-    () => legendTerrains.value.length > 0 || legendLines.value.length > 0,
+    () =>
+      legendTerrains.value.length > 0 ||
+      legendLines.value.length > 0 ||
+      legendPassages.value.length > 0,
   )
 
   return {
@@ -201,6 +219,7 @@ export function useHexMapPlacements({
     featurePieces,
     legendTerrains,
     legendLines,
+    legendPassages,
     hasLegend,
   }
 }
