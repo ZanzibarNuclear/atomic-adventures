@@ -317,6 +317,30 @@ describe('single adjacent-move authority', () => {
     expect(m.reachable).toBe(true)
     expect(m.enters).toBe(true)
   })
+
+  it('center-pines to south-pines stays inside south-pines and does not drift below the cell', () => {
+    const world = buildTravelWorld(mapData)
+    const from = world.hexById['center-pines']
+    const to = world.hexById['south-pines']
+    const m = evaluateNeighborMove(world, from, to, world.resolveStand(from))
+
+    expect(m.enters).toBe(true)
+    expect(m.result.activeHexId).toBe('south-pines')
+    expect(world.hexAtPoint(m.result.stand, null)).toBe('south-pines')
+    expect(m.result.stand.y).toBeLessThan(90)
+  })
+
+  it('lower-stand to south-pines stops near the fence instead of routing to a corner', () => {
+    const world = buildTravelWorld(mapData)
+    const from = world.hexById['lower-stand']
+    const to = world.hexById['south-pines']
+    const m = evaluateNeighborMove(world, from, to, world.resolveStand(from))
+
+    expect(m.enters).toBe(true)
+    expect(m.result.activeHexId).toBe('south-pines')
+    expect(m.result.stand.x).toBeGreaterThan(-40)
+    expect(m.result.stand.x).toBeLessThan(-20)
+  })
 })
 
 describe('parallel barrier walks', () => {

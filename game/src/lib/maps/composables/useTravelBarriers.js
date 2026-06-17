@@ -7,6 +7,7 @@
 
 import {
   BARRIER_STAND_INSET,
+  FENCE_LINE_MAX_DIST,
   standBeforeBarrierHit,
 } from './useBarrierStand.js'
 import {
@@ -217,9 +218,15 @@ function standBeforeFirstHit(path, ctx, moveCtx = null) {
   const hit = firstBlockedOnPath(path, interHexTravelCtx(ctx), moveCtx)
   if (!hit) return null
   const segStart = path[hit.segIndex] ?? path[0]
+  const dx = Math.abs(hit.b.x - hit.a.x)
+  const dy = Math.abs(hit.b.y - hit.a.y)
+  const inset =
+    hit.kind === 'fence' && dx > dy
+      ? FENCE_LINE_MAX_DIST + 8
+      : BARRIER_STAND_INSET[hit.kind] ?? BARRIER_STAND_INSET.fence
   return {
     stand: standBeforeBarrierHit(segStart, hit, {
-      inset: BARRIER_STAND_INSET[hit.kind] ?? BARRIER_STAND_INSET.fence,
+      inset,
     }),
     hit,
   }
@@ -287,8 +294,10 @@ function nearSharedEdge(point, edge, size) {
   return d <= size * 0.2
 }
 
-function standInDestinationHex(point, toHex, hexAtPoint) {
-  return !!point && !!toHex?.id && hexAtPoint(point, toHex.id) === toHex.id
+function standInDestinationHex(point, toHex, hexAtPoint, size = null) {
+  if (!point || !toHex?.id) return false
+  if (size != null) return pointInHexPolygon(point, toHex, size)
+  return hexAtPoint(point, null) === toHex.id
 }
 
 function hexPolygon(hex, size) {
@@ -447,8 +456,8 @@ function findReachableBorderEntry({
   if (walkPath.length >= 2 && pathClear(walkPath, travelCtx, moveCtx)) {
     for (let i = walkPath.length - 1; i >= 1; i--) {
       const point = walkPath[i]
-      if (!standInDestinationHex(point, toHex, hexAtPoint)) continue
-      if (!edge || nearSharedEdge(point, edge, size)) {
+      if (!standInDestinationHex(point, toHex, hexAtPoint, size)) continue
+      if (walkPath.length > 2 || !edge || nearSharedEdge(point, edge, size)) {
         return { entryPoint: point, approachPath: walkPath.slice(0, i + 1) }
       }
     }
@@ -457,7 +466,7 @@ function findReachableBorderEntry({
   const chordTargets = []
   if (
     toPos &&
-    standInDestinationHex(toPos, toHex, hexAtPoint) &&
+    standInDestinationHex(toPos, toHex, hexAtPoint, size) &&
     nearSharedEdge(toPos, edge, size)
   ) {
     chordTargets.push(toPos)
@@ -478,7 +487,7 @@ function findReachableBorderEntry({
     for (const sample of sampleSharedEdge(edge, toHex, size)) {
       for (let t = 0.1; t < 1; t += 0.1) {
         const p = interpolate(fromPos, sample.insidePoint, t)
-        if (!standInDestinationHex(p, toHex, hexAtPoint)) continue
+        if (!standInDestinationHex(p, toHex, hexAtPoint, size)) continue
         const approachPath = [fromPos, p]
         if (pathClear(approachPath, travelCtx, moveCtx)) {
           return { entryPoint: p, approachPath }
@@ -546,20 +555,23 @@ function resolveDestinationStand({
   const preferred = [routeStand, authored, toPos, center].filter(
     (pt, i, arr) =>
       pt &&
-      standInDestinationHex(pt, toHex, hexAtPoint) &&
+      standInDestinationHex(pt, toHex, hexAtPoint, size) &&
       !arr.slice(0, i).some((other) => samePoint(other, pt)),
   )
 
   for (const target of preferred) {
-    const localPath = localReachablePath({
-      hex: toHex,
-      from: entryPoint,
-      to: target,
-      ctx: travelCtx,
-      size,
-    })
-    if (localPath) {
+    if (pathClear([entryPoint, target], travelCtx, moveCtx)) {
       return { stand: target, blockedKind: null }
+    }
+  }
+
+  for (const target of preferred) {
+    const blocked = standBeforeFirstHit([entryPoint, target], travelCtx, moveCtx)
+    if (
+      blocked &&
+      standInDestinationHex(blocked.stand, toHex, hexAtPoint, size)
+    ) {
+      return { stand: blocked.stand, blockedKind: null }
     }
   }
 
@@ -574,16 +586,6 @@ function resolveDestinationStand({
     if (preferred.some((p) => samePoint(p, pt))) continue
     if (pathClear([entryPoint, pt], travelCtx, moveCtx)) {
       return { stand: pt, blockedKind: null }
-    }
-  }
-
-  for (const target of preferred) {
-    const blocked = standBeforeFirstHit([entryPoint, target], travelCtx, moveCtx)
-    if (
-      blocked &&
-      standInDestinationHex(blocked.stand, toHex, hexAtPoint)
-    ) {
-      return { stand: blocked.stand, blockedKind: blocked.hit.kind }
     }
   }
 

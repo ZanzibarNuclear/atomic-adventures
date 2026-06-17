@@ -50,10 +50,14 @@ describe('useGameState save roundtrip', () => {
     outdoor.state.lastBlocked = null
     outdoor.moveTo('south-pines')
     const savedStand = { ...outdoor.state.stand }
+    const savedAtBarrier = outdoor.state.atBarrier
+    const savedLastBlocked = outdoor.state.lastBlocked
 
     const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
     expect(snapshot.version).toBe(SAVE_VERSION)
     expect(snapshot.outdoor.stand).toEqual(savedStand)
+    expect(snapshot.outdoor.atBarrier).toBe(savedAtBarrier)
+    expect(snapshot.outdoor.lastBlocked).toBe(savedLastBlocked)
 
     outdoor.resetPlayer()
     expect(outdoor.state.currentId).toBe(mapData.start ?? mapData.journey[0])
@@ -62,8 +66,8 @@ describe('useGameState save roundtrip', () => {
     expect(ok).toBe(true)
     expect(outdoor.state.currentId).toBe('south-pines')
     expect(outdoor.state.stand).toEqual(savedStand)
-    expect(outdoor.state.atBarrier).toBeNull()
-    expect(outdoor.state.lastBlocked).toBeNull()
+    expect(outdoor.state.atBarrier).toBe(savedAtBarrier)
+    expect(outdoor.state.lastBlocked).toBe(savedLastBlocked)
   })
 
   it('migrates v1 barrierStand saves to stand', () => {
