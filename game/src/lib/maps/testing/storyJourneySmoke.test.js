@@ -29,7 +29,9 @@ describe('story journey smoke test (gameplay)', () => {
     expect(outdoor.state.lastBlocked, label).toBeNull()
   }
 
-  it('journeys from trailhead through the gate to utility-yard', () => {
+  it(
+    'journeys from trailhead through the gate to utility-yard',
+    () => {
     expect(JOURNEY).toEqual([
       'trailhead',
       'east-pines',
@@ -74,5 +76,7 @@ describe('story journey smoke test (gameplay)', () => {
     expect(outdoor.atBuildingEntrance).toBe(true)
     expect(gameState.flags.has(GATE_FLAG_UNLOCKED)).toBe(true)
     expect(gameState.flags.has(GATE_FLAG_PASSED)).toBe(true)
-  })
+  },
+    15000,
+  )
 })

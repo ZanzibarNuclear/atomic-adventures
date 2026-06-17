@@ -285,7 +285,7 @@ function hexPolygon(hex, size) {
   return hexCorners(center.x, center.y, size)
 }
 
-function pointInHexPolygon(point, hex, size) {
+export function pointInHexPolygon(point, hex, size) {
   if (!point || !hex || size == null) return false
   const corners = hexPolygon(hex, size)
   if (corners.length < 3) return false
@@ -337,7 +337,11 @@ function segmentClearsBarrierJunctions(a, b, ctx, minClearance) {
   return true
 }
 
-function localReachablePath({ hex, from, to, ctx, size }) {
+/**
+ * Barrier-bounded walk inside one hex from `from` to `to` without crossing barriers.
+ * Uses a cell-local graph search within the hex polygon (reachable sub-area).
+ */
+export function pathInHex(hex, from, to, ctx, size) {
   if (!hex || !from || !to || !ctx || size == null) return null
   if (!pointInHexPolygon(from, hex, size) || !pointInHexPolygon(to, hex, size)) {
     return null
@@ -411,6 +415,88 @@ function localReachablePath({ hex, from, to, ctx, size }) {
   return path
 }
 
+/** @deprecated use pathInHex */
+function localReachablePath(args) {
+  return pathInHex(args.hex, args.from, args.to, args.ctx, args.size)
+}
+
+function canReachInHex(hex, from, to, ctx, size) {
+  return pathInHex(hex, from, to, ctx, size) != null
+}
+
+/**
+ * Shared-border samples reachable from `fromPos` inside `fromHex` without
+ * crossing a barrier (sub-area walk to the edge, then step inward).
+ */
+function reachableSharedBorderEntries(fromHex, toHex, fromPos, ctx, size) {
+  const edge = sharedHexEdge(fromHex, toHex, size)
+  if (!edge) return []
+  const travelCtx = interHexTravelCtx(ctx)
+  const moveCtx = moveHexContext(fromHex, toHex)
+  const entries = []
+  for (const sample of sampleSharedEdge(edge, toHex, size)) {
+    const approach = pathInHex(fromHex, fromPos, sample.edgePoint, travelCtx, size)
+    if (!approach) continue
+    if (!pathClear([sample.edgePoint, sample.insidePoint], travelCtx, moveCtx)) {
+      continue
+    }
+    entries.push({
+      entryPoint: sample.insidePoint,
+      approachPath: [...approach, sample.insidePoint],
+    })
+  }
+  return entries
+}
+
+/** Stand near the midpoint of the barrier blocking entry from the shared border. */
+function barrierMidpointStand(entryPoint, toHex, ctx, size, hexAtPoint) {
+  const travelCtx = interHexTravelCtx(ctx)
+  const center = hexCenterStand(toHex, size)
+  const hit = firstBlockedOnPath([entryPoint, center], travelCtx)
+  if (!hit) return null
+
+  const mid = {
+    x: (hit.a.x + hit.b.x) / 2,
+    y: (hit.a.y + hit.b.y) / 2,
+  }
+  const inset = BARRIER_STAND_INSET[hit.kind] ?? BARRIER_STAND_INSET.fence
+  const dx = entryPoint.x - mid.x
+  const dy = entryPoint.y - mid.y
+  const len = Math.hypot(dx, dy) || 1
+  const stand = {
+    x: mid.x + (dx / len) * inset,
+    y: mid.y + (dy / len) * inset,
+  }
+  if (!standInDestinationHex(stand, toHex, hexAtPoint, size)) return null
+  if (pathClear([entryPoint, stand], travelCtx)) return stand
+  const path = pathInHex(toHex, entryPoint, stand, travelCtx, size)
+  return path ? path[path.length - 1] : null
+}
+
+function standReachableFromEntry({
+  entryPoint,
+  target,
+  toHex,
+  ctx,
+  size,
+  hexAtPoint,
+  moveCtx,
+}) {
+  const travelCtx = interHexTravelCtx(ctx)
+  if (!target || !standInDestinationHex(target, toHex, hexAtPoint, size)) return null
+  if (pathClear([entryPoint, target], travelCtx, moveCtx)) return target
+  const path = pathInHex(toHex, entryPoint, target, travelCtx, size)
+  if (path) return path[path.length - 1]
+  const blocked = standBeforeFirstHit([entryPoint, target], travelCtx, moveCtx)
+  if (
+    blocked &&
+    standInDestinationHex(blocked.stand, toHex, hexAtPoint, size)
+  ) {
+    return blocked.stand
+  }
+  return null
+}
+
 /**
  * Step 1: find a path from the current stand into the destination hex that
  * does not cross any barrier. Tries the movement polyline first, then shared-edge samples.
@@ -463,6 +549,15 @@ function findReachableBorderEntry({
   }
 
   if (edge) {
+    for (const border of reachableSharedBorderEntries(
+      fromHex,
+      toHex,
+      fromPos,
+      ctx,
+      size,
+    )) {
+      return border
+    }
     for (const sample of sampleSharedEdge(edge, toHex, size)) {
       for (let t = 0.1; t < 1; t += 0.1) {
         const p = interpolate(fromPos, sample.insidePoint, t)
@@ -473,19 +568,17 @@ function findReachableBorderEntry({
         }
       }
     }
-  }
-  if (edge) {
     for (const sample of sampleSharedEdge(edge, toHex, size)) {
       if (!pathClear([sample.edgePoint, sample.insidePoint], travelCtx, moveCtx)) {
         continue
       }
-      const localPath = localReachablePath({
-        hex: fromHex,
-        from: fromPos,
-        to: sample.edgePoint,
-        ctx: travelCtx,
+      const localPath = pathInHex(
+        fromHex,
+        fromPos,
+        sample.edgePoint,
+        travelCtx,
         size,
-      })
+      )
       if (localPath) {
         return {
           entryPoint: sample.insidePoint,
@@ -529,9 +622,30 @@ function resolveDestinationStand({
       })
       : null
 
+  if (
+    routeStand &&
+    walkPath.length > 2 &&
+    standInDestinationHex(routeStand, toHex, hexAtPoint, size)
+  ) {
+    return { stand: routeStand, blockedKind: null }
+  }
+
   const authored = toHex?.standAt ? resolveAvatarPosition(toHex, size) : null
+  const authoredReachable =
+    authored && !barrierBlocksReach(entryPoint, authored, travelCtx)
+      ? authored
+      : null
   const center = hexCenterStand(toHex, size)
-  const preferred = [routeStand, authored, toPos, center].filter(
+  const midpoint = barrierMidpointStand(
+    entryPoint,
+    toHex,
+    ctx,
+    size,
+    hexAtPoint,
+  )
+  const neighborTarget =
+    toPos && !samePoint(toPos, authored) ? toPos : null
+  const preferred = [authoredReachable, neighborTarget, center, midpoint].filter(
     (pt, i, arr) =>
       pt &&
       standInDestinationHex(pt, toHex, hexAtPoint, size) &&
@@ -539,19 +653,16 @@ function resolveDestinationStand({
   )
 
   for (const target of preferred) {
-    if (pathClear([entryPoint, target], travelCtx, moveCtx)) {
-      return { stand: target, blockedKind: null }
-    }
-  }
-
-  for (const target of preferred) {
-    const blocked = standBeforeFirstHit([entryPoint, target], travelCtx, moveCtx)
-    if (
-      blocked &&
-      standInDestinationHex(blocked.stand, toHex, hexAtPoint, size)
-    ) {
-      return { stand: blocked.stand, blockedKind: null }
-    }
+    const stand = standReachableFromEntry({
+      entryPoint,
+      target,
+      toHex,
+      ctx,
+      size,
+      hexAtPoint,
+      moveCtx,
+    })
+    if (stand) return { stand, blockedKind: null }
   }
 
   for (const pt of hexInteriorCandidates(
@@ -563,9 +674,16 @@ function resolveDestinationStand({
     travelCtx,
   )) {
     if (preferred.some((p) => samePoint(p, pt))) continue
-    if (pathClear([entryPoint, pt], travelCtx, moveCtx)) {
-      return { stand: pt, blockedKind: null }
-    }
+    const stand = standReachableFromEntry({
+      entryPoint,
+      target: pt,
+      toHex,
+      ctx,
+      size,
+      hexAtPoint,
+      moveCtx,
+    })
+    if (stand) return { stand, blockedKind: null }
   }
 
   return { stand: entryPoint, blockedKind: null }

@@ -8,8 +8,11 @@ import {
   travelOpenings,
 } from './useBarrierOpenings.js'
 import { featureLabel } from '../../displayLabel.js'
-import { sideOfLine } from './useTravelBarriers.js'
-import { isNearBarrierKind } from './useBarrierStand.js'
+import { pointInHexPolygon, sideOfLine } from './useTravelBarriers.js'
+import {
+  distToBarrierKind,
+  isNearBarrierKind,
+} from './useBarrierStand.js'
 
 const PASSAGE_LABELS = {
   bridge: 'Cross the bridge',
@@ -86,6 +89,47 @@ export function standAcrossOpening(opening, fromPos, ctx, size = 44) {
   }
 
   return farStand
+}
+
+function passageStandCandidates(opening, fromPos, ctx, size) {
+  const ideal = standAcrossOpening(opening, fromPos, ctx, size)
+  if (!ideal) return []
+  const candidates = [ideal]
+  for (let angle = 0; angle < 360; angle += 30) {
+    for (let dist = 2; dist <= PASSAGE_CROSSING_INSET + 10; dist += 2) {
+      const rad = (angle * Math.PI) / 180
+      candidates.push({
+        x: ideal.x + Math.cos(rad) * dist,
+        y: ideal.y + Math.sin(rad) * dist,
+      })
+    }
+  }
+  return candidates
+}
+
+/**
+ * Stand after crossing a passage — ideal inset first, then nearest legal point
+ * that stays in the hex, on the far side of the barrier, near the opening.
+ */
+export function resolvePassageStand(opening, fromPos, ctx, size, hex) {
+  const kind = barrierKindForOpening(opening.kind)
+  if (!kind || !hex) return null
+  const near = nearestBarrierSegment(opening, kind, ctx.barriers)
+  if (!near) return null
+  const { seg } = near
+  const fromSide = sideOfLine(fromPos, seg.a, seg.b)
+  const minSeparation = PASSAGE_CROSSING_INSET * 0.55
+
+  for (const stand of passageStandCandidates(opening, fromPos, ctx, size)) {
+    if (!pointInHexPolygon(stand, hex, size)) continue
+    if (Math.hypot(stand.x - fromPos.x, stand.y - fromPos.y) < 1) continue
+    const toSide = sideOfLine(stand, seg.a, seg.b)
+    if (Math.abs(fromSide) > 0.5 && fromSide * toSide >= 0) continue
+    const separation = distToBarrierKind(stand, kind, ctx.barriers)
+    if (separation == null || separation < minSeparation) continue
+    return stand
+  }
+  return null
 }
 
 /** Whether the player can cross to the other side of this opening (toggle). */

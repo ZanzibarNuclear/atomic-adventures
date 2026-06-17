@@ -18,14 +18,13 @@ function actionButtonLabel(action) {
 
 /**
  * Story choice buttons for the play panel (prose stays in NarrativeCard).
- * Story choices use adjacency only — a choice may walk the player to a fence
- * and stop. Movement options use enterability (may stop at an in-hex barrier).
+ * Story choices with go_hex use the same enterability predicate as movement options.
  */
-export function buildStoryChoices(pendingBeat, isAdjacentHex = () => true) {
+export function buildStoryChoices(pendingBeat, canReachHex = () => true) {
   if (!pendingBeat?.choices?.length || pendingBeat.revisit) return [];
   return pendingBeat.choices
     .map((choice, index) => ({ choice, index }))
-    .filter(({ choice }) => !choice.go_hex || isAdjacentHex(choice.go_hex))
+    .filter(({ choice }) => !choice.go_hex || canReachHex(choice.go_hex))
     .map(({ choice, index }) => ({
       id: `story:${index}`,
       toHexId: choice.go_hex ?? null,
@@ -92,8 +91,8 @@ export function buildOutdoorPassageUnlockActions(outdoor) {
 export const buildOutdoorCrossingActions = buildOutdoorPassageActions;
 
 export function getMovementOptions(outdoor, pendingBeat) {
-  const isAdjacent = (hexId) => outdoor.isAdjacentHex?.(hexId) ?? true;
-  const items = [...buildStoryChoices(pendingBeat, isAdjacent)];
+  const canReach = (hexId) => outdoor.canReachHex?.(hexId) ?? true;
+  const items = [...buildStoryChoices(pendingBeat, canReach)];
   const { hexes: storyHexes } = storyChoiceDestinations(pendingBeat);
   const seen = new Set(storyHexes);
 

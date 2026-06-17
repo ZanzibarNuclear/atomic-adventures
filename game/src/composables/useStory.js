@@ -164,6 +164,13 @@ export function useStory(storyData, ctx) {
     const choice = beat.choices?.[choiceIndex];
     if (!choice) return;
 
+    if (choice.go_hex && place.value === "outdoors") {
+      if (!outdoor.canReachHex(choice.go_hex)) return;
+    }
+    if (choice.enter && place.value === "outdoors") {
+      if (!outdoor.atBuildingEntrance) return;
+    }
+
     if (choice.sets) setFlags(gameState.flags, choice.sets);
     if (choice.set_flags) setFlags(gameState.flags, choice.set_flags);
 
@@ -197,6 +204,7 @@ export function useStory(storyData, ctx) {
       applyChoice(idx);
       return;
     }
+    if (!outdoor.canReachHex(hexId)) return;
     outdoor.moveTo(hexId);
   }
 

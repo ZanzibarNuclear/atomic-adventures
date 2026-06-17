@@ -11,6 +11,7 @@
       :mode="outdoor.mode"
       :stand-override="outdoor.standOverride"
       :building-enterable="outdoor.atBuildingEntrance"
+      :clickable-hex-ids="outdoor.reachableHexIds"
       @hex-click="travelToHex"
       @building-enter="enterBuilding" />
     <MapCaption :title="hexLabel(outdoor.currentHexData)" />

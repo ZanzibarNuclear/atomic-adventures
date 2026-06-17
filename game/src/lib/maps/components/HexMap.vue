@@ -37,6 +37,7 @@ const props = defineProps({
   selectedHandleId: { type: String, default: null },
   addPointMode: { type: Boolean, default: false },
   standOverride: { type: Object, default: null }, // { hexId, standAt }
+  clickableHexIds: { type: Object, default: null },
   avatarInstant: { type: Boolean, default: false },
   buildingEnterable: { type: Boolean, default: false },
 })
@@ -145,6 +146,7 @@ const {
         :current-hex="currentHex"
         :builder-view="builderView"
         :discovered-set="discoveredSet"
+        :clickable-hex-ids="props.clickableHexIds"
         @hex-click="onHexClick"
       />
 

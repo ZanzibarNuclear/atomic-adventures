@@ -26,7 +26,7 @@ import {
 } from "./useBarrierOpenings.js";
 import {
   availablePassageCrossings,
-  standAcrossOpening,
+  resolvePassageStand,
   shouldOfferPassageCrossing,
 } from "./usePassageCrossing.js";
 import { barrierHintAtStand } from "./useBarrierStand.js";
@@ -242,6 +242,14 @@ export function useOutdoorWorld(mapData, gameState = null) {
     ),
   );
 
+  /** Hex ids the player may travel to from the current stand (route + direct). */
+  const reachableHexIds = computed(() => {
+    const ids = new Set([state.currentId]);
+    for (const m of moves.value) ids.add(m.toHexId);
+    for (const m of directMoves.value) ids.add(m.toHexId);
+    return ids;
+  });
+
   /** In-hex passage crossings (bridge, ford, gate, hole) — same hex, other side of barrier. */
   const passageCrossings = computed(() =>
     availablePassageCrossings({
@@ -306,7 +314,13 @@ export function useOutdoorWorld(mapData, gameState = null) {
       return;
     }
 
-    const stand = standAcrossOpening(opening, fromPos, ctx, size);
+    const stand = resolvePassageStand(
+      opening,
+      fromPos,
+      ctx,
+      size,
+      fromHex,
+    );
     if (!stand) return;
     if (hexAtPoint(stand, fromHex.id) !== fromHex.id) return;
 
@@ -336,11 +350,12 @@ export function useOutdoorWorld(mapData, gameState = null) {
 
   /** Atomically commit hex + avatar position + barrier hints. */
   function applyMove({ hexId, stand, blocked, atBarrier }) {
-    state.currentId = hexId;
-    state.stand = {
+    const rounded = {
       x: Math.round(stand.x),
       y: Math.round(stand.y),
     };
+    state.currentId = hexAtPoint(rounded, hexId);
+    state.stand = rounded;
     state.lastBlocked = blocked ?? null;
     state.atBarrier = atBarrier ?? null;
   }
@@ -515,6 +530,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
     searchableOpenings,
     moves,
     directMoves,
+    reachableHexIds,
     passageCrossings,
     lockedPassageActions,
     atBuildingEntrance,

@@ -5,6 +5,7 @@ import { buildTravelWorld } from './travelWorld.js'
 import {
   availablePassageCrossings,
   PASSAGE_CROSSING_INSET,
+  resolvePassageStand,
   standAcrossOpening,
   shouldOfferPassageCrossing,
 } from '../composables/usePassageCrossing.js'
@@ -61,6 +62,15 @@ describe('usePassageCrossing', () => {
     expect(isEastOfRiverAt(cross, world.ctx.barriers)).toBe(true)
   })
 
+  it('resolvePassageStand matches standAcrossOpening when ideal is legal', () => {
+    const bridge = world.ctx.openings.find((o) => o.id === 'upper-gorge-bridge')
+    const ug = world.hexById['upper-gorge']
+    const east = { x: bridge.x + 20, y: bridge.y }
+    const ideal = standAcrossOpening(bridge, east, world.ctx)
+    const resolved = resolvePassageStand(bridge, east, world.ctx, world.size, ug)
+    expect(resolved).toEqual(ideal)
+  })
+
   it('uses the same visible separation for bridge, ford, gate, and hole crossings', () => {
     world.revealOpening('mid-west-ford')
     world.revealOpening('south-pines-hole')
@@ -73,8 +83,9 @@ describe('usePassageCrossing', () => {
 
     for (const [openingId, offset] of cases) {
       const opening = world.ctx.openings.find((o) => o.id === openingId)
+      const hex = world.hexById[opening.hex]
       const from = { x: opening.x + offset.dx, y: opening.y + offset.dy }
-      const stand = standAcrossOpening(opening, from, world.ctx, world.size)
+      const stand = resolvePassageStand(opening, from, world.ctx, world.size, hex)
       const barrierKind = barrierKindForOpening(opening.kind)
 
       expect(stand, openingId).toBeTruthy()

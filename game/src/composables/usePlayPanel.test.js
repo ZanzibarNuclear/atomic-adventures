@@ -9,6 +9,7 @@ import {
   defaultMovementLabel,
   getMovementOptions,
   buildOutdoorSearchActions,
+  buildStoryChoices,
 } from './usePlayPanel.js'
 import { hiddenOpeningsInHex } from '../lib/maps/composables/useBarrierOpenings.js'
 import { useOutdoorWorld } from '../lib/maps/composables/useOutdoorWorld.js'
@@ -22,11 +23,20 @@ function outdoorAt(hexId, pendingBeat = null) {
   const neighborIds = new Set(
     adjacentHexes(fromHex, world.hexes).map((h) => h.id),
   )
+  const reachableIds = new Set([
+    hexId,
+    ...routeMoves.map((m) => m.toHexId),
+    ...directMoves.map((m) => m.toHexId),
+  ])
+  const outdoor = useOutdoorWorld(mapData)
+  outdoor.state.currentId = hexId
+  outdoor.state.stand = fromPos
   return {
     currentHexData: fromHex,
     moves: routeMoves,
     directMoves,
     isAdjacentHex: (id) => neighborIds.has(id),
+    canReachHex: (id) => reachableIds.has(id),
     _pendingBeat: pendingBeat,
   }
 }
@@ -88,7 +98,21 @@ describe('getMovementOptions', () => {
     expect(dests).toContain('south-pines')
   })
 
-  it('still offers story choices to adjacent hexes regardless of barriers', () => {
+  it('omits story choices to adjacent but unreachable hexes', () => {
+    const outdoor = useOutdoorWorld(mapData)
+    outdoor.state.currentId = 'south-pines'
+    outdoor.state.stand = outdoor.defaultStandForHex('south-pines')
+
+    const pendingBeat = {
+      choices: [
+        { text: 'Head west to lower stand', go_hex: 'lower-stand' },
+      ],
+    }
+    const choices = buildStoryChoices(pendingBeat, (id) => outdoor.canReachHex(id))
+    expect(choices.some((c) => c.toHexId === 'lower-stand')).toBe(false)
+  })
+
+  it('offers story choices only when enterable like movement options', () => {
     const pendingBeat = {
       choices: [
         { text: 'Head downhill to the south', go_hex: 'south-pines' },
