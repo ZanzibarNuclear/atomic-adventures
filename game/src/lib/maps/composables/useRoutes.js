@@ -202,7 +202,7 @@ export function availableMoves(currentHexId, models, travelOpts = null) {
       travelOpts.routeModels ?? models,
       { barriers: travelOpts.barriers, size: travelOpts.size },
     )
-    return canOfferNeighbor({
+    return canEnterNeighbor({
       fromHex,
       toHex,
       fromPos,
@@ -395,42 +395,24 @@ export function directNeighbors(
     .filter((h) => {
       const toPos = resolveStand(h, current, fromPos)
       const barriersList = barriers?.barriers ?? barriers ?? []
-      const fixedDeparture =
-        current.standAt?.x != null &&
-        current.standAt?.y != null &&
-        current.standAt.from == null
-      if (!fixedDeparture) {
-        if (
-          fromPos &&
-          isWestOfRiverAt(fromPos, barriersList) &&
-          !isWestOfRiverAt(toPos, barriersList)
-        ) {
-          return false
-        }
-        if (
-          fromPos &&
-          isEastOfRiverAt(fromPos, barriersList) &&
-          isWestOfRiverAt(toPos, barriersList)
-        ) {
-          return false
-        }
-        if (
-          fromPos &&
-          isWestOfRiverAt(fromPos, barriersList) &&
-          h.q > current.q
-        ) {
-          return false
-        }
+      if (
+        fromPos &&
+        isEastOfRiverAt(fromPos, barriersList) &&
+        isWestOfRiverAt(toPos, barriersList)
+      ) {
+        return false
       }
-      const path = buildMovePath(
-        fromPos,
-        current,
-        h,
-        toPos,
-        null,
-        [],
-      )
-      return canOfferNeighbor({
+      // Same-row eastward steps from the west bank cross the river (use bridge/ford).
+      if (
+        fromPos &&
+        isWestOfRiverAt(fromPos, barriersList) &&
+        isEastOfRiverAt(toPos, barriersList) &&
+        h.r === current.r
+      ) {
+        return false
+      }
+      const path = buildMovePath(fromPos, current, h, toPos, null, [])
+      return canEnterNeighbor({
         fromHex: current,
         toHex: h,
         fromPos,

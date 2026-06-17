@@ -94,6 +94,15 @@ export function resolveNeighborStand(fromHex, toHex, fromPos, size, barrierCtx) 
   if (stand?.x != null && stand?.y != null && stand.from == null) {
     return { x: stand.x, y: stand.y }
   }
+  if (
+    stand &&
+    fromPos?.x != null &&
+    barriers.length &&
+    isEastOfRiverAt(fromPos, barriers) &&
+    toHex.q !== WEST_BANK_HEX_Q
+  ) {
+    return resolveAvatarPosition(toHex, size)
+  }
   const center = hexCenterStand(toHex, size)
   if (fromPos?.x != null && barriers.length && toHex.q === WEST_BANK_HEX_Q && fromHex?.q === WEST_BANK_HEX_Q) {
     if (isWestOfRiverAt(fromPos, barriers)) {
