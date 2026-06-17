@@ -17,9 +17,6 @@ import {
   barrierSegments,
   travelOpenings,
   resolveMove,
-  canOfferNeighbor,
-  canReachNeighbor,
-  canEnterNeighbor,
   firstBlockedOnPath,
   openingAllows,
 } from '../composables/useTravelBarriers.js'
@@ -161,9 +158,9 @@ export function evaluateNeighborMove(world, fromHex, toHex, fromPos) {
   }
 
   const result = resolveMove(moveArgs)
-  const offerable = canOfferNeighbor(moveArgs)
-  const enters = canEnterNeighbor(moveArgs)
-  const reachable = canReachNeighbor(moveArgs)
+  const enters = result.activeHexId === toHex.id
+  const offerable = enters
+  const reachable = !result.blockedKind && result.activeHexId === toHex.id
   const hit = firstBlockedOnPath(path, world.ctx)
 
   return { path, result, offerable, enters, reachable, hit, toPos, routeLeg }

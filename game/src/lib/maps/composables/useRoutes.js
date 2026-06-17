@@ -312,9 +312,6 @@ export function buildRouteDrawPieces(models, { isRevealed, inView, allowStub }) 
 import { isWestOfRiverAt } from './usePassageCrossing.js'
 import {
   routeMoveSamples,
-  resolveMove,
-  canOfferNeighbor,
-  canReachNeighbor,
   canEnterNeighbor,
 } from './useTravelBarriers.js'
 
@@ -394,8 +391,8 @@ export function buildMovePath(
   return [fromPos, toPos]
 }
 
-// Adjacent hexes not on a marked route — all neighbors unless a barrier in the
-// departure hex blocks exit (barriers in destination hexes are ignored here).
+// Adjacent hexes not on a marked route. Uses the same enterability resolver as
+// route moves, so destination barriers can affect where the avatar stands.
 export function directNeighbors(
   currentHexId,
   hexes,

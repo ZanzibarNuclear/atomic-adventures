@@ -535,30 +535,6 @@ export function pathCrossesAnyBarrier(path, ctx) {
 }
 
 /**
- * Whether a neighbor should appear as a movement option.
- * All adjacent hexes are offered unless a barrier in the current hex blocks exit.
- */
-export function canOfferNeighbor({
-  fromHex,
-  toHex,
-  fromPos,
-  toPos,
-  path,
-  ctx,
-  hexAtPoint,
-}) {
-  if (!fromHex?.id) return false
-  const walkPath = path ?? [fromPos, toPos]
-  return blockedLeavingDepartureHex(
-    walkPath,
-    fromHex.id,
-    ctx,
-    hexAtPoint,
-    moveHexContext(fromHex, toHex),
-  ) === null
-}
-
-/**
  * Whether a move along `path` is blocked. Returns barrier kind or null.
  * Same rules for route-following and direct hex-to-hex travel.
  */
@@ -747,28 +723,4 @@ export function canEnterNeighbor({
     size,
   })
   return result.activeHexId === toHex.id
-}
-
-/** Whether the player fully arrives at the destination stand with no barrier stop. */
-export function canReachNeighbor({
-  fromHex,
-  toHex,
-  fromPos,
-  toPos,
-  path,
-  ctx,
-  hexAtPoint,
-  size,
-}) {
-  const result = resolveMove({
-    fromHex,
-    toHex,
-    fromPos,
-    toPos,
-    path,
-    ctx,
-    hexAtPoint,
-    size,
-  })
-  return !result.blockedKind && result.activeHexId === toHex.id
 }

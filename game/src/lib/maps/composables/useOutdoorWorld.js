@@ -17,7 +17,6 @@ import {
   barrierSegments,
   travelOpenings,
   resolveMove,
-  canOfferNeighbor,
   canEnterNeighbor,
   isLandmarkReachable,
 } from "./useTravelBarriers.js";
@@ -28,6 +27,7 @@ import {
 import {
   availablePassageCrossings,
   standAcrossOpening,
+  shouldOfferPassageCrossing,
 } from "./usePassageCrossing.js";
 import { barrierHintAtStand } from "./useBarrierStand.js";
 import {
@@ -286,7 +286,10 @@ export function useOutdoorWorld(mapData, gameState = null) {
       hexById: hexById.value,
       size,
       discoveredOpenings: state.discoveredOpenings,
-      atBarrier: state.atBarrier ?? state.lastBlocked,
+      atBarrier:
+        barrierHintAtStand(avatarFromPos.value, travelBarrierCtx.value.barriers) ??
+        state.atBarrier ??
+        state.lastBlocked,
     }),
   );
 
@@ -299,6 +302,18 @@ export function useOutdoorWorld(mapData, gameState = null) {
     if (!opening) return;
     const feature = editableFeatures.value.find((f) => f.id === openingId);
     if (feature?.hex !== fromHex.id) return;
+    if (
+      !shouldOfferPassageCrossing(
+        opening,
+        fromPos,
+        ctx,
+        barrierHintAtStand(fromPos, ctx.barriers) ??
+          state.atBarrier ??
+          state.lastBlocked,
+      )
+    ) {
+      return;
+    }
 
     const stand = standAcrossOpening(opening, fromPos, ctx, size);
     if (!stand) return;
@@ -379,6 +394,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
   function canReachHex(hexId) {
     if (hexId === state.currentId) return true;
     if (!isAdjacentHex(hexId)) return false;
+    if (moveBlockedByLockedGate(hexId)) return false;
     const fromHex = hexById.value[state.currentId];
     const toHex = hexById.value[hexId];
     if (!fromHex || !toHex) return false;

@@ -8,11 +8,9 @@ import {
   travelOpenings,
 } from './useBarrierOpenings.js'
 import { featureLabel } from '../../displayLabel.js'
-import { sideOfLine, segmentIntersection } from './useTravelBarriers.js'
+import { sideOfLine } from './useTravelBarriers.js'
 import {
-  BARRIER_STAND_INSET,
   barrierXAtY,
-  standBesideBarrierLine,
   isNearBarrierKind,
 } from './useBarrierStand.js'
 
@@ -23,11 +21,24 @@ const PASSAGE_LABELS = {
   hole: 'Go through the hole',
 }
 
-/** Shift both ford bank stands east so gaps to the river line match. */
-const FORD_STAND_EAST_BIAS = 8
+/** Shared separation after crossing any passage type. */
+export const PASSAGE_CROSSING_INSET = 12
 
 function barrierSegmentsOfKind(kind, barriers) {
   return (barriers ?? []).filter((seg) => seg.kind === kind)
+}
+
+function nearestPointOnSegment(point, seg) {
+  const vx = seg.b.x - seg.a.x
+  const vy = seg.b.y - seg.a.y
+  const wx = point.x - seg.a.x
+  const wy = point.y - seg.a.y
+  const denom = vx * vx + vy * vy || 1
+  const t = Math.max(0, Math.min(1, (wx * vx + wy * vy) / denom))
+  return {
+    x: seg.a.x + vx * t,
+    y: seg.a.y + vy * t,
+  }
 }
 
 function nearestBarrierSegment(point, kind, barriers) {
@@ -35,25 +46,11 @@ function nearestBarrierSegment(point, kind, barriers) {
   let bestDist = Infinity
   for (const seg of barriers ?? []) {
     if (seg.kind !== kind) continue
-    const cross =
-      segmentIntersection(
-        { x: point.x - 1, y: point.y },
-        { x: point.x + 1, y: point.y },
-        seg.a,
-        seg.b,
-      ) ??
-      segmentIntersection(
-        { x: point.x, y: point.y - 1 },
-        { x: point.x, y: point.y + 1 },
-        seg.a,
-        seg.b,
-      )
-    const ax = cross ? cross.x : (seg.a.x + seg.b.x) / 2
-    const ay = cross ? cross.y : (seg.a.y + seg.b.y) / 2
-    const d = Math.hypot(point.x - ax, point.y - ay)
+    const anchor = nearestPointOnSegment(point, seg)
+    const d = Math.hypot(point.x - anchor.x, point.y - anchor.y)
     if (d < bestDist) {
       bestDist = d
-      best = { seg, anchor: { x: ax, y: ay } }
+      best = { seg, anchor }
     }
   }
   return best
@@ -61,42 +58,6 @@ function nearestBarrierSegment(point, kind, barriers) {
 
 function riverXAtY(kind, y, barriers) {
   return barrierXAtY(barrierSegmentsOfKind(kind, barriers), y)
-}
-
-function standAcrossRiver(opening, fromPos, ctx, size = 44) {
-  const barriers = ctx.barriers
-  const y = opening.y
-  const riverX = riverXAtY('river', y, barriers)
-  if (riverX == null) return null
-
-  const westStand = {
-    x: riverX - size * 0.55 + FORD_STAND_EAST_BIAS,
-    y: y - size * 0.04,
-  }
-  const eastStand = standBesideBarrierLine({
-    xAtY: riverX + FORD_STAND_EAST_BIAS,
-    side: 'east',
-    y,
-    inset: BARRIER_STAND_INSET.river,
-  })
-  if (!eastStand) return westStand
-
-  let target
-  if (isWestOfRiverAt(fromPos, barriers)) target = eastStand
-  else if (isEastOfRiverAt(fromPos, barriers)) target = westStand
-  else {
-    const dW = Math.hypot(fromPos.x - westStand.x, fromPos.y - westStand.y)
-    const dE = Math.hypot(fromPos.x - eastStand.x, fromPos.y - eastStand.y)
-    target = dE >= dW ? eastStand : westStand
-  }
-
-  if (isWestOfRiverAt(fromPos, barriers) && isWestOfRiverAt(target, barriers)) {
-    return eastStand
-  }
-  if (isEastOfRiverAt(fromPos, barriers) && isEastOfRiverAt(target, barriers)) {
-    return westStand
-  }
-  return target
 }
 
 function isWestOfRiverAt(fromPos, barriers) {
@@ -118,15 +79,11 @@ export { isWestOfRiverAt, isEastOfRiverAt, isOnRiverBank }
 /** Stand on the far side of the barrier from `fromPos`, at an opening. */
 export function standAcrossOpening(opening, fromPos, ctx, size = 44) {
   const kind = barrierKindForOpening(opening.kind)
-  if (kind === 'river') {
-    return standAcrossRiver(opening, fromPos, ctx, size)
-  }
-
   const near = nearestBarrierSegment(opening, kind, ctx.barriers)
   if (!near) return null
 
   const { seg, anchor } = near
-  const inset = BARRIER_STAND_INSET[kind] ?? 5
+  const inset = PASSAGE_CROSSING_INSET
   const tx = seg.b.x - seg.a.x
   const ty = seg.b.y - seg.a.y
   const len = Math.hypot(tx, ty) || 1
@@ -140,10 +97,33 @@ export function standAcrossOpening(opening, fromPos, ctx, size = 44) {
     ny = -ny
   }
 
-  return {
+  const farStand = {
     x: anchor.x - nx * inset,
     y: anchor.y - ny * inset,
   }
+  const alternateStand = {
+    x: anchor.x + nx * inset,
+    y: anchor.y + ny * inset,
+  }
+
+  if (kind === 'river') {
+    if (
+      isWestOfRiverAt(fromPos, ctx.barriers) &&
+      !isEastOfRiverAt(farStand, ctx.barriers) &&
+      isEastOfRiverAt(alternateStand, ctx.barriers)
+    ) {
+      return alternateStand
+    }
+    if (
+      isEastOfRiverAt(fromPos, ctx.barriers) &&
+      !isWestOfRiverAt(farStand, ctx.barriers) &&
+      isWestOfRiverAt(alternateStand, ctx.barriers)
+    ) {
+      return alternateStand
+    }
+  }
+
+  return farStand
 }
 
 /** Whether the player can cross to the other side of this opening (toggle). */

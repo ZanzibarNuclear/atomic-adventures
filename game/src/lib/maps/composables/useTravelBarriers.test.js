@@ -306,7 +306,7 @@ describe('reachable arrival stand selection', () => {
   })
 })
 
-describe('canOfferNeighbor vs canReachNeighbor', () => {
+describe('single adjacent-move authority', () => {
   it('offers south-pines from lower-stand even though the fence is in the destination hex', () => {
     const world = buildTravelWorld(mapData)
     const from = world.hexById['lower-stand']
