@@ -86,16 +86,20 @@ export function riverSegments(featureModels) {
 }
 
 export function openingAllows(kind, x, y, openings) {
+  return matchingOpening(kind, x, y, openings) != null
+}
+
+function matchingOpening(kind, x, y, openings) {
   const allowed = allowedOpenings(kind)
-  return openings.some((o) => {
-    if (!allowed.has(o.kind)) return false
+  return openings.find((o) => {
+    if (!allowed.has(o.kind)) return null
     const r = o.r ?? 12
-    if (Math.hypot(x - o.x, y - o.y) > r) return false
+    if (Math.hypot(x - o.x, y - o.y) > r) return null
     // River openings sit on the barrier line — reject shortcut chords that
     // cross the river at a different y but fall inside the opening disc.
-    if (kind === 'river' && Math.abs(y - o.y) > r * 0.6) return false
-    return true
-  })
+    if (kind === 'river' && Math.abs(y - o.y) > r * 0.6) return null
+    return o
+  }) ?? null
 }
 
 function barrierList(ctx) {
@@ -140,6 +144,23 @@ function pointDistance(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y)
 }
 
+function pointToSegmentDistance(p, seg) {
+  const vx = seg.b.x - seg.a.x
+  const vy = seg.b.y - seg.a.y
+  const wx = p.x - seg.a.x
+  const wy = p.y - seg.a.y
+  const denom = vx * vx + vy * vy || 1
+  const t = Math.max(0, Math.min(1, (wx * vx + wy * vy) / denom))
+  const q = { x: seg.a.x + vx * t, y: seg.a.y + vy * t }
+  return pointDistance(p, q)
+}
+
+function barrierClearance(p, ctx) {
+  const barriers = barrierList(ctx)
+  if (!barriers.length) return Infinity
+  return Math.min(...barriers.map((seg) => pointToSegmentDistance(p, seg)))
+}
+
 function sharedHexEdge(fromHex, toHex, size) {
   if (!fromHex || !toHex || hexDistance(fromHex, toHex) !== 1) return null
   const fromCenter = axialToPixel(fromHex.q, fromHex.r, size)
@@ -182,6 +203,10 @@ function sampleSharedEdge(edge, toHex, size) {
 
 function pathClear(path, ctx, moveCtx = null) {
   return firstBlockedOnPath(path, ctx, moveCtx) == null
+}
+
+function closedBarrierCtx(ctx) {
+  return ctx ? { ...ctx, openings: [] } : ctx
 }
 
 function approachCtx(ctx) {
@@ -235,6 +260,58 @@ function samePoint(a, b) {
   return !!a && !!b && Math.hypot(a.x - b.x, a.y - b.y) < 1e-6
 }
 
+function interpolate(a, b, t) {
+  return {
+    x: a.x + (b.x - a.x) * t,
+    y: a.y + (b.y - a.y) * t,
+  }
+}
+
+function hexInteriorCandidates(fromHex, toHex, fromPos, hexAtPoint, size, ctx) {
+  if (!toHex || !fromPos || !hexAtPoint || size == null) return []
+  const edge = sharedHexEdge(fromHex, toHex, size)
+  const center = hexCenterStand(toHex, size)
+  const candidates = []
+  const add = (point) => {
+    if (!point) return
+    if (hexAtPoint(point, toHex.id) !== toHex.id) return
+    if (candidates.some((candidate) => samePoint(candidate.point, point))) return
+    candidates.push({
+      point,
+      distance: pointDistance(fromPos, point),
+      clearance: barrierClearance(point, ctx),
+    })
+  }
+
+  if (edge) {
+    for (const sample of sampleSharedEdge(edge, toHex, size)) {
+      for (const t of [0.85, 0.7, 0.55, 0.4, 0.25]) {
+        add(interpolate(sample.insidePoint, center, t))
+      }
+    }
+  }
+
+  const radius = size * 0.42
+  for (const angle of [0, 60, 120, 180, 240, 300]) {
+    const rad = (angle * Math.PI) / 180
+    add({
+      x: center.x + Math.cos(rad) * radius,
+      y: center.y + Math.sin(rad) * radius,
+    })
+  }
+  const gridStep = size / 4
+  for (let dx = -size * 0.75; dx <= size * 0.75; dx += gridStep) {
+    for (let dy = -size * 0.75; dy <= size * 0.75; dy += gridStep) {
+      add({ x: center.x + dx, y: center.y + dy })
+    }
+  }
+  add(center)
+
+  return candidates
+    .sort((a, b) => b.clearance - a.clearance || b.distance - a.distance)
+    .map((candidate) => candidate.point)
+}
+
 function firstReachableArrivalCandidate({
   fromHex,
   toHex,
@@ -243,8 +320,11 @@ function firstReachableArrivalCandidate({
   ctx,
   hexAtPoint,
   size,
+  strictOpenings = false,
+  includeInterior = false,
 }) {
   if (!toHex || !fromPos || !ctx || !hexAtPoint || size == null) return null
+  const reachCtx = strictOpenings ? closedBarrierCtx(ctx) : ctx
   const moveCtx = moveHexContext(fromHex, toHex)
   const candidates = []
   const add = (stand) => {
@@ -256,9 +336,21 @@ function firstReachableArrivalCandidate({
 
   add(toPos)
   add(hexCenterStand(toHex, size))
+  if (includeInterior) {
+    for (const point of hexInteriorCandidates(
+      fromHex,
+      toHex,
+      fromPos,
+      hexAtPoint,
+      size,
+      reachCtx,
+    )) {
+      add(point)
+    }
+  }
 
   for (const candidate of candidates) {
-    if (pathClear([fromPos, candidate], ctx, moveCtx)) return candidate
+    if (pathClear([fromPos, candidate], reachCtx, moveCtx)) return candidate
   }
   return null
 }
@@ -618,11 +710,26 @@ export function resolveMove({
   }
 
   const hit = firstBlockedOnPath(walkPath, ctx, moveCtx)
-  let blockedKind = hit?.kind ?? null
+  const directMove = walkPath.length <= 2
+  const strictHitCandidate =
+    directMove && ctx ? firstBlockedOnPath(walkPath, closedBarrierCtx(ctx), moveCtx) : null
+  const implicitOpening =
+    strictHitCandidate && !hit
+      ? matchingOpening(
+        strictHitCandidate.kind,
+        strictHitCandidate.x,
+        strictHitCandidate.y,
+        ctx.openings,
+      )
+      : null
+  const strictHit =
+    implicitOpening?.hex === fromHex?.id ? null : strictHitCandidate
+  const effectiveHit = hit ?? strictHit
+  let blockedKind = effectiveHit?.kind ?? null
   let stand
 
-  if (hit) {
-    if (walkPath.length <= 2) {
+  if (effectiveHit) {
+    if (directMove) {
       const reachableStand = firstReachableArrivalCandidate({
         fromHex,
         toHex,
@@ -631,6 +738,8 @@ export function resolveMove({
         ctx,
         hexAtPoint,
         size,
+        strictOpenings: true,
+        includeInterior: !hit && !!strictHit,
       })
       if (reachableStand) {
         return {
@@ -646,10 +755,10 @@ export function resolveMove({
         toHex,
         fromPos,
         toPos,
-        ctx,
+        ctx: strictHit ? closedBarrierCtx(ctx) : ctx,
         hexAtPoint,
         size,
-        hit,
+        hit: effectiveHit,
       })
       if (edgeMove) return edgeMove
     }
@@ -660,16 +769,16 @@ export function resolveMove({
       toHex.standAt.from == null
         ? { x: toHex.standAt.x, y: toHex.standAt.y }
         : null
-    if (authored && sameSideOfHit(fromPos, authored, hit)) {
+    if (authored && sameSideOfHit(fromPos, authored, effectiveHit)) {
       stand = authored
       blockedKind = null
-    } else if (authored && authoredStandApproachesOpening(authored, hit, ctx)) {
+    } else if (hit && authored && authoredStandApproachesOpening(authored, effectiveHit, ctx)) {
       stand = authored
       blockedKind = null
     } else {
-      const segStart = walkPath[hit.segIndex] ?? fromPos
-      stand = standBeforeBarrierHit(segStart, hit, {
-        inset: BARRIER_STAND_INSET[hit.kind] ?? BARRIER_STAND_INSET.fence,
+      const segStart = walkPath[effectiveHit.segIndex] ?? fromPos
+      stand = standBeforeBarrierHit(segStart, effectiveHit, {
+        inset: BARRIER_STAND_INSET[effectiveHit.kind] ?? BARRIER_STAND_INSET.fence,
       })
     }
   } else {

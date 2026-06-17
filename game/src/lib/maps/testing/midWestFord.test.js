@@ -7,6 +7,7 @@ import {
   isWestOfRiverAt,
   isEastOfRiverAt,
 } from '../composables/usePassageCrossing.js'
+import { firstBlockedOnPath } from '../composables/useTravelBarriers.js'
 
 describe('mid-west ford and bank column return', () => {
   const world = buildTravelWorld(mapData)
@@ -61,5 +62,29 @@ describe('mid-west ford and bank column return', () => {
     expect(toUy.reachable).toBe(true)
     expect(back.offerable).toBe(true)
     expect(back.reachable).toBe(true)
+  })
+
+  it('enters gate-woods south of the fence after crossing the ford', async () => {
+    const outdoor = useOutdoorWorld(mapData)
+    outdoor.state.currentId = 'upper-gorge'
+    outdoor.state.stand = outdoor.defaultStandForHex('upper-gorge')
+    outdoor.state.discoveredOpenings = ['mid-west-ford']
+
+    outdoor.crossPassage('upper-gorge-bridge')
+    outdoor.moveTo('north-west')
+    await new Promise((r) => setTimeout(r, 700))
+    outdoor.moveTo('mid-west')
+    await new Promise((r) => setTimeout(r, 700))
+    outdoor.crossPassage('mid-west-ford')
+    const beforeGate = { ...outdoor.state.stand }
+
+    outdoor.moveTo('gate-woods')
+    await new Promise((r) => setTimeout(r, 700))
+
+    const closedBarriers = { barriers: outdoor.travelBarrierCtx.barriers, openings: [] }
+    expect(outdoor.state.currentId).toBe('gate-woods')
+    expect(outdoor.state.atBarrier).toBeNull()
+    expect(outdoor.state.stand.y).toBeGreaterThan(-61)
+    expect(firstBlockedOnPath([beforeGate, outdoor.state.stand], closedBarriers)).toBeNull()
   })
 })

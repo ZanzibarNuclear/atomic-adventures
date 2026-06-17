@@ -77,6 +77,7 @@ export function travelOpenings(
       return {
         id: f.id,
         kind: f.kind,
+        hex: f.hex,
         x: pos.x,
         y: pos.y,
         r: f.radius ?? OPENING_RADIUS[f.kind] ?? 12,
