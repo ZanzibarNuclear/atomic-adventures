@@ -138,17 +138,28 @@ export function shouldOfferPassageCrossing(opening, fromPos, ctx, atBarrier) {
   if (!kind) return false
   if (atBarrier && atBarrier !== kind) return false
 
+  const nearOpening = nearestBarrierSegment(opening, kind, ctx.barriers)
+  if (!nearOpening) return false
   const stand = standAcrossOpening(opening, fromPos, ctx)
   if (!stand) return false
   if (Math.hypot(stand.x - fromPos.x, stand.y - fromPos.y) < 1) return false
 
   if (!isNearBarrierKind(fromPos, kind, ctx.barriers)) return false
 
-  const near = nearestBarrierSegment(fromPos, kind, ctx.barriers)
-  if (!near) return false
-  const fromSide = sideOfLine(fromPos, near.seg.a, near.seg.b)
+  // Use the barrier segment at the opening for both sides. On a curved barrier,
+  // the segment nearest the avatar may have a different tangent and can
+  // incorrectly make a valid crossing look like it stays on the same side.
+  const fromSide = sideOfLine(
+    fromPos,
+    nearOpening.seg.a,
+    nearOpening.seg.b,
+  )
   if (Math.abs(fromSide) <= 0.5) return true
-  const toSide = sideOfLine(stand, near.seg.a, near.seg.b)
+  const toSide = sideOfLine(
+    stand,
+    nearOpening.seg.a,
+    nearOpening.seg.b,
+  )
   return fromSide * toSide < 0
 }
 

@@ -47,7 +47,7 @@ For adjacent hex movement, the contract is:
 2. **Use the chosen path shape.** The reachability path may be a straight segment, a marked route polyline, a walk along a barrier, or a computed path around a barrier inside the reachable sub-area. A straight chord is only one candidate, not the definition of movement.
 3. **Respect barriers.** A path may not cross a barrier unless it crosses at an available local passage in the same cell and the movement being resolved explicitly uses that passage.
 4. **Enter through the reachable border.** If the avatar can reach the shared border, the cell on the other side is reachable. The move enters the destination cell through that border, not through its center or an arbitrary `standAt`.
-5. **Choose a safe destination stand.** After entry, the avatar stands in the best reachable place inside the destination cell. Barriers inside the destination cell can restrict that placement.
+5. **Choose a safe destination stand.** After entry, the avatar stands in the best reachable place inside the destination cell. If a barrier divides the cell, first identify the barrier-bounded sub-area entered through the shared border and choose the stand inside that area.
 6. **The stand decides the active hex.** The active hex after a move is whichever hex contains the final stand (`hexAtPoint(stand)`), not merely the hex the player clicked.
 
 If no path from the current stand reaches the intended border, the movement option must not be shown. If a programmatic movement attempt is made anyway, it must fail without moving through the barrier; the avatar may remain at the current stand or stop on the current side of the blocking barrier, depending on the interaction.
@@ -56,7 +56,7 @@ If no path from the current stand reaches the intended border, the movement opti
 
 **Barriers** are authored map features such as rivers, fences, cliffs, and ravines. They are defined by feature points, usually as polylines, with possible smoothing for curved features. Collision should use the same sampled curve the player sees. A barrier divides a cell into reachable sub-areas. The avatar may move within a sub-area and along the barrier edge, but may not cross into another sub-area except through an available local passage.
 
-Barriers block path segments that strictly cross them. Walking parallel to a barrier, standing on one side of it, or following its bank/edge does not count as crossing. Barrier-adjacent stands should keep a small visible gap so the avatar does not stand on top of the barrier. Endpoint and grazing cases should be handled conservatively: if the visual intent is that the barrier blocks movement, authored geometry and tests should make that unambiguous.
+Barriers block path segments that strictly cross them. Walking parallel to a barrier, standing on one side of it, or following its bank/edge does not count as crossing. A stand is not safe merely because a path to it does not strictly cross the barrier: the stand itself must have visible clearance from every barrier. The avatar must never finish on or touching a barrier. Barrier-adjacent stands should keep a small visible gap so the avatar does not stand on top of the barrier. Endpoint and grazing cases should be handled conservatively: if the visual intent is that the barrier blocks movement, authored geometry and tests should make that unambiguous.
 
 **Local passages** are authored openings in a barrier inside a cell: gate, hole, bridge, ford, stair, and future equivalents. A passage can allow the avatar to cross that local barrier when the passage is available and the avatar is close enough or otherwise eligible to use it. After crossing any passage type, the avatar should stand near the passage on the far side, separated from the barrier by a consistent inset that is large enough for the player to see that the avatar is through the passage.
 
@@ -64,13 +64,16 @@ Inter-hex travel should not treat openings as vague global exemptions. If a move
 
 ### Destination Stand Priority
 
-When the player chooses an adjacent move, first determine the reachable entry point or entry segment on the shared border. Then choose the destination stand from that entry position.
+When the player chooses an adjacent move, first determine the reachable entry point or entry segment on the shared border. Then determine whether barriers divide the destination cell and which barrier-bounded sub-area contains that entry. All destination stand candidates must be reachable within that entered sub-area and must have visible clearance from its barriers.
 
 1. **Route stand.** If following a marked route, stand on the route where it naturally places the avatar inside the destination cell: an authored route target, route endpoint, or stable point along the route in that cell.
-2. **Authored stand point.** If the destination cell has one or more authored preferred stand points, choose the best one that is reachable from the entry border without illegally crossing a barrier.
-3. **Hex center.** If no authored stand is reachable, use the center of the destination cell when it is reachable within the same accessible sub-area.
-4. **Barrier-side stand.** If preferred stands and center are blocked by a barrier inside the destination cell, stand inside the reachable sub-area created by the barrier and the nearest borders to the entry point. Prefer a stable point near the midpoint of the blocking barrier segment within that sub-area, inset slightly on the accessible side.
-5. **Border entry.** If no better stable stand can be found, stand just inside the destination cell at the reachable border entry.
+2. **Authored stand point in the entered sub-area.** If the destination cell has one or more authored preferred stand points, choose the best one that is reachable from the entry border without crossing a barrier and has safe barrier clearance. A stand point on the other side of a barrier does not apply to this arrival.
+3. **Barrier-side area stand.** If a barrier divides the destination cell, this is a special case handled before the generic center fallback. Choose a stable point roughly central to the entered sub-area formed by the barrier and cell borders, with safe visible clearance from the barrier. This may be an authored point, a computed interior point, or a point beside the barrier when the movement naturally ends there.
+4. **Barrier-adjacent stop.** If the intended path or preferred target meets a barrier, standing near the relevant barrier segment on the entered side is acceptable, inset by the normal visible gap. Do not place the avatar directly on the intersection or barrier line.
+5. **Hex center fallback.** In a cell that is not divided by a barrier, or when the center is clearly inside the entered sub-area with safe barrier clearance, the center is the generic fallback. “Default” means the final common case after route, authored, and barrier-side conditions have been considered; it does not mean “try the center first.”
+6. **Border entry.** If no better stable stand can be found, stand just inside the destination cell at the reachable border entry, adjusted as needed to preserve barrier clearance.
+
+The presence of a barrier through a cell is itself a special condition. The resolver must not accept the center merely because the center is technically reachable or because a path to it does not register a strict crossing. A center that lies on, touches, or crowds a river, fence, cliff, or ravine is not a valid stand.
 
 ### Finding Reachable Paths
 
@@ -191,7 +194,12 @@ All checks use `interHexTravelCtx(ctx)` which sets `openings: []`. In the curren
 
 **Step 2 — `resolveDestinationStand`**
 
-Preferred stands: `resolveArrivalStand` (routes) → authored → `toPos` → center → `hexInteriorCandidates` → `standBeforeFirstHit` → `entryPoint`. Preferred stands use the local cell-bounded search when direct reachability is blocked. Interior fallback samples are still direct-check only. This approximates the intended destination stand priority, but does not yet explicitly model the reachable sub-area or barrier-midpoint fallback described above.
+The resolver first detects barriers that intersect the destination cell. Route and authored targets are accepted only when they are reachable from the entry point and have the normal visible barrier clearance.
+
+- **Barrier-free cell:** route/authored target → requested target → center → interior fallback.
+- **Barrier-divided cell:** route/authored target in the entered sub-area → requested target when safe → reachable interior candidates ranked by clearance from both barriers and cell borders → barrier-adjacent fallback → center only when it is genuinely safe and reachable in the entered sub-area → border entry.
+
+This is a sampled approximation of the entered sub-area rather than an explicit polygon decomposition. It deliberately treats the hex center as a fallback, not the first successful point in a barrier-divided cell.
 
 `standInDestinationHex` rejects targets outside the destination hex (via `pixelToHex` + hex coord map).
 
@@ -229,6 +237,7 @@ Adjacent move options and execution use one geometry authority:
 - **`pathCrossesBarrier`** — endpoints on opposite sides of the barrier line (`sideOfLine`).
 - **`PATH_ORIGIN_EPS` (0.02)** — ignores hits at the start of a segment so the avatar does not block itself.
 - **Grazing / endpoint gaps** — a path can pass near a fence endpoint without counting as a crossing if the intersection falls outside the barrier segment’s y/x extent. This is geometrically correct but can surprise authors if fence segments are short (see Implementation Punch List).
+- **Passage side checks** — passage eligibility and far-side placement use the same sampled barrier segment at the opening. On a curved river or fence, the segment nearest the avatar may have a different tangent and must not be substituted for the opening-local segment.
 
 ### `travelBarrierCtx`
 
@@ -312,7 +321,7 @@ on_cross:
 | --------------------------------------------------------- | ------------------------------------------------------- |
 | `useTravelBarriers.test.js`                               | Current resolver, geometry, enterability                |
 | `midWestGateWoods.test.js`                                | `mid-west → gate-woods` enters south of fence           |
-| `midWestFord.test.js`                                     | Ford `crossPassage`; west-bank adjacent walks           |
+| `midWestFord.test.js`                                     | West-bank arrival clearance; search → ford action; crossing and adjacent walks |
 | `openingDiscovery.test.js`                                | Hole → `crossPassage`, not opening bypass on neighbors  |
 | `compoundGateGameplay.test.js`                            | Gate lock UI, passage, south moves after cross          |
 | `storyJourneySmoke.test.js`                               | Mainline journey with gameplay stack                    |
@@ -336,6 +345,7 @@ Run: `npm run test` from repo root.
 | `south-pines → lower-stand`                 | Blocked west of fence until `crossPassage('south-pines-hole')` | Stand in `lower-stand`                                                       |
 | `road-fork → upper-gorge`                   | Follow `river-access-drive`                                    | Stand on drive at east bank                                                  |
 | `upper-gorge → north-west`                  | Inter-hex movement after bridge crossing                       | West-bank stand in `north-west`                                              |
+| `north-west → mid-west`                   | Enter on the west side of the river                             | Stable west-side area stand with visible river clearance                     |
 
 ### Northern approach (play sequence)
 
@@ -362,5 +372,5 @@ These are the remaining movement tasks. Completed work and standing maintenance 
 | Date    | Change                                                                                                                                           |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 2026-06 | Initial source-of-truth doc; consolidates `barrier-pathfinding.md` and `barrier-passage-openings.md`; aligned to `game/` two-step implementation |
-| 2026-06 | Moved to `docs/designs/hexcrawling.md`; references updated                                                                                       |
+| 2026-06 | Renamed to `docs/designs/hex-crawling.md`; references updated                                                                                   |
 | 2026-06 | Deleted superseded plans `barrier-pathfinding.md` and `barrier-passage-openings.md`                                                              |

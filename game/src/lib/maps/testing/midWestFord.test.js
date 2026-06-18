@@ -4,6 +4,11 @@ import { useOutdoorWorld } from '../composables/useOutdoorWorld.js'
 import { buildTravelWorld, evaluateNeighborMove } from './travelWorld.js'
 import { standAcrossOpening } from '../composables/usePassageCrossing.js'
 import { firstBlockedOnPath } from '../composables/useTravelBarriers.js'
+import {
+  BARRIER_STAND_INSET,
+  distToBarrierKind,
+} from '../composables/useBarrierStand.js'
+import { gameplayMoveTo } from './gameplayTravel.js'
 import { isWestOfRiverAt, isEastOfRiverAt } from './riverSide.js'
 
 describe('mid-west ford and bank column return', () => {
@@ -27,6 +32,30 @@ describe('mid-west ford and bank column return', () => {
     const cross = standAcrossOpening(ford, fromPos, world.ctx, world.size)
     expect(isEastOfRiverAt(cross, world.ctx.barriers)).toBe(true)
     expect(isWestOfRiverAt(cross, world.ctx.barriers)).toBe(false)
+  })
+
+  it('arrives safely on the west side and offers the ford after searching', () => {
+    const outdoor = useOutdoorWorld(mapData)
+    outdoor.state.currentId = 'upper-gorge'
+    outdoor.state.stand = outdoor.defaultStandForHex('upper-gorge')
+
+    outdoor.crossPassage('upper-gorge-bridge')
+    gameplayMoveTo(outdoor, 'north-west')
+    gameplayMoveTo(outdoor, 'mid-west')
+
+    expect(outdoor.state.currentId).toBe('mid-west')
+    expect(isWestOfRiverAt(outdoor.state.stand, outdoor.rivers)).toBe(true)
+    expect(
+      distToBarrierKind(outdoor.state.stand, 'river', outdoor.rivers),
+    ).toBeGreaterThanOrEqual(BARRIER_STAND_INSET.river)
+    expect(outdoor.canSearchHere()).toBe(true)
+
+    outdoor.searchBarrier()
+
+    expect(outdoor.state.discoveredOpenings).toContain('mid-west-ford')
+    expect(outdoor.passageCrossings.map((crossing) => crossing.openingId)).toContain(
+      'mid-west-ford',
+    )
   })
 
   it('round-trips utility-yard after a single ford crossing', async () => {

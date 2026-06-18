@@ -2,7 +2,7 @@
 
 **Status:** Preserved plan (not started)  
 **Scope:** `game/src/lib/maps/` — replaces sampled `pathInHex` grid search with explicit sub-area geometry  
-**Source of truth for movement contract:** [docs/designs/hexcrawling.md](../designs/hexcrawling.md)  
+**Source of truth for movement contract:** [docs/designs/hex-crawling.md](../designs/hex-crawling.md)
 **Punch list item:** Geometry and stands §1 — *replace sampled local search with explicit reachable sub-areas*
 
 ## Overview
@@ -326,8 +326,8 @@ Target size: ~250–350 lines of geometry, no Vue — same pattern as `useHexGeo
 
 ## Agent notes (follow this plan later)
 
-1. Read [hexcrawling.md](../designs/hexcrawling.md) movement contract before coding.
+1. Read [hex-crawling.md](../designs/hex-crawling.md) movement contract before coding.
 2. Implement phase 0 only first; do not flip gameplay until shadow tests pass.
 3. Edit `game/src/lib/maps/`, not `web/`.
 4. Run `npm run test` after each phase.
-5. When phase 2 lands, update the "Current Implementation Details" section in `hexcrawling.md` and trim punch list item §1.
+5. When phase 2 lands, update the "Current Implementation Details" section in `hex-crawling.md` and trim punch list item §1.

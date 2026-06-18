@@ -194,9 +194,9 @@ describe('resolveMove', () => {
     })
     expect(result.blockedKind).toBeNull()
     expect(result.activeHexId).toBe('east')
-    const center = hexCenterStand(toHex, size)
-    expect(result.stand.x).toBeCloseTo(center.x, 0)
-    expect(result.stand.y).toBeCloseTo(center.y, 0)
+    expect(result.stand.x).toBeLessThan(100)
+    expect(result.stand.x).toBeGreaterThan(60)
+    expect(Math.abs(result.stand.y)).toBeLessThan(5)
   })
 
   it('completes an unblocked move at the destination stand', () => {
@@ -268,7 +268,7 @@ describe('reachable arrival stand selection', () => {
     expect(result.stand).toEqual({ x: 70, y: 20 })
   })
 
-  it('uses the destination center when an authored stand is across a closed barrier', () => {
+  it('uses a central point in the entered sub-area when an authored stand is across a closed barrier', () => {
     const result = resolveMove({
       fromHex,
       toHex,
@@ -281,8 +281,9 @@ describe('reachable arrival stand selection', () => {
     })
 
     expect(result.blockedKind).toBeNull()
-    expect(result.stand.x).toBeCloseTo(centerStand.x)
-    expect(result.stand.y).toBeCloseTo(centerStand.y)
+    expect(result.stand.x).toBeLessThan(100)
+    expect(result.stand.x).toBeGreaterThan(60)
+    expect(result.stand).not.toEqual(authoredStand)
   })
 
   it('stops before the barrier when no destination stand is reachable', () => {
@@ -331,7 +332,7 @@ describe('single adjacent-move authority', () => {
     expect(m.result.stand.y).toBeLessThan(90)
   })
 
-  it('lower-stand to south-pines stops near the fence instead of routing to a corner', () => {
+  it('lower-stand to south-pines stands safely inside the entered fence-side area', () => {
     const world = buildTravelWorld(mapData)
     const from = world.hexById['lower-stand']
     const to = world.hexById['south-pines']
@@ -339,8 +340,8 @@ describe('single adjacent-move authority', () => {
 
     expect(m.enters).toBe(true)
     expect(m.result.activeHexId).toBe('south-pines')
-    expect(m.result.stand.x).toBeGreaterThan(-40)
-    expect(m.result.stand.x).toBeLessThan(-20)
+    expect(m.result.stand.x).toBeGreaterThan(-30)
+    expect(m.result.stand.x).toBeLessThan(0)
   })
 })
 

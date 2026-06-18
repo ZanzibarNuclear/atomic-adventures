@@ -1,28 +1,29 @@
 import { describe, it, expect } from 'vitest'
 import mapData from '../../../../content/world/map.yaml'
 import { useOutdoorWorld } from '../composables/useOutdoorWorld.js'
-import { hexCenterStand } from '../composables/useAvatarStand.js'
 import { buildTravelWorld, offeredMoves } from './travelWorld.js'
 import { standAcrossOpening } from '../composables/usePassageCrossing.js'
+import {
+  BARRIER_STAND_INSET,
+  distToBarrierKind,
+} from '../composables/useBarrierStand.js'
 import { isEastOfRiverAt, isWestOfRiverAt } from './riverSide.js'
 
 describe('west bank direct moves', () => {
   const world = buildTravelWorld(mapData)
-  const size = world.size
-
-  it('steps into north-west from the west bank at the reachable center', () => {
+  it('steps into a safe stand in the west-side area of north-west', () => {
     const outdoor = useOutdoorWorld(mapData)
     outdoor.state.currentId = 'upper-gorge'
     outdoor.state.stand = outdoor.defaultStandForHex('upper-gorge')
     outdoor.crossPassage('upper-gorge-bridge')
 
-    const nwCenter = hexCenterStand(world.hexById['north-west'], size)
     outdoor.moveTo('north-west')
     expect(outdoor.state.currentId).toBe('north-west')
-    expect(outdoor.state.stand.x).toBe(Math.round(nwCenter.x))
-    expect(outdoor.state.stand.y).toBe(Math.round(nwCenter.y))
     expect(isWestOfRiverAt(outdoor.state.stand, world.ctx.barriers)).toBe(true)
     expect(isEastOfRiverAt(outdoor.state.stand, world.ctx.barriers)).toBe(false)
+    expect(
+      distToBarrierKind(outdoor.state.stand, 'river', world.ctx.barriers),
+    ).toBeGreaterThanOrEqual(BARRIER_STAND_INSET.river)
 
     const { directMoves } = offeredMoves(
       world,

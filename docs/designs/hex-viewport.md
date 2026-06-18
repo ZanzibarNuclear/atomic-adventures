@@ -2,7 +2,7 @@
 
 **Status:** Source of truth for outdoor hex-map zoom, visibility, and fog rendering in the playable game  
 **Scope:** `game/` — `game/src/lib/maps/` (`useHexMapViewport.js`, `useHexGeometry.js`, `HexMap.vue`)  
-**Related:** [hexcrawling.md](hexcrawling.md) (movement, discovery state, travel — unchanged by viewport)
+**Related:** [hex-crawling.md](hex-crawling.md) (movement, discovery state, travel — unchanged by viewport)
 
 The outdoor hex map has two **player-facing view modes**: **gameplay** (default) and **full**. They control what the SVG draws and how the camera is framed. They do **not** change discovery, travel, barriers, or save state.
 
