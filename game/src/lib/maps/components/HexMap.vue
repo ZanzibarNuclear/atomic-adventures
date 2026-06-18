@@ -48,18 +48,20 @@ const emit = defineEmits(['hex-click', 'select-handle', 'waypoint-move', 'builde
 
 const mapSvgRef = ref(null)
 const panelAspect = ref(null)
+let resizeObserver = null
 
 onMounted(async () => {
   await nextTick()
   const el = mapSvgRef.value?.parentElement
   if (!el) return
-  const ro = new ResizeObserver(([entry]) => {
+  resizeObserver = new ResizeObserver(([entry]) => {
     const { width, height } = entry.contentRect
     if (width > 0 && height > 0) panelAspect.value = width / height
   })
-  ro.observe(el)
-  onUnmounted(() => ro.disconnect())
+  resizeObserver.observe(el)
 })
+
+onUnmounted(() => resizeObserver?.disconnect())
 
 const { onHandleDown, clientToSvg } = useSvgDragHandles(mapSvgRef, {
   onSelect: (handleKey) => emit('select-handle', handleKey),

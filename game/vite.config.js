@@ -6,7 +6,7 @@ import yaml from '@rollup/plugin-yaml'
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['src/**/*.test.js'],
+    include: ['src/**/*.test.js', 'server/**/*.test.js'],
   },
   plugins: [
     vue(),

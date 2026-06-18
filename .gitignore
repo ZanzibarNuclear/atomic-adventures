@@ -1,2 +1,5 @@
 **/node_modules
 .DS_STORE
+game/content/*.sqlite-shm
+game/content/*.sqlite-wal
+game/content/*.sqlite-journal

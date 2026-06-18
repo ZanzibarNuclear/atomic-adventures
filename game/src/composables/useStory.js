@@ -1,4 +1,4 @@
-import { computed, ref, watch } from "vue";
+import { computed, ref, unref, watch } from "vue";
 import { hasFlag, requireSatisfied, setFlags } from "../lib/maps/composables/useFlags.js";
 
 /**
@@ -8,7 +8,7 @@ import { hasFlag, requireSatisfied, setFlags } from "../lib/maps/composables/use
  */
 export function useStory(storyData, ctx) {
   const { gameState, place, outdoor, indoor } = ctx;
-  const beats = storyData.beats ?? {};
+  const beats = computed(() => unref(storyData)?.beats ?? {});
   const previousPlace = ref(place.value);
 
   /** Beat awaiting player acknowledgment (blocks narrative updates). */
@@ -79,7 +79,7 @@ export function useStory(storyData, ctx) {
   }
 
   function findNewBeat(loc, event = null) {
-    for (const [id, beat] of Object.entries(beats)) {
+    for (const [id, beat] of Object.entries(beats.value)) {
       if (beat.once !== false && beatSeen(id)) continue;
       if (!requireSatisfied(beat.require, gameState.flags)) continue;
       if (!triggerMatches(beat, loc, event)) continue;
@@ -97,7 +97,7 @@ export function useStory(storyData, ctx) {
 
   function findRevisitBeat(loc) {
     const key = locationKey(loc);
-    for (const [id, beat] of Object.entries(beats)) {
+    for (const [id, beat] of Object.entries(beats.value)) {
       if (beat.once === false || !beatSeen(id)) continue;
       const text = beat.revisit ?? beat.text;
       if (!text) continue;
@@ -250,7 +250,7 @@ export function useStory(storyData, ctx) {
       previousPlace.value = place.value;
 
       if (pendingBeat.value) {
-        const beatDef = beats[pendingBeat.value.id];
+        const beatDef = beats.value[pendingBeat.value.id];
         if (beatDef && atBeatTrigger(beatDef, loc)) return;
         pendingBeat.value = null;
       }
@@ -260,6 +260,37 @@ export function useStory(storyData, ctx) {
       } else {
         refreshNarrative();
       }
+    },
+    { flush: "post" },
+  );
+
+  watch(
+    beats,
+    () => {
+      const loc = locationContext();
+      const pendingId = pendingBeat.value?.id;
+      if (pendingId) {
+        const definition = beats.value[pendingId];
+        pendingBeat.value = null;
+        if (
+          definition &&
+          requireSatisfied(definition.require, gameState.flags) &&
+          atBeatTrigger(definition, loc)
+        ) {
+          pendingBeat.value = {
+            id: pendingId,
+            eyebrow: definition.eyebrow,
+            heading: definition.heading,
+            text: definition.text,
+            choices: definition.choices,
+            acknowledge: definition.acknowledge !== false,
+          };
+          locationNarrative.value = null;
+          return;
+        }
+      }
+      locationNarrative.value = null;
+      refreshNarrative();
     },
     { flush: "post" },
   );

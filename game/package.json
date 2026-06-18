@@ -5,15 +5,19 @@
   "type": "module",
   "description": "Playable Atomic Adventures — Part I vertical slice and full game.",
   "scripts": {
-    "dev": "vite",
+    "dev": "node server/index.js",
     "build": "vite build",
-    "preview": "vite preview",
+    "preview": "NODE_ENV=production node server/index.js",
+    "content:import": "node server/content-cli.js import",
+    "content:export": "node server/content-cli.js export",
     "test": "vitest run",
     "test:movement": "MOVEMENT_AUDIT_REPORT=1 vitest run src/lib/maps/testing/mapMovementAudit.test.js --reporter=verbose",
     "test:watch": "vitest"
   },
   "dependencies": {
-    "vue": "^3.5.35"
+    "js-yaml": "^4.1.0",
+    "vue": "^3.5.35",
+    "vue-router": "^4.6.4"
   },
   "devDependencies": {
     "@rollup/plugin-yaml": "^5.0.0",

@@ -33,8 +33,10 @@ atomic-adventures/
 
 Gameplay, narrative, persistence, and player-facing map changes belong in `game/`. Its main areas are:
 
-- `game/content/story/` — YAML story passages and triggers
+- `game/content/atomic-adventures.sqlite` — Canonical story content and revision history
+- `game/content/story/` — Story YAML import/export snapshots
 - `game/content/world/` — YAML world and interior map data
+- `game/server/` — Local content API, SQLite repository, migrations, and authoring server
 - `game/src/components/` — Story overlay and application UI
 - `game/src/composables/` — Game state, story, and save/load logic
 - `game/src/lib/maps/` — Outdoor and indoor map engine, HUD, and builder tools
@@ -49,6 +51,30 @@ npm run dev:prototype  # Map prototype
 npm run test           # Game test suite
 npm run test:movement  # Exercises comprehensive hex-crawling
 ```
+
+`npm run dev:game` requires Node.js 22.19 or newer and starts both the game and
+the local authoring API on one server:
+
+- Game: [http://127.0.0.1:5173/](http://127.0.0.1:5173/)
+- Story builder: [http://127.0.0.1:5173/builder](http://127.0.0.1:5173/builder)
+
+## Story Authoring
+
+The SQLite database at `game/content/atomic-adventures.sqlite` is the canonical
+story source. The builder lets authors select a hex, room, exterior location, or
+event; edit its story beats; and save a validated revision. Open game windows
+receive saved changes immediately without losing player state.
+
+YAML remains available for interchange and review:
+
+```bash
+npm run content:export -w game -- part-i /tmp/part-i.yaml
+npm run content:import -w game -- path/to/story.yaml
+npm run content:import -w game -- path/to/story.yaml --replace
+```
+
+Direct edits to `game/content/story/*.yaml` do not change the running game until
+they are explicitly imported.
 
 ## Quick Links
 
