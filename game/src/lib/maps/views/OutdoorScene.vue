@@ -1,18 +1,23 @@
 <template>
-  <div v-if="devMode" class="audit-controls">
-    <button type="button" class="audit-toggle" @click="auditEnabled = !auditEnabled">
-      {{ auditEnabled ? "Hide movement audit" : "Show movement audit" }}
-    </button>
-    <select v-if="auditEnabled" v-model="auditState" aria-label="Movement audit state">
+  <div v-if="devMode && auditEnabled" class="audit-controls">
+    <select v-model="auditState" aria-label="Movement audit state">
       <option value="all">All movement states</option>
       <option v-for="state in auditStates" :key="state" :value="state">
         {{ state }}
       </option>
     </select>
-    <span v-if="auditEnabled" class="audit-summary">
+    <span class="audit-summary">
       {{ auditSummary.valid }} valid · {{ auditSummary.blocked }} blocked ·
       {{ auditSummary.invalid }} invalid
     </span>
+    <button
+      type="button"
+      class="audit-close"
+      aria-label="Hide movement audit"
+      title="Hide movement audit"
+      @click="$emit('hide-movement-audit')">
+      ×
+    </button>
   </div>
 
   <section class="stage">
@@ -89,16 +94,18 @@ const props = defineProps({
   applyChoice: { type: Function, required: true },
   travelToHex: { type: Function, required: true },
   enterBuilding: { type: Function, required: true },
+  auditEnabled: { type: Boolean, default: false },
 });
 
+defineEmits(["hide-movement-audit"]);
+
 const devMode = import.meta.env.DEV;
-const auditEnabled = ref(false);
 const auditState = ref("all");
 const allHexIds = computed(() =>
   (props.outdoor.displayMapData.hexes ?? []).map((hex) => hex.id),
 );
 const auditEntries = computed(() =>
-  devMode && auditEnabled.value
+  devMode && props.auditEnabled
     ? buildMapMovementAudit(props.outdoor.displayMapData)
     : [],
 );
@@ -165,7 +172,6 @@ function onPlayAction(id) {
   border-radius: 8px;
   background: rgba(21, 35, 26, 0.78);
 }
-.audit-toggle,
 .audit-controls select {
   padding: 0.35rem 0.55rem;
   border: 1px solid rgba(207, 231, 211, 0.32);
@@ -176,5 +182,19 @@ function onPlayAction(id) {
 .audit-summary {
   color: #cbe7d0;
   font-size: 0.82rem;
+}
+.audit-close {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: #ff6b6b;
+  padding: 0.05rem 0.35rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.audit-close:hover:not(:disabled) {
+  background: rgba(255, 107, 107, 0.12);
+  color: #ff8b8b;
 }
 </style>

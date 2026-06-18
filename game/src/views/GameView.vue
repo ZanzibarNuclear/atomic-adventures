@@ -16,6 +16,7 @@ import IndoorScene from "../lib/maps/views/IndoorScene.vue";
 
 const place = ref("outdoors");
 const builderView = ref(false);
+const movementAuditVisible = ref(false);
 const { storyData, error: contentError, refresh: refreshContent } = useStoryContent();
 
 const gameState = createGameState({ mapData, buildingData });
@@ -65,9 +66,11 @@ function handleReset() {
       :has-save="hasSave()"
       :last-saved-at="lastSavedAt"
       :load-error="loadError"
+      :movement-audit-visible="movementAuditVisible"
       @save="saveGame(saveCtx)"
       @new-game="handleNewGame"
-      @reset="handleReset" />
+      @reset="handleReset"
+      @show-movement-audit="movementAuditVisible = true" />
 
     <div v-if="contentError" class="content-error">
       {{ contentError }}
@@ -82,7 +85,9 @@ function handleReset() {
       :pending-beat="pendingBeat"
       :apply-choice="applyChoice"
       :travel-to-hex="travelToHex"
-      :enter-building="enterBuilding" />
+      :enter-building="enterBuilding"
+      :audit-enabled="movementAuditVisible"
+      @hide-movement-audit="movementAuditVisible = false" />
 
     <IndoorScene
       v-else

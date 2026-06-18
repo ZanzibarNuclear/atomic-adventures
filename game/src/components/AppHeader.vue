@@ -7,6 +7,18 @@
       </div>
       <div class="controls-column">
         <div class="game-controls">
+          <details v-if="devMode" ref="devMenu" class="dev-menu">
+            <summary class="sm">Developer</summary>
+            <div class="dev-menu-popover">
+              <button
+                type="button"
+                class="dev-menu-item"
+                :disabled="movementAuditVisible"
+                @click="showMovementAudit">
+                {{ movementAuditVisible ? "Movement audit shown" : "Show movement audit" }}
+              </button>
+            </div>
+          </details>
           <button class="sm" @click="$emit('save')">Save</button>
           <button v-if="hasSave" class="sm muted" @click="$emit('new-game')">
             New game
@@ -23,15 +35,18 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, ref } from "vue";
 
 const props = defineProps({
   hasSave: { type: Boolean, default: false },
   lastSavedAt: { type: String, default: null },
   loadError: { type: String, default: null },
+  movementAuditVisible: { type: Boolean, default: false },
 });
 
-defineEmits(["save", "new-game", "reset"]);
+const emit = defineEmits(["save", "new-game", "reset", "show-movement-audit"]);
+const devMode = import.meta.env.DEV;
+const devMenu = ref(null);
 
 const formattedSavedAt = computed(() => {
   const raw = props.lastSavedAt;
@@ -42,6 +57,11 @@ const formattedSavedAt = computed(() => {
 });
 
 const showSaveHint = computed(() => formattedSavedAt.value.length > 0);
+
+function showMovementAudit() {
+  emit("show-movement-audit");
+  if (devMenu.value) devMenu.value.open = false;
+}
 </script>
 
 <style scoped>
@@ -69,9 +89,57 @@ const showSaveHint = computed(() => formattedSavedAt.value.length > 0);
 }
 .game-controls {
   display: flex;
+  align-items: flex-start;
   gap: 0.4rem;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+.dev-menu {
+  position: relative;
+}
+.dev-menu summary {
+  list-style: none;
+  user-select: none;
+  background: #252a33;
+  color: #9aa0ac;
+  border: 1px solid #3a404a;
+  border-radius: 8px;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.dev-menu summary::-webkit-details-marker {
+  display: none;
+}
+.dev-menu summary::after {
+  content: " ▾";
+}
+.dev-menu[open] summary {
+  background: #323945;
+  color: #d5d9df;
+}
+.dev-menu-popover {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  min-width: 12rem;
+  padding: 0.35rem;
+  border: 1px solid #465166;
+  border-radius: 8px;
+  background: #202630;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+}
+.dev-menu-item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0.45rem 0.55rem;
+  text-align: left;
+  white-space: nowrap;
+}
+.dev-menu-item:hover:not(:disabled) {
+  background: #344158;
 }
 .save-hint {
   margin: 0;
