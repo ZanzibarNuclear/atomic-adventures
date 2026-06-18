@@ -1,6 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from "vue";
-import mapData from "../../content/world/map.yaml";
+import { ref, onMounted, computed, watch } from "vue";
 import buildingData from "../../content/world/utility-station.yaml";
 import { useOutdoorWorld } from "../lib/maps/composables/useOutdoorWorld.js";
 import { useIndoorBuilding } from "../lib/maps/composables/useIndoorBuilding.js";
@@ -8,6 +7,8 @@ import { createGameState, resetGameState } from "../composables/useGameState.js"
 import { useSaveGame } from "../composables/useSaveGame.js";
 import { useStory } from "../composables/useStory.js";
 import { useStoryContent } from "../composables/useStoryContent.js";
+import { useWorldContent } from "../composables/useWorldContent.js";
+import { applyOutdoorWorldUpdate } from "../composables/worldRuntime.js";
 import AppHeader from "../components/AppHeader.vue";
 import StoryOverlay from "../components/story/StoryOverlay.vue";
 import OutdoorScene from "../lib/maps/views/OutdoorScene.vue";
@@ -17,6 +18,12 @@ const place = ref("outdoors");
 const builderView = ref(false);
 const movementAuditVisible = ref(false);
 const { storyData, error: contentError, refresh: refreshContent } = useStoryContent();
+const {
+  worldData,
+  error: worldContentError,
+  refresh: refreshWorld,
+} = useWorldContent();
+const mapData = JSON.parse(JSON.stringify(worldData.value));
 
 const gameState = createGameState({ mapData, buildingData });
 const outdoor = useOutdoorWorld(mapData, gameState);
@@ -38,6 +45,28 @@ const {
 } = useStory(storyData, { gameState, place, outdoor, indoor });
 
 const saveCtx = computed(() => ({ gameState, place, outdoor, indoor }));
+let deferredWorld = null;
+
+function applyWorld(next) {
+  applyOutdoorWorldUpdate(outdoor, next);
+  refreshNarrative();
+}
+
+watch(worldData, (next) => {
+  if (outdoor.traveling) deferredWorld = JSON.parse(JSON.stringify(next));
+  else applyWorld(next);
+});
+
+watch(
+  () => outdoor.traveling,
+  (traveling) => {
+    if (!traveling && deferredWorld) {
+      const next = deferredWorld;
+      deferredWorld = null;
+      applyWorld(next);
+    }
+  },
+);
 
 onMounted(async () => {
   if (hasSave()) load(saveCtx.value);
@@ -70,9 +99,9 @@ function handleReset() {
       @reset="handleReset"
       @show-movement-audit="movementAuditVisible = true" />
 
-    <div v-if="contentError" class="content-error">
-      {{ contentError }}
-      <button class="sm" @click="refreshContent()">Retry</button>
+    <div v-if="contentError || worldContentError" class="content-error">
+      {{ contentError || worldContentError }}
+      <button class="sm" @click="contentError ? refreshContent() : refreshWorld()">Retry</button>
     </div>
 
     <OutdoorScene

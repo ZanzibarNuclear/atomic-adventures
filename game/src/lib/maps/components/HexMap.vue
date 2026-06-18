@@ -42,9 +42,22 @@ const props = defineProps({
   avatarInstant: { type: Boolean, default: false },
   buildingEnterable: { type: Boolean, default: false },
   movementAuditEntries: { type: Array, default: () => [] },
+  viewBoxOverride: { type: String, default: "" },
+  editHandleScale: { type: Number, default: 1 },
+  selectableObjects: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['hex-click', 'select-handle', 'waypoint-move', 'builder-map-click', 'building-enter'])
+const emit = defineEmits([
+  'hex-click',
+  'select-handle',
+  'waypoint-move',
+  'builder-map-click',
+  'building-enter',
+  'route-select',
+  'feature-select',
+  'passage-select',
+  'landmark-select',
+])
 
 const mapSvgRef = ref(null)
 const panelAspect = ref(null)
@@ -144,7 +157,7 @@ const {
     <svg
       ref="mapSvgRef"
       class="map-svg"
-      :viewBox="viewBox"
+      :viewBox="viewBoxOverride || viewBox"
       preserveAspectRatio="xMidYMid meet"
       @click="onSvgClick"
     >
@@ -170,13 +183,25 @@ const {
 
       <HexSceneryLayer :trees="trees" />
 
-      <HexFeatureLayer :feature-pieces="featurePieces" />
+      <HexFeatureLayer
+        :feature-pieces="featurePieces"
+        :selectable="selectableObjects"
+        @select="emit('feature-select', $event)"
+      />
 
       <HexCascadeLayer :cascade-chevrons="cascadeChevrons" />
 
-      <HexPassageLayer :passage-markers="visiblePassageMarkers" />
+      <HexPassageLayer
+        :passage-markers="visiblePassageMarkers"
+        :selectable="selectableObjects"
+        @select="emit('passage-select', $event)"
+      />
 
-      <HexRouteLayer :route-pieces="routePieces" />
+      <HexRouteLayer
+        :route-pieces="routePieces"
+        :selectable="selectableObjects"
+        @select="emit('route-select', $event)"
+      />
 
       <HexLandmarkLayer
         :landmark-hexes="landmarkHexes"
@@ -186,7 +211,9 @@ const {
         :building-enterable="buildingEnterable"
         :builder-edit="builderEdit"
         :expanded="expanded"
+        :selectable="selectableObjects"
         @building-enter="onBuildingClick"
+        @select="emit('landmark-select', $event)"
       />
 
       <HexBuilderLayer
@@ -211,6 +238,7 @@ const {
         :selected-handle-id="selectedHandleId"
         :stroke-color="handleColor"
         :fill-color="handleFill"
+        :handle-radius="(handle) => (handle.handleKey === selectedHandleId ? 7 : 5.5) * editHandleScale"
         @handle-down="onHandleDown"
       >
         <template #overlay>

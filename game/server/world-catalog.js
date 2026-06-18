@@ -9,6 +9,18 @@ const contentDir = join(here, "..", "content", "world");
 export function loadWorldCatalog() {
   const map = yaml.load(readFileSync(join(contentDir, "map.yaml"), "utf8"));
   const building = yaml.load(readFileSync(join(contentDir, "utility-station.yaml"), "utf8"));
+  return buildWorldCatalog(map, building);
+}
+
+export function loadWorldSeed() {
+  return yaml.load(readFileSync(join(contentDir, "map.yaml"), "utf8"));
+}
+
+export function loadBuildingData() {
+  return yaml.load(readFileSync(join(contentDir, "utility-station.yaml"), "utf8"));
+}
+
+export function buildWorldCatalog(map, building) {
   return {
     hexes: (map.hexes ?? []).map(({ id, label }) => ({ id, label: label ?? id })),
     rooms: (building.rooms ?? []).map(({ id, label, level }) => ({ id, label: label ?? id, level })),

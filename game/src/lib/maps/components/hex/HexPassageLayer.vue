@@ -5,6 +5,8 @@
       :key="'passage-' + m.id"
       class="passage"
       :class="'passage-' + m.kind"
+      :style="{ pointerEvents: selectable ? 'all' : 'none', cursor: selectable ? 'pointer' : 'default' }"
+      @click.stop="selectable && $emit('select', m.id)"
     >
       <!-- Gate: break in fence line (closed / open) + optional guard booth -->
       <g v-if="m.kind === 'gate'">
@@ -58,13 +60,14 @@ import GuardBoothSymbol from './symbols/GuardBoothSymbol.vue'
 
 defineProps({
   passageMarkers: { type: Array, default: () => [] },
+  selectable: { type: Boolean, default: false },
 })
+defineEmits(['select'])
 </script>
 
 <style scoped>
-.passage-layer {
-  pointer-events: none;
-}
+.passage-layer { pointer-events: none; }
+.passage-layer .passage { pointer-events: inherit; }
 .hole-gap {
   stroke: #2a2724;
   stroke-width: 2.5;

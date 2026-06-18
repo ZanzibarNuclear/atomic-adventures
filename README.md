@@ -33,9 +33,9 @@ atomic-adventures/
 
 Gameplay, narrative, persistence, and player-facing map changes belong in `game/`. Its main areas are:
 
-- `game/content/atomic-adventures.sqlite` — Canonical story content and revision history
+- `game/content/atomic-adventures.sqlite` — Canonical story and outdoor-world content with revision history
 - `game/content/story/` — Story YAML import/export snapshots
-- `game/content/world/` — YAML world and interior map data
+- `game/content/world/` — Outdoor interchange YAML and canonical interior map data
 - `game/server/` — Local content API, SQLite repository, migrations, and authoring server
 - `game/src/components/` — Story overlay and application UI
 - `game/src/composables/` — Game state, story, and save/load logic
@@ -56,7 +56,8 @@ npm run test:movement  # Exercises comprehensive hex-crawling
 the local authoring API on one server:
 
 - Game: [http://127.0.0.1:5173/](http://127.0.0.1:5173/)
-- Story builder: [http://127.0.0.1:5173/builder](http://127.0.0.1:5173/builder)
+- Story builder: [http://127.0.0.1:5173/builder/story](http://127.0.0.1:5173/builder/story)
+- World builder: [http://127.0.0.1:5173/builder/world](http://127.0.0.1:5173/builder/world)
 
 ## Story Authoring
 
@@ -79,6 +80,24 @@ npm run content:import -w game -- path/to/story.yaml --replace
 
 Direct edits to `game/content/story/*.yaml` do not change the running game until
 they are explicitly imported.
+
+## World Authoring
+
+Outdoor world content is canonical in SQLite and is edited at
+`/builder/world`. The canvas supports zooming and panning while editing hexes,
+routes, barriers, passages, landmarks, and stand points. Saves create immutable
+world revisions and update open game windows without a page reload.
+
+`game/content/world/map.yaml` is retained for deterministic interchange:
+
+```bash
+npm run world:export -w game -- outdoor-main /tmp/map.yaml
+npm run world:import -w game -- /tmp/map.yaml --replace
+```
+
+Direct edits to `map.yaml` do not affect the running game until imported. Indoor
+building geometry remains YAML-backed for now. See
+[docs/design/world-authoring.md](docs/design/world-authoring.md).
 
 ## Quick Links
 

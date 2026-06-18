@@ -3,7 +3,9 @@ import { pointsAttr } from '../../composables/useRoutes.js'
 
 defineProps({
   routePieces: { type: Array, default: () => [] },
+  selectable: { type: Boolean, default: false },
 })
+defineEmits(['select'])
 </script>
 
 <template>
@@ -13,7 +15,8 @@ defineProps({
       :key="'piece-' + i"
       :points="pointsAttr(piece.points)"
       class="route"
-      :class="['route-' + piece.kind, { stub: piece.partial }]"
+      :class="['route-' + piece.kind, { stub: piece.partial, selectable }]"
+      @click.stop="selectable && $emit('select', piece.id)"
     />
   </g>
 </template>
@@ -25,6 +28,7 @@ defineProps({
   stroke-linejoin: round;
   pointer-events: none;
 }
+.route.selectable { pointer-events: stroke; cursor: pointer; }
 .route-path {
   stroke: #7a4f2a;
   stroke-width: 3;

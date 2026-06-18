@@ -8,6 +8,10 @@ export class StoryRepository {
     this.world = world;
   }
 
+  setWorld(world) {
+    this.world = world;
+  }
+
   getGlobalRevision() {
     return Number(
       this.db.prepare("SELECT value FROM content_meta WHERE key = 'story_revision'").get()?.value ?? 0,
@@ -188,6 +192,97 @@ export class StoryRepository {
     return this.getRuntimeStory();
   }
 
+  validateAgainstWorld(world, renames = []) {
+    const renameMap = new Map(
+      renames
+        .filter((rename) => rename?.kind === "hex" && rename.from && rename.to)
+        .map((rename) => [String(rename.from), String(rename.to)]),
+    );
+    const rename = (value) => resolveRename(renameMap, value);
+    const errors = {};
+    for (const area of this.listAreas()) {
+      for (const original of this.listBeats(area.id, { full: true })) {
+        const beat = structuredClone(original);
+        if (beat.trigger.hex) beat.trigger.hex = rename(beat.trigger.hex);
+        for (const choice of beat.choices) {
+          if (choice.go_hex) choice.go_hex = rename(choice.go_hex);
+        }
+        const validation = validateBeat(beat, world);
+        for (const [path, messages] of Object.entries(validation.errors)) {
+          errors[`story.${area.id}.${beat.id}.${path}`] = messages;
+        }
+      }
+    }
+    return { valid: Object.keys(errors).length === 0, errors };
+  }
+
+  findHexReferences(hexId) {
+    const references = [];
+    for (const area of this.listAreas()) {
+      for (const beat of this.listBeats(area.id, { full: true })) {
+        if (beat.trigger.hex === hexId) {
+          references.push({
+            kind: "story",
+            areaId: area.id,
+            beatId: beat.id,
+            path: "trigger.hex",
+          });
+        }
+        beat.choices.forEach((choice, index) => {
+          if (choice.go_hex === hexId) {
+            references.push({
+              kind: "story",
+              areaId: area.id,
+              beatId: beat.id,
+              path: `choices.${index}.go_hex`,
+            });
+          }
+        });
+      }
+    }
+    return references;
+  }
+
+  cascadeHexRenames(renames = [], world = this.world) {
+    const renameMap = new Map(
+      renames
+        .filter((rename) => rename?.kind === "hex" && rename.from && rename.to)
+        .map((rename) => [String(rename.from), String(rename.to)]),
+    );
+    if (!renameMap.size) {
+      this.world = world;
+      return { affected: [], revision: this.getGlobalRevision() };
+    }
+    const affected = [];
+    const rename = (value) => resolveRename(renameMap, value);
+    for (const area of this.listAreas()) {
+      for (const original of this.listBeats(area.id, { full: true })) {
+        const beat = structuredClone(original);
+        let changed = false;
+        if (beat.trigger.hex && renameMap.has(beat.trigger.hex)) {
+          beat.trigger.hex = rename(beat.trigger.hex);
+          changed = true;
+        }
+        for (const choice of beat.choices) {
+          if (choice.go_hex && renameMap.has(choice.go_hex)) {
+            choice.go_hex = rename(choice.go_hex);
+            changed = true;
+          }
+        }
+        if (!changed) continue;
+        const validation = validateBeat(beat, world);
+        if (!validation.valid) throw new ValidationError(validation.errors);
+        this.#replaceBeat(area.id, original.id, validation.beat, original.version + 1, original.createdAt);
+        const saved = this.getBeat(area.id, original.id);
+        this.#recordRevision(area.id, original.id, "update", saved);
+        affected.push({ areaId: area.id, beatId: original.id });
+      }
+    }
+    this.world = world;
+    const revision = affected.length ? this.#incrementGlobalRevision() : this.getGlobalRevision();
+    return { affected, revision };
+  }
+
   #ensureArea(areaId) {
     const existing = this.db.prepare("SELECT 1 AS found FROM story_areas WHERE id = ?").get(areaId);
     if (existing) return;
@@ -302,6 +397,16 @@ export class StoryRepository {
     this.db.prepare("UPDATE content_meta SET value = ? WHERE key = 'story_revision'").run(String(next));
     return next;
   }
+}
+
+function resolveRename(map, value) {
+  let current = value;
+  const seen = new Set();
+  while (map.has(current) && !seen.has(current)) {
+    seen.add(current);
+    current = map.get(current);
+  }
+  return current;
 }
 
 export class ValidationError extends Error {

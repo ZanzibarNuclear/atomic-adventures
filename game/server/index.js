@@ -4,16 +4,20 @@ import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openDatabase } from "./db.js";
 import { StoryRepository } from "./story-repository.js";
-import { loadWorldCatalog } from "./world-catalog.js";
+import { buildWorldCatalog, loadBuildingData, loadWorldSeed } from "./world-catalog.js";
 import { createApiHandler } from "./api.js";
+import { WorldRepository } from "./world-repository.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const port = Number(process.env.PORT ?? 5173);
 const production = process.env.NODE_ENV === "production";
 const db = openDatabase();
-const world = loadWorldCatalog();
-const repository = new StoryRepository(db, world);
-const api = createApiHandler(repository, world);
+const seedWorld = loadWorldSeed();
+const buildingData = loadBuildingData();
+const repository = new StoryRepository(db, buildWorldCatalog(seedWorld, buildingData));
+const worldRepository = new WorldRepository(db, { seedWorld, buildingData, storyRepository: repository });
+repository.setWorld(worldRepository.getCatalog());
+const api = createApiHandler(repository, worldRepository);
 
 let vite = null;
 if (!production) {
@@ -39,7 +43,8 @@ const server = createHttpServer(async (req, res) => {
 
 server.listen(port, "127.0.0.1", () => {
   console.log(`Atomic Adventures: http://127.0.0.1:${port}`);
-  console.log(`Story builder:     http://127.0.0.1:${port}/builder`);
+  console.log(`Story builder:     http://127.0.0.1:${port}/builder/story`);
+  console.log(`World builder:     http://127.0.0.1:${port}/builder/world`);
 });
 
 let shuttingDown = false;

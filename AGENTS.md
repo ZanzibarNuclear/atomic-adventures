@@ -37,31 +37,36 @@ Map rendering and interaction logic was **copied** (not moved) from `web/src` in
 
 ### Authoring and builder tools
 
-There are two distinct builder concerns. Do not conflate them.
+There are distinct story, world, and prototype builder concerns. Do not conflate them.
 
-#### Story builder — active
+#### Story and world builders — active
 
-The story builder is a separate route in the `game/` app, not a mode layered onto the playable scene:
+Authoring uses separate routes in the `game/` app, not modes layered onto the playable scene:
 
 | Route      | Purpose                                                                 |
 | ---------- | ----------------------------------------------------------------------- |
 | `/`        | Playable game                                                           |
-| `/builder` | Map-first story authoring for hexes, rooms, exterior nodes, and events |
+| `/builder/story` | Map-first story authoring for hexes, rooms, exterior nodes, and events |
+| `/builder/world` | Canvas-first outdoor geometry and movement authoring |
 
 - `game/src/views/BuilderView.vue` owns the authoring workspace.
-- `game/content/atomic-adventures.sqlite` is the canonical story source and stores revision history.
+- `game/src/views/WorldBuilderView.vue` owns outdoor world authoring.
+- `game/content/atomic-adventures.sqlite` is canonical for story and outdoor world content and stores both revision histories.
 - `game/server/` provides the SQLite repository, migrations, validation, JSON API, and SSE updates.
-- Saving a beat publishes it immediately. Open game windows refresh story content without reloading or losing player state.
+- Saving a beat or world document publishes it immediately. Open game windows refresh content without reloading or losing player state.
 - The builder is currently for trusted local use and has no authentication or role system.
 - Keep builder form state separate from player state, saves, inventory, flags, and movement.
+- Outdoor world content is stored as one ordered JSON document; do not normalize individual hexes, routes, or points without a demonstrated need.
+- `game/content/world/map.yaml` is outdoor import/export material, not the live runtime source. Direct edits require `world:import`.
+- See [docs/design/world-authoring.md](docs/design/world-authoring.md) for the persistence, reference, and live-update contract.
 
-#### Map geometry tools — separate
+#### Prototype map geometry tools — separate
 
-Map edit handles, placement overlays, YAML exporters, and builder visibility flags still exist in the map layer and prototype. They are for editing spatial data, not story content.
+The production World Builder uses map-layer edit handles. The older prototype builder remains separate.
 
 - `game/src/lib/maps/` contains the canonical game map components and reusable geometry-builder utilities.
 - `web/` remains a useful prototype and sandbox for map editing ideas.
-- World geometry remains YAML-driven in `game/content/world/`.
+- Indoor geometry remains YAML-driven in `game/content/world/`; outdoor geometry is database-backed.
 - Players must never see geometry-editing controls. Keep edit layers separate from player-facing scene wiring.
 - Port useful prototype work into `game/`; do not implement game story or persistence features in `web/`.
 
@@ -86,7 +91,8 @@ npm run dev:game        # game + builder + local content API
 `npm run dev:game` requires Node.js 22.19 or newer and starts one localhost server:
 
 - Game: `http://127.0.0.1:5173/`
-- Story builder: `http://127.0.0.1:5173/builder`
+- Story builder: `http://127.0.0.1:5173/builder/story`
+- World builder: `http://127.0.0.1:5173/builder/world`
 
 ### Tests
 
@@ -109,8 +115,8 @@ Ren'Py, Twine, and Unity were evaluated and rejected. The sibling mini-game proj
 ```
 game/
 ├── content/
-│   ├── atomic-adventures.sqlite — Canonical story content and revisions
-│   ├── world/          — Canonical map and building YAML
+│   ├── atomic-adventures.sqlite — Canonical story/outdoor-world content and revisions
+│   ├── world/          — Outdoor interchange YAML and canonical indoor building YAML
 │   └── story/          — Story YAML import/export snapshots
 ├── server/             — Unified server, content API, SQLite repository, migrations
 ├── src/
@@ -123,10 +129,10 @@ game/
 Integration model:
 
 ```
-SQLite story content
+SQLite story + outdoor world content
   → game/server JSON API + SSE
-  → reactive story-content store
-  → useStory
+  → reactive story/world content stores
+  → useStory + lib/maps
 
 lib/maps (outdoor + indoor)
   → flags + location via useGameState (serializable)
@@ -143,7 +149,7 @@ Future layers (not all built yet):
 
 ## Story Data Format
 
-Story content lives canonically in `game/content/atomic-adventures.sqlite`. Authors normally edit it at `/builder`. YAML is retained as an interchange and review format, not as the live runtime source.
+Story content lives canonically in `game/content/atomic-adventures.sqlite`. Authors normally edit it at `/builder/story`. YAML is retained as an interchange and review format, not as the live runtime source.
 
 See [docs/design/story-beats.md](docs/design/story-beats.md) for the authoritative
 current runtime behavior: selection order, triggers, requirements, seen state,
@@ -166,6 +172,21 @@ Direct edits to `game/content/story/*.yaml` do not affect the game until importe
 - **Item IDs** — flat kebab-case
 
 The current builder/runtime supports beat IDs and ordering, `once`, `acknowledge`, headings, prose and revisit prose, outdoor/indoor/event triggers, `require` flag conditions, ordered choices, flag effects, and movement destinations.
+
+## Outdoor World Data
+
+Outdoor world content is the `outdoor-main` JSON document in
+`game/content/atomic-adventures.sqlite`. Authors normally edit it at
+`/builder/world`.
+
+```bash
+npm run world:export -w game -- outdoor-main /tmp/map.yaml
+npm run world:import -w game -- /tmp/map.yaml --replace
+```
+
+Direct edits to `game/content/world/map.yaml` do not affect the game until
+imported. Indoor building YAML remains canonical until indoor world authoring
+is implemented.
 
 ## Sibling Projects
 

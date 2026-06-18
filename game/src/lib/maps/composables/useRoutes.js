@@ -266,7 +266,7 @@ export function buildRouteDrawPieces(models, { isRevealed, inView, allowStub }) 
     const vis = (s) => s.hexId != null && isRevealed(s.hexId) && inView(s.hexId)
     let run = null
     const flush = () => {
-      if (run && run.length >= 2) pieces.push({ kind: m.kind, points: run, partial: false })
+      if (run && run.length >= 2) pieces.push({ id: m.id, kind: m.kind, points: run, partial: false })
       run = null
     }
     for (let i = 0; i < m.samples.length; i++) {
@@ -278,6 +278,7 @@ export function buildRouteDrawPieces(models, { isRevealed, inView, allowStub }) 
         if (allowStub && run.length === 1 && i > 0) {
           const p = m.samples[i - 1]
           pieces.push({
+            id: m.id,
             kind: m.kind,
             points: [{ x: s.x + (p.x - s.x) * 0.5, y: s.y + (p.y - s.y) * 0.5 }, { x: s.x, y: s.y }],
             partial: true,
@@ -287,6 +288,7 @@ export function buildRouteDrawPieces(models, { isRevealed, inView, allowStub }) 
         if (run && allowStub && run.length >= 1) {
           const p = m.samples[i - 1]
           pieces.push({
+            id: m.id,
             kind: m.kind,
             points: [{ x: p.x, y: p.y }, { x: p.x + (s.x - p.x) * 0.5, y: p.y + (s.y - p.y) * 0.5 }],
             partial: true,

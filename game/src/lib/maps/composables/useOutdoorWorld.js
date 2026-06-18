@@ -36,6 +36,10 @@ import {
   passageRequirementSatisfied,
 } from "./usePassageState.js";
 
+function clonePlain(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
 function initialStand(mapData, size) {
   const START = mapData.start ?? mapData.journey[0];
   const hexes = mapData.hexes ?? [];
@@ -45,23 +49,21 @@ function initialStand(mapData, size) {
 }
 
 export function useOutdoorWorld(mapData, gameState = null) {
-  const size = mapData.size ?? 44;
-  const START = mapData.start ?? mapData.journey[0];
+  const size = ref(mapData.size ?? 44);
+  const startId = ref(mapData.start ?? mapData.journey?.[0] ?? null);
+  const sourceMapData = ref(clonePlain(mapData));
 
-  const editableHexes = ref(structuredClone(mapData.hexes ?? []));
-  const editableFeatures = ref(structuredClone(mapData.features ?? []));
-  const editableRoutes = ref(structuredClone(mapData.routes ?? []));
+  const editableHexes = ref(clonePlain(mapData.hexes ?? []));
+  const editableFeatures = ref(clonePlain(mapData.features ?? []));
+  const editableRoutes = ref(clonePlain(mapData.routes ?? []));
 
   function syncFromMapData(data) {
-    editableHexes.value = structuredClone(data.hexes ?? []);
-    editableFeatures.value = structuredClone(data.features ?? []);
-    editableRoutes.value = structuredClone(data.routes ?? []);
-  }
-
-  if (import.meta.hot) {
-    import.meta.hot.accept("../../../../content/world/map.yaml", (mod) => {
-      if (mod?.default) syncFromMapData(mod.default);
-    });
+    sourceMapData.value = clonePlain(data);
+    size.value = data.size ?? size.value;
+    startId.value = data.start ?? data.journey?.[0] ?? startId.value;
+    editableHexes.value = clonePlain(data.hexes ?? []);
+    editableFeatures.value = clonePlain(data.features ?? []);
+    editableRoutes.value = clonePlain(data.routes ?? []);
   }
 
   const hexById = computed(() =>
@@ -69,7 +71,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
   );
 
   const displayMapData = computed(() => ({
-    ...mapData,
+    ...sourceMapData.value,
     hexes: editableHexes.value,
     features: editableFeatures.value,
   }));
@@ -79,7 +81,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
       editableRoutes.value,
       hexById.value,
       editableHexes.value,
-      size,
+      size.value,
     ),
   );
 
@@ -92,7 +94,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
       mapFeatures.value,
       hexById.value,
       editableHexes.value,
-      size,
+      size.value,
     ),
   );
 
@@ -104,14 +106,14 @@ export function useOutdoorWorld(mapData, gameState = null) {
   );
 
   function hexAtPoint(pt, fallbackHexId) {
-    const { q, r } = pixelToHex(pt.x, pt.y, size);
+    const { q, r } = pixelToHex(pt.x, pt.y, size.value);
     return hexCoordMap.value.get(`${q},${r}`) ?? fallbackHexId;
   }
 
   const travelBarrierCtx = computed(() => {
     const allOpenings = travelOpenings(editableFeatures.value, {
       hexById: hexById.value,
-      size,
+      size: size.value,
       discoveredOpenings: state.discoveredOpenings,
     });
     return {
@@ -122,11 +124,11 @@ export function useOutdoorWorld(mapData, gameState = null) {
   });
 
   const state = reactive({
-    currentId: START,
-    discovered: [START],
+    currentId: startId.value,
+    discovered: startId.value ? [startId.value] : [],
     discoveredOpenings: [],
     /** Avatar world position — always persisted. */
-    stand: initialStand(mapData, size),
+    stand: initialStand(mapData, size.value),
     /** Barrier kind when a crossing failed before entering the destination hex. */
     lastBlocked: null,
     /** Barrier kind when standing at a barrier line inside the current hex. */
@@ -136,7 +138,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
   function defaultStandForHex(hexId) {
     const hex = hexById.value[hexId];
     if (!hex) return { x: 0, y: 0 };
-    return resolveAvatarPosition(hex, size);
+    return resolveAvatarPosition(hex, size.value);
   }
 
   function markOpeningDiscovered(openingId) {
@@ -201,7 +203,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
   const travelOpts = computed(() => ({
     fromHex: currentHexData.value,
     hexById: hexById.value,
-    size,
+    size: size.value,
     barriers: travelBarrierCtx.value,
     fromPos: avatarFromPos.value,
     resolveStand: (toHex, fromHex, fromPos) =>
@@ -209,7 +211,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
         fromHex ?? currentHexData.value,
         toHex,
         fromPos ?? avatarFromPos.value,
-        size,
+        size.value,
         travelBarrierCtx.value,
       ),
     hexAtPoint,
@@ -226,7 +228,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
       editableHexes.value,
       hexById.value,
       moves.value.map((m) => m.toHexId),
-      size,
+      size.value,
       travelBarrierCtx.value,
       avatarFromPos.value,
       (toHex, fromHex, fromPos) =>
@@ -234,7 +236,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
           fromHex ?? hexById.value[state.currentId],
           toHex,
           fromPos ?? avatarFromPos.value,
-          size,
+          size.value,
           travelBarrierCtx.value,
         ),
       hexAtPoint,
@@ -257,7 +259,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
       mapFeatures: editableFeatures.value,
       ctx: travelBarrierCtx.value,
       hexById: hexById.value,
-      size,
+      size: size.value,
       discoveredOpenings: state.discoveredOpenings,
       atBarrier:
         barrierHintAtStand(avatarFromPos.value, travelBarrierCtx.value.barriers) ??
@@ -317,7 +319,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
       opening,
       fromPos,
       ctx,
-      size,
+      size.value,
       fromHex,
     );
     if (!stand) return;
@@ -366,7 +368,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
         currentHexData.value,
         avatarFromPos.value,
         travelBarrierCtx.value,
-        size,
+        size.value,
       ),
   );
   function isAdjacentHex(hexId) {
@@ -398,7 +400,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
 
     const fromPos = avatarFromPos.value;
     const ctx = travelBarrierCtx.value;
-    const toPos = resolveNeighborStand(fromHex, toHex, fromPos, size, ctx);
+    const toPos = resolveNeighborStand(fromHex, toHex, fromPos, size.value, ctx);
     const routeLeg = resolveRouteLeg(hexId);
     const path = buildMovePath(
       fromPos,
@@ -416,7 +418,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
       path,
       ctx,
       hexAtPoint,
-      size,
+      size: size.value,
     });
     return { fromHex, toHex, fromPos, toPos, routeLeg, path, result };
   }
@@ -460,10 +462,10 @@ export function useOutdoorWorld(mapData, gameState = null) {
   }
 
   function resetPlayer() {
-    state.currentId = START;
-    state.discovered = [START];
+    state.currentId = startId.value;
+    state.discovered = startId.value ? [startId.value] : [];
     state.discoveredOpenings = [];
-    state.stand = defaultStandForHex(START);
+    state.stand = defaultStandForHex(startId.value);
     state.lastBlocked = null;
     state.atBarrier = null;
   }
@@ -481,9 +483,9 @@ export function useOutdoorWorld(mapData, gameState = null) {
   }
 
   return reactive({
-    mapData,
+    mapData: sourceMapData,
     size,
-    START,
+    START: startId,
     editableHexes,
     editableFeatures,
     editableRoutes,

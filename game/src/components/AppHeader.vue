@@ -71,7 +71,7 @@ function showMovementAudit() {
 
 function openStoryBuilder() {
   window.open(
-    "/builder",
+    "/builder/story",
     "atomic-adventures-story-builder",
     "popup=yes,width=1500,height=900",
   );

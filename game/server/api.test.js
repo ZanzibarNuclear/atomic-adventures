@@ -7,7 +7,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createApiHandler } from "./api.js";
 import { openDatabase } from "./db.js";
 import { StoryRepository } from "./story-repository.js";
-import { loadWorldCatalog } from "./world-catalog.js";
+import { buildWorldCatalog, loadBuildingData, loadWorldSeed } from "./world-catalog.js";
+import { WorldRepository } from "./world-repository.js";
 
 const dirs = [];
 
@@ -19,9 +20,11 @@ function setup() {
   const dir = mkdtempSync(join(tmpdir(), "atomic-api-"));
   dirs.push(dir);
   const db = openDatabase(join(dir, "api.sqlite"));
-  const world = loadWorldCatalog();
-  const repository = new StoryRepository(db, world);
-  return { db, api: createApiHandler(repository, world) };
+  const seedWorld = loadWorldSeed();
+  const buildingData = loadBuildingData();
+  const repository = new StoryRepository(db, buildWorldCatalog(seedWorld, buildingData));
+  const worldRepository = new WorldRepository(db, { seedWorld, buildingData, storyRepository: repository });
+  return { db, api: createApiHandler(repository, worldRepository), worldRepository };
 }
 
 function responseCapture() {
@@ -51,7 +54,7 @@ function request(method, url, body) {
 
 describe("story API", () => {
   it("broadcasts committed mutations and not rejected saves", async () => {
-    const { db, api } = setup();
+    const { db, api, worldRepository } = setup();
     const eventReq = new EventEmitter();
     eventReq.method = "GET";
     eventReq.url = "/api/content/events";
@@ -76,6 +79,23 @@ describe("story API", () => {
     );
     expect(invalidRes.status).toBe(422);
     expect(eventRes.chunks.filter((chunk) => chunk.includes("story.updated"))).toHaveLength(1);
+
+    const currentWorld = worldRepository.getDocument();
+    const worldRes = responseCapture();
+    await api.handle(
+      request("PUT", "/api/world/outdoors", {
+        world: {
+          ...currentWorld.world,
+          routes: currentWorld.world.routes.map((route, index) =>
+            index === 0 ? { ...route, label: "API-updated route" } : route,
+          ),
+        },
+        expectedVersion: currentWorld.version,
+      }),
+      worldRes,
+    );
+    expect(worldRes.status).toBe(200);
+    expect(eventRes.chunks.filter((chunk) => chunk.includes("world.updated"))).toHaveLength(1);
 
     api.close();
     db.close();

@@ -47,6 +47,7 @@ function radiusFor(h) {
   stroke-dasharray: 4 5;
   opacity: 0.85;
   pointer-events: none;
+  vector-effect: non-scaling-stroke;
 }
 .edit-path-control {
   fill: none;
@@ -69,6 +70,7 @@ function radiusFor(h) {
   stroke-width: 2.5;
   cursor: grab;
   touch-action: none;
+  vector-effect: non-scaling-stroke;
 }
 .edit-handle.selected {
   stroke-width: 3;

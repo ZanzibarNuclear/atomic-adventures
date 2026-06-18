@@ -10,6 +10,8 @@
     "preview": "NODE_ENV=production node server/index.js",
     "content:import": "node server/content-cli.js import",
     "content:export": "node server/content-cli.js export",
+    "world:import": "node server/world-cli.js import",
+    "world:export": "node server/world-cli.js export",
     "test": "vitest run",
     "test:movement": "MOVEMENT_AUDIT_REPORT=1 vitest run src/lib/maps/testing/mapMovementAudit.test.js --reporter=verbose",
     "test:watch": "vitest"

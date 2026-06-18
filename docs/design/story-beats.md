@@ -9,7 +9,7 @@
 
 A **beat** is the current game engine's unit of location-triggered narrative. It
 attaches prose and optional choices to a hex, room, exterior node, or named
-event. Beats are authored in the story builder at `/builder`, stored in
+event. Beats are authored in the story builder at `/builder/story`, stored in
 `game/content/atomic-adventures.sqlite`, and delivered to the game through the
 local content API.
 

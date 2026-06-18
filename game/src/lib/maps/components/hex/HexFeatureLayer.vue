@@ -3,7 +3,9 @@ import { pointsAttr } from '../../composables/useRoutes.js'
 
 defineProps({
   featurePieces: { type: Array, default: () => [] },
+  selectable: { type: Boolean, default: false },
 })
+defineEmits(['select'])
 </script>
 
 <template>
@@ -13,7 +15,8 @@ defineProps({
       :key="'feat-' + i"
       :points="pointsAttr(piece.points)"
       class="feature"
-      :class="['feature-' + piece.kind, { stub: piece.partial }]"
+      :class="['feature-' + piece.kind, { stub: piece.partial, selectable }]"
+      @click.stop="selectable && $emit('select', piece.id)"
     />
   </g>
 </template>
@@ -25,6 +28,7 @@ defineProps({
   stroke-linejoin: round;
   pointer-events: none;
 }
+.feature.selectable { pointer-events: stroke; cursor: pointer; }
 .feature-river {
   stroke: #4a90d9;
   stroke-width: 5;

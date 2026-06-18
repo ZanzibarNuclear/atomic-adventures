@@ -1,7 +1,6 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { onBeforeRouteLeave, useRouter } from "vue-router";
-import mapData from "../../content/world/map.yaml";
 import buildingData from "../../content/world/utility-station.yaml";
 import HexMap from "../lib/maps/components/HexMap.vue";
 import GridMap from "../lib/maps/components/GridMap.vue";
@@ -10,13 +9,16 @@ import { buildBuilding } from "../lib/maps/composables/useGrid.js";
 import { buildInitialDoorState } from "../lib/maps/composables/useDoors.js";
 import { storyApi } from "../lib/storyApi.js";
 import { storyBeatYaml } from "../lib/storyYamlPreview.js";
+import { useWorldContent } from "../composables/useWorldContent.js";
 
+const { worldData, revision: worldRevision } = useWorldContent();
+const mapData = JSON.parse(JSON.stringify(worldData.value));
 const outdoor = useOutdoorWorld(mapData);
 const building = buildBuilding(buildingData);
-const allHexIds = mapData.hexes.map((item) => item.id);
+const allHexIds = computed(() => outdoor.editableHexes.map((item) => item.id));
 const allRoomIds = buildingData.rooms.map((item) => item.id);
 const allExteriorIds = (buildingData.exterior?.nodes ?? []).map((item) => item.id);
-const allHexSet = new Set(allHexIds);
+const allHexSet = computed(() => new Set(allHexIds.value));
 const builderFlags = new Set();
 const STORY_AREA_ID = "part-i";
 const router = useRouter();
@@ -34,7 +36,6 @@ const errors = ref({});
 const status = ref("");
 const revisions = ref([]);
 const showRevisions = ref(false);
-const openMenu = ref(null);
 const eventLocationInput = ref("enter-building");
 const navigationPromptVisible = ref(false);
 const pendingContextAction = ref(null);
@@ -68,6 +69,21 @@ onBeforeRouteLeave((to) => {
   if (!dirty.value) return true;
   void requestContextChange(() => router.push(to.fullPath));
   return false;
+});
+
+watch(worldRevision, async () => {
+  const next = worldData.value;
+  outdoor.syncFromMapData(next);
+  if (!allHexSet.value.has(selectedLocation.value)) {
+    selectedLocation.value = next.start;
+    outdoor.state.currentId = next.start;
+    clearBeatSelection();
+  }
+  try {
+    catalog.value = await storyApi("/api/catalog");
+  } catch (error) {
+    status.value = error.message;
+  }
 });
 
 async function loadBeats(selectId = "") {
@@ -173,7 +189,7 @@ function switchMode(mode) {
 
 async function applyModeSelection(mode) {
   if (mode === "outdoors") {
-    await applyHexSelection(mapData.start);
+    await applyHexSelection(outdoor.mapData.start);
   } else if (mode === "rooms") {
     applyRoomSelection(buildingData.rooms[0]?.id);
   } else if (mode === "exterior") {
@@ -410,35 +426,10 @@ async function saveAndContinue() {
   await action?.();
 }
 
-function openGame() {
-  window.open(
-    "/",
-    "atomic-adventures-game",
-    "popup=yes,width=1100,height=900",
-  );
-  if (openMenu.value) openMenu.value.open = false;
-}
 </script>
 
 <template>
   <main class="builder-page">
-    <header class="builder-header">
-      <div>
-        <p class="label">Authoring</p>
-        <h1>Story Builder</h1>
-      </div>
-      <div class="builder-header-actions">
-        <details ref="openMenu" class="open-menu">
-          <summary>Open</summary>
-          <div class="open-menu-popover">
-            <button type="button" class="open-menu-item" @click="openGame">
-              Open game
-            </button>
-          </div>
-        </details>
-      </div>
-    </header>
-
     <div class="builder-workspace">
       <section class="builder-map-column panel">
         <div class="mode-tabs">

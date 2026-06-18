@@ -5,7 +5,7 @@ export function createFlags(initial = []) {
 }
 
 export function hasFlag(flags, name) {
-  return !!name && flags.has(name);
+  return !!name && typeof flags?.has === "function" && flags.has(name);
 }
 
 export function hasAllFlags(flags, names = []) {
@@ -17,6 +17,7 @@ export function hasAnyFlag(flags, names = []) {
 }
 
 export function setFlags(flags, names = []) {
+  if (typeof flags?.add !== "function") return;
   for (const n of names) {
     if (n) flags.add(n);
   }

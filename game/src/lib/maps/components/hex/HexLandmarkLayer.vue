@@ -10,14 +10,21 @@ defineProps({
   buildingEnterable: { type: Boolean, default: false },
   builderEdit: { type: Boolean, default: false },
   expanded: { type: Boolean, default: false },
+  selectable: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['building-enter'])
+const emit = defineEmits(['building-enter', 'select'])
 </script>
 
 <template>
   <g class="landmark-layer">
-    <g v-for="hex in landmarkHexes" :key="'lm-' + hex.id" class="landmark">
+    <g
+      v-for="hex in landmarkHexes"
+      :key="'lm-' + hex.id"
+      class="landmark"
+      :class="{ selectable }"
+      @click.stop="selectable && emit('select', hex.id)"
+    >
       <g
         v-if="hex.landmark.building === 'utility-station'"
         class="building-enter"
@@ -51,6 +58,7 @@ const emit = defineEmits(['building-enter'])
 .building-enter.can-enter {
   cursor: pointer;
 }
+.landmark.selectable { cursor: pointer; }
 .building-enter.can-enter:hover :deep(.us-wall) {
   filter: brightness(1.08);
 }

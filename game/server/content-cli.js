@@ -2,12 +2,17 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { openDatabase } from "./db.js";
 import { StoryRepository } from "./story-repository.js";
-import { loadWorldCatalog } from "./world-catalog.js";
+import { loadBuildingData, loadWorldSeed } from "./world-catalog.js";
+import { WorldRepository } from "./world-repository.js";
 import { exportAreaYaml, parseStoryYaml } from "./story-yaml.js";
 
 const [command, fileArg, ...flags] = process.argv.slice(2);
 const db = openDatabase();
-const repository = new StoryRepository(db, loadWorldCatalog());
+const worldRepository = new WorldRepository(db, {
+  seedWorld: loadWorldSeed(),
+  buildingData: loadBuildingData(),
+});
+const repository = new StoryRepository(db, worldRepository.getCatalog());
 
 try {
   if (command === "import") {
