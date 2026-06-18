@@ -9,6 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:movement": "MOVEMENT_AUDIT_REPORT=1 vitest run src/lib/maps/testing/mapMovementAudit.test.js --reporter=verbose",
     "test:watch": "vitest"
   },
   "dependencies": {

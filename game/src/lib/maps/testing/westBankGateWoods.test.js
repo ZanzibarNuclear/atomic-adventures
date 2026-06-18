@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import mapData from '../../../../content/world/map.yaml'
 import { useOutdoorWorld } from '../composables/useOutdoorWorld.js'
-import { buildTravelWorld, offeredMoves } from './travelWorld.js'
+import {
+  buildTravelWorld,
+  offeredMoves,
+} from './travelWorld.js'
 import { standAcrossOpening } from '../composables/usePassageCrossing.js'
 import {
   BARRIER_STAND_INSET,
@@ -58,4 +61,5 @@ describe('west bank direct moves', () => {
     )
     expect(dist).toBeLessThan(120)
   })
+
 })

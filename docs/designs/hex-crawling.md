@@ -332,8 +332,17 @@ on_cross:
 | `useMapBuilder.test.js`                                   | Passage feature serialization for builder export        |
 | `gateWoodsDeparture.test.js`, `westBankGateWoods.test.js` | Gate-woods / west-bank columns                          |
 | `landmarkReachability.test.js`                            | Landmark stands vs barriers                             |
+| `mapMovementAudit.test.js`                               | All 54 directed adjacencies across 23 canonical barrier-side states; passages both ways |
 
 Run: `npm run test` from repo root.
+
+For the map-specific movement matrix and a row-by-row diagnostic report, run:
+
+```bash
+npm run test:movement
+```
+
+In a development game build, use **Show movement audit** above the outdoor map. The overlay uses the same checked-in state manifest as the automated test: green paths are expected valid moves, gray dashed paths are expected blocked directions, and red paths indicate a mismatch in entry, stand safety, barrier crossing, or arrival region. Select one canonical state to inspect overlapping paths clearly.
 
 ### Worked examples
 

@@ -11,6 +11,7 @@
     "build:prototype": "npm run build -w web",
     "build:game": "npm run build -w game",
     "test": "npm run test -w game",
+    "test:movement": "npm run test:movement -w game",
     "prepare": "sh scripts/install-githooks.sh"
   }
 }

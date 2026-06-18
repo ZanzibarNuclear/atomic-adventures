@@ -17,7 +17,6 @@ import {
   barrierSegments,
   travelOpenings,
   resolveMove,
-  canEnterNeighbor,
   isLandmarkReachable,
 } from "./useTravelBarriers.js";
 import {
@@ -391,12 +390,11 @@ export function useOutdoorWorld(mapData, gameState = null) {
 
   // "Reach" in the outdoor UI means "enter the destination cell"; the final
   // stand may still be an accessible-side barrier stop inside that cell.
-  function canReachHex(hexId) {
-    if (hexId === state.currentId) return true;
-    if (!isAdjacentHex(hexId)) return false;
+  function previewMove(hexId) {
+    if (hexId === state.currentId || !isAdjacentHex(hexId)) return null;
     const fromHex = hexById.value[state.currentId];
     const toHex = hexById.value[hexId];
-    if (!fromHex || !toHex) return false;
+    if (!fromHex || !toHex) return null;
 
     const fromPos = avatarFromPos.value;
     const ctx = travelBarrierCtx.value;
@@ -410,40 +408,6 @@ export function useOutdoorWorld(mapData, gameState = null) {
       routeLeg,
       routeModels.value,
     );
-    return canEnterNeighbor({
-      fromHex,
-      toHex,
-      fromPos,
-      toPos,
-      path,
-      ctx,
-      hexAtPoint,
-      size,
-    });
-  }
-
-  function moveTo(hexId) {
-    if (traveling.value || !hexById.value[hexId]) return;
-    if (!canReachHex(hexId)) return;
-    const fromHex = hexById.value[state.currentId];
-    const toHex = hexById.value[hexId];
-    if (!fromHex || !toHex) return;
-    if (hexId === state.currentId) return;
-    if (hexDistance(fromHex, toHex) !== 1) return;
-
-    const fromPos = avatarFromPos.value;
-    const ctx = travelBarrierCtx.value;
-    const toPos = resolveNeighborStand(fromHex, toHex, fromPos, size, ctx);
-    const routeLeg = resolveRouteLeg(hexId);
-    const path = buildMovePath(
-      fromPos,
-      fromHex,
-      toHex,
-      toPos,
-      routeLeg,
-      routeModels.value,
-    );
-
     const result = resolveMove({
       fromHex,
       toHex,
@@ -454,6 +418,21 @@ export function useOutdoorWorld(mapData, gameState = null) {
       hexAtPoint,
       size,
     });
+    return { fromHex, toHex, fromPos, toPos, routeLeg, path, result };
+  }
+
+  function canReachHex(hexId) {
+    if (hexId === state.currentId) return true;
+    const preview = previewMove(hexId);
+    return preview?.result.activeHexId === preview?.toHex.id;
+  }
+
+  function moveTo(hexId) {
+    if (traveling.value || !hexById.value[hexId]) return;
+    const preview = previewMove(hexId);
+    if (!preview || preview.result.activeHexId !== preview.toHex.id) return;
+    const { fromHex, toHex, result } = preview;
+    const ctx = travelBarrierCtx.value;
 
     traveling.value = true;
     setTimeout(() => {
@@ -538,6 +517,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
     unlockPassage,
     moveTo,
     crossPassage,
+    previewMove,
     canReachHex,
     isAdjacentHex,
     resetPlayer,

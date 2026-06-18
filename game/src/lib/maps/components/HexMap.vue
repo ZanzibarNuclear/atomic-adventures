@@ -17,6 +17,7 @@ import HexPassageLayer from './hex/HexPassageLayer.vue'
 import HexRouteLayer from './hex/HexRouteLayer.vue'
 import HexLandmarkLayer from './hex/HexLandmarkLayer.vue'
 import HexBuilderLayer from './hex/HexBuilderLayer.vue'
+import HexMovementAuditLayer from './hex/HexMovementAuditLayer.vue'
 
 const props = defineProps({
   mapData: { type: Object, required: true },
@@ -40,6 +41,7 @@ const props = defineProps({
   clickableHexIds: { type: Object, default: null },
   avatarInstant: { type: Boolean, default: false },
   buildingEnterable: { type: Boolean, default: false },
+  movementAuditEntries: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits(['hex-click', 'select-handle', 'waypoint-move', 'builder-map-click', 'building-enter'])
@@ -190,6 +192,8 @@ const {
         :all-hexes="allHexes"
         :center-of="center"
       />
+
+      <HexMovementAuditLayer :entries="movementAuditEntries" />
 
       <MapAvatar
         v-if="current"

@@ -19,6 +19,7 @@ import { axialToPixel, hexCorners, hexDistance } from './useHexGeometry.js'
 
 export { travelOpenings } from './useBarrierOpenings.js'
 const PATH_ORIGIN_EPS = 0.02
+const BARRIER_JUNCTION_CACHE = new WeakMap()
 
 /** Which point-feature kinds allow crossing each barrier kind. */
 export const BARRIER_OPENINGS = {
@@ -355,15 +356,57 @@ function uniquePush(points, point) {
 }
 
 function barrierJunctions(ctx) {
-  const endpoints = []
-  for (const seg of barrierList(ctx)) {
-    endpoints.push(seg.a, seg.b)
+  const barriers = barrierList(ctx)
+  const cached = BARRIER_JUNCTION_CACHE.get(barriers)
+  if (cached) return cached
+  const junctions = []
+  for (let i = 0; i < barriers.length; i++) {
+    const seg = barriers[i]
+    for (let j = i + 1; j < barriers.length; j++) {
+      const other = barriers[j]
+      const intersection = segmentIntersection(seg.a, seg.b, other.a, other.b)
+      if (intersection) {
+        uniquePush(junctions, { x: intersection.x, y: intersection.y })
+      }
+    }
+    for (const endpoint of [seg.a, seg.b]) {
+      const connects = barriers.some((other) => {
+        if (other === seg) return false
+        const clearance =
+          (BARRIER_STAND_INSET[seg.kind] ?? BARRIER_STAND_INSET.fence) +
+          (BARRIER_STAND_INSET[other.kind] ?? BARRIER_STAND_INSET.fence)
+        return pointToSegmentDistance(endpoint, other) <= clearance
+      })
+      if (connects) uniquePush(junctions, endpoint)
+    }
   }
-  return endpoints.filter((point, index) =>
-    endpoints.some((other, otherIndex) =>
-      otherIndex !== index && pointDistance(point, other) < 1,
-    ),
-  )
+  BARRIER_JUNCTION_CACHE.set(barriers, junctions)
+  return junctions
+}
+
+function nearBarrierJunctionHit(a, b, ctx) {
+  const vx = b.x - a.x
+  const vy = b.y - a.y
+  const denom = vx * vx + vy * vy || 1
+  for (const junction of barrierJunctions(ctx)) {
+    const t = Math.max(
+      0,
+      Math.min(
+        1,
+        ((junction.x - a.x) * vx + (junction.y - a.y) * vy) / denom,
+      ),
+    )
+    if (t < PATH_ORIGIN_EPS) continue
+    const point = { x: a.x + vx * t, y: a.y + vy * t }
+    if (pointDistance(point, junction) >= 3) continue
+    const connected = barrierList(ctx).filter(
+      (seg) => pointToSegmentDistance(junction, seg) < 1,
+    )
+    const seg = connected[0]
+    if (!seg) continue
+    return { ...point, t, kind: seg.kind, a: seg.a, b: seg.b }
+  }
+  return null
 }
 
 function segmentClearsBarrierJunctions(a, b, ctx, minClearance) {
@@ -790,6 +833,8 @@ export function firstBlockedOnPath(path, ctx, moveCtx = null) {
   for (let i = 0; i < path.length - 1; i++) {
     const a = path[i]
     const b = path[i + 1]
+    const junctionHit = nearBarrierJunctionHit(a, b, travelCtx)
+    if (junctionHit) return { ...junctionHit, segIndex: i }
     for (const seg of barrierList(travelCtx)) {
       const cross = segmentIntersection(a, b, seg.a, seg.b)
       if (!cross || cross.t < PATH_ORIGIN_EPS) continue
@@ -809,6 +854,13 @@ export function firstBlockedOnPathInHex(path, ctx, hexId, hexAtPoint, moveCtx = 
   for (let i = 0; i < path.length - 1; i++) {
     const a = path[i]
     const b = path[i + 1]
+    const junctionHit = nearBarrierJunctionHit(a, b, travelCtx)
+    if (
+      junctionHit &&
+      hexAtPoint({ x: junctionHit.x, y: junctionHit.y }, hexId) === hexId
+    ) {
+      return { ...junctionHit, segIndex: i }
+    }
     for (const seg of barrierList(travelCtx)) {
       const cross = segmentIntersection(a, b, seg.a, seg.b)
       if (!cross || cross.t < PATH_ORIGIN_EPS) continue
