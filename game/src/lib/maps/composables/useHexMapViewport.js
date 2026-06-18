@@ -1,31 +1,94 @@
 import { computed } from 'vue'
-import { axialToPixel, boundsOf, neighborsOf } from './useHexGeometry.js'
+import {
+  axialToPixel,
+  boundsOf,
+  fixedGameplayViewBox,
+  hexIntersectsViewBox,
+  neighborsOf,
+} from './useHexGeometry.js'
+
+/** Migrate legacy save / prototype mode names. */
+export function normalizeMapMode(mode) {
+  if (mode === 'full') return 'full'
+  if (mode === 'gameplay') return 'gameplay'
+  return 'gameplay'
+}
+
+function buildCoordMap(allHexes) {
+  return new Map(allHexes.map((h) => [`${h.q},${h.r}`, h]))
+}
 
 /**
- * Hexes in the 1-ring around the current position (slice view).
- * Returns all map hexes at current + axial neighbors, regardless of discovery.
+ * Pure viewport evaluation for tests and composable.
  */
-export function sliceRingHexes(allHexes, currentHex, currentHexId) {
-  const coordMap = new Map(allHexes.map((h) => [`${h.q},${h.r}`, h]))
-  const origin = currentHex ?? { q: 0, r: 0 }
-  const ringHexes = []
-  const ringIds = new Set()
+export function evaluateMapViewport({
+  allHexes,
+  currentHexId,
+  discovered,
+  mode,
+  builderView = false,
+  size = 44,
+}) {
+  const hexById = Object.fromEntries(allHexes.map((h) => [h.id, h]))
+  const discoveredSet = new Set(discovered)
+  const current = hexById[currentHexId]
+  const standingOn = currentHexId
+  const isDiscovered = (hex) =>
+    hex && (discoveredSet.has(hex.id) || hex.id === standingOn)
 
-  const add = (hex) => {
-    if (!hex || ringIds.has(hex.id)) return
-    ringIds.add(hex.id)
-    ringHexes.push(hex)
+  if (builderView) {
+    const b = boundsOf(allHexes, size)
+    return {
+      visibleHexes: allHexes,
+      fogHexes: [],
+      viewBox: b,
+      viewBoxString: `${b.x} ${b.y} ${b.width} ${b.height}`,
+    }
   }
 
-  if (currentHexId) {
-    add(allHexes.find((h) => h.id === currentHexId))
+  const mapMode = normalizeMapMode(mode)
+  const coordMap = buildCoordMap(allHexes)
+
+  if (mapMode === 'full') {
+    const visibleHexes = allHexes.filter(isDiscovered)
+    const b = boundsOf(visibleHexes.length ? visibleHexes : allHexes, size)
+    return {
+      visibleHexes,
+      fogHexes: [],
+      viewBox: b,
+      viewBoxString: `${b.x} ${b.y} ${b.width} ${b.height}`,
+    }
   }
 
-  for (const n of neighborsOf(origin)) {
-    add(coordMap.get(`${n.q},${n.r}`))
-  }
+  // gameplay: fixed zoom centered on current hex
+  const viewBox = current
+    ? fixedGameplayViewBox(current, size)
+    : { x: 0, y: 0, width: 100, height: 100 }
 
-  return { ringIds, ringHexes }
+  const inView = (hex) => hexIntersectsViewBox(hex, viewBox, size)
+
+  const visibleHexes = allHexes.filter(
+    (h) => isDiscovered(h) && inView(h),
+  )
+
+  const fogHexes = current
+    ? neighborsOf(current)
+        .map((n) => coordMap.get(`${n.q},${n.r}`))
+        .filter(
+          (h) =>
+            h &&
+            !discoveredSet.has(h.id) &&
+            h.id !== standingOn &&
+            inView(h),
+        )
+    : []
+
+  return {
+    visibleHexes,
+    fogHexes,
+    viewBox,
+    viewBoxString: `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`,
+  }
 }
 
 /**
@@ -46,85 +109,56 @@ export function useHexMapViewport({
   const discoveredSet = computed(() => new Set(discovered.value))
   const current = computed(() => hexById.value[currentHex.value])
 
-  const sliceRing = computed(() => {
-    if (mode.value !== 'slice' || builderView.value) {
-      return { ringIds: new Set(), ringHexes: [] }
+  const evaluated = computed(() =>
+    evaluateMapViewport({
+      allHexes: allHexes.value,
+      currentHexId: currentHex.value,
+      discovered: discovered.value,
+      mode: mode.value,
+      builderView: builderView.value,
+      size: size.value,
+    }),
+  )
+
+  const visibleHexes = computed(() => evaluated.value.visibleHexes)
+  const fogHexes = computed(() => evaluated.value.fogHexes)
+  const viewBox = computed(() => evaluated.value.viewBoxString)
+
+  const gameplayBox = computed(() => {
+    if (builderView.value || normalizeMapMode(mode.value) !== 'gameplay') {
+      return null
     }
-    return sliceRingHexes(
-      allHexes.value,
-      current.value,
-      currentHex.value,
-    )
+    return current.value
+      ? fixedGameplayViewBox(current.value, size.value)
+      : null
   })
 
-  const visibleHexes = computed(() => {
-    const standingOn = currentHex.value
-    const revealed = discoveredSet.value
-    const isVisible = (hex) => revealed.has(hex.id) || hex.id === standingOn
-
-    if (builderView.value) return allHexes.value
-    if (mode.value === 'full') return allHexes.value
-    if (mode.value === 'slice') {
-      return sliceRing.value.ringHexes.filter(isVisible)
-    }
-    return allHexes.value.filter(isVisible)
-  })
-
-  const fogHexes = computed(() => {
-    if (builderView.value) return []
-
-    const standingOn = currentHex.value
-    const revealed = discoveredSet.value
-
-    if (mode.value === 'slice') {
-      return sliceRing.value.ringHexes.filter(
-        (h) => !revealed.has(h.id) && h.id !== standingOn,
-      )
-    }
-
-    if (mode.value !== 'explored') return []
-
-    const edge = new Map()
-    for (const h of visibleHexes.value) {
-      for (const n of neighborsOf(h)) {
-        const found = allHexes.value.find((x) => x.q === n.q && x.r === n.r)
-        if (
-          found &&
-          !revealed.has(found.id) &&
-          found.id !== standingOn
-        ) {
-          edge.set(found.id, found)
-        }
-      }
-    }
-    return [...edge.values()]
-  })
-
-  const viewBox = computed(() => {
-    const forBounds = builderView.value
-      ? allHexes.value
-      : [...visibleHexes.value, ...fogHexes.value]
-    if (forBounds.length === 0) return '0 0 100 100'
-    const b = boundsOf(forBounds, size.value)
-    return `${b.x} ${b.y} ${b.width} ${b.height}`
-  })
+  function hexInGameplayView(hex) {
+    if (!hex) return false
+    const box = gameplayBox.value
+    if (!box) return true
+    return hexIntersectsViewBox(hex, box, size.value)
+  }
 
   function fogMaskOpts() {
     if (builderView.value) {
       return { isRevealed: () => true, inView: () => true }
     }
+
     const standingOn = currentHex.value
     const revealed = discoveredSet.value
-    const isRevealed =
-      mode.value === 'full'
-        ? () => true
-        : (id) =>
-            id != null && (revealed.has(id) || id === standingOn)
-    const inView =
-      mode.value === 'slice'
-        ? (id) => sliceRing.value.ringIds.has(id)
-        : () => true
-    return { isRevealed, inView }
+    const isRevealed = (id) =>
+      id != null && (revealed.has(id) || id === standingOn)
+
+    if (normalizeMapMode(mode.value) === 'gameplay') {
+      return {
+        isRevealed,
+        inView: (id) => hexInGameplayView(hexById.value[id]),
+      }
+    }
+
+    // full: all discovered hexes shown; routes/features unmasked by view
+    return { isRevealed, inView: () => true }
   }
 
   function center(hex) {

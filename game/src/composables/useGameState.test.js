@@ -125,5 +125,6 @@ describe('useGameState save roundtrip', () => {
     expect(ok).toBe(true)
     expect(outdoor.state.stand).toEqual({ x: -42, y: 38 })
     expect(outdoor.state.lastBlocked).toBe('fence')
+    expect(outdoor.mode).toBe('gameplay')
   })
 })

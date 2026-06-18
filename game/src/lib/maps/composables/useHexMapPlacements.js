@@ -106,10 +106,9 @@ export function useHexMapPlacements({
       (model) => model.kind === 'river' && model.samples?.length,
     )
     if (!riverModels.length) return []
-    const isRevealed =
-      mode.value === 'full' || builderView.value
-        ? () => true
-        : (id) => discoveredSet.value.has(id)
+    const isRevealed = builderView.value
+      ? () => true
+      : (id) => discoveredSet.value.has(id)
     const out = []
     for (const hexId of cascadeIds) {
       if (!isRevealed(hexId)) continue

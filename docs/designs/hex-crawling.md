@@ -129,15 +129,16 @@ Passage requirements affect whether the local crossing action is available. They
 
 ### Player state relevant to movement
 
-| Field                | Meaning                                                                      |
-| -------------------- | ---------------------------------------------------------------------------- |
-| `currentId`          | Active hex                                                                   |
-| `stand` `{ x, y }`   | Avatar position in world pixels                                              |
-| `discovered`         | Hexes revealed on the map (fog)                                              |
-| `discoveredOpenings` | Hidden openings revealed by search                                           |
-| `lastBlocked`        | Barrier kind that blocked the last failed move                               |
-| `atBarrier`          | Barrier kind the avatar is considered “at” (status lines, search, crossings) |
-| `traveling`          | Short animation guard (~650ms) after `moveTo`                                |
+| Field                | Meaning                                                                                |
+| -------------------- | -------------------------------------------------------------------------------------- |
+| `currentId`          | Active hex                                                                             |
+| `stand` `{ x, y }`   | Avatar position in world pixels                                                        |
+| `discovered`         | Hexes revealed on the map (fog)                                                        |
+| `mode`               | Map view mode: `gameplay` (default) or `full` — see [map-viewport.md](map-viewport.md) |
+| `discoveredOpenings` | Hidden openings revealed by search                                                     |
+| `lastBlocked`        | Barrier kind that blocked the last failed move                                         |
+| `atBarrier`          | Barrier kind the avatar is considered “at” (status lines, search, crossings)           |
+| `traveling`          | Short animation guard (~650ms) after `moveTo`                                          |
 
 ---
 
@@ -362,4 +363,4 @@ These are the remaining movement tasks. Completed work and standing maintenance 
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 2026-06 | Initial source-of-truth doc; consolidates `barrier-pathfinding.md` and `barrier-passage-openings.md`; aligned to `game/` two-step implementation |
 | 2026-06 | Moved to `docs/designs/hexcrawling.md`; references updated                                                                                       |
-| 2026-06 | Deleted superseded plans `barrier-pathfinding.md` and `barrier-passage-openings.md`                                                                |
+| 2026-06 | Deleted superseded plans `barrier-pathfinding.md` and `barrier-passage-openings.md`                                                              |

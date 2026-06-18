@@ -3,6 +3,7 @@ import { buildBuilding } from "../lib/maps/composables/useGrid.js";
 import { buildInitialDoorState } from "../lib/maps/composables/useDoors.js";
 import { createFlags } from "../lib/maps/composables/useFlags.js";
 import { createInventory } from "../lib/maps/composables/useInventory.js";
+import { normalizeMapMode } from "../lib/maps/composables/useHexMapViewport.js";
 
 export const SAVE_VERSION = 2;
 
@@ -74,7 +75,7 @@ function applyOutdoorSnapshot(o, outdoor) {
   outdoor.state.lastBlocked = o.lastBlocked ?? null;
   outdoor.state.atBarrier = o.atBarrier ?? null;
   outdoor.state.discoveredOpenings = [...(o.discoveredOpenings ?? [])];
-  if (o.mode) outdoor.mode = o.mode;
+  if (o.mode) outdoor.mode = normalizeMapMode(o.mode);
 }
 
 export function applySnapshot(snapshot, { gameState, place, outdoor, indoor }) {

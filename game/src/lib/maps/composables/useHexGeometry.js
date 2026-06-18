@@ -75,6 +75,43 @@ export function neighborsOf(hex) {
   return NEIGHBOR_DIRS.map((d) => ({ q: hex.q + d.q, r: hex.r + d.r }))
 }
 
+/** Fixed gameplay viewport size from a canonical 7-hex cluster at the origin. */
+export function gameplayViewDimensions(size) {
+  const cluster = [{ q: 0, r: 0 }, ...neighborsOf({ q: 0, r: 0 })]
+  return boundsOf(cluster, size)
+}
+
+/** Gameplay viewBox: fixed zoom, current hex at center. */
+export function fixedGameplayViewBox(centerHex, size) {
+  const dims = gameplayViewDimensions(size)
+  const center = axialToPixel(centerHex.q, centerHex.r, size)
+  return {
+    x: center.x - dims.width / 2,
+    y: center.y - dims.height / 2,
+    width: dims.width,
+    height: dims.height,
+  }
+}
+
+/** Whether a hex's footprint intersects a viewBox rectangle. */
+export function hexIntersectsViewBox(hex, viewBox, size) {
+  if (!hex || !viewBox) return false
+  const { x: cx, y: cy } = axialToPixel(hex.q, hex.r, size)
+  const pad = size
+  const hexMinX = cx - pad
+  const hexMaxX = cx + pad
+  const hexMinY = cy - pad
+  const hexMaxY = cy + pad
+  const boxMaxX = viewBox.x + viewBox.width
+  const boxMaxY = viewBox.y + viewBox.height
+  return !(
+    hexMaxX < viewBox.x ||
+    hexMinX > boxMaxX ||
+    hexMaxY < viewBox.y ||
+    hexMinY > boxMaxY
+  )
+}
+
 // Bounding box (in pixel space) of a list of hexes, padded by one hex.
 export function boundsOf(hexes, size) {
   let minX = Infinity

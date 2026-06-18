@@ -172,7 +172,7 @@ export function visiblePassageMarkers(
   markers,
   { mode, builderView, discoveredHexes, discoveredOpenings },
 ) {
-  if (mode === 'full' || builderView) return markers
+  if (builderView) return markers
   const hexSet = discoveredHexes instanceof Set ? discoveredHexes : new Set(discoveredHexes ?? [])
   const openingSet = new Set(discoveredOpenings ?? [])
   return markers.filter((m) => {

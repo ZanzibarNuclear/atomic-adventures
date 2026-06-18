@@ -27,7 +27,7 @@ const props = defineProps({
   discoveredOpenings: { type: Array, default: () => [] },
   /** Story flags — drives gate open/closed symbols. */
   flags: { type: [Set, Array, Object], default: null },
-  mode: { type: String, default: 'explored' }, // slice | explored | full
+  mode: { type: String, default: 'gameplay' }, // gameplay | full
   expanded: { type: Boolean, default: false },
   builderView: { type: Boolean, default: false },
   builderEdit: { type: Boolean, default: false },
@@ -134,7 +134,7 @@ const {
         :fog-hexes="fogHexes"
         :size="size"
         :center-of="center"
-        :clickable="mode === 'slice'"
+        :clickable="mode === 'gameplay'"
         @hex-click="onHexClick"
       />
 

@@ -183,7 +183,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
     { immediate: true },
   );
 
-  const mode = ref("explored");
+  const mode = ref("gameplay");
   const traveling = ref(false);
 
   const currentHexData = computed(() => hexById.value[state.currentId]);

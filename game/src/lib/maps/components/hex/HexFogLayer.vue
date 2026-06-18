@@ -6,7 +6,7 @@ defineProps({
   fogHexes: { type: Array, default: () => [] },
   size: { type: Number, required: true },
   centerOf: { type: Function, required: true },
-  /** When true, fog tiles are valid move targets (e.g. slice mode). */
+  /** When true, fog tiles are valid move targets (gameplay mode). */
   clickable: { type: Boolean, default: false },
 })
 
