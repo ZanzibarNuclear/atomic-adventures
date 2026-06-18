@@ -9,7 +9,14 @@ const migrationsDir = join(here, "migrations");
 
 export function openDatabase(path = DEFAULT_DB_PATH) {
   const db = new DatabaseSync(path, { timeout: 2000 });
-  db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
+  // The database is a tracked content artifact. Rollback-journal mode writes
+  // committed edits into the main .sqlite file immediately, so Git and remote
+  // deployments never depend on an ignored WAL sidecar.
+  db.exec(`
+    PRAGMA journal_mode = DELETE;
+    PRAGMA synchronous = FULL;
+    PRAGMA foreign_keys = ON;
+  `);
   migrateDatabase(db);
   return db;
 }

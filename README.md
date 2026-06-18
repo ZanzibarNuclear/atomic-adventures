@@ -65,6 +65,10 @@ story source. The builder lets authors select a hex, room, exterior location, or
 event; edit its story beats; and save a validated revision. Open game windows
 receive saved changes immediately without losing player state.
 
+Each successful save writes directly to the tracked SQLite file, so `git status`
+shows content edits immediately and committing that file carries them to remote
+installations.
+
 YAML remains available for interchange and review:
 
 ```bash

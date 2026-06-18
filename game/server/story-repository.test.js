@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openDatabase } from "./db.js";
@@ -83,6 +83,18 @@ describe("StoryRepository", () => {
       .toThrow(ValidationError);
     expect(repository.getGlobalRevision()).toBe(before);
     expect(repository.listBeats("test-area")).toEqual([]);
+    db.close();
+  });
+
+  it("writes committed content directly to the tracked database file", () => {
+    const { db, path, repository } = createRepository();
+    const before = statSync(path).mtimeMs;
+
+    repository.createBeat("test-area", sampleBeat());
+
+    expect(db.prepare("PRAGMA journal_mode").get().journal_mode).toBe("delete");
+    expect(existsSync(`${path}-wal`)).toBe(false);
+    expect(statSync(path).mtimeMs).toBeGreaterThanOrEqual(before);
     db.close();
   });
 });
