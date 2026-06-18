@@ -1,7 +1,7 @@
 /**
  * Barrier features for hex travel (fence, river, cliff, ravine, …).
  * Inter-hex movement never uses passage openings — those are for in-hex
- * `crossPassage` only. See docs/design/hex-crawling.md.
+ * `crossPassage` only. See docs/contracts/hex-crawling.md.
  */
 
 

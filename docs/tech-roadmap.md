@@ -21,8 +21,8 @@ The project has moved past stack selection and scaffolding. The playable `game/`
 | Active app vs prototype | **`game/`** is canonical; **`web/`** is a map sandbox | Gameplay, story, persistence, and player maps live in `game/`. Do not add game features to `web/`. |
 | Authored content store | **SQLite** (`game/content/atomic-adventures.sqlite`) | Story beats and outdoor world are canonical in SQLite. YAML under `game/content/story/` and `game/content/world/` is import/export interchange only. |
 | Indoor geometry | **YAML** (`game/content/world/utility-station.yaml`) | Outdoor world is database-backed; indoor building layout remains YAML until indoor authoring exists. |
-| Story runtime unit | **Beats**, not a full passage graph | Location/event triggers, requirements, flags, choices, revisit prose. Planned passage features (`go_to`, simulation gates) are not implemented yet. See [story-beats.md](design/story-beats.md). |
-| Authoring | **Separate builder routes** | `/builder/story` and `/builder/world`; local Node API + SSE live updates. Production excludes builders. See [world-authoring.md](design/world-authoring.md). |
+| Story runtime unit | **Beats**, not a full passage graph | Location/event triggers, requirements, flags, choices, revisit prose. Planned passage features (`go_to`, simulation gates) are not implemented yet. See [story-beats.md](contracts/story-beats.md). |
+| Authoring | **Separate builder routes** | `/builder/story` and `/builder/world`; local Node API + SSE live updates. Production excludes builders. See [world-authoring.md](contracts/world-authoring.md). |
 | Player persistence (now) | **localStorage** via `useSaveGame` | No accounts, no server-side saves. |
 | Production | **Static Vercel** | Build exports SQLite → `story.json` + `world.json`; no authoring server in prod. See [deployment.md](deployment.md). |
 | Transactional data (future) | **Neon Postgres** | Planned when player registration and server-side state are needed — not required for the current slice. See [deployment.md § Future Neon Integration](deployment.md#future-neon-integration). |
@@ -34,7 +34,7 @@ The project has moved past stack selection and scaffolding. The playable `game/`
 These systems are implemented and exercised by tests where noted:
 
 - **Playable shell** — `GameView`, save/load/reset, dev movement audit (dev builds only).
-- **Outdoor map** — Hex travel, barriers, passages, river crossings, compound gate gameplay, stand points. Contract: [hex-crawling.md](design/hex-crawling.md).
+- **Outdoor map** — Hex travel, barriers, passages, river crossings, compound gate gameplay, stand points. Contract: [hex-crawling.md](contracts/hex-crawling.md).
 - **Indoor map** — Grid rooms, doors, roll-ups, keys, facility state (`hydroOnline`, manual modes), hydro diagram overlay (visual only, fogged until discovery).
 - **Story engine** — Beat selection, acknowledgment, revisit prose, choice effects (flags + movement destinations). Wired through `NarrativeCard` and `usePlayPanel`.
 - **Flags & inventory (minimal)** — Dot-scoped flags; inventory as a set of item ids (keys for doors; basic `InventoryPanel`). Serializable in save data.
@@ -42,7 +42,7 @@ These systems are implemented and exercised by tests where noted:
 - **Authoring** — Story builder (map-first beat editing) and world builder (canvas-first outdoor geometry).
 - **Deployment** — `npm run build:game` → static bundle on Vercel.
 
-Design and narrative intent for Part I (unlock chains, hydro phases, discovery track) are documented in [Part I Unlocks](../design/content/part-i-unlocks.md), [hydro-simulation.md](../design/content/subject-matter/hydro-simulation.md), and [story-overview.md](../design/content/story/story-overview.md).
+Design and narrative intent for Part I (unlock chains, hydro phases, discovery track) are documented in [Part I Unlocks](../game-design/content/part-i-unlocks.md), [hydro-simulation.md](../game-design/content/subject-matter/hydro-simulation.md), and [story-overview.md](../game-design/content/story/story-overview.md).
 
 ---
 
@@ -55,12 +55,12 @@ Part I is **hydro-centric**: forest arrival → shelter → library → startup 
 The beat engine does not yet launch simulations or gate progression on sim success. Needed:
 
 - A **simulation gate** contract in story/beats: open a sim UI, pass/fail criteria, set flags on success (e.g. `hydro.clear-intake-debris`, `hydro.level-1-complete`, `hub.hydro_online`).
-- Wiring between **challenge IDs** in [Part I Unlocks](../design/content/part-i-unlocks.md) and runtime flags/requirements.
-- **Failure and retry** feedback aligned with [progression-design.md](../design/content/progression-design.md) (early win, then “real life” complexity).
+- Wiring between **challenge IDs** in [Part I Unlocks](../game-design/content/part-i-unlocks.md) and runtime flags/requirements.
+- **Failure and retry** feedback aligned with [progression-design.md](../game-design/content/progression-design.md) (early win, then “real life” complexity).
 
 ### 2. Hydro power simulator
 
-The core Part I teaching and gating system. Spec: [hydro-simulation.md](../design/content/subject-matter/hydro-simulation.md).
+The core Part I teaching and gating system. Spec: [hydro-simulation.md](../game-design/content/subject-matter/hydro-simulation.md).
 
 **Level 1 startup (one-time gate)** — four linked steps:
 
@@ -75,7 +75,7 @@ The grid map’s hydro layer is **diagram-only** today. The sim must drive real 
 
 ### 3. Control room console
 
-After startup, the **hydro control room** is the main monitoring surface (see [part-i.md](../design/content/story/part-i.md) Day 2+ beats):
+After startup, the **hydro control room** is the main monitoring surface (see [part-i.md](../game-design/content/story/part-i.md) Day 2+ beats):
 
 - Gauges and telemetry tied to **simulator state** (not decorative).
 - Campus load / generation balance (lighting zones, charge port, auxiliary circuits).
@@ -86,7 +86,7 @@ This is distinct from the narrative card: a persistent **facility UI** the playe
 
 ### 4. Holo-reader (technical learning)
 
-Power-gated library devices for immersive study ([world-and-style.md](../design/content/story/world-and-style.md)):
+Power-gated library devices for immersive study ([world-and-style.md](../game-design/content/story/world-and-style.md)):
 
 - Unlocked after station power (`hub.hydro_online`).
 - Delivers structured lessons on hydro theory, campus systems, and foreshadowing content (storage, solar, Act II reactor tease).
@@ -184,7 +184,7 @@ Keep **player/account schema separate** from authored content. SQLite (or a late
 
 After Part I threshold (hidden elevator → Part II):
 
-- **PV, AP-1000, Gen IV, fusion** chapters — each with its own sim and narrative arc (see [game-design-overview.md](../design/game-design-overview.md)).
+- **PV, AP-1000, Gen IV, fusion** chapters — each with its own sim and narrative arc (see [game-design-overview.md](../game-design/game-design-overview.md)).
 - **Mini-game embeds** — isotope-explorer (Vue/WASM), crazy-converter (iframe); integration contract still to be defined before Phase 2 nuclear/PV work.
 - **Real-world reactor tracking** — optional content updates as Gen IV and fusion projects advance (Natrium, Kairos, X-Energy, ITER, etc.).
 
@@ -201,11 +201,20 @@ After Part I threshold (hidden elevator → Part II):
 | Topic | Document |
 | ----- | -------- |
 | Agent / repo overview | [AGENTS.md](../AGENTS.md) |
-| Beat runtime & authoring | [design/story-beats.md](design/story-beats.md) |
-| Outdoor world authoring | [design/world-authoring.md](design/world-authoring.md) |
-| Hex movement contract | [design/hex-crawling.md](design/hex-crawling.md) |
+| Beat runtime & authoring | [contracts/story-beats.md](contracts/story-beats.md) |
+| Outdoor world authoring | [contracts/world-authoring.md](contracts/world-authoring.md) |
+| Hex movement contract | [contracts/hex-crawling.md](contracts/hex-crawling.md) |
 | Production & Neon | [deployment.md](deployment.md) |
-| Part I unlock chains | [design/content/part-i-unlocks.md](../design/content/part-i-unlocks.md) |
-| Hydro sim spec | [design/content/subject-matter/hydro-simulation.md](../design/content/subject-matter/hydro-simulation.md) |
-| Story & facility narrative | [design/content/story/story-overview.md](../design/content/story/story-overview.md), [part-i.md](../design/content/story/part-i.md) |
-| Planned story schema (future) | [design/content/story/story-data-format.md](../design/content/story/story-data-format.md) |
+| Part I unlock chains | [game-design/content/part-i-unlocks.md](../game-design/content/part-i-unlocks.md) |
+| Hydro sim spec | [game-design/content/subject-matter/hydro-simulation.md](../game-design/content/subject-matter/hydro-simulation.md) |
+| Story & facility narrative | [game-design/content/story/story-overview.md](../game-design/content/story/story-overview.md), [part-i.md](../game-design/content/story/part-i.md) |
+| Planned story schema (future) | [game-design/content/story/story-data-format.md](../game-design/content/story/story-data-format.md) |
+
+---
+
+## Document history
+
+| Date | Change |
+| ---- | ------ |
+| 2026-06 | Full rewrite: decisions, Part I gaps, Neon future |
+| 2026-06 | `design/` → `game-design/`; `docs/design/` → `docs/contracts/` |

@@ -23,8 +23,8 @@ This monorepo contains two independent Vue 3 + Vite applications:
 
 ```text
 atomic-adventures/
-├── design/     # Game design — vision, story, progression, simulation specs, art
-├── docs/       # Technical docs — runtime contracts, deployment, roadmap
+├── game-design/  # Game design — vision, story, progression, simulation specs, art
+├── docs/         # Technical docs — runtime contracts, deployment, roadmap
 ├── game/       # Playable vertical slice and full game
 ├── samples/    # Sample map data
 ├── scripts/    # Repository development scripts
@@ -97,7 +97,7 @@ npm run world:import -w game -- /tmp/map.yaml --replace
 
 Direct edits to `map.yaml` do not affect the running game until imported. Indoor
 building geometry remains YAML-backed for now. See
-[docs/design/world-authoring.md](docs/design/world-authoring.md).
+[docs/contracts/world-authoring.md](docs/contracts/world-authoring.md).
 
 ## Deployment
 
@@ -117,34 +117,34 @@ Two top-level directories separate **what we are building** from **how it is imp
 
 | Directory | Audience | Contents |
 | --------- | -------- | -------- |
-| [`design/`](design/) | Writers, designers, educators | Vision, narrative, progression, simulation specs, art references |
+| [`game-design/`](game-design/) | Writers, designers, educators | Vision, narrative, progression, simulation specs, art references |
 | [`docs/`](docs/) | Engineers, agents, operators | Runtime contracts, deployment, technology roadmap |
 
-Do not conflate them. Story beats and facility layout live in `design/`; beat selection order, hex movement rules, and the SQLite authoring API live in `docs/`.
+Do not conflate them. Story beats and facility layout live in `game-design/`; beat selection order, hex movement rules, and the SQLite authoring API live in `docs/contracts/`.
 
 ### Game design — getting started
 
 Read in this order when onboarding to narrative or simulation design:
 
-1. [Game Design Overview](design/game-design-overview.md) — pillars, scope, core loop
-2. [Story Overview](design/content/story/story-overview.md) — Part I structure and beats
-3. [Characters](design/content/story/characters.md) — protagonist and cast
-4. [Part I Unlocks](design/content/part-i-unlocks.md) — hydro progression and discovery chains
-5. [Progression Design](design/content/progression-design.md) — gates, difficulty curve, staged complexity
-6. [Learning Objectives](design/content/learning-objectives.md) — concepts mapped to story
-7. [Simulation Overview](design/content/subject-matter/simulation-overview.md) — per-technology sim specs ([hydro](design/content/subject-matter/hydro-simulation.md) is the Part I spine)
+1. [Game Design Overview](game-design/game-design-overview.md) — pillars, scope, core loop
+2. [Story Overview](game-design/content/story/story-overview.md) — Part I structure and beats
+3. [Characters](game-design/content/story/characters.md) — protagonist and cast
+4. [Part I Unlocks](game-design/content/part-i-unlocks.md) — hydro progression and discovery chains
+5. [Progression Design](game-design/content/progression-design.md) — gates, difficulty curve, staged complexity
+6. [Learning Objectives](game-design/content/learning-objectives.md) — concepts mapped to story
+7. [Simulation Overview](game-design/content/subject-matter/simulation-overview.md) — per-technology sim specs ([hydro](game-design/content/subject-matter/hydro-simulation.md) is the Part I spine)
 
-Story art and map references live under [`design/art/`](design/art/). Most design documents are marked `[DRAFT]`.
+Story art and map references live under [`game-design/art/`](game-design/art/). Most design documents are marked `[DRAFT]`.
 
 ### Technical documentation
 
 | Document | Purpose |
 | -------- | ------- |
 | [Technology Roadmap](docs/tech-roadmap.md) | Decisions made, Part I gaps, future Neon/player features |
-| [Story Beats](docs/design/story-beats.md) | Beat engine runtime and builder behavior (source of truth) |
-| [World Authoring](docs/design/world-authoring.md) | Outdoor world builder, SQLite, live updates |
-| [Hex Crawling](docs/design/hex-crawling.md) | Outdoor movement contract |
-| [Hex Viewport](docs/design/hex-viewport.md) | Map zoom, fog, and visibility |
+| [Story Beats](docs/contracts/story-beats.md) | Beat engine runtime and builder behavior (source of truth) |
+| [World Authoring](docs/contracts/world-authoring.md) | Outdoor world builder, SQLite, live updates |
+| [Hex Crawling](docs/contracts/hex-crawling.md) | Outdoor movement contract |
+| [Hex Viewport](docs/contracts/hex-viewport.md) | Map zoom, fog, and visibility |
 | [Deployment](docs/deployment.md) | Vercel production build and content promotion |
 
 Agent and contributor conventions: [AGENTS.md](AGENTS.md).

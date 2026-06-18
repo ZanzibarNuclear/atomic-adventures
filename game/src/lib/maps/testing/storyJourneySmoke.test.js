@@ -13,7 +13,7 @@ import {
 
 /**
  * Smoke: Day-1 mainline journey using real gameplay (moveTo + gameState).
- * Complements geometry coverage in travelWorld tests; see docs/design/hex-crawling.md.
+ * Complements geometry coverage in travelWorld tests; see docs/contracts/hex-crawling.md.
  *
  * map.yaml `journey` is one story beat per hex; after the gate, gameplay walks
  * gate-woods → west-slope → utility-yard using generic adjacent travel.

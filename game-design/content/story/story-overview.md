@@ -297,7 +297,7 @@ _Level order may be adjusted. See [World & Style Guide](world-and-style.md) for 
 
 - **Protagonist art** — `../../nuclear-ambitions/adventure/characters/` (Zanzibar portraits, hiking gear, video refs). See [Characters](characters.md).
 - **Supporting cast art** — Same directory (Fiona, Lan, Kenji, and others). Roles TBD.
-- **In-repo art** — _Copy selected assets to `design/art/story/` when integrated_
+- **In-repo art** — _Copy selected assets to `game-design/art/story/` when integrated_
 
 ## Tone & Voice
 
@@ -330,5 +330,5 @@ Each story beat should:
 - [ ] Define the group, the argument, and what "help" means
 - [x] Post-power library beat — holo-readers, DoE facility reveal, advanced hydro (details TBD)
 - [ ] Develop holo-reader UX and DoE facility backstory
-- [ ] Copy canonical art into `design/art/story/`
+- [ ] Copy canonical art into `game-design/art/story/`
 - [ ] Align with learning objectives in [Learning Objectives](../learning-objectives.md)

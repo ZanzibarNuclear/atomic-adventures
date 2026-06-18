@@ -6,7 +6,7 @@
 
 | File | Purpose |
 |------|---------|
-| `design/art/maps/fictional-maine-regional-map-v1.png` | Concept regional topo map (Sunol / USGS trail-map style) |
+| `game-design/art/maps/fictional-maine-regional-map-v1.png` | Concept regional topo map (Sunol / USGS trail-map style) |
 | Reference style | `assets/Sunol_Regional_Wilderness-*.png` (user-provided) |
 
 *v1 is AI-generated — useful for mood and layout. Labels and geometry are approximate. For production, consider a code-drawn SVG or cartographer pass.*

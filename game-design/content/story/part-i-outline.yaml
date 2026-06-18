@@ -1,6 +1,6 @@
 # Part I — Day 1 story outline (authoring only; not loaded by the game engine)
 #
-# Purpose: map design/content/story/part-i.md → world locations, time, and game beats.
+# Purpose: map game-design/content/story/part-i.md → world locations, time, and game beats.
 # Use this to expand game/content/story/part-i.yaml scene by scene.
 #
 # Scene kinds:
@@ -17,7 +17,7 @@
 #   nudge       — ambient only: hint toward next journey step
 #   prose_draft — author reference / seed text for YAML (not final copy)
 
-manuscript: design/content/story/part-i.md
+manuscript: game-design/content/story/part-i.md
 area: part-i
 
 when_phases:

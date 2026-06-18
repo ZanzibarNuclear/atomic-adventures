@@ -44,7 +44,7 @@ Primary reference art lives in the sibling **nuclear-ambitions** repo:
 | `Zanzi-mini-movie.mp4` | Motion reference / promotional material |
 | `zanzibar-as-elderly-wizard.jpg` | Alternate look — *not canonical for this game unless story requires it* |
 
-*Copy selected assets into `design/art/story/` when ready for in-repo references.*
+*Copy selected assets into `game-design/art/story/` when ready for in-repo references.*
 
 #### In-game presence
 
@@ -117,4 +117,4 @@ See [Story Overview](story-overview.md) for chapter beats and [World & Style Gui
 - [x] Opening situation — alone in pine forest after group split
 - [ ] Define the group, argument, and stakes
 - [ ] Decide which supporting cast (if any) appear in Act 1 (Hydro)
-- [ ] Copy canonical art into `design/art/story/zanzibar/`
+- [ ] Copy canonical art into `game-design/art/story/zanzibar/`

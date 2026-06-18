@@ -6,7 +6,7 @@ Project instructions for AI coding agents working in this repository.
 
 Atomic Adventures is an educational adventure game where players explore electricity production technologies through story-driven discovery and simulation. Players restore dormant energy facilities in a Myst-inspired world, learning real physics and engineering to progress.
 
-**Current phase:** Early implementation — Part I vertical slice in progress. The repo contains design docs, a map prototype (`web/`), and the playable game app (`game/`).
+**Current phase:** Early implementation — Part I vertical slice in progress. The repo contains game-design docs, a map prototype (`web/`), and the playable game app (`game/`).
 
 ## Repository layout: prototype vs. game
 
@@ -16,8 +16,8 @@ Two Vue 3 + Vite apps live in this monorepo. **Do not conflate them.**
 atomic-adventures/
 ├── web/                 ← PROTOTYPE — independent app for exploring map concepts and demos
 ├── game/                ← ACTIVE — vertical slice and full game (all gameplay work here)
-├── design/              — Narrative, simulation specs, learning objectives
-└── docs/                — Roadmaps and implementation plans
+├── game-design/         — Narrative, simulation specs, learning objectives
+└── docs/                — Technical contracts, deployment, roadmap
 ```
 
 | App     | Purpose                                                                              | Modify when…                                                                           |
@@ -58,7 +58,7 @@ Authoring uses separate routes in the `game/` app, not modes layered onto the pl
 - Keep builder form state separate from player state, saves, inventory, flags, and movement.
 - Outdoor world content is stored as one ordered JSON document; do not normalize individual hexes, routes, or points without a demonstrated need.
 - `game/content/world/map.yaml` is outdoor import/export material, not the live runtime source. Direct edits require `world:import`.
-- See [docs/design/world-authoring.md](docs/design/world-authoring.md) for the persistence, reference, and live-update contract.
+- See [docs/contracts/world-authoring.md](docs/contracts/world-authoring.md) for the persistence, reference, and live-update contract.
 
 #### Prototype map geometry tools — separate
 
@@ -104,7 +104,7 @@ npm run test            # from repo root (runs game/ vitest)
 
 Run tests again after each meaningful code change in those areas — not only at the end of a large task. A pre-push hook also runs tests locally; do not rely on it as the first time you learn something broke.
 
-When adding or changing movement, barrier, or arrival behavior, add or update a test in `game/src/lib/maps/testing/` or `game/src/composables/`. See [docs/design/hex-crawling.md](docs/design/hex-crawling.md) for the movement contract (two-step border-then-stand, in-hex `crossPassage` vs inter-hex travel).
+When adding or changing movement, barrier, or arrival behavior, add or update a test in `game/src/lib/maps/testing/` or `game/src/composables/`. See [docs/contracts/hex-crawling.md](docs/contracts/hex-crawling.md) for the movement contract (two-step border-then-stand, in-hex `crossPassage` vs inter-hex travel).
 
 ### Production deployment
 
@@ -163,7 +163,7 @@ Future layers (not all built yet):
 
 Story content lives canonically in `game/content/atomic-adventures.sqlite`. Authors normally edit it at `/builder/story`. YAML is retained as an interchange and review format, not as the live runtime source.
 
-See [docs/design/story-beats.md](docs/design/story-beats.md) for the authoritative
+See [docs/contracts/story-beats.md](docs/contracts/story-beats.md) for the authoritative
 current runtime behavior: selection order, triggers, requirements, seen state,
 revisit prose, choices, repeatable beats, live authoring, and persistence.
 
@@ -173,7 +173,7 @@ npm run content:import -w game -- path/to/story.yaml
 npm run content:import -w game -- path/to/story.yaml --replace
 ```
 
-Direct edits to `game/content/story/*.yaml` do not affect the game until imported. See `design/content/story/story-data-format.md` for the broader planned schema. Key concepts:
+Direct edits to `game/content/story/*.yaml` do not affect the game until imported. See `game-design/content/story/story-data-format.md` for the broader planned schema. Key concepts:
 
 - **Passages** — Text + image + choices. The atomic unit.
 - **Conditions** — `require: { all: [...], not: [...], items: [...] }`
@@ -211,7 +211,7 @@ These embed as mini-games within the adventure:
 
 - **Setting:** Future where energy technology has been lost. Infrastructure remains, knowledge is gone.
 - **Inspiration:** Myst (atmosphere, exploration) + Tintin (protagonist personality)
-- **Protagonist:** Zanzibar Nuhero — see `design/content/story/characters.md`
+- **Protagonist:** Zanzibar Nuhero — see `game-design/content/story/characters.md`
 - **Story structure:** Part I (several weeks, surface — hydro operations) → Part II (below); Part I ends with a hidden elevator (hydro gate)
 - **Core message:** Hopeful. Technology exists to help people thrive.
 

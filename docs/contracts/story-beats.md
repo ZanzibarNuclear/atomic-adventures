@@ -14,7 +14,7 @@ event. Beats are authored in the story builder at `/builder/story`, stored in
 local content API.
 
 This document describes the behavior implemented today. The broader passage
-format in `design/content/story/story-data-format.md` includes planned features
+format in `game-design/content/story/story-data-format.md` includes planned features
 that the current beat engine does not yet support.
 
 ## Beat Selection
