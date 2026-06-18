@@ -23,6 +23,8 @@ function harness(initialStory) {
   };
   return {
     story,
+    gameState,
+    outdoor,
     api: useStory(story, { gameState, place, outdoor, indoor }),
   };
 }
@@ -63,5 +65,71 @@ describe("useStory reactive content", () => {
     };
     await nextTick();
     expect(api.pendingBeat.value.id).toBe("replacement");
+  });
+
+  it("marks a one-time no-acknowledgement beat seen when it is presented", () => {
+    const passiveBeat = {
+      ...beat,
+      acknowledge: false,
+      choices: [],
+      revisit: "Return text",
+    };
+    const { api, gameState } = harness({ beats: { intro: passiveBeat } });
+
+    api.refreshNarrative();
+
+    expect(api.narrativeBeat.value.text).toBe("Original text");
+    expect(gameState.storySeen.has("intro")).toBe(true);
+  });
+
+  it("shows revisit text after leaving and returning to a seen no-acknowledgement beat", async () => {
+    const passiveBeat = {
+      ...beat,
+      acknowledge: false,
+      choices: [],
+      revisit: "Return text",
+    };
+    const { api, outdoor } = harness({ beats: { intro: passiveBeat } });
+
+    api.refreshNarrative();
+    expect(api.narrativeBeat.value.text).toBe("Original text");
+
+    outdoor.state.currentId = "elsewhere";
+    await nextTick();
+    expect(api.narrativeBeat.value).toBeNull();
+
+    outdoor.state.currentId = "trailhead";
+    await nextTick();
+    expect(api.narrativeBeat.value.text).toBe("Return text");
+    expect(api.narrativeBeat.value.revisit).toBe(true);
+  });
+
+  it("does not mark repeatable no-acknowledgement beats seen", () => {
+    const repeatableBeat = {
+      ...beat,
+      once: false,
+      acknowledge: false,
+      choices: [],
+      revisit: "Unused revisit text",
+    };
+    const { api, gameState } = harness({ beats: { ambient: repeatableBeat } });
+
+    api.refreshNarrative();
+
+    expect(api.narrativeBeat.value.text).toBe("Original text");
+    expect(gameState.storySeen.has("ambient")).toBe(false);
+  });
+
+  it("does not store repeatable choice beats in seen state", () => {
+    const repeatableBeat = {
+      ...beat,
+      once: false,
+    };
+    const { api, gameState } = harness({ beats: { ambient: repeatableBeat } });
+
+    api.refreshNarrative();
+    api.applyChoice(0);
+
+    expect(gameState.storySeen.has("ambient")).toBe(false);
   });
 });

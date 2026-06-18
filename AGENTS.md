@@ -145,6 +145,10 @@ Future layers (not all built yet):
 
 Story content lives canonically in `game/content/atomic-adventures.sqlite`. Authors normally edit it at `/builder`. YAML is retained as an interchange and review format, not as the live runtime source.
 
+See [docs/design/story-beats.md](docs/design/story-beats.md) for the authoritative
+current runtime behavior: selection order, triggers, requirements, seen state,
+revisit prose, choices, repeatable beats, live authoring, and persistence.
+
 ```bash
 npm run content:export -w game -- part-i /tmp/part-i.yaml
 npm run content:import -w game -- path/to/story.yaml

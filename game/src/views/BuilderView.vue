@@ -1,6 +1,6 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { onBeforeRouteLeave, RouterLink } from "vue-router";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { onBeforeRouteLeave, useRouter } from "vue-router";
 import mapData from "../../content/world/map.yaml";
 import buildingData from "../../content/world/utility-station.yaml";
 import HexMap from "../lib/maps/components/HexMap.vue";
@@ -18,9 +18,10 @@ const allRoomIds = buildingData.rooms.map((item) => item.id);
 const allExteriorIds = (buildingData.exterior?.nodes ?? []).map((item) => item.id);
 const allHexSet = new Set(allHexIds);
 const builderFlags = new Set();
+const STORY_AREA_ID = "part-i";
+const router = useRouter();
 
-const catalog = ref({ areas: [], world: { hexes: [], rooms: [], exteriorNodes: [], buildings: [] } });
-const areaId = ref("part-i");
+const catalog = ref({ world: { hexes: [], rooms: [], exteriorNodes: [], buildings: [] } });
 const beats = ref([]);
 const selectedBeatId = ref("");
 const locationMode = ref("outdoors");
@@ -33,6 +34,11 @@ const errors = ref({});
 const status = ref("");
 const revisions = ref([]);
 const showRevisions = ref(false);
+const openMenu = ref(null);
+const eventLocationInput = ref("enter-building");
+const navigationPromptVisible = ref(false);
+const pendingContextAction = ref(null);
+const savingBeforeNavigation = ref(false);
 
 const dirty = computed(() => draft.value && JSON.stringify(draft.value) !== baseline.value);
 const yamlPreview = computed(() => storyBeatYaml(draft.value));
@@ -51,7 +57,6 @@ onMounted(async () => {
   window.addEventListener("beforeunload", warnBeforeUnload);
   try {
     catalog.value = await storyApi("/api/catalog");
-    areaId.value = catalog.value.areas[0]?.id ?? "part-i";
     await loadBeats();
   } catch (error) {
     status.value = error.message;
@@ -59,61 +64,144 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => window.removeEventListener("beforeunload", warnBeforeUnload));
-onBeforeRouteLeave(() => !dirty.value || window.confirm("Discard unsaved story changes?"));
-
-watch(areaId, () => loadBeats());
-watch([locationMode, selectedLocation], () => {
-  selectedBeatId.value = "";
-  draft.value = null;
-  baseline.value = "";
-  errors.value = {};
+onBeforeRouteLeave((to) => {
+  if (!dirty.value) return true;
+  void requestContextChange(() => router.push(to.fullPath));
+  return false;
 });
 
 async function loadBeats(selectId = "") {
-  if (!areaId.value) return;
-  beats.value = await storyApi(`/api/story/areas/${encodeURIComponent(areaId.value)}/beats`);
-  if (selectId) await selectBeat(selectId);
+  await refreshBeatList();
+  if (selectId) await loadBeat(selectId);
+  else await openFirstBeatForSelectedHex();
 }
 
-async function selectBeat(id) {
-  if (dirty.value && !window.confirm("Discard unsaved story changes?")) return;
+async function refreshBeatList() {
+  beats.value = await storyApi(`/api/story/areas/${STORY_AREA_ID}/beats`);
+}
+
+async function loadBeat(id) {
   const result = await storyApi(
-    `/api/story/areas/${encodeURIComponent(areaId.value)}/beats/${encodeURIComponent(id)}`,
+    `/api/story/areas/${STORY_AREA_ID}/beats/${encodeURIComponent(id)}`,
   );
   selectedBeatId.value = id;
   isNew.value = false;
   setDraft(result.beat);
 }
 
+function selectBeat(id) {
+  if (selectedBeatId.value === id) return;
+  void requestContextChange(() => loadBeat(id));
+}
+
 function selectHex(id) {
+  if (locationMode.value === "outdoors" && selectedLocation.value === id) return;
+  void requestContextChange(() => applyHexSelection(id));
+}
+
+async function applyHexSelection(id) {
   locationMode.value = "outdoors";
   selectedLocation.value = id;
   outdoor.state.currentId = id;
+  clearBeatSelection();
+  await openFirstBeatForSelectedHex();
+}
+
+function clearBeatSelection() {
+  selectedBeatId.value = "";
+  draft.value = null;
+  baseline.value = "";
+  errors.value = {};
+}
+
+async function openFirstBeatForSelectedHex() {
+  if (locationMode.value !== "outdoors") return;
+  const selectionKey = `${locationMode.value}:${selectedLocation.value}`;
+  const firstBeat = locationBeats.value[0];
+  if (!firstBeat) return;
+
+  try {
+    const result = await storyApi(
+      `/api/story/areas/${STORY_AREA_ID}/beats/${encodeURIComponent(firstBeat.id)}`,
+    );
+    if (selectionKey !== `${locationMode.value}:${selectedLocation.value}`) return;
+    selectedBeatId.value = firstBeat.id;
+    isNew.value = false;
+    setDraft(result.beat);
+  } catch (error) {
+    if (selectionKey === `${locationMode.value}:${selectedLocation.value}`) {
+      status.value = error.message;
+    }
+  }
 }
 
 function selectRoom(id) {
+  if (locationMode.value === "rooms" && selectedLocation.value === id) return;
+  void requestContextChange(() => applyRoomSelection(id));
+}
+
+function applyRoomSelection(id) {
   locationMode.value = "rooms";
   selectedLocation.value = id;
   const room = building.roomById[id];
   if (room?.level) indoorLevel.value = room.level;
+  clearBeatSelection();
 }
 
 function selectExterior(id) {
+  if (locationMode.value === "exterior" && selectedLocation.value === id) return;
+  void requestContextChange(() => applyExteriorSelection(id));
+}
+
+function applyExteriorSelection(id) {
   locationMode.value = "exterior";
   selectedLocation.value = id;
   indoorLevel.value = buildingData.exterior?.level ?? indoorLevel.value;
+  clearBeatSelection();
 }
 
 function switchMode(mode) {
-  if (dirty.value && !window.confirm("Discard unsaved story changes?")) return;
-  locationMode.value = mode;
-  if (mode === "outdoors") selectHex(mapData.start);
-  else if (mode === "rooms") selectRoom(buildingData.rooms[0]?.id);
-  else if (mode === "exterior") selectExterior(buildingData.exterior?.entry);
-  else selectedLocation.value = "enter-building";
+  if (
+    (mode === "outdoors" && locationMode.value === "outdoors") ||
+    (mode === "rooms" && ["rooms", "exterior"].includes(locationMode.value)) ||
+    (mode === "events" && locationMode.value === "events")
+  ) {
+    return;
+  }
+  void requestContextChange(() => applyModeSelection(mode));
+}
+
+async function applyModeSelection(mode) {
+  if (mode === "outdoors") {
+    await applyHexSelection(mapData.start);
+  } else if (mode === "rooms") {
+    applyRoomSelection(buildingData.rooms[0]?.id);
+  } else if (mode === "exterior") {
+    applyExteriorSelection(buildingData.exterior?.entry);
+  } else {
+    locationMode.value = "events";
+    selectedLocation.value = "enter-building";
+    eventLocationInput.value = selectedLocation.value;
+    clearBeatSelection();
+  }
+}
+
+function selectEventLocation(event) {
+  const next = event.target.value.trim() || "enter-building";
+  if (next === selectedLocation.value) return;
+  void requestContextChange(() => {
+    locationMode.value = "events";
+    selectedLocation.value = next;
+    eventLocationInput.value = next;
+    clearBeatSelection();
+  });
 }
 
 function newBeat(copy = null) {
+  void requestContextChange(() => beginNewBeat(copy));
+}
+
+function beginNewBeat(copy = null) {
   const source = copy ? structuredClone(copy) : emptyBeat();
   source.id = uniqueId(copy ? `${copy.id}-copy` : suggestedId());
   source.version = undefined;
@@ -171,18 +259,19 @@ function revertDraft() {
 }
 
 async function saveBeat() {
+  if (!draft.value) return false;
   errors.value = {};
   status.value = "Saving…";
   try {
     let result;
     if (isNew.value) {
-      result = await storyApi(`/api/story/areas/${encodeURIComponent(areaId.value)}/beats`, {
+      result = await storyApi(`/api/story/areas/${STORY_AREA_ID}/beats`, {
         method: "POST",
         body: JSON.stringify(draft.value),
       });
     } else {
       result = await storyApi(
-        `/api/story/areas/${encodeURIComponent(areaId.value)}/beats/${encodeURIComponent(selectedBeatId.value)}`,
+        `/api/story/areas/${STORY_AREA_ID}/beats/${encodeURIComponent(selectedBeatId.value)}`,
         {
           method: "PUT",
           body: JSON.stringify({ beat: draft.value, expectedVersion: draft.value.version }),
@@ -192,13 +281,15 @@ async function saveBeat() {
     selectedBeatId.value = result.beat.id;
     isNew.value = false;
     setDraft(result.beat);
-    await loadBeats();
+    await refreshBeatList();
     status.value = `Saved revision ${result.beat.version}.`;
+    return true;
   } catch (error) {
     errors.value = error.errors ?? {};
     status.value = error.status === 409
       ? "This beat changed elsewhere. Reload it before saving."
       : error.message;
+    return false;
   }
 }
 
@@ -206,7 +297,7 @@ async function deleteBeat() {
   if (!draft.value || isNew.value) return;
   if (!window.confirm(`Delete "${draft.value.id}"? Its revision history will remain available.`)) return;
   await storyApi(
-    `/api/story/areas/${encodeURIComponent(areaId.value)}/beats/${encodeURIComponent(draft.value.id)}`,
+    `/api/story/areas/${STORY_AREA_ID}/beats/${encodeURIComponent(draft.value.id)}`,
     { method: "DELETE", body: JSON.stringify({ expectedVersion: draft.value.version }) },
   );
   draft.value = null;
@@ -218,7 +309,7 @@ async function deleteBeat() {
 async function loadRevisions() {
   if (!draft.value || isNew.value) return;
   revisions.value = await storyApi(
-    `/api/story/areas/${encodeURIComponent(areaId.value)}/beats/${encodeURIComponent(draft.value.id)}/revisions`,
+    `/api/story/areas/${STORY_AREA_ID}/beats/${encodeURIComponent(draft.value.id)}/revisions`,
   );
   showRevisions.value = true;
 }
@@ -226,7 +317,7 @@ async function loadRevisions() {
 async function restoreRevision(revision) {
   if (!window.confirm(`Restore revision ${revision}? This creates a new revision.`)) return;
   const result = await storyApi(
-    `/api/story/areas/${encodeURIComponent(areaId.value)}/beats/${encodeURIComponent(draft.value.id)}/revisions/${revision}/restore`,
+    `/api/story/areas/${STORY_AREA_ID}/beats/${encodeURIComponent(draft.value.id)}/revisions/${revision}/restore`,
     { method: "POST" },
   );
   setDraft(result.beat);
@@ -281,6 +372,52 @@ function warnBeforeUnload(event) {
   event.preventDefault();
   event.returnValue = "";
 }
+
+function requestContextChange(action) {
+  if (!dirty.value) return Promise.resolve(action());
+  pendingContextAction.value = action;
+  navigationPromptVisible.value = true;
+  return Promise.resolve(false);
+}
+
+function closeNavigationPrompt() {
+  navigationPromptVisible.value = false;
+  pendingContextAction.value = null;
+}
+
+function keepEditing() {
+  eventLocationInput.value = selectedLocation.value;
+  closeNavigationPrompt();
+}
+
+async function discardAndContinue() {
+  const action = pendingContextAction.value;
+  closeNavigationPrompt();
+  clearBeatSelection();
+  await action?.();
+}
+
+async function saveAndContinue() {
+  const action = pendingContextAction.value;
+  savingBeforeNavigation.value = true;
+  const saved = await saveBeat();
+  savingBeforeNavigation.value = false;
+  if (!saved) {
+    closeNavigationPrompt();
+    return;
+  }
+  closeNavigationPrompt();
+  await action?.();
+}
+
+function openGame() {
+  window.open(
+    "/",
+    "atomic-adventures-game",
+    "popup=yes,width=1100,height=900",
+  );
+  if (openMenu.value) openMenu.value.open = false;
+}
 </script>
 
 <template>
@@ -291,10 +428,14 @@ function warnBeforeUnload(event) {
         <h1>Story Builder</h1>
       </div>
       <div class="builder-header-actions">
-        <select v-model="areaId" aria-label="Story area">
-          <option v-for="area in catalog.areas" :key="area.id" :value="area.id">{{ area.name }}</option>
-        </select>
-        <RouterLink to="/">Open game</RouterLink>
+        <details ref="openMenu" class="open-menu">
+          <summary>Open</summary>
+          <div class="open-menu-popover">
+            <button type="button" class="open-menu-item" @click="openGame">
+              Open game
+            </button>
+          </div>
+        </details>
       </div>
     </header>
 
@@ -344,7 +485,10 @@ function warnBeforeUnload(event) {
         </template>
 
         <label v-else>Event name
-          <input v-model="selectedLocation" placeholder="enter-building" />
+          <input
+            v-model="eventLocationInput"
+            placeholder="enter-building"
+            @change="selectEventLocation" />
         </label>
       </section>
 
@@ -478,6 +622,44 @@ function warnBeforeUnload(event) {
         </form>
       </section>
     </div>
+
+    <div
+      v-if="navigationPromptVisible"
+      class="unsaved-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="unsaved-title">
+      <section class="unsaved-dialog">
+        <p class="label">Unsaved changes</p>
+        <h2 id="unsaved-title">Save before leaving this beat?</h2>
+        <p>
+          You can save these edits, discard them, or return to the editor
+          without changing context.
+        </p>
+        <div class="unsaved-actions">
+          <button
+            type="button"
+            :disabled="savingBeforeNavigation"
+            @click="saveAndContinue">
+            {{ savingBeforeNavigation ? "Saving…" : "Save and continue" }}
+          </button>
+          <button
+            type="button"
+            class="danger-outline"
+            :disabled="savingBeforeNavigation"
+            @click="discardAndContinue">
+            Discard changes
+          </button>
+          <button
+            type="button"
+            class="muted"
+            :disabled="savingBeforeNavigation"
+            @click="keepEditing">
+            Keep editing
+          </button>
+        </div>
+      </section>
+    </div>
   </main>
 </template>
 
@@ -487,6 +669,42 @@ function warnBeforeUnload(event) {
   display: flex; align-items: center; justify-content: space-between; gap: .65rem; flex-wrap: wrap;
 }
 .builder-header h1, .section-heading h2 { margin: 0; }
+.open-menu { position: relative; }
+.open-menu summary {
+  list-style: none;
+  user-select: none;
+  background: #252a33;
+  color: #9aa0ac;
+  border: 1px solid #3a404a;
+  border-radius: 8px;
+  padding: .35rem .65rem;
+  font-size: .82rem;
+  cursor: pointer;
+}
+.open-menu summary::-webkit-details-marker { display: none; }
+.open-menu summary::after { content: " ▾"; }
+.open-menu[open] summary { background: #323945; color: #d5d9df; }
+.open-menu-popover {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + .35rem);
+  right: 0;
+  min-width: 10rem;
+  padding: .35rem;
+  border: 1px solid #465166;
+  border-radius: 8px;
+  background: #202630;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .35);
+}
+.open-menu-item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: .45rem .55rem;
+  text-align: left;
+  white-space: nowrap;
+}
+.open-menu-item:hover:not(:disabled) { background: #344158; }
 .builder-workspace { display: grid; grid-template-columns: minmax(320px, 1fr) 260px minmax(420px, 1.35fr); gap: 1rem; margin-top: 1rem; align-items: start; }
 .panel { border: 1px solid #343d4d; border-radius: 12px; background: #20252f; padding: 1rem; min-width: 0; }
 .builder-map-column { position: sticky; top: 1rem; }
@@ -514,6 +732,30 @@ legend { color: #8bc49a; padding: 0 .35rem; }
 .revision-panel { display: grid; gap: .4rem; }
 .revision-item { text-align: left; }
 .danger { margin-top: 1rem; background: #5a2929; border-color: #854141; }
+.unsaved-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(8, 10, 14, .72);
+  backdrop-filter: blur(3px);
+}
+.unsaved-dialog {
+  width: min(32rem, 100%);
+  padding: 1.25rem;
+  border: 1px solid #4a566b;
+  border-radius: 12px;
+  background: #202630;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .45);
+}
+.unsaved-dialog h2 { margin: .25rem 0 .65rem; font-size: 1.15rem; }
+.unsaved-dialog p:not(.label) { margin: 0; color: #bfc5cf; line-height: 1.5; }
+.unsaved-actions { display: flex; flex-wrap: wrap; gap: .55rem; margin-top: 1.1rem; }
+.danger-outline { border-color: #9b5050; color: #ffb5b5; background: #3d2729; }
+.danger-outline:hover:not(:disabled) { background: #543034; }
+.unsaved-actions .muted { background: #252a33; border-color: #3a404a; color: #b2b8c2; }
 .level-picker { margin-bottom: .6rem; }
 .empty-editor { color: #9aa0ac; padding: 3rem 1rem; text-align: center; }
 @media (max-width: 1100px) {

@@ -128,6 +128,12 @@ export function useStory(storyData, ctx) {
     if (fresh) {
       pendingBeat.value = fresh;
       locationNarrative.value = null;
+      if (
+        fresh.acknowledge === false &&
+        beats.value[fresh.id]?.once !== false
+      ) {
+        markSeen(fresh.id);
+      }
       return;
     }
 
@@ -174,7 +180,9 @@ export function useStory(storyData, ctx) {
     if (choice.sets) setFlags(gameState.flags, choice.sets);
     if (choice.set_flags) setFlags(gameState.flags, choice.set_flags);
 
-    markSeen(beat.id);
+    if (beats.value[beat.id]?.once !== false) {
+      markSeen(beat.id);
+    }
     pendingBeat.value = null;
     suppressedRevisit.value = {
       beatId: beat.id,
