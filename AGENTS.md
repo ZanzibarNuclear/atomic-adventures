@@ -23,7 +23,7 @@ atomic-adventures/
 | App     | Purpose                                                                              | Modify when…                                                                           |
 | ------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
 | `web/`  | Standalone map tech demo — hex travel, grid interior, builder tools, hydro mechanics | Prototype experiments, stakeholder demos. No story, save/load, or game features.       |
-| `game/` | Playable game — story engine, save/load, player-facing UI                            | Always, for anything that affects gameplay, narrative, or persistence.                 |
+| `game/` | Playable game, story builder, content API, save/load, and player-facing UI           | Always, for anything that affects gameplay, narrative, authoring, or persistence.      |
 
 ### Map code: two apps, one canonical game copy
 
@@ -35,19 +35,44 @@ Map rendering and interaction logic was **copied** (not moved) from `web/src` in
 
 **Rule:** Never add game features (story, save/load, narrative overlay) to `web/`. Fix gameplay in `game/`, not by patching `web/`.
 
-### Builder mode
+### Authoring and builder tools
 
-Builder tools (edit handles, builder sidebars, placement overlays) exist so **authors** can edit maps and preview changes. **Players** must never see them — not because builder code is omitted from builds, but because it is **disabled for their role**.
+There are two distinct builder concerns. Do not conflate them.
 
-| Mode             | Who              | What they see                                                                                                             |
-| ---------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| **Play mode**    | Players          | Normal HUD only — travel, inventory, doors, actions, story overlay. No builder UI.                                        |
-| **Builder mode** | Authors / admins | Play mode **plus** builder components — toggle on to edit YAML-driven layout and immediately preview in non-builder view. |
+#### Story builder — active
 
-- The same `game/` build ships both modes. **User role** controls whether builder UI is available (players: off; authors/admins: on). Do not maintain separate player vs. author builds for this.
-- During local development, a simple toggle (same pattern as `web/src/App.vue`) is fine until auth/roles exist.
-- `web/` is the standalone map demo with builder always available — useful as a reference, not a substitute for role-gated builder in `game/`.
-- When copying or extending map features, keep builder layers separate from the player-facing scene wiring so play mode stays clean when builder is off.
+The story builder is a separate route in the `game/` app, not a mode layered onto the playable scene:
+
+| Route      | Purpose                                                                 |
+| ---------- | ----------------------------------------------------------------------- |
+| `/`        | Playable game                                                           |
+| `/builder` | Map-first story authoring for hexes, rooms, exterior nodes, and events |
+
+- `game/src/views/BuilderView.vue` owns the authoring workspace.
+- `game/content/atomic-adventures.sqlite` is the canonical story source and stores revision history.
+- `game/server/` provides the SQLite repository, migrations, validation, JSON API, and SSE updates.
+- Saving a beat publishes it immediately. Open game windows refresh story content without reloading or losing player state.
+- The builder is currently for trusted local use and has no authentication or role system.
+- Keep builder form state separate from player state, saves, inventory, flags, and movement.
+
+#### Map geometry tools — separate
+
+Map edit handles, placement overlays, YAML exporters, and builder visibility flags still exist in the map layer and prototype. They are for editing spatial data, not story content.
+
+- `game/src/lib/maps/` contains the canonical game map components and reusable geometry-builder utilities.
+- `web/` remains a useful prototype and sandbox for map editing ideas.
+- World geometry remains YAML-driven in `game/content/world/`.
+- Players must never see geometry-editing controls. Keep edit layers separate from player-facing scene wiring.
+- Port useful prototype work into `game/`; do not implement game story or persistence features in `web/`.
+
+### Movement audit
+
+The outdoor movement audit is a **development-only diagnostic**, not player UI.
+
+- In development, open it from **Developer → Show movement audit** in the game header.
+- The overlay visualizes valid, blocked, and invalid travel outcomes for the checked-in cases in `game/src/lib/maps/testing/mapMovementCases.js`.
+- The Developer menu and audit panel are gated by `import.meta.env.DEV` and must remain absent from production builds.
+- When changing movement, barriers, passages, or arrival stands, update the shared audit cases and tests when necessary. Do not special-case the visual overlay separately from movement behavior.
 
 ### Running the apps
 
@@ -55,8 +80,13 @@ From the repo root:
 
 ```bash
 npm run dev:prototype   # web/ — map prototype demo
-npm run dev:game        # game/ — playable vertical slice
+npm run dev:game        # game + builder + local content API
 ```
+
+`npm run dev:game` requires Node.js 22.19 or newer and starts one localhost server:
+
+- Game: `http://127.0.0.1:5173/`
+- Story builder: `http://127.0.0.1:5173/builder`
 
 ### Tests
 
@@ -79,20 +109,28 @@ Ren'Py, Twine, and Unity were evaluated and rejected. The sibling mini-game proj
 ```
 game/
 ├── content/
-│   ├── world/          — Map YAML (copied from web/, evolves for story)
-│   └── story/          — Narrative beats (part-i.yaml, etc.)
+│   ├── atomic-adventures.sqlite — Canonical story content and revisions
+│   ├── world/          — Canonical map and building YAML
+│   └── story/          — Story YAML import/export snapshots
+├── server/             — Unified server, content API, SQLite repository, migrations
 ├── src/
 │   ├── composables/    — useGameState, useSaveGame, useStory (game-only)
 │   ├── components/     — Story overlay, app chrome
-│   └── lib/maps/       — Map engine (hex outdoor, grid indoor, HUD, builder)
+│   ├── views/          — Playable game and story-builder routes
+│   └── lib/maps/       — Map engine, HUD, diagnostics, geometry-builder utilities
 ```
 
 Integration model:
 
 ```
+SQLite story content
+  → game/server JSON API + SSE
+  → reactive story-content store
+  → useStory
+
 lib/maps (outdoor + indoor)
   → flags + location via useGameState (serializable)
-  → useStory (location/flag-triggered beats)
+  → useStory (location/flag-triggered beats from reactive content)
   → StoryOverlay (prose + choices)
   → useSaveGame (localStorage)
 ```
@@ -105,7 +143,15 @@ Future layers (not all built yet):
 
 ## Story Data Format
 
-Story content lives in YAML files, one per area. See `design/content/story/story-data-format.md` for the full schema. Key concepts:
+Story content lives canonically in `game/content/atomic-adventures.sqlite`. Authors normally edit it at `/builder`. YAML is retained as an interchange and review format, not as the live runtime source.
+
+```bash
+npm run content:export -w game -- part-i /tmp/part-i.yaml
+npm run content:import -w game -- path/to/story.yaml
+npm run content:import -w game -- path/to/story.yaml --replace
+```
+
+Direct edits to `game/content/story/*.yaml` do not affect the game until imported. See `design/content/story/story-data-format.md` for the broader planned schema. Key concepts:
 
 - **Passages** — Text + image + choices. The atomic unit.
 - **Conditions** — `require: { all: [...], not: [...], items: [...] }`
@@ -115,7 +161,7 @@ Story content lives in YAML files, one per area. See `design/content/story/story
 - **Passage IDs** — kebab-case, unique within area
 - **Item IDs** — flat kebab-case
 
-The current slice uses a minimal subset: text, choices, `require`, `set_flags`, and location/flag triggers (`when`).
+The current builder/runtime supports beat IDs and ordering, `once`, `acknowledge`, headings, prose and revisit prose, outdoor/indoor/event triggers, `require` flag conditions, ordered choices, flag effects, and movement destinations.
 
 ## Sibling Projects
 
