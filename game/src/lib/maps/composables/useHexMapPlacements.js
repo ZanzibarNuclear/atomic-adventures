@@ -65,14 +65,16 @@ export function useHexMapPlacements({
     return Object.fromEntries((mapData.value.hexes ?? []).map((h) => [h.id, h]))
   }
 
-  const visiblePassageMarkersList = computed(() =>
-    visiblePassageMarkers(passageMarkers.value, {
+  const visiblePassageMarkersList = computed(() => {
+    const { inView } = fogMaskOpts()
+    return visiblePassageMarkers(passageMarkers.value, {
       mode: mode.value,
       builderView: builderView.value,
       discoveredHexes: discoveredSet.value,
       discoveredOpenings: discoveredOpenings?.value ?? discoveredOpenings ?? [],
-    }),
-  )
+      inView,
+    })
+  })
 
   // Legacy alias — gate-only consumers
   const gateMarkers = passageMarkers
@@ -106,12 +108,10 @@ export function useHexMapPlacements({
       (model) => model.kind === 'river' && model.samples?.length,
     )
     if (!riverModels.length) return []
-    const isRevealed = builderView.value
-      ? () => true
-      : (id) => discoveredSet.value.has(id)
+    const { isRevealed, inView } = fogMaskOpts()
     const out = []
     for (const hexId of cascadeIds) {
-      if (!isRevealed(hexId)) continue
+      if (!isRevealed(hexId) || !inView(hexId)) continue
       const river = riverModels.find((model) =>
         model.samples.some((sample) => sample.hexId === hexId),
       )

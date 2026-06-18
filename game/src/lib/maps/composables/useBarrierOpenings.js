@@ -170,13 +170,16 @@ export function buildPassageMarkers(mapFeatures, hexById, size, { flags, barrier
 
 export function visiblePassageMarkers(
   markers,
-  { mode, builderView, discoveredHexes, discoveredOpenings },
+  { mode, builderView, discoveredHexes, discoveredOpenings, inView },
 ) {
   if (builderView) return markers
   const hexSet = discoveredHexes instanceof Set ? discoveredHexes : new Set(discoveredHexes ?? [])
   const openingSet = new Set(discoveredOpenings ?? [])
+  const clipToView = mode === 'gameplay' && typeof inView === 'function'
   return markers.filter((m) => {
     if (m.visibility === 'hidden') return openingSet.has(m.id)
-    return !m.hex || hexSet.has(m.hex)
+    if (!m.hex || !hexSet.has(m.hex)) return false
+    if (clipToView && !inView(m.hex)) return false
+    return true
   })
 }

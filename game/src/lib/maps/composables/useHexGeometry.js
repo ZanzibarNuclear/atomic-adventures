@@ -93,6 +93,66 @@ export function fixedGameplayViewBox(centerHex, size) {
   }
 }
 
+/**
+ * Gameplay viewBox with a slight pan toward nearby discovered hexes that would
+ * otherwise fall off-screen, keeping the same zoom level.
+ * When panelAspect (width ÷ height) is set, the viewBox is widened to match the
+ * map panel so preserveAspectRatio="meet" fills the green area edge-to-edge.
+ */
+export function gameplayViewBox(
+  centerHex,
+  size,
+  { discovered = [], allHexes = [], panelAspect } = {},
+) {
+  const dims = gameplayViewDimensions(size)
+  const height = dims.height
+  const width =
+    panelAspect > 0 ? height * panelAspect : dims.width
+  const center = axialToPixel(centerHex.q, centerHex.r, size)
+  let viewBox = {
+    x: center.x - width / 2,
+    y: center.y - height / 2,
+    width,
+    height,
+  }
+
+  const discoveredSet = new Set(discovered)
+  const offScreen = allHexes.filter(
+    (h) =>
+      discoveredSet.has(h.id) &&
+      h.id !== centerHex.id &&
+      hexDistance(centerHex, h) <= 3 &&
+      !hexIntersectsViewBox(h, viewBox, size),
+  )
+  if (!offScreen.length) return viewBox
+
+  let shiftX = 0
+  let shiftY = 0
+  for (const h of offScreen) {
+    const p = axialToPixel(h.q, h.r, size)
+    if (p.x < viewBox.x) shiftX += p.x - viewBox.x
+    else if (p.x > viewBox.x + viewBox.width) {
+      shiftX += p.x - (viewBox.x + viewBox.width)
+    }
+    if (p.y < viewBox.y) shiftY += p.y - viewBox.y
+    else if (p.y > viewBox.y + viewBox.height) {
+      shiftY += p.y - (viewBox.y + viewBox.height)
+    }
+  }
+  shiftX /= offScreen.length
+  shiftY /= offScreen.length
+
+  const pad = size * 0.5
+  let x = viewBox.x + shiftX
+  let y = viewBox.y + shiftY
+  if (center.x < x + pad) x = center.x - pad
+  if (center.x > x + viewBox.width - pad) x = center.x - viewBox.width + pad
+  if (center.y < y + pad) y = center.y - pad
+  if (center.y > y + viewBox.height - pad) y = center.y - viewBox.height + pad
+
+  return { ...viewBox, x, y }
+}
+
 /** Whether a hex's footprint intersects a viewBox rectangle. */
 export function hexIntersectsViewBox(hex, viewBox, size) {
   if (!hex || !viewBox) return false

@@ -2,7 +2,7 @@ import { computed } from 'vue'
 import {
   axialToPixel,
   boundsOf,
-  fixedGameplayViewBox,
+  gameplayViewBox,
   hexIntersectsViewBox,
   neighborsOf,
 } from './useHexGeometry.js'
@@ -28,6 +28,7 @@ export function evaluateMapViewport({
   mode,
   builderView = false,
   size = 44,
+  panelAspect = null,
 }) {
   const hexById = Object.fromEntries(allHexes.map((h) => [h.id, h]))
   const discoveredSet = new Set(discovered)
@@ -60,9 +61,13 @@ export function evaluateMapViewport({
     }
   }
 
-  // gameplay: fixed zoom centered on current hex
+  // gameplay: fixed zoom, panned slightly toward nearby discovered hexes
   const viewBox = current
-    ? fixedGameplayViewBox(current, size)
+    ? gameplayViewBox(current, size, {
+        discovered,
+        allHexes,
+        panelAspect,
+      })
     : { x: 0, y: 0, width: 100, height: 100 }
 
   const inView = (hex) => hexIntersectsViewBox(hex, viewBox, size)
@@ -100,6 +105,7 @@ export function useHexMapViewport({
   discovered,
   mode,
   builderView,
+  panelAspect,
 }) {
   const size = computed(() => mapData.value.size ?? 44)
   const allHexes = computed(() => mapData.value.hexes ?? [])
@@ -117,6 +123,7 @@ export function useHexMapViewport({
       mode: mode.value,
       builderView: builderView.value,
       size: size.value,
+      panelAspect: panelAspect?.value ?? panelAspect ?? null,
     }),
   )
 
@@ -128,9 +135,7 @@ export function useHexMapViewport({
     if (builderView.value || normalizeMapMode(mode.value) !== 'gameplay') {
       return null
     }
-    return current.value
-      ? fixedGameplayViewBox(current.value, size.value)
-      : null
+    return evaluated.value.viewBox
   })
 
   function hexInGameplayView(hex) {

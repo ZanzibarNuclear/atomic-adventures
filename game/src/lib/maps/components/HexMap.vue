@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { pointsAttr } from '../composables/useRoutes.js'
 import { useSvgDragHandles } from '../composables/useSvgDragHandles.js'
 import { useHexMapViewport } from '../composables/useHexMapViewport.js'
@@ -45,6 +45,19 @@ const props = defineProps({
 const emit = defineEmits(['hex-click', 'select-handle', 'waypoint-move', 'builder-map-click', 'building-enter'])
 
 const mapSvgRef = ref(null)
+const panelAspect = ref(null)
+
+onMounted(async () => {
+  await nextTick()
+  const el = mapSvgRef.value?.parentElement
+  if (!el) return
+  const ro = new ResizeObserver(([entry]) => {
+    const { width, height } = entry.contentRect
+    if (width > 0 && height > 0) panelAspect.value = width / height
+  })
+  ro.observe(el)
+  onUnmounted(() => ro.disconnect())
+})
 
 const { onHandleDown, clientToSvg } = useSvgDragHandles(mapSvgRef, {
   onSelect: (handleKey) => emit('select-handle', handleKey),
@@ -68,6 +81,7 @@ const {
   discoveredOpenings: computed(() => props.discoveredOpenings),
   mode: computed(() => props.mode),
   builderView: computed(() => props.builderView),
+  panelAspect,
 })
 
 const {
