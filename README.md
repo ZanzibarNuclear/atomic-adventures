@@ -23,8 +23,8 @@ This monorepo contains two independent Vue 3 + Vite applications:
 
 ```text
 atomic-adventures/
-├── design/     # Narrative, learning, art, and simulation design
-├── docs/       # Technical designs and implementation roadmaps
+├── design/     # Game design — vision, story, progression, simulation specs, art
+├── docs/       # Technical docs — runtime contracts, deployment, roadmap
 ├── game/       # Playable vertical slice and full game
 ├── samples/    # Sample map data
 ├── scripts/    # Repository development scripts
@@ -111,11 +111,43 @@ content promotion, smoke tests, and rollback procedures.
 
 Run `npm run deploy:check` before promoting a production deployment.
 
-## Quick Links
+## Documentation
 
-- [Game Design Overview](design/game-design-overview.md) — Core vision, pillars, and scope
-- [Story & Narrative](design/content/story/story-overview.md) — Beginning storyline and narrative design
-- [Simulation Specifications](design/content/subject-matter/simulation-overview.md) — Physics and engineering simulation designs
+Two top-level directories separate **what we are building** from **how it is implemented**:
+
+| Directory | Audience | Contents |
+| --------- | -------- | -------- |
+| [`design/`](design/) | Writers, designers, educators | Vision, narrative, progression, simulation specs, art references |
+| [`docs/`](docs/) | Engineers, agents, operators | Runtime contracts, deployment, technology roadmap |
+
+Do not conflate them. Story beats and facility layout live in `design/`; beat selection order, hex movement rules, and the SQLite authoring API live in `docs/`.
+
+### Game design — getting started
+
+Read in this order when onboarding to narrative or simulation design:
+
+1. [Game Design Overview](design/game-design-overview.md) — pillars, scope, core loop
+2. [Story Overview](design/content/story/story-overview.md) — Part I structure and beats
+3. [Characters](design/content/story/characters.md) — protagonist and cast
+4. [Part I Unlocks](design/content/part-i-unlocks.md) — hydro progression and discovery chains
+5. [Progression Design](design/content/progression-design.md) — gates, difficulty curve, staged complexity
+6. [Learning Objectives](design/content/learning-objectives.md) — concepts mapped to story
+7. [Simulation Overview](design/content/subject-matter/simulation-overview.md) — per-technology sim specs ([hydro](design/content/subject-matter/hydro-simulation.md) is the Part I spine)
+
+Story art and map references live under [`design/art/`](design/art/). Most design documents are marked `[DRAFT]`.
+
+### Technical documentation
+
+| Document | Purpose |
+| -------- | ------- |
+| [Technology Roadmap](docs/tech-roadmap.md) | Decisions made, Part I gaps, future Neon/player features |
+| [Story Beats](docs/design/story-beats.md) | Beat engine runtime and builder behavior (source of truth) |
+| [World Authoring](docs/design/world-authoring.md) | Outdoor world builder, SQLite, live updates |
+| [Hex Crawling](docs/design/hex-crawling.md) | Outdoor movement contract |
+| [Hex Viewport](docs/design/hex-viewport.md) | Map zoom, fog, and visibility |
+| [Deployment](docs/deployment.md) | Vercel production build and content promotion |
+
+Agent and contributor conventions: [AGENTS.md](AGENTS.md).
 
 ## Technologies in Scope
 

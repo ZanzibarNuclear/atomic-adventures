@@ -382,4 +382,5 @@ These are the remaining movement tasks. Completed work and standing maintenance 
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 2026-06 | Initial source-of-truth doc; consolidates `barrier-pathfinding.md` and `barrier-passage-openings.md`; aligned to `game/` two-step implementation |
 | 2026-06 | Renamed to `docs/designs/hex-crawling.md`; references updated                                                                                   |
+| 2026-06 | Moved to `docs/design/hex-crawling.md` alongside other design contracts                                                                         |
 | 2026-06 | Deleted superseded plans `barrier-pathfinding.md` and `barrier-passage-openings.md`                                                              |
