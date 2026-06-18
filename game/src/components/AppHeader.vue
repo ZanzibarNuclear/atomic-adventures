@@ -13,6 +13,12 @@
               <button
                 type="button"
                 class="dev-menu-item"
+                @click="openStoryBuilder">
+                Open story builder
+              </button>
+              <button
+                type="button"
+                class="dev-menu-item"
                 :disabled="movementAuditVisible"
                 @click="showMovementAudit">
                 {{ movementAuditVisible ? "Movement audit shown" : "Show movement audit" }}
@@ -60,6 +66,15 @@ const showSaveHint = computed(() => formattedSavedAt.value.length > 0);
 
 function showMovementAudit() {
   emit("show-movement-audit");
+  if (devMenu.value) devMenu.value.open = false;
+}
+
+function openStoryBuilder() {
+  window.open(
+    "/builder",
+    "atomic-adventures-story-builder",
+    "popup=yes,width=1500,height=900",
+  );
   if (devMenu.value) devMenu.value.open = false;
 }
 </script>

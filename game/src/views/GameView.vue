@@ -1,6 +1,5 @@
 <script setup>
 import { ref, onMounted, computed } from "vue";
-import { RouterLink } from "vue-router";
 import mapData from "../../content/world/map.yaml";
 import buildingData from "../../content/world/utility-station.yaml";
 import { useOutdoorWorld } from "../lib/maps/composables/useOutdoorWorld.js";
@@ -61,7 +60,6 @@ function handleReset() {
 
 <template>
   <main class="game-shell">
-    <nav class="view-nav"><RouterLink to="/builder">Open story builder</RouterLink></nav>
     <AppHeader
       :has-save="hasSave()"
       :last-saved-at="lastSavedAt"

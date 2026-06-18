@@ -23,13 +23,6 @@ a {
   padding: 2rem 1.25rem 4rem;
 }
 
-.view-nav {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 0.75rem;
-  font-size: 0.82rem;
-}
-
 .content-error {
   display: flex;
   align-items: center;
