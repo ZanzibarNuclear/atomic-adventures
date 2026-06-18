@@ -1,11 +1,11 @@
 /**
  * Barrier features for hex travel (fence, river, cliff, ravine, …).
  * Crossing is allowed only at authored openings (gate/hole, bridge/ford, …).
- * All moves — on-route or off-road — use the same path-based checks.
+ * All moves — along a route or direct hex-to-hex — use the same path-based checks.
  */
 
-import { axialToPixel } from './useHexGeometry.js'
-import { bankStandAt, hexOnRiverBank } from './useRiverBank.js'
+
+import { bankStandAt, hexOnRiverBank, isAdjacentRiverBankPair } from './useRiverBank.js'
 
 const STAND_INSET = 5
 const PATH_ORIGIN_EPS = 0.02
@@ -102,60 +102,18 @@ export function openingAllows(kind, x, y, openings) {
   )
 }
 
-/** Distance from point P to segment AB. */
-function pointSegmentDistance(p, a, b) {
-  const abx = b.x - a.x
-  const aby = b.y - a.y
-  const lenSq = abx * abx + aby * aby
-  if (lenSq < 1e-9) return Math.hypot(p.x - a.x, p.y - a.y)
-  let t = ((p.x - a.x) * abx + (p.y - a.y) * aby) / lenSq
-  t = Math.max(0, Math.min(1, t))
-  return Math.hypot(p.x - (a.x + t * abx), p.y - (a.y + t * aby))
-}
-
-/** Does any point along the path pass within an opening allowing `kind`? */
-function pathNearOpening(path, kind, openings) {
-  const allowed = allowedOpenings(kind)
-  return openings.some((o) => {
-    if (!allowed.has(o.kind)) return false
-    for (let i = 0; i < path.length - 1; i++) {
-      if (pointSegmentDistance(o, path[i], path[i + 1]) <= o.r) return true
-    }
-    return false
-  })
-}
-
-/** Entering a different enclosure requires passing through a fence opening. */
-function entersEnclosureWithoutOpening(fromHex, toHex, path, openings) {
-  const enclosure = toHex?.enclosure
-  if (!enclosure || fromHex?.enclosure === enclosure) return false
-  return !pathNearOpening(path, 'fence', openings)
-}
-
-/** Both tiles are inside the same authored compound (e.g. utility yard). */
-function sharesEnclosure(fromHex, toHex) {
-  return !!(
-    fromHex?.enclosure &&
-    fromHex.enclosure === toHex?.enclosure
-  )
-}
-
-/** Fence polylines trace the compound outline and cross many internal hex edges. */
-function skipFenceForMove(fromHex, toHex, seg) {
-  return seg.kind === 'fence' && sharesEnclosure(fromHex, toHex)
-}
-
 function barrierList(ctx) {
   return ctx.barriers ?? [...(ctx.fences ?? []), ...(ctx.rivers ?? [])]
 }
 
 /** First barrier hit along a polyline path; null when none. */
-export function firstBlockedOnPath(path, ctx, fromHex, toHex) {
+export function firstBlockedOnPath(path, ctx, { skipKinds = [] } = {}) {
+  const skip = new Set(skipKinds)
   for (let i = 0; i < path.length - 1; i++) {
     const a = path[i]
     const b = path[i + 1]
     for (const seg of barrierList(ctx)) {
-      if (skipFenceForMove(fromHex, toHex, seg)) continue
+      if (skip.has(seg.kind)) continue
       const cross = segmentIntersection(a, b, seg.a, seg.b)
       if (!cross || cross.t < PATH_ORIGIN_EPS) continue
       if (!openingAllows(seg.kind, cross.x, cross.y, ctx.openings)) {
@@ -167,20 +125,83 @@ export function firstBlockedOnPath(path, ctx, fromHex, toHex) {
 }
 
 /**
+ * First barrier hit along `path` whose intersection lies in `hexId`.
+ * Used for movement options — barriers in neighboring hexes are ignored.
+ */
+export function firstBlockedOnPathInHex(path, ctx, hexId, hexAtPoint, { skipKinds = [] } = {}) {
+  const skip = new Set(skipKinds)
+  for (let i = 0; i < path.length - 1; i++) {
+    const a = path[i]
+    const b = path[i + 1]
+    for (const seg of barrierList(ctx)) {
+      if (skip.has(seg.kind)) continue
+      const cross = segmentIntersection(a, b, seg.a, seg.b)
+      if (!cross || cross.t < PATH_ORIGIN_EPS) continue
+      if (!openingAllows(seg.kind, cross.x, cross.y, ctx.openings)) {
+        if (hexAtPoint({ x: cross.x, y: cross.y }, hexId) === hexId) {
+          return { ...cross, kind: seg.kind, segIndex: i }
+        }
+      }
+    }
+  }
+  return null
+}
+
+/**
+ * Path samples from the stand until the walk exits fromHex (includes the
+ * first sample outside the departure hex when present).
+ */
+export function pathInDepartureHex(path, fromHexId, hexAtPoint) {
+  if (path.length < 2) return path
+  const out = [path[0]]
+  for (let i = 1; i < path.length; i++) {
+    out.push(path[i])
+    if (hexAtPoint(path[i], fromHexId) !== fromHexId) break
+  }
+  return out
+}
+
+/**
+ * Barrier blocking exit from the departure hex along `path`, if any.
+ * Barriers in neighboring hexes are ignored for movement options.
+ */
+export function blockedLeavingDepartureHex(path, fromHexId, ctx, hexAtPoint, barrierOpts = {}) {
+  const sub = pathInDepartureHex(path, fromHexId, hexAtPoint)
+  if (sub.length < 2) return null
+  return firstBlockedOnPathInHex(sub, ctx, fromHexId, hexAtPoint, barrierOpts)
+}
+
+/**
+ * Whether a neighbor should appear as a movement option.
+ * All adjacent hexes are offered unless a barrier in the current hex blocks exit.
+ */
+export function canOfferNeighbor({
+  fromHex,
+  toHex,
+  fromPos,
+  toPos,
+  path,
+  ctx,
+  hexAtPoint,
+  size,
+}) {
+  if (!fromHex?.id) return false
+  const walkPath = path ?? [fromPos, toPos]
+  const skipKinds = barrierSkipKinds(fromHex, toHex, size, ctx)
+  return (
+    blockedLeavingDepartureHex(walkPath, fromHex.id, ctx, hexAtPoint, { skipKinds }) ===
+    null
+  )
+}
+
+/**
  * Whether a move along `path` is blocked. Returns barrier kind or null.
- * Same rules for on-route and off-road travel.
+ * Same rules for route-following and direct hex-to-hex travel.
  */
 export function moveBlocked(fromHex, toHex, path, ctx) {
   if (path.length < 2) return null
-
-  const hit = firstBlockedOnPath(path, ctx, fromHex, toHex)
-  if (hit) return hit.kind
-
-  if (entersEnclosureWithoutOpening(fromHex, toHex, path, ctx.openings)) {
-    return 'fence'
-  }
-
-  return null
+  const hit = firstBlockedOnPath(path, ctx)
+  return hit?.kind ?? null
 }
 
 /** Convenience: straight walk from current stand to destination stand. */
@@ -199,9 +220,12 @@ export function routeMoveSamples(model, fromSpan, toSpan) {
   return model.samples.slice(Math.min(...idxs), Math.max(...idxs) + 1)
 }
 
-/** Whether a marked-route move should be hidden / rejected. */
-export function isRouteMoveBlocked(fromHex, toHex, pathSamples, ctx) {
-  return moveBlocked(fromHex, toHex, pathSamples, ctx) !== null
+/** Whether a marked-route move should be hidden / rejected (departure hex only). */
+export function isRouteMoveBlocked(fromHex, toHex, pathSamples, ctx, hexAtPoint) {
+  if (!fromHex?.id || !hexAtPoint) {
+    return moveBlocked(fromHex, toHex, pathSamples, ctx) !== null
+  }
+  return blockedLeavingDepartureHex(pathSamples, fromHex.id, ctx, hexAtPoint) !== null
 }
 
 function standBeforeHit(from, hit) {
@@ -221,6 +245,15 @@ function riverSegs(ctx) {
   return barrierList(ctx).filter((s) => s.kind === 'river')
 }
 
+function parallelRiverBankMove(fromHex, toHex, size, ctx) {
+  const rivers = riverSegs(ctx)
+  return !!(size && rivers.length && isAdjacentRiverBankPair(fromHex, toHex, size, rivers))
+}
+
+function barrierSkipKinds(fromHex, toHex, size, ctx) {
+  return parallelRiverBankMove(fromHex, toHex, size, ctx) ? ['river'] : []
+}
+
 /**
  * Entering a river hex from a non-river hex stops at the near bank.
  * Bank-to-bank moves along the same q column (parallel to the river) pass through.
@@ -235,21 +268,6 @@ function riverEntryBlock(fromHex, toHex, size, ctx) {
   const bank = bankStandAt(toHex, size, rivers)
   if (!bank) return null
   return { stand: bank, blockedKind: 'river' }
-}
-
-/** Stand at the first fence crossing when blocked by enclosure rules only. */
-function enclosureFenceStand(path, ctx, fromHex, toHex) {
-  for (let i = 0; i < path.length - 1; i++) {
-    const a = path[i]
-    const b = path[i + 1]
-    for (const seg of barrierList(ctx)) {
-      if (seg.kind !== 'fence' || skipFenceForMove(fromHex, toHex, seg)) continue
-      const cross = segmentIntersection(a, b, seg.a, seg.b)
-      if (!cross || cross.t < PATH_ORIGIN_EPS) continue
-      return standBeforeHit(a, { ...cross, kind: 'fence' })
-    }
-  }
-  return null
 }
 
 /**
@@ -267,6 +285,7 @@ export function resolveMove({
   size,
 }) {
   const walkPath = path ?? [fromPos, toPos]
+  const skipKinds = barrierSkipKinds(fromHex, toHex, size, ctx)
   const fallbackHexId = toHex?.id ?? fromHex?.id
 
   if (walkPath.length < 2) {
@@ -277,7 +296,7 @@ export function resolveMove({
     }
   }
 
-  const hit = firstBlockedOnPath(walkPath, ctx, fromHex, toHex)
+  const hit = firstBlockedOnPath(walkPath, ctx, { skipKinds })
   let blockedKind = hit?.kind ?? null
   let stand
 
@@ -289,23 +308,65 @@ export function resolveMove({
     if (riverEntry) {
       blockedKind = riverEntry.blockedKind
       stand = riverEntry.stand
-    } else if (entersEnclosureWithoutOpening(fromHex, toHex, walkPath, ctx.openings)) {
-      blockedKind = 'fence'
-      stand = enclosureFenceStand(walkPath, ctx, fromHex, toHex) ?? fromPos
     } else {
       stand = toPos
     }
   }
 
-  let activeHexId = hexAtPoint(stand, fallbackHexId)
-  if (blockedKind && fromHex?.enclosure && !toHex?.enclosure) {
-    // Leaving the compound — stay on the inside; entering uses hexAtPoint(stand).
-    activeHexId = fromHex.id
-  }
+  // Blocked at a barrier — active hex follows where the avatar actually stands.
+  const activeHexId = hexAtPoint(stand, fallbackHexId)
 
   return {
     stand,
     activeHexId,
     blockedKind,
   }
+}
+
+/** Whether a move ends on the destination hex (may stop at an in-hex barrier). */
+export function canEnterNeighbor({
+  fromHex,
+  toHex,
+  fromPos,
+  toPos,
+  path,
+  ctx,
+  hexAtPoint,
+  size,
+}) {
+  const result = resolveMove({
+    fromHex,
+    toHex,
+    fromPos,
+    toPos,
+    path,
+    ctx,
+    hexAtPoint,
+    size,
+  })
+  return result.activeHexId === toHex.id
+}
+
+/** Whether the player fully arrives at the destination stand with no barrier stop. */
+export function canReachNeighbor({
+  fromHex,
+  toHex,
+  fromPos,
+  toPos,
+  path,
+  ctx,
+  hexAtPoint,
+  size,
+}) {
+  const result = resolveMove({
+    fromHex,
+    toHex,
+    fromPos,
+    toPos,
+    path,
+    ctx,
+    hexAtPoint,
+    size,
+  })
+  return !result.blockedKind && result.activeHexId === toHex.id
 }

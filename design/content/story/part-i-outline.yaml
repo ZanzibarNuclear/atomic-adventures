@@ -1,0 +1,350 @@
+# Part I — Day 1 story outline (authoring only; not loaded by the game engine)
+#
+# Purpose: map design/content/story/part-i.md → world locations, time, and game beats.
+# Use this to expand game/content/story/part-i.yaml scene by scene.
+#
+# Scene kinds:
+#   main    — canonical journey; acknowledge once, advances story flags
+#   ambient — off-path hex or optional room; short prose + nudge back toward journey
+#
+# Fields:
+#   md          — manuscript anchor (section + paragraph hint)
+#   when        — day + phase (metadata for eyebrow, lighting, flags later)
+#   where       — place + hex | room | exteriorNode | event
+#   require     — flags needed before this scene can fire (optional)
+#   sets        — flags set on acknowledge (main scenes only; optional)
+#   game        — id in game/content/story/part-i.yaml, or null if not implemented
+#   nudge       — ambient only: hint toward next journey step
+#   prose_draft — author reference / seed text for YAML (not final copy)
+
+manuscript: design/content/story/part-i.md
+area: part-i
+
+when_phases:
+  afternoon: Day 1 from trailhead through kitchen arrival
+  sunset: Kitchen windows; spiral stair; orange sky
+  dusk: Hallway and library approach
+  night: Sleep in the library
+
+# Canonical outdoor journey
+journey:
+  hexes: [trailhead, east-pines, center-pines, north-bend, gate-woods, utility-yard]
+
+# ---------------------------------------------------------------------------
+# Main storyline — in play order
+# ---------------------------------------------------------------------------
+scenes:
+
+  # --- Opening Scene (manuscript) ------------------------------------------
+
+  - id: woods-opening
+    kind: main
+    md: "Day 1 > Opening Scene, ¶1–4, 9–19"
+    when: { day: 1, phase: afternoon }
+    where: { place: outdoors, hex: trailhead }
+    sets: [story.intro, time.day1, time.phase-afternoon]
+    game: intro
+    notes: |
+      Includes desperation, optimism, afternoon senses, path split west.
+      Inventory tutorial (md ¶11) — wire to UI hint, not narrative card.
+
+  - id: east-pines-westward
+    kind: main
+    md: "Opening Scene, implied travel west"
+    when: { day: 1, phase: afternoon }
+    where: { place: outdoors, hex: east-pines }
+    require: { all: [story.intro] }
+    sets: [story.east-pines]
+    game: null
+    prose_draft: |
+      The trail narrows among taller pines. Zanzibar keeps west — his group's
+      voices are long gone behind him.
+
+  - id: center-pines-westward
+    kind: main
+    md: "Opening Scene, ¶17–19 (path dwindling)"
+    when: { day: 1, phase: afternoon }
+    where: { place: outdoors, hex: center-pines }
+    require: { all: [story.east-pines] }
+    sets: [story.center-pines]
+    game: null
+    prose_draft: |
+      What looked like a path becomes suggestion, then nothing but pine cones
+      among the trees. Turning back would be a mistake.
+
+  - id: fence-discovered
+    kind: main
+    md: "Opening Scene, ¶21–22"
+    when: { day: 1, phase: afternoon }
+    where: { place: outdoors, hex: north-bend }
+    require: { all: [story.center-pines] }
+    sets: [story.fence-discovered]
+    game: null
+    prose_draft: |
+      The first sign of humanity in days: a chain-link fence in thick vines,
+      climbing the mountainside. Zanzibar turns uphill for a vantage point,
+      wondering what lies on the other side.
+
+  - id: compound-gate
+    kind: main
+    md: "Opening Scene, ¶23–25"
+    when: { day: 1, phase: afternoon }
+    where: { place: outdoors, hex: gate-woods }
+    require: { all: [story.fence-discovered] }
+    sets: [story.the-gate]
+    game: the-gate
+    notes: |
+      Fence walk + paved road + guard house folded into one beat today.
+      Could split fence-walk (north-west/mid-west) from gate if we add hex beats.
+
+  - id: compound-road
+    kind: main
+    md: "The Compound, ¶29–31"
+    when: { day: 1, phase: afternoon }
+    where: { place: outdoors, hex: west-slope }
+    require: { all: [story.the-gate] }
+    sets: [story.compound-road]
+    game: null
+    prose_draft: |
+      Pine needles soften the paved road. Shrubs and thickets line the way.
+      White noise of running water — a stream or river over the ridge to the west.
+      Zanzibar stays on the road.
+
+  - id: utility-station-yard
+    kind: main
+    md: "The Compound, ¶33–37"
+    when: { day: 1, phase: afternoon }
+    where: { place: outdoors, hex: utility-yard }
+    require: { all: [story.compound-road] }
+    sets: [story.the-compound]
+    game: the-compound
+    notes: |
+      Driveway, cascade (not reachable from here), garage roll-ups, path to man door.
+
+  # --- The Garage (manuscript) -----------------------------------------------
+
+  - id: man-door-approach
+    kind: main
+    md: "The Garage, ¶39–43"
+    when: { day: 1, phase: afternoon }
+    where:
+      place: indoors
+      exteriorNode: large-bay-man-front
+    require: { all: [story.the-compound] }
+    sets: [story.man-door]
+    game: null
+    notes: |
+      Also fires on event enter-building if player enters via map without visiting
+      footpath node first — engine may need either/or trigger.
+
+  - id: enter-building
+    kind: main
+    md: "The Garage, ¶43 (getting inside)"
+    when: { day: 1, phase: afternoon }
+    where: { place: indoors, event: enter-building }
+    require: { all: [story.the-compound] }
+    sets: [story.the-garage]
+    game: the-garage
+
+  - id: large-bay
+    kind: main
+    md: "The Garage, ¶45–51"
+    when: { day: 1, phase: afternoon }
+    where: { place: indoors, room: large-bay }
+    require: { all: [story.the-garage] }
+    sets: [story.large-bay]
+    game: large-bay
+
+  - id: small-bay-buggy
+    kind: main
+    md: "The Garage, ¶47–49"
+    when: { day: 1, phase: afternoon }
+    where: { place: indoors, room: small-bay }
+    require: { all: [story.large-bay] }
+    sets: [story.saw-buggy]
+    game: null
+    prose_draft: |
+      Under a cover, the shape of a small vehicle — shiny chrome, knobby wheels.
+      A stylish dune buggy. His stomach says later; he replaces the cover.
+
+  - id: garage-stairs-up
+    kind: main
+    md: "The Garage, ¶45, 51 (stairs to conference)"
+    when: { day: 1, phase: afternoon }
+    where: { place: indoors, room: garage-stair }
+    require: { all: [story.large-bay] }
+    sets: [story.garage-stairs]
+    game: null
+    prose_draft: |
+      Locked door in the back wall. The stairs to the second floor might offer
+      a more civilized entry.
+
+  # --- Conference Room -------------------------------------------------------
+
+  - id: conference-room
+    kind: main
+    md: "The Conference Room, ¶55–61"
+    when: { day: 1, phase: afternoon }
+    where: { place: indoors, room: conference }
+    require: { all: [story.garage-stairs] }
+    sets: [story.conference]
+    game: conference
+    notes: |
+      Unlocked door at top of stairs. Screen behind panels. Door to kitchen wing.
+
+  # --- Kitchen ---------------------------------------------------------------
+
+  - id: kitchen-meal
+    kind: main
+    md: "The Kitchen, ¶65–71"
+    when: { day: 1, phase: sunset }
+    where: { place: indoors, room: kitchen }
+    require: { all: [story.conference] }
+    sets: [story.kitchen, day1.found-food, day1.found-water, time.phase-sunset]
+    game: kitchen
+
+  # --- Spiral stair, hallway, library (manuscript ¶73–83) --------------------
+
+  - id: spiral-stair-sunset
+    kind: main
+    md: "The Kitchen, ¶73–75"
+    when: { day: 1, phase: sunset }
+    where: { place: indoors, room: spiral-stair }
+    require: { all: [day1.found-food, day1.found-water] }
+    sets: [story.spiral-stair]
+    game: null
+    prose_draft: |
+      The spiral stair at the side of the building. Cascade and valley below;
+      the setting sun deepens the sky to orange. The roar of the falls is hypnotic.
+
+  - id: hallway-evening
+    kind: main
+    md: "The Kitchen, ¶77–79"
+    when: { day: 1, phase: dusk }
+    where: { place: indoors, room: hallway }
+    require: { all: [story.spiral-stair] }
+    sets: [story.hallway]
+    game: null
+    prose_draft: |
+      A short hallway — restroom ahead, locked door to the garage bays on the left.
+      Good to know the facilities work.
+
+  - id: library-sleep
+    kind: main
+    md: "The Kitchen, ¶81–83"
+    when: { day: 1, phase: night }
+    where: { place: indoors, room: library }
+    require: { all: [story.hallway] }
+    sets: [day1.complete, story.library-arrival, time.phase-night]
+    game: library-arrival
+    notes: |
+      End of Day 1. Holo-readers dark without power — seed for Day 2.
+
+# ---------------------------------------------------------------------------
+# Ambient / off-path — keyed to hex (or room), nudge toward journey
+# Show when: player is off the canonical journey, relevant require flags met, once per id.
+# ---------------------------------------------------------------------------
+ambient:
+
+  # --- Forest (outside compound) ---------------------------------------------
+
+  - id: ambient-far-pines
+    md: "(no manuscript — off-path east)"
+    when: { day: 1, phase: afternoon }
+    where: { place: outdoors, hex: far-pines }
+    require: { all: [story.intro] }
+    nudge: { toward: center-pines, hint: "The main trail lies west." }
+    prose_draft: |
+      Deeper pine woods — quiet, no sign of the compound. The sensible direction
+      is back toward the trail west.
+
+  - id: ambient-road-fork
+    md: "(no manuscript — north road fork)"
+    when: { day: 1, phase: afternoon }
+    where: { place: outdoors, hex: road-fork }
+    require: { all: [story.fence-discovered] }
+    nudge: { toward: north-bend, hint: "The paved compound road continues south." }
+    prose_draft: |
+      A fork where a paved road meets the forest. Tire marks lead south toward
+      the gate and the station — not this way into empty woods.
+
+  - id: ambient-upper-gorge
+    md: "(no manuscript — river access drive)"
+    when: { day: 1, phase: afternoon }
+    where: { place: outdoors, hex: upper-gorge }
+    require: { all: [story.the-gate] }
+    nudge: { toward: gate-woods, hint: "Return to the compound road." }
+    prose_draft: |
+      The river runs loud through the gorge. A granite drive leads back toward
+      the compound — shelter and answers that way, not upstream.
+
+  - id: ambient-lower-stand
+    md: "(no manuscript — southeast forest)"
+    when: { day: 1, phase: afternoon }
+    where: { place: outdoors, hex: lower-stand }
+    require: { all: [story.intro] }
+    nudge: { toward: center-pines, hint: "Head northwest toward the trail." }
+    prose_draft: |
+      Sloping forest with no landmark. Northwest is where the trail and the
+      compound lie.
+
+  # --- Compound interior (off paved route) -----------------------------------
+
+  - id: ambient-north-west
+    md: "(no manuscript — fence line inside compound)"
+    when: { day: 1, phase: afternoon }
+    where: { place: outdoors, hex: north-west }
+    require: { all: [story.the-gate] }
+    nudge: { toward: gate-woods, hint: "Follow the road downhill toward the station." }
+    prose_draft: |
+      Chain-link and vines along the fence line. The gate and the road down
+      to the utility station are the way forward.
+
+  - id: ambient-mid-west
+    md: "(no manuscript — west compound woods)"
+    when: { day: 1, phase: afternoon }
+    where: { place: outdoors, hex: mid-west }
+    require: { all: [story.the-gate] }
+    nudge: { toward: utility-yard, hint: "The driveway and cascade are south." }
+    prose_draft: |
+      Enclosed yard, trees and undergrowth. South, the sound of the cascade
+      marks the utility station.
+
+  - id: ambient-south-pines
+    md: "(no manuscript — south of station)"
+    when: { day: 1, phase: afternoon }
+    where: { place: outdoors, hex: south-pines }
+    require: { all: [story.the-compound] }
+    nudge: { toward: utility-yard, hint: "The station and garage are north." }
+    prose_draft: |
+      Pine woods inside the fence. North, the clearing and the two-story
+      building beside the falls.
+
+  # --- Indoors (optional rooms off critical path) ----------------------------
+
+  - id: ambient-corridor
+    md: "(no manuscript — downhill corridor, Day 2 setup)"
+    when: { day: 1, phase: night }
+    where: { place: indoors, room: corridor }
+    require: { all: [story.library-arrival] }
+    nudge: { toward: library, hint: "Rest first — the downhill wing can wait." }
+    prose_draft: |
+      A sloping passage and a draft of cool air from below. Whatever lies
+      downhill will keep until morning.
+
+  - id: ambient-bathroom-hallway
+    md: "The Kitchen, ¶77 (restroom mention)"
+    when: { day: 1, phase: dusk }
+    where: { place: indoors, room: bathroom }
+    require: { all: [story.hallway] }
+    nudge: { toward: library, hint: "The library is across the hall." }
+    prose_draft: |
+      Compact washroom — running water, a relief after days in the woods.
+      The soft light in the library doorway is across the hall.
+
+# ---------------------------------------------------------------------------
+# Coverage summary (Day 1)
+# ---------------------------------------------------------------------------
+# Main scenes:     18 outlined · 9 implemented in part-i.yaml
+# Ambient scenes:  9 outlined · 0 implemented
+# Day 2+ manuscript begins at part-i.md "## Day 2" — not in this file.

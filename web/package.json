@@ -1,6 +1,6 @@
 {
   "name": "atomic-adventures-web",
-  "version": "0.0.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Web-native CYOA engine for Atomic Adventures. Currently seeding the hex-map travel prototype.",

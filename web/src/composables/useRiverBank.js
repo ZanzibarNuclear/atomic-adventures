@@ -57,3 +57,13 @@ export function hexOnRiverBank(hex, size, riverSegments) {
   const c = axialToPixel(hex.q, hex.r, size)
   return hexHasRiverAtY(hex, c.y, size, riverSegments)
 }
+
+/** Adjacent hexes on the same q column, both with the river on their west edge. */
+export function isAdjacentRiverBankPair(fromHex, toHex, size, riverSegments) {
+  if (!fromHex || !toHex || fromHex.q !== toHex.q) return false
+  if (Math.abs(fromHex.r - toHex.r) !== 1) return false
+  return (
+    hexOnRiverBank(fromHex, size, riverSegments) &&
+    hexOnRiverBank(toHex, size, riverSegments)
+  )
+}

@@ -20,7 +20,7 @@ Turning back would be a mistake.
 
 After a time, Zanzibar found the first sign of humanity in days. A chain-link fence covered in thick vines grew out of the ground, stretching in a straight line up and down the mountainside. Zanzibar turned uphill, hoping that higher ground would offer a vantage point. As he walked, Zanzibar thought about the fence and what was on the other side.
 
-Zanzibar followed the fence for what might have been a half a mile. He reached a corner and rounded the bend to head west. Before long, he reached a paved road, a gate blocking the roac, and a guard house. The gate and guard house were closed and locked. A pair of bolt cutters or a blow torch would come in handy. Or a tank.
+Zanzibar followed the fence for what might have been a half a mile. He reached a corner and rounded the bend to head west. Before long, he reached a paved road, a gate blocking the road, and a guard house. The gate and guard house were closed and locked. A pair of bolt cutters or a blow torch would come in handy. Or a tank.
 
 As he sipped some water and nibbled at his last energy bar, Zanzibar studied the gate. Something seemed off. On closer inspection, Zanzi notices that the chain holding the gate closed was unattached. More to reinforce the idea of impenetrability. Zanzi unraveled the chain, went through. He paused and replaced it to restore the illusion. Then he headed down the paved road, down the hill.
 

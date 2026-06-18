@@ -1,12 +1,12 @@
-import mapData from '../content/world/map.yaml'
-import { buildRouteModels } from '../src/composables/useRoutes.js'
-import { pixelToHex } from '../src/composables/useHexGeometry.js'
+import mapData from '../../game/content/world/map.yaml'
+import { buildRouteModels, availableMoves } from '../../game/src/lib/maps/composables/useRoutes.js'
+import { pixelToHex } from '../../game/src/lib/maps/composables/useHexGeometry.js'
 import {
   barrierSegments,
   travelOpenings,
   resolveMove,
-} from '../src/composables/useTravelBarriers.js'
-import { resolveAvatarPosition } from '../src/composables/useAvatarStand.js'
+} from '../../game/src/lib/maps/composables/useTravelBarriers.js'
+import { resolveAvatarPosition } from '../../game/src/lib/maps/composables/useAvatarStand.js'
 
 const size = 44
 const hexById = Object.fromEntries(mapData.hexes.map((h) => [h.id, h]))
@@ -75,6 +75,26 @@ if (spBlock.blockedKind !== 'fence' || spBlock.activeHexId !== 'south-pines') {
 }
 if (cpEnter.blockedKind !== 'fence' || cpEnter.activeHexId !== 'south-pines') {
   fails.push('center-pines->south-pines should block at fence and activate south-pines')
+}
+const westFromFence = offRoad('south-pines', 'utility-yard', spBlock.stand)
+if (westFromFence.blockedKind !== 'fence' || westFromFence.activeHexId !== 'south-pines') {
+  fails.push('south-pines at fence -> utility-yard should block at fence and stay on south-pines')
+}
+
+const routeModels = buildRouteModels(mapData.routes, hexById, mapData.hexes, size)
+const travelOpts = {
+  fromHex: hexById['south-pines'],
+  hexById,
+  size,
+  barriers: ctx,
+  fromPos: spBlock.stand,
+  resolveStand: (hex) => resolveAvatarPosition(hex, size, rivers),
+  hexAtPoint,
+  routeModels,
+}
+const routeMoves = availableMoves('south-pines', routeModels, travelOpts)
+if (routeMoves.some((m) => m.toHexId === 'utility-yard')) {
+  fails.push('south-pines at fence should not offer route move west to utility-yard')
 }
 
 if (fails.length) {
