@@ -3,3 +3,4 @@
 game/content/*.sqlite-shm
 game/content/*.sqlite-wal
 game/content/*.sqlite-journal
+game/public/content/

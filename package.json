@@ -1,6 +1,9 @@
 {
   "name": "atomic-adventures",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "workspaces": [
     "web",
     "game"
@@ -10,6 +13,7 @@
     "dev:game": "npm run dev -w game",
     "build:prototype": "npm run build -w web",
     "build:game": "npm run build -w game",
+    "deploy:check": "npm run test && npm run build:game",
     "test": "npm run test -w game",
     "test:movement": "npm run test:movement -w game",
     "prepare": "sh scripts/install-githooks.sh"

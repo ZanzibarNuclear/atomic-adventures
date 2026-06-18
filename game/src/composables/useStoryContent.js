@@ -5,6 +5,7 @@ const loading = ref(false);
 const error = ref("");
 let started = false;
 let events = null;
+const storyUrl = import.meta.env.PROD ? "/content/story.json" : "/api/story";
 
 const storyData = computed(() => {
   const areas = Object.values(content.value.areas ?? {});
@@ -18,7 +19,7 @@ async function refresh(minimumRevision = 0) {
   if (content.value.revision >= minimumRevision && minimumRevision > 0) return;
   loading.value = true;
   try {
-    const response = await fetch("/api/story", { headers: { Accept: "application/json" } });
+    const response = await fetch(storyUrl, { headers: { Accept: "application/json" } });
     if (!response.ok) throw new Error(`Story service returned ${response.status}.`);
     const next = await response.json();
     if (next.revision >= content.value.revision) content.value = next;
@@ -34,6 +35,7 @@ function start() {
   if (started) return;
   started = true;
   refresh();
+  if (import.meta.env.PROD || typeof EventSource === "undefined") return;
   events = new EventSource("/api/content/events");
   events.addEventListener("story.updated", (event) => {
     const update = JSON.parse(event.data);

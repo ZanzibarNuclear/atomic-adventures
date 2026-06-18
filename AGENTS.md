@@ -106,6 +106,18 @@ Run tests again after each meaningful code change in those areas — not only at
 
 When adding or changing movement, barrier, or arrival behavior, add or update a test in `game/src/lib/maps/testing/` or `game/src/composables/`. See [docs/designs/hex-crawling.md](docs/designs/hex-crawling.md) for the movement contract (two-step border-then-stand, in-hex `crossPassage` vs inter-hex travel).
 
+### Production deployment
+
+The game deploys to Vercel through GitHub. Production is static and read-only:
+
+- `npm run build:game` exports runtime story/world JSON from the committed SQLite database before building Vite.
+- Production reads `/content/story.json` and `/content/world.json`; it does not run the local Node authoring server.
+- Builder routes and chunks must remain absent from production builds.
+- Author content locally, commit `game/content/atomic-adventures.sqlite`, and promote it through Git.
+- Neon is the planned future transactional provider, initially for player registration; it is not currently required.
+
+See [docs/deployment.md](docs/deployment.md) before changing Vercel configuration, production content loading, or deployment scripts.
+
 ## Architecture
 
 **Bespoke web-native CYOA engine built with Vue 3 + Vite.**

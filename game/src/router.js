@@ -1,14 +1,12 @@
 import { createRouter, createWebHistory } from "vue-router";
 import GameView from "./views/GameView.vue";
-import BuilderShell from "./components/BuilderShell.vue";
 
-export default createRouter({
-  history: createWebHistory(),
-  routes: [
-    { path: "/", name: "game", component: GameView },
-    {
+const routes = [{ path: "/", name: "game", component: GameView }];
+
+if (import.meta.env.DEV) {
+  routes.push({
       path: "/builder",
-      component: BuilderShell,
+      component: () => import("./components/BuilderShell.vue"),
       children: [
         { path: "", redirect: "/builder/story" },
         {
@@ -22,6 +20,12 @@ export default createRouter({
           component: () => import("./views/WorldBuilderView.vue"),
         },
       ],
-    },
-  ],
+    });
+} else {
+  routes.push({ path: "/:pathMatch(.*)*", redirect: "/" });
+}
+
+export default createRouter({
+  history: createWebHistory(),
+  routes,
 });

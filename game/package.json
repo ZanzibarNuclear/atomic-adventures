@@ -4,9 +4,13 @@
   "private": true,
   "type": "module",
   "description": "Playable Atomic Adventures — Part I vertical slice and full game.",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "node server/index.js",
-    "build": "vite build",
+    "build": "node server/export-runtime-content.js && vite build && node server/verify-production-build.js",
+    "content:runtime": "node server/export-runtime-content.js",
     "preview": "NODE_ENV=production node server/index.js",
     "content:import": "node server/content-cli.js import",
     "content:export": "node server/content-cli.js export",

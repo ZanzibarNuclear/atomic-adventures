@@ -99,6 +99,18 @@ Direct edits to `map.yaml` do not affect the running game until imported. Indoor
 building geometry remains YAML-backed for now. See
 [docs/design/world-authoring.md](docs/design/world-authoring.md).
 
+## Deployment
+
+The playable game is deployed to Vercel through GitHub. Production is a
+read-only static build: the committed SQLite database is exported to runtime
+JSON during the Vercel build, while the local Story and World builders remain
+development-only.
+
+See [docs/deployment.md](docs/deployment.md) for Vercel project settings,
+content promotion, smoke tests, and rollback procedures.
+
+Run `npm run deploy:check` before promoting a production deployment.
+
 ## Quick Links
 
 - [Game Design Overview](design/game-design-overview.md) — Core vision, pillars, and scope

@@ -18,13 +18,14 @@ const loading = ref(false);
 const error = ref("");
 let started = false;
 let events = null;
+const worldUrl = import.meta.env.PROD ? "/content/world.json" : "/api/world/outdoors";
 
 export async function refreshWorldContent(minimumRevision = 0) {
   if (loading.value) return false;
   if (content.value.revision >= minimumRevision && minimumRevision > 0) return true;
   loading.value = true;
   try {
-    const response = await fetch("/api/world/outdoors", {
+    const response = await fetch(worldUrl, {
       headers: { Accept: "application/json" },
     });
     if (!response.ok) throw new Error(`World service returned ${response.status}.`);
@@ -41,8 +42,9 @@ export async function refreshWorldContent(minimumRevision = 0) {
 }
 
 function start() {
-  if (started || typeof EventSource === "undefined") return;
+  if (started) return;
   started = true;
+  if (import.meta.env.PROD || typeof EventSource === "undefined") return;
   events = new EventSource("/api/content/events");
   events.addEventListener("world.updated", (event) => {
     const update = JSON.parse(event.data);
