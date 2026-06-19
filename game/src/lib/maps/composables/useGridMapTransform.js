@@ -81,6 +81,24 @@ export function focusedViewBox(focus, aspect, cell, spanCells = 5.2) {
   }
 }
 
+export function zoomViewBoxAt(viewBox, factor, anchorX = 0.5, anchorY = 0.5, limits = {}) {
+  const safeFactor = Number.isFinite(factor) && factor > 0 ? factor : 1
+  const fx = Math.max(0, Math.min(1, anchorX))
+  const fy = Math.max(0, Math.min(1, anchorY))
+  const minWidth = Number.isFinite(limits.minWidth) ? limits.minWidth : 1
+  const maxWidth = Number.isFinite(limits.maxWidth) ? limits.maxWidth : Infinity
+  const width = Math.max(minWidth, Math.min(maxWidth, viewBox.w * safeFactor))
+  const height = width * (viewBox.h / viewBox.w)
+  const x = viewBox.x + viewBox.w * fx
+  const y = viewBox.y + viewBox.h * fy
+  return {
+    x: x - width * fx,
+    y: y - height * fy,
+    w: width,
+    h: height,
+  }
+}
+
 export function rotatePointAround(point, pivot, degrees) {
   const rad = (degrees * Math.PI) / 180
   const dx = point.x - pivot.x
@@ -120,6 +138,7 @@ export function useGridMapTransform({
   expanded,
   viewportMode,
   focusPoint,
+  wheelZoomEnabled,
 }) {
   const rotation = ref(0)
   function rotate() {
@@ -197,7 +216,7 @@ export function useGridMapTransform({
     return rotatePointAround({ x, y }, center.value, -mapRotation.value)
   }
 
-  const viewBoxRect = computed(() => {
+  const fittedViewBoxRect = computed(() => {
     if (viewportMode.value === 'gameplay') {
       const focus = tp(gameplayFocus.value.x, gameplayFocus.value.y)
       return focusedViewBox(focus, containerAspect.value, cell.value)
@@ -218,6 +237,28 @@ export function useGridMapTransform({
     if (!Number.isFinite(minX)) return { x: 0, y: 0, w: 100, h: 100 }
     return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
   })
+
+  const wheelViewBox = ref(null)
+  watch([level, viewportMode], () => {
+    wheelViewBox.value = null
+  })
+
+  const viewBoxRect = computed(() => wheelViewBox.value ?? fittedViewBoxRect.value)
+
+  function zoomByWheel(factor, anchorX = 0.5, anchorY = 0.5) {
+    if (!wheelZoomEnabled?.value) return
+    const fitted = fittedViewBoxRect.value
+    wheelViewBox.value = zoomViewBoxAt(
+      viewBoxRect.value,
+      factor,
+      anchorX,
+      anchorY,
+      {
+        minWidth: fitted.w * 0.12,
+        maxWidth: fitted.w * 3,
+      },
+    )
+  }
 
   const viewBox = computed(() => {
     const vb = viewBoxRect.value
@@ -340,5 +381,6 @@ export function useGridMapTransform({
     placedRiver,
     placedCliffWall,
     placedGridLines,
+    zoomByWheel,
   }
 }

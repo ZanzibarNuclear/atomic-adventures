@@ -4,6 +4,7 @@ import {
   focusedViewBox,
   resolveGridCameraFocus,
   rotatePointAround,
+  zoomViewBoxAt,
 } from "../composables/useGridMapTransform.js";
 import utilityData from "../../../../content/world/utility-station.yaml";
 import { buildBuilding } from "../composables/useGrid.js";
@@ -55,6 +56,22 @@ describe("grid map viewport contract", () => {
 
     expect(later.w).toBe(first.w);
     expect(later.h).toBe(first.h);
+  });
+
+  it("zooms around the pointer position", () => {
+    const view = { x: 0, y: 0, w: 100, h: 50 };
+    const zoomed = zoomViewBoxAt(view, 0.5, 0.25, 0.75);
+
+    expect(zoomed).toEqual({ x: 12.5, y: 18.75, w: 50, h: 25 });
+    expect(zoomed.x + zoomed.w * 0.25).toBe(view.x + view.w * 0.25);
+    expect(zoomed.y + zoomed.h * 0.75).toBe(view.y + view.h * 0.75);
+  });
+
+  it("limits builder wheel zoom", () => {
+    const view = { x: 0, y: 0, w: 100, h: 50 };
+
+    expect(zoomViewBoxAt(view, 0.01, 0.5, 0.5, { minWidth: 20 }).w).toBe(20);
+    expect(zoomViewBoxAt(view, 10, 0.5, 0.5, { maxWidth: 300 }).w).toBe(300);
   });
 
   it("keeps the authored map transform independent from camera focus", () => {

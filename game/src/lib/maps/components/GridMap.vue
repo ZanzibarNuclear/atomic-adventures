@@ -48,6 +48,7 @@ const props = defineProps({
   expanded: { type: Boolean, default: false },
   viewportMode: { type: String, default: 'gameplay' },
   exteriorFog: { type: Boolean, default: false },
+  wheelZoom: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
@@ -114,6 +115,7 @@ const {
   placedCliffWall,
   placedGridLines,
   swapAxes,
+  zoomByWheel,
 } = useGridMapTransform({
   gridmapRef,
   building: computed(() => props.building),
@@ -123,7 +125,17 @@ const {
   expanded: computed(() => props.expanded),
   viewportMode: computed(() => props.viewportMode),
   focusPoint: cameraFocus,
+  wheelZoomEnabled: computed(() => props.wheelZoom),
 })
+
+function onWheel(event) {
+  if (!props.wheelZoom) return
+  event.preventDefault()
+  const rect = event.currentTarget.getBoundingClientRect()
+  const x = rect.width > 0 ? (event.clientX - rect.left) / rect.width : 0.5
+  const y = rect.height > 0 ? (event.clientY - rect.top) / rect.height : 0.5
+  zoomByWheel(event.deltaY > 0 ? 1.12 : 0.88, x, y)
+}
 
 const {
   placedBuildingShell,
@@ -221,6 +233,7 @@ const {
       :viewBox="viewBox"
       preserveAspectRatio="xMidYMid meet"
       @click="onSvgClick"
+      @wheel="onWheel"
     >
       <defs>
         <pattern

@@ -731,6 +731,7 @@ function clonePlain(value) {
             :hydro-discovered="true"
             :viewport-mode="viewportMode"
             :exterior-fog="exteriorFog"
+            :wheel-zoom="true"
             @select-item="selectItem($event.source, $event.id)"
             @select-handle="selectedHandleId = $event"
             @grid-handle-move="onHandleMove"
@@ -740,6 +741,7 @@ function clonePlain(value) {
             @stand-click="selectStand"
           />
         </div>
+        <p class="canvas-hint">Wheel to zoom</p>
       </section>
 
       <aside v-if="!rightCollapsed" class="inspector panel">
@@ -1025,7 +1027,7 @@ function clonePlain(value) {
 .object-item { display: grid; width: 100%; gap: .1rem; margin-top: .25rem; text-align: left; background: #252b35; }
 .object-item span { color: #8e96a3; font-size: .72rem; }
 .object-item.active, button.active { background: #49624f; border-color: #6f9b79; }
-.canvas-column { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: .55rem; min-width: 0; }
+.canvas-column { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: .55rem; min-width: 0; }
 .canvas-toolbar label { display: flex; align-items: center; gap: .35rem; color: #bdc4ce; font-size: .8rem; }
 .station-canvas { min-height: 0; overflow: hidden; border: 1px solid #3b4655; border-radius: 11px; }
 .station-canvas :deep(.gridmap), .station-canvas :deep(.gridmap.builder-view:not(.expanded)) {
@@ -1034,6 +1036,7 @@ function clonePlain(value) {
   min-height: 100%;
   border-radius: 0;
 }
+.canvas-hint { margin: 0; color: #8e96a3; font-size: .72rem; text-align: center; }
 .inspector { display: grid; align-content: start; gap: .7rem; }
 .inspector label { display: grid; gap: .3rem; color: #bdc4ce; font-size: .8rem; }
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; }
