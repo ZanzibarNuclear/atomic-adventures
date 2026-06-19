@@ -46,7 +46,7 @@ The release game is **three parts**, each centered on one generation technology.
 | ---- | ---------- | ---------------- |
 | I | Hydroelectric | Diversion / penstock, run-of-river; startup then operations |
 | II | Photovoltaic | Panel layout, irradiance, inverters, grid integration; contrast with hydro |
-| III | Gen IV SMR | One **real-world SMR design in development today** (e.g. Natrium-class sodium-cooled fast reactor — exact choice TBD) |
+| III | Gen IV SMR | One **real-world SMR design in development today** (calibration candidate: [Aalo-1](../research/aalo-atomics.md) — sodium-cooled thermal LMR) |
 
 **Extension packs (future):** Alternate SMR models swappable as content packs without changing the Part III story spine.
 

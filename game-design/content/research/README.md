@@ -15,3 +15,5 @@ When a note becomes a decision, update the relevant spec (e.g. `subject-matter/h
 | File | Subject |
 |------|---------|
 | [hydro.md](hydro.md) | Hydroelectric — diversion, penstock, turbines |
+| [sodium-cooled-reactors.md](sodium-cooled-reactors.md) | Liquid sodium coolant, pool/loop layouts, safety, fast vs. thermal |
+| [aalo-atomics.md](aalo-atomics.md) | Aalo-1 / Aalo-X SMR — leading Part III calibration candidate |
