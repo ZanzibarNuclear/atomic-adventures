@@ -110,16 +110,21 @@ Grid map shows floor plans; Part I also needs **inspectable room detail** — lo
 - Interact with objects that are too fine-grained for the top-down grid (buggy under cover, holo-readers, tool rack, charge cables, infopods, conference screen).
 - Bridge between **exploration beats** and **simulator entry points** (e.g. open control console from control room close-up).
 
-### 7. Items, inventory, and in-world objects
+### 7. Character, items, inventory, and progression
 
 Minimal inventory exists (keys, door checks, small HUD panel). Part I needs a fuller model:
 
-- Pickups, tools, documents, and consumables with catalog metadata in world/story content.
-- Player-facing **inventory UI** (review possessions — called out in opening narrative).
-- Item-gated actions beyond doors (manuals read before intake work, charge cables, etc.).
-- Story `require.items` support in the beat engine where design calls for it.
+- Authored catalogs for pickups, tools, documents, consumables, stats, skills,
+  qualifications, and quests.
+- Player-facing **character panel** with overview, inventory, skills, quests,
+  and documents (reviewing possessions is called out in the opening narrative).
+- Generic requirements and effects for item-gated actions, health/progression
+  changes, skills acquired, and quest/objective completion.
+- Story, world, and simulation integration without hard-coded item or stat
+  names.
 
 Server-side item state waits on Neon (below); local save must serialize the expanded model first.
+Contract: [character-inventory.md](contracts/character-inventory.md).
 
 ### 8. Time, days, and operations pacing
 
@@ -162,7 +167,7 @@ Map and beat infrastructure support Part I, but the **full beat spine** — fore
 | Holo-reader | **Not started** |
 | eBuggy driving sim | **Not started** |
 | Close-up room inspection | **Not started** |
-| Full inventory & items | **Partial** |
+| Character stats, progression, inventory & items | **Partial** |
 | In-game calendar / ops pacing | **Partial** (flags only) |
 | Part I content spine authored & gated | **In progress** |
 
@@ -206,6 +211,7 @@ Deferred: AP-1000, fusion chapters.
 | Agent / repo overview | [AGENTS.md](../AGENTS.md) |
 | Beat runtime & authoring | [contracts/story-beats.md](contracts/story-beats.md) |
 | Outdoor world authoring | [contracts/world-authoring.md](contracts/world-authoring.md) |
+| Character, inventory, stats, skills & quests | [contracts/character-inventory.md](contracts/character-inventory.md) |
 | Hex movement contract | [contracts/hex-crawling.md](contracts/hex-crawling.md) |
 | Production & Neon | [deployment.md](deployment.md) |
 | Part I unlock chains | [game-design/content/part-i-unlocks.md](../game-design/content/part-i-unlocks.md) |
