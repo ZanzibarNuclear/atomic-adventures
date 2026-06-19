@@ -161,4 +161,32 @@ describe('useGameState save roundtrip', () => {
     expect(outdoor.state.lastBlocked).toBe('fence')
     expect(outdoor.mode).toBe('gameplay')
   })
+
+  it('persists global character holdings and migrates legacy indoor inventory', () => {
+    const { outdoor, indoor, gameState, place } = buildTestHarness()
+    gameState.character.inventory.add('lobby-exterior-key')
+
+    const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
+    expect(snapshot.version).toBe(SAVE_VERSION)
+    expect(snapshot.character.holdings.items['lobby-exterior-key']).toEqual({ quantity: 1 })
+    expect(snapshot.indoor.inventory).toBeUndefined()
+
+    gameState.character.inventory.clear()
+    expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
+    expect(gameState.character.inventory.has('lobby-exterior-key')).toBe(true)
+    expect(indoor.indoor.inventory).toBe(gameState.character.inventory)
+
+    const legacy = {
+      ...snapshot,
+      version: 2,
+      character: undefined,
+      indoor: {
+        ...snapshot.indoor,
+        inventory: ['hallway-small-bay-key'],
+      },
+    }
+    gameState.character.inventory.clear()
+    expect(applySnapshot(legacy, { gameState, place, outdoor, indoor })).toBe(true)
+    expect(gameState.character.inventory.has('hallway-small-bay-key')).toBe(true)
+  })
 })

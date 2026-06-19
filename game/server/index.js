@@ -8,6 +8,8 @@ import { buildWorldCatalog, loadBuildingData, loadWorldSeed } from "./world-cata
 import { createApiHandler } from "./api.js";
 import { WorldRepository } from "./world-repository.js";
 import { BuildingRepository } from "./building-repository.js";
+import { loadCharacterSeed } from "./character-catalog.js";
+import { CharacterRepository } from "./character-repository.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const port = Number(process.env.PORT ?? 5173);
@@ -22,10 +24,18 @@ const buildingRepository = new BuildingRepository(db, {
   worldRepository,
   storyRepository: repository,
 });
+const characterRepository = new CharacterRepository(db, {
+  seedCharacter: loadCharacterSeed(),
+});
 const authoredBuilding = buildingRepository.getDocument()?.building ?? buildingData;
 worldRepository.setBuildingData(authoredBuilding);
 repository.setWorld(worldRepository.getCatalog(authoredBuilding));
-const api = createApiHandler(repository, worldRepository, buildingRepository);
+const api = createApiHandler(
+  repository,
+  worldRepository,
+  buildingRepository,
+  characterRepository,
+);
 
 let vite = null;
 if (!production) {
@@ -53,6 +63,7 @@ server.listen(port, "127.0.0.1", () => {
   console.log(`Atomic Adventures: http://127.0.0.1:${port}`);
   console.log(`Story builder:     http://127.0.0.1:${port}/builder/story`);
   console.log(`World builder:     http://127.0.0.1:${port}/builder/world`);
+  console.log(`Character content: http://127.0.0.1:${port}/api/character`);
 });
 
 let shuttingDown = false;

@@ -11,7 +11,7 @@ Production is intentionally read-only:
 ```text
 Committed SQLite content
   → build-time runtime export
-  → static story.json + world.json
+  → static story.json + world.json + utility-station.json + character.json
   → Vite production bundle
   → Vercel CDN
 ```
@@ -22,6 +22,8 @@ for story and outdoor-world authoring. During every production build,
 
 - `/content/story.json`
 - `/content/world.json`
+- `/content/utility-station.json`
+- `/content/character.json`
 
 These files are copied into `game/dist` by Vite. The production game reads them
 instead of calling the local authoring API.
@@ -139,6 +141,8 @@ Check that:
 - `game/dist/content/world.json` exists and contains `outdoor-main`.
 - `game/dist/content/utility-station.json` exists and contains the utility
   station rooms.
+- `game/dist/content/character.json` exists and contains the authored player,
+  item, and progression catalogs.
 - No `BuilderView` or `WorldBuilderView` JavaScript chunks appear in
   `game/dist/assets`.
 - Opening `/builder/story` or `/builder/world` in the production preview
@@ -157,8 +161,9 @@ After a Vercel preview or production deployment:
 1. Open `/` and confirm the map and opening beat load.
 2. Move to at least one adjacent hex.
 3. Save, reload, and confirm player progress restores.
-4. Open `/content/story.json`, `/content/world.json`, and
-   `/content/utility-station.json`; all should return JSON.
+4. Open `/content/story.json`, `/content/world.json`,
+   `/content/utility-station.json`, and `/content/character.json`; all should
+   return JSON.
 5. Open `/builder/story` and `/builder/world`; both should return to `/`.
 6. Check the browser console for failed content requests.
 

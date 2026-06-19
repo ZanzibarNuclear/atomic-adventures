@@ -1,0 +1,51 @@
+id: character-main
+
+profile:
+  id: zanzibar-nuhero
+  name: Zanzibar Nuhero
+  summary: Curious explorer and aspiring energy systems operator.
+
+panel:
+  tabs: [overview, inventory, knowledge, skills, quests, documents]
+  statGroups:
+    - { id: wellbeing, label: Wellbeing, order: 10 }
+    - { id: progression, label: Progression, order: 20 }
+  inventoryGroups:
+    - { id: keys, label: Keys, order: 10 }
+    - { id: tools, label: Tools, order: 20 }
+    - { id: books, label: Books and manuals, order: 30 }
+
+items:
+  - id: hallway-small-bay-key
+    kind: key
+    group: keys
+    label: Small bay door key
+    description: Brass key for the man door between the hallway and small bay.
+    carrying: unique
+    maxQuantity: 1
+    portable: true
+    visible: when-acquired
+  - id: lobby-exterior-key
+    kind: key
+    group: keys
+    label: Lobby exterior key
+    description: Deadbolt key for the front door.
+    carrying: unique
+    maxQuantity: 1
+    portable: true
+    visible: when-acquired
+  - id: large-bay-man-key
+    kind: key
+    group: keys
+    label: Large bay man door key
+    description: Key for the personnel door at the corner of the large bay.
+    carrying: unique
+    maxQuantity: 1
+    portable: true
+    visible: when-acquired
+
+stats: []
+knowledge: []
+skills: []
+quests: []
+documents: []

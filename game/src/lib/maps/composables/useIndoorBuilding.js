@@ -10,6 +10,7 @@ export function useIndoorBuilding(buildingData, outdoor, ctx) {
 
   const player = createIndoorPlayer(buildingData, builderView, {
     flags: gameState?.flags,
+    inventory: gameState?.character?.inventory,
   });
 
   const openDoorRef = { fn: () => {} };

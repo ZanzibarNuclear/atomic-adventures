@@ -10,8 +10,13 @@ import { buildInitialDoorState } from "../useDoors.js";
 import { createInventory, addItem, inventoryItems } from "../useInventory.js";
 import { createFlags } from "../useFlags.js";
 
-export function createIndoorPlayer(buildingData, builderView, { flags: sharedFlags } = {}) {
+export function createIndoorPlayer(
+  buildingData,
+  builderView,
+  { flags: sharedFlags, inventory: sharedInventory } = {},
+) {
   const flagsAreShared = !!sharedFlags;
+  const inventoryIsShared = !!sharedInventory;
   const editableBuildingData = ref(structuredClone(buildingData));
   const building = computed(() => buildBuilding(editableBuildingData.value));
 
@@ -60,9 +65,6 @@ export function createIndoorPlayer(buildingData, builderView, { flags: sharedFla
       ? indoor.viewLevel
       : indoor.level;
     indoor.doorState = nextDoorState;
-    indoor.inventory = new Set(
-      [...indoor.inventory].filter((id) => nextBuilding.itemById[id]),
-    );
     indoor.pickupsTaken = new Set(
       [...indoor.pickupsTaken].filter((id) =>
         nextBuilding.pickups.some((pickup) => pickup.id === id),
@@ -88,7 +90,7 @@ export function createIndoorPlayer(buildingData, builderView, { flags: sharedFla
     level: initialBuilding.exterior?.level ?? initialBuilding.levels[0]?.id,
     viewLevel: initialBuilding.exterior?.level ?? initialBuilding.levels[0]?.id,
     doorState: buildInitialDoorState(initialBuilding.areaId, initialBuilding),
-    inventory: createInventory(),
+    inventory: sharedInventory ?? createInventory(),
     pickupsTaken: new Set(),
     facility: {
       hydroOnline: false,
@@ -164,7 +166,7 @@ export function createIndoorPlayer(buildingData, builderView, { flags: sharedFla
       building.value.areaId,
       building.value,
     );
-    indoor.inventory = createInventory();
+    if (!inventoryIsShared) indoor.inventory = createInventory();
     indoor.pickupsTaken = new Set();
     indoor.facility.hydroOnline = false;
     indoor.facility.manualMode = {};
@@ -192,5 +194,6 @@ export function createIndoorPlayer(buildingData, builderView, { flags: sharedFla
     tryPickup,
     resetIndoor,
     flagsAreShared,
+    inventoryIsShared,
   };
 }

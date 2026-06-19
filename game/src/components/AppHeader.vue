@@ -7,6 +7,13 @@
       </div>
       <div class="controls-column">
         <div class="game-controls">
+          <button
+            type="button"
+            class="sm view-toggle"
+            :aria-pressed="activeGameView === 'character'"
+            @click="$emit(activeGameView === 'character' ? 'show-map' : 'show-character')">
+            {{ activeGameView === "character" ? "Map" : "Character" }}
+          </button>
           <details v-if="devMode" ref="devMenu" class="dev-menu">
             <summary class="sm">Developer</summary>
             <div class="dev-menu-popover">
@@ -48,9 +55,17 @@ const props = defineProps({
   lastSavedAt: { type: String, default: null },
   loadError: { type: String, default: null },
   movementAuditVisible: { type: Boolean, default: false },
+  activeGameView: { type: String, default: "map" },
 });
 
-const emit = defineEmits(["save", "new-game", "reset", "show-movement-audit"]);
+const emit = defineEmits([
+  "save",
+  "new-game",
+  "reset",
+  "show-movement-audit",
+  "show-character",
+  "show-map",
+]);
 const devMode = import.meta.env.DEV;
 const devMenu = ref(null);
 
@@ -108,6 +123,10 @@ function openStoryBuilder() {
   gap: 0.4rem;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+.view-toggle[aria-pressed="true"] {
+  background: #49624f;
+  border-color: #6f9b79;
 }
 .dev-menu {
   position: relative;

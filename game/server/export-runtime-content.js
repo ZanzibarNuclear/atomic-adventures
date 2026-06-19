@@ -6,6 +6,8 @@ import { StoryRepository } from "./story-repository.js";
 import { loadBuildingData, loadWorldSeed } from "./world-catalog.js";
 import { WorldRepository } from "./world-repository.js";
 import { BuildingRepository } from "./building-repository.js";
+import { loadCharacterSeed } from "./character-catalog.js";
+import { CharacterRepository } from "./character-repository.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const outputDir = join(here, "..", "public", "content");
@@ -23,6 +25,9 @@ try {
     worldRepository,
     storyRepository,
   });
+  const characterRepository = new CharacterRepository(db, {
+    seedCharacter: loadCharacterSeed(),
+  });
   const authoredBuilding = buildingRepository.getDocument()?.building ?? buildingData;
   worldRepository.setBuildingData(authoredBuilding);
   storyRepository.setWorld(worldRepository.getCatalog(authoredBuilding));
@@ -30,6 +35,8 @@ try {
   const buildingDocument = buildingRepository.getDocument();
   if (!worldDocument) throw new Error("Outdoor world content is not initialized.");
   if (!buildingDocument) throw new Error("Utility station content is not initialized.");
+  const characterDocument = characterRepository.getRuntimeCharacter();
+  if (!characterDocument) throw new Error("Character content is not initialized.");
 
   mkdirSync(outputDir, { recursive: true });
   writeJson(join(outputDir, "story.json"), storyRepository.getRuntimeStory());
@@ -45,6 +52,7 @@ try {
     revision: buildingDocument.revision,
     warnings: buildingRepository.validate(buildingDocument.building).warnings,
   });
+  writeJson(join(outputDir, "character.json"), characterDocument);
   console.log(`Exported production runtime content to ${outputDir}.`);
 } finally {
   db.close();

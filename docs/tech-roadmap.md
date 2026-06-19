@@ -149,6 +149,8 @@ Minimal inventory exists (keys, door checks, small HUD panel). Part I needs a fu
 
 Server-side item state waits on Neon (below); local save must serialize the expanded model first.
 Contract: [character-inventory.md](contracts/character-inventory.md).
+Implementation plan:
+[character-inventory-implementation.md](plans/character-inventory-implementation.md).
 
 ### 8. Time, days, and operations pacing
 
@@ -238,6 +240,7 @@ Deferred: AP-1000, fusion chapters.
 | Beat runtime & authoring | [contracts/story-beats.md](contracts/story-beats.md) |
 | Outdoor world authoring | [contracts/world-authoring.md](contracts/world-authoring.md) |
 | Character, inventory, stats, skills & quests | [contracts/character-inventory.md](contracts/character-inventory.md) |
+| Character/inventory implementation plan | [plans/character-inventory-implementation.md](plans/character-inventory-implementation.md) |
 | Hex movement contract | [contracts/hex-crawling.md](contracts/hex-crawling.md) |
 | Production & Neon | [deployment.md](deployment.md) |
 | Part I unlock chains | [game-design/content/part-i-unlocks.md](../game-design/content/part-i-unlocks.md) |

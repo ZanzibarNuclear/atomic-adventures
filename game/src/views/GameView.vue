@@ -8,8 +8,12 @@ import { useStory } from "../composables/useStory.js";
 import { useStoryContent } from "../composables/useStoryContent.js";
 import { useWorldContent } from "../composables/useWorldContent.js";
 import { useBuildingContent } from "../composables/useBuildingContent.js";
+import { useGameView } from "../composables/useGameView.js";
+import { useCharacterContent } from "../composables/useCharacterContent.js";
+import { syncCharacterDefinitions } from "../composables/useCharacterState.js";
 import { applyOutdoorWorldUpdate } from "../composables/worldRuntime.js";
 import AppHeader from "../components/AppHeader.vue";
+import CharacterView from "../components/game-views/CharacterView.vue";
 import StoryOverlay from "../components/story/StoryOverlay.vue";
 import OutdoorScene from "../lib/maps/views/OutdoorScene.vue";
 import IndoorScene from "../lib/maps/views/IndoorScene.vue";
@@ -17,6 +21,13 @@ import IndoorScene from "../lib/maps/views/IndoorScene.vue";
 const place = ref("outdoors");
 const builderView = ref(false);
 const movementAuditVisible = ref(false);
+const {
+  activeView,
+  isMapView,
+  isCharacterView,
+  openCharacter,
+  returnToMap,
+} = useGameView();
 const { storyData, error: contentError, refresh: refreshContent } = useStoryContent();
 const {
   worldData,
@@ -28,10 +39,19 @@ const {
   error: buildingContentError,
   refresh: refreshBuilding,
 } = useBuildingContent();
+const {
+  characterData,
+  error: characterContentError,
+  refresh: refreshCharacter,
+} = useCharacterContent();
 const mapData = JSON.parse(JSON.stringify(worldData.value));
 const initialBuildingData = JSON.parse(JSON.stringify(buildingData.value));
 
-const gameState = createGameState({ mapData, buildingData: initialBuildingData });
+const gameState = createGameState({
+  mapData,
+  buildingData: initialBuildingData,
+  characterData: characterData.value,
+});
 const outdoor = useOutdoorWorld(mapData, gameState);
 const ctx = { place, builderView, gameState };
 const indoor = useIndoorBuilding(initialBuildingData, outdoor, ctx);
@@ -85,6 +105,10 @@ watch(buildingData, (next) => {
   else applyBuilding(next);
 });
 
+watch(characterData, (next) => {
+  syncCharacterDefinitions(gameState.character, next);
+});
+
 watch(
   () => indoor.indoor.moving,
   (moving) => {
@@ -122,21 +146,32 @@ function handleReset() {
       :last-saved-at="lastSavedAt"
       :load-error="loadError"
       :movement-audit-visible="movementAuditVisible"
+      :active-game-view="activeView.kind"
       @save="saveGame(saveCtx)"
       @new-game="handleNewGame"
       @reset="handleReset"
+      @show-character="openCharacter"
+      @show-map="returnToMap"
       @show-movement-audit="movementAuditVisible = true" />
 
-    <div v-if="contentError || worldContentError || buildingContentError" class="content-error">
-      {{ contentError || worldContentError || buildingContentError }}
+    <div
+      v-if="contentError || worldContentError || buildingContentError || characterContentError"
+      class="content-error">
+      {{ contentError || worldContentError || buildingContentError || characterContentError }}
       <button
         class="sm"
-        @click="contentError ? refreshContent() : worldContentError ? refreshWorld() : refreshBuilding()"
+        @click="contentError
+          ? refreshContent()
+          : worldContentError
+            ? refreshWorld()
+            : buildingContentError
+              ? refreshBuilding()
+              : refreshCharacter()"
       >Retry</button>
     </div>
 
     <OutdoorScene
-      v-if="place === 'outdoors'"
+      v-if="isMapView && place === 'outdoors'"
       :outdoor="outdoor"
       :indoor="indoor"
       :narrative-beat="narrativeBeat"
@@ -148,7 +183,7 @@ function handleReset() {
       @hide-movement-audit="movementAuditVisible = false" />
 
     <IndoorScene
-      v-else
+      v-else-if="isMapView"
       :indoor="indoor"
       :narrative-beat="narrativeBeat"
       :pending-beat="pendingBeat"
@@ -157,6 +192,13 @@ function handleReset() {
       :audit-enabled="movementAuditVisible"
       @hide-movement-audit="movementAuditVisible = false" />
 
-    <StoryOverlay :show-end-card="showEndCard" @dismiss-end="dismissEndCard" />
+    <CharacterView
+      v-else-if="isCharacterView"
+      @return-to-map="returnToMap" />
+
+    <StoryOverlay
+      v-if="isMapView"
+      :show-end-card="showEndCard"
+      @dismiss-end="dismissEndCard" />
   </main>
 </template>

@@ -2,7 +2,12 @@ import { publicWorldCatalog } from "./world-catalog.js";
 import { exportBeatYaml } from "./story-yaml.js";
 import { exportWorldYaml } from "./world-yaml.js";
 
-export function createApiHandler(repository, worldRepository, buildingRepository = null) {
+export function createApiHandler(
+  repository,
+  worldRepository,
+  buildingRepository = null,
+  characterRepository = null,
+) {
   const clients = new Set();
 
   function broadcast(event, payload) {
@@ -33,10 +38,49 @@ export function createApiHandler(repository, worldRepository, buildingRepository
         res.write(`event: ready\ndata: ${JSON.stringify({
           storyRevision: repository.getGlobalRevision(),
           worldRevision: worldRepository.getGlobalRevision(),
+          characterRevision: characterRepository?.getGlobalRevision() ?? 0,
         })}\n\n`);
         clients.add(res);
         req.on("close", () => clients.delete(res));
         return true;
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/character") {
+        const result = characterRepository?.getDocument();
+        if (!result) return json(res, 404, { message: "Character content not found." });
+        return json(res, 200, {
+          ...result,
+          warnings: characterRepository.validate(result.character).warnings,
+        });
+      }
+      if (req.method === "POST" && url.pathname === "/api/character/validate") {
+        if (!characterRepository) return json(res, 404, { message: "Character content not found." });
+        const body = await readJson(req);
+        const result = characterRepository.validate(body.character ?? body);
+        return json(res, result.valid ? 200 : 422, result);
+      }
+      if (req.method === "PUT" && url.pathname === "/api/character") {
+        if (!characterRepository) return json(res, 404, { message: "Character content not found." });
+        const body = await readJson(req);
+        const result = characterRepository.save(
+          body.character ?? body,
+          body.expectedVersion,
+        );
+        broadcast("character.updated", { revision: result.revision });
+        return json(res, 200, result);
+      }
+      if (req.method === "GET" && url.pathname === "/api/character/revisions") {
+        if (!characterRepository) return json(res, 404, { message: "Character content not found." });
+        return json(res, 200, characterRepository.listRevisions());
+      }
+      const characterRestoreMatch = url.pathname.match(
+        /^\/api\/character\/revisions\/(\d+)\/restore$/,
+      );
+      if (characterRestoreMatch && req.method === "POST") {
+        if (!characterRepository) return json(res, 404, { message: "Character content not found." });
+        const result = characterRepository.restore(characterRestoreMatch[1]);
+        broadcast("character.updated", { revision: result.revision, restored: true });
+        return json(res, 200, result);
       }
 
       if (req.method === "GET" && url.pathname === "/api/world/outdoors") {
