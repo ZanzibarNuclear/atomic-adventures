@@ -2,7 +2,10 @@
 import { computed, ref, watch } from 'vue'
 import { pointsAttr } from '../composables/useRoutes.js'
 import { useSvgDragHandles } from '../composables/useSvgDragHandles.js'
-import { useGridMapTransform } from '../composables/useGridMapTransform.js'
+import {
+  resolveGridCameraFocus,
+  useGridMapTransform,
+} from '../composables/useGridMapTransform.js'
 import { useGridMapPlacements } from '../composables/useGridMapPlacements.js'
 import { useGridMapInteractions } from '../composables/useGridMapInteractions.js'
 import MapAvatar from './map/MapAvatar.vue'
@@ -16,7 +19,7 @@ import GridDoorLayer from './grid/GridDoorLayer.vue'
 import GridFixtureLayer from './grid/GridFixtureLayer.vue'
 import GridRoomStandLayer from './grid/GridRoomStandLayer.vue'
 import GridExteriorFogLayer from './grid/GridExteriorFogLayer.vue'
-import { mapVisibilityCtx, roomStandPosition } from '../composables/useGrid.js'
+import { mapVisibilityCtx } from '../composables/useGrid.js'
 
 const props = defineProps({
   building: { type: Object, required: true },
@@ -78,26 +81,14 @@ const cell = computed(() => props.building.cell ?? 64)
 const discoveredSet = computed(() => new Set(props.discovered))
 const interactableDoorSet = computed(() => new Set(props.interactableDoorIds))
 const reachableExteriorSet = computed(() => new Set(props.reachableExteriorNodes))
-const cameraFocus = computed(() => {
-  if (props.avatarWaypoint && props.building.exterior?.level === props.level) {
-    return {
-      x: props.avatarWaypoint.x * cell.value,
-      y: props.avatarWaypoint.y * cell.value,
-    }
-  }
-  if (props.exteriorNode && props.building.exterior?.level === props.level) {
-    const node = props.building.exterior?.nodeById?.[props.exteriorNode]
-    if (node?.at) {
-      return { x: node.at.x * cell.value, y: node.at.y * cell.value }
-    }
-  }
-  if (props.currentRoom) {
-    const room = props.building.roomById?.[props.currentRoom]
-    const stand = room ? roomStandPosition(props.building, room, props.currentStand) : null
-    if (stand) return stand
-  }
-  return null
-})
+const cameraFocus = computed(() => resolveGridCameraFocus({
+  building: props.building,
+  level: props.level,
+  cell: cell.value,
+  currentRoom: props.currentRoom,
+  exteriorNode: props.exteriorNode,
+  avatarWaypoint: props.avatarWaypoint,
+}))
 
 const visibility = computed(() =>
   mapVisibilityCtx(

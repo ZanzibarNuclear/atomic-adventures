@@ -1,7 +1,41 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { levelCliffWall, levelMapLayoutBounds } from './useGrid.js'
+import {
+  levelCliffWall,
+  levelMapLayoutBounds,
+  roomStandPosition,
+} from './useGrid.js'
 import { northOrientationBase } from './grid/useGridCompass.js'
 import { bbox } from './useGridFixtureLayout.js'
+
+export function resolveGridCameraFocus({
+  building,
+  level,
+  cell,
+  currentRoom = null,
+  exteriorNode = null,
+  avatarWaypoint = null,
+}) {
+  if (currentRoom) {
+    const room = building?.roomById?.[currentRoom]
+    if (room && (room.level === level || room.levels?.includes(level))) {
+      if (!Number.isFinite(room.x) || !Number.isFinite(room.y)) {
+        return roomStandPosition(building, room)
+      }
+      return {
+        x: (room.x + (room.w ?? 1) / 2) * cell,
+        y: (room.y + (room.h ?? 1) / 2) * cell,
+      }
+    }
+  }
+  if (avatarWaypoint && building?.exterior?.level === level) {
+    return { x: avatarWaypoint.x * cell, y: avatarWaypoint.y * cell }
+  }
+  if (exteriorNode && building?.exterior?.level === level) {
+    const node = building.exterior?.nodeById?.[exteriorNode]
+    if (node?.at) return { x: node.at.x * cell, y: node.at.y * cell }
+  }
+  return null
+}
 
 export function expandFrameToAspect(frame, aspect, zoom = 1) {
   const { minX, maxX, minY, maxY, bcx, bcy } = frame
@@ -139,10 +173,8 @@ export function useGridMapTransform({
     }
   })
 
-  const viewportZoom = computed(() => viewportMode.value === 'fit-all' ? 0.82 : 1)
-
   const layoutViewFrame = computed(() =>
-    expandFrameToAspect(minFramePx.value, containerAspect.value, viewportZoom.value),
+    expandFrameToAspect(minFramePx.value, containerAspect.value),
   )
 
   const gameplayFocus = computed(() => focusPoint.value ?? ({

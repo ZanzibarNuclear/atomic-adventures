@@ -80,6 +80,12 @@ Within the current room:
 3. The player may click a visible stand marker or choose it in the action list.
 4. Local movement changes `currentStand` without changing `currentRoom`.
 
+The gameplay camera is room-centered while the player is indoors. Moving
+between stands does not pan the floor plan; the room remains fixed and the
+avatar moves within it. The camera recenters only when `currentRoom` changes.
+Exterior path movement remains avatar-centered and may follow intermediate
+walking waypoints.
+
 Across rooms:
 
 1. Existing room connectivity, door state, locks, stairs, and discovery rules

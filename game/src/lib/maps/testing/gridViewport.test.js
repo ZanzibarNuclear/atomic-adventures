@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   expandFrameToAspect,
   focusedViewBox,
+  resolveGridCameraFocus,
   rotatePointAround,
 } from "../composables/useGridMapTransform.js";
+import utilityData from "../../../../content/world/utility-station.yaml";
+import { buildBuilding } from "../composables/useGrid.js";
 
 const frame = {
   minX: 0,
@@ -27,14 +30,13 @@ describe("grid map viewport contract", () => {
     expect(tall.w / tall.h).toBeCloseTo(3 / 4);
   });
 
-  it("uses fit-all as a zoomed-out version of the same gameplay frame", () => {
-    const gameplay = expandFrameToAspect(frame, 16 / 9, 1);
-    const fitAll = expandFrameToAspect(frame, 16 / 9, 0.82);
+  it("fits the content frame without adding a second zoom-out margin", () => {
+    const fitAll = expandFrameToAspect(frame, 16 / 9);
 
-    expect(fitAll.bcx).toBe(gameplay.bcx);
-    expect(fitAll.bcy).toBe(gameplay.bcy);
-    expect(fitAll.w).toBeGreaterThan(gameplay.w);
-    expect(fitAll.h).toBeGreaterThan(gameplay.h);
+    expect(fitAll.bcx).toBe(frame.bcx);
+    expect(fitAll.bcy).toBe(frame.bcy);
+    expect(fitAll.w).toBe(400);
+    expect(fitAll.h).toBe(225);
   });
 
   it("centers the gameplay camera on the avatar with a fixed close span", () => {
@@ -64,5 +66,47 @@ describe("grid map viewport contract", () => {
 
     expect(playerMovedElsewhere).not.toEqual(rotationPivot);
     expect(after).toEqual(before);
+  });
+
+  it("keeps a room centered while the avatar changes stands", () => {
+    const building = buildBuilding(utilityData);
+    const room = building.roomById["large-bay"];
+    const expected = {
+      x: (room.x + room.w / 2) * building.cell,
+      y: (room.y + room.h / 2) * building.cell,
+    };
+
+    const atCenterStand = resolveGridCameraFocus({
+      building,
+      level: "first",
+      cell: building.cell,
+      currentRoom: "large-bay",
+      avatarWaypoint: { x: 2, y: 3.5 },
+    });
+    const atDoorStand = resolveGridCameraFocus({
+      building,
+      level: "first",
+      cell: building.cell,
+      currentRoom: "large-bay",
+      avatarWaypoint: { x: 0.22, y: 4.8 },
+    });
+
+    expect(atCenterStand).toEqual(expected);
+    expect(atDoorStand).toEqual(expected);
+  });
+
+  it("continues following the avatar on exterior paths", () => {
+    const building = buildBuilding(utilityData);
+    expect(resolveGridCameraFocus({
+      building,
+      level: "first",
+      cell: building.cell,
+      currentRoom: null,
+      exteriorNode: "large-bay-roll-front",
+      avatarWaypoint: { x: 4.3, y: 2.4 },
+    })).toEqual({
+      x: 4.3 * building.cell,
+      y: 2.4 * building.cell,
+    });
   });
 });
