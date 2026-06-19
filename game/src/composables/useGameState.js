@@ -1,5 +1,9 @@
 import { reactive, toRaw } from "vue";
-import { buildBuilding } from "../lib/maps/composables/useGrid.js";
+import {
+  buildBuilding,
+  defaultRoomStandId,
+  roomStandById,
+} from "../lib/maps/composables/useGrid.js";
 import { buildInitialDoorState } from "../lib/maps/composables/useDoors.js";
 import { createFlags } from "../lib/maps/composables/useFlags.js";
 import { createInventory } from "../lib/maps/composables/useInventory.js";
@@ -45,6 +49,7 @@ export function captureSnapshot({ gameState, place, outdoor, indoor }) {
     },
     indoor: {
       currentRoom: i.currentRoom,
+      currentStand: i.currentStand,
       exteriorNode: i.exteriorNode,
       discovered: [...i.discovered],
       revealed: [...i.revealed],
@@ -94,6 +99,11 @@ export function applySnapshot(snapshot, { gameState, place, outdoor, indoor }) {
   const i = snapshot.indoor ?? {};
   const d = indoor.indoor;
   d.currentRoom = i.currentRoom ?? null;
+  d.currentStand = d.currentRoom && roomStandById(building, d.currentRoom, i.currentStand)
+    ? i.currentStand
+    : d.currentRoom
+      ? defaultRoomStandId(building.roomById[d.currentRoom])
+      : null;
   d.exteriorNode = i.exteriorNode ?? building.exterior?.entry ?? null;
   d.discovered = new Set(i.discovered ?? []);
   d.revealed = new Set(i.revealed ?? []);

@@ -14,12 +14,14 @@ import GridHydroLayer from './grid/GridHydroLayer.vue'
 import GridRoomLayer from './grid/GridRoomLayer.vue'
 import GridDoorLayer from './grid/GridDoorLayer.vue'
 import GridFixtureLayer from './grid/GridFixtureLayer.vue'
+import GridRoomStandLayer from './grid/GridRoomStandLayer.vue'
 import GridExteriorFogLayer from './grid/GridExteriorFogLayer.vue'
 import { mapVisibilityCtx, roomStandPosition } from '../composables/useGrid.js'
 
 const props = defineProps({
   building: { type: Object, required: true },
   currentRoom: { type: String, default: '' },
+  currentStand: { type: String, default: null },
   exteriorNode: { type: String, default: null },
   avatarWaypoint: { type: Object, default: null },
   discovered: { type: [Array, Object], default: () => [] },
@@ -50,6 +52,7 @@ const emit = defineEmits([
   'door-click',
   'exit-click',
   'exterior-node-click',
+  'stand-click',
   'select-handle',
   'grid-handle-move',
   'builder-map-click',
@@ -90,7 +93,7 @@ const cameraFocus = computed(() => {
   }
   if (props.currentRoom) {
     const room = props.building.roomById?.[props.currentRoom]
-    const stand = room ? roomStandPosition(props.building, room) : null
+    const stand = room ? roomStandPosition(props.building, room, props.currentStand) : null
     if (stand) return stand
   }
   return null
@@ -141,6 +144,7 @@ const {
   placedExteriorNodes,
   placedExits,
   placedFixtures,
+  placedRoomStands,
   placedHydroElements,
   editPathControlLine,
   pathBuilderLegend,
@@ -152,6 +156,7 @@ const {
   building: computed(() => props.building),
   level: computed(() => props.level),
   currentRoom: computed(() => props.currentRoom),
+  currentStand: computed(() => props.currentStand),
   exteriorNode: computed(() => props.exteriorNode),
   avatarWaypoint: computed(() => props.avatarWaypoint),
   standLevel: computed(() => props.standLevel),
@@ -292,6 +297,12 @@ const {
         :is-fixture-revealed="isFixtureRevealed"
         @stair-fixture-click="onStairFixtureClick"
         @stair-exit-click="onStairExitClick"
+      />
+
+      <GridRoomStandLayer
+        :stands="placedRoomStands"
+        :builder-view="builderView"
+        @stand-click="(roomId, standId) => emit('stand-click', { roomId, standId })"
       />
 
       <GridExteriorFogLayer

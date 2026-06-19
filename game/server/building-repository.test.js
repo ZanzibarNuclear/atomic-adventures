@@ -112,4 +112,16 @@ describe("BuildingRepository", () => {
     expect(story.getBeat("test", "library-rename").choices[0].go_room).toBe("archive");
     db.close();
   });
+
+  it("rejects invalid room stands and default stand references", () => {
+    const { db, building } = setup();
+    const before = building.getDocument();
+    const candidate = structuredClone(before.building);
+    const room = candidate.rooms.find((item) => item.id === "large-bay");
+    room.stands = [{ id: "outside", at: { x: 99, y: 99 } }];
+    room.defaultStand = "missing";
+    expect(() => building.save("utility-station", candidate, before.version))
+      .toThrow(ValidationError);
+    db.close();
+  });
 });

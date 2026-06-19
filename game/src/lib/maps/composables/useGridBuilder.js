@@ -134,6 +134,18 @@ export function listEditableLinks(data, levelId) {
     }))
 }
 
+export function listEditableRoomStands(data, levelId) {
+  return (data.rooms ?? [])
+    .filter((room) => !room.feature && roomOnLevel(room, levelId))
+    .flatMap((room) =>
+      (room.stands ?? []).map((stand) => ({
+        source: 'stands',
+        id: `${room.id}/${stand.id}`,
+        label: `${stand.label ?? stand.id} (${room.id})`,
+      })),
+    )
+}
+
 export function listAllGridEditable(data, levelId) {
   return [
     ...listEditablePaths(data, levelId),
@@ -143,6 +155,7 @@ export function listAllGridEditable(data, levelId) {
     ...listEditableExits(data, levelId),
     ...listEditableFixtures(data, levelId),
     ...listEditableLinks(data, levelId),
+    ...listEditableRoomStands(data, levelId),
   ]
 }
 
@@ -170,6 +183,11 @@ export function findGridEditable(data, source, id) {
     const index = Number(id.split('-').at(-1))
     return Number.isInteger(index) ? data.links?.[index] ?? null : null
   }
+  if (source === 'stands') {
+    const [roomId, standId] = id.split('/')
+    return data.rooms?.find((room) => room.id === roomId)
+      ?.stands?.find((stand) => stand.id === standId) ?? null
+  }
   return null
 }
 
@@ -181,6 +199,7 @@ export function gridEditModeForSource(source) {
   if (source === 'exits') return 'exit'
   if (source === 'fixtures') return 'fixture'
   if (source === 'links') return 'link'
+  if (source === 'stands') return 'stand'
   return null
 }
 
@@ -343,6 +362,16 @@ export function resolvedNodeHandle(node, cell) {
       handleKey: 'node-at',
     },
   ]
+}
+
+export function resolvedRoomStandHandle(stand, cell) {
+  if (!stand?.at) return []
+  return [{
+    role: 'room-stand',
+    x: stand.at.x * cell,
+    y: stand.at.y * cell,
+    handleKey: 'room-stand',
+  }]
 }
 
 export function setPathPoint(data, pathId, pointIndex, xUnits, yUnits) {
@@ -579,6 +608,14 @@ export function setNodeLabel(data, nodeId, label) {
   node.label = label
 }
 
+export function setRoomStandAt(data, compositeId, xUnits, yUnits) {
+  const [roomId, standId] = compositeId.split('/')
+  const stand = data.rooms?.find((room) => room.id === roomId)
+    ?.stands?.find((item) => item.id === standId)
+  if (!stand) return
+  stand.at = { x: round2(xUnits), y: round2(yUnits) }
+}
+
 function fmtPoint(p) {
   return `{ x: ${round2(p.x)}, y: ${round2(p.y)} }`
 }
@@ -610,6 +647,17 @@ function serializeRoom(room, indent) {
   if (room.feature) lines.push(`${inner}feature: ${room.feature}`)
   if (room.rollDoor) lines.push(`${inner}rollDoor: ${room.rollDoor}`)
   if (room.rollSpan != null) lines.push(`${inner}rollSpan: ${round2(room.rollSpan)}`)
+  if (room.defaultStand) lines.push(`${inner}defaultStand: ${room.defaultStand}`)
+  if (room.stands?.length) {
+    lines.push(`${inner}stands:`)
+    for (const stand of room.stands) {
+      lines.push(`${inner}  - id: ${stand.id}`)
+      lines.push(`${inner}    at: ${fmtPoint(stand.at)}`)
+      if (stand.label) lines.push(`${inner}    label: ${JSON.stringify(stand.label)}`)
+      if (stand.pose) lines.push(`${inner}    pose: ${stand.pose}`)
+      if (stand.interaction) lines.push(`${inner}    interaction: ${stand.interaction}`)
+    }
+  }
   return lines.join('\n')
 }
 

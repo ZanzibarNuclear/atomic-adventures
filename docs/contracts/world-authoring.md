@@ -120,6 +120,8 @@ The workspace supports:
 
 - floor switching and fit-all/gameplay camera previews;
 - room movement and resizing;
+- authored room stand creation and placement, with derived door thresholds shown
+  for reference;
 - man-door placement and roll-up edge/span editing;
 - exterior path control points, stand nodes, and smoothing;
 - world-transition marker placement;
@@ -145,3 +147,6 @@ Open games receive `building.updated` events. Refresh preserves logical player
 location, discoveries, door state, inventory, actions, flags, and facility
 state when their IDs still exist. Building replacement is deferred during an
 active indoor movement animation.
+
+See [indoor-stands.md](indoor-stands.md) for the room-local movement and
+derived-threshold contract.

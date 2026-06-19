@@ -101,6 +101,7 @@ function onPlayAction(id) {
 const mapStageProps = computed(() => ({
   building: props.indoor.building,
   currentRoom: props.indoor.indoor.currentRoom ?? "",
+  currentStand: props.indoor.indoor.currentStand,
   exteriorNode: props.indoor.indoor.exteriorNode,
   avatarWaypoint: props.indoor.indoor.avatarWaypoint,
   discovered: [...props.indoor.indoor.discovered],
@@ -117,6 +118,9 @@ const mapStageProps = computed(() => ({
 
 const mapStageListeners = computed(() => ({
   "room-click": props.travelToRoom,
+  "stand-click": ({ roomId, standId }) => {
+    if (roomId === props.indoor.indoor.currentRoom) props.indoor.moveToStand(standId);
+  },
   "exterior-node-click": props.indoor.moveToExteriorNode,
   "door-click": props.indoor.tryToggleDoor,
   "exit-click": props.indoor.exitViaDoor,

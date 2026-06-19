@@ -8,6 +8,7 @@ describe("indoor building live refresh", () => {
   it("preserves valid player state and initializes new geometry", () => {
     const player = createIndoorPlayer(utilityData, ref(false));
     player.indoor.currentRoom = "library";
+    player.indoor.currentStand = null;
     player.indoor.exteriorNode = null;
     player.indoor.discovered = new Set(["library", "missing-room"]);
     player.indoor.revealed = new Set(["library", "door:library-hallway"]);
@@ -34,6 +35,7 @@ describe("indoor building live refresh", () => {
     player.syncFromBuildingData(next);
 
     expect(player.indoor.currentRoom).toBe("library");
+    expect(player.indoor.currentStand).toBeNull();
     expect(player.indoor.discovered).toEqual(new Set(["library"]));
     expect(player.indoor.revealed).toContain("door:library-hallway");
     expect(player.indoor.doorState[

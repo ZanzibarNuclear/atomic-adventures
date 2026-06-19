@@ -20,6 +20,7 @@ import {
   resolvedPathHandles,
   resolvedPathNodeHandles,
   resolvedRoomHandles,
+  resolvedRoomStandHandle,
   setDoorAt,
   setExitMapAt,
   setNodeAt,
@@ -28,6 +29,7 @@ import {
   setRollDoorProps,
   setRoomFromHandle,
   setRoomLabel,
+  setRoomStandAt,
   addPathNode,
   addPathPoint,
 } from "../lib/maps/composables/useGridBuilder.js";
@@ -78,6 +80,7 @@ const groupedItems = computed(() => [
   { source: "exits", label: "World transitions" },
   { source: "fixtures", label: "Fixtures (read-only geometry)" },
   { source: "links", label: "Room connections" },
+  { source: "stands", label: "Room stands" },
 ].map((group) => ({
   ...group,
   items: editableItems.value.filter((item) => item.source === group.source),
@@ -107,6 +110,7 @@ const editHandles = computed(() => {
   }
   if (selected.source === "nodes") return resolvedNodeHandle(selected.entity, cell.value);
   if (selected.source === "exits") return resolvedExitHandle(selected.entity, cell.value);
+  if (selected.source === "stands") return resolvedRoomStandHandle(selected.entity, cell.value);
   return [];
 });
 const selectedPathNode = computed(() => {
@@ -162,6 +166,14 @@ function selectItem(sourceName, id) {
   addMode.value = null;
 }
 
+function selectStand({ roomId, standId }) {
+  if (standId.startsWith("door:")) {
+    selectItem("doors", standId.slice("door:".length));
+    return;
+  }
+  selectItem("stands", `${roomId}/${standId}`);
+}
+
 function onHandleMove(payload) {
   const selected = selection.value;
   if (!selected) return;
@@ -181,6 +193,8 @@ function onHandleMove(payload) {
     setNodeAt(draft.value, selected.id, x, y);
   } else if (selected.source === "exits") {
     setExitMapAt(draft.value, selected.id, x, y);
+  } else if (selected.source === "stands") {
+    setRoomStandAt(draft.value, selected.id, x, y);
   }
 }
 
@@ -267,6 +281,14 @@ function collectionFor(sourceName) {
   if (sourceName === "exits") return draft.value.transitions ?? draft.value.exits;
   if (sourceName === "fixtures") return draft.value.fixtures;
   if (sourceName === "links") return draft.value.links;
+  if (sourceName === "stands") {
+    const roomId = selection.value?.source === "stands"
+      ? selection.value.id.split("/")[0]
+      : selection.value?.source === "rooms"
+        ? selection.value.id
+        : null;
+    return draft.value.rooms.find((room) => room.id === roomId)?.stands ?? null;
+  }
   return null;
 }
 
@@ -279,9 +301,32 @@ function uniqueId(base, list = []) {
 }
 
 function addObject(sourceName) {
-  const list = collectionFor(sourceName);
-  if (!list) return;
+  let list = collectionFor(sourceName);
   let item = null;
+  if (sourceName === "stands") {
+    const room = selection.value?.source === "rooms"
+      ? selection.value.entity
+      : draft.value.rooms.find((candidate) =>
+          !candidate.feature &&
+          (candidate.level === level.value || candidate.levels?.includes(level.value))
+        );
+    if (!room) return;
+    room.stands ??= [];
+    list = room.stands;
+    item = {
+      id: uniqueId("new-stand", list),
+      at: {
+        x: Number(room.x ?? 0) + Number(room.w ?? 1) / 2,
+        y: Number(room.y ?? 0) + Number(room.h ?? 1) / 2,
+      },
+      label: "New stand",
+    };
+    list.push(item);
+    room.defaultStand ??= item.id;
+    selectItem("stands", `${room.id}/${item.id}`);
+    return;
+  }
+  if (!list) return;
   if (sourceName === "rooms") {
     item = {
       id: uniqueId("new-room", list),
@@ -357,7 +402,12 @@ function duplicateSelected() {
     copy.at.y = Number(copy.at.y ?? 0) + 0.25;
   }
   list.push(copy);
-  selectItem(selected.source, copy.id);
+  selectItem(
+    selected.source,
+    selected.source === "stands"
+      ? `${selected.id.split("/")[0]}/${copy.id}`
+      : copy.id,
+  );
 }
 
 function deleteSelected() {
@@ -369,7 +419,13 @@ function deleteSelected() {
   )) return;
   const index = selected.source === "links"
     ? Number(selected.id.split("-").at(-1))
-    : list.findIndex((item) => item.id === selected.id);
+    : list.findIndex((item) => item.id === (
+        selected.source === "stands" ? selected.id.split("/")[1] : selected.id
+      ));
+  if (selected.source === "stands") {
+    const room = draft.value.rooms.find((item) => item.id === selected.id.split("/")[0]);
+    if (room?.defaultStand === selected.id.split("/")[1]) room.defaultStand = null;
+  }
   if (index >= 0) list.splice(index, 1);
   selectedKey.value = "";
   selectedHandleId.value = null;
@@ -381,7 +437,9 @@ function moveSelected(delta) {
   if (!selected || !list) return;
   const index = selected.source === "links"
     ? Number(selected.id.split("-").at(-1))
-    : list.findIndex((item) => item.id === selected.id);
+    : list.findIndex((item) => item.id === (
+        selected.source === "stands" ? selected.id.split("/")[1] : selected.id
+      ));
   const next = index + delta;
   if (index < 0 || next < 0 || next >= list.length) return;
   [list[index], list[next]] = [list[next], list[index]];
@@ -390,8 +448,9 @@ function moveSelected(delta) {
 async function renameSelected() {
   const selected = selection.value;
   if (!selected || ["fixtures", "links"].includes(selected.source)) return;
-  const next = window.prompt(`Rename "${selected.id}" to:`, selected.id)?.trim();
-  if (!next || next === selected.id) return;
+  const currentId = selected.source === "stands" ? selected.id.split("/")[1] : selected.id;
+  const next = window.prompt(`Rename "${currentId}" to:`, currentId)?.trim();
+  if (!next || next === currentId) return;
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(next)) {
     status.value = "IDs must use kebab-case.";
     return;
@@ -408,6 +467,14 @@ async function renameSelected() {
     nodes: "exteriorNode",
     exits: "transition",
   }[selected.source];
+  if (selected.source === "stands") {
+    const roomId = selected.id.split("/")[0];
+    const room = draft.value.rooms.find((item) => item.id === roomId);
+    if (room?.defaultStand === currentId) room.defaultStand = next;
+    selected.entity.id = next;
+    selectedKey.value = `stands:${roomId}/${next}`;
+    return;
+  }
   let references = [];
   if (["room", "exteriorNode"].includes(kind)) {
     try {
@@ -590,6 +657,7 @@ function clonePlain(value) {
           <button class="sm" @click="addObject('nodes')">+ Node</button>
           <button class="sm" @click="addObject('exits')">+ Transition</button>
           <button class="sm" @click="addObject('links')">+ Connection</button>
+          <button class="sm" @click="addObject('stands')">+ Stand</button>
         </div>
         <section v-for="group in groupedItems" :key="group.source" class="object-group">
           <h3>{{ group.label }} <span>{{ group.items.length }}</span></h3>
@@ -637,7 +705,14 @@ function clonePlain(value) {
           <GridMap
             v-if="loaded"
             :building="building"
-            :current-room="selection?.source === 'rooms' ? selection.id : ''"
+            :current-room="
+              selection?.source === 'rooms'
+                ? selection.id
+                : selection?.source === 'stands'
+                  ? selection.id.split('/')[0]
+                  : ''
+            "
+            :current-stand="selection?.source === 'stands' ? selection.id.split('/')[1] : null"
             :discovered="allRoomIds"
             :revealed="allRoomIds"
             :level="level"
@@ -662,6 +737,7 @@ function clonePlain(value) {
             @builder-map-click="onMapClick"
             @room-click="selectItem('rooms', $event)"
             @exterior-node-click="selectItem('nodes', $event)"
+            @stand-click="selectStand"
           />
         </div>
       </section>
@@ -822,6 +898,32 @@ function clonePlain(value) {
                 <option value="">Choose a door</option>
                 <option v-for="door in draft.doors" :key="door.id" :value="door.id">{{ door.id }}</option>
               </select>
+            </label>
+          </template>
+
+          <template v-else-if="selection.source === 'stands'">
+            <label>Label<input v-model="selection.entity.label" /></label>
+            <div class="field-grid">
+              <label>X<input v-model.number="selection.entity.at.x" type="number" step=".01" /></label>
+              <label>Y<input v-model.number="selection.entity.at.y" type="number" step=".01" /></label>
+            </div>
+            <label>Pose<input v-model="selection.entity.pose" placeholder="stand or sit" /></label>
+            <label>Interaction
+              <input v-model="selection.entity.interaction" placeholder="optional semantic ID" />
+            </label>
+            <label class="check-field">
+              <input
+                type="checkbox"
+                :checked="
+                  draft.rooms.find((room) => room.id === selection.id.split('/')[0])
+                    ?.defaultStand === selection.entity.id
+                "
+                @change="
+                  draft.rooms.find((room) => room.id === selection.id.split('/')[0]).defaultStand =
+                    $event.target.checked ? selection.entity.id : null
+                "
+              />
+              Default room stand
             </label>
           </template>
         </template>

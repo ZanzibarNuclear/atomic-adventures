@@ -167,8 +167,10 @@ export function buildIndoorChooseActions(indoor, pendingBeat) {
 
   const fromRoom = indoor.currentRoomData;
   for (const m of indoor.indoorMoves ?? []) {
-    const dest = m.toExteriorNode ?? m.toRoomId;
-    if (dest && storyRooms.has(dest)) continue;
+    const dest = m.toStandId
+      ? `stand:${m.toStandId}`
+      : m.toExteriorNode ?? m.toRoomId;
+    if (!m.toStandId && dest && storyRooms.has(dest)) continue;
     const custom = fromRoom?.travel?.[dest];
     items.push({
       id: `move:${indoor.moveKey(m)}`,
@@ -195,6 +197,10 @@ export function handleIndoorChooseAction(
     const key = actionId.slice("move:".length);
     const m = indoor.indoorMoves.find((mv) => indoor.moveKey(mv) === key);
     if (!m) return;
+    if (m.toStandId) {
+      indoor.moveToStand(m.toStandId);
+      return;
+    }
     if (m.toRoomId) {
       travelToRoom(m.toRoomId);
       return;

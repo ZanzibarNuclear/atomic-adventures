@@ -6,6 +6,7 @@ import {
   roomsOnLevel,
   roomRect,
   roomStandPosition,
+  roomStandModels,
   ROOM_ICON_HALF_HEIGHT,
   FEET_GAP_ABOVE_ROOM_ICON,
   isStairLanding,
@@ -37,6 +38,7 @@ export function useGridMapPlacements({
   building,
   level,
   currentRoom,
+  currentStand,
   exteriorNode,
   avatarWaypoint,
   standLevel,
@@ -298,6 +300,35 @@ export function useGridMapPlacements({
     layoutPlacedFixtures(fixtures.value, building.value, cell.value, tp),
   )
 
+  const placedRoomStands = computed(() => {
+    const rooms = builderView.value
+      ? levelRooms.value.filter((room) => !room.feature && !room.open)
+      : current.value && !current.value.feature
+        ? [current.value]
+        : []
+    return rooms.flatMap((room) =>
+      roomStandModels(building.value, room.id).map((stand) => {
+        const point = tp(stand.at.x * cell.value, stand.at.y * cell.value)
+        return {
+          key: `${room.id}/${stand.id}`,
+          id: stand.id,
+          roomId: room.id,
+          label: stand.label ?? stand.id,
+          kind: stand.kind,
+          cx: point.x,
+          cy: point.y,
+          r: cell.value * (stand.kind === 'door' ? 0.065 : 0.075),
+          current: room.id === currentRoom.value && stand.id === currentStand.value,
+          reachable:
+            !builderView.value &&
+            room.id === currentRoom.value &&
+            stand.id !== currentStand.value,
+          selected: selectedItemId.value === `${room.id}/${stand.id}`,
+        }
+      }),
+    )
+  })
+
   const avatarScale = computed(() => (cell.value / 64) * 0.42)
   const avatarFootOffset = computed(() => 26 * avatarScale.value)
   const stairLandingFixture = computed(() => {
@@ -338,7 +369,7 @@ export function useGridMapPlacements({
       }
     }
     if (current.value.level !== level.value) return null
-    const stand = roomStandPosition(building.value, current.value)
+    const stand = roomStandPosition(building.value, current.value, currentStand.value)
     if (!stand) return null
     const pt = tp(stand.x, stand.y)
     if (current.value.icon) {
@@ -481,6 +512,7 @@ export function useGridMapPlacements({
     placedExteriorNodes,
     placedExits,
     placedFixtures,
+    placedRoomStands,
     editPathControlLine,
     pathBuilderLegend,
     addPointHint,

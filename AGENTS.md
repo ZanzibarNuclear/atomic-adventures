@@ -66,7 +66,8 @@ The production World Builder uses map-layer edit handles. The older prototype bu
 
 - `game/src/lib/maps/` contains the canonical game map components and reusable geometry-builder utilities.
 - `web/` remains a useful prototype and sandbox for map editing ideas.
-- Indoor geometry remains YAML-driven in `game/content/world/`; outdoor geometry is database-backed.
+- Indoor utility-station geometry is database-backed and edited in the World
+  Builder; YAML is seed/import material.
 - Players must never see geometry-editing controls. Keep edit layers separate from player-facing scene wiring.
 - Port useful prototype work into `game/`; do not implement game story or persistence features in `web/`.
 

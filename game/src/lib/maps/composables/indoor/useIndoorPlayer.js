@@ -2,7 +2,9 @@ import { computed, reactive, ref } from "vue";
 import {
   applyRevealDoorsForRoom,
   buildBuilding,
+  defaultRoomStandId,
   mapVisibilityCtx,
+  roomStandById,
 } from "../useGrid.js";
 import { buildInitialDoorState } from "../useDoors.js";
 import { createInventory, addItem, inventoryItems } from "../useInventory.js";
@@ -28,6 +30,15 @@ export function createIndoorPlayer(buildingData, builderView, { flags: sharedFla
     }
     editableBuildingData.value = structuredClone(data);
     indoor.currentRoom = currentRoom;
+    indoor.currentStand = currentRoom && roomStandById(
+      nextBuilding,
+      currentRoom,
+      indoor.currentStand,
+    )
+      ? indoor.currentStand
+      : currentRoom
+        ? defaultRoomStandId(nextBuilding.roomById[currentRoom])
+        : null;
     indoor.exteriorNode = exteriorNode;
     indoor.discovered = new Set(
       [...indoor.discovered].filter((id) => nextBuilding.roomById[id]),
@@ -70,6 +81,7 @@ export function createIndoorPlayer(buildingData, builderView, { flags: sharedFla
 
   const indoor = reactive({
     currentRoom: null,
+    currentStand: null,
     exteriorNode: initialBuilding.exterior?.entry ?? null,
     discovered: new Set(),
     revealed: new Set(),
@@ -143,6 +155,7 @@ export function createIndoorPlayer(buildingData, builderView, { flags: sharedFla
   function resetIndoor() {
     indoor.exteriorNode = building.value.exterior?.entry ?? null;
     indoor.currentRoom = null;
+    indoor.currentStand = null;
     indoor.discovered = new Set();
     indoor.revealed = new Set();
     indoor.level = building.value.exterior?.level ?? "first";

@@ -10,6 +10,9 @@ import {
   isDestinationNamed,
   movesFrom,
   moveKey,
+  defaultRoomStandId,
+  doorThresholdForRoom,
+  roomStandModels,
 } from "../useGrid.js";
 import { canBargeThroughDoor, canPassDoor } from "../useDoors.js";
 
@@ -64,13 +67,14 @@ export function createIndoorMovement(deps) {
         moves.push({
           kind: "door",
           toRoomId: node.room,
+          doorId: node.door,
           label: "through the door",
           toName: roomLabel(room),
         });
       }
       return moves;
     }
-    return [
+    const roomMoves = [
       ...movesFrom(
         building.value,
         indoor.currentRoom,
@@ -85,6 +89,19 @@ export function createIndoorMovement(deps) {
         building.value.areaId,
       ),
     ];
+    const localStandMoves = roomStandModels(
+      building.value,
+      indoor.currentRoom,
+    )
+      .filter((stand) => stand.id !== indoor.currentStand)
+      .map((stand) => ({
+        kind: "stand",
+        toRoomId: indoor.currentRoom,
+        toStandId: stand.id,
+        label: `to ${stand.label ?? stand.id}`,
+        toName: stand.label ?? stand.id,
+      }));
+    return [...localStandMoves, ...roomMoves];
   });
 
   const bargeMoves = computed(() => {
@@ -148,7 +165,7 @@ export function createIndoorMovement(deps) {
     return [
       ...indoorMoves.value.filter((m) => !m.onSpiral).map((m) => m.toRoomId),
       ...bargeMoves.value.map((m) => m.toRoomId),
-    ];
+    ].filter((id) => id && id !== indoor.currentRoom);
   });
 
   const reachableExteriorNodes = computed(() => {
@@ -178,6 +195,7 @@ export function createIndoorMovement(deps) {
     resetOutdoorStand(outdoor.state.currentId);
     indoor.exteriorNode = building.value.exterior?.entry ?? null;
     indoor.currentRoom = null;
+    indoor.currentStand = null;
     indoor.discovered = new Set();
     indoor.revealed = new Set();
     indoor.level = building.value.exterior?.level ?? "first";
@@ -232,6 +250,7 @@ export function createIndoorMovement(deps) {
     resetOutdoorStand(hexId);
     indoor.exteriorNode = null;
     indoor.currentRoom = null;
+    indoor.currentStand = null;
     place.value = "outdoors";
   }
 
@@ -241,6 +260,7 @@ export function createIndoorMovement(deps) {
     resetOutdoorStand(hexId);
     indoor.exteriorNode = null;
     indoor.currentRoom = null;
+    indoor.currentStand = null;
     place.value = "outdoors";
   }
 
@@ -268,7 +288,11 @@ export function createIndoorMovement(deps) {
         return;
       }
       if (move.kind === "door" && move.toRoomId) {
+        const room = building.value.roomById[move.toRoomId];
         indoor.currentRoom = move.toRoomId;
+        indoor.currentStand = move.doorId
+          ? `door:${move.doorId}`
+          : defaultRoomStandId(room);
         indoor.exteriorNode = null;
         discoverIndoorRoom(move.toRoomId);
         indoor.level =
@@ -284,6 +308,7 @@ export function createIndoorMovement(deps) {
     if (move.toExteriorNode) {
       indoor.exteriorNode = move.toExteriorNode;
       indoor.currentRoom = null;
+      indoor.currentStand = null;
       finishAfter(INDOOR_MOVE_MS);
       return;
     }
@@ -295,6 +320,12 @@ export function createIndoorMovement(deps) {
       return;
     }
 
+    if (move.toStandId && move.toRoomId === indoor.currentRoom) {
+      indoor.currentStand = move.toStandId;
+      finishAfter(INDOOR_MOVE_MS);
+      return;
+    }
+
     const from = building.value.roomById[indoor.currentRoom];
     const to = building.value.roomById[move.toRoomId];
     if (!to) {
@@ -303,6 +334,9 @@ export function createIndoorMovement(deps) {
     }
 
     indoor.currentRoom = move.toRoomId;
+    indoor.currentStand = move.doorId
+      ? doorThresholdForRoom(building.value, move.toRoomId, move.doorId)?.id
+      : defaultRoomStandId(to);
     discoverIndoorRoom(move.toRoomId);
 
     if (to.feature) {
@@ -327,6 +361,13 @@ export function createIndoorMovement(deps) {
         (m) => !m.onSpiral && m.toRoomId === roomId,
       );
     }
+    if (move) applyIndoorMove(move);
+  }
+
+  function moveToStand(standId) {
+    const move = indoorMoves.value.find((item) =>
+      item.toRoomId === indoor.currentRoom && item.toStandId === standId
+    );
     if (move) applyIndoorMove(move);
   }
 
@@ -442,6 +483,7 @@ export function createIndoorMovement(deps) {
     exitBuilding,
     applyIndoorMove,
     moveToRoom,
+    moveToStand,
     moveToExteriorNode,
     moveKey,
     isDestinationNamed,

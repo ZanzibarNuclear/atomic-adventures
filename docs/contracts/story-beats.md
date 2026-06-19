@@ -68,6 +68,11 @@ do not use a place.
 The current Part I event is `enter-building`. Event beats are evaluated when
 the player transitions from outdoors into the indoor scene.
 
+Indoor stand movement refines the avatar position within a room but does not
+change room-level trigger behavior. See
+[indoor-stands.md](indoor-stands.md). Stand-level story triggers are a possible
+later extension and are not part of the current beat schema.
+
 An optional trigger flag may further restrict a location trigger. Most state
 gating should use `require`, which is clearer in the builder and supports
 multiple conditions.

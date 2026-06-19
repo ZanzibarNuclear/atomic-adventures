@@ -22,6 +22,7 @@ function buildTestHarness() {
     building,
     indoor: {
       currentRoom: null,
+      currentStand: null,
       exteriorNode: null,
       discovered: new Set(),
       revealed: new Set(),
@@ -103,6 +104,24 @@ describe('useGameState save roundtrip', () => {
       'mid-west-ford',
       'south-pines-hole',
     ])
+  })
+
+  it('persists an indoor room stand and falls back when it no longer exists', () => {
+    const { outdoor, indoor, gameState, place } = buildTestHarness()
+    indoor.indoor.currentRoom = 'large-bay'
+    indoor.indoor.currentStand = 'stairs-bottom'
+    place.value = 'indoors'
+
+    const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
+    expect(snapshot.indoor.currentStand).toBe('stairs-bottom')
+
+    indoor.indoor.currentStand = null
+    expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
+    expect(indoor.indoor.currentStand).toBe('stairs-bottom')
+
+    snapshot.indoor.currentStand = 'missing-stand'
+    expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
+    expect(indoor.indoor.currentStand).toBe('center')
   })
 
   it('migrates v1 barrierStand saves to stand', () => {

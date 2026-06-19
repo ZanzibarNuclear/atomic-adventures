@@ -258,6 +258,17 @@ rooms:
     note: "2 stories"
     rollDoor: north # bigger two-story roll-up, same (north) wall / driveway
     rollSpan: 0.6
+    defaultStand: center
+    stands:
+      - id: center
+        at: { x: 2, y: 3.5 }
+        label: Garage center
+      - id: stairs-bottom
+        at: { x: 1.4, y: 2.7 }
+        label: Bottom of the stairs
+      - id: service-area
+        at: { x: 3.2, y: 4.1 }
+        label: Garage service area
     blurb: "Open to the roof. Empty now, but the tire tracks and oil stains say something big was housed and serviced here — gone elsewhere on the compound."
   - id: garage-stair
     levels: [first, second]
@@ -290,6 +301,20 @@ rooms:
     label: "Kitchen / Dining"
     icon: "🍽️"
     windows: [west] # river side
+    defaultStand: center
+    stands:
+      - id: center
+        at: { x: 3, y: 1 }
+        label: Kitchen center
+      - id: stove
+        at: { x: 3.55, y: 0.45 }
+        label: Stove
+        interaction: stove
+      - id: dining-table
+        at: { x: 2.7, y: 1.45 }
+        label: Dining table
+        pose: sit
+        interaction: dining-table
     blurb: "Worker kitchen and dining area. Water purifier, rations, dishes and utensils. Small table with kitchen chairs."
   - id: bay-open
     level: second
@@ -518,7 +543,7 @@ doors:
     level: first
     room: large-bay
     at: { x: 0.6, y: 5 }
-    label: "Large bay man door"
+    label: "Garage man door"
     lock:
       key: large-bay-man-key
       freeFrom: large-bay

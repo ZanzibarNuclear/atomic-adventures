@@ -61,6 +61,28 @@ export function validateBuilding(input, { outdoorHexIds = new Set() } = {}) {
       if (!(room.h > 0)) add(`${base}.h`, "Room height must be greater than zero.");
     }
     if (room.mirror && !roomIds.has(room.mirror)) add(`${base}.mirror`, "Mirror must reference an existing room.");
+    const standIds = validateIds(room.stands ?? [], `${base}.stands`, errors);
+    for (const [standIndex, stand] of (room.stands ?? []).entries()) {
+      const standBase = `${base}.stands.${standIndex}`;
+      if (!validPoint(stand.at)) add(`${standBase}.at`, "Room stands require numeric x/y coordinates.");
+      if (
+        validPoint(stand.at) &&
+        !room.feature &&
+        (
+          stand.at.x < room.x ||
+          stand.at.x > room.x + room.w ||
+          stand.at.y < room.y ||
+          stand.at.y > room.y + room.h
+        )
+      ) {
+        add(`${standBase}.at`, "Room stands must lie inside their room rectangle.");
+      }
+      if (stand.pose != null) stand.pose = text(stand.pose);
+      if (stand.interaction != null) stand.interaction = text(stand.interaction);
+    }
+    if (room.defaultStand && !standIds.has(room.defaultStand)) {
+      add(`${base}.defaultStand`, "Default stand must reference an authored stand in this room.");
+    }
   });
 
   if (!building.start || !roomIds.has(building.start)) add("start", "Choose an existing start room.");
