@@ -11,9 +11,9 @@ Part III is **SMR-centric** **underground**. Zanzibar descends via the hidden el
 3. **Restore** the reactor with **NPC team support** — operation at this scale is not a solo job
 4. **Compare** baseload nuclear to the hydro and PV systems restored in Parts I–II
 
-**Launch calibration candidate:** [Aalo-1 / Aalo-X](../research/aalo-atomics.md) — 30 MWth / 10 MWe, graphite-moderated thermal spectrum, LEU UO₂, pool-type sodium, air-cooled condensers. Fictionalize for story or keep educational framing — TBD.
+**Launch calibration candidate:** [Aalo-1 / Aalo-X](../research/aalo-atomics.md) — 30 MWth / 10 MWe, graphite-moderated thermal spectrum, LEU UO₂, pool-type sodium, air-cooled condensers. **Fixed for the trilogy** — not swappable at Part III.
 
-**Extension packs:** Alternate SMR models (e.g. **Natrium-class fast reactor**, **molten salt reactor**) swappable as content without changing the Part III story spine.
+**Post-game extensions** add optional systems after the SMR is running (e.g. [Oklo recycling + fast module](oklo-aurora-extension.md)). See [Reactor & Extension Catalog](../reactor-catalog.md).
 
 ## Research references
 
@@ -25,7 +25,7 @@ Part III is **SMR-centric** **underground**. Zanzibar descends via the hidden el
 ## Scope
 
 - **Primary (Part III):** Sodium-cooled **thermal-spectrum** microreactor aligned to Aalo-class design (graphite moderator, LEU UO₂, primary + secondary sodium, steam turbine, air cooling)
-- **Extension packs:** Fast-spectrum sodium (SFR), molten salt, other Gen IV coolants
+- **Post-game extensions:** Additional modules per [reactor-catalog.md](../reactor-catalog.md) — not Part III replacements
 - **Out of scope for v1 sim:** Full neutronics codes, detailed fuel performance, licensing documentation
 
 ## Sodium vs. molten salt (MSR)
@@ -54,7 +54,9 @@ This spec covers **solid fuel + liquid sodium coolant**. **Molten salt reactors*
 | Hybrid loop-pool vessel | Core, pumps, and primary heat exchangers in one sealed sodium tank |
 | Load following | Match campus / data-center load — ties to integrated energy portfolio fiction |
 
-### Fast sodium (extension pack only)
+### Fast sodium (post-game extension content)
+
+Natrium-class SFR, Oklo Aurora module, etc. — see [reactor-catalog.md](../reactor-catalog.md). Not taught in base Part III.
 
 | Concept | Simulation element |
 | ------- | ------------------ |
@@ -123,12 +125,14 @@ Use for "good enough" game numbers — see [aalo-atomics.md](../research/aalo-at
 - **Sodium plugging / low flow** — Chemistry maintenance required (NPC beat)
 - **Overpower transient** — Rod insert; temperature feedback (simplified)
 
-## Future Gen IV Additions (extension packs)
+## Post-game extensions
 
-- **Natrium / SFR** — Fast spectrum sodium; different neutronics teaching
-- **Molten salt reactor (MSR)** — Liquid fuel/coolant; freeze plugs; corrosion — **separate sim component**
-- **Gas-cooled (VHTR)** — Helium coolant
-- **Alternate SMR vendors** — Kairos, X-energy, etc. as content swaps
+Optional content after Part III SMR is operational — see [Reactor & Extension Catalog](../reactor-catalog.md):
+
+- **[Oklo Aurora + recycling](oklo-aurora-extension.md)** — pyroprocessing + fast module (additive)
+- Natrium / SFR, MSR, AP-1000, fusion — catalog placeholders
+
+Base Part III remains **Aalo-class thermal LMR** only.
 
 ## Reference Data
 
@@ -136,7 +140,7 @@ Use for "good enough" game numbers — see [aalo-atomics.md](../research/aalo-at
 - [Sodium-cooled reactors — general](../research/sodium-cooled-reactors.md)
 - IAEA Gen IV reports (conceptual background)
 - EBR-II passive safety test program (decay heat teaching)
-- Natrium (TerraPower/GEH) — extension-pack fast-reactor reference
+- [Oklo Aurora extension](../research/oklo-aurora.md) — optional fast reactor + pyroprocessing pack
 - [Nuclear AP-1000](nuclear-ap1000-simulation.md) — deferred; PWR comparison optional in holo-readers
 
 ## Revision Notes

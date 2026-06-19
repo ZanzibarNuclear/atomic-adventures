@@ -133,6 +133,7 @@ Read in this order when onboarding to narrative or simulation design:
 5. [Progression Design](game-design/content/progression-design.md) — gates, difficulty curve, staged complexity
 6. [Learning Objectives](game-design/content/learning-objectives.md) — concepts mapped to story
 7. [Simulation Overview](game-design/content/subject-matter/simulation-overview.md) — per-technology sim specs ([hydro](game-design/content/subject-matter/hydro-simulation.md) is the Part I spine)
+8. [Reactor & Extension Catalog](game-design/content/reactor-catalog.md) — trilogy SMR, post-game extensions, future model list
 
 Story art and map references live under [`game-design/art/`](game-design/art/). Most design documents are marked `[DRAFT]`.
 

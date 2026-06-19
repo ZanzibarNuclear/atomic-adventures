@@ -83,7 +83,7 @@ Part III opens on **descent**. Zanzibar rides the concealed elevator to a dorman
 
 **Design intent:** Part III teaches Gen IV / SMR concepts (fast neutrons, coolant behavior, inherent safety) at higher complexity than Parts I–II. Party members handle parallel tasks (monitoring, maintenance runs, communication) so the scenario stays **plausible** without turning the game into a multiplayer sim.
 
-_Launch reactor design (real-world SMR in development), reunion beat, and trilogy climax — TBD. Alternate SMR models may ship as extension packs._
+_Launch reactor: Aalo-class thermal SMR. Post-game extensions (recycling, alternate models) — [reactor-catalog.md](../reactor-catalog.md)._
 
 ## Opening — The Pine Forest
 

@@ -40,6 +40,16 @@ Learning objectives drive story gates. A player cannot advance until they demons
 
 **AP-1000 Gen III+** and **fusion** specs remain in `subject-matter/` for future packs; not part of the release trilogy learning path.
 
+**Oklo Aurora extension** (post-game, after SMR operational) — pyroprocessing + optional fast module: [oklo-aurora-extension.md](subject-matter/oklo-aurora-extension.md). Catalog: [reactor-catalog.md](reactor-catalog.md).
+
+| Objective | Assessment |
+|-----------|------------|
+| Understand spent-fuel constituents (U, TRU, fission products) | Identify recyclable vs waste streams in cask/holo-reader |
+| Explain why fast reactors pair with recycling | U/TRU fuel usable in Aurora, not in thermal LWR |
+| Describe electrorefining at high level | Route U/TRU product vs waste in simplified pyro sim |
+| Recognize proliferation-resistance claim | U and TRU stay mixed — contrast with PUREX (lore) |
+| Operate closed fuel cycle | Process casks → fabricate metal fuel → run fast reactor |
+
 ## Cross-Cutting Concepts
 
 - **Efficiency** — All technologies have losses; where do they go?

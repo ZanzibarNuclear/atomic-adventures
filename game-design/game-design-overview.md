@@ -35,6 +35,14 @@ The release game is **three parts**, each centered on one generation technology.
 
 **Part III cast:** Zanzibar alone through Parts I–II; the rest of the **traveling party finds the compound** in Part III. Running and keeping a reactor going takes more than one person — NPC roles support operations, maintenance, and story without replacing the player's learning.
 
+## Post-game extensions (not replacements)
+
+The trilogy ships **one** underground SMR story (Aalo-class calibration). **Extensions** are optional modules unlocked **after the campus SMR is running** — extra systems to explore, not alternate Part III endings. Examples: waste **pyroprocessing** + fast-reactor wing ([Oklo Aurora extension](content/subject-matter/oklo-aurora-extension.md)), additional reactor types, storage, or fusion research.
+
+Full model list and unlock rules: [Reactor & Extension Catalog](content/reactor-catalog.md).
+
+**Future spin-off (concept):** *Nuclear Magnate* — builder/tycoon game reusing the same simulation components; player **chooses from a range of reactor models** to develop a power business. Atomic Adventures remains the narrative onboarding; Magnate is scale-up sandbox. Not scoped for the current vertical slice.
+
 ## Scope
 
 - **Near-future setting** — Roughly 100 years of continued energy-tech advancement assumed; secret DoE research campus in Maine
@@ -46,11 +54,13 @@ The release game is **three parts**, each centered on one generation technology.
 | ---- | ---------- | ---------------- |
 | I | Hydroelectric | Diversion / penstock, run-of-river; startup then operations |
 | II | Photovoltaic | Panel layout, irradiance, inverters, grid integration; contrast with hydro |
-| III | Gen IV SMR | One **real-world SMR design in development today** (calibration candidate: [Aalo-1](../research/aalo-atomics.md) — sodium-cooled thermal LMR) |
+| III | Gen IV SMR | One **real-world SMR** — [Aalo-1 class](content/research/aalo-atomics.md) (sodium-cooled thermal LMR) |
 
-**Extension packs (future):** Alternate SMR models swappable as content packs without changing the Part III story spine.
+### Post-game extensions (after Part III SMR is operational)
 
-### Deferred — Not Core Trilogy
+Optional add-ons — see [Reactor & Extension Catalog](content/reactor-catalog.md). First scoped example: **[Oklo Aurora + pyroprocessing](content/subject-matter/oklo-aurora-extension.md)** (recycling wing + fast reactor module; **does not replace** the Part III SMR).
+
+### Deferred — not trilogy or first extensions
 
 - **AP-1000 Gen III+ PWR** — Spec retained in [nuclear-ap1000-simulation.md](content/subject-matter/nuclear-ap1000-simulation.md) for optional or expansion content
 - **Fusion (tokamak)** — Research spec only; aspirational future chapter

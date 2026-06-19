@@ -59,7 +59,7 @@ Teaching beat: the **steam generator boundary** is where sodium-water reaction r
 | **SFR (sodium-cooled fast reactor)** | None (or minimal) | Fast | Natrium, BN-800, historic EBR-II breeder mission |
 | **Thermal sodium reactor** | Graphite (typical) | Thermal | **Aalo-1** (graphite + LEU UO₂) |
 
-Our Part III anchor candidate **Aalo** is a **thermal-spectrum liquid-metal microreactor**, not an SFR. Extension packs could swap in a **Natrium-class fast reactor** with different neutronics teaching (no moderator, breeding, different feedback).
+Our Part III anchor **Aalo** is a **thermal-spectrum liquid-metal microreactor**. Post-game extensions may add **fast** sodium units (Oklo Aurora, Natrium) per [reactor-catalog.md](reactor-catalog.md).
 
 Simulation specs should teach **sodium coolant behavior** for any sodium design; **neutron spectrum** lessons depend on which real design we ship.
 

@@ -98,7 +98,7 @@ Each part centers on one energy installation the player must understand and rest
 | II | Solar array (surface) | PV installation and grid tie | Panel placement, inverter sizing |
 | III | Gen IV SMR (underground) | SMR startup and operation | Coolant behavior, team-assisted ops |
 
-*Part I discovers the solar field and teases the reactor; Part II restores PV; Part III operates the SMR with party help. Alternate SMR models may ship as extension packs.*
+*Part I discovers the solar field and teases the reactor; Part II restores PV; Part III operates the Aalo-class SMR with party help. A sealed recycling wing may foreshadow post-game extensions — [reactor-catalog.md](../reactor-catalog.md).*
 
 Each area follows the same arc:
 1. **Arrive** — Explore a dormant facility. Discover what it was.

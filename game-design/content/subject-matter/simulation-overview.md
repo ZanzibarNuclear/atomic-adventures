@@ -10,7 +10,7 @@
 | II | [Photovoltaic](photovoltaic-simulation.md) |
 | III | [Nuclear Gen IV / SMR](nuclear-gen4-simulation.md) |
 
-Deferred specs (optional expansion): [AP-1000](nuclear-ap1000-simulation.md), [Fusion](fusion-simulation.md).
+Deferred / post-game: [AP-1000](nuclear-ap1000-simulation.md), [Fusion](fusion-simulation.md), [Oklo extension](oklo-aurora-extension.md). Full list: [reactor-catalog.md](../reactor-catalog.md).
 
 ## Goals
 
@@ -48,6 +48,7 @@ Deferred specs (optional expansion): [AP-1000](nuclear-ap1000-simulation.md), [F
 
 - [Nuclear AP-1000](nuclear-ap1000-simulation.md)
 - [Fusion](fusion-simulation.md)
+- [Oklo Aurora + pyroprocessing](oklo-aurora-extension.md)
 
 ## Technical Considerations
 
