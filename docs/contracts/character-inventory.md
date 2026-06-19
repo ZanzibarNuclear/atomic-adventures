@@ -1,9 +1,9 @@
 # Character and Inventory Management
 
 **Status:** Proposed contract for Part I implementation  
-**Scope:** Player character state, authored items, inventory, stats, skills,
-quests, documents, requirements/effects, save data, and the player-facing
-character panel
+**Scope:** Player character state, authored items, containers, inventory,
+wellbeing, knowledge, skills, quests, documents, requirements/effects, save
+data, and the player-facing character panel
 
 ---
 
@@ -52,6 +52,8 @@ The character system owns:
 - player profile display;
 - carried and discovered items;
 - numeric and ranked stats;
+- time-driven needs such as hunger and thirst;
+- learned knowledge and concepts;
 - acquired skills and qualifications;
 - quest and objective progress;
 - found documents;
@@ -89,7 +91,7 @@ profile:
   summary: Curious explorer and aspiring energy systems operator.
 
 panel:
-  tabs: [overview, inventory, skills, quests, documents]
+  tabs: [overview, inventory, knowledge, skills, quests, documents]
   statGroups:
     - { id: wellbeing, label: Wellbeing, order: 10 }
     - { id: progression, label: Progression, order: 20 }
@@ -100,6 +102,7 @@ panel:
 
 items: []
 stats: []
+knowledge: []
 skills: []
 quests: []
 documents: []
@@ -123,7 +126,7 @@ Builder beat drafts, World Builder geometry drafts, or player save state.
 The workspace provides:
 
 - profile and character-panel configuration;
-- item, stat, skill, quest, and document catalogs;
+- item, stat, knowledge, skill, quest, and document catalogs;
 - ordering and grouping controls;
 - reference search showing every use of a selected ID;
 - validation, revision history, restore, import, and export;
@@ -133,7 +136,8 @@ Story Builder and World Builder consume the catalog:
 
 - Story Builder selects requirements and effects from known IDs.
 - World Builder places catalog items and selects acquisition behavior.
-- Simulation configuration selects known stats, skills, quests, and rewards.
+- Simulation configuration selects known stats, knowledge, skills, quests, and
+  rewards.
 
 Authors should not need to copy IDs manually for normal builder workflows.
 
@@ -152,6 +156,7 @@ items:
     tags: [hydro, maintenance]
     carrying: unique
     maxQuantity: 1
+    portable: true
     visible: when-acquired
     inspect:
       text: The tools are old, carefully maintained, and complete.
@@ -171,6 +176,7 @@ Supported fields are:
 | `tags` | Author labels for filtering and future rules; tags do not execute behavior |
 | `carrying` | `unique` or `stack` |
 | `maxQuantity` | Maximum carried quantity; `1` for unique items |
+| `portable` | Whether the item can move between holders |
 | `visible` | `always`, `when-acquired`, or `hidden` |
 | `inspect` | Optional authored detail shown from the inventory |
 | `relatedDocument` | Optional document opened from the item detail |
@@ -182,26 +188,108 @@ usable only where an authored action or simulation accepts it.
 Items are not defined inside choices or pickups. This avoids conflicting names
 and descriptions for the same ID.
 
-### Inventory State
+### Holdings and Item State
 
-The player inventory is a map keyed by item ID:
+Inventory is not one global bag. Every physical item stack or unique item has a
+holder. This supports carrying a tool, putting it in a backpack, leaving the
+backpack in a room, or storing tools in a vehicle.
 
 ```json
 {
-  "lobby-exterior-key": { "quantity": 1 },
-  "trail-rations": { "quantity": 3 }
+  "stacks": {
+    "stack-rations-1": {
+      "item": "trail-rations",
+      "quantity": 3,
+      "holder": "container:backpack-1"
+    }
+  },
+  "instances": {
+    "backpack-1": {
+      "item": "field-backpack",
+      "holder": "character:zanzibar-nuhero"
+    },
+    "bolt-cutter-1": {
+      "item": "bolt-cutter",
+      "holder": "vehicle:ebuggy"
+    }
+  }
 }
 ```
 
-The first implementation supports quantities, not independently named item
-instances. Per-copy durability, randomized properties, equipment slots, and
-dropping objects into arbitrary world locations are later extensions. If a
-tool needs condition or charges in Part I, model those as an authored stat
-until a demonstrated need justifies item-instance state.
+Stackable items use stack records. Unique items and container items use
+instance records so their holder and contents remain stable. Instances do not
+initially support randomized properties or durability. If a tool needs
+condition or charges in Part I, model those as an authored stat until a
+demonstrated need justifies additional instance state.
 
 Inventory operations clamp at zero and at `maxQuantity`. An effect that cannot
 be fully applied fails before any sibling effect is committed unless it is
 explicitly marked optional.
+
+### Holders, Containers, and Access
+
+A holder is a stable place capable of owning items:
+
+| Holder | Example |
+| --- | --- |
+| Character | Zanzibar's hands, pockets, or directly carried gear |
+| Container item | A backpack, tool case, or water bottle |
+| Vehicle cargo | The eBuggy's cargo area |
+| Fixed world container | A kitchen cabinet, locker, or tool rack |
+| World placement | An item left at a room, stand, exterior node, or hex |
+
+Container-capable item definitions add:
+
+```yaml
+items:
+  - id: field-backpack
+    label: Field backpack
+    kind: container
+    carrying: unique
+    portable: true
+    container:
+      capacity:
+        slots: 12
+        massKg: 15
+      accepts:
+        kinds: [key, tool, book, consumable, part]
+      nesting: false
+```
+
+Capacity may use slots, mass, or both. Item mass is optional until a container
+or movement rule uses it. `nesting: false` is the default and prevents
+containers inside containers; this avoids recursive inventory puzzles while
+still supporting the backpack use case.
+
+Vehicles and fixed world containers use the same capacity and acceptance
+shape, but their definitions belong to world content rather than the item
+catalog. Their contents belong to player/world save state.
+
+An item is **accessible** when:
+
+- it is directly held by the character;
+- it is inside a container currently held by the character; or
+- an action explicitly includes a nearby holder, such as eBuggy cargo while
+  standing beside the eBuggy.
+
+Ordinary item requirements use accessible items. Authors can narrow the scope:
+
+```yaml
+items:
+  all:
+    - { id: bolt-cutter, quantity: 1, access: carried }
+    - { id: intake-toolkit, quantity: 1, access: nearby }
+```
+
+`carried` includes the character and carried containers. `nearby` additionally
+includes holders exposed by the current room, stand, exterior node, vehicle,
+or interaction. `anywhere` is reserved for authoring diagnostics and should
+not gate normal physical actions.
+
+Moving the eBuggy changes the vehicle holder's world location without changing
+its contents. A tool in eBuggy cargo therefore arrives with the vehicle but is
+not usable from across the map. A tool in a backpack moves with the backpack;
+leaving the backpack behind leaves its contents behind.
 
 ### Placements and Acquisition
 
@@ -227,9 +315,57 @@ so moving or relabeling a pickup does not duplicate it.
 Story choices, simulations, and actions may also grant items. Acquiring an item
 uses the same effect regardless of source.
 
-The player cannot drop, destroy, or consume an item unless an authored action
-applies an explicit removal effect. Quest-critical items should ordinarily be
-non-consumable.
+The player may transfer items between currently accessible holders when
+capacity and acceptance rules permit it. Leaving an item in the world creates
+or updates a stable placement at the current location. Items cannot teleport
+between inaccessible holders.
+
+An item is destroyed or consumed only when an explicit action applies a
+removal effect. Quest-critical items should ordinarily be non-consumable.
+
+### Consumables and Item Actions
+
+Food, water, medicine, and similar objects define player-invoked actions
+rather than relying on hard-coded item kinds:
+
+```yaml
+items:
+  - id: turkey-cranberry-meal
+    label: Turkey-cranberry Tastee Tack
+    kind: consumable
+    carrying: stack
+    maxQuantity: 20
+    properties:
+      calories: 720
+      hydrationMl: 40
+    actions:
+      - id: eat
+        label: Eat meal
+        consume: 1
+        timeMinutes: 20
+        effects:
+          - { op: stat.add, id: hunger, value: -55 }
+          - { op: stat.add, id: thirst, value: -4 }
+
+  - id: purified-water
+    label: Purified water
+    kind: consumable
+    carrying: stack
+    properties:
+      hydrationMl: 500
+    actions:
+      - id: drink
+        label: Drink water
+        consume: 1
+        timeMinutes: 5
+        effects:
+          - { op: stat.add, id: thirst, value: -45 }
+```
+
+Properties such as calories are authored descriptive and mechanical metadata.
+The action's validated effects remain authoritative so the game does not hide
+a universal nutrition formula in code. A later balancing tool may calculate
+suggested hunger effects from calories while still saving the explicit result.
 
 ## Stats
 
@@ -277,7 +413,113 @@ calculate results in code and return ordinary stat effects. This keeps authored
 content declarative and prevents a second programming language from growing
 inside JSON.
 
-## Skills and Qualifications
+### Time-Driven Needs and Wellbeing
+
+Stats may opt into controlled change when the game clock advances:
+
+```yaml
+stats:
+  - id: hunger
+    label: Hunger
+    group: wellbeing
+    type: meter
+    default: 35
+    min: 0
+    max: 100
+    direction: lower-is-better
+    drift:
+      perGameHour:
+        resting: 1.5
+        light: 3
+        moderate: 5
+        strenuous: 8
+    thresholds:
+      - at: 70
+        state: hungry
+      - at: 90
+        state: starving
+        effectsPerGameHour:
+          - { op: stat.add, id: health, value: -2 }
+
+  - id: thirst
+    label: Thirst
+    group: wellbeing
+    type: meter
+    default: 45
+    min: 0
+    max: 100
+    direction: lower-is-better
+    drift:
+      perGameHour:
+        resting: 3
+        light: 6
+        moderate: 10
+        strenuous: 15
+    thresholds:
+      - at: 65
+        state: thirsty
+      - at: 85
+        state: dehydrated
+        effectsPerGameHour:
+          - { op: stat.add, id: health, value: -4 }
+```
+
+Needs advance only with the authored **game clock**, never from real wall-clock
+time while the game is closed. Each time-consuming action reports duration and
+an activity profile: `resting`, `light`, `moderate`, or `strenuous`. Walking,
+manual labor, operating a console, sleeping, eating, and driving may therefore
+advance needs at different rates.
+
+The character system integrates rates over elapsed game time, clamps values,
+evaluates crossed thresholds in order, and applies threshold effects
+atomically. Large time jumps such as sleep must produce the same result as
+equivalent smaller increments.
+
+Activity profiles are engine-defined; authors select among them and configure
+rates. Authors cannot add executable rate formulas. Weather or injuries may
+apply registered rate multipliers later if Part I demonstrates the need.
+
+`health`, `hunger`, and `thirst` remain independent authored stats. Hunger and
+thirst affect health only through explicit threshold effects, allowing
+balancing without hard-coding a survival model into the engine.
+
+## Knowledge
+
+Knowledge represents concepts the character has learned and can apply. It is
+distinct from discovering a document and from developing a practiced skill:
+
+```yaml
+knowledge:
+  - id: hydro-head-and-flow
+    label: Head and flow
+    description: How elevation difference and flow rate determine available hydro power.
+    group: hydro
+    visible: when-acquired
+    sourceLabel: Holo-reader lesson
+```
+
+Knowledge is acquired, not ranked, in the first implementation. A holo-reader
+lesson, book, conversation, or successful observation applies:
+
+```yaml
+effects:
+  - { op: knowledge.acquire, id: hydro-head-and-flow }
+```
+
+Story beats, choices, simulations, and world activities may require it:
+
+```yaml
+require:
+  knowledge:
+    all: [hydro-head-and-flow]
+```
+
+Discovering or marking a document read does not automatically grant knowledge.
+The authored reading or lesson action explicitly grants the concepts it
+teaches. This permits introductory material, optional reading, assessments,
+and lessons that teach several concepts.
+
+## Skills, Practice, and Qualifications
 
 Skills represent learned capabilities rather than temporary measurements:
 
@@ -289,6 +531,26 @@ skills:
     mode: ranked
     maxRank: 3
     rankLabels: [Introduced, Practiced, Qualified]
+    practice:
+      evidence:
+        - { id: operating-days, label: Successful operating days, target: 10 }
+        - { id: leak-repairs, label: Leaks patched, target: 1 }
+      awards:
+        - rank: 1
+          badge: badges/hydro-introduced.webp
+          require:
+            knowledge: { all: [hydro-head-and-flow] }
+        - rank: 2
+          badge: badges/hydro-practiced.webp
+          require:
+            evidence:
+              - { id: operating-days, op: gte, value: 5 }
+        - rank: 3
+          badge: badges/hydro-qualified.webp
+          require:
+            evidence:
+              - { id: operating-days, op: gte, value: 10 }
+              - { id: leak-repairs, op: gte, value: 1 }
     visible: when-acquired
     order: 10
 ```
@@ -298,10 +560,28 @@ A skill uses either:
 - `acquired` — absent or acquired; or
 - `ranked` — integer rank from `0` through `maxRank`.
 
-Player state stores the current rank and optional acquisition timestamp.
-Training, story, and simulations grant or raise ranks through effects. Skill
-definitions may describe ranks, but they do not automatically watch flags or
-simulation values. The event that earns a rank applies it explicitly.
+Player state stores the current rank, acquisition timestamp, and authored
+practice-evidence counters. Successful gameplay events apply evidence:
+
+```yaml
+effects:
+  - { op: skill.add-evidence, id: hydro-operations, evidence: operating-days, value: 1 }
+  - { op: skill.add-evidence, id: hydro-operations, evidence: leak-repairs, value: 1 }
+```
+
+After an atomic effect list commits, the character system evaluates skill award
+rules and grants newly satisfied ranks in order. This is a constrained
+achievement/badge model: authors compose requirements from known knowledge,
+evidence counters, quests, stats, and flags without writing scripts.
+Each award may supply a badge image and player-facing earned text.
+
+Evidence is awarded for meaningful outcomes, not button presses. For example,
+the hydro simulation awards an operating day only after the plant completes a
+successful day, and awards a leak repair only after the repair outcome.
+
+Skills may also be granted directly for story-controlled exceptions, but
+practice-based skills should use evidence rules so their acquisition criteria
+remain visible and auditable in Character Builder.
 
 The character panel shows qualifications in the Skills tab and may summarize
 selected skills on Overview.
@@ -385,6 +665,10 @@ require:
     - { id: health, op: gte, value: 25 }
   skills:
     - { id: hydro-operations, op: gte, rank: 1 }
+  knowledge:
+    all: [hydro-head-and-flow]
+  evidence:
+    - { skill: hydro-operations, id: operating-days, op: gte, value: 5 }
   quests:
     - { id: restore-hydro, status: active }
   documents:
@@ -432,9 +716,10 @@ The registered first-version operations are:
 
 | Domain | Operations |
 | --- | --- |
-| Items | `item.add`, `item.remove` |
+| Items | `item.add`, `item.remove`, `item.transfer` |
 | Stats | `stat.set`, `stat.add` |
-| Skills | `skill.acquire`, `skill.set-rank`, `skill.add-rank` |
+| Knowledge | `knowledge.acquire`, `knowledge.forget` |
+| Skills | `skill.acquire`, `skill.set-rank`, `skill.add-rank`, `skill.add-evidence` |
 | Quests | `quest.make-available`, `quest.start`, `quest.set-status`, `quest.advance-objective`, `quest.complete-objective` |
 | Documents | `document.discover`, `document.mark-read` |
 | Flags | `flag.set`, `flag.clear` |
@@ -446,6 +731,24 @@ This prevents receiving a reward while failing to consume its required item.
 
 Legacy choice fields such as `sets` and `set_flags` normalize into flag
 effects. Existing building pickups normalize into an `item.add` effect.
+`item.add` places new items with the character unless the effect names another
+accessible holder.
+
+Item transfer is a state operation with source and destination holders:
+
+```yaml
+effects:
+  - op: item.transfer
+    item: bolt-cutter
+    quantity: 1
+    from: nearby
+    to: vehicle:ebuggy
+```
+
+The runtime resolves symbolic holders such as `character`,
+`current-container`, and `current-vehicle` from interaction context. Authored
+content may reference stable holder IDs but may not manufacture arbitrary
+runtime instance IDs.
 
 ## Runtime Integration
 
@@ -459,8 +762,9 @@ movement occurs and the player receives an actionable error.
 ### World and doors
 
 World and building documents reference item IDs but do not own definitions.
-Door locks use ordinary item requirements. Pickups and fixture interactions
-apply effects through the shared character service.
+Door locks use ordinary item requirements. Pickups, storage interactions, item
+transfers, and fixture interactions apply effects through the shared character
+service.
 
 The current building-local `items` catalog is migrated into `character-main`.
 Building documents retain only placements and references.
@@ -472,12 +776,33 @@ their configuration. On a registered outcome, they return an outcome ID and
 effect payload. The host validates and commits the payload; embedded or
 external simulations do not mutate player state directly.
 
+Successful simulations may grant knowledge, practice evidence, skills, quest
+progress, and items in one atomic outcome. Repeating a simulation does not
+duplicate one-time evidence unless its authored outcome permits repetition.
+
+### Game clock and activity
+
+The future game-clock system owns current game time and the duration of days.
+The character system owns the effect of elapsed time on character stats.
+
+Any action that advances time supplies:
+
+- elapsed game minutes;
+- one registered activity profile;
+- optional contextual modifiers approved by the host.
+
+Movement, story, rest, item actions, and simulations all pass through the same
+clock-advance boundary. Character need changes are committed before the next
+beat is selected, so a beat may react to hunger, thirst, health, time, or the
+result of the completed activity.
+
 ### Flags
 
 Flags remain useful for hidden narrative facts and world state. A value that
-the player should understand and inspect belongs in a stat, skill, quest, item,
-or document instead. Content should not maintain duplicate flag and character
-state unless integration with a legacy system requires it temporarily.
+the player should understand and inspect belongs in a stat, knowledge entry,
+skill, quest, item, or document instead. Content should not maintain duplicate
+flag and character state unless integration with a legacy system requires it
+temporarily.
 
 ### Save/load
 
@@ -486,15 +811,26 @@ Player character state is global, not nested beneath the indoor map:
 ```json
 {
   "character": {
-    "inventory": {
-      "lobby-exterior-key": { "quantity": 1 }
+    "holdings": {
+      "stacks": {},
+      "instances": {}
     },
     "stats": {
       "health": 100,
       "operator-level": 1
     },
     "skills": {
-      "hydro-operations": { "rank": 1, "acquiredAt": "..." }
+      "hydro-operations": {
+        "rank": 1,
+        "acquiredAt": "...",
+        "evidence": {
+          "operating-days": 3,
+          "leak-repairs": 0
+        }
+      }
+    },
+    "knowledge": {
+      "hydro-head-and-flow": { "acquiredAt": "..." }
     },
     "quests": {
       "restore-hydro": {
@@ -515,9 +851,14 @@ Player character state is global, not nested beneath the indoor map:
 ```
 
 The save version must increase when this state replaces
-`indoor.inventory`. Migration converts each legacy inventory ID to quantity
-`1`. Invalid or unknown saved values load conservatively and produce a
+`indoor.inventory`. Migration converts each legacy inventory ID to a unique
+instance or quantity-one stack held by the character, according to its current
+definition. Invalid or unknown saved values load conservatively and produce a
 development warning rather than discarding the whole save.
+
+World save state also stores the contents and locations of vehicle holders,
+fixed containers, and runtime item placements. A save is internally invalid if
+one item belongs to multiple holders or a holder cycle exists.
 
 ### Live authoring
 
@@ -532,18 +873,54 @@ state:
 - if a stale save contains an unknown ID, its state is retained as an orphan
   but hidden from normal UI until the definition returns or a migration maps it.
 
+## Scenario Checks
+
+The intended Part I cases map to the contract as follows:
+
+1. **Hunger, thirst, food, and water** — Hunger and thirst are meter stats with
+   activity-dependent drift. Game-clock advancement changes them; threshold
+   effects can reduce health. Food and water are authored consumables whose
+   actions consume quantity, advance time, and reduce the appropriate need.
+   Calories and hydration remain visible author metadata.
+2. **Holo-reader knowledge** — Completing a lesson applies one or more
+   `knowledge.acquire` effects. A later beat, choice, action, or simulation can
+   require that knowledge ID without relying on a hidden flag.
+3. **Practice becoming skill** — Successful operating days, repairs, and other
+   meaningful outcomes add named evidence counters. Authored award rules grant
+   skill ranks and badges when their evidence and knowledge requirements pass.
+4. **Backpack storage** — The backpack is a unique portable container instance.
+   Keys, meals, and instruction cards can transfer into it. If the backpack is
+   left in a room, its contents remain with it and are no longer carried.
+5. **Tools carried or transported by eBuggy** — A tool may be held directly,
+   placed in a carried backpack, or transferred to the eBuggy holder. The
+   vehicle transports its contents. An action can require the tool to be
+   `carried` or merely `nearby`, preventing remote use.
+
+These examples require no item-specific or lesson-specific JavaScript. Engine
+code implements the finite concepts—time drift, effects, holders, transfers,
+requirements, and skill awards—while authors supply IDs, values, placements,
+lesson rewards, and progression criteria.
+
 ## Player-Facing Character Panel
 
-The game provides one character panel that can open without changing the
-player's map location or interrupting save state. Desktop may use a side panel
-or modal; narrow screens use a full-screen sheet.
+The game provides one character view that can open without changing the
+player's map location or interrupting save state. It occupies the app's primary
+game-view surface, replacing the map temporarily in the same way as a location
+close-up, holo-reader lesson, document, console, or simulation. It is not a
+small panel squeezed beside the playable map.
+
+The app shell owns switching between Map and Character and provides a
+consistent **Return to map** action. Returning restores the same logical
+location, room or stand, map camera, narrative context, and available actions.
+Opening the character view does not create a movement or story event.
 
 The default tabs are:
 
 | Tab | Contents |
 | --- | --- |
-| Overview | Portrait, profile, important meters, level/progression, active quest summary |
-| Inventory | Grouped carried items, quantities, descriptions, inspection, linked documents |
+| Overview | Portrait, profile, wellbeing meters, level/progression, active quest summary |
+| Inventory | Current holder tree: carried gear, backpack contents, and accessible nearby storage |
+| Knowledge | Learned concepts and their authored descriptions |
 | Skills | Acquired skills, ranks, qualifications, and authored descriptions |
 | Quests | Active, available, completed, and failed quests with objectives |
 | Documents | Discovered manuals, books, diagrams, logs, and read state |
@@ -554,23 +931,31 @@ or default empty-state text rather than disappearing unexpectedly.
 
 Opening, tabbing, filtering, inspecting, and reading do not consume an item or
 advance game state unless the player selects an explicit authored action.
+Eating, drinking, transferring, dropping, or using an item is an explicit
+action and may advance game time.
 Required story choices and simulation gates may prevent leaving their own
 modal surface, but ordinary narrative cards do not block opening the character
 panel.
 
-The panel must be keyboard navigable, expose meter values as text, not rely on
+The view must be keyboard navigable, expose meter values as text, not rely on
 color alone, and preserve the last selected tab during the current session.
-The open/closed UI state is not required in save data.
+The selected top-level game view and open/closed UI state are not required in
+save data.
 
 ## Validation and Reference Safety
 
 Blocking validation includes:
 
 - malformed or duplicate IDs across each catalog;
-- unknown group, item, stat, skill, quest, objective, or document references;
+- unknown group, item, stat, knowledge, skill, evidence, quest, objective,
+  holder, or document references;
 - invalid defaults, bounds, enum values, quantities, ranks, or quest statuses;
 - effects incompatible with a definition's type;
 - destructive item effects that can exceed available quantity;
+- impossible container capacities, disallowed nesting, holder cycles, or one
+  item assigned to several holders;
+- malformed drift rates, activity profiles, thresholds, or threshold effects;
+- unreachable or circular skill award rules;
 - duplicate quest objective IDs;
 - missing assets where asset validation is available;
 - attempts to delete or rename referenced definitions without a cascade plan.
@@ -583,6 +968,9 @@ Warnings should identify:
 
 - important stats or active quests hidden from every panel tab;
 - unique items granted by several repeatable sources;
+- consumables with nutrition metadata but no usable action;
+- portable containers that cannot accept any item kind;
+- skill evidence that no gameplay outcome awards;
 - quest-critical items consumed without a replacement path;
 - skills or documents never granted;
 - quests with no reachable start or completion effect;
@@ -592,7 +980,7 @@ Warnings should identify:
 
 | Data | Storage |
 | --- | --- |
-| Character, item, stat, skill, quest, and document definitions | SQLite `character-main` document |
+| Character, item, stat, knowledge, skill, quest, and document definitions | SQLite `character-main` document |
 | Definition revisions | SQLite immutable revision history |
 | Physical item placements and world interactions | Outdoor/building world documents |
 | Narrative requirements and rewards | Story beat content |
@@ -608,14 +996,17 @@ Authored definitions remain separate from player/account rows.
 1. Add the `character-main` repository, validation, API, export, revisions,
    and builder route.
 2. Introduce a global character store and migrate legacy indoor inventory/save
-   data.
+   data into holder-based state.
 3. Move utility-station item definitions to the character catalog while
    retaining world pickup references.
 4. Implement shared requirement evaluation and atomic effects.
 5. Add item requirements/effects to Story Builder and World Builder.
 6. Add the tabbed character panel with Overview and Inventory first.
-7. Add stats, skills, quests, and documents as Part I content needs them.
-8. Integrate simulation outcomes through the same effects service.
+7. Add game-time drift for hunger/thirst and authored food/water actions.
+8. Add knowledge, practice evidence, skills, quests, and documents as Part I
+   content needs them.
+9. Add backpack and eBuggy holders, transfers, and persistent contents.
+10. Integrate simulation outcomes through the same effects service.
 
 Each increment must preserve existing keys, door behavior, pickups, save/load,
 and live world/story refresh.
@@ -625,8 +1016,8 @@ and live world/story refresh.
 The following are deliberately outside the first contract:
 
 - equipment slots, armor, and combat statistics;
-- independently stateful item instances or durability systems;
-- arbitrary item dropping and persistent world containers;
+- item durability and randomized per-instance properties;
+- unrestricted container nesting;
 - crafting recipes and economies;
 - authored stat formulas or general-purpose expressions;
 - multiple playable characters, NPC inventories, and party management;

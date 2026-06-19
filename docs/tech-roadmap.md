@@ -110,16 +110,40 @@ Grid map shows floor plans; Part I also needs **inspectable room detail** — lo
 - Interact with objects that are too fine-grained for the top-down grid (buggy under cover, holo-readers, tool rack, charge cables, infopods, conference screen).
 - Bridge between **exploration beats** and **simulator entry points** (e.g. open control console from control room close-up).
 
+These are top-level **game views**, not overlays squeezed around the map. The
+primary play area switches among:
+
+- outdoor or indoor map;
+- location close-up (such as inspecting the eBuggy);
+- lesson, document, console, or simulation;
+- character status and inventory.
+
+Switching views does not move the player or replace gameplay state. Returning
+to the map restores the same logical location, selected room or stand, camera,
+narrative context, and available actions. A close-up remains associated with
+the location or fixture that opened it, while the character view is globally
+available unless a modal simulation or required decision deliberately blocks
+leaving.
+
+The app shell should own this shared view navigation and a consistent **Return
+to map** path. Individual close-ups, lessons, simulations, and character tabs
+must not invent separate navigation models.
+
 ### 7. Character, items, inventory, and progression
 
 Minimal inventory exists (keys, door checks, small HUD panel). Part I needs a fuller model:
 
-- Authored catalogs for pickups, tools, documents, consumables, stats, skills,
-  qualifications, and quests.
-- Player-facing **character panel** with overview, inventory, skills, quests,
-  and documents (reviewing possessions is called out in the opening narrative).
+- Authored catalogs for pickups, tools, documents, consumables, stats,
+  knowledge, skills, qualifications, and quests.
+- Player-facing **character panel** with overview, inventory, knowledge,
+  skills, quests, and documents (reviewing possessions is called out in the
+  opening narrative).
+- Character and inventory status uses the same primary game-view surface as
+  close-ups and lessons, toggling with the map rather than crowding it.
 - Generic requirements and effects for item-gated actions, health/progression
   changes, skills acquired, and quest/objective completion.
+- Time-driven wellbeing plus persistent carried, backpack, world-container,
+  and vehicle inventories.
 - Story, world, and simulation integration without hard-coded item or stat
   names.
 
@@ -148,6 +172,8 @@ Map and beat infrastructure support Part I, but the **full beat spine** — fore
 
 - **Prose** — `proseParagraphs()` today; inline Markdown and richer beat text when authors need it.
 - **Simulation UX** — transitions between map, close-ups, sim panels, and holo-reader without losing place context.
+- **Shared game-view navigation** — consistent map, close-up, lesson/simulation,
+  and character-view switching with location and context restoration.
 - Accessibility and mobile layout pass before calling Part I “complete.”
 
 ---
