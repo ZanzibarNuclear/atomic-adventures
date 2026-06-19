@@ -7,8 +7,6 @@ import {
   roomRect,
   roomStandPosition,
   roomStandModels,
-  ROOM_ICON_HALF_HEIGHT,
-  FEET_GAP_ABOVE_ROOM_ICON,
   isStairLanding,
   levelBeams,
   doorsOnLevel,
@@ -372,12 +370,6 @@ export function useGridMapPlacements({
     const stand = roomStandPosition(building.value, current.value, currentStand.value)
     if (!stand) return null
     const pt = tp(stand.x, stand.y)
-    if (current.value.icon) {
-      // Screen-space offset: stand above the centered room icon.
-      const feetY = pt.y - ROOM_ICON_HALF_HEIGHT - FEET_GAP_ABOVE_ROOM_ICON
-      return { x: pt.x, y: feetY - avatarFootOffset.value }
-    }
-    // No icon — stand at room center (icon anchor position).
     return { x: pt.x, y: pt.y - avatarFootOffset.value }
   })
 

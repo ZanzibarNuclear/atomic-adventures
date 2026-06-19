@@ -15,7 +15,7 @@
       <circle :cx="stand.cx" :cy="stand.cy" :r="stand.r" class="stand-dot" />
       <circle v-if="stand.current" :cx="stand.cx" :cy="stand.cy" :r="stand.r + 3" class="stand-ring" />
       <text
-        v-if="stand.current || stand.reachable || builderView"
+        v-if="stand.reachable || builderView"
         :x="stand.cx"
         :y="stand.cy + stand.r + 5"
         class="stand-label"
