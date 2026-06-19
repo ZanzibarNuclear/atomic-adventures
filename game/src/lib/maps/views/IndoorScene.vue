@@ -6,6 +6,12 @@
 
   <NarrativeCard :beat="narrativeBeat" />
 
+  <IndoorMovementAudit
+    v-if="auditEnabled && devMode"
+    :indoor="indoor"
+    @close="$emit('hide-movement-audit')"
+  />
+
   <PlayPanel>
     <StatusLines :lines="statusLines" />
 
@@ -42,6 +48,7 @@ import InventoryPanel from "../components/hud/InventoryPanel.vue";
 import StatusLines from "../../../components/hud/StatusLines.vue";
 import PlayActions from "../../../components/hud/PlayActions.vue";
 import NarrativeCard from "../../../components/story/NarrativeCard.vue";
+import IndoorMovementAudit from "../components/diagnostics/IndoorMovementAudit.vue";
 import {
   buildIndoorChooseActions,
   buildIndoorPlayActions,
@@ -56,7 +63,11 @@ const props = defineProps({
   pendingBeat: { type: Object, default: null },
   applyChoice: { type: Function, required: true },
   travelToRoom: { type: Function, required: true },
+  auditEnabled: { type: Boolean, default: false },
 });
+
+defineEmits(["hide-movement-audit"]);
+const devMode = import.meta.env.DEV;
 
 const locationTitle = computed(() => {
   const { indoor } = props;

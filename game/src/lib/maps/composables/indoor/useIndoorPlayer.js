@@ -118,6 +118,7 @@ export function createIndoorPlayer(buildingData, builderView, { flags: sharedFla
     }
     indoor.completedActions = new Set();
     indoor.avatarWaypoint = null;
+    indoor.moving = false;
   }
 
   return {

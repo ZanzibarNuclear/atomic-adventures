@@ -14,6 +14,7 @@ import GridHydroLayer from './grid/GridHydroLayer.vue'
 import GridRoomLayer from './grid/GridRoomLayer.vue'
 import GridDoorLayer from './grid/GridDoorLayer.vue'
 import GridFixtureLayer from './grid/GridFixtureLayer.vue'
+import GridExteriorFogLayer from './grid/GridExteriorFogLayer.vue'
 import { mapVisibilityCtx } from '../composables/useGrid.js'
 
 const props = defineProps({
@@ -40,6 +41,8 @@ const props = defineProps({
   addPointMode: { type: Boolean, default: false },
   mapClickMode: { type: String, default: null },
   expanded: { type: Boolean, default: false },
+  viewportMode: { type: String, default: 'gameplay' },
+  exteriorFog: { type: Boolean, default: true },
 })
 
 const emit = defineEmits([
@@ -92,6 +95,7 @@ const {
   tp,
   unTp,
   viewBox,
+  viewBoxRect,
   placedRiver,
   placedCliffWall,
   placedGridLines,
@@ -103,10 +107,12 @@ const {
   visibility,
   cell,
   expanded: computed(() => props.expanded),
+  viewportMode: computed(() => props.viewportMode),
 })
 
 const {
   placedBuildingShell,
+  placedFogBuildingShell,
   placedRooms,
   placedDoors,
   placedBeams,
@@ -265,6 +271,15 @@ const {
         :is-fixture-revealed="isFixtureRevealed"
         @stair-fixture-click="onStairFixtureClick"
         @stair-exit-click="onStairExitClick"
+      />
+
+      <GridExteriorFogLayer
+        :visible="exteriorFog && level === building.exterior?.level"
+        :view-box="viewBoxRect"
+        :building-shell="placedFogBuildingShell"
+        :paths="placedExteriorPaths"
+        :nodes="placedExteriorNodes"
+        :cell="cell"
       />
 
       <MapAvatar

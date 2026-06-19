@@ -13,6 +13,21 @@ import {
 } from "../useGrid.js";
 import { canBargeThroughDoor, canPassDoor } from "../useDoors.js";
 
+export const INDOOR_MOVE_MS = 550;
+export const FLOOR_MOVE_MS = 520;
+export const EXTERIOR_WALK_SPEED = 5;
+
+export function prefersReducedMapMotion() {
+  return typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+export function exteriorWalkDurationMs(distance, reducedMotion = false) {
+  if (reducedMotion || !Number.isFinite(distance) || distance <= 0) return 0;
+  return (distance / EXTERIOR_WALK_SPEED) * 1000;
+}
+
 export function createIndoorMovement(deps) {
   const {
     building,
@@ -234,6 +249,16 @@ export function createIndoorMovement(deps) {
     if (!indoorMoves.value.some((m) => moveKey(m) === moveKey(move))) return;
 
     indoor.moving = true;
+    const finishAfter = (duration) => {
+      const wait = prefersReducedMapMotion() ? 0 : duration;
+      if (wait === 0) {
+        indoor.moving = false;
+        return;
+      }
+      setTimeout(() => {
+        indoor.moving = false;
+      }, wait);
+    };
 
     if (indoor.exteriorNode) {
       if (move.toExteriorNode) {
@@ -249,9 +274,7 @@ export function createIndoorMovement(deps) {
         indoor.level =
           building.value.roomById[move.toRoomId]?.level ?? indoor.level;
         indoor.viewLevel = indoor.level;
-        setTimeout(() => {
-          indoor.moving = false;
-        }, 400);
+        finishAfter(INDOOR_MOVE_MS);
         return;
       }
       indoor.moving = false;
@@ -261,18 +284,14 @@ export function createIndoorMovement(deps) {
     if (move.toExteriorNode) {
       indoor.exteriorNode = move.toExteriorNode;
       indoor.currentRoom = null;
-      setTimeout(() => {
-        indoor.moving = false;
-      }, 400);
+      finishAfter(INDOOR_MOVE_MS);
       return;
     }
 
     if (move.onSpiral) {
       indoor.level = move.toLevel;
       indoor.viewLevel = move.toLevel;
-      setTimeout(() => {
-        indoor.moving = false;
-      }, 500);
+      finishAfter(FLOOR_MOVE_MS);
       return;
     }
 
@@ -293,9 +312,7 @@ export function createIndoorMovement(deps) {
     }
     indoor.viewLevel = indoor.level;
 
-    setTimeout(() => {
-      indoor.moving = false;
-    }, 500);
+    finishAfter(INDOOR_MOVE_MS);
   }
 
   function moveToRoom(roomId) {
@@ -331,8 +348,6 @@ export function createIndoorMovement(deps) {
     if (move) applyIndoorMove(move);
   }
 
-  const WALK_SPEED = 5 // layout units per second
-
   function walkExteriorPath(nodeIds) {
     if (indoor.moving || !nodeIds.length) return
     indoor.moving = true
@@ -366,7 +381,13 @@ export function createIndoorMovement(deps) {
     const totalDist = dists[dists.length - 1]
     if (!totalDist) { indoor.moving = false; return }
 
-    const totalMs = (totalDist / WALK_SPEED) * 1000
+    const totalMs = exteriorWalkDurationMs(totalDist, prefersReducedMapMotion())
+    if (totalMs === 0) {
+      indoor.exteriorNode = nodeIds.at(-1)
+      indoor.avatarWaypoint = null
+      indoor.moving = false
+      return
+    }
     const startTime = performance.now()
 
     // Real nodes queued to be committed as the avatar passes their distance.

@@ -48,6 +48,11 @@ defineProps({
 .map-avatar.instant {
   transition: none;
 }
+@media (prefers-reduced-motion: reduce) {
+  .map-avatar {
+    transition: none;
+  }
+}
 .map-avatar-shadow {
   fill: rgba(0, 0, 0, 0.28);
 }

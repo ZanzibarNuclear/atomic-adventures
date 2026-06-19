@@ -55,7 +55,9 @@ export function captureSnapshot({ gameState, place, outdoor, indoor }) {
       pickupsTaken: [...i.pickupsTaken],
       facility: clonePlain(i.facility),
       completedActions: [...i.completedActions],
-      avatarWaypoint: i.avatarWaypoint ? { ...i.avatarWaypoint } : null,
+      // Resume from the last committed authored location, not an animation-only
+      // point between exterior nodes.
+      avatarWaypoint: null,
     },
   };
 }
@@ -105,7 +107,7 @@ export function applySnapshot(snapshot, { gameState, place, outdoor, indoor }) {
     manualMode: { ...(i.facility?.manualMode ?? {}) },
   };
   d.completedActions = new Set(i.completedActions ?? []);
-  d.avatarWaypoint = i.avatarWaypoint ? { ...i.avatarWaypoint } : null;
+  d.avatarWaypoint = null;
   d.moving = false;
 
   place.value = snapshot.place === "indoors" ? "indoors" : "outdoors";

@@ -122,7 +122,9 @@ function handleReset() {
       :narrative-beat="narrativeBeat"
       :pending-beat="pendingBeat"
       :apply-choice="applyChoice"
-      :travel-to-room="travelToRoom" />
+      :travel-to-room="travelToRoom"
+      :audit-enabled="movementAuditVisible"
+      @hide-movement-audit="movementAuditVisible = false" />
 
     <StoryOverlay :show-end-card="showEndCard" @dismiss-end="dismissEndCard" />
   </main>

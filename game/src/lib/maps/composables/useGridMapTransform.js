@@ -3,7 +3,7 @@ import { levelCliffWall, levelMapLayoutBounds } from './useGrid.js'
 import { northOrientationBase } from './grid/useGridCompass.js'
 import { bbox } from './useGridFixtureLayout.js'
 
-function expandFrameToAspect(frame, aspect) {
+export function expandFrameToAspect(frame, aspect, zoom = 1) {
   const { minX, maxX, minY, maxY, bcx, bcy } = frame
   const corners = [
     { x: minX, y: minY },
@@ -20,6 +20,9 @@ function expandFrameToAspect(frame, aspect) {
   if (halfH <= 0) halfH = 1
   if (halfW / halfH < aspect) halfW = halfH * aspect
   else halfH = halfW / aspect
+  const safeZoom = Number.isFinite(zoom) && zoom > 0 ? zoom : 1
+  halfW /= safeZoom
+  halfH /= safeZoom
   return {
     minX: bcx - halfW,
     maxX: bcx + halfW,
@@ -50,7 +53,15 @@ function cliffWallPolygonPath(points) {
 /**
  * Viewport rotation, layout bounds, and coordinate transforms for GridMap.
  */
-export function useGridMapTransform({ gridmapRef, building, level, visibility, cell, expanded }) {
+export function useGridMapTransform({
+  gridmapRef,
+  building,
+  level,
+  visibility,
+  cell,
+  expanded,
+  viewportMode,
+}) {
   const rotation = ref(0)
   function rotate() {
     rotation.value = (rotation.value + 90) % 360
@@ -61,8 +72,13 @@ export function useGridMapTransform({ gridmapRef, building, level, visibility, c
 
   const swapAxes = computed(() => mapRotation.value % 180 !== 0)
 
+  const layoutVisibility = computed(() => ({
+    ...visibility.value,
+    builderView: false,
+  }))
+
   const mapLayout = computed(() =>
-    levelMapLayoutBounds(building.value, level.value, visibility.value),
+    levelMapLayoutBounds(building.value, level.value, layoutVisibility.value),
   )
 
   const containerAspect = ref(220 / 200)
@@ -98,8 +114,10 @@ export function useGridMapTransform({ gridmapRef, building, level, visibility, c
     }
   })
 
+  const viewportZoom = computed(() => viewportMode.value === 'fit-all' ? 0.82 : 1)
+
   const layoutViewFrame = computed(() =>
-    expandFrameToAspect(minFramePx.value, containerAspect.value),
+    expandFrameToAspect(minFramePx.value, containerAspect.value, viewportZoom.value),
   )
 
   const center = computed(() => ({

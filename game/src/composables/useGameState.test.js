@@ -41,6 +41,21 @@ function buildTestHarness() {
 }
 
 describe('useGameState save roundtrip', () => {
+  it('does not persist an in-flight indoor animation waypoint', () => {
+    const { outdoor, indoor, gameState, place } = buildTestHarness()
+    indoor.indoor.exteriorNode = indoor.building.exterior.entry
+    indoor.indoor.avatarWaypoint = { x: 1.25, y: 3.5 }
+    indoor.indoor.moving = true
+
+    const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
+    expect(snapshot.indoor.avatarWaypoint).toBeNull()
+
+    const ok = applySnapshot(snapshot, { gameState, place, outdoor, indoor })
+    expect(ok).toBe(true)
+    expect(indoor.indoor.avatarWaypoint).toBeNull()
+    expect(indoor.indoor.moving).toBe(false)
+  })
+
   it('persists stand position through capture and apply', () => {
     const { outdoor, indoor, gameState, place } = buildTestHarness()
 

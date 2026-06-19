@@ -29,6 +29,8 @@ const selectedBeatId = ref("");
 const locationMode = ref("outdoors");
 const selectedLocation = ref(mapData.start);
 const indoorLevel = ref(buildingData.exterior?.level ?? buildingData.levels.at(-1)?.id);
+const indoorViewportMode = ref("gameplay");
+const previewExteriorFog = ref(false);
 const draft = ref(null);
 const baseline = ref("");
 const isNew = ref(false);
@@ -453,11 +455,23 @@ async function saveAndContinue() {
           @hex-click="selectHex" />
 
         <template v-else-if="locationMode !== 'events'">
-          <label class="level-picker">Floor
-            <select v-model="indoorLevel">
-              <option v-for="level in buildingData.levels" :key="level.id" :value="level.id">{{ level.label }}</option>
-            </select>
-          </label>
+          <div class="indoor-preview-controls">
+            <label>Floor
+              <select v-model="indoorLevel">
+                <option v-for="level in buildingData.levels" :key="level.id" :value="level.id">{{ level.label }}</option>
+              </select>
+            </label>
+            <label>Camera
+              <select v-model="indoorViewportMode">
+                <option value="gameplay">Gameplay preview</option>
+                <option value="fit-all">Fit all</option>
+              </select>
+            </label>
+            <label class="preview-check">
+              <input v-model="previewExteriorFog" type="checkbox">
+              Exterior fog
+            </label>
+          </div>
           <GridMap
             :building="building"
             :current-room="selectedRoom"
@@ -471,6 +485,8 @@ async function saveAndContinue() {
             :door-states="buildInitialDoorState(building.areaId, building)"
             :builder-view="true"
             :hydro-discovered="true"
+            :viewport-mode="indoorViewportMode"
+            :exterior-fog="previewExteriorFog"
             @room-click="selectRoom"
             @exterior-node-click="selectExterior" />
         </template>
@@ -748,6 +764,20 @@ legend { color: #8bc49a; padding: 0 .35rem; }
 .danger-outline:hover:not(:disabled) { background: #543034; }
 .unsaved-actions .muted { background: #252a33; border-color: #3a404a; color: #b2b8c2; }
 .level-picker { margin-bottom: .6rem; }
+.indoor-preview-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .55rem;
+  margin-bottom: .6rem;
+}
+.preview-check {
+  grid-column: 1 / -1;
+  display: flex;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: .45rem;
+}
+.preview-check input { width: auto; }
 .empty-editor { color: #9aa0ac; padding: 3rem 1rem; text-align: center; }
 @media (max-width: 1100px) {
   .builder-workspace { grid-template-columns: 1fr 1fr; }
