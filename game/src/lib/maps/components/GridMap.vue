@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { pointsAttr } from '../composables/useRoutes.js'
 import { useSvgDragHandles } from '../composables/useSvgDragHandles.js'
 import {
+  panViewBoxByPixels,
   resolveGridCameraFocus,
   useGridMapTransform,
 } from '../composables/useGridMapTransform.js'
@@ -49,6 +50,7 @@ const props = defineProps({
   viewportMode: { type: String, default: 'gameplay' },
   exteriorFog: { type: Boolean, default: false },
   wheelZoom: { type: Boolean, default: false },
+  dragPan: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
@@ -65,6 +67,9 @@ const emit = defineEmits([
 
 const shellRef = ref(null)
 const gridmapRef = ref(null)
+const panStart = ref(null)
+const isPanning = ref(false)
+let suppressNextClick = false
 
 watch(
   () => {
@@ -116,6 +121,7 @@ const {
   placedGridLines,
   swapAxes,
   zoomByWheel,
+  setViewBox,
 } = useGridMapTransform({
   gridmapRef,
   building: computed(() => props.building),
@@ -135,6 +141,53 @@ function onWheel(event) {
   const x = rect.width > 0 ? (event.clientX - rect.left) / rect.width : 0.5
   const y = rect.height > 0 ? (event.clientY - rect.top) / rect.height : 0.5
   zoomByWheel(event.deltaY > 0 ? 1.12 : 0.88, x, y)
+}
+
+function onPointerDown(event) {
+  if (!props.dragPan || props.builderEdit || event.button !== 0) return
+  panStart.value = {
+    pointerId: event.pointerId,
+    clientX: event.clientX,
+    clientY: event.clientY,
+    viewBox: { ...viewBoxRect.value },
+  }
+}
+
+function onPointerMove(event) {
+  const start = panStart.value
+  if (!start || start.pointerId !== event.pointerId) return
+  const dx = event.clientX - start.clientX
+  const dy = event.clientY - start.clientY
+  if (!isPanning.value && Math.hypot(dx, dy) < 4) return
+  if (!isPanning.value) {
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+  }
+  isPanning.value = true
+  event.preventDefault()
+  const rect = event.currentTarget.getBoundingClientRect()
+  setViewBox(panViewBoxByPixels(start.viewBox, dx, dy, rect.width, rect.height))
+}
+
+function finishPan(event) {
+  const start = panStart.value
+  if (!start || start.pointerId !== event.pointerId) return
+  if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+    event.currentTarget.releasePointerCapture?.(event.pointerId)
+  }
+  panStart.value = null
+  if (!isPanning.value) return
+  isPanning.value = false
+  suppressNextClick = true
+  window.setTimeout(() => {
+    suppressNextClick = false
+  }, 0)
+}
+
+function onClickCapture(event) {
+  if (!suppressNextClick) return
+  suppressNextClick = false
+  event.preventDefault()
+  event.stopPropagation()
 }
 
 const {
@@ -230,8 +283,14 @@ const {
   >
     <svg
       ref="mapSvgRef"
+      :class="{ 'drag-pan-enabled': dragPan && !builderEdit, panning: isPanning }"
       :viewBox="viewBox"
       preserveAspectRatio="xMidYMid meet"
+      @pointerdown="onPointerDown"
+      @pointermove="onPointerMove"
+      @pointerup="finishPan"
+      @pointercancel="finishPan"
+      @click.capture="onClickCapture"
       @click="onSvgClick"
       @wheel="onWheel"
     >
@@ -373,3 +432,14 @@ const {
     </svg>
   </GridMapShell>
 </template>
+
+<style scoped>
+.drag-pan-enabled {
+  cursor: grab;
+  touch-action: none;
+}
+
+.drag-pan-enabled.panning {
+  cursor: grabbing;
+}
+</style>

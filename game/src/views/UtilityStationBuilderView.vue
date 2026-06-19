@@ -772,6 +772,7 @@ function clonePlain(value) {
             :viewport-mode="viewportMode"
             :exterior-fog="exteriorFog"
             :wheel-zoom="true"
+            :drag-pan="true"
             @select-item="selectItem($event.source, $event.id)"
             @select-handle="selectedHandleId = $event"
             @grid-handle-move="onHandleMove"
@@ -781,7 +782,7 @@ function clonePlain(value) {
             @stand-click="selectStand"
           />
         </div>
-        <p class="canvas-hint">Wheel to zoom</p>
+        <p class="canvas-hint">Wheel to zoom · Drag to pan when not editing geometry</p>
       </section>
 
       <aside v-if="!rightCollapsed" class="inspector panel">

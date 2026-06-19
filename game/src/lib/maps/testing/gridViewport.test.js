@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   expandFrameToAspect,
   focusedViewBox,
+  panViewBoxByPixels,
   resolveGridCameraFocus,
   rotatePointAround,
   zoomViewBoxAt,
@@ -72,6 +73,17 @@ describe("grid map viewport contract", () => {
 
     expect(zoomViewBoxAt(view, 0.01, 0.5, 0.5, { minWidth: 20 }).w).toBe(20);
     expect(zoomViewBoxAt(view, 10, 0.5, 0.5, { maxWidth: 300 }).w).toBe(300);
+  });
+
+  it("pans the camera with a pointer drag", () => {
+    const view = { x: 100, y: 50, w: 400, h: 200 };
+
+    expect(panViewBoxByPixels(view, 50, -25, 800, 400)).toEqual({
+      x: 75,
+      y: 62.5,
+      w: 400,
+      h: 200,
+    });
   });
 
   it("keeps the authored map transform independent from camera focus", () => {

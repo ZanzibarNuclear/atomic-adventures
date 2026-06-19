@@ -99,6 +99,15 @@ export function zoomViewBoxAt(viewBox, factor, anchorX = 0.5, anchorY = 0.5, lim
   }
 }
 
+export function panViewBoxByPixels(viewBox, dx, dy, viewportWidth, viewportHeight) {
+  if (!(viewportWidth > 0) || !(viewportHeight > 0)) return { ...viewBox }
+  return {
+    ...viewBox,
+    x: viewBox.x - (dx * viewBox.w) / viewportWidth,
+    y: viewBox.y - (dy * viewBox.h) / viewportHeight,
+  }
+}
+
 export function rotatePointAround(point, pivot, degrees) {
   const rad = (degrees * Math.PI) / 180
   const dx = point.x - pivot.x
@@ -260,6 +269,10 @@ export function useGridMapTransform({
     )
   }
 
+  function setViewBox(nextViewBox) {
+    wheelViewBox.value = { ...nextViewBox }
+  }
+
   const viewBox = computed(() => {
     const vb = viewBoxRect.value
     return `${vb.x} ${vb.y} ${vb.w} ${vb.h}`
@@ -382,5 +395,6 @@ export function useGridMapTransform({
     placedCliffWall,
     placedGridLines,
     zoomByWheel,
+    setViewBox,
   }
 }
