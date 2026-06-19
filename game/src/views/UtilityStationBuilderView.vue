@@ -782,7 +782,7 @@ function clonePlain(value) {
             @stand-click="selectStand"
           />
         </div>
-        <p class="canvas-hint">Wheel to zoom · Drag to pan when not editing geometry</p>
+        <p class="canvas-hint">Drag empty map to pan · Drag a selected stand or colored handle to move it · Wheel to zoom</p>
       </section>
 
       <aside v-if="!rightCollapsed" class="inspector panel">

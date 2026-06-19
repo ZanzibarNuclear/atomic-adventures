@@ -67,7 +67,7 @@ function handleLabel(h) {
 }
 .edit-handle {
   stroke-width: 2.5;
-  cursor: grab;
+  cursor: move;
   touch-action: none;
   vector-effect: non-scaling-stroke;
 }
@@ -81,6 +81,6 @@ function handleLabel(h) {
   stroke-width: 3.5;
 }
 .edit-handle:active {
-  cursor: grabbing;
+  cursor: move;
 }
 </style>

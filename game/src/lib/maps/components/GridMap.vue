@@ -144,7 +144,8 @@ function onWheel(event) {
 }
 
 function onPointerDown(event) {
-  if (!props.dragPan || props.builderEdit || event.button !== 0) return
+  if (!props.dragPan || props.addPointMode || event.button !== 0) return
+  if (event.target.closest('.edit-handle, .room-stand, .exterior-node')) return
   panStart.value = {
     pointerId: event.pointerId,
     clientX: event.clientX,
@@ -238,6 +239,15 @@ const { onHandleDown, clientToSvg } = useSvgDragHandles(mapSvgRef, {
   mapPoint: (pt) => unTp(pt.x, pt.y),
 })
 
+function onStandPointerDown(event, stand) {
+  onHandleDown(event, {
+    role: 'room-stand',
+    handleKey: 'room-stand',
+    x: stand.cx,
+    y: stand.cy,
+  })
+}
+
 const {
   onSvgClick,
   gridHandleRadius,
@@ -283,7 +293,7 @@ const {
   >
     <svg
       ref="mapSvgRef"
-      :class="{ 'drag-pan-enabled': dragPan && !builderEdit, panning: isPanning }"
+      :class="{ 'drag-pan-enabled': dragPan && !addPointMode, panning: isPanning }"
       :viewBox="viewBox"
       preserveAspectRatio="xMidYMid meet"
       @pointerdown="onPointerDown"
@@ -366,6 +376,7 @@ const {
         :stands="placedRoomStands"
         :builder-view="builderView"
         @stand-click="(roomId, standId) => emit('stand-click', { roomId, standId })"
+        @stand-pointerdown="onStandPointerDown"
       />
 
       <GridExteriorFogLayer
@@ -378,7 +389,7 @@ const {
       />
 
       <MapAvatar
-        v-if="avatarPos"
+        v-if="avatarPos && !builderView"
         :x="avatarPos.x"
         :y="avatarPos.y"
         :scale="avatarScale"

@@ -9,8 +9,14 @@
         derived: stand.kind === 'door',
         reachable: stand.reachable,
         'builder-selected': stand.selected,
+        draggable: builderView && stand.selected && stand.kind !== 'door',
       }"
       @click.stop="$emit('stand-click', stand.roomId, stand.id)"
+      @pointerdown="
+        builderView && stand.selected && stand.kind !== 'door'
+          ? $emit('stand-pointerdown', $event, stand)
+          : null
+      "
     >
       <circle :cx="stand.cx" :cy="stand.cy" :r="stand.r" class="stand-dot" />
       <circle v-if="stand.current" :cx="stand.cx" :cy="stand.cy" :r="stand.r + 3" class="stand-ring" />
@@ -29,11 +35,12 @@ defineProps({
   stands: { type: Array, default: () => [] },
   builderView: { type: Boolean, default: false },
 })
-defineEmits(['stand-click'])
+defineEmits(['stand-click', 'stand-pointerdown'])
 </script>
 
 <style scoped>
 .room-stand { opacity: .48; pointer-events: all; cursor: pointer; }
+.room-stand.draggable { cursor: move; touch-action: none; }
 .room-stand.reachable { opacity: .9; }
 .room-stand.current { opacity: 1; }
 .stand-dot { fill: #6d83a1; stroke: #d7e2f1; stroke-width: 1.5; }
