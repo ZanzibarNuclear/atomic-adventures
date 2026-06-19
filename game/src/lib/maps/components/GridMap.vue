@@ -328,8 +328,8 @@ const {
       />
 
       <MapEditHandlesLayer
-        :visible="builderEdit"
-        :handles="displayEditHandles"
+        :visible="builderView && !!selectedItemId"
+        :handles="builderEdit ? displayEditHandles : []"
         :selected-handle-id="selectedHandleId"
         :stroke-color="handleColor"
         :fill-color="handleFill"
@@ -341,6 +341,14 @@ const {
             v-if="editMode === 'line' && editPathControlLine.length"
             :points="pointsAttr(editPathControlLine)"
             class="edit-path-control"
+            fill="none"
+            stroke="#58c4e8"
+            stroke-width="2.5"
+            stroke-dasharray="6 5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            opacity="0.95"
+            pointer-events="none"
           />
           <template v-if="editMode === 'room' && selectedItemId">
             <rect
@@ -351,6 +359,12 @@ const {
               :width="p.rect.w"
               :height="p.rect.h"
               class="room-selection-outline"
+              fill="none"
+              stroke="rgba(200, 162, 255, 0.85)"
+              stroke-width="2"
+              stroke-dasharray="6 4"
+              vector-effect="non-scaling-stroke"
+              pointer-events="none"
               rx="4"
             />
           </template>

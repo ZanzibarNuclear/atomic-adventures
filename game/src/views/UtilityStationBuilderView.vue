@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import yaml from "js-yaml";
 import utilityStationData from "../../content/world/utility-station.yaml";
@@ -45,6 +45,7 @@ const level = ref(source.value.exterior?.level ?? source.value.levels?.at(-1)?.i
 const viewportMode = ref("fit-all");
 const selectedKey = ref("");
 const selectedHandleId = ref(null);
+const geometryEditing = ref(false);
 const search = ref("");
 const addMode = ref(null);
 const leftCollapsed = ref(false);
@@ -113,6 +114,7 @@ const editHandles = computed(() => {
   if (selected.source === "stands") return resolvedRoomStandHandle(selected.entity, cell.value);
   return [];
 });
+const canEditGeometry = computed(() => editHandles.value.length > 0);
 const selectedPathNode = computed(() => {
   const id = selectedHandleId.value?.match(/^node-(.+)$/)?.[1];
   return id ? draft.value.exterior?.nodes?.find((node) => node.id === id) ?? null : null;
@@ -163,8 +165,31 @@ function splitKey(key) {
 function selectItem(sourceName, id) {
   selectedKey.value = `${sourceName}:${id}`;
   selectedHandleId.value = null;
+  geometryEditing.value = false;
   addMode.value = null;
 }
+
+function toggleGeometryEditing() {
+  if (!canEditGeometry.value) return;
+  geometryEditing.value = !geometryEditing.value;
+  selectedHandleId.value = null;
+  if (!geometryEditing.value) addMode.value = null;
+}
+
+function togglePathAddMode(mode) {
+  if (addMode.value === mode) {
+    addMode.value = null;
+    return;
+  }
+  geometryEditing.value = true;
+  addMode.value = mode;
+}
+
+watch(level, () => {
+  geometryEditing.value = false;
+  selectedHandleId.value = null;
+  addMode.value = null;
+});
 
 function selectStand({ roomId, standId }) {
   if (standId.startsWith("door:")) {
@@ -226,6 +251,8 @@ function revertDraft() {
   draft.value = clonePlain(source.value);
   baseline.value = JSON.stringify(source.value);
   selectedHandleId.value = null;
+  geometryEditing.value = false;
+  addMode.value = null;
   doorStates.value = buildInitialDoorState(source.value.id, buildBuilding(source.value));
   errors.value = {};
   renames.value = [];
@@ -243,6 +270,9 @@ function applyLoaded(result) {
   loaded.value = true;
   renames.value = [];
   auditResult.value = null;
+  selectedHandleId.value = null;
+  geometryEditing.value = false;
+  addMode.value = null;
   if (!result.building.levels?.some((item) => item.id === level.value)) {
     level.value = result.building.exterior?.level ?? result.building.levels?.at(-1)?.id ?? "";
   }
@@ -429,6 +459,7 @@ function deleteSelected() {
   if (index >= 0) list.splice(index, 1);
   selectedKey.value = "";
   selectedHandleId.value = null;
+  geometryEditing.value = false;
 }
 
 function moveSelected(delta) {
@@ -696,6 +727,15 @@ function clonePlain(value) {
             </label>
           </div>
           <div class="tool-group">
+            <button
+              class="sm"
+              :class="{ active: geometryEditing }"
+              :disabled="!canEditGeometry"
+              @click="toggleGeometryEditing"
+            >
+              {{ geometryEditing ? "Done editing" : "Edit geometry" }}
+            </button>
+            <span v-if="geometryEditing" class="mode-indicator">Geometry editing</span>
             <button class="sm muted" @click="setDoorPreview(true)">Open all doors</button>
             <button class="sm muted" @click="setDoorPreview(false)">Close all doors</button>
           </div>
@@ -721,7 +761,7 @@ function clonePlain(value) {
             :reachable-exterior-nodes="allExteriorIds"
             :door-states="doorStates"
             :builder-view="true"
-            :builder-edit="!!selection"
+            :builder-edit="geometryEditing"
             :edit-mode="editMode"
             :edit-handles="editHandles"
             :selected-handle-id="selectedHandleId"
@@ -813,10 +853,10 @@ function clonePlain(value) {
               Smooth path
             </label>
             <div class="row-actions">
-              <button class="sm" :class="{ active: addMode === 'point' }" @click="addMode = addMode === 'point' ? null : 'point'">
+              <button class="sm" :class="{ active: addMode === 'point' }" @click="togglePathAddMode('point')">
                 Add waypoint
               </button>
-              <button class="sm" :class="{ active: addMode === 'node' }" @click="addMode = addMode === 'node' ? null : 'node'">
+              <button class="sm" :class="{ active: addMode === 'node' }" @click="togglePathAddMode('node')">
                 Add stand node
               </button>
               <button class="sm danger-outline" :disabled="!selectedHandleId" @click="removeSelectedPathHandle">
@@ -1029,6 +1069,14 @@ function clonePlain(value) {
 .object-item.active, button.active { background: #49624f; border-color: #6f9b79; }
 .canvas-column { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: .55rem; min-width: 0; }
 .canvas-toolbar label { display: flex; align-items: center; gap: .35rem; color: #bdc4ce; font-size: .8rem; }
+.mode-indicator {
+  padding: .3rem .5rem;
+  border: 1px solid rgba(200, 162, 255, .5);
+  border-radius: 999px;
+  color: #e0c9ff;
+  background: rgba(112, 72, 145, .28);
+  font-size: .72rem;
+}
 .station-canvas { min-height: 0; overflow: hidden; border: 1px solid #3b4655; border-radius: 11px; }
 .station-canvas :deep(.gridmap), .station-canvas :deep(.gridmap.builder-view:not(.expanded)) {
   width: 100%;

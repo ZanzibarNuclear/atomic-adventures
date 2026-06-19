@@ -1,21 +1,25 @@
 <template>
   <g v-if="visible" class="edit-layer">
     <slot name="overlay" />
-    <circle
+    <g
       v-for="h in handles"
       :key="'handle-' + h.handleKey"
-      :cx="h.x"
-      :cy="h.y"
-      :r="radiusFor(h)"
-      class="edit-handle"
-      :class="{
-        selected: h.handleKey === selectedHandleId,
-        ['role-' + h.role]: !!h.role,
-        'path-node-handle': h.role === 'path-node',
-      }"
-      :style="{ stroke: strokeColor(h), fill: fillColor(h) }"
-      @pointerdown="$emit('handle-down', $event, h)"
-    />
+    >
+      <title>{{ handleLabel(h) }}</title>
+      <circle
+        :cx="h.x"
+        :cy="h.y"
+        :r="radiusFor(h)"
+        class="edit-handle"
+        :class="{
+          selected: h.handleKey === selectedHandleId,
+          ['role-' + h.role]: !!h.role,
+          'path-node-handle': h.role === 'path-node',
+        }"
+        :style="{ stroke: strokeColor(h), fill: fillColor(h) }"
+        @pointerdown="$emit('handle-down', $event, h)"
+      />
+    </g>
   </g>
 </template>
 
@@ -35,6 +39,18 @@ function radiusFor(h) {
   if (props.handleRadius) return props.handleRadius(h)
   return h.handleKey === props.selectedHandleId ? 7 : 5.5
 }
+
+function handleLabel(h) {
+  if (h.role === 'move') return 'Move room'
+  if (['nw', 'ne', 'se', 'sw'].includes(h.role)) return 'Resize room'
+  if (h.role === 'point') return 'Move path waypoint'
+  if (h.role === 'path-node') return 'Move path stand node'
+  if (h.role === 'door-at') return 'Move door'
+  if (h.role === 'node-at') return 'Move exterior node'
+  if (h.role === 'room-stand') return 'Move room stand'
+  if (h.role === 'exit-map') return 'Move world transition'
+  return 'Move geometry'
+}
 </script>
 
 <style scoped>
@@ -48,23 +64,6 @@ function radiusFor(h) {
   opacity: 0.85;
   pointer-events: none;
   vector-effect: non-scaling-stroke;
-}
-.edit-path-control {
-  fill: none;
-  stroke: #58c4e8;
-  stroke-width: 2.5;
-  stroke-dasharray: 6 5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  opacity: 0.95;
-  pointer-events: none;
-}
-.room-selection-outline {
-  fill: rgba(200, 162, 255, 0.08);
-  stroke: rgba(200, 162, 255, 0.75);
-  stroke-width: 2;
-  stroke-dasharray: 6 4;
-  pointer-events: none;
 }
 .edit-handle {
   stroke-width: 2.5;
