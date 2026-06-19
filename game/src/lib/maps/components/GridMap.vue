@@ -15,7 +15,7 @@ import GridRoomLayer from './grid/GridRoomLayer.vue'
 import GridDoorLayer from './grid/GridDoorLayer.vue'
 import GridFixtureLayer from './grid/GridFixtureLayer.vue'
 import GridExteriorFogLayer from './grid/GridExteriorFogLayer.vue'
-import { mapVisibilityCtx } from '../composables/useGrid.js'
+import { mapVisibilityCtx, roomStandPosition } from '../composables/useGrid.js'
 
 const props = defineProps({
   building: { type: Object, required: true },
@@ -42,7 +42,7 @@ const props = defineProps({
   mapClickMode: { type: String, default: null },
   expanded: { type: Boolean, default: false },
   viewportMode: { type: String, default: 'gameplay' },
-  exteriorFog: { type: Boolean, default: true },
+  exteriorFog: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
@@ -75,6 +75,26 @@ const cell = computed(() => props.building.cell ?? 64)
 const discoveredSet = computed(() => new Set(props.discovered))
 const interactableDoorSet = computed(() => new Set(props.interactableDoorIds))
 const reachableExteriorSet = computed(() => new Set(props.reachableExteriorNodes))
+const cameraFocus = computed(() => {
+  if (props.avatarWaypoint && props.building.exterior?.level === props.level) {
+    return {
+      x: props.avatarWaypoint.x * cell.value,
+      y: props.avatarWaypoint.y * cell.value,
+    }
+  }
+  if (props.exteriorNode && props.building.exterior?.level === props.level) {
+    const node = props.building.exterior?.nodeById?.[props.exteriorNode]
+    if (node?.at) {
+      return { x: node.at.x * cell.value, y: node.at.y * cell.value }
+    }
+  }
+  if (props.currentRoom) {
+    const room = props.building.roomById?.[props.currentRoom]
+    const stand = room ? roomStandPosition(props.building, room) : null
+    if (stand) return stand
+  }
+  return null
+})
 
 const visibility = computed(() =>
   mapVisibilityCtx(
@@ -108,6 +128,7 @@ const {
   cell,
   expanded: computed(() => props.expanded),
   viewportMode: computed(() => props.viewportMode),
+  focusPoint: cameraFocus,
 })
 
 const {
@@ -287,7 +308,7 @@ const {
         :x="avatarPos.x"
         :y="avatarPos.y"
         :scale="avatarScale"
-        :instant="!!props.avatarWaypoint"
+        :instant="viewportMode === 'gameplay' || !!props.avatarWaypoint"
         halo
       />
 

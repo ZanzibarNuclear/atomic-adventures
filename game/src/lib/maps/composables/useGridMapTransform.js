@@ -35,6 +35,30 @@ export function expandFrameToAspect(frame, aspect, zoom = 1) {
   }
 }
 
+export function focusedViewBox(focus, aspect, cell, spanCells = 5.2) {
+  const safeAspect = Number.isFinite(aspect) && aspect > 0 ? aspect : 1
+  const height = cell * spanCells
+  const width = height * safeAspect
+  return {
+    x: focus.x - width / 2,
+    y: focus.y - height / 2,
+    w: width,
+    h: height,
+  }
+}
+
+export function rotatePointAround(point, pivot, degrees) {
+  const rad = (degrees * Math.PI) / 180
+  const dx = point.x - pivot.x
+  const dy = point.y - pivot.y
+  const c = Math.cos(rad)
+  const s = Math.sin(rad)
+  return {
+    x: pivot.x + dx * c - dy * s,
+    y: pivot.y + dx * s + dy * c,
+  }
+}
+
 function cliffWallSegmentPoly(p1, p2, thickness) {
   return [
     { x: p1.x, y: p1.y },
@@ -61,6 +85,7 @@ export function useGridMapTransform({
   cell,
   expanded,
   viewportMode,
+  focusPoint,
 }) {
   const rotation = ref(0)
   function rotate() {
@@ -120,34 +145,31 @@ export function useGridMapTransform({
     expandFrameToAspect(minFramePx.value, containerAspect.value, viewportZoom.value),
   )
 
+  const gameplayFocus = computed(() => focusPoint.value ?? ({
+    x: layoutViewFrame.value.bcx,
+    y: layoutViewFrame.value.bcy,
+  }))
+
+  // Rotation belongs to the authored floor plan, so its pivot must remain
+  // stable while the camera follows the player.
   const center = computed(() => ({
     x: layoutViewFrame.value.bcx,
     y: layoutViewFrame.value.bcy,
   }))
 
   function tp(x, y) {
-    const rad = (mapRotation.value * Math.PI) / 180
-    const cx = center.value.x
-    const cy = center.value.y
-    const dx = x - cx
-    const dy = y - cy
-    const c = Math.cos(rad)
-    const s = Math.sin(rad)
-    return { x: cx + dx * c - dy * s, y: cy + dx * s + dy * c }
+    return rotatePointAround({ x, y }, center.value, mapRotation.value)
   }
 
   function unTp(x, y) {
-    const rad = (mapRotation.value * Math.PI) / 180
-    const cx = center.value.x
-    const cy = center.value.y
-    const dx = x - cx
-    const dy = y - cy
-    const c = Math.cos(rad)
-    const s = Math.sin(rad)
-    return { x: cx + dx * c + dy * s, y: cy - dx * s + dy * c }
+    return rotatePointAround({ x, y }, center.value, -mapRotation.value)
   }
 
   const viewBoxRect = computed(() => {
+    if (viewportMode.value === 'gameplay') {
+      const focus = tp(gameplayFocus.value.x, gameplayFocus.value.y)
+      return focusedViewBox(focus, containerAspect.value, cell.value)
+    }
     const f = layoutViewFrame.value
     const corners = [
       tp(f.minX, f.minY),

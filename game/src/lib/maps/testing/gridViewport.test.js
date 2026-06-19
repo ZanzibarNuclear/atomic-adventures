@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { expandFrameToAspect } from "../composables/useGridMapTransform.js";
+import {
+  expandFrameToAspect,
+  focusedViewBox,
+  rotatePointAround,
+} from "../composables/useGridMapTransform.js";
 
 const frame = {
   minX: 0,
@@ -31,5 +35,34 @@ describe("grid map viewport contract", () => {
     expect(fitAll.bcy).toBe(gameplay.bcy);
     expect(fitAll.w).toBeGreaterThan(gameplay.w);
     expect(fitAll.h).toBeGreaterThan(gameplay.h);
+  });
+
+  it("centers the gameplay camera on the avatar with a fixed close span", () => {
+    const focus = { x: 320, y: 180 };
+    const view = focusedViewBox(focus, 16 / 9, 64);
+
+    expect(view.x + view.w / 2).toBe(focus.x);
+    expect(view.y + view.h / 2).toBe(focus.y);
+    expect(view.h).toBeCloseTo(64 * 5.2);
+    expect(view.w / view.h).toBeCloseTo(16 / 9);
+  });
+
+  it("does not change gameplay zoom when the avatar moves", () => {
+    const first = focusedViewBox({ x: 0, y: 0 }, 2, 64);
+    const later = focusedViewBox({ x: 500, y: -200 }, 2, 64);
+
+    expect(later.w).toBe(first.w);
+    expect(later.h).toBe(first.h);
+  });
+
+  it("keeps the authored map transform independent from camera focus", () => {
+    const rotationPivot = { x: 200, y: 100 };
+    const room = { x: 100, y: 50 };
+    const before = rotatePointAround(room, rotationPivot, 90);
+    const playerMovedElsewhere = { x: 500, y: 300 };
+    const after = rotatePointAround(room, rotationPivot, 90);
+
+    expect(playerMovedElsewhere).not.toEqual(rotationPivot);
+    expect(after).toEqual(before);
   });
 });
