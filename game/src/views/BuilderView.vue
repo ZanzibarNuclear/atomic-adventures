@@ -34,7 +34,7 @@ const selectedLocation = ref(mapData.start);
 const indoorLevel = ref(
   buildingData.value.exterior?.level ?? buildingData.value.levels.at(-1)?.id,
 );
-const indoorViewportMode = ref("gameplay");
+const indoorViewportMode = ref("fit-all");
 const previewExteriorFog = ref(false);
 const draft = ref(null);
 const baseline = ref("");
@@ -47,16 +47,20 @@ const eventLocationInput = ref("enter-building");
 const navigationPromptVisible = ref(false);
 const pendingContextAction = ref(null);
 const savingBeforeNavigation = ref(false);
+let beatLoadRequest = 0;
 
 const dirty = computed(() => draft.value && JSON.stringify(draft.value) !== baseline.value);
 const yamlPreview = computed(() => storyBeatYaml(draft.value));
-const locationBeats = computed(() =>
-  beats.value.filter((beat) => {
-    if (locationMode.value === "outdoors") return beat.trigger.hex === selectedLocation.value;
-    if (locationMode.value === "rooms") return beat.trigger.room === selectedLocation.value;
-    if (locationMode.value === "exterior") return beat.trigger.exteriorNode === selectedLocation.value;
+function beatsForLocation(mode, location) {
+  return beats.value.filter((beat) => {
+    if (mode === "outdoors") return beat.trigger.hex === location;
+    if (mode === "rooms") return beat.trigger.room === location;
+    if (mode === "exterior") return beat.trigger.exteriorNode === location;
     return Boolean(beat.trigger.event);
-  }),
+  });
+}
+const locationBeats = computed(() =>
+  beatsForLocation(locationMode.value, selectedLocation.value),
 );
 const selectedRoom = computed(() => locationMode.value === "rooms" ? selectedLocation.value : "");
 const selectedExterior = computed(() => locationMode.value === "exterior" ? selectedLocation.value : null);
@@ -117,17 +121,19 @@ watch(buildingRevision, async () => {
 async function loadBeats(selectId = "") {
   await refreshBeatList();
   if (selectId) await loadBeat(selectId);
-  else await openFirstBeatForSelectedHex();
+  else await openFirstBeatForSelectedLocation();
 }
 
 async function refreshBeatList() {
   beats.value = await storyApi(`/api/story/areas/${STORY_AREA_ID}/beats`);
 }
 
-async function loadBeat(id) {
+async function loadBeat(id, selectionKey = selectedLocationKey()) {
+  const request = ++beatLoadRequest;
   const result = await storyApi(
     `/api/story/areas/${STORY_AREA_ID}/beats/${encodeURIComponent(id)}`,
   );
+  if (request !== beatLoadRequest || selectionKey !== selectedLocationKey()) return;
   selectedBeatId.value = id;
   isNew.value = false;
   setDraft(result.beat);
@@ -148,32 +154,42 @@ async function applyHexSelection(id) {
   selectedLocation.value = id;
   outdoor.state.currentId = id;
   clearBeatSelection();
-  await openFirstBeatForSelectedHex();
+  await openFirstBeatForSelectedLocation();
 }
 
 function clearBeatSelection() {
+  beatLoadRequest += 1;
   selectedBeatId.value = "";
   draft.value = null;
   baseline.value = "";
+  isNew.value = false;
   errors.value = {};
+  status.value = "";
 }
 
-async function openFirstBeatForSelectedHex() {
-  if (locationMode.value !== "outdoors") return;
-  const selectionKey = `${locationMode.value}:${selectedLocation.value}`;
-  const firstBeat = locationBeats.value[0];
+function selectedLocationKey() {
+  return `${locationMode.value}:${selectedLocation.value}`;
+}
+
+async function openFirstBeatForSelectedLocation(
+  mode = locationMode.value,
+  location = selectedLocation.value,
+) {
+  const selectionKey = `${mode}:${location}`;
+  const firstBeat = beatsForLocation(mode, location)[0];
   if (!firstBeat) return;
+  const request = ++beatLoadRequest;
 
   try {
     const result = await storyApi(
       `/api/story/areas/${STORY_AREA_ID}/beats/${encodeURIComponent(firstBeat.id)}`,
     );
-    if (selectionKey !== `${locationMode.value}:${selectedLocation.value}`) return;
+    if (request !== beatLoadRequest || selectionKey !== selectedLocationKey()) return;
     selectedBeatId.value = firstBeat.id;
     isNew.value = false;
     setDraft(result.beat);
   } catch (error) {
-    if (selectionKey === `${locationMode.value}:${selectedLocation.value}`) {
+    if (request === beatLoadRequest && selectionKey === selectedLocationKey()) {
       status.value = error.message;
     }
   }
@@ -184,12 +200,13 @@ function selectRoom(id) {
   void requestContextChange(() => applyRoomSelection(id));
 }
 
-function applyRoomSelection(id) {
+async function applyRoomSelection(id) {
   locationMode.value = "rooms";
   selectedLocation.value = id;
-  const room = building.roomById[id];
+  const room = building.value.roomById[id];
   if (room?.level) indoorLevel.value = room.level;
   clearBeatSelection();
+  await openFirstBeatForSelectedLocation();
 }
 
 function selectExterior(id) {
@@ -197,11 +214,20 @@ function selectExterior(id) {
   void requestContextChange(() => applyExteriorSelection(id));
 }
 
-function applyExteriorSelection(id) {
+function selectIndoorMapItem({ source, id }) {
+  if (source === "rooms") {
+    selectRoom(id);
+  } else if (source === "nodes") {
+    selectExterior(id);
+  }
+}
+
+async function applyExteriorSelection(id) {
   locationMode.value = "exterior";
   selectedLocation.value = id;
   indoorLevel.value = buildingData.value.exterior?.level ?? indoorLevel.value;
   clearBeatSelection();
+  await openFirstBeatForSelectedLocation();
 }
 
 function switchMode(mode) {
@@ -219,9 +245,9 @@ async function applyModeSelection(mode) {
   if (mode === "outdoors") {
     await applyHexSelection(outdoor.mapData.start);
   } else if (mode === "rooms") {
-    applyRoomSelection(buildingData.value.rooms[0]?.id);
+    await applyRoomSelection(buildingData.value.rooms[0]?.id);
   } else if (mode === "exterior") {
-    applyExteriorSelection(buildingData.value.exterior?.entry);
+    await applyExteriorSelection(buildingData.value.exterior?.entry);
   } else {
     locationMode.value = "events";
     selectedLocation.value = "enter-building";
@@ -514,7 +540,8 @@ async function saveAndContinue() {
             :viewport-mode="indoorViewportMode"
             :exterior-fog="previewExteriorFog"
             @room-click="selectRoom"
-            @exterior-node-click="selectExterior" />
+            @exterior-node-click="selectExterior"
+            @select-item="selectIndoorMapItem" />
         </template>
 
         <label v-else>Event name
