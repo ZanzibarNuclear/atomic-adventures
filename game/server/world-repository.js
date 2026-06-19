@@ -17,6 +17,10 @@ export class WorldRepository {
     this.storyRepository = repository;
   }
 
+  setBuildingData(buildingData) {
+    this.buildingData = buildingData;
+  }
+
   ensureSeed(seedWorld) {
     if (this.getDocument()) return;
     const validation = validateWorld(seedWorld);
@@ -53,9 +57,9 @@ export class WorldRepository {
     };
   }
 
-  getCatalog() {
+  getCatalog(buildingData = this.buildingData) {
     const document = this.getDocument();
-    return buildWorldCatalog(document?.world ?? { hexes: [] }, this.buildingData);
+    return buildWorldCatalog(document?.world ?? { hexes: [] }, buildingData);
   }
 
   validate(input) {

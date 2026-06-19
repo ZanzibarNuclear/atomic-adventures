@@ -14,13 +14,55 @@ export function createIndoorPlayer(buildingData, builderView, { flags: sharedFla
   const building = computed(() => buildBuilding(editableBuildingData.value));
 
   function syncFromBuildingData(data) {
+    const nextBuilding = buildBuilding(data);
+    const currentRoom = nextBuilding.roomById[indoor.currentRoom] ? indoor.currentRoom : null;
+    const exteriorNode = nextBuilding.exterior?.nodeById?.[indoor.exteriorNode]
+      ? indoor.exteriorNode
+      : currentRoom
+        ? null
+        : nextBuilding.exterior?.entry ?? null;
+    const currentDoorState = indoor.doorState;
+    const nextDoorState = buildInitialDoorState(nextBuilding.areaId, nextBuilding);
+    for (const key of Object.keys(nextDoorState)) {
+      if (currentDoorState[key]) nextDoorState[key] = { ...currentDoorState[key] };
+    }
     editableBuildingData.value = structuredClone(data);
-  }
-
-  if (import.meta.hot) {
-    import.meta.hot.accept("../../../../../content/world/utility-station.yaml", (mod) => {
-      if (mod?.default) syncFromBuildingData(mod.default);
-    });
+    indoor.currentRoom = currentRoom;
+    indoor.exteriorNode = exteriorNode;
+    indoor.discovered = new Set(
+      [...indoor.discovered].filter((id) => nextBuilding.roomById[id]),
+    );
+    indoor.revealed = new Set(
+      [...indoor.revealed].filter((id) => {
+        if (nextBuilding.roomById[id]) return true;
+        if (id.startsWith("door:")) return !!nextBuilding.doorById[id.slice(5)];
+        if (id.startsWith("fixture:")) {
+          return nextBuilding.fixtures.some((fixture) => fixture.id === id.slice(8));
+        }
+        return false;
+      }),
+    );
+    indoor.level = nextBuilding.levelById[indoor.level]
+      ? indoor.level
+      : nextBuilding.exterior?.level ?? nextBuilding.levels[0]?.id;
+    indoor.viewLevel = nextBuilding.levelById[indoor.viewLevel]
+      ? indoor.viewLevel
+      : indoor.level;
+    indoor.doorState = nextDoorState;
+    indoor.inventory = new Set(
+      [...indoor.inventory].filter((id) => nextBuilding.itemById[id]),
+    );
+    indoor.pickupsTaken = new Set(
+      [...indoor.pickupsTaken].filter((id) =>
+        nextBuilding.pickups.some((pickup) => pickup.id === id),
+      ),
+    );
+    indoor.completedActions = new Set(
+      [...indoor.completedActions].filter((id) =>
+        nextBuilding.actions.some((action) => action.id === id),
+      ),
+    );
+    indoor.avatarWaypoint = null;
   }
 
   const initialBuilding = buildBuilding(buildingData);

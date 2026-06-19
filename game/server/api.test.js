@@ -9,6 +9,7 @@ import { openDatabase } from "./db.js";
 import { StoryRepository } from "./story-repository.js";
 import { buildWorldCatalog, loadBuildingData, loadWorldSeed } from "./world-catalog.js";
 import { WorldRepository } from "./world-repository.js";
+import { BuildingRepository } from "./building-repository.js";
 
 const dirs = [];
 
@@ -24,7 +25,17 @@ function setup() {
   const buildingData = loadBuildingData();
   const repository = new StoryRepository(db, buildWorldCatalog(seedWorld, buildingData));
   const worldRepository = new WorldRepository(db, { seedWorld, buildingData, storyRepository: repository });
-  return { db, api: createApiHandler(repository, worldRepository), worldRepository };
+  const buildingRepository = new BuildingRepository(db, {
+    seedBuilding: buildingData,
+    worldRepository,
+    storyRepository: repository,
+  });
+  return {
+    db,
+    api: createApiHandler(repository, worldRepository, buildingRepository),
+    worldRepository,
+    buildingRepository,
+  };
 }
 
 function responseCapture() {
@@ -54,7 +65,7 @@ function request(method, url, body) {
 
 describe("story API", () => {
   it("broadcasts committed mutations and not rejected saves", async () => {
-    const { db, api, worldRepository } = setup();
+    const { db, api, worldRepository, buildingRepository } = setup();
     const eventReq = new EventEmitter();
     eventReq.method = "GET";
     eventReq.url = "/api/content/events";
@@ -96,6 +107,23 @@ describe("story API", () => {
     );
     expect(worldRes.status).toBe(200);
     expect(eventRes.chunks.filter((chunk) => chunk.includes("world.updated"))).toHaveLength(1);
+
+    const currentBuilding = buildingRepository.getDocument();
+    const buildingRes = responseCapture();
+    await api.handle(
+      request("PUT", "/api/world/buildings/utility-station", {
+        building: {
+          ...currentBuilding.building,
+          rooms: currentBuilding.building.rooms.map((room) =>
+            room.id === "library" ? { ...room, x: room.x - 0.5 } : room,
+          ),
+        },
+        expectedVersion: currentBuilding.version,
+      }),
+      buildingRes,
+    );
+    expect(buildingRes.status).toBe(200);
+    expect(eventRes.chunks.filter((chunk) => chunk.includes("building.updated"))).toHaveLength(1);
 
     api.close();
     db.close();

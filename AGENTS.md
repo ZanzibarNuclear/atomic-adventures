@@ -128,7 +128,7 @@ Ren'Py, Twine, and Unity were evaluated and rejected. The sibling mini-game proj
 game/
 ├── content/
 │   ├── atomic-adventures.sqlite — Canonical story/outdoor-world content and revisions
-│   ├── world/          — Outdoor interchange YAML and canonical indoor building YAML
+│   ├── world/          — Outdoor and indoor interchange/seed YAML
 │   └── story/          — Story YAML import/export snapshots
 ├── server/             — Unified server, content API, SQLite repository, migrations
 ├── src/
@@ -194,11 +194,14 @@ Outdoor world content is the `outdoor-main` JSON document in
 ```bash
 npm run world:export -w game -- outdoor-main /tmp/map.yaml
 npm run world:import -w game -- /tmp/map.yaml --replace
+npm run building:export -w game -- utility-station /tmp/utility-station.yaml
+npm run building:import -w game -- /tmp/utility-station.yaml --replace
 ```
 
 Direct edits to `game/content/world/map.yaml` do not affect the game until
-imported. Indoor building YAML remains canonical until indoor world authoring
-is implemented.
+imported. Utility-station geometry is stored as the `utility-station` building
+document in SQLite and edited from the Utility Station workspace in
+`/builder/world`; its YAML file is seed/import material.
 
 ## Sibling Projects
 

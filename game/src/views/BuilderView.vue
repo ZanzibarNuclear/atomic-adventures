@@ -1,7 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { onBeforeRouteLeave, useRouter } from "vue-router";
-import buildingData from "../../content/world/utility-station.yaml";
 import HexMap from "../lib/maps/components/HexMap.vue";
 import GridMap from "../lib/maps/components/GridMap.vue";
 import { useOutdoorWorld } from "../lib/maps/composables/useOutdoorWorld.js";
@@ -10,14 +9,18 @@ import { buildInitialDoorState } from "../lib/maps/composables/useDoors.js";
 import { storyApi } from "../lib/storyApi.js";
 import { storyBeatYaml } from "../lib/storyYamlPreview.js";
 import { useWorldContent } from "../composables/useWorldContent.js";
+import { useBuildingContent } from "../composables/useBuildingContent.js";
 
 const { worldData, revision: worldRevision } = useWorldContent();
+const { buildingData, revision: buildingRevision } = useBuildingContent();
 const mapData = JSON.parse(JSON.stringify(worldData.value));
 const outdoor = useOutdoorWorld(mapData);
-const building = buildBuilding(buildingData);
+const building = computed(() => buildBuilding(buildingData.value));
 const allHexIds = computed(() => outdoor.editableHexes.map((item) => item.id));
-const allRoomIds = buildingData.rooms.map((item) => item.id);
-const allExteriorIds = (buildingData.exterior?.nodes ?? []).map((item) => item.id);
+const allRoomIds = computed(() => buildingData.value.rooms.map((item) => item.id));
+const allExteriorIds = computed(() =>
+  (buildingData.value.exterior?.nodes ?? []).map((item) => item.id),
+);
 const allHexSet = computed(() => new Set(allHexIds.value));
 const builderFlags = new Set();
 const STORY_AREA_ID = "part-i";
@@ -28,7 +31,9 @@ const beats = ref([]);
 const selectedBeatId = ref("");
 const locationMode = ref("outdoors");
 const selectedLocation = ref(mapData.start);
-const indoorLevel = ref(buildingData.exterior?.level ?? buildingData.levels.at(-1)?.id);
+const indoorLevel = ref(
+  buildingData.value.exterior?.level ?? buildingData.value.levels.at(-1)?.id,
+);
 const indoorViewportMode = ref("gameplay");
 const previewExteriorFog = ref(false);
 const draft = ref(null);
@@ -80,6 +85,27 @@ watch(worldRevision, async () => {
     selectedLocation.value = next.start;
     outdoor.state.currentId = next.start;
     clearBeatSelection();
+  }
+  try {
+    catalog.value = await storyApi("/api/catalog");
+  } catch (error) {
+    status.value = error.message;
+  }
+});
+
+watch(buildingRevision, async () => {
+  if (!buildingData.value.levels.some((item) => item.id === indoorLevel.value)) {
+    indoorLevel.value = buildingData.value.exterior?.level
+      ?? buildingData.value.levels.at(-1)?.id;
+  }
+  if (locationMode.value === "rooms" && !allRoomIds.value.includes(selectedLocation.value)) {
+    applyRoomSelection(buildingData.value.rooms[0]?.id);
+  }
+  if (
+    locationMode.value === "exterior" &&
+    !allExteriorIds.value.includes(selectedLocation.value)
+  ) {
+    applyExteriorSelection(buildingData.value.exterior?.entry);
   }
   try {
     catalog.value = await storyApi("/api/catalog");
@@ -174,7 +200,7 @@ function selectExterior(id) {
 function applyExteriorSelection(id) {
   locationMode.value = "exterior";
   selectedLocation.value = id;
-  indoorLevel.value = buildingData.exterior?.level ?? indoorLevel.value;
+  indoorLevel.value = buildingData.value.exterior?.level ?? indoorLevel.value;
   clearBeatSelection();
 }
 
@@ -193,9 +219,9 @@ async function applyModeSelection(mode) {
   if (mode === "outdoors") {
     await applyHexSelection(outdoor.mapData.start);
   } else if (mode === "rooms") {
-    applyRoomSelection(buildingData.rooms[0]?.id);
+    applyRoomSelection(buildingData.value.rooms[0]?.id);
   } else if (mode === "exterior") {
-    applyExteriorSelection(buildingData.exterior?.entry);
+    applyExteriorSelection(buildingData.value.exterior?.entry);
   } else {
     locationMode.value = "events";
     selectedLocation.value = "enter-building";

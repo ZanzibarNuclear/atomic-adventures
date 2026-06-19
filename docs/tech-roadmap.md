@@ -20,7 +20,7 @@ The project has moved past stack selection and scaffolding. The playable `game/`
 | Adventure frame | **Vue 3 + Vite** bespoke CYOA engine | Ren'Py, Twine, and Unity were rejected; sibling mini-games are web apps and embed cleanly. See [AGENTS.md](../AGENTS.md). |
 | Active app vs prototype | **`game/`** is canonical; **`web/`** is a map sandbox | Gameplay, story, persistence, and player maps live in `game/`. Do not add game features to `web/`. |
 | Authored content store | **SQLite** (`game/content/atomic-adventures.sqlite`) | Story beats and outdoor world are canonical in SQLite. YAML under `game/content/story/` and `game/content/world/` is import/export interchange only. |
-| Indoor geometry | **YAML** (`game/content/world/utility-station.yaml`) | Outdoor world is database-backed; indoor building layout remains YAML until indoor authoring exists. |
+| Indoor geometry | **SQLite document** (`utility-station`) | Edited in the Utility Station workspace under `/builder/world`; YAML is seed/import material. |
 | Story runtime unit | **Beats**, not a full passage graph | Location/event triggers, requirements, flags, choices, revisit prose. Planned passage features (`go_to`, simulation gates) are not implemented yet. See [story-beats.md](contracts/story-beats.md). |
 | Authoring | **Separate builder routes** | `/builder/story` and `/builder/world`; local Node API + SSE live updates. Production excludes builders. See [world-authoring.md](contracts/world-authoring.md). |
 | Player persistence (now) | **localStorage** via `useSaveGame` | No accounts, no server-side saves. |

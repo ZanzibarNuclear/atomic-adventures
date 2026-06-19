@@ -7,6 +7,7 @@ import { StoryRepository } from "./story-repository.js";
 import { buildWorldCatalog, loadBuildingData, loadWorldSeed } from "./world-catalog.js";
 import { createApiHandler } from "./api.js";
 import { WorldRepository } from "./world-repository.js";
+import { BuildingRepository } from "./building-repository.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const port = Number(process.env.PORT ?? 5173);
@@ -16,8 +17,15 @@ const seedWorld = loadWorldSeed();
 const buildingData = loadBuildingData();
 const repository = new StoryRepository(db, buildWorldCatalog(seedWorld, buildingData));
 const worldRepository = new WorldRepository(db, { seedWorld, buildingData, storyRepository: repository });
-repository.setWorld(worldRepository.getCatalog());
-const api = createApiHandler(repository, worldRepository);
+const buildingRepository = new BuildingRepository(db, {
+  seedBuilding: buildingData,
+  worldRepository,
+  storyRepository: repository,
+});
+const authoredBuilding = buildingRepository.getDocument()?.building ?? buildingData;
+worldRepository.setBuildingData(authoredBuilding);
+repository.setWorld(worldRepository.getCatalog(authoredBuilding));
+const api = createApiHandler(repository, worldRepository, buildingRepository);
 
 let vite = null;
 if (!production) {

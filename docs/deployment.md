@@ -121,7 +121,9 @@ npm run content:import -w game -- path/to/story.yaml --replace
 npm run world:import -w game -- path/to/map.yaml --replace
 ```
 
-Indoor building geometry remains YAML-backed and is bundled normally.
+Utility-station geometry is exported from the committed SQLite database to
+`game/public/content/utility-station.json` before Vite builds. The checked-in
+YAML file remains seed/import material and is not the live runtime source.
 
 ## Pre-Deployment Checks
 
@@ -135,6 +137,8 @@ Check that:
 
 - `game/dist/content/story.json` exists and contains the expected story revision.
 - `game/dist/content/world.json` exists and contains `outdoor-main`.
+- `game/dist/content/utility-station.json` exists and contains the utility
+  station rooms.
 - No `BuilderView` or `WorldBuilderView` JavaScript chunks appear in
   `game/dist/assets`.
 - Opening `/builder/story` or `/builder/world` in the production preview
@@ -153,7 +157,8 @@ After a Vercel preview or production deployment:
 1. Open `/` and confirm the map and opening beat load.
 2. Move to at least one adjacent hex.
 3. Save, reload, and confirm player progress restores.
-4. Open `/content/story.json` and `/content/world.json`; both should return JSON.
+4. Open `/content/story.json`, `/content/world.json`, and
+   `/content/utility-station.json`; all should return JSON.
 5. Open `/builder/story` and `/builder/world`; both should return to `/`.
 6. Check the browser console for failed content requests.
 

@@ -199,13 +199,20 @@ export class StoryRepository {
         .map((rename) => [String(rename.from), String(rename.to)]),
     );
     const rename = (value) => resolveRename(renameMap, value);
+    const roomRenameMap = renameMapFor(renames, "room");
+    const exteriorRenameMap = renameMapFor(renames, "exteriorNode");
     const errors = {};
     for (const area of this.listAreas()) {
       for (const original of this.listBeats(area.id, { full: true })) {
         const beat = structuredClone(original);
         if (beat.trigger.hex) beat.trigger.hex = rename(beat.trigger.hex);
+        if (beat.trigger.room) beat.trigger.room = resolveRename(roomRenameMap, beat.trigger.room);
+        if (beat.trigger.exteriorNode) {
+          beat.trigger.exteriorNode = resolveRename(exteriorRenameMap, beat.trigger.exteriorNode);
+        }
         for (const choice of beat.choices) {
           if (choice.go_hex) choice.go_hex = rename(choice.go_hex);
+          if (choice.go_room) choice.go_room = resolveRename(roomRenameMap, choice.go_room);
         }
         const validation = validateBeat(beat, world);
         for (const [path, messages] of Object.entries(validation.errors)) {
@@ -243,6 +250,38 @@ export class StoryRepository {
     return references;
   }
 
+  findBuildingReferences(kind, id) {
+    const references = [];
+    for (const area of this.listAreas()) {
+      for (const beat of this.listBeats(area.id, { full: true })) {
+        if (kind === "room" && beat.trigger.room === id) {
+          references.push({ kind: "story", areaId: area.id, beatId: beat.id, path: "trigger.room" });
+        }
+        if (kind === "exteriorNode" && beat.trigger.exteriorNode === id) {
+          references.push({
+            kind: "story",
+            areaId: area.id,
+            beatId: beat.id,
+            path: "trigger.exteriorNode",
+          });
+        }
+        if (kind === "room") {
+          beat.choices.forEach((choice, index) => {
+            if (choice.go_room === id) {
+              references.push({
+                kind: "story",
+                areaId: area.id,
+                beatId: beat.id,
+                path: `choices.${index}.go_room`,
+              });
+            }
+          });
+        }
+      }
+    }
+    return references;
+  }
+
   cascadeHexRenames(renames = [], world = this.world) {
     const renameMap = new Map(
       renames
@@ -266,6 +305,46 @@ export class StoryRepository {
         for (const choice of beat.choices) {
           if (choice.go_hex && renameMap.has(choice.go_hex)) {
             choice.go_hex = rename(choice.go_hex);
+            changed = true;
+          }
+        }
+        if (!changed) continue;
+        const validation = validateBeat(beat, world);
+        if (!validation.valid) throw new ValidationError(validation.errors);
+        this.#replaceBeat(area.id, original.id, validation.beat, original.version + 1, original.createdAt);
+        const saved = this.getBeat(area.id, original.id);
+        this.#recordRevision(area.id, original.id, "update", saved);
+        affected.push({ areaId: area.id, beatId: original.id });
+      }
+    }
+    this.world = world;
+    const revision = affected.length ? this.#incrementGlobalRevision() : this.getGlobalRevision();
+    return { affected, revision };
+  }
+
+  cascadeBuildingRenames(renames = [], world = this.world) {
+    const roomMap = renameMapFor(renames, "room");
+    const exteriorMap = renameMapFor(renames, "exteriorNode");
+    if (!roomMap.size && !exteriorMap.size) {
+      this.world = world;
+      return { affected: [], revision: this.getGlobalRevision() };
+    }
+    const affected = [];
+    for (const area of this.listAreas()) {
+      for (const original of this.listBeats(area.id, { full: true })) {
+        const beat = structuredClone(original);
+        let changed = false;
+        if (beat.trigger.room && roomMap.has(beat.trigger.room)) {
+          beat.trigger.room = resolveRename(roomMap, beat.trigger.room);
+          changed = true;
+        }
+        if (beat.trigger.exteriorNode && exteriorMap.has(beat.trigger.exteriorNode)) {
+          beat.trigger.exteriorNode = resolveRename(exteriorMap, beat.trigger.exteriorNode);
+          changed = true;
+        }
+        for (const choice of beat.choices) {
+          if (choice.go_room && roomMap.has(choice.go_room)) {
+            choice.go_room = resolveRename(roomMap, choice.go_room);
             changed = true;
           }
         }
@@ -407,6 +486,14 @@ function resolveRename(map, value) {
     current = map.get(current);
   }
   return current;
+}
+
+function renameMapFor(renames, kind) {
+  return new Map(
+    renames
+      .filter((rename) => rename?.kind === kind && rename.from && rename.to)
+      .map((rename) => [String(rename.from), String(rename.to)]),
+  );
 }
 
 export class ValidationError extends Error {

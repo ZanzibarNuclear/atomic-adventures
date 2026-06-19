@@ -2,7 +2,7 @@ import { publicWorldCatalog } from "./world-catalog.js";
 import { exportBeatYaml } from "./story-yaml.js";
 import { exportWorldYaml } from "./world-yaml.js";
 
-export function createApiHandler(repository, worldRepository) {
+export function createApiHandler(repository, worldRepository, buildingRepository = null) {
   const clients = new Set();
 
   function broadcast(event, payload) {
@@ -46,6 +46,84 @@ export function createApiHandler(repository, worldRepository) {
           warnings: worldRepository.validate(result.world).warnings,
           yaml: exportWorldYaml(result.world),
         });
+      }
+      const buildingMatch = url.pathname.match(/^\/api\/world\/buildings\/([^/]+)$/);
+      if (buildingMatch && req.method === "GET") {
+        const id = decodeURIComponent(buildingMatch[1]);
+        const result = buildingRepository?.getDocument(id);
+        if (!result) return json(res, 404, { message: "Building not found." });
+        return json(res, 200, {
+          ...result,
+          warnings: buildingRepository.validate(result.building).warnings,
+        });
+      }
+      const buildingValidateMatch = url.pathname.match(
+        /^\/api\/world\/buildings\/([^/]+)\/validate$/,
+      );
+      if (buildingValidateMatch && req.method === "POST") {
+        const body = await readJson(req);
+        const result = buildingRepository.validate(body.building ?? body);
+        return json(res, result.valid ? 200 : 422, result);
+      }
+      const buildingRenameMatch = url.pathname.match(
+        /^\/api\/world\/buildings\/([^/]+)\/rename-preview$/,
+      );
+      if (buildingRenameMatch && req.method === "POST") {
+        const body = await readJson(req);
+        return json(res, 200, buildingRepository.previewRename(
+          decodeURIComponent(buildingRenameMatch[1]),
+          body.kind,
+          body.from,
+          body.to,
+          body.building,
+        ));
+      }
+      if (buildingMatch && req.method === "PUT") {
+        const id = decodeURIComponent(buildingMatch[1]);
+        const body = await readJson(req);
+        const result = buildingRepository.save(
+          id,
+          body.building ?? body,
+          body.expectedVersion,
+          body.renames ?? [],
+        );
+        worldRepository.setBuildingData(result.building);
+        repository.setWorld(worldRepository.getCatalog(result.building));
+        broadcast("building.updated", {
+          revision: result.revision,
+          buildingId: id,
+          changedObjectIds: result.changedObjectIds,
+        });
+        if (result.story.affected?.length) {
+          broadcast("story.updated", {
+            revision: result.story.revision,
+            affected: result.story.affected,
+          });
+        }
+        return json(res, 200, result);
+      }
+      const buildingRevisionsMatch = url.pathname.match(
+        /^\/api\/world\/buildings\/([^/]+)\/revisions$/,
+      );
+      if (buildingRevisionsMatch && req.method === "GET") {
+        return json(res, 200, buildingRepository.listRevisions(
+          decodeURIComponent(buildingRevisionsMatch[1]),
+        ));
+      }
+      const buildingRestoreMatch = url.pathname.match(
+        /^\/api\/world\/buildings\/([^/]+)\/revisions\/(\d+)\/restore$/,
+      );
+      if (buildingRestoreMatch && req.method === "POST") {
+        const id = decodeURIComponent(buildingRestoreMatch[1]);
+        const result = buildingRepository.restore(id, buildingRestoreMatch[2]);
+        worldRepository.setBuildingData(result.building);
+        repository.setWorld(worldRepository.getCatalog(result.building));
+        broadcast("building.updated", {
+          revision: result.revision,
+          buildingId: id,
+          changedObjectIds: result.changedObjectIds,
+        });
+        return json(res, 200, result);
       }
       if (req.method === "POST" && url.pathname === "/api/world/outdoors/validate") {
         const body = await readJson(req);

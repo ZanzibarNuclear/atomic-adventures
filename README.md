@@ -96,7 +96,8 @@ npm run world:import -w game -- /tmp/map.yaml --replace
 ```
 
 Direct edits to `map.yaml` do not affect the running game until imported. Indoor
-building geometry remains YAML-backed for now. See
+utility-station geometry is revisioned in SQLite and edited from the World
+Builder; YAML remains seed/import material. See
 [docs/contracts/world-authoring.md](docs/contracts/world-authoring.md).
 
 ## Deployment

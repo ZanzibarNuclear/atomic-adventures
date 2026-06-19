@@ -1,6 +1,5 @@
 <script setup>
 import { ref, onMounted, computed, watch } from "vue";
-import buildingData from "../../content/world/utility-station.yaml";
 import { useOutdoorWorld } from "../lib/maps/composables/useOutdoorWorld.js";
 import { useIndoorBuilding } from "../lib/maps/composables/useIndoorBuilding.js";
 import { createGameState, resetGameState } from "../composables/useGameState.js";
@@ -8,6 +7,7 @@ import { useSaveGame } from "../composables/useSaveGame.js";
 import { useStory } from "../composables/useStory.js";
 import { useStoryContent } from "../composables/useStoryContent.js";
 import { useWorldContent } from "../composables/useWorldContent.js";
+import { useBuildingContent } from "../composables/useBuildingContent.js";
 import { applyOutdoorWorldUpdate } from "../composables/worldRuntime.js";
 import AppHeader from "../components/AppHeader.vue";
 import StoryOverlay from "../components/story/StoryOverlay.vue";
@@ -23,12 +23,18 @@ const {
   error: worldContentError,
   refresh: refreshWorld,
 } = useWorldContent();
+const {
+  buildingData,
+  error: buildingContentError,
+  refresh: refreshBuilding,
+} = useBuildingContent();
 const mapData = JSON.parse(JSON.stringify(worldData.value));
+const initialBuildingData = JSON.parse(JSON.stringify(buildingData.value));
 
-const gameState = createGameState({ mapData, buildingData });
+const gameState = createGameState({ mapData, buildingData: initialBuildingData });
 const outdoor = useOutdoorWorld(mapData, gameState);
 const ctx = { place, builderView, gameState };
-const indoor = useIndoorBuilding(buildingData, outdoor, ctx);
+const indoor = useIndoorBuilding(initialBuildingData, outdoor, ctx);
 const save = useSaveGame();
 const { lastSavedAt, loadError, hasSave, save: saveGame, load, clearSave } = save;
 
@@ -46,6 +52,7 @@ const {
 
 const saveCtx = computed(() => ({ gameState, place, outdoor, indoor }));
 let deferredWorld = null;
+let deferredBuilding = null;
 
 function applyWorld(next) {
   applyOutdoorWorldUpdate(outdoor, next);
@@ -64,6 +71,27 @@ watch(
       const next = deferredWorld;
       deferredWorld = null;
       applyWorld(next);
+    }
+  },
+);
+
+function applyBuilding(next) {
+  indoor.syncFromBuildingData(next);
+  refreshNarrative();
+}
+
+watch(buildingData, (next) => {
+  if (indoor.indoor.moving) deferredBuilding = JSON.parse(JSON.stringify(next));
+  else applyBuilding(next);
+});
+
+watch(
+  () => indoor.indoor.moving,
+  (moving) => {
+    if (!moving && deferredBuilding) {
+      const next = deferredBuilding;
+      deferredBuilding = null;
+      applyBuilding(next);
     }
   },
 );
@@ -99,9 +127,12 @@ function handleReset() {
       @reset="handleReset"
       @show-movement-audit="movementAuditVisible = true" />
 
-    <div v-if="contentError || worldContentError" class="content-error">
-      {{ contentError || worldContentError }}
-      <button class="sm" @click="contentError ? refreshContent() : refreshWorld()">Retry</button>
+    <div v-if="contentError || worldContentError || buildingContentError" class="content-error">
+      {{ contentError || worldContentError || buildingContentError }}
+      <button
+        class="sm"
+        @click="contentError ? refreshContent() : worldContentError ? refreshWorld() : refreshBuilding()"
+      >Retry</button>
     </div>
 
     <OutdoorScene

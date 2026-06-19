@@ -16,6 +16,8 @@
     "content:export": "node server/content-cli.js export",
     "world:import": "node server/world-cli.js import",
     "world:export": "node server/world-cli.js export",
+    "building:import": "node server/building-cli.js import",
+    "building:export": "node server/building-cli.js export",
     "test": "vitest run",
     "test:movement": "MOVEMENT_AUDIT_REPORT=1 vitest run src/lib/maps/testing/mapMovementAudit.test.js --reporter=verbose",
     "test:watch": "vitest"

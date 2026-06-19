@@ -11,7 +11,7 @@ game. It is deliberately separate from Story Builder:
 | Route | Responsibility |
 | --- | --- |
 | `/builder/story` | Beats, prose, requirements, choices, and story destinations |
-| `/builder/world` | Hexes, routes, barriers, passages, landmarks, and stand points |
+| `/builder/world` | Outdoor geometry plus utility-station rooms, doors, paths, nodes, transitions, and fixtures |
 
 Both workspaces use the same server and SQLite database, but keep independent
 drafts. Switching workspaces never merges world form state with story form
@@ -19,12 +19,13 @@ state or player state.
 
 ## Canonical Storage
 
-SQLite is canonical for authored outdoor world content. The outdoor map is
-stored as one ordered JSON document named `outdoor-main` in
-`world_documents`. Hexes, routes, features, and their points are intentionally
-not split into relational tables. Whole-document storage preserves the natural
-map structure and avoids introducing joins and ordering rules before the
-authoring requirements demand them.
+SQLite is canonical for authored world content. The outdoor map is stored as
+one ordered JSON document named `outdoor-main`, and the utility station is
+stored as one ordered JSON document named `utility-station` in
+`world_documents`. Geometry objects are intentionally not split into relational
+tables. Whole-document storage preserves each map's natural structure and
+avoids introducing joins and ordering rules before authoring requirements
+demand them.
 
 Every successful save:
 
@@ -110,5 +111,37 @@ deferred until active movement ends, the avatar resolves to the current hex's
 authored stand, and references to removed passages are discarded. If refresh
 fails, the last successfully loaded map remains playable.
 
-Indoor building geometry remains YAML-backed until an indoor World Builder is
-designed. V1 does not edit rooms, doors, exterior paths, or fixtures.
+## Utility Station Workspace
+
+Select **Utility Station** within `/builder/world` (or open
+`/builder/world?map=utility-station`) to edit the indoor grid map.
+
+The workspace supports:
+
+- floor switching and fit-all/gameplay camera previews;
+- room movement and resizing;
+- man-door placement and roll-up edge/span editing;
+- exterior path control points, stand nodes, and smoothing;
+- world-transition marker placement;
+- object creation, duplication, ordering, reference-aware rename, and deletion;
+- read-only fixture inspection;
+- full-document validation, traversal audit, revisions, and restore.
+
+Room and exterior-node renames cascade into story triggers and `go_room`
+destinations in the same transaction. Deletions that leave story or building
+references unresolved are rejected.
+
+`game/content/world/utility-station.yaml` is import/seed material rather than
+the live runtime source. Development loads the building from
+`GET /api/world/buildings/utility-station`; production loads
+`/content/utility-station.json`.
+
+```bash
+npm run building:export -w game -- utility-station /tmp/utility-station.yaml
+npm run building:import -w game -- /tmp/utility-station.yaml --replace
+```
+
+Open games receive `building.updated` events. Refresh preserves logical player
+location, discoveries, door state, inventory, actions, flags, and facility
+state when their IDs still exist. Building replacement is deferred during an
+active indoor movement animation.

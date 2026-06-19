@@ -108,6 +108,32 @@ export function listEditableExits(data, levelId) {
     })
 }
 
+export function listEditableFixtures(data, levelId) {
+  return (data.fixtures ?? [])
+    .filter((fixture) => (fixture.onLevels ?? []).includes(levelId))
+    .map((fixture) => ({
+      source: 'fixtures',
+      id: fixture.id,
+      label: `${fixture.id} (${fixture.kind ?? 'fixture'})`,
+    }))
+}
+
+export function listEditableLinks(data, levelId) {
+  const roomById = Object.fromEntries((data.rooms ?? []).map((room) => [room.id, room]))
+  return (data.links ?? [])
+    .filter((link) => {
+      const from = roomById[link.from]
+      const to = roomById[link.to]
+      return roomOnLevel(from ?? {}, levelId) || roomOnLevel(to ?? {}, levelId)
+    })
+    .map((link, index) => ({
+      source: 'links',
+      id: link.id ?? `${link.from}-${link.to}-${index}`,
+      index,
+      label: `${link.from} → ${link.to} (${link.kind})`,
+    }))
+}
+
 export function listAllGridEditable(data, levelId) {
   return [
     ...listEditablePaths(data, levelId),
@@ -115,6 +141,8 @@ export function listAllGridEditable(data, levelId) {
     ...listEditableDoors(data, levelId),
     ...listEditableNodes(data, levelId),
     ...listEditableExits(data, levelId),
+    ...listEditableFixtures(data, levelId),
+    ...listEditableLinks(data, levelId),
   ]
 }
 
@@ -135,6 +163,13 @@ export function findGridEditable(data, source, id) {
     const arr = data.transitions ?? data.exits ?? []
     return arr.find((e) => (e.id ?? e.door) === id) ?? null
   }
+  if (source === 'fixtures') {
+    return data.fixtures?.find((fixture) => fixture.id === id) ?? null
+  }
+  if (source === 'links') {
+    const index = Number(id.split('-').at(-1))
+    return Number.isInteger(index) ? data.links?.[index] ?? null : null
+  }
   return null
 }
 
@@ -144,6 +179,8 @@ export function gridEditModeForSource(source) {
   if (source === 'doors') return 'door'
   if (source === 'nodes') return 'node'
   if (source === 'exits') return 'exit'
+  if (source === 'fixtures') return 'fixture'
+  if (source === 'links') return 'link'
   return null
 }
 

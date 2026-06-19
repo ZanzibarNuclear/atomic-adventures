@@ -17,6 +17,7 @@ import {
   EXTERIOR_WALK_SPEED,
   exteriorWalkDurationMs,
 } from "../composables/indoor/useIndoorMovement.js";
+import { auditIndoorBuilding } from "./indoorBuildingAudit.js";
 
 const building = buildBuilding(utilityData);
 
@@ -35,6 +36,13 @@ function fullyMappedVisibility(doorState) {
 }
 
 describe("utility station grid traversal contract", () => {
+  it("passes the authoring traversal audit", () => {
+    expect(auditIndoorBuilding(utilityData)).toMatchObject({
+      valid: true,
+      unreachableRooms: [],
+      unreachableExteriorNodes: [],
+    });
+  });
   it("keeps the exterior path network connected and routes both directions", () => {
     const nodeIds = building.exterior.nodes.map((node) => node.id);
     const reachable = exteriorReachableNodes(building, building.exterior.entry);
