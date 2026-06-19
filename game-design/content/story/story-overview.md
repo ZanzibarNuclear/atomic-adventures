@@ -6,28 +6,29 @@
 
 The game opens in the woods — not at the facility. **Zanzibar Nuhero** walks alone through a pine forest on the side of a mountain, hungry, his canteen nearly empty, still pressing onward with undying optimism. He is thinking about the argument that split his group apart to look for help. We do not yet know who they are, what the argument was about, or what kind of help they need.
 
-That walk leads somewhere: a vast, dormant energy complex — a central facility that once tied together hydro, nuclear, solar, and fusion installations. The machines are intact. The knowledge to run them is gone. Something happened here, and Zanzibar intends to find out.
+That walk leads somewhere: a vast, dormant energy complex — a central facility that once tied together hydro, solar, and an underground advanced nuclear installation. The machines are intact. The knowledge to run them is gone. Something happened here, and Zanzibar intends to find out.
 
 The player follows Zanzibar as he restores each installation, facility by facility. Every success brings light, sound, and motion back to a quiet world — and reveals another piece of a larger mystery: _Where did everyone go? Why was this knowledge lost? And what becomes possible when the power comes back on?_
 
-**Story structure:** The game is divided into parts. **Part I** spans **at least a few weeks** at the surface campus — from the pine forest through first power, then **weeks of hydro operations** while Zanzibar learns to run and maintain the plant — and ends when he discovers a **hidden elevator that goes down**. _The End… and the beginning of Part II._
+**Story structure:** The game is divided into **three parts**, each centered on one technology. **Part I** spans **at least a few weeks** at the surface campus — forest arrival, hydro startup, then **weeks of hydro operations** — and ends when Zanzibar qualifies as a hydro operator. Along the way he discovers the **solar field** from the **eBuggy**. **Part II** restores that solar array and explores photovoltaics. **Part III** opens the **hidden elevator** to a dormant **Gen IV SMR** underground, where the **traveling party reunites** to help bring baseload nuclear online.
 
 Character profile and art references: [Characters](characters.md).
 
-## Story Structure — Parts I & II
+## Story Structure — Parts I, II & III
 
-| Part        | Scope                                                            | Duration              | Ends with                                          |
-| ----------- | ---------------------------------------------------------------- | --------------------- | -------------------------------------------------- |
-| **Part I**  | Pine forest → surface campus; hydro startup → operations routine | **Several weeks**     | Zanzibar finds a hidden elevator; it goes **down** |
-| **Part II** | Going down...                                                    | TBD                   | TBD                                                |
+| Part        | Scope                                                            | Duration              | Ends with                                                       |
+| ----------- | ---------------------------------------------------------------- | --------------------- | --------------------------------------------------------------- |
+| **Part I**  | Pine forest → surface campus; hydro startup → operations routine | **Several weeks**     | Hydro operator qualified; solar field **discovered** (eBuggy)   |
+| **Part II** | Surface campus; PV restoration                                   | TBD                   | Solar array online; need for baseload → elevator threshold      |
+| **Part III** | Underground Gen IV SMR; party reunion                           | TBD                   | SMR operational (with help); trilogy climax TBD                 |
 
-Part I is the content we are designing now. Part II begins where Part I leaves off — the elevator is both a cliffhanger and a threshold.
+Part I is the content we are designing now. Part II begins on the surface — restoring the solar field Zanzibar already saw. Part III is the descent: the elevator and reactor tease were foreshadowed in Part I discoveries; the **group finds the compound** when the work requires more than one person.
 
 ### Part I — Weeks at the facility
 
 Part I plays out over **at least a few weeks** of game time. The player experiences time passing — day/night cycles, meals, rest, recurring duties — but **days are a pacing container, not a rigid schedule**. Beats do not map one-to-one to calendar days.
 
-**Design intent:** Part I should feel lived-in. Early beats (arrival through first power) may take several days. What follows is the **core of Part I**: Zanzibar learns this hydro plant in depth, establishes a **maintenance routine**, and masters **campus power management** — all essential before the path to Part II opens. Rushing from forest to elevator in a week would undermine both the learning and the mystery.
+**Design intent:** Part I should feel lived-in. Early beats (arrival through first power) may take several days. What follows is the **core of Part I**: Zanzibar learns this hydro plant in depth, establishes a **maintenance routine**, and masters **campus power management** — all essential before Part II opens. The **eBuggy compound tour** surfaces the solar field and other dormant tech; rushing from forest to qualification in a week would undermine both the learning and the mystery.
 
 #### Part I phases
 
@@ -36,7 +37,7 @@ Part I plays out over **at least a few weeks** of game time. The player experien
 | **Arrival** | Early days | Forest, shelter, orientation — no power yet |
 | **Startup** | First week (flexible) | Library, first power, buggy, holo-readers |
 | **Operations** | **Several weeks** | Hydro maintenance routine; power management; mastering this plant |
-| **Threshold** | Late Part I | Hidden elevator — gate to Part II |
+| **Threshold** | Late Part I | Hydro operator qualified — gate to Part II (solar restoration) |
 
 _The week-by-week breakdown below is **provisional** — we will work out scheduling as design continues._
 
@@ -52,7 +53,7 @@ These are the **happy-path milestones** for Part I, in order. Each may occupy on
 | **Celebration** | Charge EV buggy; drive around campus                                                        | **Established**               |
 | **Revelation**  | Return to library; holo-readers; learn facility is DoE secret research site; advanced hydro | **Established** (details TBD) |
 | **Operations**  | Weeks of hydro care: maintenance routine, power management, running this plant reliably     | **Established** (details TBD) |
-| **Threshold**   | Discover hidden elevator; it goes down — **Part I ending** (requires hydro competence)      | **Established** (details TBD) |
+| **Threshold**   | Hydro competence earned — **Part I ending** (requires sustained operations)                    | **Established** (details TBD) |
 
 #### Provisional schedule (subject to revision)
 
@@ -64,15 +65,25 @@ _Do not treat this as final. Phases may shift, merge, or span variable calendar 
 | Early           | Main building exploration; shelter; first nights                    | High       |
 | Startup         | Library, hydro startup, first power, buggy, holo-readers            | High       |
 | Operations      | Daily/weekly hydro maintenance; power management; campus exploration | Medium     |
-| Late            | Hidden elevator — after weeks of reliable hydro operation           | High       |
+| Late            | Hydro operator qualified — Part I threshold after weeks of reliable operation | High       |
 
-**Part I ending:** After **weeks** of running the campus on hydro, Zanzibar uncovers something that was always there — a concealed elevator, descending into the unknown. Reliable power and operational competence are **prerequisites** for reaching it. Roll credits or title card: _The End… and the beginning of Part II._ The player should feel accomplishment (weeks of real work keeping the plant alive) and irresistible curiosity (what is down there?).
+**Part I ending:** After **weeks** of running the campus on hydro, Zanzibar earns operator qualification. He already **discovered the solar field** on the buggy tour — dormant panels waiting for someone who understands power. Roll credits or title card: _The End… and the beginning of Part II._ The player should feel accomplishment (weeks of real work keeping the plant alive) and a clear next problem (restore what he saw).
 
-_What triggers the elevator discovery, where it is hidden, and what Zanzibar sees before the cut — TBD._
+### Part II — Solar on the surface
 
-### Part II — Below
+Part II stays on the **surface campus**. Zanzibar returns to the solar field he found in Part I and learns photovoltaics: irradiance, tilt, shading, inverters, and how **variable solar** compares to **steady hydro**. Hydro operations continue in the background — campus load now includes PV integration puzzles.
 
-Part II opens on the consequence of going down. Scope, technologies, and duration TBD. The surface campus and everything restored in Part I remain available — Part II adds a new layer rather than replacing Part I.
+**Part II ending:** The solar array contributes meaningfully to campus power, but the player learns why **baseload** matters. Holo-reader material, signage, and Part I **reactor tease** discoveries converge: the facility was built for a full portfolio, and something larger waits **below**. The **hidden elevator** becomes reachable — threshold to Part III.
+
+_Duration, exact PV gate conditions, and elevator discovery trigger — TBD._
+
+### Part III — Underground SMR
+
+Part III opens on **descent**. Zanzibar rides the concealed elevator to a dormant **Gen IV small modular reactor**. The work is too much for one person — the **traveling party finds the compound** (or arrives as the elevator opens). Fiona, Lan, Kenji, and others take operational roles while the player still drives core learning through simulations and control-room decisions.
+
+**Design intent:** Part III teaches Gen IV / SMR concepts (fast neutrons, coolant behavior, inherent safety) at higher complexity than Parts I–II. Party members handle parallel tasks (monitoring, maintenance runs, communication) so the scenario stays **plausible** without turning the game into a multiplayer sim.
+
+_Launch reactor design (real-world SMR in development), reunion beat, and trilogy climax — TBD. Alternate SMR models may ship as extension packs._
 
 ## Opening — The Pine Forest
 
@@ -118,7 +129,7 @@ These questions should pull the player through Act 1 and beyond. Answers emerge 
 | **Why can Zanzibar get in?**                    | Identity intrigue                       | Hub security records, a credential, a message left for someone |
 | **Why do the machines still work — in theory?** | Wonder at scale                         | Each facility's intact control rooms and manuals               |
 | **What happens when power returns?**            | Hope, anticipation                      | Hub lights sections as chapters complete; new paths open       |
-| **What is down there?**                         | Awe, anticipation                       | Part I ending — hidden elevator; Part II opening               |
+| **What is down there?**                         | Awe, anticipation                       | Part I reactor tease; Part II ending — hidden elevator; Part III opening |
 
 _Specific answers TBD — the hooks matter more than the reveal at this stage._
 
@@ -140,9 +151,13 @@ The story should:
 ```
 Pine forest → Arrival → Shelter → Startup (library, first power, buggy, holo-readers)
                                         ↓
-                    Operations (weeks: hydro maintenance, power management)
+                    Operations (weeks: hydro maintenance, power management, buggy discoveries)
                                         ↓
-                         Hidden elevator ↓ → THE END → Part II
+              Hydro operator qualified → THE END → Part II (restore solar field)
+                                        ↓
+                    Part II: PV restoration → baseload need → hidden elevator
+                                        ↓
+              Part III: descent → SMR → party reunion → reactor online
 ```
 
 _Each stage above may span one or more in-game days._
@@ -218,13 +233,13 @@ The opening beats are the tutorial disguised as story:
 4. **Reward** — Power unlocks comfort (light, charge, mobility)
 5. **Return and deepen** — Holo-readers reveal the bigger picture once power is on
 
-The hydro simulation gate is the template for every chapter that follows. The holo-reader beat establishes that **restoration unlocks understanding**, not just convenience. The **operations phase** deepens hydro into a recurring responsibility; the elevator reveal pays off weeks of competence and curiosity.
+The hydro simulation gate is the template for every chapter that follows. The holo-reader beat establishes that **restoration unlocks understanding**, not just convenience. The **operations phase** deepens hydro into a recurring responsibility; **buggy discoveries** (solar field, reactor tease) plant seeds for Parts II and III.
 
 See [World & Style Guide](world-and-style.md) for hub layout and [Learning Objectives](../learning-objectives.md) for hydro assessment targets.
 
 ### Beat — Hydro operations (core of Part I)
 
-After first power and the holo-reader revelation, Part I shifts from **one-time startup** to **ongoing operation**. Zanzibar must learn everything about **this** plant — not hydro in the abstract, but the Upper Penstock diversion system on Mill Brook — and keep it running reliably. First startup should feel almost too easy; operations then layers real problems in many rounds before the Part II threshold — see [Staged Complexity](../progression-design.md#staged-complexity-through-real-world-challenges).
+After first power and the holo-reader revelation, Part I shifts from **one-time startup** to **ongoing operation**. Zanzibar must learn everything about **this** plant — not hydro in the abstract, but the Upper Penstock diversion system on Mill Brook — and keep it running reliably. First startup should feel almost too easy; operations then layers real problems in many rounds before the **Part II threshold** — see [Staged Complexity](../progression-design.md#staged-complexity-through-real-world-challenges).
 
 This phase lasts **at least a few weeks** of game time. The player establishes a **routine**:
 
@@ -238,60 +253,74 @@ This phase lasts **at least a few weeks** of game time. The player establishes a
 
 **Power management** is a distinct skill layer: the control room is not only about starting the turbine but **balancing supply and demand** across campus circuits. Mismanagement causes brownouts, tripped loads, or plant stress — teaching that generation and consumption must match.
 
-**Why it matters for Part II:** The **hidden elevator** is not reachable (or not powered, or not revealed) until Zanzibar demonstrates he can **sustain** campus operation. Hydro is the lifeblood of the surface facility; weeks of competent care are the price of admission to what lies below.
+**Why it matters for Part II:** Zanzibar is not ready to restore solar until he can **sustain** campus operation on hydro. Hydro is the lifeblood of the surface facility; weeks of competent care are the price of admission to the PV chapter. The **solar field** he discovers on the buggy tour is the narrative hook — panels seen but not yet understood.
 
-_Player goal: graduate from "got it running once" to "operator who trusts his own routine." Exploration and mystery continue between maintenance beats._
+_Player goal: graduate from "got it running once" to "operator who trusts his own routine." Exploration and mystery continue between maintenance beats — including the solar discovery that sets up Part II._
 
-### Beat — The hidden elevator (Part I ending)
+### Beat — Part I threshold (hydro operator qualified)
 
-Late in Part I — after **weeks** of hydro operations — Zanzibar discovers a **hidden elevator** concealed somewhere on the campus (location TBD). It goes **down**.
+Late in Part I — after **weeks** of hydro operations — Zanzibar earns **operator qualification**: sustained reliable power, understood power-management controls, and maintenance on schedule. This is the Part I climax: not a single simulation win, but a **threshold** earned through operational mastery.
 
-Access is tied to **hydro competence**: sustained reliable power, understood power-management controls, and/or a discovery that only surfaces once campus systems are fully managed. Hydro is not a one-and-done tutorial — it is **essential infrastructure** for reaching Part II.
+The **solar field** discovered earlier on the eBuggy tour now has narrative weight — Zanzibar has power literacy and a dormant array waiting. Part I can end on qualification, a return drive to the panels, or a title card promising Part II.
 
-This is the Part I climax: not a single simulation win, but a **threshold** earned through operational mastery. The surface facility has given up its upper secrets; something larger waits below.
+| Beat         | Story                                                        | Player experience                                              |
+| ------------ | ------------------------------------------------------------ | -------------------------------------------------------------- |
+| Prerequisite | Weeks of hydro maintenance and power management              | Competence — the plant runs because you keep it running        |
+| Discovery    | Solar field already found on buggy tour; optional revisit    | Anticipation — another technology portfolio piece              |
+| Qualification | `hub.hydro_operator_qualified` or equivalent                | Satisfaction — earned operator status                          |
+| Handoff      | Part I ending — _The End… and the beginning of Part II_     | Clear next chapter: restore the solar field                    |
 
-| Beat                           | Story                                                        | Player experience                                              |
-| ------------------------------ | ------------------------------------------------------------ | -------------------------------------------------------------- |
-| Prerequisite                   | Weeks of hydro maintenance and power management              | Competence — the plant runs because you keep it running        |
-| Discovery                      | Sustained operation reveals or unlocks what was missed       | Satisfaction — the campus still had secrets                    |
-| Reveal                         | An elevator, hidden in plain sight or behind a solved puzzle | Wonder — vertical scale; the facility is deeper than it looked |
-| Descent (or the promise of it) | Zanzibar realizes where it leads — down                      | Cliffhanger — _The End… and the beginning of Part II_          |
+---
 
-_Whether the player rides the elevator in Part I's final scene or the game cuts on the doors opening — TBD._
+### Beat — Hidden elevator (Part II → III threshold)
+
+The **concealed elevator** is **not** the Part I ending. Zanzibar may notice clues during Part I (signage, holo-reader chapters, reactor tease), but descent waits until **Part II** establishes why **baseload** matters after hydro + solar. Access is tied to PV restoration progress and/or composite campus-power scenarios.
+
+| Beat         | Story                                                        | Player experience                                              |
+| ------------ | ------------------------------------------------------------ | -------------------------------------------------------------- |
+| Foreshadow   | Reactor tease during Part I discoveries                      | Curiosity — the campus is deeper than the surface              |
+| Prerequisite | Part II PV milestones + baseload narrative beat              | Understanding — variable renewables need something steady      |
+| Reveal       | Elevator discoverable / powered / callable                   | Wonder — vertical scale                                        |
+| Descent      | Part III opening — underground SMR                           | Party reunion; new complexity                                  |
+
+_Whether the player rides the elevator at the end of Part II or the opening of Part III — TBD._
 
 ---
 
 ## Story Beats
 
-**Part I:** Several weeks — arrival → shelter → startup → **operations** → hidden elevator. Beat sequence is established; calendar assignment is not.
+**Part I:** Several weeks — arrival → shelter → startup → **operations** → hydro operator qualified. Solar field discovered on buggy tour.
 
-**Part II:** Begins below. TBD.
+**Part II:** Surface PV restoration. Ends at hidden elevator threshold.
+
+**Part III:** Underground SMR; traveling party reunion.
 
 | Part   | Beat        | Location               | Story                                                      | Status                        |
 | ------ | ----------- | ---------------------- | ---------------------------------------------------------- | ----------------------------- |
 | **I**  | Arrival     | Pine forest → facility | Group split backstory; hungry; walk to the lost facility   | **Established**               |
 | **I**  | Shelter     | Main building          | Garage, conference room, kitchen, rations; rest            | **Established**               |
 | **I**  | Startup     | Campus                 | Library, hydro startup, first power, buggy, holo-readers   | **Established**               |
-| **I**  | Operations  | Campus + hydro plant   | Weeks of maintenance routine; power management; this plant | **Established** (details TBD) |
-| **I**  | Threshold   | Campus                 | Hidden elevator goes down — **Part I ending** (hydro gate) | **Established** (details TBD) |
-| **II** | —           | Below                  | _TBD — Part II opening_                                    | Not started                   |
+| **I**  | Discovery   | Campus (eBuggy)        | Solar field, storage, reactor tease                        | **Established** (details TBD) |
+| **I**  | Operations  | Campus + hydro plant   | Weeks of maintenance routine; power management             | **Established** (details TBD) |
+| **I**  | Threshold   | Campus                 | Hydro operator qualified — **Part I ending**               | **Established** (details TBD) |
+| **II** | PV restore  | Solar field            | Bring discovered array online; compare to hydro            | Not started                   |
+| **II** | Threshold   | Campus                 | Baseload need; hidden elevator — **Part II ending**        | Not started                   |
+| **III** | Descent    | Underground            | SMR discovery; party reunion                               | Not started                   |
+| **III** | SMR ops    | Reactor facility       | Gen IV startup and sustained operation with team help      | Not started                   |
 
 _In-game calendar column deliberately omitted — will be added when the operations schedule is worked out._
 
-### Technology chapters (Part I scope)
+### Technology chapters (release trilogy)
 
-Part I is **hydro-centric**. The campus penstock plant is the primary technology — startup, then weeks of operation and power management. Other facility restorations (PWR, Gen IV, solar, fusion) are candidates for Part II or later surface beats; not required before the elevator.
+Each part maps to one primary technology. Part I is **hydro-centric**; PV and SMR are foreshadowed through buggy discoveries and holo-readers, not fully restored until their parts.
 
-| Level | Facility                 | Focal Simulation            | Part                         | Story Beat                                | Learning Gate                 |
-| ----- | ------------------------ | --------------------------- | ---------------------------- | ----------------------------------------- | ----------------------------- |
-| —     | Hub campus + hydro plant | Startup → operations loop   | **I** (most of Part I)       | Library → startup → weeks of operation    | Maintain hydro; manage campus load |
-| 1     | Hydroelectric plant      | Penstock / turbine / generator   | _I (deep) or II?_            | _TBD_                                     | _TBD_                         |
-| 2     | PWR reactor (AP-1000)    | Reactor startup & operation | _I or II?_                   | _TBD_                                     | _TBD_                         |
-| 3     | Gen IV reactor (SFR)     | Sodium-cooled fast reactor  | _I or II?_                   | _TBD_                                     | _TBD_                         |
-| 4     | Solar array              | PV installation & grid tie  | _I or II?_                   | _TBD_                                     | _TBD_                         |
-| 5     | Fusion facility          | Tokamak operation           | _I or II?_                   | _TBD_                                     | _TBD_                         |
+| Part | Facility / focus           | Focal simulation              | Story beat                                      | Learning gate                          |
+| ---- | -------------------------- | ----------------------------- | ----------------------------------------------- | -------------------------------------- |
+| **I** | Hub campus + hydro plant  | Penstock / turbine / generator | Startup → weeks of operations; solar **discovered** | Maintain hydro; manage campus load     |
+| **II** | Solar array (surface)     | PV layout, inverters, grid tie | Restore field found on eBuggy tour              | Variable vs. steady power; baseload need |
+| **III** | Gen IV SMR (underground)  | SMR startup and operation     | Elevator descent; party reunion                 | Fast reactor concepts; team operations |
 
-_Level order may be adjusted. See [World & Style Guide](world-and-style.md) for details._
+See [Game Design Overview](../../game-design-overview.md#game-structure--three-parts) for scope and [World & Style Guide](world-and-style.md) for facility map.
 
 ## Existing Assets
 
@@ -321,11 +350,14 @@ Each story beat should:
 
 - [x] Name and profile protagonist (Zanzibar Nuhero) — see [Characters](characters.md)
 - [x] Define opening scene (pine forest, alone, group split, hungry)
-- [x] Define Part I scope (several weeks; hydro operations core) and ending (hidden elevator down; hydro gate)
-- [x] Establish Part I beat sequence (arrival → shelter → startup → operations → elevator)
+- [x] Define Part I scope (several weeks; hydro operations core) and ending (hydro operator qualified; solar discovered)
+- [x] Establish three-part structure (I hydro → II PV → III SMR + party reunion)
+- [x] Establish Part I beat sequence (arrival → shelter → startup → operations → qualification)
 - [ ] **Work out operations schedule** — maintenance routine cadence; power-management scenarios
 - [x] Draft Part I unlock catalog (hydro L1 chain, ops rounds, discoveries) — [part-i-unlocks.md](../part-i-unlocks.md)
-- [ ] Finalize hydro → elevator gate weights and discovery triggers
+- [ ] Finalize hydro → Part II gate weights and solar discovery triggers
+- [ ] Define Part II PV beats and Part II → III elevator gate
+- [ ] Define party reunion beat and NPC roles in Part III
 - [ ] Define forest-to-facility path (specific scenes)
 - [ ] Define the group, the argument, and what "help" means
 - [x] Post-power library beat — holo-readers, DoE facility reveal, advanced hydro (details TBD)

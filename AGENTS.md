@@ -212,17 +212,17 @@ These embed as mini-games within the adventure:
 - **Setting:** Future where energy technology has been lost. Infrastructure remains, knowledge is gone.
 - **Inspiration:** Myst (atmosphere, exploration) + Tintin (protagonist personality)
 - **Protagonist:** Zanzibar Nuhero — see `game-design/content/story/characters.md`
-- **Story structure:** Part I (several weeks, surface — hydro operations) → Part II (below); Part I ends with a hidden elevator (hydro gate)
+- **Story structure:** Part I (surface — hydro) → Part II (surface — PV) → Part III (underground — Gen IV SMR + party reunion)
 - **Core message:** Hopeful. Technology exists to help people thrive.
 
 ## Core Loop
 
 Explore → Encounter Problem → Learn Concept → Apply in Simulation → Unlock Story → Repeat
 
-## Level Order
+## Level Order (Release Trilogy)
 
-1. Hydroelectric plant (most intuitive)
-2. PWR reactor — AP-1000
-3. Gen IV reactor — SFR
-4. Solar array — PV
-5. Fusion facility — Tokamak (most abstract)
+1. Hydroelectric plant — Part I (most intuitive)
+2. Solar array — PV — Part II (discovered on eBuggy tour in Part I)
+3. Gen IV SMR — Part III (underground; team-assisted)
+
+Extension packs may add alternate SMR models. AP-1000 and fusion are deferred expansion content.

@@ -1,6 +1,17 @@
 # Photovoltaic Simulation
 
-[DRAFT] — Specification for solar PV simulations.
+[DRAFT] — Specification for solar PV simulations. **Part II** technology — the player restores the solar field discovered on the eBuggy tour in Part I.
+
+## Part II Focus — PV as the surface sequel to hydro
+
+Part II is **PV-centric** on the **surface campus**. Zanzibar must:
+
+1. **Return** to the solar field he discovered while driving the eBuggy
+2. **Learn** irradiance, tilt, shading, and inverter behavior — not PV in the abstract, but **this campus array**
+3. **Integrate** variable solar output with ongoing hydro operations
+4. **Understand** why hydro + solar may not be enough — baseload need foreshadows Part III
+
+Hydro continues running in the background during Part II.
 
 ## Scope
 

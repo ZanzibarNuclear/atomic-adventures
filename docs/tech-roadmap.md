@@ -48,7 +48,7 @@ Design and narrative intent for Part I (unlock chains, hydro phases, discovery t
 
 ## Part I: what remains
 
-Part I is **hydro-centric**: forest arrival → shelter → library → startup the campus penstock plant → weeks of operations and power management → hidden elevator. The vertical slice must support that spine end-to-end, not only map traversal and prose.
+Part I is **hydro-centric**: forest arrival → shelter → library → startup the campus penstock plant → weeks of operations and power management → **hydro operator qualified** (solar field discovered on eBuggy tour along the way). The vertical slice must support that spine end-to-end, not only map traversal and prose. The hidden elevator is a **Part II → III** threshold, not Part I.
 
 ### 1. Simulation gates and challenge integration
 
@@ -133,9 +133,9 @@ The Day 1 end card is a placeholder; later days need real progression hooks into
 
 ### 9. Narrative and content completion
 
-Map and beat infrastructure support Part I, but the **full beat spine** — forest through hydro ops and elevator threshold — is not authored and wired:
+Map and beat infrastructure support Part I, but the **full beat spine** — forest through hydro ops, eBuggy solar discovery, and hydro-operator threshold — is not authored and wired:
 
-- Beats through library, control room, startup chain, buggy reward, ops rounds, discoveries, Part II foreshadowing.
+- Beats through library, control room, startup chain, buggy reward, ops rounds, discoveries (solar field, reactor tease), Part I ending.
 - Revisit prose and choice trees for repeat visits during operations.
 - Align authored flags with [part-i.yaml](../game/content/story/part-i.yaml) / SQLite and indoor event hooks in building YAML.
 
@@ -182,11 +182,14 @@ Keep **player/account schema separate** from authored content. SQLite (or a late
 
 ### Later technologies and embeds
 
-After Part I threshold (hidden elevator → Part II):
+After Part I threshold (hydro operator qualified):
 
-- **PV, AP-1000, Gen IV, fusion** chapters — each with its own sim and narrative arc (see [game-design-overview.md](../game-design/game-design-overview.md)).
-- **Mini-game embeds** — isotope-explorer (Vue/WASM), crazy-converter (iframe); integration contract still to be defined before Phase 2 nuclear/PV work.
-- **Real-world reactor tracking** — optional content updates as Gen IV and fusion projects advance (Natrium, Kairos, X-Energy, ITER, etc.).
+- **Part II — PV** — Restore solar field discovered on eBuggy tour; integrate with hydro ([game-design-overview.md](../game-design/game-design-overview.md)).
+- **Part III — Gen IV SMR** — Hidden elevator after Part II; underground reactor; traveling party reunion.
+- **Mini-game embeds** — isotope-explorer (Vue/WASM), crazy-converter (iframe); integration contract still to be defined before Part III nuclear work.
+- **Real-world reactor tracking** — launch SMR choice from designs in development (Natrium, Kairos, X-Energy, etc.); extension packs for alternates.
+
+Deferred: AP-1000, fusion chapters.
 
 ### Longer horizon
 

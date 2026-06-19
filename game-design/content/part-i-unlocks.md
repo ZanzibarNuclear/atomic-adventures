@@ -1,6 +1,6 @@
 # Part I — Unlock Catalog
 
-[DRAFT] — Concrete unlock chains for Part I: hydro progression, campus discoveries, and Part II foreshadowing.
+[DRAFT] — Concrete unlock chains for Part I: hydro progression, campus discoveries, and foreshadowing for Parts II and III.
 
 See also [Progression Design](progression-design.md) (staged complexity, gate types) and [Story Overview](story/story-overview.md).
 
@@ -17,8 +17,8 @@ An **unlock** is something the player gains access to — a control, a room, a v
 
 **Two tracks (both matter in Part I):**
 
-1. **Progression** — Hydro (and later power-management) challenges in order. Required for competence and the Part II threshold.
-2. **Discovery** — Campus exploration, other tech sightings, lore. Often **optional for the next hydro step** but required for a full picture of the facility and Act II expectations.
+1. **Progression** — Hydro (and later power-management) challenges in order. Required for competence and the **Part II** threshold (hydro operator qualified).
+2. **Discovery** — Campus exploration, other tech sightings, lore. Solar field discovery sets up **Part II**; reactor tease sets up **Part III**.
 
 Flag naming (implementation): dot-scoped kebab-case per [Story Data Format](story/story-data-format.md) — e.g. `hydro.level-1-complete`, `hub.buggy-charged`.
 
@@ -63,7 +63,7 @@ After Level 1, hydro shifts to **recurring rounds**. Each round is one focused p
 
 ---
 
-## Part II threshold (progression capstone)
+## Part I → Part II threshold (progression capstone)
 
 Not a single challenge — a **bundle** of progression + time + discovery (exact weights TBD):
 
@@ -72,31 +72,45 @@ Not a single challenge — a **bundle** of progression + time + discovery (exact
 | `hydro.level-1-complete` | Plant has been started |
 | Sustained ops — *N* rounds passed (2a–2f and successors) | Operator competence, not one-shot luck |
 | `hub.hydro_operator_qualified` | Composite: maintenance on schedule, load scenarios passed |
-| Optional: key **discovery** flags | Elevator clue only visible when campus is understood |
+| `hub.solar-discovered` | Player has seen the PV field (eBuggy tour) — narrative hook for Part II |
 
-**Unlocks:** Hidden elevator discoverable / powered / callable → Part II.
+**Unlocks:** Part I ending → **Part II** (restore solar field).
+
+---
+
+## Part II → Part III threshold (draft — not Part I scope)
+
+Defined when Part II is designed. Expected shape:
+
+| Requirement | Role |
+| ----------- | ---- |
+| PV restoration milestones | Solar contributing to campus load |
+| Baseload narrative beat | Why hydro + solar are not enough alone |
+| Optional: `hub.reactor-tease` | Player understands something waits below |
+
+**Unlocks:** Hidden elevator discoverable / powered / callable → **Part III**.
 
 ---
 
 ## Discovery track (campus and other tech)
 
-Discoveries **reward exploration** and **foreshadow** technologies without requiring full restoration before the elevator. They can gate optional load (e.g. charging storage) or holo-reader chapters.
+Discoveries **reward exploration** and **foreshadow** Parts II and III without requiring full restoration during Part I.
 
 | Discovery | ID (draft) | How player finds it | Requires (minimum) | Unlocks / foreshadows |
 | --------- | ----------- | --------------------- | -------------------- | --------------------- |
 | **EV buggy** | `hub.buggy-found` | Garage — already in shelter beat | Shelter / garage explored | Known before power; charge needs `hub.hydro_online` |
 | **Buggy charged & compound tour** | `hub.buggy-mobile` | Charge at port; drive campus | `hydro.level-1-complete` | New outdoor/building access; environmental storytelling |
-| **Battery storage array** | `hub.storage-discovered` | Compound exploration or ops doc / telemetry hint | `hub.buggy-mobile` or ops round *TBD* | Teaches storage vs. generation; optional future load-shifting puzzle |
-| **Solar panel field** | `hub.solar-discovered` | Visible from buggy route or map in control room | `hub.buggy-mobile` | PV chapter foreshadow; panels dormant until Part I extension or Part II |
-| **Act II — advanced modular reactor** | `hub.reactor-tease` | Holo-reader chapter, conference room, signage on descent-adjacent structures | `hub.hydro_online` + holo-readers; stronger after weeks of ops | **Part II expectation:** what lies below is not more surface hydro — modular advanced nuclear (align naming with [World & Style](story/world-and-style.md) Gen IV / facility map when fixed) |
+| **Battery storage array** | `hub.storage-discovered` | Compound exploration or ops doc / telemetry hint | `hub.buggy-mobile` or ops round *TBD* | Teaches storage vs. generation; optional load-shifting puzzle |
+| **Solar panel field** | `hub.solar-discovered` | Visible from buggy route or map in control room | `hub.buggy-mobile` | **Part II hook** — panels dormant until PV chapter |
+| **Part III — underground SMR tease** | `hub.reactor-tease` | Holo-reader chapter, conference room, signage near elevator | `hub.hydro_online` + holo-readers; stronger after weeks of ops | **Part III foreshadow** — Gen IV SMR below; elevator not yet accessible |
 
 **Design intent:**
 
-- **Buggy** — Celebration and **spatial** adventure; player sees scale of DoE campus.
-- **Storage + solar** — “This place was a full energy portfolio” without forcing PV sim before elevator.
-- **Reactor tease** — Curiosity hook for descent; details stay sparse until Part II.
+- **Buggy** — Celebration and **spatial** adventure; player sees scale of DoE campus and **finds the solar field**.
+- **Storage + solar** — "This place was a full energy portfolio"; solar restoration is **Part II**, not Part I.
+- **Reactor tease** — Curiosity hook for **Part III** descent; elevator stays locked until Part II PV milestones.
 
-Discoveries should not skip hydro competence for the elevator — they **complement** the operations spine.
+Discoveries should not skip hydro competence for Part II — they **complement** the operations spine.
 
 ---
 
@@ -108,7 +122,8 @@ Shelter → garage (buggy found)
     → hydro L1 chain (4 steps) → hub.hydro_online
         → holo-readers, buggy charge, compound discoveries (storage, solar, reactor tease)
         → hydro ops rounds (leak, gauges, load, excess, …)
-        → hub.hydro_operator_qualified → hidden elevator → Part II
+        → hub.hydro_operator_qualified + hub.solar-discovered → Part II (PV restoration)
+            → (Part II) PV milestones → hidden elevator → Part III (SMR + party reunion)
 ```
 
 ---
@@ -118,8 +133,8 @@ Shelter → garage (buggy found)
 - [ ] Soft vs. hard gate: must library be visited before intake debris challenge?
 - [ ] Field trip: does clearing debris require a buggy trip to intake, remote only, or both?
 - [ ] Calendar: which discovery beats land in “startup week” vs. “operations weeks”?
-- [ ] Solar/storage: interactable in Part I (mini-puzzle) or discover-only until Part II?
-- [ ] Elevator discovery trigger: pure competence flag vs. clue found while exploring with buggy
+- [ ] Solar/storage: discover-only in Part I (restore in Part II) — confirm no Part I PV sim gate
+- [ ] Elevator discovery trigger: Part II PV milestone (not Part I hydro competence)
 
 ## Revision Notes
 

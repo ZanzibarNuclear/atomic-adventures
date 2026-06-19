@@ -127,7 +127,7 @@ Do not conflate them. Story beats and facility layout live in `game-design/`; be
 Read in this order when onboarding to narrative or simulation design:
 
 1. [Game Design Overview](game-design/game-design-overview.md) — pillars, scope, core loop
-2. [Story Overview](game-design/content/story/story-overview.md) — Part I structure and beats
+2. [Story Overview](game-design/content/story/story-overview.md) — three-part structure and Part I beats
 3. [Characters](game-design/content/story/characters.md) — protagonist and cast
 4. [Part I Unlocks](game-design/content/part-i-unlocks.md) — hydro progression and discovery chains
 5. [Progression Design](game-design/content/progression-design.md) — gates, difficulty curve, staged complexity
@@ -149,14 +149,15 @@ Story art and map references live under [`game-design/art/`](game-design/art/). 
 
 Agent and contributor conventions: [AGENTS.md](AGENTS.md).
 
-## Technologies in Scope
+## Technologies in Scope (Release Trilogy)
 
-| Category             | Technologies                                           |
-| -------------------- | ------------------------------------------------------ |
-| **Hydro**            | Diversion / penstock, run-of-river, pumped storage     |
-| **Photovoltaic**     | Solar panels, inverters, grid integration              |
-| **Nuclear (Gen IV)** | Sodium-cooled fast reactor, others as they come online |
-| **Fusion**           | Tokamak / magnetic confinement concepts                |
+| Part | Category | Technologies |
+| ---- | -------- | ------------ |
+| I | **Hydro** | Diversion / penstock, run-of-river |
+| II | **Photovoltaic** | Solar panels, inverters, grid integration |
+| III | **Nuclear (Gen IV SMR)** | One real-world SMR design at launch; alternates via extension packs |
+
+Deferred: AP-1000 Gen III+, fusion, wind, geothermal.
 
 ## Contributing
 

@@ -11,24 +11,26 @@
 
 ## Story-Game Integration
 
-| Element | Gameplay | Narrative |
-|---------|----------|-----------|
-| Act 0 (hub) | Explore building, read library, engage hydro sim, charge EV, holo-readers | Part I early beats — shelter through facility reveal; may span multiple days |
-| Hydro chapter | Penstock startup, flow and power simulation | *TBD — visit the powerhouse on-site after Part I?* |
-| PV chapter | Panel layout, inverter setup | *TBD* |
-| Nuclear (AP-1000) | Reactor physics, safety systems | *TBD* |
-| Nuclear (Gen IV) | Coolant behavior, fuel cycle | *TBD* |
-| Fusion | Plasma confinement, heating | *TBD* |
+| Element | Gameplay | Narrative | Part |
+|---------|----------|-----------|------|
+| Act 0 (hub) | Explore building, read library, engage hydro sim, charge EV, holo-readers | Shelter through facility reveal | I |
+| Hydro chapter | Penstock startup, flow and power simulation, weeks of ops | Surface campus spine | I |
+| PV chapter | Panel layout, inverter setup, grid integration with hydro | Restore solar field found on eBuggy tour | II |
+| Gen IV SMR | Reactor startup, coolant behavior, team-assisted operations | Elevator descent; party reunion | III |
+
+_Deferred specs: AP-1000, fusion — optional expansion content._
 
 ## Pacing
 
 - **Staged challenges** — Wins can feel almost too easy first; story and simulations then introduce real-world problems in rounds. See [Staged Complexity](content/progression-design.md#staged-complexity-through-real-world-challenges) in Progression Design.
-- **Part I opening** — Survival and exploration first; one simulation win (hydro); celebration before complexity rises. Early beats may span **multiple in-game days** — the week is a container, not a rush
-- **Part I mid-week** — TBD; room for exploration, false starts, and overnight breaks between milestones
-- **Part I ending** — Hidden elevator threshold after roughly a week
+- **Part I opening** — Survival and exploration first; one simulation win (hydro); celebration (buggy) before complexity rises. Early beats may span **multiple in-game days**
+- **Part I core** — Weeks of hydro operations; **solar field discovered** on compound tour but not restored yet
+- **Part I ending** — Hydro operator qualified; handoff to Part II (PV)
+- **Part II** — Surface PV restoration; hydro continues in background; baseload narrative builds toward elevator
+- **Part II ending** — Hidden elevator threshold
+- **Part III opening** — Descent; **traveling party finds compound**; SMR work requires team
 - **Early chapters** — Lower complexity; library-before-control-room pattern repeats
-- **Mid** — Concepts build; player applies prior knowledge
-- **Late** — Synthesis; multiple concepts combined
+- **Late (Part III)** — Synthesis; multiple concepts combined; highest simulation complexity
 
 ## Accessibility
 
@@ -38,4 +40,5 @@
 
 ## Revision Notes
 
-- *Expand as story and learning content are defined*
+- [x] Three-part story-game integration table (2026-06)
+- *Expand Part II and Part III beats as content is defined*

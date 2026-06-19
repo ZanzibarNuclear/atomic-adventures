@@ -16,7 +16,7 @@ A future where something has gone wrong. Key energy technologies have been lost 
 
 **Story open:** Zanzibar walks alone through that forest — hungry, low on water, thinking about the argument that split his group apart to search for help. The facility comes later.
 
-**Zanzibar Nuhero** eventually reaches a **central facility** — a secret **Department of Energy** research campus (details TBD) somewhere in Maine. It connects to advanced energy installations — hydro, nuclear, solar, fusion — each pushing beyond late-20th-century technology. Think of it as the island in Myst: a single place with paths to distinct worlds, each with its own character and challenges.
+**Zanzibar Nuhero** eventually reaches a **central facility** — a secret **Department of Energy** research campus (details TBD) somewhere in Maine. It connects to advanced energy installations — hydro, solar, and an underground Gen IV SMR — each pushing beyond late-20th-century technology. Think of it as the island in Myst: a single place with paths to distinct challenges, each with its own character.
 
 ## Sci-Fi Boundaries
 
@@ -31,7 +31,8 @@ The game is **reality-based fantasy**, not hard sci-fi — but it is set in a **
 ## Tone
 
 - **Mysterious** — Where did everyone go? What happened? Answers emerge gradually through exploration.
-- **Solitary** — The player is alone (or nearly so). No crowds, no bustling cities. Ambient sound, wind, dripping water, the hum of dormant machinery.
+- **Solitary (Parts I–II)** — Zanzibar is alone on the surface. No crowds, no bustling cities. Ambient sound, wind, dripping water, the hum of dormant machinery.
+- **Collaborative (Part III)** — The traveling party reunites at the compound. Running an SMR needs more than one person; NPCs share the load while the player keeps core learning.
 - **Hopeful** — This is the core emotional throughline. The world is desolate, but the message is optimistic: the technology to help people thrive *exists* and *works*. Every restored facility is proof that the future can be better. The game should leave players feeling empowered, not anxious.
 - **Respectful of scale** — These facilities are big. A penstock run down a mountainside, a reactor building, a tokamak hall. The player should feel small in the presence of engineering achievements — and then proud when they bring them back to life.
 
@@ -79,27 +80,25 @@ Holo-readers are a **power-gated reward**: restoration unlocks deeper knowledge.
 
 ### Campus mobility
 
-An **EV buggy** in the garage is found during shelter; charging and driving unlock after hydro Level 1 (station power on). The compound tour is the main **discovery** adventure — storage, solar, and clues about the advanced modular reactor below. See [Part I Unlocks](../part-i-unlocks.md).
+An **EV buggy** in the garage is found during shelter; charging and driving unlock after hydro Level 1 (station power on). The compound tour is the main **discovery** adventure — storage, **solar field**, and clues about the **underground SMR**. See [Part I Unlocks](../part-i-unlocks.md).
 
-### Hidden elevator (Part I ending)
+### Hidden elevator (Part II → III threshold)
 
-Somewhere on the campus is a **concealed elevator** that descends deep into the facility. Zanzibar discovers it **late in Part I** — after **weeks** of running the hydro plant and managing campus power. Hydro competence is **essential**: the elevator is not reachable until Zanzibar can sustain reliable operation. It is the threshold into Part II — the surface campus was only the upper layer.
+Somewhere on the campus is a **concealed elevator** that descends to the underground reactor. Zanzibar may **foreshadow** it during Part I (reactor tease, holo-readers, signage), but descent waits until **Part II** establishes why **baseload** matters after hydro and solar. PV restoration progress and campus-power milestones unlock the elevator — threshold into **Part III**.
 
 *Location, concealment, exact gate conditions, and discovery trigger TBD.*
 
-### Areas / Levels
+### Technology areas (release trilogy)
 
-Each area is a distinct energy installation the player must understand and restore:
+Each part centers on one energy installation the player must understand and restore:
 
-| Level | Facility | Focal Simulation | Mini-games / Tools |
-|-------|----------|------------------|--------------------|
-| 1 | Hydroelectric plant | Penstock / turbine / generator | Flow control, turbine selection |
-| 2 | PWR reactor (AP-1000) | Reactor startup and operation | Isotope explorer, control rod management |
-| 3 | Gen IV reactor (SFR) | Sodium-cooled fast reactor | Fuel cycle, coolant behavior |
-| 4 | Solar array | PV installation and grid tie | Panel placement, inverter sizing |
-| 5 | Fusion facility | Tokamak operation | Plasma confinement, heating |
+| Part | Facility | Focal simulation | Mini-games / tools |
+|------|----------|------------------|--------------------|
+| I | Hydroelectric plant (surface) | Penstock / turbine / generator | Flow control, load management |
+| II | Solar array (surface) | PV installation and grid tie | Panel placement, inverter sizing |
+| III | Gen IV SMR (underground) | SMR startup and operation | Coolant behavior, team-assisted ops |
 
-*Level order may be adjusted. Hydro is first (most intuitive). Fusion is last (most abstract).*
+*Part I discovers the solar field and teases the reactor; Part II restores PV; Part III operates the SMR with party help. Alternate SMR models may ship as extension packs.*
 
 Each area follows the same arc:
 1. **Arrive** — Explore a dormant facility. Discover what it was.

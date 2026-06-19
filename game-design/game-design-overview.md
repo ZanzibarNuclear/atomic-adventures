@@ -11,7 +11,7 @@ Atomic Adventures is an immersive, reality-based fantasy adventure where players
 1. **Reality-Based Fantasy** — The world feels fantastical, but the science is real. No hand-waving on principles; players encounter genuine physics and engineering. Near-future **implementations** may exceed today's technology (advanced hydro, holo-readers, etc.) — see [World & Style Guide](content/story/world-and-style.md#sci-fi-boundaries).
 2. **Learn to Progress** — Story gates require understanding. You can't brute-force your way through.
 3. **Simulations That Teach** — Physics and engineering simulations are playable, accurate enough to be educational, and engaging enough to be fun.
-4. **Technology as Adventure** — Each technology (hydro, PV, nuclear) is a distinct "realm" or chapter with its own challenges and aesthetics.
+4. **Technology as Adventure** — Each technology (hydro, PV, nuclear) is a distinct chapter with its own challenges and aesthetics.
 
 ## Core Loop
 
@@ -19,25 +19,44 @@ Atomic Adventures is an immersive, reality-based fantasy adventure where players
 Explore → Encounter Problem → Learn Concept → Apply in Simulation → Unlock Story → Repeat
 ```
 
+## Game Structure — Three Parts
+
+The release game is **three parts**, each centered on one generation technology. Narrative detail lives in [Story Overview](content/story/story-overview.md); progression gates in [Progression Design](content/progression-design.md).
+
+| Part | Technology | Setting | Story spine |
+| ---- | ---------- | ------- | ----------- |
+| **I** | Hydro | Surface campus | Forest arrival → hydro startup → **weeks of operations**; discover solar field on **eBuggy** tour |
+| **II** | Photovoltaics | Surface campus | Restore the solar field discovered in Part I; compare variable solar to steady hydro |
+| **III** | Gen IV SMR | Underground | Hidden elevator → dormant **small modular reactor**; **traveling party reunites** and helps operate the plant |
+
+**Part I → II threshold:** Sustained hydro competence (`hub.hydro_operator_qualified`). The player has already **seen** the solar array from the buggy; Part II is learning to bring it online.
+
+**Part II → III threshold:** PV restoration complete (or operational enough to justify baseload need). The **hidden elevator** and reactor tease from Part I discoveries pay off.
+
+**Part III cast:** Zanzibar alone through Parts I–II; the rest of the **traveling party finds the compound** in Part III. Running and keeping a reactor going takes more than one person — NPC roles support operations, maintenance, and story without replacing the player's learning.
+
 ## Scope
 
 - **Near-future setting** — Roughly 100 years of continued energy-tech advancement assumed; secret DoE research campus in Maine
 - **Sci-fi liberties** — Advanced implementations (e.g. high-efficiency hydro beyond late-1900s norms, holo-readers) while core physics stays real
 
-### In Scope (Design Phase)
+### In Scope — Release Trilogy
 
-- Hydroelectric power (diversion / penstock, run-of-river, pumped storage)
-- Photovoltaic power (solar panels, inverters, grid integration)
-- Nuclear: Westinghouse AP-1000 PWR (Gen III+)
-- Nuclear: Gen IV sodium-cooled fast reactor
-- Nuclear: Other Gen IV designs as they come online in real life
-- Fusion reactor (tokamak / magnetic confinement concepts)
+| Part | Technology | Simulation focus |
+| ---- | ---------- | ---------------- |
+| I | Hydroelectric | Diversion / penstock, run-of-river; startup then operations |
+| II | Photovoltaic | Panel layout, irradiance, inverters, grid integration; contrast with hydro |
+| III | Gen IV SMR | One **real-world SMR design in development today** (e.g. Natrium-class sodium-cooled fast reactor — exact choice TBD) |
 
-### Out of Scope (For Now)
+**Extension packs (future):** Alternate SMR models swappable as content packs without changing the Part III story spine.
 
-- Fossil fuels (coal, gas) — unless needed for contrast or backstory
-- Wind, geothermal — possible future expansion
-- Full grid-level simulation — may be simplified or abstracted
+### Deferred — Not Core Trilogy
+
+- **AP-1000 Gen III+ PWR** — Spec retained in [nuclear-ap1000-simulation.md](content/subject-matter/nuclear-ap1000-simulation.md) for optional or expansion content
+- **Fusion (tokamak)** — Research spec only; aspirational future chapter
+- **Wind, geothermal** — Possible later expansion
+- **Fossil fuels** — Out of scope unless needed for contrast or backstory
+- **Full grid-level simulation** — May be simplified or abstracted
 
 ## Target Audience
 
@@ -45,23 +64,23 @@ Explore → Encounter Problem → Learn Concept → Apply in Simulation → Unlo
 - Educators looking for engaging STEM content
 - Fans of puzzle-adventure and narrative games
 
-## Platform Considerations
+## Platform
 
-- **Frontend:** Vue.js or React (per project conventions)
-- **Simulations:** Web-based (WebGL/Canvas) or integrated engine — TBD
-- **Deployment:** Web-first; native/mobile possible later
+- **Frontend:** Vue 3 + Vite (playable game in `game/`)
+- **Simulations:** Web-based (Canvas/WebGL) Vue components
+- **Deployment:** Web-first (Vercel); native/mobile possible later
 
 ## Success Criteria (Design Phase)
 
-- [ ] Story outline complete and coherent
-- [ ] Each technology has a clear simulation spec
+- [ ] Story outline complete and coherent across all three parts
+- [ ] Each trilogy technology has a clear simulation spec
 - [ ] Learning objectives mapped to story beats
-- [ ] Art direction and tone defined
+- [x] Art direction and tone defined — see [World & Style Guide](content/story/world-and-style.md)
 - [ ] Progression feels rewarding and non-frustrating
 
 ## Open Questions
 
-- How deep should each simulation go? (e.g., full thermodynamic modeling vs. simplified)
-- What is the tone? (Serious, whimsical, hopeful, cautionary?)
-- Single-player only, or any multiplayer/social elements?
-- Estimated playtime per technology / full game?
+- How deep should each simulation go? (full thermodynamic modeling vs. simplified — see [Simulation Overview](content/subject-matter/simulation-overview.md))
+- Which SMR design anchors Part III at launch?
+- Estimated playtime per part / full trilogy?
+- How do party members divide reactor tasks without splitting the player's core learning loop?

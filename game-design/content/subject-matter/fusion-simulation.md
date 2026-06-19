@@ -2,6 +2,8 @@
 
 [DRAFT] — Specification for fusion reactor simulation (tokamak / magnetic confinement).
 
+**Status:** Deferred — research spec only; not part of the release trilogy.
+
 ## Scope
 
 - **Tokamak** — Toroidal geometry, magnetic field, plasma

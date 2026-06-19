@@ -84,7 +84,7 @@ Zanzibar did not start alone. He was with a **group** until an **argument** caus
 | The argument | TBD |
 | What "help" means | TBD |
 | Where the others went | TBD |
-| Whether/when they reappear | TBD |
+| Whether/when they reappear | **Part III** — party finds compound; helps operate underground SMR |
 
 *TBD — other character art exists in `../../nuclear-ambitions/adventure/characters/` and may inform future cast members.*
 
@@ -98,7 +98,7 @@ Zanzibar did not start alone. He was with a **group** until an **argument** caus
 | `Shilpa.jpg` | Shilpa | *TBD* | Art only |
 | `AtomicAlchemist.jpg` | — | *TBD* | Art only |
 
-*The game may remain largely solitary (Myst-like). NPCs should appear only when they serve story or learning — not as filler.*
+*The game is largely solitary through Parts I–II (Myst-like). NPCs arrive in **Part III** when reactor operation requires a team. Additional appearances only when they serve story or learning — not as filler.*
 
 ---
 
@@ -116,5 +116,5 @@ See [Story Overview](story-overview.md) for chapter beats and [World & Style Gui
 
 - [x] Opening situation — alone in pine forest after group split
 - [ ] Define the group, argument, and stakes
-- [ ] Decide which supporting cast (if any) appear in Act 1 (Hydro)
+- [ ] Decide which supporting cast appear in Part III and their operational roles
 - [ ] Copy canonical art into `game-design/art/story/zanzibar/`

@@ -15,7 +15,7 @@ For the campus hydro plant (Part I first power), we use **diversion / run-of-riv
 
 Power: **P = η ρ g Q H** — head from elevation drop along the penstock, not reservoir height.
 
-Part I simulation focus: **startup** (one-time), then **operations** (weeks of maintenance and power management). Hydro competence gates the hidden elevator to Part II.
+Part I simulation focus: **startup** (one-time), then **operations** (weeks of maintenance and power management). Hydro competence gates **Part II** (PV restoration).
 
 ## Why this fits the game
 

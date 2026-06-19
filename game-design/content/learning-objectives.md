@@ -6,9 +6,9 @@
 
 Learning objectives drive story gates. A player cannot advance until they demonstrate understanding (through simulation success, puzzle solution, or in-world assessment).
 
-## By Technology
+## By Part / Technology
 
-### Hydro (Part I — startup through operations)
+### Part I — Hydro (startup through operations)
 
 | Objective | Assessment |
 |-----------|------------|
@@ -18,45 +18,35 @@ Learning objectives drive story gates. A player cannot advance until they demons
 | Manage campus power supply and demand | Balance loads without brownouts; pass power-management scenarios |
 | Recognize turbine types | Choose appropriate turbine for conditions (sandbox / later) |
 
-### Photovoltaic
+### Part II — Photovoltaic
 
 | Objective | Assessment |
 |-----------|------------|
 | Understand irradiance and tilt | Optimize panel placement for output |
 | Know shading impact | Identify and mitigate shading |
 | Grasp inverter role | Size system correctly |
+| Compare variable solar to steady hydro | Integrate PV with ongoing hydro ops without destabilizing campus load |
 
-### Nuclear (AP-1000)
-
-| Objective | Assessment |
-|-----------|------------|
-| Understand criticality (k=1) | Adjust control rods to achieve/maintain critical |
-| Know decay heat | Explain why cooling continues after shutdown |
-| Recognize safety systems | Identify passive vs. active; defense in depth |
-
-### Nuclear (Gen IV)
+### Part III — Gen IV SMR
 
 | Objective | Assessment |
 |-----------|------------|
-| Understand fast vs. thermal neutrons | Explain why SFR has no moderator |
-| Know sodium coolant properties | Anticipate coolant behavior in transient |
+| Understand fast vs. thermal neutrons | Explain why the SMR has no moderator |
+| Know coolant properties (e.g. sodium) | Anticipate coolant behavior in transient |
 | Grasp inherent safety | Explain negative feedback |
+| Recognize baseload role | Explain why hydro + solar led to needing the reactor |
 
-### Fusion
+### Deferred — Optional / Expansion Content
 
-| Objective | Assessment |
-|-----------|------------|
-| Understand magnetic confinement | Explain why plasma is confined |
-| Know Lawson criterion | Relate n, τ, T to ignition |
-| Grasp breakeven (Q=1) | Achieve Q≥1 in simulation |
+**AP-1000 Gen III+** and **fusion** specs remain in `subject-matter/` for future packs; not part of the release trilogy learning path.
 
 ## Cross-Cutting Concepts
 
 - **Efficiency** — All technologies have losses; where do they go?
-- **Grid integration** — How does variable (solar) vs. baseload (nuclear) differ?
+- **Grid integration** — How does variable (solar) vs. baseload (nuclear) vs. dispatchable (hydro) differ?
 - **Scale** — Orders of magnitude (kW vs. GW)
 
 ## Revision Notes
 
-- *Align with story beats in `../docs/story-overview.md`*
-- *Map to simulation capabilities in `../tech/`*
+- [x] Map objectives to three-part release structure (2026-06)
+- *Align with story beats in [Story Overview](story/story-overview.md)*

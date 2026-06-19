@@ -2,6 +2,8 @@
 
 [DRAFT] — Specification for Westinghouse AP-1000 PWR simulation.
 
+**Status:** Deferred — not part of the release trilogy (Part I hydro → Part II PV → Part III Gen IV SMR). Retained for optional or expansion content.
+
 ## Scope
 
 - **Reactor core** — Fission, neutron multiplication, reactivity

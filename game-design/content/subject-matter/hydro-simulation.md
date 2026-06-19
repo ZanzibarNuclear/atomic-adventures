@@ -10,7 +10,7 @@ Part I is **hydro-centric**. Zanzibar must:
 2. **Learn** this plant in depth — the Upper Penstock system on Mill Brook, not hydro in the abstract
 3. **Operate** it reliably for **weeks** — maintenance routine, responding to stream conditions
 4. **Manage** campus power — balance generation against load across campus circuits
-5. **Qualify** for Part II — sustained competent operation unlocks the hidden elevator
+5. **Qualify** for Part II — sustained competent operation unlocks the PV chapter (solar field already discovered on eBuggy tour)
 
 There is **no large dam or reservoir**. Water is diverted from Mill Brook through a **penstock** to a **turbine–generator** in the hillside **powerhouse**, controlled from the **hydro control room** in the main building.
 
@@ -50,7 +50,7 @@ Mill Brook (mountain stream)
 - **Startup sequence** — One-time gate: intake → penstock → turbine → generator sync
 - **Operations loop** — Recurring maintenance and monitoring over in-game weeks
 - **Power management** — Campus load allocation; supply/demand balance
-- **Part II gate** — Elevator access requires demonstrated operational competence
+- **Part II gate** — Hydro operator qualification required before PV restoration chapter
 
 ### Out of scope for Part I (optional later)
 
@@ -119,14 +119,15 @@ The hydro control room exposes **campus power controls** — not just plant tele
 
 Scenarios escalate over weeks: routine days, weather-reduced stream flow, higher load when Zanzibar activates new campus systems, combined maintenance + load challenges.
 
-#### Part II gate (elevator)
+#### Part II gate (hydro operator qualified)
 
-The **hidden elevator** requires **sustained hydro competence** — not a single perfect run. Candidate gate conditions (TBD, may combine):
+Sustained hydro competence — not a single perfect run — gates **Part II** (solar restoration). Candidate gate conditions (TBD, may combine):
 
 - Minimum **days/weeks** of uninterrupted operation
 - Power-management scenarios passed (e.g., run holo-readers + charge EV without tripping)
 - Maintenance tasks completed on schedule
-- Story flag: `hub.hydro_operator_qualified` → elevator discoverable or powered
+- Story flag: `hub.hydro_operator_qualified` → Part I ending / Part II available
+- Discovery flag: `hub.solar-discovered` — player already saw the array on the eBuggy tour
 
 ### Failure modes (educational, not punitive)
 

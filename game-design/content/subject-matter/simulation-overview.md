@@ -2,6 +2,16 @@
 
 [DRAFT] — Philosophy and standards for physics and engineering simulations in Atomic Adventures.
 
+## Release Trilogy
+
+| Part | Simulation spec |
+| ---- | ----------------- |
+| I | [Hydro](hydro-simulation.md) |
+| II | [Photovoltaic](photovoltaic-simulation.md) |
+| III | [Nuclear Gen IV / SMR](nuclear-gen4-simulation.md) |
+
+Deferred specs (optional expansion): [AP-1000](nuclear-ap1000-simulation.md), [Fusion](fusion-simulation.md).
+
 ## Goals
 
 - **Informative** — Players learn real concepts (e.g., head vs. flow in hydro, neutron multiplication in nuclear)
@@ -28,10 +38,15 @@
 
 ## Technology-Specific Specs
 
-- [Hydro](hydro-simulation.md)
-- [Photovoltaic](photovoltaic-simulation.md)
+**Release trilogy:**
+
+- [Hydro](hydro-simulation.md) — Part I
+- [Photovoltaic](photovoltaic-simulation.md) — Part II
+- [Nuclear Gen IV / SMR](nuclear-gen4-simulation.md) — Part III
+
+**Deferred / expansion:**
+
 - [Nuclear AP-1000](nuclear-ap1000-simulation.md)
-- [Nuclear Gen IV](nuclear-gen4-simulation.md)
 - [Fusion](fusion-simulation.md)
 
 ## Technical Considerations
