@@ -74,6 +74,7 @@ export {
 
 export {
   canUseExteriorExit,
+  exteriorStepDirection,
   exteriorMovesFrom,
   exteriorReachableNodes,
   exteriorPathBetween,

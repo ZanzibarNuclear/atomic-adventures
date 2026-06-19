@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import utilityData from "../../../../content/world/utility-station.yaml";
 import {
   buildBuilding,
+  exteriorMovesFrom,
   exteriorPathBetween,
   exteriorReachableNodes,
   mapVisibilityCtx,
@@ -49,6 +50,16 @@ describe("utility station grid traversal contract", () => {
       expect(outward?.at(-1)).toBe(nodeId);
       expect(returning?.at(-1)).toBe(building.exterior.entry);
     }
+  });
+
+  it("labels unknown exterior choices by geographic direction", () => {
+    const moves = exteriorMovesFrom(building, "large-bay-roll-front");
+    const labels = moves.map((move) => move.label).sort();
+
+    expect(labels).toEqual([
+      "east along the footpath",
+      "west along the footpath",
+    ]);
   });
 
   it("reaches every standable room when authored doors are open", () => {
