@@ -1,4 +1,9 @@
 import { computed, readonly, ref } from "vue";
+import {
+  addContentEventListener,
+  addContentEventStatusListener,
+  fetchContentJson,
+} from "./contentEvents.js";
 
 const fallback = {
   id: "character-main",
@@ -21,7 +26,6 @@ const content = ref({
 const loading = ref(false);
 const error = ref("");
 let started = false;
-let events = null;
 const characterUrl = import.meta.env.PROD
   ? "/content/character.json"
   : "/api/character";
@@ -31,11 +35,7 @@ export async function refreshCharacterContent(minimumRevision = 0) {
   if (content.value.revision >= minimumRevision && minimumRevision > 0) return true;
   loading.value = true;
   try {
-    const response = await fetch(characterUrl, {
-      headers: { Accept: "application/json" },
-    });
-    if (!response.ok) throw new Error(`Character service returned ${response.status}.`);
-    const next = await response.json();
+    const next = await fetchContentJson(characterUrl);
     if (next.revision >= content.value.revision) content.value = next;
     error.value = "";
     return true;
@@ -50,19 +50,19 @@ export async function refreshCharacterContent(minimumRevision = 0) {
 function start() {
   if (started) return;
   started = true;
-  if (import.meta.env.PROD || typeof EventSource === "undefined") return;
-  events = new EventSource("/api/content/events");
-  events.addEventListener("character.updated", (event) => {
+  addContentEventListener("character.updated", (event) => {
     const update = JSON.parse(event.data);
     if (update.revision > content.value.revision) {
       void refreshCharacterContent(update.revision);
     }
   });
-  events.onerror = () => {
-    error.value = "Live character updates are disconnected. Existing character data remains available.";
-  };
-  events.addEventListener("open", () => {
-    if (error.value.startsWith("Live character updates")) error.value = "";
+  addContentEventStatusListener({
+    onError: () => {
+      error.value = "Live character updates are disconnected. Existing character data remains available.";
+    },
+    onOpen: () => {
+      if (error.value.startsWith("Live character updates")) error.value = "";
+    },
   });
 }
 

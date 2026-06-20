@@ -1,4 +1,9 @@
 import { computed, readonly, ref } from "vue";
+import {
+  addContentEventListener,
+  addContentEventStatusListener,
+  fetchContentJson,
+} from "./contentEvents.js";
 
 const fallback = {
   id: "utility-station",
@@ -21,7 +26,6 @@ const content = ref({
 const loading = ref(false);
 const error = ref("");
 let started = false;
-let events = null;
 const buildingUrl = import.meta.env.PROD
   ? "/content/utility-station.json"
   : "/api/world/buildings/utility-station";
@@ -31,11 +35,7 @@ export async function refreshBuildingContent(minimumRevision = 0) {
   if (content.value.revision >= minimumRevision && minimumRevision > 0) return true;
   loading.value = true;
   try {
-    const response = await fetch(buildingUrl, {
-      headers: { Accept: "application/json" },
-    });
-    if (!response.ok) throw new Error(`Building service returned ${response.status}.`);
-    const next = await response.json();
+    const next = await fetchContentJson(buildingUrl);
     if (next.revision >= content.value.revision) content.value = next;
     error.value = "";
     return true;
@@ -50,9 +50,7 @@ export async function refreshBuildingContent(minimumRevision = 0) {
 function start() {
   if (started) return;
   started = true;
-  if (import.meta.env.PROD || typeof EventSource === "undefined") return;
-  events = new EventSource("/api/content/events");
-  events.addEventListener("building.updated", (event) => {
+  addContentEventListener("building.updated", (event) => {
     const update = JSON.parse(event.data);
     if (
       update.buildingId === "utility-station" &&
@@ -61,11 +59,13 @@ function start() {
       void refreshBuildingContent(update.revision);
     }
   });
-  events.onerror = () => {
-    error.value = "Live building updates are disconnected. The last loaded map remains available.";
-  };
-  events.addEventListener("open", () => {
-    if (error.value.startsWith("Live building updates")) error.value = "";
+  addContentEventStatusListener({
+    onError: () => {
+      error.value = "Live building updates are disconnected. The last loaded map remains available.";
+    },
+    onOpen: () => {
+      if (error.value.startsWith("Live building updates")) error.value = "";
+    },
   });
 }
 

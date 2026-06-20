@@ -644,7 +644,10 @@ async function saveAndLeave() {
       </section>
     </div>
   </main>
-  <p v-else class="status">Loading character content…</p>
+  <section v-else class="character-builder">
+    <p class="status">{{ status || "Loading character content…" }}</p>
+    <button v-if="status" class="sm" @click="loadCharacter">Retry</button>
+  </section>
 </template>
 
 <style scoped>
