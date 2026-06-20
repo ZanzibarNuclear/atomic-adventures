@@ -25,15 +25,20 @@ function setup() {
   const db = openDatabase(join(dir, "api.sqlite"));
   const seedWorld = loadWorldSeed();
   const buildingData = loadBuildingData();
-  const repository = new StoryRepository(db, buildWorldCatalog(seedWorld, buildingData));
+  const characterRepository = new CharacterRepository(db, {
+    seedCharacter: loadCharacterSeed(),
+  });
+  const repository = new StoryRepository(
+    db,
+    buildWorldCatalog(seedWorld, buildingData),
+    characterRepository.getDocument()?.character,
+  );
   const worldRepository = new WorldRepository(db, { seedWorld, buildingData, storyRepository: repository });
   const buildingRepository = new BuildingRepository(db, {
     seedBuilding: buildingData,
     worldRepository,
     storyRepository: repository,
-  });
-  const characterRepository = new CharacterRepository(db, {
-    seedCharacter: loadCharacterSeed(),
+    characterRepository,
   });
   return {
     db,
@@ -75,13 +80,47 @@ function request(method, url, body) {
 }
 
 describe("story API", () => {
+  it("publishes the character catalog and protects referenced definitions", async () => {
+    const { db, api, characterRepository } = setup();
+
+    const catalogRes = responseCapture();
+    await api.handle(request("GET", "/api/catalog"), catalogRes);
+    const catalog = JSON.parse(catalogRes.chunks.join(""));
+    expect(catalog.character.items.map((item) => item.id)).toContain("lobby-exterior-key");
+
+    const referencesRes = responseCapture();
+    await api.handle(
+      request("GET", "/api/character/references?domain=items&id=lobby-exterior-key"),
+      referencesRes,
+    );
+    const references = JSON.parse(referencesRes.chunks.join(""));
+    expect(references.some((reference) => reference.path.includes("lock.key"))).toBe(true);
+    expect(references.some((reference) => reference.path.includes("pickups"))).toBe(true);
+
+    const current = characterRepository.getDocument();
+    const removeRes = responseCapture();
+    await api.handle(request("PUT", "/api/character", {
+      character: {
+        ...current.character,
+        items: current.character.items.filter((item) => item.id !== "lobby-exterior-key"),
+      },
+      expectedVersion: current.version,
+    }), removeRes);
+    expect(removeRes.status).toBe(422);
+    expect(
+      Object.keys(JSON.parse(removeRes.chunks.join("")).errors)
+        .some((path) => path.startsWith("building.") && path.endsWith(".lock.key")),
+    ).toBe(true);
+    db.close();
+  });
+
   it("serves, validates, and restores revisioned character content", async () => {
     const { db, api, characterRepository } = setup();
 
     const getRes = responseCapture();
     await api.handle(request("GET", "/api/character"), getRes);
     expect(getRes.status).toBe(200);
-    expect(JSON.parse(getRes.chunks.join("")).character.items).toHaveLength(3);
+    expect(JSON.parse(getRes.chunks.join("")).character.items).toHaveLength(7);
 
     const invalidRes = responseCapture();
     await api.handle(

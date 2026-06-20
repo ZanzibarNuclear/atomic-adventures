@@ -1,8 +1,23 @@
 import { applyCharacterState, captureCharacterState } from "../../composables/useCharacterState.js";
+import { evaluateRequirements } from "./requirements.js";
+import {
+  addItem,
+  itemQuantity,
+  removeItem,
+  transferHolding,
+} from "./holdings.js";
 
 const QUEST_STATUSES = new Set([
   "unavailable", "available", "active", "completed", "failed", "abandoned",
 ]);
+const QUEST_TRANSITIONS = {
+  unavailable: new Set(["available", "active"]),
+  available: new Set(["active", "failed", "abandoned"]),
+  active: new Set(["completed", "failed", "abandoned"]),
+  abandoned: new Set(["active"]),
+  completed: new Set(),
+  failed: new Set(),
+};
 
 export function applyEffectsAtomically(effects = [], {
   character,
@@ -14,6 +29,7 @@ export function applyEffectsAtomically(effects = [], {
   const definitions = character.definitions ?? {};
   try {
     for (const effect of effects) applyEffect(draft, draftFlags, definitions, effect, now);
+    evaluateSkillAwards(draft, draftFlags, definitions, now);
   } catch (error) {
     return { ok: false, error: error.message, effect: error.effect };
   }
@@ -45,15 +61,40 @@ function applyEffect(state, flags, definitions, effect, now) {
 
   if (domain === "item") {
     const quantity = positive(effect.quantity, 1);
-    const current = state.holdings.items[effect.id]?.quantity ?? 0;
-    const maximum = Number(catalog[effect.id].maxQuantity ?? (catalog[effect.id].carrying === "unique" ? 1 : Infinity));
     if (operation === "add") {
-      if (current + quantity > maximum) fail(`Adding ${effect.id} exceeds its maximum quantity.`);
-      state.holdings.items[effect.id] = { quantity: current + quantity };
+      try {
+        addItem(state.holdings, definitions, effect.id, quantity, {
+          holderId: effect.holder,
+        });
+      } catch (error) {
+        fail(error.message);
+      }
     } else if (operation === "remove") {
-      if (current < quantity) fail(`Not enough ${effect.id} to remove.`);
-      if (current === quantity) delete state.holdings.items[effect.id];
-      else state.holdings.items[effect.id] = { quantity: current - quantity };
+      if (itemQuantity(state.holdings, effect.id, {
+        access: effect.access ?? "carried",
+        nearbyHolderIds: effect.nearbyHolderIds ?? [],
+        holderId: effect.holder,
+      }) < quantity) fail(`Not enough ${effect.id} to remove.`);
+      try {
+        removeItem(state.holdings, definitions, effect.id, quantity, {
+          access: effect.access ?? "carried",
+          nearbyHolderIds: effect.nearbyHolderIds ?? [],
+          holderId: effect.holder,
+        });
+      } catch (error) {
+        fail(error.message);
+      }
+    } else if (operation === "transfer") {
+      try {
+        transferHolding(state.holdings, definitions, {
+          type: effect.type,
+          id: effect.recordId,
+          quantity,
+          toHolder: effect.toHolder,
+        });
+      } catch (error) {
+        fail(error.message);
+      }
     } else fail(`Unsupported item operation "${operation}".`);
     return;
   }
@@ -82,13 +123,41 @@ function applyEffect(state, flags, definitions, effect, now) {
 
   if (domain === "skill") {
     const definition = catalog[effect.id];
-    const skill = state.skills[effect.id] ?? { rank: 0, evidence: {} };
+    const skill = state.skills[effect.id] ?? {
+      rank: 0,
+      evidence: {},
+      evidenceEvents: {},
+      awards: {},
+    };
+    skill.evidence ??= {};
+    skill.evidenceEvents ??= {};
+    skill.awards ??= {};
     if (operation === "acquire") skill.rank = Math.max(1, skill.rank);
-    else if (operation === "set-rank") skill.rank = Number(effect.rank);
-    else if (operation === "add-rank") skill.rank += Number(effect.rank ?? 1);
+    else if (operation === "set-rank") {
+      const rank = Number(effect.rank);
+      if (!Number.isInteger(rank)) fail("Skill rank must be an integer.");
+      skill.rank = rank;
+    } else if (operation === "add-rank") {
+      const rank = Number(effect.rank ?? 1);
+      if (!Number.isInteger(rank)) fail("Skill rank change must be an integer.");
+      skill.rank += rank;
+    }
     else if (operation === "add-evidence") {
       if (!effect.evidence) fail("Skill evidence ID is required.");
-      skill.evidence[effect.evidence] = (skill.evidence[effect.evidence] ?? 0) + Number(effect.value ?? 1);
+      const evidenceDefinitions = definition.practice?.evidence ?? [];
+      if (!evidenceDefinitions.some((entry) => entry.id === effect.evidence)) {
+        fail(`Unknown evidence "${effect.evidence}" for skill ${effect.id}.`);
+      }
+      if (effect.once === true) {
+        if (!effect.event) fail("One-time skill evidence requires an event ID.");
+        if (skill.evidenceEvents[effect.event]) return;
+        skill.evidenceEvents[effect.event] = now();
+      }
+      const value = Number(effect.value ?? 1);
+      if (!Number.isFinite(value) || value <= 0) {
+        fail("Skill evidence value must be a positive number.");
+      }
+      skill.evidence[effect.evidence] = (skill.evidence[effect.evidence] ?? 0) + value;
     } else fail(`Unsupported skill operation "${operation}".`);
     if (skill.rank < 0 || skill.rank > Number(definition.maxRank ?? 1)) fail(`Skill rank for ${effect.id} is out of bounds.`);
     if (skill.rank > 0) skill.acquiredAt ??= now();
@@ -97,20 +166,45 @@ function applyEffect(state, flags, definitions, effect, now) {
   }
 
   if (domain === "quest") {
+    const definition = catalog[effect.id];
     const quest = state.quests[effect.id] ?? { status: "unavailable", objectives: {} };
-    if (operation === "make-available") quest.status = "available";
-    else if (operation === "start") quest.status = "active";
+    quest.objectives ??= {};
+    if (operation === "make-available") transitionQuest(quest, "available", fail);
+    else if (operation === "start") transitionQuest(quest, "active", fail);
     else if (operation === "set-status") {
       if (!QUEST_STATUSES.has(effect.status)) fail(`Unknown quest status "${effect.status}".`);
-      quest.status = effect.status;
+      transitionQuest(quest, effect.status, fail);
     } else if (operation === "advance-objective") {
+      if (quest.status !== "active") fail(`Quest ${effect.id} must be active to advance an objective.`);
+      const objectiveDefinition = questObjective(definition, effect.objective, fail);
       const objective = objectiveState(quest, effect.objective, fail);
-      objective.count = (objective.count ?? 0) + Number(effect.value ?? 1);
+      const value = Number(effect.value ?? 1);
+      if (!Number.isFinite(value) || value <= 0) fail("Quest objective progress must be a positive number.");
+      objective.count = (objective.count ?? 0) + value;
       objective.status = "active";
+      if (objectiveDefinition.target != null && objective.count >= objectiveDefinition.target) {
+        objective.count = objectiveDefinition.target;
+        objective.status = "completed";
+      }
     } else if (operation === "complete-objective") {
+      if (quest.status !== "active") fail(`Quest ${effect.id} must be active to complete an objective.`);
+      const objectiveDefinition = questObjective(definition, effect.objective, fail);
       const objective = objectiveState(quest, effect.objective, fail);
       objective.status = "completed";
+      if (objectiveDefinition.target != null) objective.count = objectiveDefinition.target;
     } else fail(`Unsupported quest operation "${operation}".`);
+    if (
+      definition.autoComplete &&
+      quest.status === "active" &&
+      definition.objectives?.length &&
+      definition.objectives.every((objective) =>
+        quest.objectives[objective.id]?.status === "completed")
+    ) {
+      quest.status = "completed";
+      quest.completedAt ??= now();
+    }
+    if (quest.status === "active") quest.startedAt ??= now();
+    if (quest.status === "completed") quest.completedAt ??= now();
     state.quests[effect.id] = quest;
     return;
   }
@@ -127,6 +221,49 @@ function applyEffect(state, flags, definitions, effect, now) {
   }
 
   fail(`Unsupported effect domain "${domain}".`);
+}
+
+function evaluateSkillAwards(state, flags, definitions, now) {
+  const skills = [...(definitions.skills ?? [])]
+    .sort((left, right) => (left.order ?? 0) - (right.order ?? 0) ||
+      String(left.id).localeCompare(String(right.id)));
+  for (const definition of skills) {
+    const awards = [...(definition.practice?.awards ?? [])]
+      .sort((left, right) => Number(left.rank) - Number(right.rank));
+    if (!awards.length) continue;
+    const skill = state.skills[definition.id] ?? {
+      rank: 0,
+      evidence: {},
+      evidenceEvents: {},
+      awards: {},
+    };
+    skill.evidence ??= {};
+    skill.evidenceEvents ??= {};
+    skill.awards ??= {};
+    for (const award of awards) {
+      if (Number(award.rank) <= Number(skill.rank ?? 0)) continue;
+      const require = requirementsForSkillAward(award.require, definition.id);
+      if (!evaluateRequirements(require, { character: state, flags }).ok) break;
+      skill.rank = Number(award.rank);
+      skill.acquiredAt ??= now();
+      skill.awards[String(award.rank)] = {
+        earnedAt: now(),
+        badge: award.badge ?? null,
+        earnedText: award.earnedText ?? null,
+      };
+      state.skills[definition.id] = skill;
+    }
+  }
+}
+
+function requirementsForSkillAward(require = {}, skillId) {
+  return {
+    ...require,
+    evidence: (require.evidence ?? []).map((condition) => ({
+      ...condition,
+      skill: condition.skill ?? skillId,
+    })),
+  };
 }
 
 function catalogFor(definitions, domain) {
@@ -147,4 +284,19 @@ function positive(value, fallback) {
 function objectiveState(quest, id, fail) {
   if (!id) fail("Quest objective ID is required.");
   return (quest.objectives[id] ??= { status: "pending", count: 0 });
+}
+
+function questObjective(definition, id, fail) {
+  const objective = definition.objectives?.find((entry) => entry.id === id);
+  if (!objective) fail(`Unknown objective "${id}" for quest ${definition.id}.`);
+  return objective;
+}
+
+function transitionQuest(quest, next, fail) {
+  const current = quest.status ?? "unavailable";
+  if (current === next) return;
+  if (!QUEST_TRANSITIONS[current]?.has(next)) {
+    fail(`Quest cannot transition from ${current} to ${next}.`);
+  }
+  quest.status = next;
 }

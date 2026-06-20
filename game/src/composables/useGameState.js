@@ -14,8 +14,9 @@ import {
   migrateLegacyInventory,
   resetCharacterState,
 } from "./useCharacterState.js";
+import { createGameClock } from "../lib/character/gameTime.js";
 
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 5;
 
 /** Plain JSON-safe clone — structuredClone fails on Vue reactive proxies. */
 function clonePlain(value) {
@@ -30,7 +31,8 @@ export function createGameState({ mapData, buildingData, characterData = {} }) {
     flags: createFlags(),
     storySeen: new Set(),
     endCardDismissed: false,
-    character: createCharacterState(characterData),
+    clock: createGameClock(),
+    character: createCharacterState(characterData, buildingData.holders ?? []),
     _startHex: startHex,
     _buildingData: buildingData,
   });
@@ -45,6 +47,7 @@ export function captureSnapshot({ gameState, place, outdoor, indoor }) {
     flags: [...gameState.flags],
     storySeen: [...gameState.storySeen],
     endCardDismissed: gameState.endCardDismissed,
+    clock: clonePlain(gameState.clock),
     character: captureCharacterState(gameState.character),
     outdoor: {
       currentId: outdoor.state.currentId,
@@ -99,6 +102,7 @@ export function applySnapshot(snapshot, { gameState, place, outdoor, indoor }) {
   indoor.indoor.flags = gameState.flags;
   gameState.storySeen = new Set(snapshot.storySeen ?? []);
   gameState.endCardDismissed = snapshot.endCardDismissed ?? false;
+  gameState.clock = createGameClock(snapshot.clock);
   if (snapshot.character) {
     applyCharacterState(gameState.character, snapshot.character);
   } else {
@@ -122,7 +126,6 @@ export function applySnapshot(snapshot, { gameState, place, outdoor, indoor }) {
   d.level = i.level ?? building.exterior?.level ?? "first";
   d.viewLevel = i.viewLevel ?? d.level;
   d.doorState = i.doorState ?? buildInitialDoorState(building.areaId, building);
-  d.inventory = gameState.character.inventory;
   d.pickupsTaken = new Set(i.pickupsTaken ?? []);
   d.facility = {
     hydroOnline: i.facility?.hydroOnline ?? false,
@@ -141,6 +144,7 @@ export function resetGameState({ gameState, place, outdoor, indoor }) {
   indoor.indoor.flags = gameState.flags;
   gameState.storySeen = new Set();
   gameState.endCardDismissed = false;
+  gameState.clock = createGameClock();
   resetCharacterState(gameState.character);
 
   outdoor.resetPlayer();

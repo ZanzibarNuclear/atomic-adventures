@@ -10,7 +10,7 @@ export function useIndoorBuilding(buildingData, outdoor, ctx) {
 
   const player = createIndoorPlayer(buildingData, builderView, {
     flags: gameState?.flags,
-    inventory: gameState?.character?.inventory,
+    character: gameState?.character,
   });
 
   const openDoorRef = { fn: () => {} };
@@ -26,6 +26,7 @@ export function useIndoorBuilding(buildingData, outdoor, ctx) {
     outdoor,
     builderView,
     tryOpenDoor: (doorId) => openDoorRef.fn(doorId),
+    gameState,
   });
 
   const doors = createIndoorDoors({
@@ -39,6 +40,7 @@ export function useIndoorBuilding(buildingData, outdoor, ctx) {
     bargeMoves: movement.bargeMoves,
     moveToRoom: movement.moveToRoom,
     exitTravelHint: player.exitTravelHint,
+    character: gameState?.character,
   });
 
   openDoorRef.fn = doors.tryOpenDoor;
@@ -55,6 +57,8 @@ export function useIndoorBuilding(buildingData, outdoor, ctx) {
     setHydroOnline: facility.setHydroOnline,
     builderView,
     flagsAreShared: player.flagsAreShared,
+    character: gameState?.character,
+    gameState,
   });
 
   const resetIndoor = () => {
@@ -64,6 +68,7 @@ export function useIndoorBuilding(buildingData, outdoor, ctx) {
 
   return reactive({
     buildingData,
+    character: gameState?.character,
     ...player,
     ...movement,
     ...doors,

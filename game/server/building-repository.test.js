@@ -7,6 +7,8 @@ import { StoryRepository, ConflictError, ValidationError } from "./story-reposit
 import { buildWorldCatalog, loadBuildingData, loadWorldSeed } from "./world-catalog.js";
 import { WorldRepository } from "./world-repository.js";
 import { BuildingRepository } from "./building-repository.js";
+import { CharacterRepository } from "./character-repository.js";
+import { loadCharacterSeed } from "./character-catalog.js";
 
 const dirs = [];
 
@@ -20,7 +22,14 @@ function setup() {
   const db = openDatabase(join(dir, "building.sqlite"));
   const seedWorld = loadWorldSeed();
   const seedBuilding = loadBuildingData();
-  const story = new StoryRepository(db, buildWorldCatalog(seedWorld, seedBuilding));
+  const character = new CharacterRepository(db, {
+    seedCharacter: loadCharacterSeed(),
+  });
+  const story = new StoryRepository(
+    db,
+    buildWorldCatalog(seedWorld, seedBuilding),
+    character.getDocument().character,
+  );
   const world = new WorldRepository(db, {
     seedWorld,
     buildingData: seedBuilding,
@@ -30,6 +39,7 @@ function setup() {
     seedBuilding,
     worldRepository: world,
     storyRepository: story,
+    characterRepository: character,
   });
   return { db, story, world, building };
 }

@@ -25,11 +25,15 @@ export function normalizeRequirements(input = {}) {
   };
 }
 
-export function evaluateRequirements(input, { character, flags = new Set() }) {
+export function evaluateRequirements(input, {
+  character,
+  flags = new Set(),
+  nearbyHolderIds = [],
+} = {}) {
   const require = normalizeRequirements(input);
   const reasons = [];
   evaluateGroups(require.flags, (id) => flags.has(id), "flags", reasons);
-  evaluateItemGroups(require.items, character, reasons);
+  evaluateItemGroups(require.items, character, reasons, nearbyHolderIds);
   evaluateConditions(require.stats, (condition) => character.stats?.[condition.id], "stats", reasons);
   evaluateGroups(
     require.knowledge,
@@ -65,8 +69,11 @@ export function evaluateRequirements(input, { character, flags = new Set() }) {
   return { ok: reasons.length === 0, reasons, require };
 }
 
-function evaluateItemGroups(groups, character, reasons) {
-  const quantity = (entry) => character.holdings?.items?.[entry.id]?.quantity ?? 0;
+function evaluateItemGroups(groups, character, reasons, nearbyHolderIds) {
+  const quantity = (entry) => itemQuantity(character.holdings, entry.id, {
+    access: entry.access ?? "carried",
+    nearbyHolderIds,
+  });
   for (const entry of groups.all) {
     const actual = quantity(entry);
     if (actual < entry.quantity) reasons.push({ domain: "items", id: entry.id, expected: entry.quantity, actual });
@@ -133,3 +140,4 @@ function stringList(value) {
 function array(value) {
   return Array.isArray(value) ? value : [];
 }
+import { itemQuantity } from "./holdings.js";

@@ -3,6 +3,8 @@ import { ref } from "vue";
 import utilityData from "../../../../content/world/utility-station.yaml";
 import { createIndoorPlayer } from "../composables/indoor/useIndoorPlayer.js";
 import { doorStateKey } from "../composables/useDoors.js";
+import { createCharacterState } from "../../../composables/useCharacterState.js";
+import { itemQuantity } from "../../character/holdings.js";
 
 describe("indoor building live refresh", () => {
   it("preserves valid player state and initializes new geometry", () => {
@@ -44,5 +46,33 @@ describe("indoor building live refresh", () => {
     expect(player.indoor.doorState[
       doorStateKey("utility-station", "new-door")
     ].open).toBe(false);
+  });
+
+  it("takes catalog-backed pickups only once", () => {
+    const character = createCharacterState({
+      items: [{
+        id: "lobby-exterior-key",
+        label: "Lobby exterior key",
+        carrying: "unique",
+        maxQuantity: 1,
+      }],
+      stats: [],
+      knowledge: [],
+      skills: [],
+      quests: [],
+      documents: [],
+    });
+    const player = createIndoorPlayer(utilityData, ref(false), {
+      character,
+      flags: new Set(),
+    });
+    player.indoor.currentRoom = "control-lobby";
+    player.indoor.exteriorNode = null;
+
+    player.tryPickup("lobby-desk-keys");
+    player.tryPickup("lobby-desk-keys");
+
+    expect(itemQuantity(character.holdings, "lobby-exterior-key")).toBe(1);
+    expect(player.indoor.pickupsTaken).toEqual(new Set(["lobby-desk-keys"]));
   });
 });

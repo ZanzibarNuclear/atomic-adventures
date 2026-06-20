@@ -360,22 +360,7 @@ links:
   - { from: conference, to: kitchen, kind: door, door: conference-kitchen }
   - { from: kitchen, to: spiral-stair, kind: door, door: kitchen-spiral }
 
-# Keys and other carry items (inventory ids).
-items:
-  - id: hallway-small-bay-key
-    kind: key
-    label: Small bay door key
-    description: Brass key for the man door between the hallway and small bay — needed from the garage side.
-  - id: lobby-exterior-key
-    kind: key
-    label: Lobby exterior key
-    description: Deadbolt key for the front door — needed from outside on the footpath.
-  - id: large-bay-man-key
-    kind: key
-    label: Large bay man door key
-    description: Key for the personnel door at the corner of the large bay.
-
-# Pickups — one-time items found in a room.
+# Pickups — one-time placements referencing the global character item catalog.
 pickups:
   - id: lobby-desk-keys
     room: control-lobby
@@ -389,6 +374,14 @@ pickups:
     room: large-bay
     item: large-bay-man-key
     label: Key on the peg by the man door
+  - id: field-backpack
+    room: large-bay
+    item: field-backpack
+    label: Field backpack near the eBuggy
+  - id: bolt-cutter
+    room: large-bay
+    item: bolt-cutter
+    label: Bolt cutter on the garage bench
 
 # Manual release toggles for roll-up doors (disengages the chain hoist).
 switches:
@@ -401,6 +394,18 @@ switches:
     door: large-bay-roll
     label: Manual release — large roll-up
 
+holders:
+  - id: vehicle:ebuggy
+    kind: vehicle
+    label: eBuggy cargo
+    location:
+      room: large-bay
+    capacity:
+      slots: 8
+      massKg: 60
+    accepts:
+      kinds: [key, tool, book, consumable, part]
+
 # Player actions — room or riverside stand spots. Flags gate the hydro startup chain.
 actions:
   - id: eat-rations
@@ -411,6 +416,10 @@ actions:
       all: [story.the-garage]
       not: [day1.found-food]
     sets: [day1.found-food]
+    timeMinutes: 5
+    activity: light
+    effects:
+      - { op: item.add, id: turkey-cranberry-meal, quantity: 1 }
 
   - id: purify-water
     room: kitchen
@@ -420,6 +429,10 @@ actions:
       all: [story.the-garage]
       not: [day1.found-water]
     sets: [day1.found-water]
+    timeMinutes: 10
+    activity: light
+    effects:
+      - { op: item.add, id: purified-water, quantity: 1 }
 
   - id: rest-in-library
     room: library
@@ -428,18 +441,76 @@ actions:
       all: [day1.found-food, day1.found-water]
       not: [day1.complete]
     sets: [day1.complete, story.library-arrival]
+    timeMinutes: 480
+    activity: resting
 
   - id: library-read-hydro
     room: library
     verb: Read
     label: about hydro power
     sets: [hydro.discovered]
+    timeMinutes: 30
+    activity: resting
+    effects:
+      - { op: document.discover, id: hydro-operations-primer }
 
   - id: read-micro-hydro-ops
     room: control-room
     verb: Read
     label: Micro-hydro Operations
     sets: [hydro.discovered, hydro.outdoor-actions]
+    timeMinutes: 30
+    activity: resting
+    effects:
+      - { op: document.mark-read, id: hydro-operations-primer }
+      - { op: quest.start, id: restore-hydro }
+
+  - id: holo-reader-hydro-lesson
+    room: library
+    verb: Study
+    label: the head and flow holo-reader lesson
+    require:
+      all: [hub.hydro_online]
+    sets: [hydro.completed-holo-lesson]
+    timeMinutes: 60
+    activity: resting
+    effects:
+      - { op: document.mark-read, id: hydro-operations-primer }
+      - { op: knowledge.acquire, id: hydro-head-and-flow }
+
+  - id: run-hydro-operating-day
+    room: control-room
+    verb: Operate
+    label: the hydro plant for a full day
+    once: false
+    require:
+      flags:
+        all: [hub.hydro_online]
+      knowledge:
+        all: [hydro-head-and-flow]
+    timeMinutes: 480
+    activity: moderate
+    effects:
+      - { op: skill.add-evidence, id: hydro-operations, evidence: operating-days, value: 1 }
+
+  - id: patch-penstock-leak
+    exteriorNode: midstream-bank
+    verb: Patch
+    label: the leaking penstock joint
+    require:
+      flags:
+        all: [hub.hydro_online]
+      knowledge:
+        all: [hydro-head-and-flow]
+    timeMinutes: 90
+    activity: strenuous
+    effects:
+      - op: skill.add-evidence
+        id: hydro-operations
+        evidence: leak-repairs
+        value: 1
+        once: true
+        event: upper-penstock-joint
 
   - id: clear-intake-debris
     exteriorNode: upstream-bank
@@ -447,6 +518,10 @@ actions:
     require:
       all: [hydro.outdoor-actions]
     sets: [hydro.clear-intake-debris]
+    timeMinutes: 45
+    activity: strenuous
+    effects:
+      - { op: quest.complete-objective, id: restore-hydro, objective: clear-intake }
 
   - id: align-pipeflow
     exteriorNode: midstream-bank
@@ -454,6 +529,10 @@ actions:
     require:
       all: [hydro.clear-intake-debris]
     sets: [hydro.align-pipeflow]
+    timeMinutes: 30
+    activity: moderate
+    effects:
+      - { op: quest.complete-objective, id: restore-hydro, objective: align-pipeflow }
 
   - id: open-turbine-valve
     exteriorNode: downstream-bank
@@ -461,6 +540,10 @@ actions:
     require:
       all: [hydro.align-pipeflow]
     sets: [hydro.open-turbine-valve]
+    timeMinutes: 20
+    activity: moderate
+    effects:
+      - { op: quest.complete-objective, id: restore-hydro, objective: open-turbine-valve }
 
   - id: connect-power
     room: control-room
@@ -469,6 +552,10 @@ actions:
       all: [hydro.open-turbine-valve]
     sets: [hydro.level-1-complete, hub.hydro_online]
     powerOn: true
+    timeMinutes: 15
+    activity: light
+    effects:
+      - { op: quest.complete-objective, id: restore-hydro, objective: connect-power }
 
   - id: charge-ev
     room: small-bay
@@ -476,6 +563,8 @@ actions:
     require:
       all: [hub.hydro_online]
     sets: [hub.buggy-charged]
+    timeMinutes: 10
+    activity: light
 
 # Doors: topology + visuals + initial state. All start closed.
 doors:

@@ -35,6 +35,7 @@ import {
   filterAvailablePassages,
   passageRequirementSatisfied,
 } from "./usePassageState.js";
+import { advanceGameTime } from "../../character/gameTime.js";
 
 function clonePlain(value) {
   return JSON.parse(JSON.stringify(value));
@@ -459,6 +460,9 @@ export function useOutdoorWorld(mapData, gameState = null) {
       blocked: failedCrossing || blockedInPlace ? result.blockedKind : null,
       atBarrier: blockedInPlace ? result.blockedKind : atBarrier,
     });
+    if (enteredDest && gameState?.clock && gameState?.character) {
+      advanceGameTime(gameState, 15, "moderate");
+    }
   }
 
   function resetPlayer() {

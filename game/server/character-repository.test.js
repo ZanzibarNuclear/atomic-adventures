@@ -28,7 +28,7 @@ describe("CharacterRepository", () => {
     const { db, repository } = setup();
     const document = repository.getDocument();
     expect(document.version).toBe(1);
-    expect(document.character.items).toHaveLength(3);
+    expect(document.character.items).toHaveLength(7);
     expect(repository.listRevisions()[0].operation).toBe("import");
     db.close();
   });

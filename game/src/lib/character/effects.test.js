@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createCharacterState } from "../../composables/useCharacterState.js";
 import { applyEffectsAtomically } from "./effects.js";
+import { itemQuantity } from "./holdings.js";
 
 const definitions = {
   items: [
@@ -9,8 +10,39 @@ const definitions = {
   ],
   stats: [{ id: "health", default: 100, min: 0, max: 100 }],
   knowledge: [{ id: "hydro" }],
-  skills: [{ id: "operator", maxRank: 3 }],
-  quests: [{ id: "restore" }],
+  skills: [{
+    id: "operator",
+    maxRank: 3,
+    order: 10,
+    practice: {
+      evidence: [
+        { id: "days", label: "Operating days", target: 2 },
+        { id: "repairs", label: "Repairs", target: 1 },
+      ],
+      awards: [
+        { rank: 1, earnedText: "Introduced", require: { knowledge: { all: ["hydro"] } } },
+        { rank: 2, earnedText: "Practiced", require: { evidence: [{ id: "days", op: "gte", value: 2 }] } },
+        {
+          rank: 3,
+          earnedText: "Qualified",
+          require: {
+            evidence: [
+              { id: "days", op: "gte", value: 2 },
+              { id: "repairs", op: "gte", value: 1 },
+            ],
+          },
+        },
+      ],
+    },
+  }],
+  quests: [{
+    id: "restore",
+    autoComplete: true,
+    objectives: [
+      { id: "intake", label: "Clear intake" },
+      { id: "days", label: "Operate", target: 2 },
+    ],
+  }],
   documents: [{ id: "manual" }],
 };
 
@@ -29,7 +61,7 @@ describe("character effects", () => {
     ], { character, flags, now: () => "2026-06-19T00:00:00.000Z" });
 
     expect(result.ok).toBe(true);
-    expect(character.holdings.items.ration.quantity).toBe(2);
+    expect(itemQuantity(character.holdings, "ration")).toBe(2);
     expect(character.stats.health).toBe(85);
     expect(character.skills.operator.evidence.days).toBe(1);
     expect(character.quests.restore.status).toBe("active");
@@ -47,7 +79,7 @@ describe("character effects", () => {
     ], { character, flags });
 
     expect(result.ok).toBe(false);
-    expect(character.inventory.has("key")).toBe(false);
+    expect(itemQuantity(character.holdings, "key")).toBe(0);
     expect([...flags]).toEqual(["existing"]);
   });
 
@@ -63,6 +95,63 @@ describe("character effects", () => {
     ], { character }).ok).toBe(false);
     expect(applyEffectsAtomically([
       { op: "item.add", id: "missing", quantity: 1 },
+    ], { character }).ok).toBe(false);
+  });
+
+  it("awards skill ranks deterministically after knowledge and evidence commit", () => {
+    const character = createCharacterState(definitions);
+    const result = applyEffectsAtomically([
+      { op: "knowledge.acquire", id: "hydro" },
+      { op: "skill.add-evidence", id: "operator", evidence: "days", value: 2 },
+      { op: "skill.add-evidence", id: "operator", evidence: "repairs", value: 1 },
+    ], { character, now: () => "earned-now" });
+
+    expect(result.ok).toBe(true);
+    expect(character.skills.operator.rank).toBe(3);
+    expect(character.skills.operator.awards).toEqual({
+      1: { earnedAt: "earned-now", badge: null, earnedText: "Introduced" },
+      2: { earnedAt: "earned-now", badge: null, earnedText: "Practiced" },
+      3: { earnedAt: "earned-now", badge: null, earnedText: "Qualified" },
+    });
+  });
+
+  it("does not count a one-time evidence event twice", () => {
+    const character = createCharacterState(definitions);
+    const effect = {
+      op: "skill.add-evidence",
+      id: "operator",
+      evidence: "repairs",
+      value: 1,
+      once: true,
+      event: "penstock-leak-a",
+    };
+
+    expect(applyEffectsAtomically([effect], { character }).ok).toBe(true);
+    expect(applyEffectsAtomically([effect], { character }).ok).toBe(true);
+    expect(character.skills.operator.evidence.repairs).toBe(1);
+  });
+
+  it("validates quest transitions and auto-completes finished objectives", () => {
+    const character = createCharacterState(definitions);
+    expect(applyEffectsAtomically([
+      { op: "quest.complete-objective", id: "restore", objective: "intake" },
+    ], { character }).ok).toBe(false);
+
+    expect(applyEffectsAtomically([
+      { op: "quest.start", id: "restore" },
+      { op: "quest.complete-objective", id: "restore", objective: "intake" },
+      { op: "quest.advance-objective", id: "restore", objective: "days", value: 1 },
+      { op: "quest.advance-objective", id: "restore", objective: "days", value: 1 },
+    ], { character, now: () => "quest-now" }).ok).toBe(true);
+
+    expect(character.quests.restore.status).toBe("completed");
+    expect(character.quests.restore.objectives.days).toEqual({
+      status: "completed",
+      count: 2,
+    });
+    expect(character.quests.restore.completedAt).toBe("quest-now");
+    expect(applyEffectsAtomically([
+      { op: "quest.start", id: "restore" },
     ], { character }).ok).toBe(false);
   });
 });

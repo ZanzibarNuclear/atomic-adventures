@@ -128,10 +128,19 @@ The workspace supports:
 - object creation, duplication, ordering, reference-aware rename, and deletion;
 - read-only fixture inspection;
 - full-document validation, traversal audit, revisions, and restore.
+- catalog-backed door keys, item placements, and character requirements/effects
+  for world interactions.
 
 Room and exterior-node renames cascade into story triggers and `go_room`
 destinations in the same transaction. Deletions that leave story or building
 references unresolved are rejected.
+
+The building document owns item placements, not item definitions. Door keys
+and `pickups[].item` values reference IDs in the versioned `character-main`
+catalog. A pickup may supply a placement-specific label; otherwise the runtime
+uses the catalog item's label and description. Taking a pickup commits an
+ordinary character item effect and records the placement as taken, so repeated
+interaction cannot duplicate a unique item.
 
 `game/content/world/utility-station.yaml` is import/seed material rather than
 the live runtime source. Development loads the building from
@@ -144,7 +153,7 @@ npm run building:import -w game -- /tmp/utility-station.yaml --replace
 ```
 
 Open games receive `building.updated` events. Refresh preserves logical player
-location, discoveries, door state, inventory, actions, flags, and facility
+location, discoveries, door state, character holdings, actions, flags, and facility
 state when their IDs still exist. Building replacement is deferred during an
 active indoor movement animation.
 

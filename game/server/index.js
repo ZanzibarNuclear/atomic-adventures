@@ -17,15 +17,17 @@ const production = process.env.NODE_ENV === "production";
 const db = openDatabase();
 const seedWorld = loadWorldSeed();
 const buildingData = loadBuildingData();
-const repository = new StoryRepository(db, buildWorldCatalog(seedWorld, buildingData));
+const characterRepository = new CharacterRepository(db, {
+  seedCharacter: loadCharacterSeed(),
+});
+const character = characterRepository.getDocument()?.character ?? null;
+const repository = new StoryRepository(db, buildWorldCatalog(seedWorld, buildingData), character);
 const worldRepository = new WorldRepository(db, { seedWorld, buildingData, storyRepository: repository });
 const buildingRepository = new BuildingRepository(db, {
   seedBuilding: buildingData,
   worldRepository,
   storyRepository: repository,
-});
-const characterRepository = new CharacterRepository(db, {
-  seedCharacter: loadCharacterSeed(),
+  characterRepository,
 });
 const authoredBuilding = buildingRepository.getDocument()?.building ?? buildingData;
 worldRepository.setBuildingData(authoredBuilding);
@@ -42,7 +44,10 @@ if (!production) {
   const { createServer } = await import("vite");
   vite = await createServer({
     root,
-    server: { middlewareMode: true },
+    server: {
+      middlewareMode: true,
+      hmr: { port: Number(process.env.HMR_PORT ?? 24678) },
+    },
     appType: "spa",
   });
 }

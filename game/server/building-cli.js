@@ -6,6 +6,8 @@ import { loadBuildingData, loadWorldSeed } from "./world-catalog.js";
 import { WorldRepository } from "./world-repository.js";
 import { BuildingRepository, UTILITY_STATION_ID } from "./building-repository.js";
 import { exportBuildingYaml, parseBuildingYaml } from "./building-yaml.js";
+import { loadCharacterSeed } from "./character-catalog.js";
+import { CharacterRepository } from "./character-repository.js";
 
 const [command, ...args] = process.argv.slice(2);
 const flags = new Set(args.filter((item) => item.startsWith("--")));
@@ -18,12 +20,20 @@ try {
     seedWorld: loadWorldSeed(),
     buildingData: seedBuilding,
   });
-  const storyRepository = new StoryRepository(db, worldRepository.getCatalog());
+  const characterRepository = new CharacterRepository(db, {
+    seedCharacter: loadCharacterSeed(),
+  });
+  const storyRepository = new StoryRepository(
+    db,
+    worldRepository.getCatalog(),
+    characterRepository.getDocument()?.character,
+  );
   worldRepository.setStoryRepository(storyRepository);
   const repository = new BuildingRepository(db, {
     seedBuilding: command === "import" ? null : seedBuilding,
     worldRepository,
     storyRepository,
+    characterRepository,
   });
 
   if (command === "import") {

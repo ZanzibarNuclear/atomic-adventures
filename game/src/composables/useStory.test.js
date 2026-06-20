@@ -1,19 +1,34 @@
 import { describe, expect, it } from "vitest";
 import { nextTick, reactive, ref } from "vue";
 import { useStory } from "./useStory.js";
+import { createCharacterState } from "./useCharacterState.js";
+import { addItem, itemQuantity } from "../lib/character/holdings.js";
 
-function harness(initialStory) {
+function harness(initialStory, { withCharacter = false, moveTo = () => {} } = {}) {
   const story = ref(initialStory);
   const place = ref("outdoors");
   const gameState = reactive({
     flags: new Set(),
     storySeen: new Set(),
     endCardDismissed: false,
+    ...(withCharacter ? {
+      character: createCharacterState({
+        items: [
+          { id: "key", label: "Key", carrying: "unique", maxQuantity: 1 },
+          { id: "tool", label: "Tool", carrying: "unique", maxQuantity: 1 },
+        ],
+        stats: [],
+        knowledge: [],
+        skills: [],
+        quests: [],
+        documents: [],
+      }),
+    } : {}),
   });
   const outdoor = {
     state: reactive({ currentId: "trailhead" }),
     canReachHex: () => true,
-    moveTo: () => {},
+    moveTo,
     atBuildingEntrance: false,
   };
   const indoor = {
@@ -131,5 +146,73 @@ describe("useStory reactive content", () => {
     api.applyChoice(0);
 
     expect(gameState.storySeen.has("ambient")).toBe(false);
+  });
+
+  it("uses character requirements for beats and choices", () => {
+    const gatedBeat = {
+      ...beat,
+      require: { items: ["key"] },
+      choices: [
+        { text: "Use the tool", require: { items: ["tool"] } },
+      ],
+    };
+    const { api, gameState } = harness({ beats: { gated: gatedBeat } }, {
+      withCharacter: true,
+    });
+
+    api.refreshNarrative();
+    expect(api.pendingBeat.value).toBeNull();
+
+    addItem(gameState.character.holdings, gameState.character.definitions, "key");
+    api.refreshNarrative();
+    expect(api.pendingBeat.value.id).toBe("gated");
+    expect(api.pendingBeat.value.choices[0].disabled).toBe(true);
+  });
+
+  it("commits effects before movement", () => {
+    let heldDuringMove = false;
+    const effectBeat = {
+      ...beat,
+      choices: [{
+        text: "Take the key and go",
+        effects: [{ op: "item.add", id: "key" }],
+        go_hex: "east-pines",
+      }],
+    };
+    const setup = harness({ beats: { effect: effectBeat } }, {
+      withCharacter: true,
+      moveTo: () => {
+        heldDuringMove = itemQuantity(setup.gameState.character.holdings, "key") === 1;
+      },
+    });
+
+    setup.api.refreshNarrative();
+    setup.api.applyChoice(0);
+
+    expect(heldDuringMove).toBe(true);
+    expect(setup.gameState.storySeen.has("effect")).toBe(true);
+  });
+
+  it("does not move or consume the beat when an atomic effect fails", () => {
+    let moved = false;
+    const effectBeat = {
+      ...beat,
+      choices: [{
+        text: "Spend a missing key",
+        effects: [{ op: "item.remove", id: "key" }],
+        go_hex: "east-pines",
+      }],
+    };
+    const setup = harness({ beats: { effect: effectBeat } }, {
+      withCharacter: true,
+      moveTo: () => { moved = true; },
+    });
+
+    setup.api.refreshNarrative();
+    setup.api.applyChoice(0);
+
+    expect(moved).toBe(false);
+    expect(setup.api.pendingBeat.value.id).toBe("effect");
+    expect(setup.gameState.storySeen.has("effect")).toBe(false);
   });
 });

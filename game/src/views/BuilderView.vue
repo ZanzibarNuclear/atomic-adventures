@@ -64,6 +64,24 @@ const locationBeats = computed(() =>
 );
 const selectedRoom = computed(() => locationMode.value === "rooms" ? selectedLocation.value : "");
 const selectedExterior = computed(() => locationMode.value === "exterior" ? selectedLocation.value : null);
+const characterCatalog = computed(() => catalog.value.character ?? {
+  items: [], stats: [], knowledge: [], skills: [], quests: [], documents: [],
+});
+const requirementDomains = [
+  { id: "items", label: "Items" },
+  { id: "knowledge", label: "Knowledge" },
+  { id: "documents", label: "Documents" },
+];
+const effectOperations = [
+  "flag.set", "flag.clear",
+  "item.add", "item.remove",
+  "stat.set", "stat.add",
+  "knowledge.acquire", "knowledge.forget",
+  "skill.acquire", "skill.set-rank", "skill.add-rank", "skill.add-evidence",
+  "quest.make-available", "quest.start", "quest.set-status",
+  "quest.advance-objective", "quest.complete-objective",
+  "document.discover", "document.mark-read",
+];
 
 onMounted(async () => {
   window.addEventListener("beforeunload", warnBeforeUnload);
@@ -400,6 +418,10 @@ function addChoice() {
     id: crypto.randomUUID(),
     order: draft.value.choices.length,
     text: "",
+    require: { all: [], any: [], not: [] },
+    effects: [],
+    timeMinutes: 0,
+    activity: "light",
     sets: [],
     set_flags: [],
     go_hex: null,
@@ -418,6 +440,58 @@ function moveChoice(index, delta) {
 
 function setCsv(target, key, event) {
   target[key] = event.target.value.split(",").map((item) => item.trim()).filter(Boolean);
+}
+
+function requirementIds(require, domain) {
+  const value = require?.[domain];
+  if (Array.isArray(value)) {
+    return value.map((entry) => typeof entry === "string" ? entry : entry.id);
+  }
+  return (value?.all ?? []).map((entry) => typeof entry === "string" ? entry : entry.id);
+}
+
+function setRequirementIds(require, domain, event) {
+  require[domain] = [...event.target.selectedOptions].map((option) => option.value);
+}
+
+function addCondition(require, domain) {
+  require[domain] ??= [];
+  const catalogEntries = characterCatalog.value[domain] ?? [];
+  if (!catalogEntries.length) return;
+  if (domain === "stats") {
+    require[domain].push({ id: catalogEntries[0].id, op: "gte", value: 0 });
+  } else if (domain === "skills") {
+    require[domain].push({ id: catalogEntries[0].id, op: "gte", rank: 1 });
+  } else if (domain === "quests") {
+    require[domain].push({ id: catalogEntries[0].id, status: "active" });
+  }
+}
+
+function addEffect(choice) {
+  choice.effects ??= [];
+  choice.effects.push({ op: "flag.set", id: "" });
+}
+
+function effectDomain(effect) {
+  return String(effect.op ?? "").split(".")[0];
+}
+
+function effectCatalog(effect) {
+  const domain = effectDomain(effect);
+  const key = domain === "item" ? "items"
+    : domain === "stat" ? "stats"
+      : domain === "skill" ? "skills"
+        : domain === "quest" ? "quests"
+          : domain === "document" ? "documents"
+            : domain;
+  return characterCatalog.value[key] ?? [];
+}
+
+function setEffectOperation(effect, op) {
+  effect.op = op;
+  if (effectDomain(effect) !== "flag") {
+    effect.id = effectCatalog(effect)[0]?.id ?? "";
+  }
 }
 
 function destinationType(choice) {
@@ -621,6 +695,64 @@ async function saveAndContinue() {
             <label>All flags<input :value="draft.require.all.join(', ')" @input="setCsv(draft.require, 'all', $event)" /></label>
             <label>Any flags<input :value="draft.require.any.join(', ')" @input="setCsv(draft.require, 'any', $event)" /></label>
             <label>Not flags<input :value="draft.require.not.join(', ')" @input="setCsv(draft.require, 'not', $event)" /></label>
+            <div class="field-grid">
+              <label v-for="domain in requirementDomains" :key="domain.id">
+                Required {{ domain.label }}
+                <select
+                  multiple
+                  :value="requirementIds(draft.require, domain.id)"
+                  @change="setRequirementIds(draft.require, domain.id, $event)">
+                  <option
+                    v-for="entry in characterCatalog[domain.id]"
+                    :key="entry.id"
+                    :value="entry.id">
+                    {{ entry.label ?? entry.title }} ({{ entry.id }})
+                  </option>
+                </select>
+              </label>
+            </div>
+            <section v-for="domain in ['stats', 'skills', 'quests']" :key="domain" class="condition-editor">
+              <div class="choice-toolbar">
+                <strong>{{ domain }}</strong>
+                <button type="button" class="sm" @click="addCondition(draft.require, domain)">Add</button>
+              </div>
+              <div
+                v-for="(condition, conditionIndex) in draft.require[domain] ?? []"
+                :key="`${domain}:${conditionIndex}`"
+                class="field-grid">
+                <select v-model="condition.id">
+                  <option
+                    v-for="entry in characterCatalog[domain]"
+                    :key="entry.id"
+                    :value="entry.id">{{ entry.label }} ({{ entry.id }})</option>
+                </select>
+                <template v-if="domain !== 'quests'">
+                  <select v-model="condition.op">
+                    <option>eq</option><option>ne</option><option>gt</option>
+                    <option>gte</option><option>lt</option><option>lte</option>
+                  </select>
+                  <input
+                    v-if="domain === 'stats'"
+                    v-model.number="condition.value"
+                    type="number"
+                    aria-label="Required stat value">
+                  <input
+                    v-else
+                    v-model.number="condition.rank"
+                    type="number"
+                    min="0"
+                    aria-label="Required skill rank">
+                </template>
+                <select v-else v-model="condition.status">
+                  <option>unavailable</option><option>available</option><option>active</option>
+                  <option>completed</option><option>failed</option><option>abandoned</option>
+                </select>
+                <button
+                  type="button"
+                  class="sm muted"
+                  @click="draft.require[domain].splice(conditionIndex, 1)">Remove</button>
+              </div>
+            </section>
           </fieldset>
 
           <fieldset>
@@ -639,6 +771,75 @@ async function saveAndContinue() {
                 <label>Sets<input :value="choice.sets.join(', ')" @input="setCsv(choice, 'sets', $event)" /></label>
                 <label>Set flags<input :value="choice.set_flags.join(', ')" @input="setCsv(choice, 'set_flags', $event)" /></label>
               </div>
+              <details>
+                <summary>Character requirements and effects</summary>
+                <div class="field-grid">
+                  <label v-for="domain in requirementDomains" :key="domain.id">
+                    Required {{ domain.label }}
+                    <select
+                      multiple
+                      :value="requirementIds(choice.require, domain.id)"
+                      @change="setRequirementIds(choice.require, domain.id, $event)">
+                      <option
+                        v-for="entry in characterCatalog[domain.id]"
+                        :key="entry.id"
+                        :value="entry.id">
+                        {{ entry.label ?? entry.title }} ({{ entry.id }})
+                      </option>
+                    </select>
+                  </label>
+                </div>
+                <article
+                  v-for="(effect, effectIndex) in choice.effects ?? []"
+                  :key="effectIndex"
+                  class="effect-row">
+                  <select :value="effect.op" @change="setEffectOperation(effect, $event.target.value)">
+                    <option v-for="op in effectOperations" :key="op" :value="op">{{ op }}</option>
+                  </select>
+                  <input
+                    v-if="effectDomain(effect) === 'flag'"
+                    v-model="effect.id"
+                    placeholder="flag.id">
+                  <select v-else v-model="effect.id">
+                    <option v-for="entry in effectCatalog(effect)" :key="entry.id" :value="entry.id">
+                      {{ entry.label ?? entry.title }} ({{ entry.id }})
+                    </option>
+                  </select>
+                  <input
+                    v-if="effectDomain(effect) === 'item'"
+                    v-model.number="effect.quantity"
+                    type="number"
+                    min="1"
+                    placeholder="quantity">
+                  <input
+                    v-if="effectDomain(effect) === 'stat'"
+                    v-model.number="effect.value"
+                    type="number"
+                    placeholder="value">
+                  <input
+                    v-if="effectDomain(effect) === 'skill' && effect.op.includes('rank')"
+                    v-model.number="effect.rank"
+                    type="number"
+                    placeholder="rank">
+                  <select v-if="effect.op === 'quest.set-status'" v-model="effect.status">
+                    <option>unavailable</option><option>available</option><option>active</option>
+                    <option>completed</option><option>failed</option><option>abandoned</option>
+                  </select>
+                  <button type="button" class="sm muted" @click="choice.effects.splice(effectIndex, 1)">
+                    Remove
+                  </button>
+                </article>
+                <button type="button" class="sm" @click="addEffect(choice)">Add effect</button>
+                <div class="field-grid">
+                  <label>Game minutes<input v-model.number="choice.timeMinutes" type="number" min="0"></label>
+                  <label>Activity
+                    <select v-model="choice.activity">
+                      <option>resting</option><option>light</option>
+                      <option>moderate</option><option>strenuous</option>
+                    </select>
+                  </label>
+                </div>
+              </details>
               <label>Destination
                 <select :value="destinationType(choice)" @change="setDestinationType(choice, $event.target.value)">
                   <option value="">No movement</option>

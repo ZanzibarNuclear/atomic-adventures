@@ -7,7 +7,12 @@ export const CHARACTER_DOCUMENT_ID = "character-main";
 export class CharacterRepository {
   constructor(db, { seedCharacter } = {}) {
     this.db = db;
+    this.integrationValidator = null;
     if (seedCharacter) this.ensureSeed(seedCharacter);
+  }
+
+  setIntegrationValidator(validator) {
+    this.integrationValidator = validator;
   }
 
   ensureSeed(seedCharacter) {
@@ -56,7 +61,16 @@ export class CharacterRepository {
   }
 
   validate(input) {
-    return validateCharacterDocument(input);
+    const result = validateCharacterDocument(input);
+    if (!result.valid || !this.integrationValidator) return result;
+    const integration = this.integrationValidator(result.character);
+    const errors = { ...result.errors, ...(integration.errors ?? {}) };
+    return {
+      ...result,
+      errors,
+      warnings: [...result.warnings, ...(integration.warnings ?? [])],
+      valid: integration.valid !== false && Object.keys(errors).length === 0,
+    };
   }
 
   save(input, expectedVersion) {

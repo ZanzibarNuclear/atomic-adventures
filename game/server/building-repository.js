@@ -14,16 +14,19 @@ export class BuildingRepository {
     seedBuilding,
     worldRepository = null,
     storyRepository = null,
+    characterRepository = null,
   } = {}) {
     this.db = db;
     this.worldRepository = worldRepository;
     this.storyRepository = storyRepository;
+    this.characterRepository = characterRepository;
     if (seedBuilding) this.ensureSeed(seedBuilding);
   }
 
-  setRepositories({ worldRepository, storyRepository }) {
+  setRepositories({ worldRepository, storyRepository, characterRepository }) {
     this.worldRepository = worldRepository;
     this.storyRepository = storyRepository;
+    this.characterRepository = characterRepository ?? this.characterRepository;
   }
 
   ensureSeed(seedBuilding) {
@@ -62,11 +65,83 @@ export class BuildingRepository {
     };
   }
 
-  validate(input) {
+  validate(input, { character = null } = {}) {
     const outdoorHexIds = new Set(
       (this.worldRepository?.getDocument()?.world.hexes ?? []).map((hex) => hex.id),
     );
-    return validateBuilding(input, { outdoorHexIds });
+    const characterDocument = character ?? this.characterRepository?.getDocument()?.character ?? null;
+    const characterItemIds = new Set(
+      (characterDocument?.items ?? []).map((item) => item.id),
+    );
+    return validateBuilding(input, {
+      outdoorHexIds,
+      characterItemIds,
+      character: characterDocument,
+    });
+  }
+
+  findCharacterReferences(domain, id) {
+    const building = this.getDocument()?.building;
+    if (!building) return [];
+    const references = [];
+    if (domain === "items") {
+      building.doors?.forEach((door, index) => {
+        if (door.lock?.key === id) {
+          references.push({
+            kind: "building",
+            buildingId: building.id,
+            path: `doors.${index}.lock.key`,
+          });
+        }
+      });
+      building.pickups?.forEach((pickup, index) => {
+        if (pickup.item === id) {
+          references.push({
+            kind: "building",
+            buildingId: building.id,
+            path: `pickups.${index}.item`,
+          });
+        }
+      });
+    }
+    building.actions?.forEach((action, index) => {
+      const value = action.require?.[domain];
+      if (["stats", "skills", "quests"].includes(domain)) {
+        (value ?? []).forEach((entry, entryIndex) => {
+          if (entry?.id === id) {
+            references.push({
+              kind: "building",
+              buildingId: building.id,
+              path: `actions.${index}.require.${domain}.${entryIndex}`,
+            });
+          }
+        });
+      } else {
+        const groups = Array.isArray(value) ? { all: value } : value ?? {};
+        for (const group of ["all", "any", "not"]) {
+          (groups[group] ?? []).forEach((entry, entryIndex) => {
+            const entryId = typeof entry === "string" ? entry : entry?.id;
+            if (entryId === id) {
+              references.push({
+                kind: "building",
+                buildingId: building.id,
+                path: `actions.${index}.require.${domain}.${group}.${entryIndex}`,
+              });
+            }
+          });
+        }
+      }
+      action.effects?.forEach((effect, effectIndex) => {
+        if (characterEffectDomain(effect.op) === domain && effect.id === id) {
+          references.push({
+            kind: "building",
+            buildingId: building.id,
+            path: `actions.${index}.effects.${effectIndex}`,
+          });
+        }
+      });
+    });
+    return references;
   }
 
   previewRename(id, kind, from, to, candidateBuilding = null) {
@@ -216,4 +291,14 @@ export class BuildingRepository {
     this.db.prepare("UPDATE content_meta SET value = ? WHERE key = 'world_revision'").run(String(next));
     return next;
   }
+}
+
+function characterEffectDomain(op) {
+  const domain = String(op ?? "").split(".")[0];
+  return domain === "item" ? "items"
+    : domain === "stat" ? "stats"
+      : domain === "skill" ? "skills"
+        : domain === "quest" ? "quests"
+          : domain === "document" ? "documents"
+            : domain;
 }

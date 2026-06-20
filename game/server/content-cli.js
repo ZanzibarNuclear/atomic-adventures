@@ -5,6 +5,8 @@ import { StoryRepository } from "./story-repository.js";
 import { loadBuildingData, loadWorldSeed } from "./world-catalog.js";
 import { WorldRepository } from "./world-repository.js";
 import { exportAreaYaml, parseStoryYaml } from "./story-yaml.js";
+import { loadCharacterSeed } from "./character-catalog.js";
+import { CharacterRepository } from "./character-repository.js";
 
 const [command, fileArg, ...flags] = process.argv.slice(2);
 const db = openDatabase();
@@ -12,7 +14,14 @@ const worldRepository = new WorldRepository(db, {
   seedWorld: loadWorldSeed(),
   buildingData: loadBuildingData(),
 });
-const repository = new StoryRepository(db, worldRepository.getCatalog());
+const characterRepository = new CharacterRepository(db, {
+  seedCharacter: loadCharacterSeed(),
+});
+const repository = new StoryRepository(
+  db,
+  worldRepository.getCatalog(),
+  characterRepository.getDocument()?.character,
+);
 
 try {
   if (command === "import") {

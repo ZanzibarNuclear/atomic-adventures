@@ -5,13 +5,13 @@ import utilityData from '../../content/world/utility-station.yaml'
 import { useOutdoorWorld } from '../lib/maps/composables/useOutdoorWorld.js'
 import { buildBuilding } from '../lib/maps/composables/useGrid.js'
 import { buildInitialDoorState } from '../lib/maps/composables/useDoors.js'
-import { createInventory } from '../lib/maps/composables/useInventory.js'
 import {
   SAVE_VERSION,
   captureSnapshot,
   applySnapshot,
   createGameState,
 } from './useGameState.js'
+import { addItem, itemQuantity } from '../lib/character/holdings.js'
 
 function buildTestHarness() {
   const outdoor = useOutdoorWorld(mapData)
@@ -29,7 +29,7 @@ function buildTestHarness() {
       level: 'first',
       viewLevel: 'first',
       doorState: buildInitialDoorState(building.areaId, building),
-      inventory: createInventory(),
+      inventory: null,
       pickupsTaken: new Set(),
       facility: { hydroOnline: false, manualMode: {} },
       completedActions: new Set(),
@@ -164,17 +164,20 @@ describe('useGameState save roundtrip', () => {
 
   it('persists global character holdings and migrates legacy indoor inventory', () => {
     const { outdoor, indoor, gameState, place } = buildTestHarness()
-    gameState.character.inventory.add('lobby-exterior-key')
+    addItem(gameState.character.holdings, gameState.character.definitions, 'lobby-exterior-key', 1, {
+      validateDefinition: false,
+    })
 
     const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
     expect(snapshot.version).toBe(SAVE_VERSION)
-    expect(snapshot.character.holdings.items['lobby-exterior-key']).toEqual({ quantity: 1 })
+    expect(itemQuantity(snapshot.character.holdings, 'lobby-exterior-key')).toBe(1)
     expect(snapshot.indoor.inventory).toBeUndefined()
 
-    gameState.character.inventory.clear()
+    gameState.character.holdings.stacks = {}
+    gameState.character.holdings.instances = {}
     expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
-    expect(gameState.character.inventory.has('lobby-exterior-key')).toBe(true)
-    expect(indoor.indoor.inventory).toBe(gameState.character.inventory)
+    expect(itemQuantity(gameState.character.holdings, 'lobby-exterior-key')).toBe(1)
+    expect(indoor.indoor.inventory).toBeNull()
 
     const legacy = {
       ...snapshot,
@@ -185,8 +188,19 @@ describe('useGameState save roundtrip', () => {
         inventory: ['hallway-small-bay-key'],
       },
     }
-    gameState.character.inventory.clear()
+    gameState.character.holdings.stacks = {}
+    gameState.character.holdings.instances = {}
     expect(applySnapshot(legacy, { gameState, place, outdoor, indoor })).toBe(true)
-    expect(gameState.character.inventory.has('hallway-small-bay-key')).toBe(true)
+    expect(itemQuantity(gameState.character.holdings, 'hallway-small-bay-key')).toBe(1)
+  })
+
+  it('round-trips authored game time without using wall-clock elapsed time', () => {
+    const { outdoor, indoor, gameState, place } = buildTestHarness()
+    gameState.clock = { elapsedMinutes: 185, minuteOfDay: 665, day: 2 }
+    const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
+
+    gameState.clock = { elapsedMinutes: 999, minuteOfDay: 999, day: 9 }
+    expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
+    expect(gameState.clock).toEqual({ elapsedMinutes: 185, minuteOfDay: 665, day: 2 })
   })
 })

@@ -14,6 +14,7 @@ panel:
     - { id: keys, label: Keys, order: 10 }
     - { id: tools, label: Tools, order: 20 }
     - { id: books, label: Books and manuals, order: 30 }
+    - { id: supplies, label: Food and water, order: 40 }
 
 items:
   - id: hallway-small-bay-key
@@ -43,9 +44,194 @@ items:
     maxQuantity: 1
     portable: true
     visible: when-acquired
+  - id: field-backpack
+    kind: container
+    group: tools
+    label: Field backpack
+    description: A compact utility backpack with loops for tools and pockets for cards, keys, and supplies.
+    carrying: unique
+    maxQuantity: 1
+    massKg: 0.8
+    portable: true
+    visible: when-acquired
+    container:
+      capacity:
+        slots: 12
+        massKg: 15
+      accepts:
+        kinds: [key, tool, book, consumable, part]
+      nesting: false
+  - id: bolt-cutter
+    kind: tool
+    group: tools
+    label: Bolt cutter
+    description: A long-handled cutter suitable for old padlocks, fencing, and stubborn wire.
+    carrying: unique
+    maxQuantity: 1
+    massKg: 4
+    portable: true
+    visible: when-acquired
+  - id: turkey-cranberry-meal
+    kind: consumable
+    group: supplies
+    label: Turkey-cranberry Tastee Tack
+    description: A shelf-stable double helping from Zanzibar's remaining rations.
+    carrying: stack
+    maxQuantity: 20
+    portable: true
+    visible: when-acquired
+    properties:
+      calories: 720
+      hydrationMl: 40
+    actions:
+      - id: eat
+        label: Eat meal
+        consume: 1
+        timeMinutes: 20
+        activity: resting
+        effects:
+          - { op: stat.add, id: hunger, value: -55 }
+          - { op: stat.add, id: thirst, value: -4 }
+  - id: purified-water
+    kind: consumable
+    group: supplies
+    label: Purified water
+    description: River water treated with a purification tablet.
+    carrying: stack
+    maxQuantity: 12
+    portable: true
+    visible: when-acquired
+    properties:
+      hydrationMl: 500
+    actions:
+      - id: drink
+        label: Drink water
+        consume: 1
+        timeMinutes: 5
+        activity: resting
+        effects:
+          - { op: stat.add, id: thirst, value: -45 }
 
-stats: []
-knowledge: []
-skills: []
-quests: []
-documents: []
+stats:
+  - id: health
+    label: Health
+    description: Zanzibar's current physical condition.
+    group: wellbeing
+    type: meter
+    default: 100
+    min: 0
+    max: 100
+    direction: higher-is-better
+    visible: always
+    order: 10
+  - id: hunger
+    label: Hunger
+    description: Increasing hunger from time and exertion.
+    group: wellbeing
+    type: meter
+    default: 35
+    min: 0
+    max: 100
+    direction: lower-is-better
+    visible: always
+    order: 20
+    drift:
+      perGameHour:
+        resting: 1.5
+        light: 3
+        moderate: 5
+        strenuous: 8
+    thresholds:
+      - { at: 70, state: hungry }
+      - at: 90
+        state: starving
+        effectsPerGameHour:
+          - { op: stat.add, id: health, value: -2 }
+  - id: thirst
+    label: Thirst
+    description: Increasing thirst from time and exertion.
+    group: wellbeing
+    type: meter
+    default: 45
+    min: 0
+    max: 100
+    direction: lower-is-better
+    visible: always
+    order: 30
+    drift:
+      perGameHour:
+        resting: 3
+        light: 6
+        moderate: 10
+        strenuous: 15
+    thresholds:
+      - { at: 65, state: thirsty }
+      - at: 85
+        state: dehydrated
+        effectsPerGameHour:
+          - { op: stat.add, id: health, value: -4 }
+knowledge:
+  - id: hydro-head-and-flow
+    label: Head and flow
+    description: How elevation difference and flow rate determine the power available to a hydro system.
+    sourceLabel: Holo-reader lesson
+    visible: when-acquired
+    order: 10
+
+skills:
+  - id: hydro-operations
+    label: Hydro operations
+    description: Understanding, maintaining, and reliably operating the Upper Penstock hydro system.
+    mode: ranked
+    maxRank: 3
+    rankLabels: [Introduced, Practiced, Qualified]
+    practice:
+      evidence:
+        - { id: operating-days, label: Successful operating days, target: 5 }
+        - { id: leak-repairs, label: Penstock leaks patched, target: 1 }
+      awards:
+        - rank: 1
+          earnedText: Introduced to hydro operations
+          require:
+            knowledge: { all: [hydro-head-and-flow] }
+        - rank: 2
+          earnedText: Practiced hydro operator
+          require:
+            evidence:
+              - { id: operating-days, op: gte, value: 3 }
+        - rank: 3
+          earnedText: Qualified hydro operator
+          require:
+            evidence:
+              - { id: operating-days, op: gte, value: 5 }
+              - { id: leak-repairs, op: gte, value: 1 }
+    visible: when-acquired
+    order: 10
+quests:
+  - id: restore-hydro
+    label: Restore station power
+    description: Prepare the diversion system and connect the hydro generator to the campus.
+    group: main
+    autoComplete: true
+    objectives:
+      - { id: clear-intake, label: Clear debris from the intake, order: 10 }
+      - { id: align-pipeflow, label: Align the penstock flow path, order: 20 }
+      - { id: open-turbine-valve, label: Open the turbine valve, order: 30 }
+      - { id: connect-power, label: Connect generated power to the campus, order: 40 }
+    visible: when-started
+    order: 10
+documents:
+  - id: hydro-operations-primer
+    title: Micro-Hydro Operations Primer
+    summary: A practical introduction to head, flow, intake care, penstock inspection, and turbine operation.
+    body: |
+      A diversion hydro system turns the energy of falling water into useful
+      mechanical and electrical power. Available power depends chiefly on flow
+      rate and head: the vertical distance through which the water falls.
+
+      Reliable operation begins upstream. Keep the intake clear, inspect the
+      penstock for leaks, open the turbine path deliberately, and compare
+      expected generation with the load connected to the station.
+    group: manuals
+    visible: when-acquired
+    order: 10

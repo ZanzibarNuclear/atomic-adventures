@@ -1,5 +1,8 @@
 import { computed, ref, unref, watch } from "vue";
 import { hasFlag, requireSatisfied, setFlags } from "../lib/maps/composables/useFlags.js";
+import { evaluateRequirements } from "../lib/character/requirements.js";
+import { applyEffectsAtomically } from "../lib/character/effects.js";
+import { advanceGameTime } from "../lib/character/gameTime.js";
 
 /**
  * Location-triggered narrative for the card between map and play panel.
@@ -73,22 +76,45 @@ export function useStory(storyData, ctx) {
     return true;
   }
 
+  function requirementsSatisfied(require) {
+    if (!gameState.character) return requireSatisfied(require, gameState.flags);
+    return evaluateRequirements(require, {
+      character: gameState.character,
+      flags: gameState.flags,
+    }).ok;
+  }
+
+  function decorateChoices(choices = []) {
+    return choices.map((choice) => {
+      if (!gameState.character) return choice;
+      const result = evaluateRequirements(choice.require, {
+        character: gameState.character,
+        flags: gameState.flags,
+      });
+      return {
+        ...choice,
+        disabled: !result.ok,
+        requirementReasons: result.reasons,
+      };
+    });
+  }
+
   function beatMatchesLocation(id, beat, loc) {
-    if (!requireSatisfied(beat.require, gameState.flags)) return false;
+    if (!requirementsSatisfied(beat.require)) return false;
     return triggerMatches(beat, loc);
   }
 
   function findNewBeat(loc, event = null) {
     for (const [id, beat] of Object.entries(beats.value)) {
       if (beat.once !== false && beatSeen(id)) continue;
-      if (!requireSatisfied(beat.require, gameState.flags)) continue;
+      if (!requirementsSatisfied(beat.require)) continue;
       if (!triggerMatches(beat, loc, event)) continue;
       return {
         id,
         eyebrow: beat.eyebrow,
         heading: beat.heading,
         text: beat.text,
-        choices: beat.choices,
+        choices: decorateChoices(beat.choices),
         acknowledge: beat.acknowledge !== false,
       };
     }
@@ -169,6 +195,7 @@ export function useStory(storyData, ctx) {
 
     const choice = beat.choices?.[choiceIndex];
     if (!choice) return;
+    if (choice.disabled || !requirementsSatisfied(choice.require)) return;
 
     if (choice.go_hex && place.value === "outdoors") {
       if (!outdoor.canReachHex(choice.go_hex)) return;
@@ -177,8 +204,29 @@ export function useStory(storyData, ctx) {
       if (!outdoor.atBuildingEntrance) return;
     }
 
-    if (choice.sets) setFlags(gameState.flags, choice.sets);
-    if (choice.set_flags) setFlags(gameState.flags, choice.set_flags);
+    if (gameState.character) {
+      const effects = [
+        ...(choice.effects ?? []),
+        ...(choice.sets ?? []).map((id) => ({ op: "flag.set", id })),
+        ...(choice.set_flags ?? []).map((id) => ({ op: "flag.set", id })),
+      ];
+      const result = applyEffectsAtomically(effects, {
+        character: gameState.character,
+        flags: gameState.flags,
+      });
+      if (!result.ok) return;
+    } else {
+      if (choice.sets) setFlags(gameState.flags, choice.sets);
+      if (choice.set_flags) setFlags(gameState.flags, choice.set_flags);
+    }
+    if (Number(choice.timeMinutes) > 0 && gameState.clock) {
+      const timeResult = advanceGameTime(
+        gameState,
+        Number(choice.timeMinutes),
+        choice.activity ?? "light",
+      );
+      if (!timeResult.ok) return;
+    }
 
     if (beats.value[beat.id]?.once !== false) {
       markSeen(beat.id);
@@ -245,6 +293,14 @@ export function useStory(storyData, ctx) {
       indoor.indoor.currentRoom,
       indoor.indoor.exteriorNode,
       [...gameState.flags].join("\0"),
+      gameState.character ? JSON.stringify({
+        holdings: gameState.character.holdings,
+        stats: gameState.character.stats,
+        knowledge: gameState.character.knowledge,
+        skills: gameState.character.skills,
+        quests: gameState.character.quests,
+        documents: gameState.character.documents,
+      }) : "",
     ],
     () => {
       const loc = locationContext();
@@ -282,7 +338,7 @@ export function useStory(storyData, ctx) {
         pendingBeat.value = null;
         if (
           definition &&
-          requireSatisfied(definition.require, gameState.flags) &&
+          requirementsSatisfied(definition.require) &&
           atBeatTrigger(definition, loc)
         ) {
           pendingBeat.value = {
@@ -290,7 +346,7 @@ export function useStory(storyData, ctx) {
             eyebrow: definition.eyebrow,
             heading: definition.heading,
             text: definition.text,
-            choices: definition.choices,
+            choices: decorateChoices(definition.choices),
             acknowledge: definition.acknowledge !== false,
           };
           locationNarrative.value = null;

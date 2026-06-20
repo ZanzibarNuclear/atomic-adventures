@@ -21,6 +21,7 @@ function openGame() {
         <nav class="builder-tabs" aria-label="Builder workspace">
           <RouterLink to="/builder/story">Story</RouterLink>
           <RouterLink to="/builder/world">World</RouterLink>
+          <RouterLink to="/builder/character">Character</RouterLink>
         </nav>
         <details ref="openMenu" class="open-menu">
           <summary>Open</summary>

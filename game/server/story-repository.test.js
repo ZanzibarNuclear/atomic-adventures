@@ -46,7 +46,7 @@ describe("StoryRepository", () => {
     expect(repository.getRuntimeStory().areas["part-i"].beats.intro.heading).toBe("Lost in the woods");
     db.close();
     const reopened = openDatabase(path);
-    expect(reopened.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get().count).toBe(3);
+    expect(reopened.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get().count).toBe(5);
     reopened.close();
   });
 
@@ -95,6 +95,29 @@ describe("StoryRepository", () => {
     expect(db.prepare("PRAGMA journal_mode").get().journal_mode).toBe("delete");
     expect(existsSync(`${path}-wal`)).toBe(false);
     expect(statSync(path).mtimeMs).toBeGreaterThanOrEqual(before);
+    db.close();
+  });
+
+  it("persists generic character requirements and ordered effects", () => {
+    const { db, repository } = createRepository();
+    repository.createBeat("test-area", sampleBeat({
+      require: { items: ["lobby-exterior-key"] },
+      choices: [{
+        text: "Continue",
+        require: { knowledge: ["hydro-basics"] },
+        effects: [
+          { op: "item.add", id: "hallway-small-bay-key" },
+          { op: "flag.set", id: "test.done" },
+        ],
+      }],
+    }));
+
+    const beat = repository.getBeat("test-area", "test-beat");
+    expect(beat.require.items).toEqual(["lobby-exterior-key"]);
+    expect(beat.choices[0].effects.map((effect) => effect.op)).toEqual([
+      "item.add",
+      "flag.set",
+    ]);
     db.close();
   });
 });

@@ -1,6 +1,7 @@
 # Character and Inventory Management
 
-**Status:** Proposed contract for Part I implementation  
+**Status:** Character foundation, wellbeing, learning progression, quests, and
+physical holders implemented; close-up/lesson/simulation surfaces remain phased
 **Scope:** Player character state, authored items, containers, inventory,
 wellbeing, knowledge, skills, quests, documents, requirements/effects, save
 data, and the player-facing character panel
@@ -77,7 +78,12 @@ Character definitions are stored as one ordered JSON document named
 `character-main` in `game/content/atomic-adventures.sqlite`. This follows the
 existing coarse-document model used for outdoor world and building content.
 YAML may be exported for review or interchange, but direct YAML edits are not
-live until imported.
+live until imported:
+
+```bash
+npm run character:import -w game -- content/character/character-main.yaml
+npm run character:export -w game -- /tmp/character-main.yaml
+```
 
 The document contains independent ordered catalogs:
 
@@ -140,6 +146,13 @@ Story Builder and World Builder consume the catalog:
   rewards.
 
 Authors should not need to copy IDs manually for normal builder workflows.
+
+The development route `/builder/character` now implements this workspace for
+profile/panel configuration and all six catalogs. Story and Utility Station
+builders consume the same catalog for requirements, effects, keys, pickups,
+and interactions. Cross-content validation rejects removing a definition that
+is still referenced. Advanced holder/container authoring remains part of the
+later holder phase.
 
 ## Item Definitions
 

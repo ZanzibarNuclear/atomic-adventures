@@ -15,6 +15,7 @@ import {
   roomStandModels,
 } from "../useGrid.js";
 import { canBargeThroughDoor, canPassDoor } from "../useDoors.js";
+import { advanceGameTime } from "../../../character/gameTime.js";
 
 export const INDOOR_MOVE_MS = 550;
 export const FLOOR_MOVE_MS = 520;
@@ -43,7 +44,14 @@ export function createIndoorMovement(deps) {
     outdoor,
     builderView,
     tryOpenDoor,
+    gameState,
   } = deps;
+
+  function advanceMovementTime(minutes) {
+    if (gameState?.clock && gameState?.character) {
+      advanceGameTime(gameState, minutes, "light");
+    }
+  }
 
   const indoorMoves = computed(() => {
     if (indoor.exteriorNode) {
@@ -298,6 +306,7 @@ export function createIndoorMovement(deps) {
         indoor.level =
           building.value.roomById[move.toRoomId]?.level ?? indoor.level;
         indoor.viewLevel = indoor.level;
+        advanceMovementTime(2);
         finishAfter(INDOOR_MOVE_MS);
         return;
       }
@@ -309,6 +318,7 @@ export function createIndoorMovement(deps) {
       indoor.exteriorNode = move.toExteriorNode;
       indoor.currentRoom = null;
       indoor.currentStand = null;
+      advanceMovementTime(2);
       finishAfter(INDOOR_MOVE_MS);
       return;
     }
@@ -316,12 +326,14 @@ export function createIndoorMovement(deps) {
     if (move.onSpiral) {
       indoor.level = move.toLevel;
       indoor.viewLevel = move.toLevel;
+      advanceMovementTime(2);
       finishAfter(FLOOR_MOVE_MS);
       return;
     }
 
     if (move.toStandId && move.toRoomId === indoor.currentRoom) {
       indoor.currentStand = move.toStandId;
+      advanceMovementTime(1);
       finishAfter(INDOOR_MOVE_MS);
       return;
     }
@@ -346,6 +358,7 @@ export function createIndoorMovement(deps) {
     }
     indoor.viewLevel = indoor.level;
 
+    advanceMovementTime(2);
     finishAfter(INDOOR_MOVE_MS);
   }
 
@@ -421,6 +434,7 @@ export function createIndoorMovement(deps) {
     }
     const totalDist = dists[dists.length - 1]
     if (!totalDist) { indoor.moving = false; return }
+    advanceMovementTime(Math.max(1, Math.round(totalDist / 2)))
 
     const totalMs = exteriorWalkDurationMs(totalDist, prefersReducedMapMotion())
     if (totalMs === 0) {

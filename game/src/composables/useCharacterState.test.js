@@ -6,39 +6,52 @@ import {
   createCharacterState,
   syncCharacterDefinitions,
 } from "./useCharacterState.js";
+import { addItem, itemQuantity } from "../lib/character/holdings.js";
 
 const definitions = {
   items: [
     { id: "known-key", label: "Known key" },
-    { id: "ration", label: "Ration" },
+    { id: "ration", label: "Ration", carrying: "stack", maxQuantity: 10 },
   ],
   stats: [{ id: "health", default: 100 }],
 };
 
 describe("character state", () => {
-  it("backs a Set-like inventory with serializable holdings", () => {
+  it("stores inventory as serializable holdings", () => {
     const state = createCharacterState(definitions);
-    state.inventory.add("known-key");
+    addItem(state.holdings, state.definitions, "known-key");
 
-    expect(state.inventory.has("known-key")).toBe(true);
-    expect([...state.inventory]).toEqual(["known-key"]);
+    expect(characterItems(state).map((item) => item.id)).toEqual(["known-key"]);
     expect(captureCharacterState(state).holdings).toEqual({
-      items: { "known-key": { quantity: 1 } },
+      holders: {
+        "character:player": {
+          id: "character:player",
+          kind: "character",
+          label: "Carried directly",
+        },
+      },
+      stacks: {},
+      instances: {
+        "known-key-1": { item: "known-key", holder: "character:player" },
+      },
+      nextId: 2,
     });
     expect(state.stats.health).toBe(100);
   });
 
   it("preserves holdings across definition refreshes and tracks orphans", () => {
     const state = createCharacterState(definitions);
-    state.inventory.add("known-key");
-    state.inventory.add("missing-item");
+    addItem(state.holdings, state.definitions, "known-key");
+    addItem(state.holdings, state.definitions, "missing-item", 1, {
+      validateDefinition: false,
+    });
 
     syncCharacterDefinitions(state, {
       ...definitions,
       items: [{ id: "ration", label: "Updated ration" }],
     });
 
-    expect(state.inventory.has("known-key")).toBe(true);
+    expect(itemQuantity(state.holdings, "known-key")).toBe(1);
     expect(state.orphanItemIds).toEqual(["known-key", "missing-item"]);
     expect(characterItems(state).some((item) => item.id === "known-key")).toBe(false);
     expect(characterItems(state, {}, { includeOrphans: true })
@@ -51,16 +64,34 @@ describe("character state", () => {
       holdings: { items: { ration: { quantity: 2 } } },
       stats: { health: 80 },
       knowledge: { hydro: { acquiredAt: "now" } },
-      skills: { operator: { rank: 1 } },
+      skills: {
+        operator: {
+          rank: 1,
+          evidence: { days: 2 },
+          evidenceEvents: { "repair-a": "now" },
+          awards: { 1: { earnedAt: "now", earnedText: "Introduced" } },
+        },
+      },
       quests: { restore: { status: "active" } },
       documents: { manual: { discoveredAt: "now" } },
     });
 
     expect(captureCharacterState(state)).toEqual({
-      holdings: { items: { ration: { quantity: 2 } } },
+      holdings: expect.objectContaining({
+        stacks: expect.objectContaining({
+          "stack-ration-1": { item: "ration", quantity: 2, holder: "character:player" },
+        }),
+      }),
       stats: { health: 80 },
       knowledge: { hydro: { acquiredAt: "now" } },
-      skills: { operator: { rank: 1 } },
+      skills: {
+        operator: {
+          rank: 1,
+          evidence: { days: 2 },
+          evidenceEvents: { "repair-a": "now" },
+          awards: { 1: { earnedAt: "now", earnedText: "Introduced" } },
+        },
+      },
       quests: { restore: { status: "active" } },
       documents: { manual: { discoveredAt: "now" } },
     });

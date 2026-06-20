@@ -1,6 +1,6 @@
 # Character, Inventory, and Shared Game Views — Implementation Plan
 
-**Status:** Planned  
+**Status:** In progress
 **Last updated:** 2026-06-19  
 **Primary contract:** [Character and Inventory Management](../contracts/character-inventory.md)  
 **Roadmap:** [Technology Roadmap](../tech-roadmap.md)
@@ -219,21 +219,21 @@ available and commit all its rewards/costs without partial mutation.
 
 **Purpose:** Put the new core on the current playable path.
 
-- [ ] Extend story model/runtime schema with character requirements and
+- [x] Extend story model/runtime schema with character requirements and
   ordered effects.
-- [ ] Keep `sets` and `set_flags` as migration aliases.
-- [ ] Evaluate beat and choice requirements through the shared evaluator.
-- [ ] Apply choice effects before movement; abort movement if effects fail.
-- [ ] Move utility-station item definitions from the building document into
+- [x] Keep `sets` and `set_flags` as migration aliases.
+- [x] Evaluate beat and choice requirements through the shared evaluator.
+- [x] Apply choice effects before movement; abort movement if effects fail.
+- [x] Move utility-station item definitions from the building document into
   `character-main`.
-- [ ] Retain building pickups as placement records referencing catalog IDs.
-- [ ] Change doors, pickups, and indoor actions to use the character service.
-- [ ] Remove the compatibility adapter only after all inventory consumers are
+- [x] Retain building pickups as placement records referencing catalog IDs.
+- [x] Change doors, pickups, and indoor actions to use the character service.
+- [x] Remove the compatibility adapter only after all inventory consumers are
   migrated.
-- [ ] Update story/building validators and reference checks.
-- [ ] Add tests for item-gated beats, choices, doors, pickup idempotence,
+- [x] Update story/building validators and reference checks.
+- [x] Add tests for item-gated beats, choices, doors, pickup idempotence,
   effect-before-movement, and failed effects.
-- [ ] Update `story-beats.md` and `world-authoring.md` when behavior lands.
+- [x] Update `story-beats.md` and `world-authoring.md` when behavior lands.
 
 Likely files:
 
@@ -254,19 +254,19 @@ requirements/effects end-to-end.
 
 **Purpose:** Deliver the first player-visible value before advanced containers.
 
-- [ ] Replace the placeholder with the real Character view.
-- [ ] Add Map/Character navigation in the app shell.
-- [ ] Add tabs configured by authored panel content.
-- [ ] Implement Overview with portrait, profile, authored stats, and active
+- [x] Replace the placeholder with the real Character view.
+- [x] Add Map/Character navigation in the app shell.
+- [x] Add tabs configured by authored panel content.
+- [x] Implement Overview with portrait, profile, authored stats, and active
   quest summary.
-- [ ] Implement Inventory for directly held items and quantities.
-- [ ] Add item details, descriptions, icons, linked documents, and empty states.
-- [ ] Remove the old inline `InventoryPanel` from `IndoorScene` once equivalent
+- [x] Implement Inventory for directly held items and quantities.
+- [x] Add item details, descriptions, icons, linked documents, and empty states.
+- [x] Remove the old inline `InventoryPanel` from `IndoorScene` once equivalent
   access exists.
-- [ ] Preserve the selected Character tab for the browser session.
-- [ ] Implement keyboard navigation, focus restoration, textual meter values,
+- [x] Preserve the selected Character tab for the browser session.
+- [x] Implement keyboard navigation, focus restoration, textual meter values,
   narrow-screen layout, and non-color status cues.
-- [ ] Add UI tests for toggling, tabs, empty/populated states, and accessibility
+- [x] Add UI tests for toggling, tabs, empty/populated states, and accessibility
   semantics.
 
 Likely files:
@@ -285,19 +285,19 @@ possessions in the shared game stage and return to the unchanged map.
 
 **Purpose:** Give authors control without manual JSON or IDs.
 
-- [ ] Add development route `/builder/character`.
-- [ ] Add Character to `BuilderShell`.
-- [ ] Implement explicit Save, Revert, dirty-state protection, validation,
+- [x] Add development route `/builder/character`.
+- [x] Add Character to `BuilderShell`.
+- [x] Implement explicit Save, Revert, dirty-state protection, validation,
   revision history, and restore.
-- [ ] Add editors for profile/panel, items, stats, knowledge, skills, quests,
+- [x] Add editors for profile/panel, items, stats, knowledge, skills, quests,
   and documents.
-- [ ] Add catalog ID selectors to Story Builder requirements/effects.
-- [ ] Add item selectors to relevant World Builder placements, doors, and
+- [x] Add catalog ID selectors to Story Builder requirements/effects.
+- [x] Add item selectors to relevant World Builder placements, doors, and
   interactions.
-- [ ] Add reference search and reference-aware rename previews.
-- [ ] Reject deletion while referenced.
-- [ ] Add panel previews for empty, early-game, and populated states.
-- [ ] Verify the builder route/chunks remain absent from production.
+- [x] Add reference search and reference-aware rename previews.
+- [x] Reject deletion while referenced.
+- [x] Add panel previews for empty, early-game, and populated states.
+- [x] Verify the builder route/chunks remain absent from production.
 
 Likely files:
 
@@ -317,25 +317,25 @@ character content without editing source files.
 
 **Purpose:** Support the Part I lived-in survival rhythm generically.
 
-- [ ] Define the game-clock contract before implementation: current game time,
+- [x] Define the game-clock contract before implementation: current game time,
   calendar/day representation, and one `advanceTime` boundary.
-- [ ] Implement registered activity profiles:
+- [x] Implement registered activity profiles:
   `resting`, `light`, `moderate`, `strenuous`.
-- [ ] Ensure movement, story actions, rest, item actions, and simulations can
+- [x] Ensure movement, story actions, rest, item actions, and simulations can
   report elapsed game minutes and activity.
-- [ ] Implement stat drift integration, bounds, threshold crossing, and
+- [x] Implement stat drift integration, bounds, threshold crossing, and
   threshold effects.
-- [ ] Guarantee large and small equivalent time advances produce the same
+- [x] Guarantee large and small equivalent time advances produce the same
   result.
-- [ ] Add authored `health`, `hunger`, and `thirst` definitions.
-- [ ] Add authored food/water items with calories/hydration metadata and
+- [x] Add authored `health`, `hunger`, and `thirst` definitions.
+- [x] Add authored food/water items with calories/hydration metadata and
   explicit Eat/Drink actions.
-- [ ] Add wellbeing meters and warnings to Overview; optionally add a compact
+- [x] Add wellbeing meters and warnings to Overview; optionally add a compact
   header summary after usability testing.
-- [ ] Add beat/action requirements based on needs where narrative requires.
-- [ ] Test time advancement, activity rates, sleep-sized jumps, consumption,
+- [x] Add beat/action requirements based on needs where narrative requires.
+- [x] Test time advancement, activity rates, sleep-sized jumps, consumption,
   health thresholds, save/load, and no wall-clock progression while closed.
-- [ ] Update the roadmap's time/calendar section with the implemented clock
+- [x] Update the roadmap's time/calendar section with the implemented clock
   contract.
 
 **Exit criterion:** Hunger and thirst change predictably with authored game
@@ -347,20 +347,20 @@ time/activity, and authored meals/water affect them through ordinary effects.
 
 **Purpose:** Represent the learning arc from exposure to competence.
 
-- [ ] Implement Documents and Knowledge tabs.
-- [ ] Implement lesson/document actions that explicitly grant knowledge.
-- [ ] Gate a real story beat or activity on a knowledge ID.
-- [ ] Implement skill evidence counters and authored rank-award rules.
-- [ ] Evaluate awards after committed effects, in deterministic rank order.
-- [ ] Add one-time/repeatable evidence controls to simulation outcomes.
-- [ ] Implement Skills display with rank, progress, qualification, badge art,
+- [x] Implement Documents and Knowledge tabs.
+- [x] Implement lesson/document actions that explicitly grant knowledge.
+- [x] Gate a real story beat or activity on a knowledge ID.
+- [x] Implement skill evidence counters and authored rank-award rules.
+- [x] Evaluate awards after committed effects, in deterministic rank order.
+- [x] Add one-time/repeatable evidence controls to simulation outcomes.
+- [x] Implement Skills display with rank, progress, qualification, badge art,
   and earned text.
-- [ ] Wire Part I examples:
+- [x] Wire Part I examples:
   - holo-reader hydro lesson → hydro knowledge;
   - successful operating day → operating-days evidence;
   - leak repair → leak-repairs evidence;
   - evidence thresholds → Hydro Operations ranks/qualification.
-- [ ] Test document versus knowledge separation, gated actions, repeat
+- [x] Test document versus knowledge separation, gated actions, repeat
   protection, award ordering, and save/load.
 
 **Exit criterion:** The full chain works:
@@ -372,13 +372,13 @@ time/activity, and authored meals/water affect them through ordinary effects.
 
 **Purpose:** Give the player a readable account of multi-step goals.
 
-- [ ] Implement quest/objective state transitions and counters.
-- [ ] Add Quests tab sections for available, active, completed, and failed.
-- [ ] Support authored visibility and optional auto-completion.
-- [ ] Wire a Part I quest such as Restore Station Power.
-- [ ] Ensure quests summarize story/simulation progress without replacing beat
+- [x] Implement quest/objective state transitions and counters.
+- [x] Add Quests tab sections for available, active, completed, and failed.
+- [x] Support authored visibility and optional auto-completion.
+- [x] Wire a Part I quest such as Restore Station Power.
+- [x] Ensure quests summarize story/simulation progress without replacing beat
   selection.
-- [ ] Test invalid transitions, objective counters, auto-completion, repeat
+- [x] Test invalid transitions, objective counters, auto-completion, repeat
   effects, save/load, and live definition updates.
 
 **Exit criterion:** A multi-system Part I goal is author-defined, updated by
@@ -390,23 +390,23 @@ ordinary effects, and understandable from the Character view.
 
 **Purpose:** Complete physical item custody and transport.
 
-- [ ] Implement unique instances, stacks, holder IDs, and ownership
+- [x] Implement unique instances, stacks, holder IDs, and ownership
   invariants.
-- [ ] Implement character, portable-container, vehicle, fixed-container, and
+- [x] Implement character, portable-container, vehicle, fixed-container, and
   world-placement holders.
-- [ ] Implement capacity by slots and optional mass.
-- [ ] Disallow nested containers by default.
-- [ ] Implement `carried` and `nearby` access scopes.
-- [ ] Implement atomic item transfer, split/merge stacks, drop, and pickup.
-- [ ] Persist runtime placements, fixed-container contents, vehicle contents,
+- [x] Implement capacity by slots and optional mass.
+- [x] Disallow nested containers by default.
+- [x] Implement `carried` and `nearby` access scopes.
+- [x] Implement atomic item transfer, split/merge stacks, drop, and pickup.
+- [x] Persist runtime placements, fixed-container contents, vehicle contents,
   and container contents.
-- [ ] Add the field backpack as a portable container.
-- [ ] Add eBuggy cargo as a holder whose location follows the vehicle.
-- [ ] Show accessible holder trees in Inventory and permit drag/drop or
+- [x] Add the field backpack as a portable container.
+- [x] Add eBuggy cargo as a holder whose location follows the vehicle.
+- [x] Show accessible holder trees in Inventory and permit drag/drop or
   explicit transfer controls.
-- [ ] Ensure tools in distant eBuggy cargo or a backpack left elsewhere fail
+- [x] Ensure tools in distant eBuggy cargo or a backpack left elsewhere fail
   physical requirements.
-- [ ] Test capacity, stack behavior, transfer rollback, holder cycles,
+- [x] Test capacity, stack behavior, transfer rollback, holder cycles,
   backpack movement, leaving a backpack, vehicle travel, proximity, save/load,
   and live world refresh.
 
@@ -516,3 +516,45 @@ At the start of a future session:
   and flag effects, reference/bounds/quantity checks, transactional draft
   application with rollback, legacy requirement normalization, and focused
   unit coverage.
+- 2026-06-19 — Phase 4 completed. Added revisioned story requirement/effect
+  JSON, shared beat/choice evaluation, disabled unmet choices, atomic
+  effect-before-movement handling, global catalog-backed keys and pickups,
+  direct character-holdings door/action integration, building/story reference
+  validation, SQLite building migration, compatibility-adapter removal,
+  contract updates, and end-to-end regression coverage.
+- 2026-06-19 — Phase 5 completed. Replaced the placeholder with the authored
+  tabbed Character view, profile/portrait fallback, stat and active-quest
+  overview, grouped direct inventory and item details, future-domain empty
+  states, session tab memory, keyboard tab behavior, focus restoration,
+  responsive layout, presentation tests, and production-browser verification.
+- 2026-06-19 — Phase 6 completed. Added the development-only Character Builder
+  with catalog/profile/panel editors, dirty-state protection, validation,
+  revision restore and panel previews; exposed character catalogs to Story and
+  Utility Station authoring; added requirement/effect, door-key, pickup and
+  interaction selectors; enforced cross-content reference validation and
+  reference-aware rename/delete checks; added builder compile/API tests and
+  browser verification; confirmed builders remain absent from production.
+- 2026-06-19 — Phase 7 completed. Added a serializable authored game clock,
+  deterministic minute integration and activity profiles, timed movement,
+  story, world, item and simulation outcome boundaries, authored stat drift
+  and threshold effects, health/hunger/thirst definitions, consumable food and
+  water actions, wellbeing display, save migration and clock round-trip
+  coverage. The phase boundary passed 201 tests and a production build.
+- 2026-06-19 — Phase 8 completed. Added authored documents, knowledge,
+  evidence catalogs and ordered skill awards; idempotent one-time evidence
+  events; knowledge/document and ranked skill presentation; Character Builder
+  practice-rule editing; character content import/export; and a playable Part
+  I chain from hydro reading and holo-reader study through operating days,
+  leak repair, and Hydro Operations qualification.
+- 2026-06-19 — Phase 9 completed. Added validated quest transitions,
+  objective counters and targets, authored automatic completion, status-grouped
+  Quest UI with objective progress, Character Builder quest controls, and a
+  Restore Station Power quest wired across the existing four-step hydro
+  startup chain.
+- 2026-06-19 — Phase 10 completed. Replaced flat item totals with physical
+  holder state: stack records, unique instances, character/direct holders,
+  portable container holders, world-placement holders, and authored vehicle
+  cargo. Added capacity, mass, acceptance, no-nesting and cycle guards,
+  carried/nearby access scopes, stack splitting/merging, holder movement,
+  transfer effects, location-aware Inventory transfer controls, the field
+  backpack, the bolt cutter, and eBuggy cargo.

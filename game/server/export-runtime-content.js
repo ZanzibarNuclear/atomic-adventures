@@ -19,14 +19,19 @@ try {
     seedWorld: loadWorldSeed(),
     buildingData,
   });
-  const storyRepository = new StoryRepository(db, worldRepository.getCatalog());
+  const characterRepository = new CharacterRepository(db, {
+    seedCharacter: loadCharacterSeed(),
+  });
+  const storyRepository = new StoryRepository(
+    db,
+    worldRepository.getCatalog(),
+    characterRepository.getDocument()?.character,
+  );
   const buildingRepository = new BuildingRepository(db, {
     seedBuilding: buildingData,
     worldRepository,
     storyRepository,
-  });
-  const characterRepository = new CharacterRepository(db, {
-    seedCharacter: loadCharacterSeed(),
+    characterRepository,
   });
   const authoredBuilding = buildingRepository.getDocument()?.building ?? buildingData;
   worldRepository.setBuildingData(authoredBuilding);

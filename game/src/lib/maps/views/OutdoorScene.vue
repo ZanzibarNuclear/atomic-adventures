@@ -51,7 +51,7 @@
         :key="item.id"
         class="route-btn"
         :class="item.kind ? 'k-' + item.kind : 'k-story'"
-        :disabled="outdoor.traveling"
+        :disabled="outdoor.traveling || item.disabled"
         :title="item.hint ?? ''"
         @click="onChooseAction(item.id)">
         {{ item.label }}

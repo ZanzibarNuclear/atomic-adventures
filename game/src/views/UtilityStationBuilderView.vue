@@ -62,6 +62,9 @@ const pendingRoute = ref("");
 const navigationPromptVisible = ref(false);
 const savingBeforeNavigation = ref(false);
 const doorStates = ref(buildInitialDoorState(source.value.id, buildBuilding(source.value)));
+const characterCatalog = ref({
+  items: [], stats: [], knowledge: [], skills: [], quests: [], documents: [],
+});
 
 const building = computed(() => buildBuilding(draft.value));
 const dirty = computed(() => JSON.stringify(draft.value) !== baseline.value);
@@ -138,11 +141,67 @@ onBeforeUnmount(() => window.removeEventListener("beforeunload", warnBeforeUnloa
 onMounted(async () => {
   window.addEventListener("beforeunload", warnBeforeUnload);
   try {
-    applyLoaded(await storyApi("/api/world/buildings/utility-station"));
+    const [buildingResult, catalogResult] = await Promise.all([
+      storyApi("/api/world/buildings/utility-station"),
+      storyApi("/api/catalog"),
+    ]);
+    applyLoaded(buildingResult);
+    characterCatalog.value = catalogResult.character ?? characterCatalog.value;
   } catch (error) {
     status.value = error.message;
   }
 });
+
+function addPickup() {
+  const item = characterCatalog.value.items[0];
+  const room = draft.value.rooms[0];
+  if (!item || !room) return;
+  const used = new Set((draft.value.pickups ?? []).map((pickup) => pickup.id));
+  let id = `${item.id}-pickup`;
+  let suffix = 2;
+  while (used.has(id)) id = `${item.id}-pickup-${suffix++}`;
+  draft.value.pickups ??= [];
+  draft.value.pickups.push({
+    id,
+    room: room.id,
+    item: item.id,
+    label: item.label,
+  });
+}
+
+function removePickup(index) {
+  draft.value.pickups.splice(index, 1);
+}
+
+function actionRequirementIds(action, domain) {
+  const value = action.require?.[domain];
+  if (Array.isArray(value)) return value.map((entry) => typeof entry === "string" ? entry : entry.id);
+  return (value?.all ?? []).map((entry) => typeof entry === "string" ? entry : entry.id);
+}
+
+function setActionRequirementIds(action, domain, event) {
+  action.require ??= {};
+  action.require[domain] = [...event.target.selectedOptions].map((option) => option.value);
+}
+
+function addActionEffect(action) {
+  action.effects ??= [];
+  const item = characterCatalog.value.items[0];
+  action.effects.push(item
+    ? { op: "item.add", id: item.id, quantity: 1 }
+    : { op: "flag.set", id: "" });
+}
+
+function effectEntries(effect) {
+  const domain = String(effect.op ?? "").split(".")[0];
+  const key = domain === "item" ? "items"
+    : domain === "stat" ? "stats"
+      : domain === "skill" ? "skills"
+        : domain === "quest" ? "quests"
+          : domain === "document" ? "documents"
+            : domain;
+  return characterCatalog.value[key] ?? [];
+}
 
 onBeforeRouteLeave((to) => {
   if (!dirty.value) return true;
@@ -816,6 +875,22 @@ function clonePlain(value) {
 
           <template v-else-if="selection.source === 'doors'">
             <label>Label<input v-model="selection.entity.label" /></label>
+            <label>Key item
+              <select
+                :value="selection.entity.lock?.key ?? ''"
+                @change="
+                  selection.entity.lock ??= {};
+                  selection.entity.lock.key = $event.target.value || null
+                ">
+                <option value="">No key</option>
+                <option
+                  v-for="item in characterCatalog.items"
+                  :key="item.id"
+                  :value="item.id">
+                  {{ item.label }} ({{ item.id }})
+                </option>
+              </select>
+            </label>
             <template v-if="selection.entity.kind === 'man'">
               <div class="field-grid">
                 <label>X<input v-model.number="selection.entity.at.x" type="number" step=".01" /></label>
@@ -972,6 +1047,76 @@ function clonePlain(value) {
         </template>
         <p v-else class="empty-note">Select a room, door, path, node, or transition.</p>
 
+        <details class="inventory-authoring">
+          <summary>Item placements</summary>
+          <article v-for="(pickup, index) in draft.pickups ?? []" :key="pickup.id" class="reference-card">
+            <label>Placement ID<input v-model="pickup.id"></label>
+            <label>Label<input v-model="pickup.label"></label>
+            <label>Room
+              <select v-model="pickup.room">
+                <option v-for="room in draft.rooms" :key="room.id" :value="room.id">
+                  {{ room.label }} ({{ room.id }})
+                </option>
+              </select>
+            </label>
+            <label>Character item
+              <select v-model="pickup.item">
+                <option v-for="item in characterCatalog.items" :key="item.id" :value="item.id">
+                  {{ item.label }} ({{ item.id }})
+                </option>
+              </select>
+            </label>
+            <button class="sm danger-outline" @click="removePickup(index)">Remove placement</button>
+          </article>
+          <button class="sm" @click="addPickup">Add item placement</button>
+        </details>
+
+        <details class="inventory-authoring">
+          <summary>Interaction character rules</summary>
+          <article v-for="action in draft.actions ?? []" :key="action.id" class="reference-card">
+            <strong>{{ action.label }} <small>{{ action.id }}</small></strong>
+            <label>Required items
+              <select
+                multiple
+                :value="actionRequirementIds(action, 'items')"
+                @change="setActionRequirementIds(action, 'items', $event)">
+                <option v-for="item in characterCatalog.items" :key="item.id" :value="item.id">
+                  {{ item.label }} ({{ item.id }})
+                </option>
+              </select>
+            </label>
+            <label>Required knowledge
+              <select
+                multiple
+                :value="actionRequirementIds(action, 'knowledge')"
+                @change="setActionRequirementIds(action, 'knowledge', $event)">
+                <option
+                  v-for="entry in characterCatalog.knowledge"
+                  :key="entry.id"
+                  :value="entry.id">
+                  {{ entry.label }} ({{ entry.id }})
+                </option>
+              </select>
+            </label>
+            <div v-for="(effect, effectIndex) in action.effects ?? []" :key="effectIndex" class="field-grid">
+              <select v-model="effect.op">
+                <option>item.add</option><option>item.remove</option>
+                <option>knowledge.acquire</option><option>skill.add-evidence</option>
+                <option>quest.start</option><option>quest.complete-objective</option>
+                <option>document.discover</option><option>flag.set</option>
+              </select>
+              <input v-if="effect.op.startsWith('flag.')" v-model="effect.id" placeholder="flag.id">
+              <select v-else v-model="effect.id">
+                <option v-for="entry in effectEntries(effect)" :key="entry.id" :value="entry.id">
+                  {{ entry.label ?? entry.title }} ({{ entry.id }})
+                </option>
+              </select>
+              <button class="sm muted" @click="action.effects.splice(effectIndex, 1)">Remove</button>
+            </div>
+            <button class="sm" @click="addActionEffect(action)">Add character effect</button>
+          </article>
+        </details>
+
         <details>
           <summary>Draft YAML</summary>
           <pre class="yaml-preview">{{ generatedYaml }}</pre>
@@ -1095,6 +1240,17 @@ function clonePlain(value) {
 .yaml-preview { max-height: 22rem; overflow: auto; padding: .65rem; border-radius: 7px; background: #11151b; white-space: pre-wrap; font-size: .72rem; }
 .empty-note { color: #939ba7; }
 .read-only-note, .audit-panel p { color: #aeb5c0; font-size: .78rem; line-height: 1.45; }
+.inventory-authoring { margin-top: .2rem; }
+.reference-card {
+  display: grid;
+  gap: .45rem;
+  margin-top: .6rem;
+  padding: .65rem;
+  border: 1px solid #394454;
+  border-radius: 8px;
+  background: #181d25;
+}
+.reference-card small { color: #8f98a6; font-weight: 400; }
 .audit-panel { display: grid; gap: .4rem; padding-top: .65rem; border-top: 1px solid #343d4d; }
 .field-error { color: #ff9e9e; font-size: .78rem; }
 .warning { color: #efcb83; font-size: .78rem; }

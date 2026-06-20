@@ -21,13 +21,12 @@
         :key="item.id"
         class="route-btn"
         :class="item.kind ? 'k-' + item.kind : 'k-story'"
-        :disabled="indoor.indoor.moving"
+        :disabled="indoor.indoor.moving || item.disabled"
+        :title="item.hint ?? ''"
         @click="onChooseAction(item.id)">
         {{ item.label }}
       </button>
     </TravelOptions>
-
-    <InventoryPanel :items="indoor.carriedItems" />
 
     <PlayActions
       v-if="playActions.length"
@@ -44,7 +43,6 @@ import IndoorMapStage from "../components/IndoorMapStage.vue";
 import PlayPanel from "../../../components/hud/PlayPanel.vue";
 import MapCaption from "../components/hud/MapCaption.vue";
 import TravelOptions from "../components/hud/TravelOptions.vue";
-import InventoryPanel from "../components/hud/InventoryPanel.vue";
 import StatusLines from "../../../components/hud/StatusLines.vue";
 import PlayActions from "../../../components/hud/PlayActions.vue";
 import NarrativeCard from "../../../components/story/NarrativeCard.vue";

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed, watch } from "vue";
+import { ref, onMounted, computed, watch, nextTick } from "vue";
 import { useOutdoorWorld } from "../lib/maps/composables/useOutdoorWorld.js";
 import { useIndoorBuilding } from "../lib/maps/composables/useIndoorBuilding.js";
 import { createGameState, resetGameState } from "../composables/useGameState.js";
@@ -10,8 +10,16 @@ import { useWorldContent } from "../composables/useWorldContent.js";
 import { useBuildingContent } from "../composables/useBuildingContent.js";
 import { useGameView } from "../composables/useGameView.js";
 import { useCharacterContent } from "../composables/useCharacterContent.js";
-import { syncCharacterDefinitions } from "../composables/useCharacterState.js";
+import {
+  syncCharacterDefinitions,
+  syncCharacterHolderDefinitions,
+} from "../composables/useCharacterState.js";
 import { applyOutdoorWorldUpdate } from "../composables/worldRuntime.js";
+import { performItemAction } from "../lib/character/itemActions.js";
+import {
+  ensureWorldHolder,
+  transferHolding,
+} from "../lib/character/holdings.js";
 import AppHeader from "../components/AppHeader.vue";
 import CharacterView from "../components/game-views/CharacterView.vue";
 import StoryOverlay from "../components/story/StoryOverlay.vue";
@@ -71,6 +79,28 @@ const {
 } = useStory(storyData, { gameState, place, outdoor, indoor });
 
 const saveCtx = computed(() => ({ gameState, place, outdoor, indoor }));
+const nearbyHolderIds = computed(() => {
+  const ids = [];
+  for (const holder of Object.values(gameState.character.holdings.holders ?? {})) {
+    if (holder.kind === "vehicle" || holder.kind === "fixed") {
+      const location = holder.location ?? {};
+      if (place.value === "indoors" && location.room && location.room === indoor.indoor.currentRoom) {
+        ids.push(holder.id);
+      }
+      if (
+        place.value === "indoors" &&
+        location.exteriorNode &&
+        location.exteriorNode === indoor.indoor.exteriorNode
+      ) {
+        ids.push(holder.id);
+      }
+      if (place.value === "outdoors" && location.hex && location.hex === outdoor.state.currentId) {
+        ids.push(holder.id);
+      }
+    }
+  }
+  return ids;
+});
 let deferredWorld = null;
 let deferredBuilding = null;
 
@@ -97,6 +127,7 @@ watch(
 
 function applyBuilding(next) {
   indoor.syncFromBuildingData(next);
+  syncCharacterHolderDefinitions(gameState.character, next.holders ?? []);
   refreshNarrative();
 }
 
@@ -137,6 +168,46 @@ function handleReset() {
   resetGameState(saveCtx.value);
   refreshNarrative();
 }
+
+function handleReturnToMap() {
+  returnToMap();
+  nextTick(() => document.querySelector(".view-toggle")?.focus());
+}
+
+function currentWorldHolderId() {
+  return ensureWorldHolder(gameState.character.holdings, {
+    place: place.value,
+    hex: place.value === "outdoors" ? outdoor.state.currentId : null,
+    room: place.value === "indoors" ? indoor.indoor.currentRoom : null,
+    exteriorNode: place.value === "indoors" ? indoor.indoor.exteriorNode : null,
+    stand: place.value === "indoors" ? indoor.indoor.currentStand : outdoor.state.stand?.id,
+  });
+}
+
+function handleOpenCharacter() {
+  currentWorldHolderId();
+  openCharacter();
+}
+
+function handleUseItem({ itemId, actionId }) {
+  const result = performItemAction(gameState, itemId, actionId);
+  if (result.ok) refreshNarrative();
+}
+
+function handleTransferItem({ type, recordId, quantity, toHolder }) {
+  const target = toHolder === "__ground__" ? currentWorldHolderId() : toHolder;
+  try {
+    transferHolding(gameState.character.holdings, gameState.character.definitions, {
+      type,
+      id: recordId,
+      quantity,
+      toHolder: target,
+    });
+    refreshNarrative();
+  } catch (error) {
+    console.warn(error);
+  }
+}
 </script>
 
 <template>
@@ -150,7 +221,7 @@ function handleReset() {
       @save="saveGame(saveCtx)"
       @new-game="handleNewGame"
       @reset="handleReset"
-      @show-character="openCharacter"
+      @show-character="handleOpenCharacter"
       @show-map="returnToMap"
       @show-movement-audit="movementAuditVisible = true" />
 
@@ -194,7 +265,12 @@ function handleReset() {
 
     <CharacterView
       v-else-if="isCharacterView"
-      @return-to-map="returnToMap" />
+      :character="gameState.character"
+      :clock="gameState.clock"
+      :nearby-holder-ids="[...nearbyHolderIds, currentWorldHolderId()]"
+      @use-item="handleUseItem"
+      @transfer-item="handleTransferItem"
+      @return-to-map="handleReturnToMap" />
 
     <StoryOverlay
       v-if="isMapView"

@@ -1,18 +1,24 @@
-import { markRaw, reactive, toRaw } from "vue";
+import { reactive, toRaw } from "vue";
+import {
+  addItem,
+  createHoldings,
+  holdingRecords,
+  itemQuantity,
+  normalizeHoldings,
+} from "../lib/character/holdings.js";
 
-export function createCharacterState(definitions = {}) {
+export function createCharacterState(definitions = {}, holderDefinitions = []) {
   const state = reactive({
     definitions: cloneDefinitions(definitions),
-    holdings: { items: {} },
+    holderDefinitions: clonePlain(holderDefinitions),
+    holdings: createHoldings(definitions.profile?.id, holderDefinitions),
     stats: {},
     knowledge: {},
     skills: {},
     quests: {},
     documents: {},
     orphanItemIds: [],
-    inventory: null,
   });
-  state.inventory = markRaw(createInventoryAdapter(state));
   initializeDefinitionDefaults(state);
   return state;
 }
@@ -21,8 +27,7 @@ export function syncCharacterDefinitions(state, definitions = {}) {
   const previousOrphans = new Set(state.orphanItemIds);
   state.definitions = cloneDefinitions(definitions);
   initializeDefinitionDefaults(state);
-  state.orphanItemIds = Object.keys(state.holdings.items)
-    .filter((id) => !itemDefinitionById(state)[id]);
+  refreshOrphanItems(state);
   if (import.meta.env.DEV) {
     for (const id of state.orphanItemIds) {
       if (!previousOrphans.has(id)) {
@@ -32,8 +37,23 @@ export function syncCharacterDefinitions(state, definitions = {}) {
   }
 }
 
+export function syncCharacterHolderDefinitions(state, holderDefinitions = []) {
+  state.holderDefinitions = clonePlain(holderDefinitions);
+  const next = normalizeHoldings(state.holdings, state.definitions, holderDefinitions);
+  for (const holder of holderDefinitions) {
+    next.holders[holder.id] = {
+      ...next.holders[holder.id],
+      ...clonePlain(holder),
+    };
+  }
+  state.holdings = next;
+}
+
 export function resetCharacterState(state) {
-  state.holdings = { items: {} };
+  state.holdings = createHoldings(
+    state.definitions.profile?.id,
+    state.holderDefinitions,
+  );
   state.stats = {};
   state.knowledge = {};
   state.skills = {};
@@ -55,20 +75,32 @@ export function captureCharacterState(state) {
 }
 
 export function applyCharacterState(state, snapshot = {}) {
-  state.holdings = normalizeHoldings(snapshot.holdings);
+  const definitions = cloneDefinitions(state.definitions);
+  state.definitions = definitions;
+  initializeDefinitionDefaults(state);
+  state.holdings = normalizeHoldings(
+    snapshot.holdings,
+    definitions,
+    state.holderDefinitions,
+  );
   state.stats = plainObject(snapshot.stats);
   state.knowledge = plainObject(snapshot.knowledge);
   state.skills = plainObject(snapshot.skills);
   state.quests = plainObject(snapshot.quests);
   state.documents = plainObject(snapshot.documents);
-  syncCharacterDefinitions(state, state.definitions);
+  refreshOrphanItems(state);
 }
 
 export function migrateLegacyInventory(state, ids = []) {
-  state.holdings = { items: {} };
+  state.holdings = createHoldings(
+    state.definitions.profile?.id,
+    state.holderDefinitions,
+  );
   for (const id of ids) {
     if (!id) continue;
-    state.holdings.items[id] = { quantity: 1 };
+    addItem(state.holdings, state.definitions, id, 1, {
+      validateDefinition: false,
+    });
   }
   syncCharacterDefinitions(state, state.definitions);
 }
@@ -78,50 +110,18 @@ export function characterItems(state, fallbackCatalog = {}, { includeOrphans = f
     ...fallbackCatalog,
     ...itemDefinitionById(state),
   };
-  return [...state.inventory]
+  const ids = [...new Set(holdingRecords(
+    state.holdings,
+    state.definitions,
+  ).map((record) => record.item))];
+  return ids
     .map((id) => ({
       ...(catalog[id] ?? { id, label: id }),
-      quantity: state.holdings.items[id]?.quantity ?? 0,
+      quantity: itemQuantity(state.holdings, id),
       orphan: !itemDefinitionById(state)[id],
     }))
+    .filter((item) => item.quantity > 0)
     .filter((item) => includeOrphans || !item.orphan);
-}
-
-function createInventoryAdapter(state) {
-  return {
-    has(id) {
-      return (state.holdings.items[id]?.quantity ?? 0) > 0;
-    },
-    add(id) {
-      if (!id) return this;
-      const existing = state.holdings.items[id]?.quantity ?? 0;
-      state.holdings.items[id] = { quantity: Math.max(1, existing) };
-      syncCharacterDefinitions(state, state.definitions);
-      return this;
-    },
-    delete(id) {
-      if (!this.has(id)) return false;
-      delete state.holdings.items[id];
-      syncCharacterDefinitions(state, state.definitions);
-      return true;
-    },
-    clear() {
-      state.holdings = { items: {} };
-      state.orphanItemIds = [];
-    },
-    get size() {
-      return Object.values(state.holdings.items)
-        .filter((entry) => (entry?.quantity ?? 0) > 0).length;
-    },
-    *values() {
-      for (const [id, entry] of Object.entries(state.holdings.items)) {
-        if ((entry?.quantity ?? 0) > 0) yield id;
-      }
-    },
-    [Symbol.iterator]() {
-      return this.values();
-    },
-  };
 }
 
 function initializeDefinitionDefaults(state) {
@@ -138,15 +138,12 @@ function itemDefinitionById(state) {
   );
 }
 
-function normalizeHoldings(value) {
-  const items = plainObject(value?.items);
-  return {
-    items: Object.fromEntries(
-      Object.entries(items)
-        .filter(([id, entry]) => id && Number(entry?.quantity) > 0)
-        .map(([id, entry]) => [id, { quantity: Number(entry.quantity) }]),
-    ),
-  };
+function refreshOrphanItems(state) {
+  state.orphanItemIds = [...new Set(
+    holdingRecords(state.holdings, state.definitions)
+      .map((record) => record.item)
+      .filter((id) => !itemDefinitionById(state)[id]),
+  )];
 }
 
 function plainObject(value) {

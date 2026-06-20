@@ -1,5 +1,8 @@
 import { computed } from "vue";
 import { hasFlag, requireSatisfied, setFlags } from "../useFlags.js";
+import { evaluateRequirements } from "../../../character/requirements.js";
+import { applyEffectsAtomically } from "../../../character/effects.js";
+import { advanceGameTime } from "../../../character/gameTime.js";
 
 export function createIndoorActions({
   building,
@@ -7,6 +10,8 @@ export function createIndoorActions({
   setHydroOnline,
   builderView,
   flagsAreShared = false,
+  character,
+  gameState,
 }) {
   const availableActions = computed(() => {
     if (builderView.value) return [];
@@ -21,7 +26,9 @@ export function createIndoorActions({
       if (action.once !== false && indoor.completedActions.has(action.id)) {
         return false;
       }
-      return requireSatisfied(action.require, indoor.flags);
+      return character
+        ? evaluateRequirements(action.require, { character, flags: indoor.flags }).ok
+        : requireSatisfied(action.require, indoor.flags);
     });
   });
 
@@ -39,8 +46,25 @@ export function createIndoorActions({
     if (!action) return;
     if (!availableActions.value.some((a) => a.id === actionId)) return;
 
-    setFlags(indoor.flags, action.sets);
+    if (character) {
+      const effects = [
+        ...(action.effects ?? []),
+        ...(action.sets ?? []).map((id) => ({ op: "flag.set", id })),
+        ...(action.set_flags ?? []).map((id) => ({ op: "flag.set", id })),
+      ];
+      const result = applyEffectsAtomically(effects, {
+        character,
+        flags: indoor.flags,
+      });
+      if (!result.ok) return;
+    } else {
+      setFlags(indoor.flags, action.sets);
+      setFlags(indoor.flags, action.set_flags);
+    }
     if (action.powerOn) setHydroOnline(true);
+    if (gameState && Number(action.timeMinutes) > 0) {
+      advanceGameTime(gameState, Number(action.timeMinutes), action.activity ?? "light");
+    }
     if (action.once !== false) {
       indoor.completedActions.add(actionId);
     }

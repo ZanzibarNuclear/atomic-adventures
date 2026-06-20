@@ -30,6 +30,8 @@ export function buildStoryChoices(pendingBeat, canReachHex = () => true) {
       toHexId: choice.go_hex ?? null,
       label: choice.text,
       kind: "story",
+      disabled: choice.disabled,
+      hint: choice.disabled ? "Requirements not met" : null,
     }));
 }
 
@@ -232,7 +234,7 @@ export function buildIndoorPlayActions(indoor) {
   const building = indoor.building;
   const doorState = indoor.indoor.doorState;
   const facility = indoor.indoor.facility;
-  const inventory = indoor.indoor.inventory;
+  const inventory = indoor.character ?? indoor.indoor.inventory;
   const playerRoomId = indoor.playerRoomId;
 
   for (const d of indoor.nearbyDoors ?? []) {

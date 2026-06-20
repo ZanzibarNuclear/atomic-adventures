@@ -3,13 +3,18 @@ import { transaction } from "./db.js";
 import { beatToRuntime, normalizeBeat, validateBeat } from "./story-model.js";
 
 export class StoryRepository {
-  constructor(db, world) {
+  constructor(db, world, character = null) {
     this.db = db;
     this.world = world;
+    this.character = character;
   }
 
   setWorld(world) {
     this.world = world;
+  }
+
+  setCharacter(character) {
+    this.character = character;
   }
 
   getGlobalRevision() {
@@ -45,7 +50,7 @@ export class StoryRepository {
     const rows = this.db.prepare(`
       SELECT area_id, id, sort_order, trigger_place, trigger_hex, trigger_room,
         trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
-        eyebrow, heading, text, revisit, require_all, require_any, require_not,
+        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json,
         version, created_at, updated_at
       FROM story_beats
       WHERE area_id = ?
@@ -62,7 +67,7 @@ export class StoryRepository {
     const row = this.db.prepare(`
       SELECT area_id, id, sort_order, trigger_place, trigger_hex, trigger_room,
         trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
-        eyebrow, heading, text, revisit, require_all, require_any, require_not,
+        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json,
         version, created_at, updated_at
       FROM story_beats
       WHERE area_id = ? AND id = ?
@@ -71,7 +76,7 @@ export class StoryRepository {
   }
 
   createBeat(areaId, input) {
-    const validation = validateBeat(input, this.world);
+    const validation = validateBeat(input, this.world, this.character);
     if (!validation.valid) throw new ValidationError(validation.errors);
     if (this.getBeat(areaId, validation.beat.id)) {
       throw new ValidationError({ id: ["That beat ID already exists in this area."] });
@@ -92,7 +97,7 @@ export class StoryRepository {
     if (Number(expectedVersion) !== existing.version) {
       throw new ConflictError("This beat changed in another window.", existing);
     }
-    const validation = validateBeat(input, this.world);
+    const validation = validateBeat(input, this.world, this.character);
     if (!validation.valid) throw new ValidationError(validation.errors);
     if (validation.beat.id !== beatId) {
       throw new ValidationError({ id: ["Existing beat IDs cannot be renamed. Duplicate it instead."] });
@@ -138,7 +143,7 @@ export class StoryRepository {
     `).get(areaId, beatId, Number(revisionNumber));
     if (!row) throw new NotFoundError("Revision not found.");
     const snapshot = normalizeBeat(JSON.parse(row.snapshot_json));
-    const validation = validateBeat(snapshot, this.world);
+    const validation = validateBeat(snapshot, this.world, this.character);
     if (!validation.valid) throw new ValidationError(validation.errors);
 
     return transaction(this.db, () => {
@@ -161,7 +166,8 @@ export class StoryRepository {
     const areaId = String(data.area ?? "").trim();
     if (!areaId) throw new ValidationError({ area: ["Area ID is required."] });
     const entries = Object.entries(data.beats ?? {});
-    const normalized = entries.map(([id, beat], order) => validateBeat({ ...beat, id, order }, this.world));
+    const normalized = entries.map(([id, beat], order) =>
+      validateBeat({ ...beat, id, order }, this.world, this.character));
     const errors = Object.fromEntries(
       normalized.flatMap((result, index) =>
         Object.entries(result.errors).map(([path, messages]) => [`beats.${entries[index][0]}.${path}`, messages]),
@@ -214,13 +220,71 @@ export class StoryRepository {
           if (choice.go_hex) choice.go_hex = rename(choice.go_hex);
           if (choice.go_room) choice.go_room = resolveRename(roomRenameMap, choice.go_room);
         }
-        const validation = validateBeat(beat, world);
+        const validation = validateBeat(beat, world, this.character);
         for (const [path, messages] of Object.entries(validation.errors)) {
           errors[`story.${area.id}.${beat.id}.${path}`] = messages;
         }
       }
     }
     return { valid: Object.keys(errors).length === 0, errors };
+  }
+
+  validateAgainstCharacter(character) {
+    const errors = {};
+    for (const area of this.listAreas()) {
+      for (const beat of this.listBeats(area.id, { full: true })) {
+        const validation = validateBeat(beat, this.world, character);
+        for (const [path, messages] of Object.entries(validation.errors)) {
+          if (
+            path === "trigger.hex" ||
+            path === "trigger.room" ||
+            path === "trigger.exteriorNode" ||
+            path.endsWith(".go_hex") ||
+            path.endsWith(".go_room") ||
+            path.endsWith(".enter")
+          ) continue;
+          errors[`story.${area.id}.${beat.id}.${path}`] = messages;
+        }
+      }
+    }
+    return { valid: Object.keys(errors).length === 0, errors };
+  }
+
+  findCharacterReferences(domain, id) {
+    const references = [];
+    for (const area of this.listAreas()) {
+      for (const beat of this.listBeats(area.id, { full: true })) {
+        collectRequirementReferences(beat.require, domain, id, (path) => {
+          references.push({
+            kind: "story",
+            areaId: area.id,
+            beatId: beat.id,
+            path: `require.${path}`,
+          });
+        });
+        beat.choices.forEach((choice, index) => {
+          collectRequirementReferences(choice.require, domain, id, (path) => {
+            references.push({
+              kind: "story",
+              areaId: area.id,
+              beatId: beat.id,
+              path: `choices.${index}.require.${path}`,
+            });
+          });
+          choice.effects.forEach((effect, effectIndex) => {
+            if (effectDomain(effect.op) === domain && effect.id === id) {
+              references.push({
+                kind: "story",
+                areaId: area.id,
+                beatId: beat.id,
+                path: `choices.${index}.effects.${effectIndex}`,
+              });
+            }
+          });
+        });
+      }
+    }
+    return references;
   }
 
   findHexReferences(hexId) {
@@ -309,7 +373,7 @@ export class StoryRepository {
           }
         }
         if (!changed) continue;
-        const validation = validateBeat(beat, world);
+        const validation = validateBeat(beat, world, this.character);
         if (!validation.valid) throw new ValidationError(validation.errors);
         this.#replaceBeat(area.id, original.id, validation.beat, original.version + 1, original.createdAt);
         const saved = this.getBeat(area.id, original.id);
@@ -349,7 +413,7 @@ export class StoryRepository {
           }
         }
         if (!changed) continue;
-        const validation = validateBeat(beat, world);
+        const validation = validateBeat(beat, world, this.character);
         if (!validation.valid) throw new ValidationError(validation.errors);
         this.#replaceBeat(area.id, original.id, validation.beat, original.version + 1, original.createdAt);
         const saved = this.getBeat(area.id, original.id);
@@ -378,15 +442,18 @@ export class StoryRepository {
       INSERT INTO story_beats(
         area_id, id, sort_order, trigger_place, trigger_hex, trigger_room,
         trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
-        eyebrow, heading, text, revisit, require_all, require_any, require_not,
+        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json,
         version, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       areaId, beat.id, beat.order, beat.trigger.place, beat.trigger.hex, beat.trigger.room,
       beat.trigger.exteriorNode, beat.trigger.event, beat.trigger.flag,
       Number(beat.once), Number(beat.acknowledge), beat.eyebrow, beat.heading,
-      beat.text, beat.revisit, JSON.stringify(beat.require.all), JSON.stringify(beat.require.any),
-      JSON.stringify(beat.require.not), version, createdAt, now,
+      beat.text, beat.revisit,
+      JSON.stringify(beat.require.all ?? beat.require.flags?.all ?? []),
+      JSON.stringify(beat.require.any ?? beat.require.flags?.any ?? []),
+      JSON.stringify(beat.require.not ?? beat.require.flags?.not ?? []),
+      JSON.stringify(beat.require), version, createdAt, now,
     );
     this.#insertChoices(areaId, beat.id, beat.choices);
   }
@@ -400,12 +467,15 @@ export class StoryRepository {
   #insertChoices(areaId, beatId, choices) {
     const statement = this.db.prepare(`
       INSERT INTO story_choices(
-        id, area_id, beat_id, sort_order, text, sets_json, set_flags_json,
-        go_hex, go_room, enter_building
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        id, area_id, beat_id, sort_order, text, require_json, effects_json,
+        time_minutes, activity,
+        sets_json, set_flags_json, go_hex, go_room, enter_building
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     choices.forEach((choice, index) => statement.run(
       choice.id || randomUUID(), areaId, beatId, choice.order ?? index, choice.text,
+      JSON.stringify(choice.require), JSON.stringify(choice.effects),
+      choice.timeMinutes, choice.activity,
       JSON.stringify(choice.sets), JSON.stringify(choice.set_flags),
       choice.go_hex, choice.go_room, choice.enter,
     ));
@@ -430,18 +500,21 @@ export class StoryRepository {
         event: row.trigger_event,
         flag: row.trigger_flag,
       },
-      require: {
-        all: JSON.parse(row.require_all),
-        any: JSON.parse(row.require_any),
-        not: JSON.parse(row.require_not),
-      },
+      require: row.require_json
+        ? JSON.parse(row.require_json)
+        : {
+            all: JSON.parse(row.require_all),
+            any: JSON.parse(row.require_any),
+            not: JSON.parse(row.require_not),
+          },
       version: row.version,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
     if (includeChoices) {
       beat.choices = this.db.prepare(`
-        SELECT id, sort_order, text, sets_json, set_flags_json, go_hex, go_room, enter_building
+        SELECT id, sort_order, text, require_json, effects_json, time_minutes, activity,
+          sets_json, set_flags_json, go_hex, go_room, enter_building
         FROM story_choices
         WHERE area_id = ? AND beat_id = ?
         ORDER BY sort_order, id
@@ -449,6 +522,10 @@ export class StoryRepository {
         id: choice.id,
         order: choice.sort_order,
         text: choice.text,
+        require: JSON.parse(choice.require_json),
+        effects: JSON.parse(choice.effects_json),
+        timeMinutes: choice.time_minutes,
+        activity: choice.activity,
         sets: JSON.parse(choice.sets_json),
         set_flags: JSON.parse(choice.set_flags_json),
         go_hex: choice.go_hex,
@@ -494,6 +571,40 @@ function renameMapFor(renames, kind) {
       .filter((rename) => rename?.kind === kind && rename.from && rename.to)
       .map((rename) => [String(rename.from), String(rename.to)]),
   );
+}
+
+function collectRequirementReferences(require, domain, id, add) {
+  if (["stats", "skills", "quests"].includes(domain)) {
+    (require?.[domain] ?? []).forEach((entry, index) => {
+      if (entry?.id === id) add(String(index));
+    });
+  } else {
+    const value = require?.[domain];
+    if (value) {
+      const groups = Array.isArray(value) ? { all: value } : value;
+      for (const group of ["all", "any", "not"]) {
+        (groups[group] ?? []).forEach((entry, index) => {
+          const entryId = typeof entry === "string" ? entry : entry?.id;
+          if (entryId === id) add(`${group}.${index}`);
+        });
+      }
+    }
+  }
+  if (domain === "skills") {
+    (require?.evidence ?? []).forEach((entry, index) => {
+      if (entry?.skill === id) add(`evidence.${index}`);
+    });
+  }
+}
+
+function effectDomain(op) {
+  const domain = String(op ?? "").split(".")[0];
+  return domain === "item" ? "items"
+    : domain === "stat" ? "stats"
+      : domain === "skill" ? "skills"
+        : domain === "quest" ? "quests"
+          : domain === "document" ? "documents"
+            : domain;
 }
 
 export class ValidationError extends Error {

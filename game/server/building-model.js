@@ -19,6 +19,12 @@ export function normalizeBuilding(input = {}) {
   building.doors = array(building.doors);
   building.fixtures = array(building.fixtures);
   building.transitions = array(building.transitions ?? building.exits);
+  building.holders = array(building.holders).map((holder) => ({
+    ...holder,
+    id: text(holder.id),
+    kind: text(holder.kind),
+    label: text(holder.label) || text(holder.id),
+  }));
   delete building.exits;
   if (building.exterior) {
     building.exterior.nodes = array(building.exterior.nodes);
@@ -27,7 +33,11 @@ export function normalizeBuilding(input = {}) {
   return building;
 }
 
-export function validateBuilding(input, { outdoorHexIds = new Set() } = {}) {
+export function validateBuilding(input, {
+  outdoorHexIds = new Set(),
+  characterItemIds = new Set(),
+  character = null,
+} = {}) {
   const building = normalizeBuilding(input);
   const errors = {};
   const warnings = [];
@@ -85,6 +95,34 @@ export function validateBuilding(input, { outdoorHexIds = new Set() } = {}) {
     }
   });
 
+  const holderIds = new Set();
+  building.holders.forEach((holder, index) => {
+    const base = `holders.${index}`;
+    if (!/^(vehicle|fixed):[a-z0-9]+(?:-[a-z0-9]+)*$/.test(holder.id)) {
+      add(`${base}.id`, "Holder IDs must use vehicle:<id> or fixed:<id>.");
+    }
+    if (holderIds.has(holder.id)) add(`${base}.id`, "Holder IDs must be unique.");
+    holderIds.add(holder.id);
+    if (!["vehicle", "fixed"].includes(holder.kind)) {
+      add(`${base}.kind`, "World holders must be vehicle or fixed.");
+    }
+    if (holder.location?.room && !roomIds.has(holder.location.room)) {
+      add(`${base}.location.room`, "Holder room must reference an existing room.");
+    }
+    if (
+      holder.capacity?.slots != null &&
+      (!Number.isInteger(Number(holder.capacity.slots)) || Number(holder.capacity.slots) < 1)
+    ) {
+      add(`${base}.capacity.slots`, "Slot capacity must be a positive integer.");
+    }
+    if (
+      holder.capacity?.massKg != null &&
+      (!Number.isFinite(Number(holder.capacity.massKg)) || Number(holder.capacity.massKg) <= 0)
+    ) {
+      add(`${base}.capacity.massKg`, "Mass capacity must be positive.");
+    }
+  });
+
   if (!building.start || !roomIds.has(building.start)) add("start", "Choose an existing start room.");
 
   const doorIds = validateIds(building.doors, "doors", errors);
@@ -100,7 +138,11 @@ export function validateBuilding(input, { outdoorHexIds = new Set() } = {}) {
     } else if (!validPoint(door.at)) {
       add(`${base}.at`, "Man doors require numeric x/y coordinates.");
     }
-    if (door.lock?.key && !building.items.some((item) => item.id === door.lock.key)) {
+    const knownItemIds = new Set([
+      ...building.items.map((item) => item.id),
+      ...characterItemIds,
+    ]);
+    if (door.lock?.key && !knownItemIds.has(door.lock.key)) {
       add(`${base}.lock.key`, "Door key must reference an existing item.");
     }
     if (door.lock?.freeFrom && !roomIds.has(door.lock.freeFrom)) {
@@ -120,7 +162,10 @@ export function validateBuilding(input, { outdoorHexIds = new Set() } = {}) {
     }
   });
 
-  const itemIds = validateIds(building.items, "items", errors);
+  const itemIds = new Set([
+    ...validateIds(building.items, "items", errors),
+    ...characterItemIds,
+  ]);
   validateIds(building.pickups, "pickups", errors);
   building.pickups.forEach((pickup, index) => {
     if (!roomIds.has(pickup.room)) add(`pickups.${index}.room`, "Pickup room must exist.");
@@ -190,6 +235,16 @@ export function validateBuilding(input, { outdoorHexIds = new Set() } = {}) {
     if (action.exteriorNode && !nodeIds.has(action.exteriorNode)) {
       add(`actions.${index}.exteriorNode`, "Action exterior node must exist.");
     }
+    if (action.timeMinutes != null && (!Number.isFinite(Number(action.timeMinutes)) || Number(action.timeMinutes) < 0)) {
+      add(`actions.${index}.timeMinutes`, "Action time must be a non-negative number.");
+    }
+    if (
+      action.activity != null &&
+      !["resting", "light", "moderate", "strenuous"].includes(action.activity)
+    ) {
+      add(`actions.${index}.activity`, "Choose a supported activity profile.");
+    }
+    validateActionCharacterReferences(action, index, character, add);
   });
 
   validateTraversalConnectivity(building, roomIds, nodeIds, add);
@@ -200,6 +255,85 @@ export function validateBuilding(input, { outdoorHexIds = new Set() } = {}) {
     warnings,
     valid: Object.keys(errors).length === 0,
   };
+}
+
+function validateActionCharacterReferences(action, index, character, add) {
+  if (!character) return;
+  const catalogs = Object.fromEntries(
+    ["items", "stats", "knowledge", "skills", "quests", "documents"]
+      .map((key) => [key, new Set((character[key] ?? []).map((entry) => entry.id))]),
+  );
+  for (const domain of ["items", "knowledge", "documents"]) {
+    const value = action.require?.[domain];
+    const groups = Array.isArray(value) ? { all: value } : value ?? {};
+    for (const group of ["all", "any", "not"]) {
+      (groups[group] ?? []).forEach((entry, entryIndex) => {
+        const id = typeof entry === "string" ? entry : entry?.id;
+        if (!catalogs[domain].has(id)) {
+          add(`actions.${index}.require.${domain}.${group}.${entryIndex}`, `Unknown ${domain.slice(0, -1)} "${id}".`);
+        }
+      });
+    }
+  }
+  for (const domain of ["stats", "skills", "quests"]) {
+    (action.require?.[domain] ?? []).forEach((entry, entryIndex) => {
+      if (!catalogs[domain].has(entry?.id)) {
+        add(`actions.${index}.require.${domain}.${entryIndex}.id`, `Unknown ${domain.slice(0, -1)} "${entry?.id}".`);
+      }
+    });
+  }
+  (action.effects ?? []).forEach((effect, effectIndex) => {
+    const rawDomain = String(effect.op ?? "").split(".")[0];
+    if (rawDomain === "flag") return;
+    const domain = rawDomain === "item" ? "items"
+      : rawDomain === "stat" ? "stats"
+        : rawDomain === "skill" ? "skills"
+          : rawDomain === "quest" ? "quests"
+            : rawDomain === "document" ? "documents"
+              : rawDomain;
+    if (!catalogs[domain]?.has(effect.id)) {
+      add(`actions.${index}.effects.${effectIndex}.id`, `Unknown ${rawDomain} "${effect.id}".`);
+    }
+    if (effect.op === "skill.add-evidence") {
+      const skill = (character.skills ?? []).find((entry) => entry.id === effect.id);
+      if (!skill?.practice?.evidence?.some((entry) => entry.id === effect.evidence)) {
+        add(
+          `actions.${index}.effects.${effectIndex}.evidence`,
+          `Unknown evidence "${effect.evidence}" for skill "${effect.id}".`,
+        );
+      }
+      if (effect.once === true && !String(effect.event ?? "").trim()) {
+        add(
+          `actions.${index}.effects.${effectIndex}.event`,
+          "One-time evidence requires an event ID.",
+        );
+      }
+      if (!Number.isFinite(Number(effect.value ?? 1)) || Number(effect.value ?? 1) <= 0) {
+        add(
+          `actions.${index}.effects.${effectIndex}.value`,
+          "Evidence value must be a positive number.",
+        );
+      }
+    }
+    if (["quest.advance-objective", "quest.complete-objective"].includes(effect.op)) {
+      const quest = (character.quests ?? []).find((entry) => entry.id === effect.id);
+      if (!quest?.objectives?.some((entry) => entry.id === effect.objective)) {
+        add(
+          `actions.${index}.effects.${effectIndex}.objective`,
+          `Unknown objective "${effect.objective}" for quest "${effect.id}".`,
+        );
+      }
+      if (
+        effect.op === "quest.advance-objective" &&
+        (!Number.isFinite(Number(effect.value ?? 1)) || Number(effect.value ?? 1) <= 0)
+      ) {
+        add(
+          `actions.${index}.effects.${effectIndex}.value`,
+          "Objective progress must be a positive number.",
+        );
+      }
+    }
+  });
 }
 
 function validateTraversalConnectivity(building, roomIds, nodeIds, add) {

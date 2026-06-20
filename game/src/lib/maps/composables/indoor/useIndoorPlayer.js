@@ -7,16 +7,18 @@ import {
   roomStandById,
 } from "../useGrid.js";
 import { buildInitialDoorState } from "../useDoors.js";
-import { createInventory, addItem, inventoryItems } from "../useInventory.js";
+import { createInventory } from "../useInventory.js";
+import { applyEffectsAtomically } from "../../../character/effects.js";
+import { characterItems } from "../../../../composables/useCharacterState.js";
 import { createFlags } from "../useFlags.js";
 
 export function createIndoorPlayer(
   buildingData,
   builderView,
-  { flags: sharedFlags, inventory: sharedInventory } = {},
+  { flags: sharedFlags, character } = {},
 ) {
   const flagsAreShared = !!sharedFlags;
-  const inventoryIsShared = !!sharedInventory;
+  const inventoryIsShared = !!character;
   const editableBuildingData = ref(structuredClone(buildingData));
   const building = computed(() => buildBuilding(editableBuildingData.value));
 
@@ -90,7 +92,7 @@ export function createIndoorPlayer(
     level: initialBuilding.exterior?.level ?? initialBuilding.levels[0]?.id,
     viewLevel: initialBuilding.exterior?.level ?? initialBuilding.levels[0]?.id,
     doorState: buildInitialDoorState(initialBuilding.areaId, initialBuilding),
-    inventory: sharedInventory ?? createInventory(),
+    inventory: character ? null : createInventory(),
     pickupsTaken: new Set(),
     facility: {
       hydroOnline: false,
@@ -128,15 +130,21 @@ export function createIndoorPlayer(
   const playerRoomId = computed(() => indoor.currentRoom ?? null);
 
   const carriedItems = computed(() =>
-    inventoryItems(indoor.inventory, building.value.itemById),
+    character ? characterItems(character) : [],
   );
 
   const roomPickups = computed(() => {
     const roomId = indoor.currentRoom;
     if (!roomId) return [];
-    return (building.value.pickups ?? []).filter(
-      (p) => p.room === roomId && !indoor.pickupsTaken.has(p.id),
+    const catalog = Object.fromEntries(
+      (character?.definitions?.items ?? []).map((item) => [item.id, item]),
     );
+    return (building.value.pickups ?? [])
+      .filter((p) => p.room === roomId && !indoor.pickupsTaken.has(p.id))
+      .map((pickup) => ({
+        ...pickup,
+        label: pickup.label ?? catalog[pickup.item]?.label ?? pickup.item,
+      }));
   });
 
   function discoverIndoorRoom(roomId) {
@@ -150,7 +158,15 @@ export function createIndoorPlayer(
     const pickup = (building.value.pickups ?? []).find((p) => p.id === pickupId);
     if (!pickup || indoor.pickupsTaken.has(pickupId)) return;
     if (pickup.room !== indoor.currentRoom) return;
-    addItem(indoor.inventory, pickup.item);
+    if (character) {
+      const result = applyEffectsAtomically(
+        [{ op: "item.add", id: pickup.item, quantity: 1 }],
+        { character, flags: indoor.flags },
+      );
+      if (!result.ok) return;
+    } else {
+      indoor.inventory.add(pickup.item);
+    }
     indoor.pickupsTaken = new Set([...indoor.pickupsTaken, pickupId]);
   }
 

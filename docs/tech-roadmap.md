@@ -131,21 +131,23 @@ must not invent separate navigation models.
 
 ### 7. Character, items, inventory, and progression
 
-Minimal inventory exists (keys, door checks, small HUD panel). Part I needs a fuller model:
+The data-driven character foundation is implemented: revisioned authored
+catalogs, global save state, shared requirements/effects, catalog-backed keys
+and pickups, Character panel, and Character/Story/World authoring controls.
+The first learning progression is also wired: the hydro primer and holo-reader
+lesson distinguish document discovery from acquired knowledge; hydro practice
+awards evidence; deterministic authored rules promote Hydro Operations through
+Introduced, Practiced, and Qualified ranks with earned badge text.
+Physical item custody is implemented with stack records, unique instances,
+portable containers, world placements, and vehicle/fixed holders. The first
+authored examples are a field backpack, a bolt cutter, and eBuggy cargo; the
+Inventory tab exposes explicit transfer controls for reachable holders.
+Remaining Part I work includes:
 
-- Authored catalogs for pickups, tools, documents, consumables, stats,
-  knowledge, skills, qualifications, and quests.
-- Player-facing **character panel** with overview, inventory, knowledge,
-  skills, quests, and documents (reviewing possessions is called out in the
-  opening narrative).
-- Character and inventory status uses the same primary game-view surface as
-  close-ups and lessons, toggling with the map rather than crowding it.
-- Generic requirements and effects for item-gated actions, health/progression
-  changes, skills acquired, and quest/objective completion.
-- Time-driven wellbeing plus persistent carried, backpack, world-container,
-  and vehicle inventories.
-- Story, world, and simulation integration without hard-coded item or stat
-  names.
+- broader authored learning progression and quest content beyond the wired
+  Restore Station Power objective chain;
+- final badge artwork and simulation-owned evidence outcomes;
+- simulation outcome integration through the shared effect boundary.
 
 Server-side item state waits on Neon (below); local save must serialize the expanded model first.
 Contract: [character-inventory.md](contracts/character-inventory.md).
@@ -154,13 +156,23 @@ Implementation plan:
 
 ### 8. Time, days, and operations pacing
 
-Part I spans **weeks** of in-game time. Today, days are represented by flags (e.g. `day1.complete`) without a calendar system:
+The game now owns a serializable authored clock (`day`, `minuteOfDay`, and
+elapsed game minutes). All clock changes pass through one `advanceGameTime`
+boundary with `resting`, `light`, `moderate`, or `strenuous` activity.
+Movement, story choices, indoor interactions, rest, and item actions report
+game minutes. Hunger/thirst drift and threshold health effects are integrated
+in one-minute deterministic steps, so equivalent large and small advances
+produce the same result. The clock never advances from real elapsed time while
+the game is closed.
+
+Part I still spans **weeks** of in-game time and needs:
 
 - Day/night or phase transitions as a pacing container.
 - Scheduling operations rounds and discovery beats across startup vs operations weeks.
 - End-of-day / rest beats where design requires them.
 
-The Day 1 end card is a placeholder; later days need real progression hooks into hydro and discovery content.
+The Day 1 end card remains a placeholder; later days need real progression
+hooks into hydro and discovery content.
 
 ### 9. Narrative and content completion
 

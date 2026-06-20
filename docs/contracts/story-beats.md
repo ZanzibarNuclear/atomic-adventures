@@ -79,7 +79,12 @@ multiple conditions.
 
 ## Requirements
 
-Requirements are global flag checks:
+Beat and choice requirements use the shared character requirement language.
+They can check flags, carried items and quantities, stats, knowledge, skill
+ranks or evidence, quest state, and discovered documents. All populated
+domains must pass.
+
+The legacy root-level flag groups remain supported:
 
 | Field | Rule |
 | --- | --- |
@@ -87,7 +92,7 @@ Requirements are global flag checks:
 | `any` | At least one listed flag must be set |
 | `not` | None of the listed flags may be set |
 
-All populated groups must pass. For example:
+For example:
 
 ```yaml
 require:
@@ -98,6 +103,19 @@ require:
 
 Requirements control eligibility; they do not automatically set or clear
 flags.
+
+Character-aware examples:
+
+```yaml
+require:
+  items: [lobby-exterior-key]
+  knowledge: [hydro-basics]
+  skills:
+    - { id: hydro-operations, op: gte, rank: 1 }
+```
+
+A beat whose requirements fail is not selected. A choice whose requirements
+fail remains visible but disabled.
 
 ## First View, Seen State, and Revisit Text
 
@@ -136,7 +154,8 @@ When enabled:
 
 - The beat remains pending until the player chooses one of its authored
   choices.
-- The choice can set flags and optionally move the player.
+- The choice can apply an ordered, atomic effect list and optionally move the
+  player.
 - Selecting a valid choice marks a one-time beat seen.
 
 When disabled:
@@ -154,19 +173,27 @@ through the story UI and should be considered an authoring error.
 Choices appear in the game's **Choose an Action** panel. Choice order is
 author-controlled.
 
+The Story Builder exposes character catalog selectors for beat/choice
+requirements and ordered effects. Flag aliases remain editable alongside the
+generic controls during migration.
+
 A choice contains:
 
 | Field | Effect |
 | --- | --- |
 | `text` | Player-facing action label |
+| `require` | Shared character/flag requirements for enabling the choice |
+| `effects` | Ordered atomic effects on flags and character state |
 | `sets` | Sets global flags |
 | `set_flags` | Also sets global flags; retained for schema compatibility |
 | `go_hex` | Moves to a reachable outdoor hex |
 | `go_room` | Moves to an indoor room |
 | `enter` | Enters the current building |
 
-A choice may have at most one movement destination. Flag effects are applied
-before movement.
+A choice may have at most one movement destination. Effects are validated and
+committed before movement. If any effect fails, none are committed, the player
+does not move, and the beat remains pending. `sets` and `set_flags` are
+migration aliases for `flag.set` effects.
 
 Outdoor `go_hex` choices obey the same reachability checks as ordinary map
 movement. Unreachable story choices are hidden rather than allowing narrative
