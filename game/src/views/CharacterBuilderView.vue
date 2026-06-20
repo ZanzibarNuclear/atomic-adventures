@@ -13,6 +13,7 @@ const errors = ref({});
 const warnings = ref([]);
 const selectedCatalog = ref("items");
 const selectedId = ref("");
+const workspaceMode = ref("edit");
 const previewMode = ref("early");
 const revisions = ref([]);
 const showHistory = ref(false);
@@ -357,7 +358,22 @@ async function saveAndLeave() {
 
     <p v-if="status" class="status">{{ status }}</p>
 
-    <div class="builder-grid">
+    <nav class="workspace-toggle" aria-label="Character builder workspace">
+      <button
+        type="button"
+        :class="{ active: workspaceMode === 'edit' }"
+        @click="workspaceMode = 'edit'">
+        Edit content
+      </button>
+      <button
+        type="button"
+        :class="{ active: workspaceMode === 'preview' }"
+        @click="workspaceMode = 'preview'">
+        Preview panel
+      </button>
+    </nav>
+
+    <div v-if="workspaceMode === 'edit'" class="builder-grid edit-grid">
       <aside class="catalog-browser panel">
         <section class="profile-summary">
           <h3>Profile and panel</h3>
@@ -579,18 +595,6 @@ async function saveAndLeave() {
         <p v-for="warning in warnings" :key="`${warning.path}:${warning.message}`" class="warning">
           {{ warning.path }}: {{ warning.message }}
         </p>
-      </section>
-
-      <aside class="preview-column panel">
-        <div class="preview-toolbar">
-          <h3>Panel preview</h3>
-          <select v-model="previewMode">
-            <option value="empty">Empty</option>
-            <option value="early">Early game</option>
-            <option value="populated">Populated</option>
-          </select>
-        </div>
-        <CharacterView :character="previewCharacter" />
 
         <section v-if="showHistory" class="history">
           <h3>Character revisions</h3>
@@ -603,8 +607,26 @@ async function saveAndLeave() {
             {{ new Date(revision.createdAt).toLocaleString() }}
           </button>
         </section>
-      </aside>
+      </section>
     </div>
+
+    <section v-else class="preview-workspace panel">
+      <div class="preview-toolbar">
+        <div>
+          <p class="label">Player-facing view</p>
+          <h3>Panel preview</h3>
+        </div>
+        <label>
+          Preview state
+          <select v-model="previewMode">
+            <option value="empty">Empty</option>
+            <option value="early">Early game</option>
+            <option value="populated">Populated</option>
+          </select>
+        </label>
+      </div>
+      <CharacterView :character="previewCharacter" />
+    </section>
 
     <div v-if="navigationPromptVisible" class="unsaved-backdrop" role="dialog" aria-modal="true">
       <section class="unsaved-dialog">
@@ -639,17 +661,42 @@ async function saveAndLeave() {
 .builder-toolbar p,
 .entry-heading h3,
 .entry-heading p { margin: 0; }
+.workspace-toggle {
+  display: inline-flex;
+  gap: .35rem;
+  margin-top: .75rem;
+  padding: .25rem;
+  border: 1px solid #343d4d;
+  border-radius: 999px;
+  background: #161b22;
+}
+.workspace-toggle button {
+  border-radius: 999px;
+  border-color: transparent;
+  background: transparent;
+  color: #b8c0cc;
+}
+.workspace-toggle button.active {
+  border-color: #6f9b79;
+  background: #49624f;
+  color: #eef7ef;
+}
 .builder-grid {
   display: grid;
-  grid-template-columns: minmax(15rem, .8fr) minmax(20rem, 1fr) minmax(24rem, 1.25fr);
+  grid-template-columns: minmax(15rem, .75fr) minmax(26rem, 1.35fr);
   gap: .75rem;
   margin-top: .75rem;
   align-items: start;
 }
+.preview-workspace {
+  display: grid;
+  gap: .75rem;
+  max-width: 72rem;
+  margin-top: .75rem;
+}
 .panel { padding: .85rem; border: 1px solid #343d4d; border-radius: 10px; background: #1d222b; }
 .catalog-browser,
-.entry-editor,
-.preview-column { max-height: calc(100vh - 8rem); overflow: auto; }
+.entry-editor { max-height: calc(100vh - 10.7rem); overflow: auto; }
 .profile-summary { display: grid; gap: .55rem; }
 .catalog-tabs { display: grid; grid-template-columns: repeat(2, 1fr); gap: .35rem; margin-top: .8rem; }
 .catalog-tabs button,
@@ -671,8 +718,8 @@ label { display: grid; gap: .3rem; color: #bdc4ce; font-size: .82rem; }
 .group-editor section { margin-top: .75rem; }
 .group-row { margin: .35rem 0; }
 .group-row input { min-width: 0; flex: 1; }
-.preview-column :deep(.character-view) { margin-top: .65rem; min-height: 0; }
-.preview-column :deep(.character-view-header > button) { display: none; }
+.preview-workspace :deep(.character-view) { min-height: 0; }
+.preview-workspace :deep(.character-view-header > button) { display: none; }
 .status,
 .dirty-pill { padding: .45rem .65rem; border-radius: 6px; background: #303b32; }
 .field-error { color: #e88c8c; }
@@ -689,7 +736,6 @@ label { display: grid; gap: .3rem; color: #bdc4ce; font-size: .82rem; }
 }
 @media (max-width: 1100px) {
   .builder-grid { grid-template-columns: minmax(15rem, .8fr) minmax(20rem, 1.2fr); }
-  .preview-column { grid-column: 1 / -1; max-height: none; }
 }
 @media (max-width: 720px) {
   .builder-grid { grid-template-columns: 1fr; }
