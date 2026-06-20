@@ -33,6 +33,7 @@ const selectedHoldingId = ref(null);
 const tabButtons = ref([]);
 
 const stats = computed(() => visibleCharacterStats(props.character));
+const portraitSrc = computed(() => publicAssetPath(props.character.definitions.profile?.portrait));
 const inventoryGroups = computed(() => visibleInventoryGroups(props.character));
 const activeQuests = computed(() => activeQuestSummaries(props.character));
 const inventoryHolders = computed(() => {
@@ -146,6 +147,14 @@ function skillRankLabel(entry) {
 function evidenceValue(entry, evidence) {
   return Number(entry.state?.evidence?.[evidence.id] ?? 0);
 }
+
+function publicAssetPath(path) {
+  if (!path) return null;
+  if (/^(?:[a-z]+:)?\/\//i.test(path) || path.startsWith("data:") || path.startsWith("blob:")) {
+    return path;
+  }
+  return path.startsWith("/") ? path : `/${path.replace(/^\.?\//, "")}`;
+}
 </script>
 
 <template>
@@ -153,9 +162,9 @@ function evidenceValue(entry, evidence) {
     <header class="character-view-header">
       <div class="identity">
         <img
-          v-if="character.definitions.profile?.portrait"
+          v-if="portraitSrc"
           class="portrait"
-          :src="character.definitions.profile.portrait"
+          :src="portraitSrc"
           :alt="`${character.definitions.profile.name} portrait`">
         <div class="portrait-fallback" v-else aria-hidden="true">
           {{ character.definitions.profile?.name?.charAt(0) ?? "Z" }}
@@ -244,7 +253,7 @@ function evidenceValue(entry, evidence) {
                   :class="{ selected: selectedHoldingId === `${item.type}:${item.id}` }"
                   :aria-pressed="selectedHoldingId === `${item.type}:${item.id}`"
                   @click="selectedHoldingId = `${item.type}:${item.id}`; selectedItemId = item.item">
-                  <img v-if="item.icon" :src="item.icon" alt="">
+                  <img v-if="item.icon" :src="publicAssetPath(item.icon)" alt="">
                   <span>
                     <strong>{{ item.label }}</strong>
                     <small v-if="item.quantity !== 1">Quantity {{ item.quantity }}</small>
@@ -320,7 +329,7 @@ function evidenceValue(entry, evidence) {
             </div>
             <ul v-if="Object.keys(skill.state?.awards ?? {}).length" class="badge-list">
               <li v-for="(award, rank) in skill.state.awards" :key="rank">
-                <img v-if="award.badge" :src="award.badge" alt="">
+                <img v-if="award.badge" :src="publicAssetPath(award.badge)" alt="">
                 <span>{{ award.earnedText || `Rank ${rank} earned` }}</span>
               </li>
             </ul>

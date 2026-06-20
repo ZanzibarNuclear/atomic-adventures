@@ -1,19 +1,34 @@
 export async function storyApi(path, options = {}) {
+  const { timeoutMs = 15000, ...fetchOptions } = options;
+  const controller = fetchOptions.signal ? null : new AbortController();
+  const timeout = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
   const response = await fetch(path, {
-    ...options,
+    ...fetchOptions,
+    signal: fetchOptions.signal ?? controller.signal,
     headers: {
       Accept: "application/json",
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
-      ...options.headers,
+      ...(fetchOptions.body ? { "Content-Type": "application/json" } : {}),
+      ...fetchOptions.headers,
     },
-  });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const error = new Error(body.message ?? `Request failed with ${response.status}.`);
-    error.status = response.status;
-    error.errors = body.errors ?? {};
-    error.current = body.current ?? null;
+  }).catch((error) => {
+    if (error.name === "AbortError") {
+      throw new Error(`Request to ${path} timed out after ${Math.round(timeoutMs / 1000)} seconds.`);
+    }
     throw error;
+  }).finally(() => {
+    if (timeout) clearTimeout(timeout);
+  });
+  try {
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(body.message ?? `Request failed with ${response.status}.`);
+      error.status = response.status;
+      error.errors = body.errors ?? {};
+      error.current = body.current ?? null;
+      throw error;
+    }
+    return body;
+  } finally {
+    if (timeout) clearTimeout(timeout);
   }
-  return body;
 }

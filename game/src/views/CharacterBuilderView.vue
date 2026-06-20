@@ -377,7 +377,11 @@ async function saveAndLeave() {
         <section class="profile-summary">
           <h3>Profile and panel</h3>
           <label>Name<input v-model="draft.profile.name"></label>
-          <label>Portrait asset<input v-model="draft.profile.portrait" placeholder="characters/…"></label>
+          <label>
+            Portrait asset
+            <input v-model="draft.profile.portrait" placeholder="characters/zanzibar/default.webp">
+            <small>Place files in game/public; paths resolve from the public root.</small>
+          </label>
           <label>Summary<textarea v-model="draft.profile.summary" rows="3"></textarea></label>
           <fieldset>
             <legend>Visible tabs</legend>
