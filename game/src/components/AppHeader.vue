@@ -17,12 +17,14 @@
           <details v-if="devMode" ref="devMenu" class="dev-menu">
             <summary class="sm">Developer</summary>
             <div class="dev-menu-popover">
-              <button
-                type="button"
+              <a
+                href="/builder/story"
+                target="_blank"
+                rel="noopener"
                 class="dev-menu-item"
-                @click="openStoryBuilder">
+                @click="closeDevMenu">
                 Open story builder
-              </button>
+              </a>
               <button
                 type="button"
                 class="dev-menu-item"
@@ -84,12 +86,7 @@ function showMovementAudit() {
   if (devMenu.value) devMenu.value.open = false;
 }
 
-function openStoryBuilder() {
-  window.open(
-    "/builder/story",
-    "atomic-adventures-story-builder",
-    "popup=yes,width=1500,height=900",
-  );
+function closeDevMenu() {
   if (devMenu.value) devMenu.value.open = false;
 }
 </script>
@@ -134,9 +131,9 @@ function openStoryBuilder() {
 .dev-menu summary {
   list-style: none;
   user-select: none;
-  background: #252a33;
-  color: #9aa0ac;
-  border: 1px solid #3a404a;
+  background: #303846;
+  color: #d5dce6;
+  border: 1px solid #556176;
   border-radius: 8px;
   padding: 0.35rem 0.65rem;
   font-size: 0.82rem;
@@ -147,10 +144,12 @@ function openStoryBuilder() {
 }
 .dev-menu summary::after {
   content: " ▾";
+  color: #9fc7ff;
 }
 .dev-menu[open] summary {
-  background: #323945;
-  color: #d5d9df;
+  background: #3a4555;
+  border-color: #6c7b95;
+  color: #eef3f8;
 }
 .dev-menu-popover {
   position: absolute;
@@ -165,12 +164,18 @@ function openStoryBuilder() {
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
 }
 .dev-menu-item {
+  display: block;
+  box-sizing: border-box;
   width: 100%;
   border: 0;
   background: transparent;
+  color: #d5dce6;
   padding: 0.45rem 0.55rem;
   text-align: left;
+  text-decoration: none;
   white-space: nowrap;
+  font: inherit;
+  cursor: pointer;
 }
 .dev-menu-item:hover:not(:disabled) {
   background: #344158;

@@ -13,6 +13,8 @@ import { CharacterRepository } from "./character-repository.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const port = Number(process.env.PORT ?? 5173);
+const host = process.env.HOST;
+const hmrHost = process.env.HMR_HOST ?? host ?? "127.0.0.1";
 const production = process.env.NODE_ENV === "production";
 const db = openDatabase();
 const seedWorld = loadWorldSeed();
@@ -46,13 +48,16 @@ if (!production) {
     root,
     server: {
       middlewareMode: true,
-      hmr: { port: Number(process.env.HMR_PORT ?? 24678) },
+      hmr: {
+        host: hmrHost,
+        port: Number(process.env.HMR_PORT ?? 24678),
+      },
     },
     appType: "spa",
   });
 }
 
-const server = createHttpServer(async (req, res) => {
+const requestHandler = async (req, res) => {
   if (await api.handle(req, res)) return;
   if (vite) {
     vite.middlewares(req, res, () => {
@@ -62,14 +67,39 @@ const server = createHttpServer(async (req, res) => {
     return;
   }
   serveProduction(req, res);
-});
+};
 
-server.listen(port, "127.0.0.1", () => {
-  console.log(`Atomic Adventures: http://127.0.0.1:${port}`);
-  console.log(`Story builder:     http://127.0.0.1:${port}/builder/story`);
-  console.log(`World builder:     http://127.0.0.1:${port}/builder/world`);
-  console.log(`Character content: http://127.0.0.1:${port}/api/character`);
-});
+const servers = [];
+if (host) {
+  listen(host);
+} else {
+  listen("127.0.0.1");
+  listen("::1", { optional: true, label: "localhost IPv6" });
+}
+
+function listen(hostname, { optional = false, label = hostname } = {}) {
+  const server = createHttpServer(requestHandler);
+  servers.push(server);
+  server.on("error", (error) => {
+    if (optional) {
+      console.warn(`Optional ${label} listener unavailable: ${error.message}`);
+      return;
+    }
+    throw error;
+  });
+  server.listen(port, hostname, () => {
+    const displayHost = hostname === "::1" ? "[::1]" : hostname;
+    console.log(`Atomic Adventures: http://${displayHost}:${port}`);
+    console.log(`Story builder:     http://${displayHost}:${port}/builder/story`);
+    console.log(`World builder:     http://${displayHost}:${port}/builder/world`);
+    if (hostname === "127.0.0.1") {
+      console.log(`Atomic Adventures: http://localhost:${port}`);
+      console.log(`Story builder:     http://localhost:${port}/builder/story`);
+      console.log(`World builder:     http://localhost:${port}/builder/world`);
+      console.log(`Character content: http://127.0.0.1:${port}/api/character`);
+    }
+  });
+}
 
 let shuttingDown = false;
 async function shutdown() {
@@ -78,7 +108,14 @@ async function shutdown() {
   api.close();
   await vite?.close();
   db.close();
-  server.close(() => process.exit(0));
+  let remaining = servers.length;
+  for (const server of servers) {
+    server.close(() => {
+      remaining -= 1;
+      if (remaining <= 0) process.exit(0);
+    });
+  }
+  if (!remaining) process.exit(0);
 }
 
 process.on("SIGINT", shutdown);

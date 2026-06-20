@@ -1,13 +1,5 @@
 <script setup>
-import { ref } from "vue";
 import { RouterLink, RouterView } from "vue-router";
-
-const openMenu = ref(null);
-
-function openGame() {
-  window.open("/", "atomic-adventures-game", "popup=yes,width=1100,height=900");
-  if (openMenu.value) openMenu.value.open = false;
-}
 </script>
 
 <template>
@@ -23,10 +15,10 @@ function openGame() {
           <RouterLink to="/builder/world">World</RouterLink>
           <RouterLink to="/builder/character">Character</RouterLink>
         </nav>
-        <details ref="openMenu" class="open-menu">
+        <details class="open-menu">
           <summary>Open</summary>
           <div class="open-menu-popover">
-            <button type="button" class="open-menu-item" @click="openGame">Open game</button>
+            <a href="/" target="_blank" rel="noopener" class="open-menu-item">Open game</a>
           </div>
         </details>
       </div>
@@ -86,7 +78,17 @@ function openGame() {
   background: #202630;
   box-shadow: 0 10px 28px rgba(0, 0, 0, .35);
 }
-.open-menu-item { width: 100%; border: 0; background: transparent; text-align: left; }
+.open-menu-item {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  border: 0;
+  background: transparent;
+  color: #d5dce6;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
 @media (max-width: 650px) {
   .authoring-header { align-items: flex-start; }
   .authoring-header h1 { display: none; }
