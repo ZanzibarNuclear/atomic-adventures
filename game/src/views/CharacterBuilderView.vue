@@ -349,6 +349,20 @@ async function saveAndLeave() {
         <h2>{{ draft.profile.name }}</h2>
       </div>
       <div class="toolbar-actions">
+        <nav class="workspace-toggle" aria-label="Character builder workspace">
+          <button
+            type="button"
+            :class="{ active: workspaceMode === 'edit' }"
+            @click="workspaceMode = 'edit'">
+            Edit content
+          </button>
+          <button
+            type="button"
+            :class="{ active: workspaceMode === 'preview' }"
+            @click="workspaceMode = 'preview'">
+            Preview panel
+          </button>
+        </nav>
         <span v-if="dirty" class="dirty-pill">Unsaved</span>
         <button class="sm muted" :disabled="!dirty" @click="revertDraft">Revert</button>
         <button class="sm muted" @click="loadHistory">History</button>
@@ -357,21 +371,6 @@ async function saveAndLeave() {
     </header>
 
     <p v-if="status" class="status">{{ status }}</p>
-
-    <nav class="workspace-toggle" aria-label="Character builder workspace">
-      <button
-        type="button"
-        :class="{ active: workspaceMode === 'edit' }"
-        @click="workspaceMode = 'edit'">
-        Edit content
-      </button>
-      <button
-        type="button"
-        :class="{ active: workspaceMode === 'preview' }"
-        @click="workspaceMode = 'preview'">
-        Preview panel
-      </button>
-    </nav>
 
     <div v-if="workspaceMode === 'edit'" class="builder-grid edit-grid">
       <aside class="catalog-browser panel">
@@ -664,7 +663,6 @@ async function saveAndLeave() {
 .workspace-toggle {
   display: inline-flex;
   gap: .35rem;
-  margin-top: .75rem;
   padding: .25rem;
   border: 1px solid #343d4d;
   border-radius: 999px;
