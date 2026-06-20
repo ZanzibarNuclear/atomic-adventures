@@ -1,3 +1,5 @@
+import { validateCharacterEffects } from "./character-reference-validation.js";
+
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const TABS = new Set(["overview", "inventory", "knowledge", "skills", "quests", "documents"]);
 const VISIBILITY = new Set(["always", "when-acquired", "when-started", "hidden"]);
@@ -255,65 +257,18 @@ export function validateCharacterDocument(input) {
       add(`items.${index}.relatedDocument`, `Unknown document "${item.relatedDocument}".`);
     }
   });
-  const catalogs = {
-    item: itemIds,
-    stat: new Set(character.stats.map((entry) => entry.id)),
-    knowledge: new Set(character.knowledge.map((entry) => entry.id)),
-    skill: new Set(character.skills.map((entry) => entry.id)),
-    quest: new Set(character.quests.map((entry) => entry.id)),
-    document: documentIds,
-  };
   character.items.forEach((item, itemIndex) => {
     item.actions.forEach((action, actionIndex) => {
-      action.effects.forEach((effect, effectIndex) => {
-        const domain = text(effect.op).split(".")[0];
-        if (domain === "flag") return;
-        if (!catalogs[domain]?.has(effect.id)) {
-          add(
-            `items.${itemIndex}.actions.${actionIndex}.effects.${effectIndex}.id`,
-            `Unknown ${domain || "effect"} "${effect.id}".`,
-          );
-        }
-        if (effect.op === "skill.add-evidence") {
-          const skill = character.skills.find((entry) => entry.id === effect.id);
-          if (!skill?.practice.evidence.some((entry) => entry.id === effect.evidence)) {
-            add(
-              `items.${itemIndex}.actions.${actionIndex}.effects.${effectIndex}.evidence`,
-              `Unknown evidence "${effect.evidence}" for skill "${effect.id}".`,
-            );
-          }
-          if (effect.once === true && !text(effect.event)) {
-            add(
-              `items.${itemIndex}.actions.${actionIndex}.effects.${effectIndex}.event`,
-              "One-time evidence requires an event ID.",
-            );
-          }
-          if (!Number.isFinite(Number(effect.value ?? 1)) || Number(effect.value ?? 1) <= 0) {
-            add(
-              `items.${itemIndex}.actions.${actionIndex}.effects.${effectIndex}.value`,
-              "Evidence value must be a positive number.",
-            );
-          }
-        }
-        if (["quest.advance-objective", "quest.complete-objective"].includes(effect.op)) {
-          const quest = character.quests.find((entry) => entry.id === effect.id);
-          if (!quest?.objectives.some((entry) => entry.id === effect.objective)) {
-            add(
-              `items.${itemIndex}.actions.${actionIndex}.effects.${effectIndex}.objective`,
-              `Unknown objective "${effect.objective}" for quest "${effect.id}".`,
-            );
-          }
-          if (
-            effect.op === "quest.advance-objective" &&
-            (!Number.isFinite(Number(effect.value ?? 1)) || Number(effect.value ?? 1) <= 0)
-          ) {
-            add(
-              `items.${itemIndex}.actions.${actionIndex}.effects.${effectIndex}.value`,
-              "Objective progress must be a positive number.",
-            );
-          }
-        }
-      });
+      validateCharacterEffects(
+        action.effects,
+        `items.${itemIndex}.actions.${actionIndex}.effects`,
+        character,
+        add,
+        {
+          unknownDomainPath: "id",
+          unknownReferenceMessage: (domain, id) => `Unknown ${domain || "effect"} "${id}".`,
+        },
+      );
     });
   });
 
