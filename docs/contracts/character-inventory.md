@@ -1,10 +1,11 @@
-# Character and Inventory Management
+# Character, Artifacts, and Inventory Management
 
 **Status:** Character foundation, wellbeing, learning progression, quests, and
 physical holders implemented; close-up/lesson/simulation surfaces remain phased
-**Scope:** Player character state, authored items, containers, inventory,
-wellbeing, knowledge, skills, quests, documents, requirements/effects, save
-data, and the player-facing character panel
+**Scope:** Player character state, authored artifacts such as items,
+containers, documents, and future media records; inventory, wellbeing,
+knowledge, skills, quests, requirements/effects, save data, and the
+player-facing character panel
 
 ---
 
@@ -14,6 +15,14 @@ Atomic Adventures needs to represent possessions and character progression
 without adding a new hard-coded field for every key, tool, lesson, injury, or
 quest. Authors must be able to define those concepts, place or award them, use
 them as requirements, and choose how they appear to the player.
+
+Authoring separates **character development** from **artifacts**. Character
+development covers Zanzibar's profile, wellbeing stats, available knowledge,
+skills, accomplishments, and quests. Artifacts are authored things the world can
+contain or grant: keys, tools, backpacks, food, water, instruction cards,
+manuals, and future media records such as training videos. These domains are
+related at runtime, but separating them in the builder keeps authoring intent
+clear.
 
 This contract separates:
 
@@ -30,8 +39,8 @@ or progress.
 
 ## Design Principles
 
-- **Data-driven, not code-driven.** New ordinary items, stats, skills, quests,
-  and documents do not require a Vue or JavaScript change.
+- **Data-driven, not code-driven.** New ordinary artifacts, stats, skills,
+  quests, and documents do not require a Vue or JavaScript change.
 - **Stable IDs.** Runtime state and cross-content references use immutable,
   kebab-case IDs.
 - **One mutation language.** Story choices, world interactions, simulations,
@@ -74,11 +83,13 @@ contract below.
 
 ## Canonical Authored Content
 
-Character definitions are stored as one ordered JSON document named
-`character-main` in `game/content/atomic-adventures.sqlite`. This follows the
-existing coarse-document model used for outdoor world and building content.
-YAML may be exported for review or interchange, but direct YAML edits are not
-live until imported:
+Character and artifact definitions are currently stored as one ordered JSON
+document named `character-main` in `game/content/atomic-adventures.sqlite`.
+This follows the existing coarse-document model used for outdoor world and
+building content. The persisted name is retained for compatibility even though
+the authoring UI now presents the broader concept as Content. YAML may be
+exported for review or interchange, but direct YAML edits are not live until
+imported:
 
 ```bash
 npm run character:import -w game -- content/character/character-main.yaml
@@ -114,10 +125,10 @@ quests: []
 documents: []
 ```
 
-The character document defines the player-facing catalog. World documents
-define physical placements. Story beats define narrative grants and changes.
-Simulations report outcomes through registered effect payloads. None of those
-consumers may define an item inline.
+The content document defines the player-facing character and artifact catalog.
+World documents define physical placements. Story beats define narrative grants
+and changes. Simulations report outcomes through registered effect payloads.
+None of those consumers may define an artifact inline.
 
 Production builds export the document to
 `/content/character.json`. Development loads it from the local content API and
@@ -125,18 +136,22 @@ receives `character.updated` SSE notifications.
 
 ## Authoring Workspace
 
-Character content is edited in a dedicated `/builder/character` route. Keeping
-it separate prevents character catalog drafts from being mixed with Story
-Builder beat drafts, World Builder geometry drafts, or player save state.
+Character and artifact content is edited in a dedicated `/builder/content`
+route. The legacy `/builder/character` route redirects there for compatibility.
+Keeping this workspace separate prevents content catalog drafts from being
+mixed with Story Builder beat drafts, World Builder geometry drafts, or player
+save state.
 
 The workspace provides:
 
-- profile and character-panel configuration;
-- item, stat, knowledge, skill, quest, and document catalogs;
+- a **Character** mode for profile, panel configuration, stats, knowledge,
+  skills, and quests;
+- an **Artifacts** mode for items, containers, consumables, manuals,
+  instruction cards, documents, and future media records;
 - ordering and grouping controls;
 - reference search showing every use of a selected ID;
 - validation, revision history, restore, import, and export;
-- preview of empty, early-game, and populated panel states.
+- a **Preview** mode for empty, early-game, and populated panel states.
 
 Story Builder and World Builder consume the catalog:
 
@@ -147,12 +162,11 @@ Story Builder and World Builder consume the catalog:
 
 Authors should not need to copy IDs manually for normal builder workflows.
 
-The development route `/builder/character` now implements this workspace for
-profile/panel configuration and all six catalogs. Story and Utility Station
+The development route `/builder/content` now implements this workspace with
+separate Character, Artifacts, and Preview modes. Story and Utility Station
 builders consume the same catalog for requirements, effects, keys, pickups,
 and interactions. Cross-content validation rejects removing a definition that
-is still referenced. Advanced holder/container authoring remains part of the
-later holder phase.
+is still referenced.
 
 ## Item Definitions
 

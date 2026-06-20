@@ -13,7 +13,7 @@ import { RouterLink, RouterView } from "vue-router";
         <nav class="builder-tabs" aria-label="Builder workspace">
           <RouterLink to="/builder/story">Story</RouterLink>
           <RouterLink to="/builder/world">World</RouterLink>
-          <RouterLink to="/builder/character">Character</RouterLink>
+          <RouterLink to="/builder/content">Content</RouterLink>
         </nav>
         <details class="open-menu">
           <summary>Open</summary>

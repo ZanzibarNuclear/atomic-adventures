@@ -1,8 +1,8 @@
-# Character, Inventory, and Shared Game Views — Implementation Plan
+# Character, Artifacts, Inventory, and Shared Game Views — Implementation Plan
 
 **Status:** In progress
-**Last updated:** 2026-06-19  
-**Primary contract:** [Character and Inventory Management](../contracts/character-inventory.md)  
+**Last updated:** 2026-06-20
+**Primary contract:** [Character, Artifacts, and Inventory Management](../contracts/character-inventory.md)
 **Roadmap:** [Technology Roadmap](../tech-roadmap.md)
 
 This file is the durable handoff for implementing character state, inventory,
@@ -14,7 +14,11 @@ rather than relying on conversation history.
 
 Deliver a data-driven system in the `game/` app where:
 
-- authors define items, stats, knowledge, skills, quests, and documents;
+- authors define character development content and artifacts;
+- artifacts include items, containers, consumables, manuals, instruction cards,
+  documents, and future media records;
+- character development content includes profile/panel data, stats, knowledge,
+  skills, quests, and accomplishments;
 - player state is global, serializable, and independent of authored content;
 - story, world interactions, and simulations share requirements and effects;
 - items can be carried, stored in a backpack, left in the world, or transported
@@ -313,6 +317,39 @@ character content without editing source files.
 
 ---
 
+## Phase 6A — Content Builder and Artifact Separation
+
+**Purpose:** Clarify the authoring model by separating character development
+from artifact definitions without destabilizing the runtime content document.
+
+- [x] Add preferred development route `/builder/content`.
+- [x] Preserve `/builder/character` as a compatibility redirect.
+- [x] Rename the BuilderShell tab from Character to Content.
+- [x] Replace the Edit content / Preview panel toggle with Character /
+  Artifacts / Preview.
+- [x] Keep profile, panel configuration, stats, knowledge, skills, and quests
+  in Character mode.
+- [x] Move items and documents into Artifacts mode.
+- [x] Keep Preview as the player-facing character panel preview.
+- [x] Keep the existing `character-main` document, `/api/character`, and
+  `/content/character.json` names for compatibility.
+- [x] Update the contract to describe character development and artifacts as
+  separate author-facing domains.
+
+Likely files:
+
+- `game/src/router.js`
+- `game/src/components/BuilderShell.vue`
+- `game/src/views/CharacterBuilderView.vue`
+- `docs/contracts/character-inventory.md`
+- `docs/plans/character-inventory-implementation.md`
+
+**Exit criterion:** Authors can choose Character, Artifacts, or Preview from
+the Content builder and no longer need to treat world artifacts as character
+profile/progression data.
+
+---
+
 ## Phase 7 — Game Clock, Activity, Hunger, Thirst, and Consumables
 
 **Purpose:** Support the Part I lived-in survival rhythm generically.
@@ -534,6 +571,11 @@ At the start of a future session:
   interaction selectors; enforced cross-content reference validation and
   reference-aware rename/delete checks; added builder compile/API tests and
   browser verification; confirmed builders remain absent from production.
+- 2026-06-20 — Phase 6A completed. Renamed the authoring surface to Content,
+  added `/builder/content` with `/builder/character` compatibility redirect,
+  split the workspace into Character, Artifacts, and Preview modes, and
+  updated the contract to distinguish character development from artifact
+  definitions while keeping the existing runtime document/API names.
 - 2026-06-19 — Phase 7 completed. Added a serializable authored game clock,
   deterministic minute integration and activity profiles, timed movement,
   story, world, item and simulation outcome boundaries, authored stat drift

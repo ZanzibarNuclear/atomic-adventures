@@ -89,16 +89,18 @@ function listen(hostname, { optional = false, label = hostname } = {}) {
   });
   server.listen(port, hostname, () => {
     const displayHost = hostname === "::1" ? "[::1]" : hostname;
-    console.log(`Atomic Adventures: http://${displayHost}:${port}`);
-    console.log(`Story builder:     http://${displayHost}:${port}/builder/story`);
-    console.log(`World builder:     http://${displayHost}:${port}/builder/world`);
+    logRoutes(displayHost);
     if (hostname === "127.0.0.1") {
-      console.log(`Atomic Adventures: http://localhost:${port}`);
-      console.log(`Story builder:     http://localhost:${port}/builder/story`);
-      console.log(`World builder:     http://localhost:${port}/builder/world`);
-      console.log(`Character content: http://127.0.0.1:${port}/api/character`);
+      logRoutes("localhost");
     }
   });
+}
+
+function logRoutes(displayHost) {
+  console.log(`Atomic Adventures: http://${displayHost}:${port}`);
+  console.log(`Story builder:     http://${displayHost}:${port}/builder/story`);
+  console.log(`World builder:     http://${displayHost}:${port}/builder/world`);
+  console.log(`Content builder:   http://${displayHost}:${port}/builder/content`);
 }
 
 let shuttingDown = false;

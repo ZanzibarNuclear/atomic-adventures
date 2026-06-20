@@ -20,9 +20,14 @@ if (import.meta.env.DEV) {
           component: () => import("./views/WorldBuilderView.vue"),
         },
         {
+          path: "content",
+          name: "content-builder",
+          component: () => import("./views/CharacterBuilderView.vue"),
+        },
+        {
           path: "character",
           name: "character-builder",
-          component: () => import("./views/CharacterBuilderView.vue"),
+          redirect: "/builder/content",
         },
       ],
     });

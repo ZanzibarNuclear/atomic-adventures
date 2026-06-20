@@ -11,9 +11,9 @@ const version = ref(0);
 const status = ref("");
 const errors = ref({});
 const warnings = ref([]);
-const selectedCatalog = ref("items");
+const selectedCatalog = ref("stats");
 const selectedId = ref("");
-const workspaceMode = ref("edit");
+const workspaceMode = ref("character");
 const previewMode = ref("early");
 const revisions = ref([]);
 const showHistory = ref(false);
@@ -21,14 +21,19 @@ const pendingRoute = ref("");
 const navigationPromptVisible = ref(false);
 const savingBeforeNavigation = ref(false);
 
-const catalogs = [
-  { id: "items", label: "Items" },
+const characterCatalogs = [
   { id: "stats", label: "Stats" },
   { id: "knowledge", label: "Knowledge" },
   { id: "skills", label: "Skills" },
   { id: "quests", label: "Quests" },
+];
+const artifactCatalogs = [
+  { id: "items", label: "Items" },
   { id: "documents", label: "Documents" },
 ];
+const activeCatalogs = computed(() =>
+  workspaceMode.value === "artifacts" ? artifactCatalogs : characterCatalogs,
+);
 const tabOptions = ["overview", "inventory", "knowledge", "skills", "quests", "documents"];
 const visibilityOptions = ["always", "when-acquired", "when-started", "hidden"];
 
@@ -129,6 +134,17 @@ function ensureSelection() {
 function selectCatalog(id) {
   selectedCatalog.value = id;
   selectedId.value = draft.value?.[id]?.[0]?.id ?? "";
+}
+
+function selectWorkspace(mode) {
+  workspaceMode.value = mode;
+  if (mode === "preview") return;
+  const catalogs = mode === "artifacts" ? artifactCatalogs : characterCatalogs;
+  if (!catalogs.some((catalog) => catalog.id === selectedCatalog.value)) {
+    selectCatalog(catalogs[0].id);
+  } else {
+    ensureSelection();
+  }
 }
 
 function toggleTab(tab) {
@@ -256,7 +272,7 @@ async function saveDraft() {
   } catch (error) {
     errors.value = error.errors ?? {};
     status.value = error.status === 409
-      ? "Character content changed elsewhere. Reload before saving."
+      ? "Content changed elsewhere. Reload before saving."
       : error.message;
     return false;
   }
@@ -345,36 +361,42 @@ async function saveAndLeave() {
   <main v-if="draft" class="character-builder">
     <header class="builder-toolbar">
       <div>
-        <p class="label">Character content</p>
-        <h2>{{ draft.profile.name }}</h2>
+        <p class="label">Content</p>
+        <h2>Character and artifacts</h2>
       </div>
       <div class="toolbar-actions">
-        <nav class="workspace-toggle" aria-label="Character builder workspace">
+        <nav class="workspace-toggle" aria-label="Content builder workspace">
           <button
             type="button"
-            :class="{ active: workspaceMode === 'edit' }"
-            @click="workspaceMode = 'edit'">
-            Edit content
+            :class="{ active: workspaceMode === 'character' }"
+            @click="selectWorkspace('character')">
+            Character
+          </button>
+          <button
+            type="button"
+            :class="{ active: workspaceMode === 'artifacts' }"
+            @click="selectWorkspace('artifacts')">
+            Artifacts
           </button>
           <button
             type="button"
             :class="{ active: workspaceMode === 'preview' }"
-            @click="workspaceMode = 'preview'">
-            Preview panel
+            @click="selectWorkspace('preview')">
+            Preview
           </button>
         </nav>
         <span v-if="dirty" class="dirty-pill">Unsaved</span>
         <button class="sm muted" :disabled="!dirty" @click="revertDraft">Revert</button>
         <button class="sm muted" @click="loadHistory">History</button>
-        <button class="sm" :disabled="!dirty" @click="saveDraft">Save character</button>
+        <button class="sm" :disabled="!dirty" @click="saveDraft">Save content</button>
       </div>
     </header>
 
     <p v-if="status" class="status">{{ status }}</p>
 
-    <div v-if="workspaceMode === 'edit'" class="builder-grid edit-grid">
+    <div v-if="workspaceMode !== 'preview'" class="builder-grid edit-grid">
       <aside class="catalog-browser panel">
-        <section class="profile-summary">
+        <section v-if="workspaceMode === 'character'" class="profile-summary">
           <h3>Profile and panel</h3>
           <label>Name<input v-model="draft.profile.name"></label>
           <label>
@@ -395,9 +417,17 @@ async function saveAndLeave() {
           </fieldset>
         </section>
 
-        <nav class="catalog-tabs" aria-label="Character catalog">
+        <section v-else class="profile-summary">
+          <h3>Artifacts</h3>
+          <p class="mode-note">
+            Define physical and readable things: keys, tools, containers,
+            consumables, manuals, cards, and future media records.
+          </p>
+        </section>
+
+        <nav class="catalog-tabs" :aria-label="`${workspaceMode} catalog`">
           <button
-            v-for="catalog in catalogs"
+            v-for="catalog in activeCatalogs"
             :key="catalog.id"
             :class="{ active: selectedCatalog === catalog.id }"
             @click="selectCatalog(catalog.id)">
@@ -633,8 +663,8 @@ async function saveAndLeave() {
 
     <div v-if="navigationPromptVisible" class="unsaved-backdrop" role="dialog" aria-modal="true">
       <section class="unsaved-dialog">
-        <p class="label">Unsaved character changes</p>
-        <h2>Leave the Character Builder?</h2>
+        <p class="label">Unsaved content changes</p>
+        <h2>Leave the Content Builder?</h2>
         <p>Save the draft, discard it, or keep editing.</p>
         <div class="toolbar-actions">
           <button :disabled="savingBeforeNavigation" @click="saveAndLeave">Save and continue</button>
@@ -645,7 +675,7 @@ async function saveAndLeave() {
     </div>
   </main>
   <section v-else class="character-builder">
-    <p class="status">{{ status || "Loading character content…" }}</p>
+    <p class="status">{{ status || "Loading content…" }}</p>
     <button v-if="status" class="sm" @click="loadCharacter">Retry</button>
   </section>
 </template>
@@ -703,6 +733,7 @@ async function saveAndLeave() {
 .catalog-browser,
 .entry-editor { max-height: calc(100vh - 10.7rem); overflow: auto; }
 .profile-summary { display: grid; gap: .55rem; }
+.mode-note { margin: 0; color: #aeb6c2; font-size: .9rem; line-height: 1.4; }
 .catalog-tabs { display: grid; grid-template-columns: repeat(2, 1fr); gap: .35rem; margin-top: .8rem; }
 .catalog-tabs button,
 .catalog-entry {
