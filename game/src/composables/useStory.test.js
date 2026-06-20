@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { nextTick, reactive, ref } from "vue";
 import { useStory } from "./useStory.js";
-import { createCharacterState } from "./useCharacterState.js";
+import { createCharacterState, markCharacterChanged } from "./useCharacterState.js";
 import { addItem, itemQuantity } from "../lib/character/holdings.js";
 
 function harness(initialStory, { withCharacter = false, moveTo = () => {} } = {}) {
@@ -167,6 +167,25 @@ describe("useStory reactive content", () => {
     api.refreshNarrative();
     expect(api.pendingBeat.value.id).toBe("gated");
     expect(api.pendingBeat.value.choices[0].disabled).toBe(true);
+  });
+
+  it("refreshes gated beats when character revision changes", async () => {
+    const gatedBeat = {
+      ...beat,
+      require: { items: ["key"] },
+    };
+    const { api, gameState } = harness({ beats: { gated: gatedBeat } }, {
+      withCharacter: true,
+    });
+
+    api.refreshNarrative();
+    expect(api.pendingBeat.value).toBeNull();
+
+    addItem(gameState.character.holdings, gameState.character.definitions, "key");
+    markCharacterChanged(gameState.character);
+    await nextTick();
+
+    expect(api.pendingBeat.value.id).toBe("gated");
   });
 
   it("commits effects before movement", () => {

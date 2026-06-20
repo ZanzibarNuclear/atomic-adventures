@@ -4,6 +4,7 @@ import {
   captureCharacterState,
   characterItems,
   createCharacterState,
+  resetCharacterState,
   syncCharacterDefinitions,
 } from "./useCharacterState.js";
 import { addItem, itemQuantity } from "../lib/character/holdings.js";
@@ -95,5 +96,19 @@ describe("character state", () => {
       quests: { restore: { status: "active" } },
       documents: { manual: { discoveredAt: "now" } },
     });
+  });
+
+  it("bumps a revision when managed character state changes", () => {
+    const state = createCharacterState(definitions);
+    const initial = state.revision;
+
+    syncCharacterDefinitions(state, definitions);
+    expect(state.revision).toBe(initial + 1);
+
+    applyCharacterState(state, { stats: { health: 80 } });
+    expect(state.revision).toBe(initial + 2);
+
+    resetCharacterState(state);
+    expect(state.revision).toBe(initial + 3);
   });
 });

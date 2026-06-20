@@ -18,9 +18,14 @@ export function createCharacterState(definitions = {}, holderDefinitions = []) {
     quests: {},
     documents: {},
     orphanItemIds: [],
+    revision: 0,
   });
   initializeDefinitionDefaults(state);
   return state;
+}
+
+export function markCharacterChanged(state) {
+  state.revision = Number(state.revision ?? 0) + 1;
 }
 
 export function syncCharacterDefinitions(state, definitions = {}) {
@@ -28,6 +33,7 @@ export function syncCharacterDefinitions(state, definitions = {}) {
   state.definitions = cloneDefinitions(definitions);
   initializeDefinitionDefaults(state);
   refreshOrphanItems(state);
+  markCharacterChanged(state);
   if (import.meta.env.DEV) {
     for (const id of state.orphanItemIds) {
       if (!previousOrphans.has(id)) {
@@ -47,6 +53,7 @@ export function syncCharacterHolderDefinitions(state, holderDefinitions = []) {
     };
   }
   state.holdings = next;
+  markCharacterChanged(state);
 }
 
 export function resetCharacterState(state) {
@@ -61,6 +68,7 @@ export function resetCharacterState(state) {
   state.documents = {};
   state.orphanItemIds = [];
   initializeDefinitionDefaults(state);
+  markCharacterChanged(state);
 }
 
 export function captureCharacterState(state) {
@@ -89,6 +97,7 @@ export function applyCharacterState(state, snapshot = {}) {
   state.quests = plainObject(snapshot.quests);
   state.documents = plainObject(snapshot.documents);
   refreshOrphanItems(state);
+  markCharacterChanged(state);
 }
 
 export function migrateLegacyInventory(state, ids = []) {

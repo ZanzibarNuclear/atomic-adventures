@@ -293,14 +293,7 @@ export function useStory(storyData, ctx) {
       indoor.indoor.currentRoom,
       indoor.indoor.exteriorNode,
       [...gameState.flags].join("\0"),
-      gameState.character ? JSON.stringify({
-        holdings: gameState.character.holdings,
-        stats: gameState.character.stats,
-        knowledge: gameState.character.knowledge,
-        skills: gameState.character.skills,
-        quests: gameState.character.quests,
-        documents: gameState.character.documents,
-      }) : "",
+      gameState.character?.revision ?? 0,
     ],
     () => {
       const loc = locationContext();

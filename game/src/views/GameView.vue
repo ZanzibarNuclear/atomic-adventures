@@ -11,6 +11,7 @@ import { useBuildingContent } from "../composables/useBuildingContent.js";
 import { useGameView } from "../composables/useGameView.js";
 import { useCharacterContent } from "../composables/useCharacterContent.js";
 import {
+  markCharacterChanged,
   syncCharacterDefinitions,
   syncCharacterHolderDefinitions,
 } from "../composables/useCharacterState.js";
@@ -203,6 +204,7 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       quantity,
       toHolder: target,
     });
+    markCharacterChanged(gameState.character);
     refreshNarrative();
   } catch (error) {
     console.warn(error);
