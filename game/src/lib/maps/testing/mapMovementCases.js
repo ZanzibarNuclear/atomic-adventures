@@ -408,8 +408,7 @@ export function expectedArrivalState(movementCase, destination) {
 
   if (
     destination === 'center-pines' &&
-    INSIDE_FENCE_STATES.has(from) &&
-    from !== 'north-bend:inside-fence'
+    INSIDE_FENCE_STATES.has(from)
   ) {
     return 'center-pines:inside-fence'
   }

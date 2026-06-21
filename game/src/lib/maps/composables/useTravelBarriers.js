@@ -91,6 +91,27 @@ export function sideOfLine(p, a, b) {
   return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)
 }
 
+function sameBarrierSide(a, b, seg) {
+  const sa = sideOfLine(a, seg.a, seg.b)
+  const sb = sideOfLine(b, seg.a, seg.b)
+  const eps = 1e-3
+  if (Math.abs(sa) <= eps || Math.abs(sb) <= eps) return true
+  if (sa * sb > 0) return true
+
+  const vx = b.x - a.x
+  const vy = b.y - a.y
+  const wx = seg.b.x - seg.a.x
+  const wy = seg.b.y - seg.a.y
+  const denom = vx * wy - vy * wx
+  if (Math.abs(denom) < 1e-9) return true
+  const u = ((seg.a.x - a.x) * vy - (seg.a.y - a.y) * vx) / denom
+  return u < -eps || u > 1 + eps
+}
+
+function sameBarrierSubarea(a, b, barriers) {
+  return (barriers ?? []).every((seg) => sameBarrierSide(a, b, seg))
+}
+
 /**
  * True when walk segment AB crosses barrier segment CD (endpoints on opposite sides).
  * Ignores grazing / parallel walks that stay on one side of the barrier line.
@@ -125,14 +146,17 @@ function pointDistance(a, b) {
 }
 
 function pointToSegmentDistance(p, seg) {
+  return pointDistance(p, closestPointOnSegment(p, seg))
+}
+
+function closestPointOnSegment(p, seg) {
   const vx = seg.b.x - seg.a.x
   const vy = seg.b.y - seg.a.y
   const wx = p.x - seg.a.x
   const wy = p.y - seg.a.y
   const denom = vx * vx + vy * vy || 1
   const t = Math.max(0, Math.min(1, (wx * vx + wy * vy) / denom))
-  const q = { x: seg.a.x + vx * t, y: seg.a.y + vy * t }
-  return pointDistance(p, q)
+  return { x: seg.a.x + vx * t, y: seg.a.y + vy * t }
 }
 
 function barrierClearance(p, ctx) {
@@ -554,6 +578,67 @@ function barrierMidpointStand(entryPoint, toHex, ctx, size, hexAtPoint) {
   return path ? path[path.length - 1] : null
 }
 
+function barrierSideStand(entryPoint, toHex, cellBarriers, ctx, size, hexAtPoint) {
+  const travelCtx = interHexTravelCtx(ctx)
+  const candidates = [...(cellBarriers ?? [])]
+    .sort(
+      (a, b) =>
+        pointToSegmentDistance(entryPoint, a) -
+        pointToSegmentDistance(entryPoint, b),
+    )
+
+  for (const seg of candidates) {
+    const nearest = closestPointOnSegment(entryPoint, seg)
+    let dx = entryPoint.x - nearest.x
+    let dy = entryPoint.y - nearest.y
+    let len = Math.hypot(dx, dy)
+
+    if (len < 1e-6) {
+      dx = -(seg.b.y - seg.a.y)
+      dy = seg.b.x - seg.a.x
+      len = Math.hypot(dx, dy) || 1
+    }
+
+    const inset = BARRIER_STAND_INSET[seg.kind] ?? BARRIER_STAND_INSET.fence
+    const tx = seg.b.x - seg.a.x
+    const ty = seg.b.y - seg.a.y
+    const tLen = Math.hypot(tx, ty) || 1
+    const tangentOffsets = [
+      0,
+      inset,
+      -inset,
+      inset * 2,
+      -inset * 2,
+      inset * 3,
+      -inset * 3,
+      size * 0.5,
+      -size * 0.5,
+    ]
+    for (const scale of [1, 1.5, 2, 3]) {
+      for (const offset of tangentOffsets) {
+        const stand = {
+          x:
+            nearest.x +
+            (dx / len) * inset * scale +
+            (tx / tLen) * offset,
+          y:
+            nearest.y +
+            (dy / len) * inset * scale +
+            (ty / tLen) * offset,
+        }
+        if (!standInDestinationHex(stand, toHex, hexAtPoint, size)) continue
+        if (!hasSafeBarrierClearance(stand, barrierList(travelCtx))) continue
+        if (!sameBarrierSubarea(entryPoint, stand, cellBarriers)) continue
+        if (pathClear([entryPoint, stand], travelCtx)) return stand
+        const path = pathInHex(toHex, entryPoint, stand, travelCtx, size)
+        if (path) return path[path.length - 1]
+      }
+    }
+  }
+
+  return null
+}
+
 function standReachableFromEntry({
   entryPoint,
   target,
@@ -562,10 +647,17 @@ function standReachableFromEntry({
   size,
   hexAtPoint,
   moveCtx,
+  sameSubareaBarriers = [],
 }) {
   const travelCtx = interHexTravelCtx(ctx)
   if (!target || !standInDestinationHex(target, toHex, hexAtPoint, size)) return null
   if (!hasSafeBarrierClearance(target, barrierList(travelCtx))) return null
+  if (
+    sameSubareaBarriers?.length &&
+    !sameBarrierSubarea(entryPoint, target, sameSubareaBarriers)
+  ) {
+    return null
+  }
   if (pathClear([entryPoint, target], travelCtx, moveCtx)) return target
   const path = pathInHex(toHex, entryPoint, target, travelCtx, size)
   if (path) return path[path.length - 1]
@@ -688,7 +780,9 @@ function resolveDestinationStand({
   if (
     toPos &&
     samePoint(entryPoint, toPos) &&
-    hasSafeBarrierClearance(entryPoint, cellBarriers)
+    hasSafeBarrierClearance(entryPoint, cellBarriers) &&
+    (!barrierDividedCell ||
+      sameBarrierSubarea(entryPoint, toPos, cellBarriers))
   ) {
     return { stand: entryPoint, blockedKind: null }
   }
@@ -708,6 +802,8 @@ function resolveDestinationStand({
     walkPath.length > 2 &&
     standInDestinationHex(routeStand, toHex, hexAtPoint, size) &&
     hasSafeBarrierClearance(routeStand, cellBarriers) &&
+    (!barrierDividedCell ||
+      sameBarrierSubarea(entryPoint, routeStand, cellBarriers)) &&
     canReachInHex(toHex, entryPoint, routeStand, travelCtx, size)
   ) {
     return { stand: routeStand, blockedKind: null }
@@ -737,6 +833,7 @@ function resolveDestinationStand({
       size,
       hexAtPoint,
       moveCtx,
+      sameSubareaBarriers: barrierDividedCell ? cellBarriers : [],
     })
     if (stand) return { stand, blockedKind: null }
   }
@@ -760,8 +857,21 @@ function resolveDestinationStand({
         size,
         hexAtPoint,
         moveCtx,
+        sameSubareaBarriers: cellBarriers,
       })
       if (stand) return { stand, blockedKind: null }
+    }
+
+    const barrierStand = barrierSideStand(
+      entryPoint,
+      toHex,
+      cellBarriers,
+      ctx,
+      size,
+      hexAtPoint,
+    )
+    if (barrierStand) {
+      return { stand: barrierStand, blockedKind: null }
     }
 
     if (midpoint && hasSafeBarrierClearance(midpoint, cellBarriers)) {
@@ -776,6 +886,7 @@ function resolveDestinationStand({
       size,
       hexAtPoint,
       moveCtx,
+      sameSubareaBarriers: cellBarriers,
     })
     if (centerStand) return { stand: centerStand, blockedKind: null }
   }
@@ -790,6 +901,7 @@ function resolveDestinationStand({
       size,
       hexAtPoint,
       moveCtx,
+      sameSubareaBarriers: barrierDividedCell ? cellBarriers : [],
     })
     if (stand) return { stand, blockedKind: null }
   }
