@@ -5,6 +5,7 @@ import yaml from "js-yaml";
 import utilityStationData from "../../content/world/utility-station.yaml";
 import GridMap from "../lib/maps/components/GridMap.vue";
 import { storyApi } from "../lib/storyApi.js";
+import CharacterEffectsEditor from "../components/builder/CharacterEffectsEditor.vue";
 import { buildBuilding } from "../lib/maps/composables/useGrid.js";
 import { buildInitialDoorState, setAllDoorsOpen } from "../lib/maps/composables/useDoors.js";
 import {
@@ -184,23 +185,9 @@ function setActionRequirementIds(action, domain, event) {
   action.require[domain] = [...event.target.selectedOptions].map((option) => option.value);
 }
 
-function addActionEffect(action) {
+function ensureActionEffects(action) {
   action.effects ??= [];
-  const item = characterCatalog.value.items[0];
-  action.effects.push(item
-    ? { op: "item.add", id: item.id, quantity: 1 }
-    : { op: "flag.set", id: "" });
-}
-
-function effectEntries(effect) {
-  const domain = String(effect.op ?? "").split(".")[0];
-  const key = domain === "item" ? "items"
-    : domain === "stat" ? "stats"
-      : domain === "skill" ? "skills"
-        : domain === "quest" ? "quests"
-          : domain === "document" ? "documents"
-            : domain;
-  return characterCatalog.value[key] ?? [];
+  return action.effects;
 }
 
 onBeforeRouteLeave((to) => {
@@ -1098,22 +1085,10 @@ function clonePlain(value) {
                 </option>
               </select>
             </label>
-            <div v-for="(effect, effectIndex) in action.effects ?? []" :key="effectIndex" class="field-grid">
-              <select v-model="effect.op">
-                <option>item.add</option><option>item.remove</option>
-                <option>knowledge.acquire</option><option>skill.add-evidence</option>
-                <option>quest.start</option><option>quest.complete-objective</option>
-                <option>document.discover</option><option>flag.set</option>
-              </select>
-              <input v-if="effect.op.startsWith('flag.')" v-model="effect.id" placeholder="flag.id">
-              <select v-else v-model="effect.id">
-                <option v-for="entry in effectEntries(effect)" :key="entry.id" :value="entry.id">
-                  {{ entry.label ?? entry.title }} ({{ entry.id }})
-                </option>
-              </select>
-              <button class="sm muted" @click="action.effects.splice(effectIndex, 1)">Remove</button>
-            </div>
-            <button class="sm" @click="addActionEffect(action)">Add character effect</button>
+            <CharacterEffectsEditor
+              :effects="ensureActionEffects(action)"
+              :character-catalog="characterCatalog"
+              add-label="Add character effect" />
           </article>
         </details>
 

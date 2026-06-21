@@ -10,6 +10,7 @@ import { storyApi } from "../lib/storyApi.js";
 import { storyBeatYaml } from "../lib/storyYamlPreview.js";
 import { useWorldContent } from "../composables/useWorldContent.js";
 import { useBuildingContent } from "../composables/useBuildingContent.js";
+import CharacterEffectsEditor from "../components/builder/CharacterEffectsEditor.vue";
 
 const { worldData, revision: worldRevision } = useWorldContent();
 const { buildingData, revision: buildingRevision } = useBuildingContent();
@@ -72,17 +73,6 @@ const requirementDomains = [
   { id: "knowledge", label: "Knowledge" },
   { id: "documents", label: "Documents" },
 ];
-const effectOperations = [
-  "flag.set", "flag.clear",
-  "item.add", "item.remove",
-  "stat.set", "stat.add",
-  "knowledge.acquire", "knowledge.forget",
-  "skill.acquire", "skill.set-rank", "skill.add-rank", "skill.add-evidence",
-  "quest.make-available", "quest.start", "quest.set-status",
-  "quest.advance-objective", "quest.complete-objective",
-  "document.discover", "document.mark-read",
-];
-
 onMounted(async () => {
   window.addEventListener("beforeunload", warnBeforeUnload);
   try {
@@ -467,31 +457,9 @@ function addCondition(require, domain) {
   }
 }
 
-function addEffect(choice) {
+function ensureEffects(choice) {
   choice.effects ??= [];
-  choice.effects.push({ op: "flag.set", id: "" });
-}
-
-function effectDomain(effect) {
-  return String(effect.op ?? "").split(".")[0];
-}
-
-function effectCatalog(effect) {
-  const domain = effectDomain(effect);
-  const key = domain === "item" ? "items"
-    : domain === "stat" ? "stats"
-      : domain === "skill" ? "skills"
-        : domain === "quest" ? "quests"
-          : domain === "document" ? "documents"
-            : domain;
-  return characterCatalog.value[key] ?? [];
-}
-
-function setEffectOperation(effect, op) {
-  effect.op = op;
-  if (effectDomain(effect) !== "flag") {
-    effect.id = effectCatalog(effect)[0]?.id ?? "";
-  }
+  return choice.effects;
 }
 
 function destinationType(choice) {
@@ -789,47 +757,9 @@ async function saveAndContinue() {
                     </select>
                   </label>
                 </div>
-                <article
-                  v-for="(effect, effectIndex) in choice.effects ?? []"
-                  :key="effectIndex"
-                  class="effect-row">
-                  <select :value="effect.op" @change="setEffectOperation(effect, $event.target.value)">
-                    <option v-for="op in effectOperations" :key="op" :value="op">{{ op }}</option>
-                  </select>
-                  <input
-                    v-if="effectDomain(effect) === 'flag'"
-                    v-model="effect.id"
-                    placeholder="flag.id">
-                  <select v-else v-model="effect.id">
-                    <option v-for="entry in effectCatalog(effect)" :key="entry.id" :value="entry.id">
-                      {{ entry.label ?? entry.title }} ({{ entry.id }})
-                    </option>
-                  </select>
-                  <input
-                    v-if="effectDomain(effect) === 'item'"
-                    v-model.number="effect.quantity"
-                    type="number"
-                    min="1"
-                    placeholder="quantity">
-                  <input
-                    v-if="effectDomain(effect) === 'stat'"
-                    v-model.number="effect.value"
-                    type="number"
-                    placeholder="value">
-                  <input
-                    v-if="effectDomain(effect) === 'skill' && effect.op.includes('rank')"
-                    v-model.number="effect.rank"
-                    type="number"
-                    placeholder="rank">
-                  <select v-if="effect.op === 'quest.set-status'" v-model="effect.status">
-                    <option>unavailable</option><option>available</option><option>active</option>
-                    <option>completed</option><option>failed</option><option>abandoned</option>
-                  </select>
-                  <button type="button" class="sm muted" @click="choice.effects.splice(effectIndex, 1)">
-                    Remove
-                  </button>
-                </article>
-                <button type="button" class="sm" @click="addEffect(choice)">Add effect</button>
+                <CharacterEffectsEditor
+                  :effects="ensureEffects(choice)"
+                  :character-catalog="characterCatalog" />
                 <div class="field-grid">
                   <label>Game minutes<input v-model.number="choice.timeMinutes" type="number" min="0"></label>
                   <label>Activity
