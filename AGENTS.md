@@ -39,7 +39,7 @@ Map rendering and interaction logic was **copied** (not moved) from `web/src` in
 
 There are distinct story, world, and prototype builder concerns. Do not conflate them.
 
-#### Story and world builders — active
+#### Story, world, and content builders — active
 
 Authoring uses separate routes in the `game/` app, not modes layered onto the playable scene:
 
@@ -48,9 +48,12 @@ Authoring uses separate routes in the `game/` app, not modes layered onto the pl
 | `/`        | Playable game                                                           |
 | `/builder/story` | Map-first story authoring for hexes, rooms, exterior nodes, and events |
 | `/builder/world` | Canvas-first outdoor geometry and movement authoring |
+| `/builder/content` | Character development and artifact catalog authoring |
 
 - `game/src/views/BuilderView.vue` owns the authoring workspace.
 - `game/src/views/WorldBuilderView.vue` owns outdoor world authoring.
+- `game/src/views/CharacterBuilderView.vue` owns the Content Builder; its
+  current route is `/builder/content`.
 - `game/content/atomic-adventures.sqlite` is canonical for story and outdoor world content and stores both revision histories.
 - `game/server/` provides the SQLite repository, migrations, validation, JSON API, and SSE updates.
 - Saving a beat or world document publishes it immediately. Open game windows refresh content without reloading or losing player state.
@@ -94,6 +97,7 @@ npm run dev:game        # game + builder + local content API
 - Game: `http://127.0.0.1:5173/`
 - Story builder: `http://127.0.0.1:5173/builder/story`
 - World builder: `http://127.0.0.1:5173/builder/world`
+- Content builder: `http://127.0.0.1:5173/builder/content`
 
 ### Tests
 

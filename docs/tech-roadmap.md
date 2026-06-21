@@ -22,7 +22,7 @@ The project has moved past stack selection and scaffolding. The playable `game/`
 | Authored content store | **SQLite** (`game/content/atomic-adventures.sqlite`) | Story beats and outdoor world are canonical in SQLite. YAML under `game/content/story/` and `game/content/world/` is import/export interchange only. |
 | Indoor geometry | **SQLite document** (`utility-station`) | Edited in the Utility Station workspace under `/builder/world`; YAML is seed/import material. |
 | Story runtime unit | **Beats**, not a full passage graph | Location/event triggers, requirements, flags, choices, revisit prose. Planned passage features (`go_to`, simulation gates) are not implemented yet. See [story-beats.md](contracts/story-beats.md). |
-| Authoring | **Separate builder routes** | `/builder/story` and `/builder/world`; local Node API + SSE live updates. Production excludes builders. See [world-authoring.md](contracts/world-authoring.md). |
+| Authoring | **Separate builder routes** | `/builder/story`, `/builder/world`, and `/builder/content`; local Node API + SSE live updates. Production excludes builders. See [world-authoring.md](contracts/world-authoring.md) and [character-inventory.md](contracts/character-inventory.md). |
 | Player persistence (now) | **localStorage** via `useSaveGame` | No accounts, no server-side saves. |
 | Production | **Static Vercel** | Build exports SQLite → `story.json` + `world.json`; no authoring server in prod. See [deployment.md](deployment.md). |
 | Transactional data (future) | **Neon Postgres** | Planned when player registration and server-side state are needed — not required for the current slice. See [deployment.md § Future Neon Integration](deployment.md#future-neon-integration). |
@@ -38,8 +38,8 @@ These systems are implemented and exercised by tests where noted:
 - **Indoor map** — Grid rooms, doors, roll-ups, keys, facility state (`hydroOnline`, manual modes), hydro diagram overlay (visual only, fogged until discovery).
 - **Story engine** — Beat selection, acknowledgment, revisit prose, choice effects (flags + movement destinations). Wired through `NarrativeCard` and `usePlayPanel`.
 - **Flags & inventory (minimal)** — Dot-scoped flags; inventory as a set of item ids (keys for doors; basic `InventoryPanel`). Serializable in save data.
-- **Content pipeline** — Story/world JSON API, SSE refresh, SQLite revisions, import/export CLI.
-- **Authoring** — Story builder (map-first beat editing) and world builder (canvas-first outdoor geometry).
+- **Content pipeline** — Story/world/content JSON API, SSE refresh, SQLite revisions, import/export CLI.
+- **Authoring** — Story builder (map-first beat editing), world builder (canvas-first outdoor geometry), and Content builder (character development plus artifact catalogs).
 - **Deployment** — `npm run build:game` → static bundle on Vercel.
 
 Design and narrative intent for Part I (unlock chains, hydro phases, discovery track) are documented in [Part I Unlocks](../game-design/content/part-i-unlocks.md), [hydro-simulation.md](../game-design/content/subject-matter/hydro-simulation.md), and [story-overview.md](../game-design/content/story/story-overview.md).

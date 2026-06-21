@@ -12,10 +12,11 @@ game. It is deliberately separate from Story Builder:
 | --- | --- |
 | `/builder/story` | Beats, prose, requirements, choices, and story destinations |
 | `/builder/world` | Outdoor geometry plus utility-station rooms, doors, paths, nodes, transitions, and fixtures |
+| `/builder/content` | Character development and artifact catalog definitions consumed by story and world authoring |
 
-Both workspaces use the same server and SQLite database, but keep independent
-drafts. Switching workspaces never merges world form state with story form
-state or player state.
+These workspaces use the same server and SQLite database, but keep independent
+drafts. Switching workspaces never merges world form state with story/content
+form state or player state.
 
 ## Canonical Storage
 

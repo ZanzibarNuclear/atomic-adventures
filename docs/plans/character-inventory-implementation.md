@@ -285,12 +285,12 @@ possessions in the shared game stage and return to the unchanged map.
 
 ---
 
-## Phase 6 — Character Builder
+## Phase 6 — Content Builder Foundation
 
 **Purpose:** Give authors control without manual JSON or IDs.
 
-- [x] Add development route `/builder/character`.
-- [x] Add Character to `BuilderShell`.
+- [x] Add development route `/builder/content`.
+- [x] Add Content to `BuilderShell`.
 - [x] Implement explicit Save, Revert, dirty-state protection, validation,
   revision history, and restore.
 - [x] Add editors for profile/panel, items, stats, knowledge, skills, quests,
@@ -313,7 +313,7 @@ Likely files:
 - server reference/rename logic
 
 **Exit criterion:** An author can define and safely reference ordinary
-character content without editing source files.
+character and artifact content without editing source files.
 
 ---
 
@@ -323,7 +323,7 @@ character content without editing source files.
 from artifact definitions without destabilizing the runtime content document.
 
 - [x] Add preferred development route `/builder/content`.
-- [x] Preserve `/builder/character` as a compatibility redirect.
+- [x] Remove obsolete `/builder/character` route.
 - [x] Rename the BuilderShell tab from Character to Content.
 - [x] Replace the Edit content / Preview panel toggle with Character /
   Artifacts / Preview.
@@ -564,7 +564,7 @@ At the start of a future session:
   overview, grouped direct inventory and item details, future-domain empty
   states, session tab memory, keyboard tab behavior, focus restoration,
   responsive layout, presentation tests, and production-browser verification.
-- 2026-06-19 — Phase 6 completed. Added the development-only Character Builder
+- 2026-06-19 — Phase 6 completed. Added the development-only Content Builder
   with catalog/profile/panel editors, dirty-state protection, validation,
   revision restore and panel previews; exposed character catalogs to Story and
   Utility Station authoring; added requirement/effect, door-key, pickup and
@@ -572,7 +572,7 @@ At the start of a future session:
   reference-aware rename/delete checks; added builder compile/API tests and
   browser verification; confirmed builders remain absent from production.
 - 2026-06-20 — Phase 6A completed. Renamed the authoring surface to Content,
-  added `/builder/content` with `/builder/character` compatibility redirect,
+  added `/builder/content`, removed the obsolete `/builder/character` route,
   split the workspace into Character, Artifacts, and Preview modes, and
   updated the contract to distinguish character development from artifact
   definitions while keeping the existing runtime document/API names.
@@ -584,13 +584,13 @@ At the start of a future session:
   coverage. The phase boundary passed 201 tests and a production build.
 - 2026-06-19 — Phase 8 completed. Added authored documents, knowledge,
   evidence catalogs and ordered skill awards; idempotent one-time evidence
-  events; knowledge/document and ranked skill presentation; Character Builder
+  events; knowledge/document and ranked skill presentation; Content Builder
   practice-rule editing; character content import/export; and a playable Part
   I chain from hydro reading and holo-reader study through operating days,
   leak repair, and Hydro Operations qualification.
 - 2026-06-19 — Phase 9 completed. Added validated quest transitions,
   objective counters and targets, authored automatic completion, status-grouped
-  Quest UI with objective progress, Character Builder quest controls, and a
+  Quest UI with objective progress, Content Builder quest controls, and a
   Restore Station Power quest wired across the existing four-step hydro
   startup chain.
 - 2026-06-19 — Phase 10 completed. Replaced flat item totals with physical

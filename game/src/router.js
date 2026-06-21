@@ -24,11 +24,6 @@ if (import.meta.env.DEV) {
           name: "content-builder",
           component: () => import("./views/CharacterBuilderView.vue"),
         },
-        {
-          path: "character",
-          name: "character-builder",
-          redirect: "/builder/content",
-        },
       ],
     });
 } else {

@@ -136,11 +136,11 @@ receives `character.updated` SSE notifications.
 
 ## Authoring Workspace
 
-Character and artifact content is edited in a dedicated `/builder/content`
-route. The legacy `/builder/character` route redirects there for compatibility.
-Keeping this workspace separate prevents content catalog drafts from being
-mixed with Story Builder beat drafts, World Builder geometry drafts, or player
-save state.
+Character and artifact content is edited in the dedicated `/builder/content`
+route. `/builder/content` is the current route; `/builder/character` is
+obsolete and is not registered. Keeping this workspace separate prevents
+content catalog drafts from being mixed with Story Builder beat drafts, World
+Builder geometry drafts, or player save state.
 
 The workspace provides:
 
@@ -608,7 +608,7 @@ successful day, and awards a leak repair only after the repair outcome.
 
 Skills may also be granted directly for story-controlled exceptions, but
 practice-based skills should use evidence rules so their acquisition criteria
-remain visible and auditable in Character Builder.
+remain visible and auditable in the Content Builder's Character mode.
 
 The character panel shows qualifications in the Skills tab and may summarize
 selected skills on Overview.
@@ -895,7 +895,7 @@ state:
 - changed labels, descriptions, grouping, and icons update immediately;
 - added definitions become available to content;
 - renamed IDs require an explicit reference-aware rename and save migration;
-- deletion is rejected while world, story, simulation, or character content
+- deletion is rejected while world, story, simulation, or authored content
   references the ID;
 - if a stale save contains an unknown ID, its state is retained as an orphan
   but hidden from normal UI until the definition returns or a migration maps it.

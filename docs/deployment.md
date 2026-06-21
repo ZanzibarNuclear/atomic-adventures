@@ -145,7 +145,7 @@ Check that:
   item, and progression catalogs.
 - No `BuilderView` or `WorldBuilderView` JavaScript chunks appear in
   `game/dist/assets`.
-- Opening `/builder/story` or `/builder/world` in the production preview
+- Opening `/builder/story`, `/builder/world`, or `/builder/content` in the production preview
   redirects to `/`.
 - A saved local game still loads and the opening story/map render correctly.
 
@@ -164,7 +164,7 @@ After a Vercel preview or production deployment:
 4. Open `/content/story.json`, `/content/world.json`,
    `/content/utility-station.json`, and `/content/character.json`; all should
    return JSON.
-5. Open `/builder/story` and `/builder/world`; both should return to `/`.
+5. Open `/builder/story`, `/builder/world`, and `/builder/content`; all should return to `/`.
 6. Check the browser console for failed content requests.
 
 ## Rollback
