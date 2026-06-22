@@ -183,16 +183,10 @@ features:
     visibility: hidden
     at: { hex: south-pines, dx: 0.18, dy: 0 }
 
-  - id: river-access-drive
-    kind: drive
-    smooth: true
-    points:
-      - { hex: road-fork, dx: -0.15, dy: 0.23 }
-      - { hex: upper-gorge, dx: 0.91, dy: 0.3 }
-      - { x: -133, y: -130 }
-
+routes:
   - id: compound-road
     kind: road
+    label: "main road"
     smooth: true
     points:
       - { x: -81, y: 150 }
@@ -205,34 +199,19 @@ features:
       - { hex: road-fork, dx: 0.32, dy: -0.13 }
       - { hex: road-fork, dx: 0.66, dy: -0.55 }
 
+  - id: river-access-drive
+    kind: drive
+    label: "vista drive"
+    smooth: true
+    points:
+      - { hex: road-fork, dx: -0.15, dy: 0.23 }
+      - { hex: upper-gorge, dx: 0.91, dy: 0.3 }
+      - { x: -133, y: -130 }
+
   - id: station-driveway
     kind: drive
+    label: "station driveway"
     points:
       - { x: -82, y: 50 }
       - { x: -105, y: 49 }
       - { hex: utility-yard, dx: 0.09, dy: -0.17 }
-
-routes:
-  - id: compound-road
-    kind: road
-    label: "compound road"
-    smooth: true
-    points:
-      - { x: -81, y: 150 }
-      - { x: -81, y: 60 }
-      - { x: -81, y: -40 }
-      - { x: -81, y: -72 }
-      - { x: -81, y: -76 }
-      - { x: -82, y: -104 }
-      - { hex: road-fork, dx: -0.07, dy: 0.16 }
-      - { hex: road-fork, dx: 0.32, dy: -0.13 }
-      - { hex: road-fork, dx: 0.66, dy: -0.55 }
-
-  - id: river-access-drive
-    kind: drive
-    label: "river access drive"
-    smooth: true
-    points:
-      - { hex: road-fork, dx: -0.15, dy: 0.23 }
-      - { hex: upper-gorge, dx: 0.91, dy: 0.3 }
-      - { x: -133, y: -130 }

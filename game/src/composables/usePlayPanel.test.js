@@ -152,8 +152,8 @@ describe('getMovementOptions', () => {
 
     expect(buildOutdoorRouteActions(outdoor).map((action) => action.label)).toEqual(
       expect.arrayContaining([
-        'Follow the compound road to the south',
-        'Follow the river access drive to the west',
+        'Follow the main road to the south',
+        'Follow the vista drive to the west',
       ]),
     )
   })

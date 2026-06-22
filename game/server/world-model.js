@@ -1,5 +1,6 @@
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const PASSAGE_KINDS = new Set(["gate", "hole", "bridge", "ford", "stair"]);
+export const ROUTE_KINDS = new Set(["road", "drive", "path", "trail"]);
 
 export function normalizeWorld(input = {}) {
   const world = structuredClone(input && typeof input === "object" ? input : {});
@@ -89,6 +90,8 @@ export function validateWorld(input) {
       if (!["obvious", "hidden"].includes(feature.visibility ?? "obvious")) {
         add(`${base}.visibility`, "Visibility must be obvious or hidden.");
       }
+    } else if (ROUTE_KINDS.has(feature.kind)) {
+      add(`${base}.kind`, "Roads, drives, paths, and trails belong in routes, not features.");
     } else if (!Array.isArray(feature.points) || feature.points.length < 2) {
       add(`${base}.points`, "Line features require at least two points.");
     }

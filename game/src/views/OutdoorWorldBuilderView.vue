@@ -23,7 +23,8 @@ import { storyApi } from "../lib/storyApi.js";
 import { useWorldContent } from "../composables/useWorldContent.js";
 
 const PASSAGE_KINDS = new Set(["gate", "hole", "bridge", "ford", "stair"]);
-const LINE_KINDS = ["river", "road", "drive", "fence", "path", "trail"];
+const ROUTE_KINDS = ["road", "drive", "path", "trail"];
+const FEATURE_LINE_KINDS = ["river", "fence", "cliff", "ravine"];
 const TERRAIN_KINDS = ["forest", "clearing", "rock", "water"];
 const { refresh: refreshSharedWorld } = useWorldContent();
 const builderFlags = new Set();
@@ -1295,7 +1296,7 @@ function clonePlain(value) {
 
           <template v-else-if="selectedType === 'route'">
             <label>Kind
-              <select v-model="selected.kind"><option v-for="kind in LINE_KINDS" :key="kind">{{ kind }}</option></select>
+              <select v-model="selected.kind"><option v-for="kind in ROUTE_KINDS" :key="kind">{{ kind }}</option></select>
             </label>
             <label>Label<input v-model="selected.label" /></label>
             <label class="check-field"><input v-model="selected.smooth" type="checkbox" /> Smooth line</label>
@@ -1303,7 +1304,7 @@ function clonePlain(value) {
 
           <template v-else-if="selectedType === 'feature'">
             <label>Kind
-              <select v-model="selected.kind"><option v-for="kind in LINE_KINDS" :key="kind">{{ kind }}</option></select>
+              <select v-model="selected.kind"><option v-for="kind in FEATURE_LINE_KINDS" :key="kind">{{ kind }}</option></select>
             </label>
             <label>Label<input v-model="selected.label" /></label>
             <label>Flow<input v-model="selected.flow" /></label>

@@ -37,4 +37,22 @@ describe("world model", () => {
     expect(result.errors["features.0.cascades.0.from"]).toBeDefined();
     expect(result.errors["features.0.cascades.0.to"]).toBeDefined();
   });
+
+  it("keeps road-like travel geometry in routes instead of features", () => {
+    const world = structuredClone(loadWorldSeed());
+    world.features.push({
+      id: "duplicate-road",
+      kind: "road",
+      points: [
+        { hex: "origin", dx: 0, dy: 0 },
+        { hex: "east-pines", dx: 0, dy: 0 },
+      ],
+    });
+    const result = validateWorld(world);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors[`features.${world.features.length - 1}.kind`]).toContain(
+      "Roads, drives, paths, and trails belong in routes, not features.",
+    );
+  });
 });
