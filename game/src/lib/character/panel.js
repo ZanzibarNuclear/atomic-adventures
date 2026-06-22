@@ -90,9 +90,17 @@ export function formatStatValue(stat) {
   if (stat.value == null) return "—";
   if (stat.type === "boolean") return stat.value ? "Yes" : "No";
   if (stat.type === "meter" && Number.isFinite(Number(stat.max))) {
-    return `${stat.value} / ${stat.max}`;
+    return `${formatNumber(stat.value)} / ${formatNumber(stat.max)}`;
   }
-  return String(stat.value);
+  return formatNumber(stat.value);
+}
+
+function formatNumber(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return String(value);
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 1,
+  }).format(number);
 }
 
 function visibleDefinition(definition, acquired) {

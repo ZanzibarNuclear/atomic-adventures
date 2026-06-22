@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   activeQuestSummaries,
   characterTabs,
+  formatStatValue,
   questSections,
   visibleCharacterStats,
   visibleInventoryGroups,
@@ -81,5 +82,23 @@ describe("character panel presentation", () => {
         }),
       ],
     }));
+  });
+
+  it("formats floating point stat drift without noisy precision", () => {
+    expect(formatStatValue({
+      type: "meter",
+      value: 40.300000000000125,
+      max: 100,
+    })).toBe("40.3 / 100");
+    expect(formatStatValue({
+      type: "meter",
+      value: 55.599999999999866,
+      max: 100,
+    })).toBe("55.6 / 100");
+    expect(formatStatValue({
+      type: "meter",
+      value: 100,
+      max: 100,
+    })).toBe("100 / 100");
   });
 });
