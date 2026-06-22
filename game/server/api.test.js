@@ -167,7 +167,7 @@ describe("story API", () => {
     const valid = {
       id: "api-beat",
       text: "API story",
-      trigger: { place: "outdoors", hex: "trailhead" },
+      trigger: { place: "outdoors", hex: "origin" },
       choices: [],
     };
     const createRes = responseCapture();

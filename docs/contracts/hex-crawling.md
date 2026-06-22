@@ -46,7 +46,7 @@ For adjacent hex movement, the contract is:
 1. **Offer only reachable borders.** A neighboring hex is a valid movement option only when the avatar can reach the shared border with that neighbor from the current stand.
 2. **Use the chosen path shape.** The reachability path may be a straight segment, a marked route polyline, a walk along a barrier, or a computed path around a barrier inside the reachable sub-area. A straight chord is only one candidate, not the definition of movement.
 3. **Respect barriers.** A path may not cross a barrier unless it crosses at an available local passage in the same cell and the movement being resolved explicitly uses that passage.
-4. **Enter through the reachable border.** If the avatar can reach the shared border, the cell on the other side is reachable. The move enters the destination cell through that border, not through its center or an arbitrary `standAt`.
+4. **Enter through the reachable border.** If the avatar can reach the shared border, the cell on the other side is reachable. The move enters the destination cell through that border, not through its center or an arbitrary stand.
 5. **Choose a safe destination stand.** After entry, the avatar stands in the best reachable place inside the destination cell. If a barrier divides the cell, first identify the barrier-bounded sub-area entered through the shared border and choose the stand inside that area.
 6. **The stand decides the active hex.** The active hex after a move is whichever hex contains the final stand (`hexAtPoint(stand)`), not merely the hex the player clicked.
 
@@ -229,7 +229,7 @@ Adjacent move options and execution use one geometry authority:
 
 ### `resolveNeighborStand` vs final stand
 
-`resolveNeighborStand(from, to, …)` returns a **naive target** for path building: destination `standAt` if authored, else hex center. It **ignores** `fromPos` and `barrierCtx`. The actual stand after `resolveMove` may differ (accessible side, route point, etc.).
+`resolveNeighborStand(from, to, …)` returns a **naive target** for path building: the first authored stand if present, else hex center. It **ignores** `fromPos` and `barrierCtx`. The actual stand after `resolveMove` may differ (accessible side, route point, etc.).
 
 ### Barrier crossing geometry
 
@@ -275,12 +275,17 @@ Adjacent move options and execution use one geometry authority:
 
 ### Authoring reference (`map.yaml`)
 
-**Hex `standAt` forms:**
+**Hex `stands` forms:**
 
 ```yaml
-standAt: { x: -81, y: -76 }              # fixed world coords
-standAt: { from: landmark, dx: 0.1, dy: 0 } # beside building icon
-standAt: { dx: -0.3, dy: 0.1 }             # offset from hex center
+stands:
+  - id: gate
+    label: "Gate"
+    at: { x: -81, y: -76 }                  # fixed world coords
+  - id: entrance
+    at: { from: landmark, dx: 0.1, dy: 0 }  # beside building icon
+  - id: river-bank
+    at: { dx: -0.3, dy: 0.1 }               # offset from hex center
 ```
 
 **Openings:**
@@ -358,7 +363,7 @@ In a development game build, use **Show movement audit** above the outdoor map. 
 
 ### Northern approach (play sequence)
 
-1. `trailhead → … → road-fork → upper-gorge` via `river-access-drive`
+1. `origin → … → road-fork → upper-gorge` via `river-access-drive`
 2. `crossPassage('upper-gorge-bridge')`, then `upper-gorge → north-west`
 3. West bank: `north-west → mid-west` (river blocks center chord — use bank geometry / shared edge)
 4. Search ford at `mid-west`; `mid-west → utility-yard` on west bank without requiring ford on inter-hex path

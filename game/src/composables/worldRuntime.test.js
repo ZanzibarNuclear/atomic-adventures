@@ -7,7 +7,7 @@ describe("outdoor world live replacement", () => {
   it("preserves a valid location and filters removed discoveries", () => {
     const outdoor = useOutdoorWorld(mapData);
     outdoor.state.currentId = "gate-woods";
-    outdoor.state.discovered = ["trailhead", "gate-woods", "removed-hex"];
+    outdoor.state.discovered = ["origin", "gate-woods", "removed-hex"];
     outdoor.state.discoveredOpenings = ["compound-gate", "removed-opening"];
     outdoor.state.lastBlocked = "fence";
 
@@ -17,7 +17,7 @@ describe("outdoor world live replacement", () => {
     applyOutdoorWorldUpdate(outdoor, next);
 
     expect(outdoor.state.currentId).toBe("gate-woods");
-    expect(outdoor.state.discovered).toEqual(["trailhead", "gate-woods"]);
+    expect(outdoor.state.discovered).toEqual(["origin", "gate-woods"]);
     expect(outdoor.state.discoveredOpenings).toEqual(["compound-gate"]);
     expect(outdoor.state.stand).toEqual(outdoor.defaultStandForHex("gate-woods"));
     expect(outdoor.state.lastBlocked).toBeNull();

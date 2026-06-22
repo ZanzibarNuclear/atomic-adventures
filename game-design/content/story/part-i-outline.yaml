@@ -21,14 +21,14 @@ manuscript: game-design/content/story/part-i.md
 area: part-i
 
 when_phases:
-  afternoon: Day 1 from trailhead through kitchen arrival
+  afternoon: Day 1 from origin through kitchen arrival
   sunset: Kitchen windows; spiral stair; orange sky
   dusk: Hallway and library approach
   night: Sleep in the library
 
 # Canonical outdoor journey
 journey:
-  hexes: [trailhead, east-pines, center-pines, north-bend, gate-woods, utility-yard]
+  hexes: [origin, east-pines, center-pines, north-bend, gate-woods, utility-yard]
 
 # ---------------------------------------------------------------------------
 # Main storyline — in play order
@@ -41,7 +41,7 @@ scenes:
     kind: main
     md: "Day 1 > Opening Scene, ¶1–4, 9–19"
     when: { day: 1, phase: afternoon }
-    where: { place: outdoors, hex: trailhead }
+    where: { place: outdoors, hex: origin }
     sets: [story.intro, time.day1, time.phase-afternoon]
     game: intro
     notes: |

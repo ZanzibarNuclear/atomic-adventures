@@ -109,10 +109,7 @@ export function useHexMapPlacements({
       standOverride.value?.hexId === hex.id &&
       standOverride.value?.standAt
     ) {
-      return resolveAvatarPosition(
-        { ...hex, standAt: standOverride.value.standAt },
-        size.value,
-      )
+      return standOverride.value.standAt
     }
     return resolveAvatarPosition(hex, size.value)
   })

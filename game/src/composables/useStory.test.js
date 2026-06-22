@@ -29,7 +29,7 @@ function harness(initialStory, { withCharacter = false, withClock = false, moveT
     } : {}),
   });
   const outdoor = {
-    state: reactive({ currentId: "trailhead" }),
+    state: reactive({ currentId: "origin" }),
     canReachHex: () => true,
     moveTo,
     atBuildingEntrance: false,
@@ -50,7 +50,7 @@ function harness(initialStory, { withCharacter = false, withClock = false, moveT
 const beat = {
   heading: "Original",
   text: "Original text",
-  trigger: { place: "outdoors", hex: "trailhead" },
+  trigger: { place: "outdoors", hex: "origin" },
   choices: [{ text: "Continue" }],
 };
 
@@ -110,7 +110,7 @@ describe("useStory reactive content", () => {
     await nextTick();
     expect(api.narrativeBeat.value).toBeNull();
 
-    outdoor.state.currentId = "trailhead";
+    outdoor.state.currentId = "origin";
     await nextTick();
     expect(api.narrativeBeat.value.text).toBe("Return text");
     expect(api.narrativeBeat.value.revisit).toBe(true);
@@ -126,7 +126,7 @@ describe("useStory reactive content", () => {
 
     outdoor.state.currentId = "elsewhere";
     await nextTick();
-    outdoor.state.currentId = "trailhead";
+    outdoor.state.currentId = "origin";
     await nextTick();
 
     expect(api.narrativeBeat.value.text).toBe("Original text");
@@ -145,7 +145,7 @@ describe("useStory reactive content", () => {
 
     outdoor.state.currentId = "elsewhere";
     await nextTick();
-    outdoor.state.currentId = "trailhead";
+    outdoor.state.currentId = "origin";
     await nextTick();
 
     expect(gameState.storySeen.has("ambient")).toBe(true);

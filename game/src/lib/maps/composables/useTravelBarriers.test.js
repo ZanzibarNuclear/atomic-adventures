@@ -247,7 +247,7 @@ describe('resolveMove', () => {
 describe('reachable arrival stand selection', () => {
   const size = 44
   const fromHex = { id: 'from', q: 0, r: 0 }
-  const toHex = { id: 'to', q: 1, r: 0, standAt: { x: 120, y: 0 } }
+  const toHex = { id: 'to', q: 1, r: 0, stands: [{ id: 'east', at: { x: 120, y: 0 } }] }
   const fromPos = { x: 0, y: 0 }
   const authoredStand = { x: 120, y: 0 }
   const centerStand = hexCenterStand(toHex, size)
@@ -255,10 +255,32 @@ describe('reachable arrival stand selection', () => {
   it('uses an authored stand when it is reachable', () => {
     const result = resolveMove({
       fromHex,
-      toHex: { ...toHex, standAt: { x: 70, y: 20 } },
+      toHex: { ...toHex, stands: [{ id: 'west', at: { x: 70, y: 20 } }] },
       fromPos,
       toPos: { x: 70, y: 20 },
       path: [fromPos, { x: 70, y: 20 }],
+      ctx: verticalFence,
+      hexAtPoint,
+      size,
+    })
+
+    expect(result.blockedKind).toBeNull()
+    expect(result.stand).toEqual({ x: 70, y: 20 })
+  })
+
+  it('chooses the authored stand reachable from the entered side of a barrier', () => {
+    const result = resolveMove({
+      fromHex,
+      toHex: {
+        ...toHex,
+        stands: [
+          { id: 'east', at: { x: 120, y: 0 } },
+          { id: 'west', at: { x: 70, y: 20 } },
+        ],
+      },
+      fromPos,
+      toPos: { x: 120, y: 0 },
+      path: [fromPos, { x: 120, y: 0 }],
       ctx: verticalFence,
       hexAtPoint,
       size,

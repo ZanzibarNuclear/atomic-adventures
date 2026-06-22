@@ -7,8 +7,12 @@ import {
 } from '../lib/maps/testing/travelWorld.js'
 import {
   getMovementOptions,
+  buildOutdoorBarrierFollowActions,
+  buildOutdoorPlayActions,
+  buildOutdoorRouteActions,
   buildOutdoorSearchActions,
   buildStoryChoices,
+  handleOutdoorPlayAction,
 } from './usePlayPanel.js'
 import { hiddenOpeningsInHex } from '../lib/maps/composables/useBarrierOpenings.js'
 import { useOutdoorWorld } from '../lib/maps/composables/useOutdoorWorld.js'
@@ -80,7 +84,7 @@ describe('getMovementOptions', () => {
     const pendingBeat = {
       choices: [{ text: 'Keep walking west', go_hex: 'east-pines' }],
     }
-    const outdoor = outdoorAt('trailhead')
+    const outdoor = outdoorAt('origin')
     const options = getMovementOptions(outdoor, pendingBeat)
     const eastPines = options.filter((o) => o.toHexId === 'east-pines')
 
@@ -129,5 +133,76 @@ describe('getMovementOptions', () => {
         (f) => f.kind === 'hole',
       ),
     ).toBe(true)
+  })
+
+  it('keeps outdoor search actions in the contextual play action list', () => {
+    const outdoor = useOutdoorWorld(mapData)
+    outdoor.state.currentId = 'south-pines'
+    outdoor.state.stand = outdoor.defaultStandForHex('south-pines')
+
+    expect(buildOutdoorPlayActions(outdoor).map((action) => action.id)).toContain(
+      'search:barrier',
+    )
+  })
+
+  it('offers contextual route-following actions with route direction', () => {
+    const outdoor = useOutdoorWorld(mapData)
+    outdoor.state.currentId = 'road-fork'
+    outdoor.state.stand = outdoor.defaultStandForHex('road-fork')
+
+    expect(buildOutdoorRouteActions(outdoor).map((action) => action.label)).toEqual(
+      expect.arrayContaining([
+        'Follow the compound road to the south',
+        'Follow the river access drive to the west',
+      ]),
+    )
+  })
+
+  it('lets story choices replace route actions to the same destination', () => {
+    const outdoor = useOutdoorWorld(mapData)
+    outdoor.state.currentId = 'road-fork'
+    outdoor.state.stand = outdoor.defaultStandForHex('road-fork')
+    const pendingBeat = {
+      choices: [{ text: 'Take the road toward the gate', go_hex: 'gate-woods' }],
+    }
+
+    const actions = buildOutdoorRouteActions(outdoor, pendingBeat)
+
+    expect(actions.map((action) => action.toHexId)).not.toContain('gate-woods')
+    expect(actions.map((action) => action.toHexId)).toContain('upper-gorge')
+  })
+
+  it('offers barrier-following actions with barrier direction', () => {
+    const outdoor = useOutdoorWorld(mapData)
+    outdoor.state.currentId = 'mid-west'
+    outdoor.state.stand = outdoor.defaultStandForHex('mid-west')
+
+    expect(buildOutdoorBarrierFollowActions(outdoor).map((action) => action.label)).toContain(
+      'Walk southeast along the river',
+    )
+  })
+
+  it('dispatches outdoor contextual actions to search and passage handlers', () => {
+    const calls = []
+    const outdoor = {
+      canSearchHere: () => true,
+      searchableOpenings: () => [],
+      state: { atBarrier: 'fence', lastBlocked: null },
+      searchBarrier: () => calls.push('search'),
+      crossPassage: (id) => calls.push(`passage:${id}`),
+      moveTo: (id) => calls.push(`move:${id}`),
+    }
+
+    handleOutdoorPlayAction(outdoor, 'search:barrier')
+    handleOutdoorPlayAction(outdoor, 'passage:south-pines-hole')
+    handleOutdoorPlayAction(outdoor, 'route:gate-woods')
+    handleOutdoorPlayAction(outdoor, 'barrier:utility-yard')
+
+    expect(calls).toEqual([
+      'search',
+      'passage:south-pines-hole',
+      'move:gate-woods',
+      'move:utility-yard',
+    ])
   })
 })

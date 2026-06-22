@@ -8,9 +8,23 @@ export function normalizeWorld(input = {}) {
   world.start = nullableText(world.start);
   world.journey = stringList(world.journey);
   world.hexes = Array.isArray(world.hexes) ? world.hexes : [];
+  world.hexes.forEach(normalizeHexStands);
   world.features = Array.isArray(world.features) ? world.features : [];
   world.routes = Array.isArray(world.routes) ? world.routes : [];
   return world;
+}
+
+function normalizeHexStands(hex) {
+  if (!hex || typeof hex !== "object") return;
+  const stands = Array.isArray(hex.stands) ? hex.stands : [];
+  if (hex.standAt && !stands.length) {
+    hex.stands = [{ id: "default", label: "Default stand", at: hex.standAt }];
+  } else if (stands.length) {
+    hex.stands = stands;
+  } else {
+    delete hex.stands;
+  }
+  delete hex.standAt;
 }
 
 export function validateWorld(input) {
@@ -41,9 +55,17 @@ export function validateWorld(input) {
       if (coordinates.has(key)) add(`${base}.coordinates`, "Another hex already occupies these coordinates.");
       coordinates.add(key);
     }
-    if (hex.standAt && !validStand(hex.standAt)) {
-      add(`${base}.standAt`, "Stand points need x/y, dx/dy, or a landmark-relative offset.");
-    }
+    const standIds = new Set();
+    (hex.stands ?? []).forEach((stand, standIndex) => {
+      const standBase = `${base}.stands.${standIndex}`;
+      stand.id = String(stand.id ?? "").trim();
+      if (!ID_PATTERN.test(stand.id)) add(`${standBase}.id`, "Use a unique kebab-case stand ID.");
+      if (standIds.has(stand.id)) add(`${standBase}.id`, "Stand IDs must be unique within a hex.");
+      standIds.add(stand.id);
+      if (!validStand(stand.at)) {
+        add(`${standBase}.at`, "Stand points need x/y, dx/dy, or a landmark-relative offset.");
+      }
+    });
     if (hex.landmark && typeof hex.landmark !== "object") {
       add(`${base}.landmark`, "Landmark must be an object.");
     }
@@ -73,12 +95,13 @@ export function validateWorld(input) {
   });
 
   world.hexes.forEach((hex, index) => {
-    if (hex.standAt?.x != null && hex.standAt?.y != null) {
+    for (const [standIndex, stand] of (hex.stands ?? []).entries()) {
+      if (stand.at?.x == null || stand.at?.y == null) continue;
       const centerX = world.size * Math.sqrt(3) * (hex.q + hex.r / 2);
       const centerY = world.size * 1.5 * hex.r;
-      const distance = Math.hypot(hex.standAt.x - centerX, hex.standAt.y - centerY);
+      const distance = Math.hypot(stand.at.x - centerX, stand.at.y - centerY);
       if (distance > world.size * 1.15) {
-        warn(`hexes.${index}.standAt`, "The stand point appears to be outside its hex.");
+        warn(`hexes.${index}.stands.${standIndex}.at`, "The stand point appears to be outside its hex.");
       }
     }
   });

@@ -29,10 +29,10 @@ describe('story journey smoke test (gameplay)', () => {
   }
 
   it(
-    'journeys from trailhead through the gate to utility-yard',
+    'journeys from origin through the gate to utility-yard',
     () => {
     expect(JOURNEY).toEqual([
-      'trailhead',
+      'origin',
       'east-pines',
       'center-pines',
       'north-bend',
@@ -41,13 +41,17 @@ describe('story journey smoke test (gameplay)', () => {
     ])
 
     const { outdoor, gameState } = buildGameplayWorld(mapData)
-    expect(outdoor.state.currentId).toBe('trailhead')
+    expect(outdoor.state.currentId).toBe('origin')
 
     for (let i = 1; i < 5; i++) {
       expectMoveOk(outdoor, JOURNEY[i - 1], JOURNEY[i])
     }
 
-    const gateStand = mapData.hexes.find((h) => h.id === 'gate-woods')?.standAt
+    const gateStand = mapData.hexes
+      .find((h) => h.id === 'gate-woods')
+      ?.stands
+      ?.find((stand) => stand.id === 'gate')
+      ?.at
     expect(outdoor.state.stand).toEqual({ x: gateStand.x, y: gateStand.y })
     expect(outdoor.state.stand.y, 'north of locked gate on arrival').toBeLessThan(-62)
 

@@ -3,7 +3,7 @@
 # Choice effects (optional): sets, go_hex, go_room, enter (building)
 #
 # Outdoor journey (map.yaml `journey`): one beat per hex on the westward path —
-# trailhead → east-pines → center-pines → north-bend → gate-woods → utility-yard.
+# origin → east-pines → center-pines → north-bend → gate-woods → utility-yard.
 # Off-trail hexes have no Day-1 beats unless added later.
 
 area: part-i
@@ -16,7 +16,7 @@ beats:
     heading: Lost in the woods
     trigger:
       place: outdoors
-      hex: trailhead
+      hex: origin
     text: |
       Zanzibar had been walking in the forest for days. He parted company with
       his small group of explorers, following an unshakable intuition to go uphill toward the west. The others thought it best to stay on the road around toward the east. 

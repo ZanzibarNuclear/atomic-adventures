@@ -14,6 +14,8 @@ import {
   resolveAvatarPosition,
   hexCenterStand,
   hasLandmarkMarker,
+  authoredStandPositions,
+  normalizeStandEntries,
 } from './useAvatarStand.js'
 import { axialToPixel, hexCorners, hexDistance } from './useHexGeometry.js'
 
@@ -809,7 +811,8 @@ function resolveDestinationStand({
     return { stand: routeStand, blockedKind: null }
   }
 
-  const authored = toHex?.standAt ? resolveAvatarPosition(toHex, size) : null
+  const authoredStands = authoredStandPositions(toHex, size)
+  const authored = authoredStands[0] ?? null
   const center = hexCenterStand(toHex, size)
   const midpoint = barrierMidpointStand(
     entryPoint,
@@ -821,8 +824,8 @@ function resolveDestinationStand({
   const neighborTarget =
     toPos && !samePoint(toPos, authored) ? toPos : null
   const preferred = barrierDividedCell
-    ? [authored, neighborTarget]
-    : [authored, neighborTarget, center]
+    ? [...authoredStands, neighborTarget]
+    : [...authoredStands, neighborTarget, center]
 
   for (const target of preferred.filter(Boolean)) {
     const stand = standReachableFromEntry({
@@ -1067,25 +1070,26 @@ export function pathEndInHex(path, hexId, hexAtPoint) {
 
 /**
  * Where to stand after an unblocked move: route midpoint when the path passes
- * through the hex, route endpoint when it dead-ends at an authored standAt hex,
+ * through the hex, route endpoint when it dead-ends at an authored stand hex,
  * otherwise the requested destination (hex center for direct steps).
  */
 export function resolveArrivalStand(walkPath, toHex, toPos, hexAtPoint, opts = {}) {
-  const stand = toHex?.standAt
   const { size } = opts
+  const authored = authoredStandPositions(toHex, size)
+  const firstStand = normalizeStandEntries(toHex)[0]?.at
 
-  if (stand?.x != null && stand?.y != null && stand.from == null) {
-    return { x: stand.x, y: stand.y }
+  if (firstStand?.x != null && firstStand?.y != null && firstStand.from == null) {
+    return { x: firstStand.x, y: firstStand.y }
   }
 
-  if (stand?.from === 'landmark' && size != null) {
-    return resolveAvatarPosition(toHex, size)
+  if (firstStand?.from === 'landmark' && size != null) {
+    return authored[0] ?? resolveAvatarPosition(toHex, size)
   }
 
   if (walkPath.length <= 2) return toPos
   const last = walkPath[walkPath.length - 1]
   if (
-    toHex?.standAt &&
+    authored.length &&
     toHex.id &&
     hexAtPoint(last, toHex.id) === toHex.id
   ) {

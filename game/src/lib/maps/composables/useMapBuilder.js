@@ -4,6 +4,8 @@ import { resolveWaypoint } from './useRoutes.js'
 import {
   landmarkAnchor,
   resolveAvatarPosition,
+  resolveStandPoint,
+  normalizeStandEntries,
   DEFAULT_BESIDE_LANDMARK,
   hasLandmarkMarker,
 } from './useAvatarStand.js'
@@ -18,10 +20,10 @@ function roundInt(n) {
   return Math.round(n)
 }
 
-/** Hexes with a landmark icon and/or standAt — editable placements. */
+/** Hexes with a landmark icon and/or authored stands — editable placements. */
 export function listEditablePlacements(hexes) {
   return (hexes ?? [])
-    .filter((h) => hasLandmarkMarker(h) || h.standAt || h.landmark?.label)
+    .filter((h) => hasLandmarkMarker(h) || h.stands?.length || h.landmark?.label)
     .map((h) => ({
       source: 'hexes',
       id: h.id,
@@ -42,13 +44,23 @@ export function resolvedPlacementHandles(hex, size) {
     const p = landmarkAnchor(hex, size)
     handles.push({ role: 'landmark', x: p.x, y: p.y })
   }
-  if (
-    hasLandmarkMarker(hex) ||
-    hex.standAt ||
-    hex.landmark?.label
-  ) {
+  const stands = normalizeStandEntries(hex)
+  if (stands.length) {
+    for (const stand of stands) {
+      const p = resolveStandPoint(hex, stand.at, size)
+      if (p) {
+        handles.push({
+          role: 'stand',
+          index: stand.index,
+          standId: stand.id,
+          x: p.x,
+          y: p.y,
+        })
+      }
+    }
+  } else if (hasLandmarkMarker(hex) || hex.landmark?.label) {
     const p = resolveAvatarPosition(hex, size)
-    handles.push({ role: 'stand', x: p.x, y: p.y })
+    handles.push({ role: 'stand', index: -1, standId: 'default', x: p.x, y: p.y })
   }
   return handles
 }
@@ -60,38 +72,52 @@ export function setLandmarkWorld(hex, x, y, size) {
   hex.landmark.dy = round2((y - c.y) / size)
 }
 
-export function setStandWorld(hex, x, y, size) {
+export function setStandWorld(hex, x, y, size, index = -1) {
   const c = axialToPixel(hex.q, hex.r, size)
-  const stand = hex.standAt
+  const stand = index >= 0 ? hex.stands?.[index]?.at : hex.stands?.[0]?.at
 
   if (stand?.from !== 'landmark' && stand?.x != null && stand?.y != null) {
-    hex.standAt = { x: roundInt(x), y: roundInt(y) }
+    setHexStandPoint(hex, { x: roundInt(x), y: roundInt(y) }, index)
     return
   }
 
   if (hasLandmarkMarker(hex)) {
     const anchor = landmarkAnchor(hex, size)
-    hex.standAt = {
+    setHexStandPoint(hex, {
       from: 'landmark',
       dx: round2((x - anchor.x) / size),
       dy: round2((y - anchor.y) / size),
-    }
+    }, index)
     return
   }
 
-  hex.standAt = {
+  setHexStandPoint(hex, {
     dx: round2((x - c.x) / size),
     dy: round2((y - c.y) / size),
+  }, index)
+}
+
+function setHexStandPoint(hex, at, index) {
+  if (index >= 0 && hex.stands?.[index]) {
+    hex.stands[index].at = at
+  } else {
+    hex.stands ??= []
+    if (hex.stands[0]) hex.stands[0].at = at
+    else hex.stands.push({ id: 'default', label: 'Default stand', at })
   }
 }
 
 export function ensureDefaultStandAt(hex) {
-  if (hex.standAt || !hasLandmarkMarker(hex)) return
-  hex.standAt = {
-    from: 'landmark',
-    dx: DEFAULT_BESIDE_LANDMARK.dx,
-    dy: DEFAULT_BESIDE_LANDMARK.dy,
-  }
+  if (hex.stands?.length || !hasLandmarkMarker(hex)) return
+  hex.stands = [{
+    id: 'default',
+    label: 'Default stand',
+    at: {
+      from: 'landmark',
+      dx: DEFAULT_BESIDE_LANDMARK.dx,
+      dy: DEFAULT_BESIDE_LANDMARK.dy,
+    },
+  }]
 }
 
 /** Lines with a points array — editable in the map builder. */
@@ -271,6 +297,15 @@ function fmtStandAt(stand) {
   return `{ ${parts.join(', ')} }`
 }
 
+function serializeStand(stand, indent) {
+  const pad = ' '.repeat(indent)
+  const inner = ' '.repeat(indent + 2)
+  const lines = [`${pad}- id: ${stand.id}`]
+  if (stand.label) lines.push(`${inner}label: ${JSON.stringify(stand.label)}`)
+  lines.push(`${inner}at: ${fmtStandAt(stand.at)}`)
+  return lines.join('\n')
+}
+
 function serializeHexBlock(hex, indent) {
   const pad = ' '.repeat(indent)
   const inner = ' '.repeat(indent + 2)
@@ -281,7 +316,10 @@ function serializeHexBlock(hex, indent) {
     `${inner}terrain: ${hex.terrain}`,
   ]
   if (hex.puzzle) lines.push(`${inner}puzzle: ${hex.puzzle}`)
-  if (hex.standAt) lines.push(`${inner}standAt: ${fmtStandAt(hex.standAt)}`)
+  if (hex.stands?.length) {
+    lines.push(`${inner}stands:`)
+    for (const stand of hex.stands) lines.push(serializeStand(stand, indent + 4))
+  }
   if (hex.landmark) {
     lines.push(`${inner}landmark:`)
     const lm = hex.landmark
@@ -309,7 +347,7 @@ function fmtLandmarkInline(lm) {
 export function serializeHex(hex, indent = 2) {
   const pad = ' '.repeat(indent)
   const simple =
-    !hex.standAt &&
+    !hex.stands?.length &&
     !hex.puzzle &&
     !hex.landmark
   if (simple) {
@@ -318,7 +356,7 @@ export function serializeHex(hex, indent = 2) {
   const lm = hex.landmark
   if (
     lm &&
-    !hex.standAt &&
+    !hex.stands?.length &&
     !hex.puzzle &&
     !lm.blurb
   ) {

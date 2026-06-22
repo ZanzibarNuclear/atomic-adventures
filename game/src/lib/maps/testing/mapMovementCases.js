@@ -18,7 +18,7 @@ function startAt(outdoor, hexId) {
 }
 
 function northGateApproach(outdoor) {
-  startAt(outdoor, 'trailhead')
+  startAt(outdoor, 'origin')
   move(outdoor, 'east-pines', 'center-pines', 'north-bend', 'gate-woods')
 }
 
@@ -28,7 +28,7 @@ function southOfGate(outdoor) {
 }
 
 function upperGorgeEast(outdoor) {
-  startAt(outdoor, 'trailhead')
+  startAt(outdoor, 'origin')
   move(
     outdoor,
     'east-pines',
@@ -70,7 +70,7 @@ function utilityYardWest(outdoor) {
 }
 
 function southPinesEast(outdoor) {
-  startAt(outdoor, 'trailhead')
+  startAt(outdoor, 'origin')
   move(outdoor, 'east-pines', 'lower-stand', 'south-pines')
 }
 
@@ -88,21 +88,21 @@ function southPinesWest(outdoor) {
  */
 export const MAP_MOVEMENT_CASES = [
   {
-    id: 'trailhead:start',
-    hexId: 'trailhead',
+    id: 'origin:start',
+    hexId: 'origin',
     auditStand: { x: 152, y: 0 },
     expectedMoves: ['east-pines'],
     forbiddenMoves: [],
-    setup: (outdoor) => startAt(outdoor, 'trailhead'),
+    setup: (outdoor) => startAt(outdoor, 'origin'),
   },
   {
-    id: 'east-pines:from-trailhead',
+    id: 'east-pines:from-origin',
     hexId: 'east-pines',
     auditStand: { x: 76, y: 0 },
-    expectedMoves: ['center-pines', 'far-pines', 'lower-stand', 'trailhead'],
+    expectedMoves: ['center-pines', 'far-pines', 'lower-stand', 'origin'],
     forbiddenMoves: [],
     setup(outdoor) {
-      startAt(outdoor, 'trailhead')
+      startAt(outdoor, 'origin')
       move(outdoor, 'east-pines')
     },
   },
@@ -113,7 +113,7 @@ export const MAP_MOVEMENT_CASES = [
     expectedMoves: ['center-pines', 'east-pines', 'north-bend'],
     forbiddenMoves: [],
     setup(outdoor) {
-      startAt(outdoor, 'trailhead')
+      startAt(outdoor, 'origin')
       move(outdoor, 'east-pines', 'far-pines')
     },
   },
@@ -131,7 +131,7 @@ export const MAP_MOVEMENT_CASES = [
     forbiddenMoves: ['west-slope'],
     region: { fence: 'east' },
     setup(outdoor) {
-      startAt(outdoor, 'trailhead')
+      startAt(outdoor, 'origin')
       move(outdoor, 'east-pines', 'center-pines')
     },
   },
@@ -154,7 +154,7 @@ export const MAP_MOVEMENT_CASES = [
     expectedMoves: ['center-pines', 'east-pines', 'south-pines'],
     forbiddenMoves: [],
     setup(outdoor) {
-      startAt(outdoor, 'trailhead')
+      startAt(outdoor, 'origin')
       move(outdoor, 'east-pines', 'lower-stand')
     },
   },
@@ -166,7 +166,7 @@ export const MAP_MOVEMENT_CASES = [
     forbiddenMoves: ['west-slope'],
     region: { fence: 'north' },
     setup(outdoor) {
-      startAt(outdoor, 'trailhead')
+      startAt(outdoor, 'origin')
       move(outdoor, 'east-pines', 'center-pines', 'north-bend')
     },
   },
@@ -190,7 +190,7 @@ export const MAP_MOVEMENT_CASES = [
     forbiddenMoves: [],
     region: { fence: 'north' },
     setup(outdoor) {
-      startAt(outdoor, 'trailhead')
+      startAt(outdoor, 'origin')
       move(
         outdoor,
         'east-pines',
@@ -375,8 +375,8 @@ export function fenceSideAt(stand) {
 }
 
 const DEFAULT_ARRIVAL_STATE = {
-  trailhead: 'trailhead:start',
-  'east-pines': 'east-pines:from-trailhead',
+  origin: 'origin:start',
+  'east-pines': 'east-pines:from-origin',
   'far-pines': 'far-pines:from-east',
   'center-pines': 'center-pines:from-east',
   'lower-stand': 'lower-stand:from-east',

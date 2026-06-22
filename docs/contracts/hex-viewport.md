@@ -63,7 +63,7 @@ Builder view is not a third player mode; it is an author override.
 
 ### Player experience
 
-- The map stays at a **fixed zoom level** (the same scale as the opening view at trailhead: current hex plus nearby context).
+- The map stays at a **fixed zoom level** (the same scale as the opening view at origin: current hex plus nearby context).
 - The **current hex is centered** in the map panel.
 - **Visited hexes** in the window render as terrain. As the player explores, multiple discovered hexes may appear at once when they fit in the window — not limited to a strict one-ring cap on terrain.
 - **Undiscovered neighbors of the current hex** render as fog tiles — a one-step preview of where the player could go next.
@@ -202,23 +202,23 @@ Discovery lists are independent of mode and are always saved.
 
 ### Worked examples
 
-**Start at trailhead** (`discovered: [trailhead]`):
+**Start at origin** (`discovered: [origin]`):
 
-- Gameplay viewBox centered on trailhead at fixed zoom.
-- Terrain: trailhead.
-- Fog: undiscovered **neighbors** of trailhead that intersect the viewBox (e.g. east-pines).
+- Gameplay viewBox centered on origin at fixed zoom.
+- Terrain: origin.
+- Fog: undiscovered **neighbors** of origin that intersect the viewBox (e.g. east-pines).
 
-**After walking to east-pines** (`discovered: [trailhead, east-pines, …]`):
+**After walking to east-pines** (`discovered: [origin, east-pines, …]`):
 
 - Same viewBox **size**; re-centered on east-pines.
-- Terrain: discovered hexes in window (e.g. trailhead + east-pines when both fit).
-- Fog: undiscovered neighbors of east-pines only (e.g. center-pines, far-pines). Fog that was shown from trailhead but is not a neighbor of east-pines is gone.
+- Terrain: discovered hexes in window (e.g. origin + east-pines when both fit).
+- Fog: undiscovered neighbors of east-pines only (e.g. center-pines, far-pines). Fog that was shown from origin but is not a neighbor of east-pines is gone.
 
 **Full mode** with the same discovery:
 
 - All discovered hexes visible; viewBox enlarged to include them; no fog tiles.
 
-**Discovered hex far away** (e.g. utility-yard visited early, player back at trailhead):
+**Discovered hex far away** (e.g. utility-yard visited early, player back at origin):
 
 - Gameplay: utility-yard not drawn (outside viewBox) but still in `discovered` and save.
 - Full: utility-yard appears with other discovered hexes.

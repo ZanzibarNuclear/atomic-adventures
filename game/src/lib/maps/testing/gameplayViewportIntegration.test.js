@@ -25,7 +25,7 @@ describe('gameplay viewport at east-pines', () => {
 
     expect(vp.visibleHexes.map((h) => h.id).sort()).toEqual([
       'east-pines',
-      'trailhead',
+      'origin',
     ])
   })
 
@@ -42,7 +42,7 @@ describe('gameplay viewport at east-pines', () => {
 
     outdoor.state.currentId = 'east-pines'
     outdoor.state.discovered = [
-      'trailhead',
+      'origin',
       'east-pines',
       'center-pines',
       'utility-yard',
@@ -68,7 +68,7 @@ describe('gameplay viewport at east-pines', () => {
       'center-pines',
       'east-pines',
       'mid-west',
-      'trailhead',
+      'origin',
       'utility-yard',
       'west-slope',
     ])

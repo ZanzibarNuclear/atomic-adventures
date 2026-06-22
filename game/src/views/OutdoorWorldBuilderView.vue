@@ -6,7 +6,6 @@ import HexMap from "../lib/maps/components/HexMap.vue";
 import { useOutdoorWorld } from "../lib/maps/composables/useOutdoorWorld.js";
 import {
   addWaypoint,
-  ensureDefaultStandAt,
   resolvedPlacementHandles,
   resolvedWaypoints,
   setLandmarkWorld,
@@ -14,6 +13,7 @@ import {
   setWaypointWorld,
 } from "../lib/maps/composables/useMapBuilder.js";
 import { axialToPixel, boundsOf } from "../lib/maps/composables/useHexGeometry.js";
+import { normalizeStandEntries } from "../lib/maps/composables/useAvatarStand.js";
 import { resolveWaypoint } from "../lib/maps/composables/useRoutes.js";
 import {
   buildMapMovementAudit,
@@ -48,11 +48,16 @@ const auditEntries = ref([]);
 const auditSummary = ref(null);
 const leftCollapsed = ref(false);
 const rightCollapsed = ref(false);
+const canvasView = ref("map");
 const mapHost = ref(null);
 const camera = ref({ x: -250, y: -220, width: 500, height: 440 });
 const fitFrame = ref({ x: -250, y: -220, width: 500, height: 440 });
 const zoomAction = ref("fit");
 const panning = ref(null);
+const landmarkDraft = ref(null);
+const landmarkEditDraft = ref(null);
+const standDraft = ref(null);
+const standEditDraft = ref(null);
 const navigationPromptVisible = ref(false);
 const pendingRoute = ref("");
 const savingBeforeNavigation = ref(false);
@@ -89,7 +94,7 @@ const allHexSet = computed(() => new Set(allHexIds.value));
 const selected = computed(() => {
   const [type, id] = splitKey(selectedKey.value);
   if (type === "hex" || type === "landmark" || type === "stand") {
-    return outdoor.editableHexes.find((hex) => hex.id === id) ?? null;
+    return outdoor.editableHexes.find((hex) => hex.id === standHexId(id)) ?? null;
   }
   if (type === "route") return outdoor.editableRoutes.find((route) => route.id === id) ?? null;
   if (type === "feature" || type === "passage") {
@@ -98,6 +103,26 @@ const selected = computed(() => {
   return null;
 });
 const selectedType = computed(() => splitKey(selectedKey.value)[0]);
+const selectedStand = computed(() => {
+  if (selectedType.value !== "stand" || !selected.value) return null;
+  const standId = standIdFromKey(splitKey(selectedKey.value)[1]);
+  return (selected.value.stands ?? []).find((stand) => stand.id === standId) ?? null;
+});
+const selectedStandIndex = computed(() =>
+  selected.value?.stands?.findIndex((stand) => stand.id === selectedStand.value?.id) ?? -1,
+);
+const landmarkEditDirty = computed(() =>
+  selectedType.value === "landmark" &&
+  landmarkEditDraft.value &&
+  selected.value?.landmark &&
+  JSON.stringify(landmarkFromDraft(landmarkEditDraft.value)) !== JSON.stringify(landmarkFromDraft(selected.value.landmark)),
+);
+const standEditDirty = computed(() =>
+  selectedType.value === "stand" &&
+  standEditDraft.value &&
+  selectedStand.value &&
+  JSON.stringify(standFromDraft(standEditDraft.value)) !== JSON.stringify(normalizeStand(selectedStand.value)),
+);
 const selectedIsLine = computed(() =>
   selectedType.value === "route" ||
   (selectedType.value === "feature" && Array.isArray(selected.value?.points)),
@@ -109,6 +134,16 @@ const selectedIsPlacement = computed(() =>
 const editMode = computed(() => selectedIsLine.value ? "line" : selectedIsPlacement.value ? "placement" : null);
 const editHandles = computed(() => {
   if (!selected.value) return [];
+  const editSubject = selectedType.value === "landmark" && landmarkEditDraft.value
+    ? { ...selected.value, landmark: landmarkFromDraft(landmarkEditDraft.value) }
+    : selectedType.value === "stand" && standEditDraft.value
+      ? {
+        ...selected.value,
+        stands: selected.value.stands.map((stand) =>
+          stand.id === selectedStand.value?.id ? standFromDraft(standEditDraft.value) : stand,
+        ),
+      }
+    : selected.value;
   if (selectedIsLine.value) {
     return resolvedWaypoints(selected.value, outdoor.hexById, outdoor.size).map((handle) => ({
       ...handle,
@@ -119,9 +154,9 @@ const editHandles = computed(() => {
     const point = resolveWaypoint(selected.value.at, outdoor.hexById, outdoor.size);
     return [{ ...point, index: 0, role: "passage", handleKey: "passage" }];
   }
-  return resolvedPlacementHandles(selected.value, outdoor.size).map((handle) => ({
+  return resolvedPlacementHandles(editSubject, outdoor.size).map((handle) => ({
     ...handle,
-    handleKey: handle.role,
+    handleKey: handle.role === "stand" ? `stand-${handle.standId ?? handle.index}` : handle.role,
   }));
 });
 const builderEdit = computed(() => Boolean(selected.value && (editHandles.value.length || selectedIsLine.value)));
@@ -155,7 +190,13 @@ const filteredGroups = computed(() => {
     {
       label: "Stand points",
       type: "stand",
-      items: outdoor.editableHexes.filter((item) => item.standAt).filter(matches),
+      items: outdoor.editableHexes.flatMap((hex) =>
+        normalizeStandEntries(hex).map((stand) => ({
+          id: `${hex.id}:${stand.id}`,
+          label: stand.label,
+          kind: hex.id,
+        })),
+      ).filter(matches),
     },
   ];
 });
@@ -296,9 +337,34 @@ async function restoreRevision(revision) {
 }
 
 function select(type, id) {
+  if (
+    landmarkEditDirty.value &&
+    !window.confirm("Discard unsaved landmark changes and leave this landmark?")
+  ) {
+    return;
+  }
+  if (
+    standEditDirty.value &&
+    !window.confirm("Discard unsaved stand changes and leave this stand?")
+  ) {
+    return;
+  }
   selectedKey.value = `${type}:${id}`;
   selectedHandleId.value = null;
   tool.value = "select";
+  landmarkDraft.value = null;
+  standDraft.value = null;
+  landmarkEditDraft.value = type === "landmark"
+    ? landmarkDraftFrom(outdoor.editableHexes.find((hex) => hex.id === id)?.landmark)
+    : null;
+  standEditDraft.value = type === "stand"
+    ? standDraftFrom(
+      outdoor.editableHexes
+        .find((hex) => hex.id === standHexId(id))
+        ?.stands
+        ?.find((stand) => stand.id === standIdFromKey(id)),
+    )
+    : null;
 }
 
 function selectFeature(id) {
@@ -311,6 +377,14 @@ function splitKey(key) {
   return index < 0 ? ["", ""] : [key.slice(0, index), key.slice(index + 1)];
 }
 
+function standHexId(id) {
+  return String(id ?? "").split(":")[0] ?? "";
+}
+
+function standIdFromKey(id) {
+  return String(id ?? "").split(":")[1] ?? "";
+}
+
 function onHandleMove({ x, y, role, index }) {
   if (!selected.value) return;
   if (selectedIsLine.value) {
@@ -320,9 +394,19 @@ function onHandleMove({ x, y, role, index }) {
     setWaypointWorld(holder, 0, x, y, outdoor.hexById, outdoor.size);
     selected.value.at = holder.points[0];
   } else if (role === "landmark") {
+    if (selectedType.value === "landmark" && landmarkEditDraft.value) {
+      const center = axialToPixel(selected.value.q, selected.value.r, outdoor.size);
+      landmarkEditDraft.value.dx = Math.round(((x - center.x) / outdoor.size) * 100) / 100;
+      landmarkEditDraft.value.dy = Math.round(((y - center.y) / outdoor.size) * 100) / 100;
+      return;
+    }
     setLandmarkWorld(selected.value, x, y, outdoor.size);
   } else if (role === "stand") {
-    setStandWorld(selected.value, x, y, outdoor.size);
+    if (selectedType.value === "stand" && standEditDraft.value) {
+      applyStandPointToDraft(standEditDraft.value, selected.value, x, y);
+      return;
+    }
+    setStandWorld(selected.value, x, y, outdoor.size, index ?? selectedStandIndex.value);
   }
 }
 
@@ -336,19 +420,203 @@ function toggleAddPointMode() {
   tool.value = tool.value === "add-point" ? "select" : "add-point";
 }
 
-function addStand() {
+function beginAddStand() {
   if (!selected.value || !selectedIsPlacement.value) return;
-  if (selected.value.landmark) ensureDefaultStandAt(selected.value);
-  else selected.value.standAt = { dx: 0, dy: 0 };
-  selectedKey.value = `stand:${selected.value.id}`;
+  const hex = selected.value;
+  const center = axialToPixel(hex.q, hex.r, outdoor.size);
+  standDraft.value = {
+    id: uniqueId("stand", hex.stands ?? []),
+    label: "",
+    anchor: hex.landmark ? "landmark" : "hex",
+    dx: 0,
+    dy: 0,
+    x: Math.round(center.x),
+    y: Math.round(center.y),
+  };
 }
 
-function addLandmark() {
+function confirmAddStand() {
+  if (!selected.value || !standDraft.value) return;
+  const draft = standDraft.value;
+  const id = draft.id.trim();
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) {
+    status.value = "Stand IDs must use kebab-case.";
+    return;
+  }
+  if ((selected.value.stands ?? []).some((stand) => stand.id === id)) {
+    status.value = `The stand ID "${id}" already exists on this hex.`;
+    return;
+  }
+  const at = draft.anchor === "world"
+    ? { x: Number(draft.x), y: Number(draft.y) }
+    : draft.anchor === "landmark"
+      ? { from: "landmark", dx: Number(draft.dx), dy: Number(draft.dy) }
+      : { dx: Number(draft.dx), dy: Number(draft.dy) };
+  selected.value.stands ??= [];
+  selected.value.stands.push({ id, label: draft.label.trim() || id, at });
+  standDraft.value = null;
+  selectedKey.value = `stand:${selected.value.id}:${id}`;
+}
+
+function beginAddLandmark() {
   const hex = selectedIsPlacement.value ? selected.value : outdoor.editableHexes[0];
   if (!hex) return;
-  hex.landmark ??= { icon: "◆", label: hex.label ?? hex.id, dx: 0, dy: 0 };
-  ensureDefaultStandAt(hex);
-  select("landmark", hex.id);
+  selectedKey.value = `hex:${hex.id}`;
+  selectedHandleId.value = null;
+  tool.value = "select";
+  standDraft.value = null;
+  landmarkDraft.value = {
+    icon: "◆",
+    label: hex.label ?? hex.id,
+    building: "",
+    blurb: "",
+    dx: 0,
+    dy: 0,
+  };
+}
+
+function confirmAddLandmark() {
+  if (!selected.value || !landmarkDraft.value) return;
+  if (!landmarkDraft.value.icon.trim() && !landmarkDraft.value.building.trim()) {
+    status.value = "Landmarks need an icon or building ID.";
+    return;
+  }
+  selected.value.landmark = landmarkFromDraft(landmarkDraft.value);
+  landmarkDraft.value = null;
+  select("landmark", selected.value.id);
+}
+
+function saveLandmarkEdit() {
+  if (!selected.value || !landmarkEditDraft.value) return;
+  if (!landmarkEditDraft.value.icon.trim() && !landmarkEditDraft.value.building.trim()) {
+    status.value = "Landmarks need an icon or building ID.";
+    return;
+  }
+  const hexId = selected.value.id;
+  selected.value.landmark = landmarkFromDraft(landmarkEditDraft.value);
+  landmarkEditDraft.value = null;
+  select("hex", hexId);
+}
+
+function backToHexFromLandmark() {
+  if (!selected.value) return;
+  const hexId = selected.value.id;
+  if (
+    landmarkEditDirty.value &&
+    !window.confirm("Discard unsaved landmark changes and return to the cell?")
+  ) {
+    return;
+  }
+  landmarkEditDraft.value = null;
+  select("hex", hexId);
+}
+
+function saveStandEdit() {
+  if (!selected.value || !selectedStand.value || !standEditDraft.value) return;
+  const stand = standFromDraft(standEditDraft.value);
+  if (!stand.id || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(stand.id)) {
+    status.value = "Stand IDs must use kebab-case.";
+    return;
+  }
+  if (
+    (selected.value.stands ?? []).some((item) =>
+      item.id === stand.id && item.id !== selectedStand.value.id,
+    )
+  ) {
+    status.value = `The stand ID "${stand.id}" already exists on this hex.`;
+    return;
+  }
+  const hexId = selected.value.id;
+  const index = selectedStandIndex.value;
+  if (index >= 0) selected.value.stands[index] = stand;
+  standEditDraft.value = null;
+  select("hex", hexId);
+}
+
+function backToHexFromStand() {
+  if (!selected.value) return;
+  const hexId = selected.value.id;
+  if (
+    standEditDirty.value &&
+    !window.confirm("Discard unsaved stand changes and return to the cell?")
+  ) {
+    return;
+  }
+  standEditDraft.value = null;
+  select("hex", hexId);
+}
+
+function landmarkDraftFrom(landmark = {}) {
+  return {
+    icon: landmark.icon ?? "",
+    label: landmark.label ?? "",
+    building: landmark.building ?? "",
+    blurb: landmark.blurb ?? "",
+    dx: Number(landmark.dx ?? 0),
+    dy: Number(landmark.dy ?? 0),
+  };
+}
+
+function landmarkFromDraft(draft = {}) {
+  return {
+    ...(String(draft.building ?? "").trim() ? { building: String(draft.building).trim() } : {}),
+    ...(String(draft.icon ?? "").trim() ? { icon: String(draft.icon).trim() } : {}),
+    ...(String(draft.label ?? "").trim() ? { label: String(draft.label).trim() } : {}),
+    ...(Number(draft.dx) ? { dx: Number(draft.dx) } : {}),
+    ...(Number(draft.dy) ? { dy: Number(draft.dy) } : {}),
+    ...(String(draft.blurb ?? "").trim() ? { blurb: String(draft.blurb).trim() } : {}),
+  };
+}
+
+function standDraftFrom(stand = {}) {
+  const at = stand.at ?? {};
+  return {
+    id: stand.id ?? "",
+    label: stand.label ?? "",
+    anchor: at.from === "landmark" ? "landmark" : at.x != null ? "world" : "hex",
+    dx: Number(at.dx ?? 0),
+    dy: Number(at.dy ?? 0),
+    x: Number(at.x ?? 0),
+    y: Number(at.y ?? 0),
+  };
+}
+
+function standFromDraft(draft = {}) {
+  const at = draft.anchor === "world"
+    ? { x: Number(draft.x), y: Number(draft.y) }
+    : draft.anchor === "landmark"
+      ? { from: "landmark", dx: Number(draft.dx), dy: Number(draft.dy) }
+      : { dx: Number(draft.dx), dy: Number(draft.dy) };
+  return {
+    id: String(draft.id ?? "").trim(),
+    ...(String(draft.label ?? "").trim() ? { label: String(draft.label).trim() } : {}),
+    at,
+  };
+}
+
+function normalizeStand(stand = {}) {
+  return {
+    id: String(stand.id ?? "").trim(),
+    ...(String(stand.label ?? "").trim() ? { label: String(stand.label).trim() } : {}),
+    at: clonePlain(stand.at ?? {}),
+  };
+}
+
+function applyStandPointToDraft(draft, hex, x, y) {
+  if (!draft || !hex) return;
+  if (draft.anchor === "world") {
+    draft.x = Math.round(x);
+    draft.y = Math.round(y);
+    return;
+  }
+  const anchor = draft.anchor === "landmark" && hex.landmark
+    ? {
+      x: axialToPixel(hex.q, hex.r, outdoor.size).x + outdoor.size * (hex.landmark.dx ?? 0),
+      y: axialToPixel(hex.q, hex.r, outdoor.size).y + outdoor.size * (hex.landmark.dy ?? 0),
+    }
+    : axialToPixel(hex.q, hex.r, outdoor.size);
+  draft.dx = Math.round(((x - anchor.x) / outdoor.size) * 100) / 100;
+  draft.dy = Math.round(((y - anchor.y) / outdoor.size) * 100) / 100;
 }
 
 function addHex() {
@@ -451,8 +719,10 @@ function deleteSelected() {
     delete selected.value.landmark;
     select("hex", id);
   } else if (type === "stand") {
-    delete selected.value.standAt;
-    select("hex", id);
+    const hexId = standHexId(id);
+    const standId = standIdFromKey(id);
+    selected.value.stands = (selected.value.stands ?? []).filter((stand) => stand.id !== standId);
+    select("hex", hexId);
   } else if (type === "hex") {
     removeById(outdoor.editableHexes, id);
     selectedKey.value = "";
@@ -781,7 +1051,7 @@ function clonePlain(value) {
           <button class="sm" @click="addRoute">+ Route</button>
           <button class="sm" @click="addBarrier">+ Barrier</button>
           <button class="sm" @click="addPassage">+ Passage</button>
-          <button class="sm" @click="addLandmark">+ Landmark</button>
+          <button class="sm" @click="beginAddLandmark">+ Landmark</button>
         </div>
         <section v-for="group in filteredGroups" :key="group.label" class="object-group">
           <h3>{{ group.label }} <span>{{ group.items.length }}</span></h3>
@@ -808,10 +1078,15 @@ function clonePlain(value) {
                 <option value="focus" :disabled="!selected">Focus selection</option>
               </select>
             </label>
+            <div class="segmented-control" aria-label="Canvas view">
+              <button class="sm" :class="{ active: canvasView === 'map' }" @click="canvasView = 'map'">Map</button>
+              <button class="sm" :class="{ active: canvasView === 'yaml' }" @click="canvasView = 'yaml'">YAML</button>
+            </div>
             <button class="sm muted" @click="runMovementAudit()">Run movement audit</button>
           </div>
         </div>
         <div
+          v-show="canvasView === 'map'"
           ref="mapHost"
           class="world-canvas"
           :class="{ panning }"
@@ -853,6 +1128,7 @@ function clonePlain(value) {
           />
           <p class="pan-hint">Wheel to zoom · Shift-drag or middle-drag to pan</p>
         </div>
+        <pre v-show="canvasView === 'yaml'" class="yaml-canvas">{{ dirty ? dumpYaml(currentWorld) : yamlPreview }}</pre>
       </section>
 
       <aside v-if="!rightCollapsed" class="inspector panel">
@@ -869,64 +1145,124 @@ function clonePlain(value) {
           </div>
 
           <div class="row-actions">
-            <button v-if="!['landmark', 'stand'].includes(selectedType)" class="sm muted" @click="renameSelected">Rename</button>
-            <button v-if="!['landmark', 'stand'].includes(selectedType)" class="sm muted" @click="duplicateSelected">Duplicate</button>
+            <template v-if="selectedType === 'landmark'">
+              <button class="sm" :disabled="!landmarkEditDirty" @click="saveLandmarkEdit">Save changes</button>
+              <button class="sm muted" @click="backToHexFromLandmark">Back to cell</button>
+            </template>
+            <template v-else-if="selectedType === 'stand'">
+              <button class="sm" :disabled="!standEditDirty" @click="saveStandEdit">Save changes</button>
+              <button class="sm muted" @click="backToHexFromStand">Back to cell</button>
+            </template>
+            <template v-else>
+              <button class="sm muted" @click="renameSelected">Rename</button>
+              <button class="sm muted" @click="duplicateSelected">Duplicate</button>
+            </template>
             <button class="sm danger-outline" @click="deleteSelected">Delete</button>
           </div>
 
           <template v-if="selectedType === 'hex'">
-            <div class="field-grid">
-              <label>Axial q<input v-model.number="selected.q" type="number" /></label>
-              <label>Axial r<input v-model.number="selected.r" type="number" /></label>
-            </div>
             <label>Terrain
               <select v-model="selected.terrain">
                 <option v-for="kind in TERRAIN_KINDS" :key="kind">{{ kind }}</option>
               </select>
             </label>
             <label>Display label<input v-model="selected.label" /></label>
-            <div class="row-actions">
-              <button class="sm" @click="addStand">Add/edit stand</button>
-              <button class="sm" @click="addLandmark">Add/edit landmark</button>
-            </div>
-          </template>
-
-          <template v-else-if="selectedType === 'landmark'">
-            <label>Label<input v-model="selected.landmark.label" /></label>
-            <label>Icon<input v-model="selected.landmark.icon" /></label>
-            <label>Building ID<input v-model="selected.landmark.building" /></label>
-            <label>Blurb<textarea v-model="selected.landmark.blurb" rows="4" /></label>
-            <div class="field-grid">
-              <label>Offset x<input v-model.number="selected.landmark.dx" type="number" step=".01" /></label>
-              <label>Offset y<input v-model.number="selected.landmark.dy" type="number" step=".01" /></label>
-            </div>
-            <button class="sm" @click="addStand">Add/edit stand</button>
-          </template>
-
-          <template v-else-if="selectedType === 'stand'">
-            <label>Anchor
-              <select
-                :value="selected.standAt?.from === 'landmark' ? 'landmark' : selected.standAt?.x != null ? 'world' : 'hex'"
-                @change="
-                  $event.target.value === 'landmark'
-                    ? selected.standAt = { from: 'landmark', dx: 0, dy: 0 }
-                    : $event.target.value === 'world'
-                      ? selected.standAt = axialToPixel(selected.q, selected.r, outdoor.size)
-                      : selected.standAt = { dx: 0, dy: 0 }
-                "
+            <section class="hex-subitems">
+              <div class="subitem-heading">
+                <strong>Landmark</strong>
+                <button v-if="!selected.landmark && !landmarkDraft" class="sm" @click="beginAddLandmark">Add landmark</button>
+              </div>
+              <button
+                v-if="selected.landmark"
+                class="subitem-row"
+                @click="select('landmark', selected.id)"
               >
+                <strong>{{ selected.landmark.label || selected.landmark.building || selected.landmark.icon || "Landmark" }}</strong>
+                <span>{{ selected.landmark.building || selected.landmark.icon || "custom" }}</span>
+              </button>
+              <div v-if="landmarkDraft" class="draft-card">
+                <label>Label<input v-model="landmarkDraft.label" /></label>
+                <label>Icon<input v-model="landmarkDraft.icon" /></label>
+                <label>Building ID<input v-model="landmarkDraft.building" /></label>
+                <label>Blurb<textarea v-model="landmarkDraft.blurb" rows="3" /></label>
+                <div class="field-grid">
+                  <label>Offset x<input v-model.number="landmarkDraft.dx" type="number" step=".01" /></label>
+                  <label>Offset y<input v-model.number="landmarkDraft.dy" type="number" step=".01" /></label>
+                </div>
+                <div class="row-actions">
+                  <button class="sm" @click="confirmAddLandmark">Confirm</button>
+                  <button class="sm muted" @click="landmarkDraft = null">Cancel</button>
+                </div>
+              </div>
+            </section>
+            <section class="hex-subitems">
+              <div class="subitem-heading">
+                <strong>Stand points</strong>
+                <button v-if="!standDraft" class="sm" @click="beginAddStand">Add stand</button>
+              </div>
+              <button
+                v-for="stand in normalizeStandEntries(selected)"
+                :key="stand.id"
+                class="subitem-row"
+                @click="select('stand', `${selected.id}:${stand.id}`)"
+              >
+                <strong>{{ stand.label || stand.id }}</strong>
+                <span>{{ stand.id }}</span>
+              </button>
+              <div v-if="standDraft" class="draft-card">
+                <label>ID<input v-model="standDraft.id" /></label>
+                <label>Label<input v-model="standDraft.label" /></label>
+                <label>Anchor
+                  <select v-model="standDraft.anchor">
+                    <option value="hex">Hex-relative</option>
+                    <option value="landmark" :disabled="!selected.landmark">Landmark-relative</option>
+                    <option value="world">World coordinates</option>
+                  </select>
+                </label>
+                <div v-if="standDraft.anchor === 'world'" class="field-grid">
+                  <label>X<input v-model.number="standDraft.x" type="number" /></label>
+                  <label>Y<input v-model.number="standDraft.y" type="number" /></label>
+                </div>
+                <div v-else class="field-grid">
+                  <label>Offset x<input v-model.number="standDraft.dx" type="number" step=".01" /></label>
+                  <label>Offset y<input v-model.number="standDraft.dy" type="number" step=".01" /></label>
+                </div>
+                <div class="row-actions">
+                  <button class="sm" @click="confirmAddStand">Confirm</button>
+                  <button class="sm muted" @click="standDraft = null">Cancel</button>
+                </div>
+              </div>
+            </section>
+          </template>
+
+          <template v-else-if="selectedType === 'landmark' && landmarkEditDraft">
+            <label>Label<input v-model="landmarkEditDraft.label" /></label>
+            <label>Icon<input v-model="landmarkEditDraft.icon" /></label>
+            <label>Building ID<input v-model="landmarkEditDraft.building" /></label>
+            <label>Blurb<textarea v-model="landmarkEditDraft.blurb" rows="4" /></label>
+            <div class="field-grid">
+              <label>Offset x<input v-model.number="landmarkEditDraft.dx" type="number" step=".01" /></label>
+              <label>Offset y<input v-model.number="landmarkEditDraft.dy" type="number" step=".01" /></label>
+            </div>
+          </template>
+
+          <template v-else-if="selectedType === 'stand' && standEditDraft">
+            <label>ID<input v-model="standEditDraft.id" /></label>
+            <label>Label<input v-model="standEditDraft.label" /></label>
+            <label>Anchor
+              <select v-model="standEditDraft.anchor">
                 <option value="hex">Hex-relative</option>
                 <option value="landmark" :disabled="!selected.landmark">Landmark-relative</option>
                 <option value="world">World coordinates</option>
               </select>
             </label>
-            <div v-if="selected.standAt?.x != null" class="field-grid">
-              <label>X<input v-model.number="selected.standAt.x" type="number" /></label>
-              <label>Y<input v-model.number="selected.standAt.y" type="number" /></label>
+            <div v-if="standEditDraft.anchor === 'world'" class="field-grid">
+              <label>X<input v-model.number="standEditDraft.x" type="number" /></label>
+              <label>Y<input v-model.number="standEditDraft.y" type="number" /></label>
             </div>
             <div v-else class="field-grid">
-              <label>Offset x<input v-model.number="selected.standAt.dx" type="number" step=".01" /></label>
-              <label>Offset y<input v-model.number="selected.standAt.dy" type="number" step=".01" /></label>
+              <label>Offset x<input v-model.number="standEditDraft.dx" type="number" step=".01" /></label>
+              <label>Offset y<input v-model.number="standEditDraft.dy" type="number" step=".01" /></label>
             </div>
           </template>
 
@@ -1107,11 +1443,6 @@ function clonePlain(value) {
           </p>
         </section>
 
-        <details>
-          <summary>Generated YAML</summary>
-          <pre class="yaml-preview">{{ dirty ? dumpYaml(currentWorld) : yamlPreview }}</pre>
-        </details>
-
         <section v-if="showHistory" class="history">
           <h3>World revisions</h3>
           <button
@@ -1195,6 +1526,14 @@ function clonePlain(value) {
 .object-item { display: grid; width: 100%; gap: .1rem; margin-top: .25rem; text-align: left; background: #252b35; }
 .object-item span { color: #8e96a3; font-size: .72rem; }
 .object-item.active, .canvas-toolbar button.active, .point-tools button.active { background: #49624f; border-color: #6f9b79; }
+.segmented-control {
+  display: flex;
+  gap: .2rem;
+  padding: .16rem;
+  border: 1px solid #343d4d;
+  border-radius: 8px;
+  background: #171b22;
+}
 .toolbar-field {
   display: flex;
   align-items: center;
@@ -1212,12 +1551,46 @@ function clonePlain(value) {
 }
 .canvas-column { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: .55rem; min-width: 0; }
 .world-canvas { position: relative; min-height: 0; overflow: hidden; border: 1px solid #3b4655; border-radius: 11px; background: #1d241f; }
+.yaml-canvas {
+  min-height: 0;
+  margin: 0;
+  overflow: auto;
+  padding: .85rem;
+  border: 1px solid #3b4655;
+  border-radius: 11px;
+  background: #11151b;
+  color: #d8dee8;
+  white-space: pre;
+  font-size: .75rem;
+  line-height: 1.45;
+}
 .world-canvas :deep(.hexmap), .world-canvas :deep(.hexmap.expanded) { height: 100%; min-height: 100%; border-radius: 0; }
 .world-canvas.panning { cursor: grabbing; }
 .pan-hint { position: absolute; left: .65rem; bottom: .45rem; margin: 0; padding: .25rem .45rem; border-radius: 5px; background: rgba(10, 13, 11, .7); color: #aeb7ad; font-size: .72rem; pointer-events: none; }
 .inspector { display: grid; align-content: start; gap: .7rem; }
 .inspector label { display: grid; gap: .3rem; color: #bdc4ce; font-size: .8rem; }
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; }
+.hex-subitems { display: grid; gap: .45rem; padding-top: .35rem; border-top: 1px solid #343d4d; }
+.subitem-heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; color: #bdc4ce; font-size: .82rem; }
+.subitem-row {
+  display: grid;
+  gap: .1rem;
+  width: 100%;
+  padding: .5rem .6rem;
+  text-align: left;
+  border: 1px solid #343d4d;
+  border-radius: 7px;
+  background: #1b2028;
+}
+.subitem-row span { color: #8e96a3; font-size: .72rem; }
+.draft-card {
+  display: grid;
+  gap: .55rem;
+  padding: .6rem;
+  border: 1px solid #485267;
+  border-radius: 8px;
+  background: #1b2028;
+}
 .cascade-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(4.5rem, .7fr) minmax(4.5rem, .7fr) auto; gap: .45rem; align-items: end; }
 .check-field { display: flex !important; align-items: center; }
 .check-field input { width: auto; }
@@ -1234,7 +1607,6 @@ legend { color: #8bc49a; }
 .audit-issues span { color: #d8b5b5; font-size: .76rem; line-height: 1.35; }
 .warning { color: #efcb83 !important; }
 .field-error { color: #ff9e9e; font-size: .78rem; }
-.yaml-preview { max-height: 22rem; overflow: auto; padding: .65rem; border-radius: 7px; background: #11151b; white-space: pre-wrap; font-size: .72rem; }
 .history { display: grid; gap: .4rem; }
 .revision-item { text-align: left; font-size: .76rem; }
 .empty-note { color: #939ba7; }

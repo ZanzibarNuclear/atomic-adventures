@@ -16,9 +16,9 @@ describe("world model", () => {
 
   it("cascades hex renames through map-level references", () => {
     const world = structuredClone(loadWorldSeed());
-    const trailhead = world.hexes.find((hex) => hex.id === "trailhead");
-    trailhead.id = "arrival-trail";
-    applyHexRenames(world, [{ kind: "hex", from: "trailhead", to: "arrival-trail" }]);
+    const origin = world.hexes.find((hex) => hex.id === "origin");
+    origin.id = "arrival-trail";
+    applyHexRenames(world, [{ kind: "hex", from: "origin", to: "arrival-trail" }]);
     expect(world.start).toBe("arrival-trail");
     expect(world.journey).toContain("arrival-trail");
     expect(validateWorld(world).valid).toBe(true);

@@ -134,7 +134,7 @@ describe('useGameState save roundtrip', () => {
       endCardDismissed: false,
       outdoor: {
         currentId: 'south-pines',
-        discovered: ['trailhead', 'south-pines'],
+        discovered: ['origin', 'south-pines'],
         barrierStand: { x: -42, y: 38 },
         lastBlocked: 'fence',
         mode: 'explored',

@@ -59,31 +59,31 @@ describe("WorldRepository", () => {
     const { db, story, world } = setup();
     story.createBeat("test", {
       id: "rename-target",
-      text: "Visit the trailhead.",
-      trigger: { place: "outdoors", hex: "trailhead" },
+      text: "Visit the origin.",
+      trigger: { place: "outdoors", hex: "origin" },
       choices: [{ text: "Continue", go_hex: "east-pines" }],
     });
-    const preview = world.previewHexRename("trailhead", "arrival-trail");
+    const preview = world.previewHexRename("origin", "arrival-trail");
     expect(preview.references).toEqual(expect.arrayContaining([
       expect.objectContaining({ kind: "world", path: "start" }),
       expect.objectContaining({ kind: "story", beatId: "rename-target", path: "trigger.hex" }),
     ]));
     const before = world.getDocument();
     const candidate = structuredClone(before.world);
-    candidate.hexes.find((hex) => hex.id === "trailhead").id = "arrival-trail";
-    candidate.start = candidate.start === "trailhead" ? "arrival-trail" : candidate.start;
-    candidate.journey = candidate.journey.map((id) => id === "trailhead" ? "arrival-trail" : id);
+    candidate.hexes.find((hex) => hex.id === "origin").id = "arrival-trail";
+    candidate.start = candidate.start === "origin" ? "arrival-trail" : candidate.start;
+    candidate.journey = candidate.journey.map((id) => id === "origin" ? "arrival-trail" : id);
     for (const route of candidate.routes) {
-      for (const point of route.points ?? []) if (point.hex === "trailhead") point.hex = "arrival-trail";
+      for (const point of route.points ?? []) if (point.hex === "origin") point.hex = "arrival-trail";
     }
     for (const feature of candidate.features) {
-      if (feature.hex === "trailhead") feature.hex = "arrival-trail";
-      for (const point of feature.points ?? []) if (point.hex === "trailhead") point.hex = "arrival-trail";
-      if (feature.at?.hex === "trailhead") feature.at.hex = "arrival-trail";
+      if (feature.hex === "origin") feature.hex = "arrival-trail";
+      for (const point of feature.points ?? []) if (point.hex === "origin") point.hex = "arrival-trail";
+      if (feature.at?.hex === "origin") feature.at.hex = "arrival-trail";
     }
 
     const saved = world.save(candidate, before.version, [
-      { kind: "hex", from: "trailhead", to: "arrival-trail" },
+      { kind: "hex", from: "origin", to: "arrival-trail" },
     ]);
     expect(saved.story.affected).toEqual([{ areaId: "test", beatId: "rename-target" }]);
     expect(story.getBeat("test", "rename-target").trigger.hex).toBe("arrival-trail");

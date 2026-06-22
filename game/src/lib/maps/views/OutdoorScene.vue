@@ -58,6 +58,12 @@
       </button>
     </TravelOptions>
 
+    <PlayActions
+      v-if="playActions.length"
+      :items="playActions"
+      label="Actions"
+      @select="onPlayAction" />
+
   </PlayPanel>
 </template>
 
@@ -69,11 +75,14 @@ import PlayPanel from "../../../components/hud/PlayPanel.vue";
 import MapCaption from "../components/hud/MapCaption.vue";
 import TravelOptions from "../components/hud/TravelOptions.vue";
 import StatusLines from "../../../components/hud/StatusLines.vue";
+import PlayActions from "../../../components/hud/PlayActions.vue";
 import NarrativeCard from "../../../components/story/NarrativeCard.vue";
 import {
+  buildOutdoorPlayActions,
   getMovementOptions,
   buildOutdoorStatusLines,
   handleOutdoorChooseAction,
+  handleOutdoorPlayAction,
 } from "../../../composables/usePlayPanel.js";
 import {
   buildMapMovementAudit,
@@ -126,6 +135,14 @@ const chooseActions = computed(() => {
   return getMovementOptions(props.outdoor, props.pendingBeat);
 });
 
+const playActions = computed(() => {
+  // Barrier searches and passage crossings depend on current stand and barrier hint.
+  void props.outdoor.state?.stand?.x;
+  void props.outdoor.state?.stand?.y;
+  void props.outdoor.state?.discoveredOpenings?.length;
+  return buildOutdoorPlayActions(props.outdoor, props.pendingBeat);
+});
+
 function onChooseAction(id) {
   handleOutdoorChooseAction(
     props.outdoor,
@@ -133,6 +150,10 @@ function onChooseAction(id) {
     id,
     props.travelToHex,
   );
+}
+
+function onPlayAction(id) {
+  handleOutdoorPlayAction(props.outdoor, id, props.travelToHex);
 }
 </script>
 

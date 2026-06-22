@@ -37,7 +37,7 @@ const props = defineProps({
   editKind: { type: String, default: 'path' },
   selectedHandleId: { type: String, default: null },
   addPointMode: { type: Boolean, default: false },
-  standOverride: { type: Object, default: null }, // { hexId, standAt }
+  standOverride: { type: Object, default: null }, // { hexId, standAt: current avatar point }
   clickableHexIds: { type: Object, default: null },
   avatarInstant: { type: Boolean, default: false },
   buildingEnterable: { type: Boolean, default: false },

@@ -26,7 +26,7 @@ function sampleBeat(overrides = {}) {
     id: "test-beat",
     heading: "Test",
     text: "Original text.",
-    trigger: { place: "outdoors", hex: "trailhead" },
+    trigger: { place: "outdoors", hex: "origin" },
     choices: [{ text: "Continue", sets: ["test.done"], go_hex: "east-pines" }],
     ...overrides,
   };

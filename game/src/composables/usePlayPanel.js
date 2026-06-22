@@ -10,6 +10,7 @@ import {
   isSelfClosingDoor,
 } from "../lib/maps/composables/useDoors.js";
 import { searchActionLabel } from "../lib/maps/composables/useBarrierOpenings.js";
+import { barrierHintAtStand } from "../lib/maps/composables/useBarrierStand.js";
 
 function actionButtonLabel(action) {
   if (action.verb) return `${action.verb} — ${action.label}`;
@@ -87,6 +88,76 @@ export function buildOutdoorPassageUnlockActions(outdoor) {
 /** @deprecated Use buildOutdoorPassageActions */
 export const buildOutdoorCrossingActions = buildOutdoorPassageActions;
 
+function directionPhrase(direction, style = "to") {
+  if (!direction) return style === "along" ? "onward" : "onward";
+  return style === "along" ? direction : `to the ${direction}`;
+}
+
+function routeActionLabel(move) {
+  const routeName = move.routeName ?? move.kind ?? "route";
+  return `Follow the ${routeName} ${directionPhrase(move.label)}`;
+}
+
+function barrierName(kind) {
+  if (kind === "fence") return "fence line";
+  if (kind === "river") return "river";
+  if (kind === "cliff") return "cliff edge";
+  if (kind === "ravine") return "ravine";
+  return kind ?? "barrier";
+}
+
+export function buildOutdoorRouteActions(outdoor, pendingBeat = null) {
+  const storyDests = storyChoiceDestinations(pendingBeat).hexes;
+  return (outdoor.moves ?? [])
+    .filter((move) => move.routeId && !storyDests.has(move.toHexId))
+    .map((move) => ({
+      id: `route:${move.toHexId}`,
+      toHexId: move.toHexId,
+      label: routeActionLabel(move),
+      kind: move.kind ?? "route",
+    }));
+}
+
+export function buildOutdoorBarrierFollowActions(outdoor, pendingBeat = null) {
+  const currentBarrier =
+    outdoor.barrierHintAtStand?.() ??
+    outdoor.state?.atBarrier ??
+    outdoor.state?.lastBlocked ??
+    null;
+  if (!currentBarrier) return [];
+
+  const storyDests = storyChoiceDestinations(pendingBeat).hexes;
+  return (outdoor.directMoves ?? [])
+    .filter((move) => !storyDests.has(move.toHexId))
+    .filter((move) => {
+      const preview = outdoor.previewMove?.(move.toHexId);
+      if (!preview || preview.result?.activeHexId !== move.toHexId) return false;
+      const destinationBarrier = barrierHintAtStand(
+        preview.result.stand,
+        outdoor.travelBarrierCtx?.barriers ?? [],
+      );
+      return destinationBarrier === currentBarrier;
+    })
+    .map((move) => ({
+      id: `barrier:${move.toHexId}`,
+      toHexId: move.toHexId,
+      label: `Walk ${directionPhrase(move.label, "along")} along the ${barrierName(
+        currentBarrier,
+      )}`,
+      kind: currentBarrier,
+    }));
+}
+
+export function buildOutdoorPlayActions(outdoor, pendingBeat = null) {
+  return [
+    ...buildOutdoorRouteActions(outdoor, pendingBeat),
+    ...buildOutdoorBarrierFollowActions(outdoor, pendingBeat),
+    ...buildOutdoorSearchActions(outdoor),
+    ...buildOutdoorPassageUnlockActions(outdoor),
+    ...buildOutdoorPassageActions(outdoor),
+  ];
+}
+
 export function getMovementOptions(outdoor, pendingBeat) {
   const canReach = (hexId) => outdoor.canReachHex?.(hexId) ?? true;
   return buildStoryChoices(pendingBeat, canReach);
@@ -106,11 +177,27 @@ export function handleOutdoorChooseAction(
     outdoor.unlockPassage?.(actionId.slice("passage-unlock:".length));
     return;
   }
+  if (actionId.startsWith("passage:")) {
+    outdoor.crossPassage?.(actionId.slice("passage:".length));
+    return;
+  }
+  if (actionId.startsWith("route:") || actionId.startsWith("barrier:")) {
+    travelToHex(actionId.slice(actionId.indexOf(":") + 1));
+    return;
+  }
   if (actionId.startsWith("story:")) {
     handleStoryChoice(actionId.slice("story:".length), applyChoice);
     return;
   }
   void travelToHex;
+}
+
+export function handleOutdoorPlayAction(
+  outdoor,
+  actionId,
+  travelToHex = (hexId) => outdoor.moveTo(hexId),
+) {
+  handleOutdoorChooseAction(outdoor, () => {}, actionId, travelToHex);
 }
 
 export function buildIndoorChooseActions(indoor, pendingBeat) {
