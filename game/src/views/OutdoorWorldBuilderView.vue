@@ -152,7 +152,16 @@ const editHandles = computed(() => {
   }
   if (selectedIsPassage.value && selected.value.at) {
     const point = resolveWaypoint(selected.value.at, outdoor.hexById, outdoor.size);
-    return [{ ...point, index: 0, role: "passage", handleKey: "passage" }];
+    const handles = [{ ...point, index: 0, role: "passage", handleKey: "passage" }];
+    if (selected.value.boothAt) {
+      handles.push({
+        ...resolveWaypoint(selected.value.boothAt, outdoor.hexById, outdoor.size),
+        index: 1,
+        role: "booth",
+        handleKey: "booth",
+      });
+    }
+    return handles;
   }
   return resolvedPlacementHandles(editSubject, outdoor.size).map((handle) => ({
     ...handle,
@@ -390,9 +399,11 @@ function onHandleMove({ x, y, role, index }) {
   if (selectedIsLine.value) {
     setWaypointWorld(selected.value, index, x, y, outdoor.hexById, outdoor.size);
   } else if (selectedIsPassage.value) {
-    const holder = { points: [selected.value.at] };
+    const key = role === "booth" ? "boothAt" : "at";
+    if (!selected.value[key]) return;
+    const holder = { points: [selected.value[key]] };
     setWaypointWorld(holder, 0, x, y, outdoor.hexById, outdoor.size);
-    selected.value.at = holder.points[0];
+    selected.value[key] = holder.points[0];
   } else if (role === "landmark") {
     if (selectedType.value === "landmark" && landmarkEditDraft.value) {
       const center = axialToPixel(selected.value.q, selected.value.r, outdoor.size);
@@ -862,6 +873,22 @@ function setPointMode(point, mode) {
     Object.keys(point).forEach((key) => delete point[key]);
     Object.assign(point, { x: Math.round(resolved.x), y: Math.round(resolved.y) });
   }
+}
+
+function ensureBoothAt() {
+  if (!selected.value || !selectedIsPassage.value) return;
+  if (selected.value.boothAt) return;
+  const at = resolveWaypoint(selected.value.at, outdoor.hexById, outdoor.size);
+  selected.value.boothAt = {
+    x: Math.round(at.x - 13),
+    y: Math.round(at.y - 10),
+  };
+}
+
+function removeBoothAt() {
+  if (!selected.value || !selectedIsPassage.value) return;
+  delete selected.value.boothAt;
+  if (selectedHandleId.value === "booth") selectedHandleId.value = null;
 }
 
 function removePoint(index) {
@@ -1380,6 +1407,29 @@ function clonePlain(value) {
                 <label>X<input v-model.number="selected.at.x" type="number" /></label>
                 <label>Y<input v-model.number="selected.at.y" type="number" /></label>
               </div>
+            </fieldset>
+            <fieldset v-if="selected.kind === 'gate'">
+              <legend>Guard booth point</legend>
+              <div v-if="selected.boothAt">
+                <label>Coordinate mode
+                  <select :value="pointMode(selected.boothAt)" @change="setPointMode(selected.boothAt, $event.target.value)">
+                    <option value="hex">Hex anchor</option><option value="raw">World coordinates</option>
+                  </select>
+                </label>
+                <template v-if="selected.boothAt?.hex != null">
+                  <label>Anchor hex<select v-model="selected.boothAt.hex"><option v-for="id in allHexIds" :key="id">{{ id }}</option></select></label>
+                  <div class="field-grid">
+                    <label>dx<input v-model.number="selected.boothAt.dx" type="number" step=".01" /></label>
+                    <label>dy<input v-model.number="selected.boothAt.dy" type="number" step=".01" /></label>
+                  </div>
+                </template>
+                <div v-else class="field-grid">
+                  <label>X<input v-model.number="selected.boothAt.x" type="number" /></label>
+                  <label>Y<input v-model.number="selected.boothAt.y" type="number" /></label>
+                </div>
+                <button class="sm muted" @click="removeBoothAt">Remove booth</button>
+              </div>
+              <button v-else class="sm" @click="ensureBoothAt">Add guard booth</button>
             </fieldset>
           </template>
 

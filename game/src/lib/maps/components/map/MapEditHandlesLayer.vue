@@ -45,6 +45,8 @@ function handleLabel(h) {
   if (['nw', 'ne', 'se', 'sw'].includes(h.role)) return 'Resize room'
   if (h.role === 'point') return 'Move path waypoint'
   if (h.role === 'path-node') return 'Move path stand node'
+  if (h.role === 'passage') return 'Move passage'
+  if (h.role === 'booth') return 'Move guard booth'
   if (h.role === 'door-at') return 'Move door'
   if (h.role === 'node-at') return 'Move exterior node'
   if (h.role === 'room-stand') return 'Move room stand'
