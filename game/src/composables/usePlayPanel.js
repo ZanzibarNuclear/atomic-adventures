@@ -56,11 +56,6 @@ export function storyChoiceDestinations(pendingBeat) {
   return { hexes, rooms };
 }
 
-/**
- * Reachable outdoor moves for "Choose an Action".
- * Story choice labels (part-i.yaml) override; otherwise compass defaults from path geometry.
- * Blocked directions are omitted — outdoor.moves / directMoves are pre-filtered.
- */
 export function buildOutdoorSearchActions(outdoor) {
   if (!outdoor.canSearchHere?.()) return [];
   const label = searchActionLabel({
@@ -94,38 +89,7 @@ export const buildOutdoorCrossingActions = buildOutdoorPassageActions;
 
 export function getMovementOptions(outdoor, pendingBeat) {
   const canReach = (hexId) => outdoor.canReachHex?.(hexId) ?? true;
-  const items = [...buildStoryChoices(pendingBeat, canReach)];
-  const { hexes: storyHexes } = storyChoiceDestinations(pendingBeat);
-  const seen = new Set(storyHexes);
-
-  items.push(...buildOutdoorPassageUnlockActions(outdoor));
-
-  for (const m of outdoor.moves ?? []) {
-    if (seen.has(m.toHexId)) continue;
-    seen.add(m.toHexId);
-    items.push({
-      id: `move:${m.toHexId}`,
-      toHexId: m.toHexId,
-      label: defaultMovementLabel(m),
-      kind: m.kind,
-    });
-  }
-
-  for (const o of outdoor.directMoves ?? []) {
-    if (seen.has(o.toHexId)) continue;
-    seen.add(o.toHexId);
-    items.push({
-      id: `hex:${o.toHexId}`,
-      toHexId: o.toHexId,
-      label: defaultMovementLabel(o),
-      kind: "hex",
-    });
-  }
-
-  items.push(...buildOutdoorPassageActions(outdoor));
-  items.push(...buildOutdoorSearchActions(outdoor));
-
-  return items;
+  return buildStoryChoices(pendingBeat, canReach);
 }
 
 export function handleOutdoorChooseAction(
@@ -146,43 +110,12 @@ export function handleOutdoorChooseAction(
     handleStoryChoice(actionId.slice("story:".length), applyChoice);
     return;
   }
-  if (actionId.startsWith("passage:")) {
-    outdoor.crossPassage?.(actionId.slice("passage:".length));
-    return;
-  }
-  if (actionId.startsWith("move:") || actionId.startsWith("hex:")) {
-    const hexId = actionId.includes("hex:")
-      ? actionId.slice("hex:".length)
-      : actionId.slice("move:".length);
-    travelToHex(hexId);
-  }
+  void travelToHex;
 }
 
-/** Indoor items for "Choose an Action" — story choices, then moves (deduped). */
 export function buildIndoorChooseActions(indoor, pendingBeat) {
-  const items = [...buildStoryChoices(pendingBeat)];
-  const { hexes: storyHexes, rooms: storyRooms } =
-    storyChoiceDestinations(pendingBeat);
-  if (storyHexes.has("__enter__")) {
-    // enter-building is handled via story applyChoice, not move list
-  }
-
-  const fromRoom = indoor.currentRoomData;
-  for (const m of indoor.indoorMoves ?? []) {
-    const dest = m.toStandId
-      ? `stand:${m.toStandId}`
-      : m.toExteriorNode ?? m.toRoomId;
-    if (!m.toStandId && dest && storyRooms.has(dest)) continue;
-    const custom = fromRoom?.travel?.[dest];
-    items.push({
-      id: `move:${indoor.moveKey(m)}`,
-      label: custom ?? `Go ${m.label}`,
-      kind: m.kind === "door" ? "path" : m.kind === "path" ? "trail" : "road",
-      move: m,
-    });
-  }
-
-  return items;
+  void indoor;
+  return buildStoryChoices(pendingBeat);
 }
 
 export function handleIndoorChooseAction(
@@ -195,20 +128,8 @@ export function handleIndoorChooseAction(
     handleStoryChoice(actionId.slice("story:".length), applyChoice);
     return;
   }
-  if (actionId.startsWith("move:")) {
-    const key = actionId.slice("move:".length);
-    const m = indoor.indoorMoves.find((mv) => indoor.moveKey(mv) === key);
-    if (!m) return;
-    if (m.toStandId) {
-      indoor.moveToStand(m.toStandId);
-      return;
-    }
-    if (m.toRoomId) {
-      travelToRoom(m.toRoomId);
-      return;
-    }
-    indoor.applyIndoorMove(m);
-  }
+  void indoor;
+  void travelToRoom;
 }
 
 /**
@@ -296,20 +217,6 @@ export function buildIndoorPlayActions(indoor) {
     items.push({
       id: `switch:${sw.door}`,
       label: engaged ? `Engage motor — ${sw.label}` : sw.label,
-    });
-  }
-
-  if (indoor.worldMapExit) {
-    items.push({
-      id: `exit-world:${indoor.worldMapExit.doorId}`,
-      label: indoor.worldMapExit.label,
-    });
-  }
-
-  if (indoor.indoor.exteriorNode) {
-    items.push({
-      id: "exit-building",
-      label: "Return to the trail map",
     });
   }
 

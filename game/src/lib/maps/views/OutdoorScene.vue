@@ -58,11 +58,6 @@
       </button>
     </TravelOptions>
 
-    <PlayActions
-      v-if="playActions.length"
-      :items="playActions"
-      label="Actions"
-      @select="onPlayAction" />
   </PlayPanel>
 </template>
 
@@ -74,7 +69,6 @@ import PlayPanel from "../../../components/hud/PlayPanel.vue";
 import MapCaption from "../components/hud/MapCaption.vue";
 import TravelOptions from "../components/hud/TravelOptions.vue";
 import StatusLines from "../../../components/hud/StatusLines.vue";
-import PlayActions from "../../../components/hud/PlayActions.vue";
 import NarrativeCard from "../../../components/story/NarrativeCard.vue";
 import {
   getMovementOptions,
@@ -132,16 +126,6 @@ const chooseActions = computed(() => {
   return getMovementOptions(props.outdoor, props.pendingBeat);
 });
 
-const playActions = computed(() => {
-  if (!props.outdoor.atBuildingEntrance) return [];
-  return [
-    {
-      id: "enter-building",
-      label: `Enter the ${props.indoor.building.label}`,
-    },
-  ];
-});
-
 function onChooseAction(id) {
   handleOutdoorChooseAction(
     props.outdoor,
@@ -149,10 +133,6 @@ function onChooseAction(id) {
     id,
     props.travelToHex,
   );
-}
-
-function onPlayAction(id) {
-  if (id === "enter-building") props.enterBuilding();
 }
 </script>
 

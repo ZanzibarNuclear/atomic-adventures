@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import mapData from '../../../../content/world/map.yaml'
-import { getMovementOptions } from '../../../composables/usePlayPanel.js'
 import { resolveAvatarPosition } from '../composables/useAvatarStand.js'
 import {
   buildGameplayWorld,
@@ -52,18 +51,16 @@ describe('story journey smoke test (gameplay)', () => {
     expect(outdoor.state.stand).toEqual({ x: gateStand.x, y: gateStand.y })
     expect(outdoor.state.stand.y, 'north of locked gate on arrival').toBeLessThan(-62)
 
-    const lockedOptions = getMovementOptions(outdoor, null).map((o) => o.label)
-    expect(lockedOptions).toContain('Solve the puzzle to unlock')
-    expect(lockedOptions).not.toContain('Go through the gate')
-    expect(lockedOptions.some((l) => /^Go south\b/i.test(l))).toBe(false)
+    expect(outdoor.lockedPassageActions.map((action) => action.label)).toContain('Solve the puzzle to unlock')
+    expect(outdoor.passageCrossings.map((crossing) => crossing.label)).not.toContain('Go through the gate')
+    expect(outdoor.canReachHex('west-slope')).toBe(false)
 
     passCompoundGate(outdoor)
     expect(gameState.flags.has(GATE_FLAG_UNLOCKED), 'gate puzzle solved').toBe(true)
     expect(gameState.flags.has(GATE_FLAG_PASSED), 'gate crossed').toBe(true)
 
     expect(outdoor.state.stand.y).toBeGreaterThan(-62)
-    const southOptions = getMovementOptions(outdoor, null).map((o) => o.label)
-    expect(southOptions.some((l) => /^Go south/i.test(l))).toBe(true)
+    expect(outdoor.canReachHex('west-slope')).toBe(true)
 
     // Adjacent travel south: gate-woods → west-slope → utility-yard (journey skips the middle hex).
     expectMoveOk(outdoor, 'gate-woods', 'west-slope')

@@ -6,7 +6,6 @@ import {
   GATE_FLAG_PASSED,
   GATE_FLAG_UNLOCKED,
 } from './gameplayTravel.js'
-import { getMovementOptions } from '../../../composables/usePlayPanel.js'
 import { distToBarrierKind } from '../composables/useBarrierStand.js'
 
 /**
@@ -65,12 +64,11 @@ describe('compound gate gameplay', () => {
   it('offers solve puzzle before gate passage or south moves', () => {
     const { outdoor } = buildGameplayWorld(mapData)
     atGateApproach(outdoor)
-    const options = getMovementOptions(outdoor, null).map((o) => o.label)
 
-    expect(options).toContain('Solve the puzzle to unlock')
-    expect(options).not.toContain('Go through the gate')
-    expect(options.some((l) => /^Go south\b/i.test(l))).toBe(false)
-    expect(options).toContain('Go east')
+    expect(outdoor.lockedPassageActions.map((action) => action.label)).toContain('Solve the puzzle to unlock')
+    expect(outdoor.passageCrossings.map((crossing) => crossing.label)).not.toContain('Go through the gate')
+    expect(outdoor.canReachHex('west-slope')).toBe(false)
+    expect(outdoor.directMoves.map((move) => move.label)).toContain('east')
     expect(outdoor.passageCrossings.map((c) => c.openingId)).not.toContain(
       'compound-gate',
     )
@@ -81,17 +79,15 @@ describe('compound gate gameplay', () => {
     atGateApproach(outdoor)
 
     outdoor.unlockPassage('compound-gate')
-    let options = getMovementOptions(outdoor, null).map((o) => o.label)
-    expect(options).toContain('Go through the gate')
-    expect(options).not.toContain('Solve the puzzle to unlock')
-    expect(options.some((l) => /^Go south\b/i.test(l))).toBe(false)
+    expect(outdoor.passageCrossings.map((crossing) => crossing.label)).toContain('Go through the gate')
+    expect(outdoor.lockedPassageActions.map((action) => action.label)).not.toContain('Solve the puzzle to unlock')
+    expect(outdoor.canReachHex('west-slope')).toBe(false)
 
     outdoor.crossPassage('compound-gate')
     expect(gameState.flags.has(GATE_FLAG_UNLOCKED)).toBe(true)
     expect(gameState.flags.has(GATE_FLAG_PASSED)).toBe(true)
 
-    options = getMovementOptions(outdoor, null).map((o) => o.label)
-    expect(options.some((l) => l.match(/^Go south/i))).toBe(true)
+    expect(outdoor.canReachHex('west-slope')).toBe(true)
   })
 
   it('treats gate as open when story flags are already set', () => {
@@ -101,9 +97,8 @@ describe('compound gate gameplay', () => {
     outdoor.state.currentId = 'gate-woods'
     outdoor.state.stand = { x: -81, y: -76 }
     outdoor.crossPassage('compound-gate')
-    const options = getMovementOptions(outdoor, null).map((o) => o.label)
 
-    expect(options).not.toContain('Solve the puzzle to unlock')
-    expect(options.some((l) => l.match(/^Go south/i))).toBe(true)
+    expect(outdoor.lockedPassageActions.map((action) => action.label)).not.toContain('Solve the puzzle to unlock')
+    expect(outdoor.canReachHex('west-slope')).toBe(true)
   })
 })

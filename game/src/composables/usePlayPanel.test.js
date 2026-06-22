@@ -6,7 +6,6 @@ import {
   adjacentHexes,
 } from '../lib/maps/testing/travelWorld.js'
 import {
-  defaultMovementLabel,
   getMovementOptions,
   buildOutdoorSearchActions,
   buildStoryChoices,
@@ -41,29 +40,15 @@ function outdoorAt(hexId, pendingBeat = null) {
   }
 }
 
-describe('defaultMovementLabel', () => {
-  it('prefixes compass direction from the move', () => {
-    expect(defaultMovementLabel({ label: 'west' })).toBe('Go west')
-    expect(defaultMovementLabel({ label: 'northwest' })).toBe('Go northwest')
-  })
-
-  it('falls back when direction is missing', () => {
-    expect(defaultMovementLabel({})).toBe('Go onward')
-  })
-})
-
 describe('getMovementOptions', () => {
-  it('lists offerable directions (departure-hex barriers only)', () => {
+  it('does not list generated outdoor movement directions', () => {
     const outdoor = outdoorAt('lower-stand')
     const options = getMovementOptions(outdoor, null)
-    const dests = new Map(options.map((o) => [o.toHexId, o.label]))
 
-    expect(dests.get('south-pines')).toBe('Go west')
-    expect(dests.get('center-pines')).toMatch(/^Go /)
-    expect(dests.get('east-pines')).toMatch(/^Go /)
+    expect(options).toEqual([])
   })
 
-  it('uses story choice text instead of compass labels for covered destinations', () => {
+  it('lists story choice text for reachable story destinations', () => {
     const pendingBeat = {
       choices: [
         { text: 'Continue west on the trail', go_hex: 'south-pines' },
@@ -78,7 +63,7 @@ describe('getMovementOptions', () => {
     expect(south.kind).toBe('story')
   })
 
-  it('does not duplicate a destination in both story and movement options', () => {
+  it('does not add movement options beside a story destination', () => {
     const pendingBeat = {
       choices: [{ text: 'Keep walking west', go_hex: 'east-pines' }],
     }
@@ -88,14 +73,6 @@ describe('getMovementOptions', () => {
 
     expect(eastPines).toHaveLength(1)
     expect(eastPines[0].kind).toBe('story')
-  })
-
-  it('offers fence-stop entries from center-pines to south-pines', () => {
-    const outdoor = outdoorAt('center-pines')
-    const options = getMovementOptions(outdoor, null)
-    const dests = options.map((o) => o.toHexId)
-
-    expect(dests).toContain('south-pines')
   })
 
   it('omits story choices to adjacent but unreachable hexes', () => {
@@ -122,21 +99,6 @@ describe('getMovementOptions', () => {
     const options = getMovementOptions(outdoor, pendingBeat)
 
     expect(options.some((o) => o.toHexId === 'south-pines')).toBe(true)
-  })
-
-  it('derives labels from move geometry, not map hex fields', () => {
-    const outdoor = outdoorAt('lower-stand')
-    const { directMoves } = offeredMoves(
-      world,
-      outdoor.currentHexData,
-      world.resolveStand(outdoor.currentHexData),
-    )
-    const centerMove = directMoves.find((m) => m.toHexId === 'center-pines')
-    const options = getMovementOptions(outdoor, null)
-    const center = options.find((o) => o.toHexId === 'center-pines')
-
-    expect(world.hexById['lower-stand'].travel).toBeUndefined()
-    expect(center?.label).toBe(defaultMovementLabel(centerMove))
   })
 
   it('labels fence search from hidden hole openings, not riverbank default', () => {

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import mapData from '../../../../content/world/map.yaml'
 import { buildGameplayWorld, gameplayMoveTo } from './gameplayTravel.js'
-import { getMovementOptions } from '../../../composables/usePlayPanel.js'
 
 /** Round-trip: northeast to upper-gorge, bridge to west bank, southwest to north-west. */
 function atNorthWestFromUpperGorgeSouthwest(outdoor) {
@@ -21,11 +20,10 @@ describe('north-west to upper-gorge after southwest arrival', () => {
 
     expect(outdoor.canReachHex('upper-gorge')).toBe(true)
 
-    const options = getMovementOptions(outdoor, null)
-    const upper = options.find((o) => o.toHexId === 'upper-gorge')
+    const upper = outdoor.directMoves.find((move) => move.toHexId === 'upper-gorge')
     expect(
       upper,
-      `expected upper-gorge in ${options.map((o) => `${o.label} (${o.toHexId})`).join(', ')}`,
+      `expected upper-gorge in ${outdoor.directMoves.map((o) => `${o.label} (${o.toHexId})`).join(', ')}`,
     ).toBeTruthy()
     expect(upper.label.toLowerCase()).toMatch(/northeast/)
 

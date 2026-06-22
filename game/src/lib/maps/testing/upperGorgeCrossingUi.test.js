@@ -5,7 +5,6 @@ import {
   standAcrossOpening,
 } from '../composables/usePassageCrossing.js'
 import { buildTravelWorld, offeredMoves } from './travelWorld.js'
-import { getMovementOptions } from '../../../composables/usePlayPanel.js'
 
 describe('in-hex passage crossing', () => {
   const world = buildTravelWorld(mapData)
@@ -59,25 +58,14 @@ describe('in-hex passage crossing', () => {
     expect(eastDirect).toContain('north-west')
     expect(westDirect).toContain('north-west')
 
-    const options = getMovementOptions(
-      {
-        moves: offeredMoves(world, ug, west).routeMoves,
-        directMoves: offeredMoves(world, ug, west).directMoves,
-        passageCrossings: availablePassageCrossings({
-          hexId: ug.id,
-          fromPos: west,
-          mapFeatures: mapData.features,
-          ctx: world.ctx,
-          hexById: world.hexById,
-          size: world.size,
-        }),
-        state: { atBarrier: null, lastBlocked: null },
-        isAdjacentHex: () => true,
-        canSearchHere: () => false,
-      },
-      null,
-    )
-
-    expect(options.some((o) => o.id?.startsWith('passage:'))).toBe(true)
+    const crossings = availablePassageCrossings({
+      hexId: ug.id,
+      fromPos: west,
+      mapFeatures: mapData.features,
+      ctx: world.ctx,
+      hexById: world.hexById,
+      size: world.size,
+    })
+    expect(crossings.some((crossing) => crossing.openingId === 'upper-gorge-bridge')).toBe(true)
   })
 })

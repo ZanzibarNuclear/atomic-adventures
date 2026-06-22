@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import mapData from '../../../../content/world/map.yaml'
-import { getMovementOptions } from '../../../composables/usePlayPanel.js'
 import {
   buildMapMovementAudit,
   movementAuditSummary,
@@ -223,15 +222,6 @@ describe('map-wide outdoor movement audit', () => {
         expect.soft(offered, `${setupLabel}: offered destinations`).toEqual(
           sorted(movementCase.expectedMoves),
         )
-        const uiDestinations = sorted(
-          getMovementOptions(outdoor, null)
-            .map((option) => option.toHexId)
-            .filter(Boolean),
-        )
-        expect.soft(
-          uiDestinations,
-          `${setupLabel}: play-panel destinations`,
-        ).toEqual(sorted(movementCase.expectedMoves))
 
         for (const destination of movementCase.expectedMoves) {
           restore(outdoor, gameState, saved)
