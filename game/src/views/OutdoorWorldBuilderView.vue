@@ -51,6 +51,7 @@ const rightCollapsed = ref(false);
 const mapHost = ref(null);
 const camera = ref({ x: -250, y: -220, width: 500, height: 440 });
 const fitFrame = ref({ x: -250, y: -220, width: 500, height: 440 });
+const zoomAction = ref("fit");
 const panning = ref(null);
 const navigationPromptVisible = ref(false);
 const pendingRoute = ref("");
@@ -681,10 +682,8 @@ function onWheel(event) {
 
 function applyZoomAction(event) {
   const action = event.target.value;
-  event.target.value = "";
-  if (action === "in") zoomBy(0.8);
-  else if (action === "out") zoomBy(1.25);
-  else if (action === "fit") fitMap();
+  zoomAction.value = action;
+  if (action === "fit") fitMap();
   else if (action === "focus") focusSelection();
 }
 
@@ -802,13 +801,13 @@ function clonePlain(value) {
       <section class="canvas-column">
         <div class="canvas-toolbar panel">
           <div class="tool-group">
-            <select class="toolbar-select" aria-label="Map zoom actions" @change="applyZoomAction">
-              <option value="">Zoom</option>
-              <option value="in">Zoom in</option>
-              <option value="out">Zoom out</option>
-              <option value="fit">Fit map</option>
-              <option value="focus" :disabled="!selected">Focus selection</option>
-            </select>
+            <label class="toolbar-field">
+              <span>Zoom</span>
+              <select v-model="zoomAction" class="toolbar-select" aria-label="Map zoom actions" @change="applyZoomAction">
+                <option value="fit">Fit map</option>
+                <option value="focus" :disabled="!selected">Focus selection</option>
+              </select>
+            </label>
             <button class="sm muted" @click="runMovementAudit()">Run movement audit</button>
           </div>
         </div>
@@ -1196,6 +1195,13 @@ function clonePlain(value) {
 .object-item { display: grid; width: 100%; gap: .1rem; margin-top: .25rem; text-align: left; background: #252b35; }
 .object-item span { color: #8e96a3; font-size: .72rem; }
 .object-item.active, .canvas-toolbar button.active, .point-tools button.active { background: #49624f; border-color: #6f9b79; }
+.toolbar-field {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  color: #bdc4ce;
+  font-size: .78rem;
+}
 .toolbar-select {
   min-width: 10rem;
   border: 1px solid #485267;
