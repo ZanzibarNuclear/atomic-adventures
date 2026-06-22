@@ -386,6 +386,21 @@ function addBarrier() {
   select("feature", id);
 }
 
+function addCascade() {
+  if (selected.value?.kind !== "river") return;
+  selected.value.cascades ??= [];
+  selected.value.cascades.push({
+    id: uniqueId("new-cascade", selected.value.cascades),
+    from: 0.35,
+    to: 0.65,
+  });
+}
+
+function removeCascade(index) {
+  if (!selected.value?.cascades) return;
+  selected.value.cascades.splice(index, 1);
+}
+
 function addPassage() {
   const hex = selectedIsPlacement.value ? selected.value : outdoor.editableHexes[0];
   if (!hex) return;
@@ -847,8 +862,6 @@ function clonePlain(value) {
               </select>
             </label>
             <label>Display label<input v-model="selected.label" /></label>
-            <label>Area<input v-model="selected.area" /></label>
-            <label class="check-field"><input v-model="selected.cascade" type="checkbox" /> Cascade scenery</label>
             <div class="row-actions">
               <button class="sm" @click="addStand">Add/edit stand</button>
               <button class="sm" @click="addLandmark">Add/edit landmark</button>
@@ -909,6 +922,20 @@ function clonePlain(value) {
             <label>Label<input v-model="selected.label" /></label>
             <label>Flow<input v-model="selected.flow" /></label>
             <label class="check-field"><input v-model="selected.smooth" type="checkbox" /> Smooth line</label>
+            <fieldset v-if="selected.kind === 'river'">
+              <legend>Cascades</legend>
+              <div
+                v-for="(cascade, index) in selected.cascades ?? []"
+                :key="cascade.id ?? index"
+                class="cascade-row"
+              >
+                <label>ID<input v-model="cascade.id" /></label>
+                <label>From<input v-model.number="cascade.from" type="number" min="0" max="1" step=".01" /></label>
+                <label>To<input v-model.number="cascade.to" type="number" min="0" max="1" step=".01" /></label>
+                <button class="sm danger-outline" @click="removeCascade(index)">Remove</button>
+              </div>
+              <button class="sm" @click="addCascade">Add cascade</button>
+            </fieldset>
           </template>
 
           <template v-else-if="selectedType === 'passage'">
@@ -1136,6 +1163,7 @@ function clonePlain(value) {
 .inspector { display: grid; align-content: start; gap: .7rem; }
 .inspector label { display: grid; gap: .3rem; color: #bdc4ce; font-size: .8rem; }
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; }
+.cascade-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(4.5rem, .7fr) minmax(4.5rem, .7fr) auto; gap: .45rem; align-items: end; }
 .check-field { display: flex !important; align-items: center; }
 .check-field input { width: auto; }
 fieldset { display: grid; gap: .55rem; margin: 0; padding: .65rem; border: 1px solid #3b4557; border-radius: 8px; }

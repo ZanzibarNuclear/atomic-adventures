@@ -31,6 +31,24 @@ function chevronPath(x, y, dx, dy, scale = 1) {
   return `M ${bx - px * s * 0.45} ${by - py * s * 0.45} L ${tipX} ${tipY} L ${bx + px * s * 0.45} ${by + py * s * 0.45}`
 }
 
+function clamp01(value) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return null
+  return Math.max(0, Math.min(1, number))
+}
+
+function cascadeSampleIndexes(samples, cascade) {
+  if (samples.length < 4) return []
+  const from = clamp01(cascade?.from)
+  const to = clamp01(cascade?.to)
+  if (from == null || to == null || from === to) return []
+  const lo = Math.min(from, to)
+  const hi = Math.max(from, to)
+  return [0.25, 0.5, 0.75]
+    .map((t) => lo + (hi - lo) * t)
+    .map((t) => Math.min(samples.length - 2, Math.max(1, Math.floor((samples.length - 1) * t))))
+}
+
 /**
  * Screen-space placements for HexMap layers (terrain scatter, routes, avatar, legend).
  */
@@ -100,35 +118,24 @@ export function useHexMapPlacements({
   })
 
   const cascadeChevrons = computed(() => {
-    const cascadeIds = new Set(
-      (mapData.value.hexes ?? []).filter((h) => h.cascade).map((h) => h.id),
-    )
-    if (!cascadeIds.size) return []
     const riverModels = featureModels.value.filter(
-      (model) => model.kind === 'river' && model.samples?.length,
+      (model) => model.kind === 'river' && model.samples?.length && model.cascades?.length,
     )
     if (!riverModels.length) return []
     const { isRevealed, inView } = fogMaskOpts()
     const out = []
-    for (const hexId of cascadeIds) {
-      if (!isRevealed(hexId) || !inView(hexId)) continue
-      const river = riverModels.find((model) =>
-        model.samples.some((sample) => sample.hexId === hexId),
-      )
-      if (!river) continue
-      const pts = river.samples.filter((s) => s.hexId === hexId)
-      if (pts.length < 4) continue
-      const picks = [0.35, 0.55, 0.75].map((t) =>
-        Math.min(pts.length - 2, Math.max(1, Math.floor(pts.length * t))),
-      )
-      for (const i of picks) {
-        const p = pts[i]
-        const prev = pts[i - 1]
-        const next = pts[i + 1]
-        out.push({
-          key: `${hexId}-${i}`,
-          d: chevronPath(p.x, p.y, next.x - prev.x, next.y - prev.y),
-        })
+    for (const river of riverModels) {
+      for (const cascade of river.cascades ?? []) {
+        for (const i of cascadeSampleIndexes(river.samples, cascade)) {
+          const p = river.samples[i]
+          if (!p?.hexId || !isRevealed(p.hexId) || !inView(p.hexId)) continue
+          const prev = river.samples[i - 1]
+          const next = river.samples[i + 1]
+          out.push({
+            key: `${river.id}-${cascade.id ?? 'cascade'}-${i}`,
+            d: chevronPath(p.x, p.y, next.x - prev.x, next.y - prev.y),
+          })
+        }
       }
     }
     return out

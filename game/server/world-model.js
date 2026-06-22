@@ -110,6 +110,30 @@ function validateCollection(items, path, hexIds, errors, warnings, options = {})
         add(`${base}.points.${pointIndex}`, "Use either an existing hex anchor or numeric x/y coordinates.");
       }
     });
+    if (item.kind === "river") {
+      (item.cascades ?? []).forEach((cascade, cascadeIndex) => {
+        if (!cascade || typeof cascade !== "object") {
+          add(`${base}.cascades.${cascadeIndex}`, "Cascade entries must be objects.");
+          return;
+        }
+        if (cascade.id != null && !ID_PATTERN.test(String(cascade.id).trim())) {
+          add(`${base}.cascades.${cascadeIndex}.id`, "Use a kebab-case cascade ID.");
+        }
+        const from = Number(cascade.from);
+        const to = Number(cascade.to);
+        if (!Number.isFinite(from) || from < 0 || from > 1) {
+          add(`${base}.cascades.${cascadeIndex}.from`, "Cascade start must be between 0 and 1.");
+        }
+        if (!Number.isFinite(to) || to < 0 || to > 1) {
+          add(`${base}.cascades.${cascadeIndex}.to`, "Cascade end must be between 0 and 1.");
+        }
+        if (Number.isFinite(from) && Number.isFinite(to) && from === to) {
+          add(`${base}.cascades.${cascadeIndex}.to`, "Cascade end must differ from start.");
+        }
+      });
+    } else if (item.cascades?.length) {
+      add(`${base}.cascades`, "Only river features can have cascades.");
+    }
     if (item.points?.length > 60) {
       warnings.push({ path: `${base}.points`, message: "This line has many control points and may be difficult to edit." });
     }

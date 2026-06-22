@@ -22,8 +22,8 @@ function indoorHarness() {
       lastBlocked: null,
       atBarrier: null,
     },
-    editableHexes: [{ id: "utility-yard", area: "utility" }],
-    hexById: { "utility-yard": { id: "utility-yard", area: "utility" } },
+    editableHexes: [{ id: "utility-yard", landmark: { building: "utility-station" } }],
+    hexById: { "utility-yard": { id: "utility-yard", landmark: { building: "utility-station" } } },
     defaultStandForHex: () => ({ x: 0, y: 0 }),
   };
   const gameState = { flags: createFlags() };

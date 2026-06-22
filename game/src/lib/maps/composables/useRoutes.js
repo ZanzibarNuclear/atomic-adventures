@@ -145,7 +145,15 @@ export function buildRouteModels(routes, hexById, hexes, size) {
       if (last && last.hexId === samples[i].hexId) last.endIdx = i
       else spans.push({ hexId: samples[i].hexId, startIdx: i, endIdx: i })
     }
-    return { id: route.id, kind: route.kind, label: routeLabel(route), points, samples, spans }
+    return {
+      id: route.id,
+      kind: route.kind,
+      label: routeLabel(route),
+      points,
+      samples,
+      spans,
+      cascades: route.cascades ?? [],
+    }
   })
     .filter(Boolean)
 }

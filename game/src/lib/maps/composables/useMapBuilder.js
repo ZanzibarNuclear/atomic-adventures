@@ -187,6 +187,17 @@ function serializeLine(line, indent) {
   for (const p of line.points ?? []) {
     lines.push(`${inner}  - ${fmtWaypoint(p)}`)
   }
+  if (line.kind === 'river' && line.cascades?.length) {
+    lines.push(`${inner}cascades:`)
+    for (const cascade of line.cascades) {
+      const parts = []
+      if (cascade.id) parts.push(`id: ${cascade.id}`)
+      if (cascade.label) parts.push(`label: ${JSON.stringify(cascade.label)}`)
+      parts.push(`from: ${round2(cascade.from ?? 0)}`)
+      parts.push(`to: ${round2(cascade.to ?? 1)}`)
+      lines.push(`${inner}  - { ${parts.join(', ')} }`)
+    }
+  }
   return lines.join('\n')
 }
 
@@ -269,8 +280,6 @@ function serializeHexBlock(hex, indent) {
     `${inner}r: ${hex.r}`,
     `${inner}terrain: ${hex.terrain}`,
   ]
-  if (hex.area) lines.push(`${inner}area: ${hex.area}`)
-  if (hex.cascade) lines.push(`${inner}cascade: true`)
   if (hex.puzzle) lines.push(`${inner}puzzle: ${hex.puzzle}`)
   if (hex.standAt) lines.push(`${inner}standAt: ${fmtStandAt(hex.standAt)}`)
   if (hex.landmark) {
@@ -301,8 +310,6 @@ export function serializeHex(hex, indent = 2) {
   const pad = ' '.repeat(indent)
   const simple =
     !hex.standAt &&
-    !hex.area &&
-    !hex.cascade &&
     !hex.puzzle &&
     !hex.landmark
   if (simple) {
@@ -312,8 +319,6 @@ export function serializeHex(hex, indent = 2) {
   if (
     lm &&
     !hex.standAt &&
-    !hex.area &&
-    !hex.cascade &&
     !hex.puzzle &&
     !lm.blurb
   ) {

@@ -20,6 +20,7 @@ import { advanceGameTime } from "../../../character/gameTime.js";
 export const INDOOR_MOVE_MS = 550;
 export const FLOOR_MOVE_MS = 520;
 export const EXTERIOR_WALK_SPEED = 5;
+const UTILITY_STATION_BUILDING_ID = "utility-station";
 
 export function prefersReducedMapMotion() {
   return typeof window !== "undefined" &&
@@ -214,14 +215,14 @@ export function createIndoorMovement(deps) {
   function enterBuilding(hexId) {
     const id = hexId ?? outdoor.state.currentId;
     const hex = outdoor.hexById[id];
-    if (!hex || hex.area !== "utility") return;
+    if (hex?.landmark?.building !== UTILITY_STATION_BUILDING_ID) return;
     goIndoors();
   }
 
   function visitStation() {
     const hexId =
       building.value.outdoorHex ??
-      outdoor.editableHexes.find((h) => h.area === "utility")?.id;
+      outdoor.editableHexes.find((h) => h.landmark?.building === UTILITY_STATION_BUILDING_ID)?.id;
     if (!hexId) return;
     outdoor.state.currentId = hexId;
     goIndoors();

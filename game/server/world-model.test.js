@@ -23,4 +23,18 @@ describe("world model", () => {
     expect(world.journey).toContain("arrival-trail");
     expect(validateWorld(world).valid).toBe(true);
   });
+
+  it("validates river cascade ranges", () => {
+    const world = structuredClone(loadWorldSeed());
+    const river = world.features.find((feature) => feature.kind === "river");
+    river.cascades = [{ id: "utility-falls", from: 0.55, to: 0.82 }];
+    expect(validateWorld(world).valid).toBe(true);
+
+    river.cascades = [{ id: "bad falls", from: -0.1, to: 1.4 }];
+    const result = validateWorld(world);
+    expect(result.valid).toBe(false);
+    expect(result.errors["features.0.cascades.0.id"]).toBeDefined();
+    expect(result.errors["features.0.cascades.0.from"]).toBeDefined();
+    expect(result.errors["features.0.cascades.0.to"]).toBeDefined();
+  });
 });

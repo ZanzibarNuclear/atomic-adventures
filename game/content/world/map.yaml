@@ -28,7 +28,7 @@
 #       mid-west (-2,0)  west-slope (-1,0)   center-pines (0,0) …  trailhead (2,0)
 #  utility-yard (-2,1) [utility station]  south-pines (-1,1)  lower-stand (0,1)
 #
-# River: upper-gorge → … → utility-yard (cascade) → off SW.
+# River: upper-gorge → … → utility-yard (utility-falls cascade) → off SW.
 # Roads: compound-road (paved) gate ↔ north ↔ NE stub at road-fork (0,-2).
 #        river-access-drive (granite) — side road from road-fork west to the river.
 #
@@ -104,8 +104,6 @@ hexes:
     q: -2
     r: 1
     terrain: clearing
-    area: utility
-    cascade: true
     standAt: { from: landmark, dx: 0.05, dy: -0.56 }
     landmark:
       building: utility-station
@@ -130,6 +128,8 @@ features:
       - { hex: utility-yard, dx: -0.34, dy: -0.66 }
       - { hex: utility-yard, dx: -0.34, dy: 0.69 }
       - { x: -147, y: 130 }
+    cascades:
+      - { id: utility-falls, from: 0.55, to: 0.82 }
 
   - id: fence-run-south
     kind: fence
