@@ -1,34 +1,19 @@
 import { computed, ref, unref, watch } from "vue";
-import { hasFlag, requireSatisfied, setFlags } from "../lib/maps/composables/useFlags.js";
-import { evaluateRequirements } from "../lib/character/requirements.js";
-import { applyEffectsAtomically } from "../lib/character/effects.js";
+import { hasFlag, setFlags } from "../lib/maps/composables/useFlags.js";
 import { advanceGameTime } from "../lib/character/gameTime.js";
 
 /**
  * Location-triggered narrative for the card between map and play panel.
- * First visit: full beat + acknowledge. Return visit: revisit text, or original
- * text if no revisit is authored.
+ * First presentation: story text. Later presentations use revisit text when
+ * authored. Choices remain available whenever the beat is active.
  */
 export function useStory(storyData, ctx) {
   const { gameState, place, outdoor, indoor } = ctx;
   const beats = computed(() => unref(storyData)?.beats ?? {});
   const previousPlace = ref(place.value);
 
-  /** Beat awaiting player acknowledgment (blocks narrative updates). */
+  /** Active story beat, including repeat visits. */
   const pendingBeat = ref(null);
-  /** Current location narrative (revisit or ambient). */
-  const locationNarrative = ref(null);
-  /** Suppress revisit for a beat until the player leaves this location. */
-  const suppressedRevisit = ref(null);
-
-  function locationKey(loc) {
-    return [
-      loc.place,
-      loc.hex ?? "",
-      loc.room ?? "",
-      loc.exteriorNode ?? "",
-    ].join("|");
-  }
 
   const showEndCard = computed(
     () =>
@@ -36,7 +21,7 @@ export function useStory(storyData, ctx) {
       !gameState.endCardDismissed,
   );
 
-  const narrativeBeat = computed(() => pendingBeat.value ?? locationNarrative.value);
+  const narrativeBeat = computed(() => pendingBeat.value);
 
   function beatSeen(id) {
     return gameState.storySeen.has(id);
@@ -76,72 +61,31 @@ export function useStory(storyData, ctx) {
     return true;
   }
 
-  function requirementsSatisfied(require) {
-    if (!gameState.character) return requireSatisfied(require, gameState.flags);
-    return evaluateRequirements(require, {
-      character: gameState.character,
-      flags: gameState.flags,
-    }).ok;
-  }
-
   function decorateChoices(choices = []) {
-    return choices.map((choice) => {
-      if (!gameState.character) return choice;
-      const result = evaluateRequirements(choice.require, {
-        character: gameState.character,
-        flags: gameState.flags,
-      });
-      return {
-        ...choice,
-        disabled: !result.ok,
-        requirementReasons: result.reasons,
-      };
-    });
+    return choices;
   }
 
-  function beatMatchesLocation(id, beat, loc) {
-    if (!requirementsSatisfied(beat.require)) return false;
-    return triggerMatches(beat, loc);
+  function displayText(beat, seen) {
+    return seen && beat.revisit ? beat.revisit : beat.text;
   }
 
-  function findNewBeat(loc, event = null) {
+  function activeBeat(id, beat) {
+    const seen = beatSeen(id);
+    return {
+      id,
+      eyebrow: beat.eyebrow,
+      heading: beat.heading,
+      text: displayText(beat, seen),
+      revisit: seen && Boolean(beat.revisit),
+      choices: decorateChoices(beat.choices),
+      acknowledge: beat.acknowledge !== false,
+    };
+  }
+
+  function findBeat(loc, event = null) {
     for (const [id, beat] of Object.entries(beats.value)) {
-      if (beat.once !== false && beatSeen(id)) continue;
-      if (!requirementsSatisfied(beat.require)) continue;
       if (!triggerMatches(beat, loc, event)) continue;
-      return {
-        id,
-        eyebrow: beat.eyebrow,
-        heading: beat.heading,
-        text: beat.text,
-        choices: decorateChoices(beat.choices),
-        acknowledge: beat.acknowledge !== false,
-      };
-    }
-    return null;
-  }
-
-  function findRevisitBeat(loc) {
-    const key = locationKey(loc);
-    for (const [id, beat] of Object.entries(beats.value)) {
-      if (beat.once === false || !beatSeen(id)) continue;
-      const text = beat.revisit ?? beat.text;
-      if (!text) continue;
-      if (
-        suppressedRevisit.value?.beatId === id &&
-        suppressedRevisit.value?.locationKey === key
-      ) {
-        continue;
-      }
-      if (!beatMatchesLocation(id, beat, loc)) continue;
-      return {
-        id,
-        eyebrow: beat.eyebrow,
-        heading: beat.heading,
-        text,
-        revisit: true,
-        acknowledge: false,
-      };
+      return activeBeat(id, beat);
     }
     return null;
   }
@@ -150,21 +94,14 @@ export function useStory(storyData, ctx) {
     if (pendingBeat.value || showEndCard.value) return;
 
     const loc = locationContext();
-    const fresh = findNewBeat(loc, event);
+    const fresh = findBeat(loc, event);
     if (fresh) {
       pendingBeat.value = fresh;
-      locationNarrative.value = null;
-      if (
-        fresh.acknowledge === false &&
-        beats.value[fresh.id]?.once !== false
-      ) {
-        markSeen(fresh.id);
-      }
+      markSeen(fresh.id);
       return;
     }
 
     pendingBeat.value = null;
-    locationNarrative.value = findRevisitBeat(loc);
   }
 
   function findChoiceIndex(beat, dest) {
@@ -195,7 +132,7 @@ export function useStory(storyData, ctx) {
 
     const choice = beat.choices?.[choiceIndex];
     if (!choice) return;
-    if (choice.disabled || !requirementsSatisfied(choice.require)) return;
+    if (choice.disabled) return;
 
     if (choice.go_hex && place.value === "outdoors") {
       if (!outdoor.canReachHex(choice.go_hex)) return;
@@ -204,21 +141,8 @@ export function useStory(storyData, ctx) {
       if (!outdoor.atBuildingEntrance) return;
     }
 
-    if (gameState.character) {
-      const effects = [
-        ...(choice.effects ?? []),
-        ...(choice.sets ?? []).map((id) => ({ op: "flag.set", id })),
-        ...(choice.set_flags ?? []).map((id) => ({ op: "flag.set", id })),
-      ];
-      const result = applyEffectsAtomically(effects, {
-        character: gameState.character,
-        flags: gameState.flags,
-      });
-      if (!result.ok) return;
-    } else {
-      if (choice.sets) setFlags(gameState.flags, choice.sets);
-      if (choice.set_flags) setFlags(gameState.flags, choice.set_flags);
-    }
+    if (choice.sets) setFlags(gameState.flags, choice.sets);
+    if (choice.set_flags) setFlags(gameState.flags, choice.set_flags);
     if (Number(choice.timeMinutes) > 0 && gameState.clock) {
       const timeResult = advanceGameTime(
         gameState,
@@ -228,14 +152,8 @@ export function useStory(storyData, ctx) {
       if (!timeResult.ok) return;
     }
 
-    if (beats.value[beat.id]?.once !== false) {
-      markSeen(beat.id);
-    }
+    markSeen(beat.id);
     pendingBeat.value = null;
-    suppressedRevisit.value = {
-      beatId: beat.id,
-      locationKey: locationKey(locationContext()),
-    };
 
     const movesPlayer =
       (choice.go_hex && place.value === "outdoors") ||
@@ -297,11 +215,6 @@ export function useStory(storyData, ctx) {
     ],
     () => {
       const loc = locationContext();
-      const key = locationKey(loc);
-      if (suppressedRevisit.value?.locationKey !== key) {
-        suppressedRevisit.value = null;
-      }
-
       const enteredIndoors =
         previousPlace.value === "outdoors" && place.value === "indoors";
       previousPlace.value = place.value;
@@ -329,24 +242,11 @@ export function useStory(storyData, ctx) {
       if (pendingId) {
         const definition = beats.value[pendingId];
         pendingBeat.value = null;
-        if (
-          definition &&
-          requirementsSatisfied(definition.require) &&
-          atBeatTrigger(definition, loc)
-        ) {
-          pendingBeat.value = {
-            id: pendingId,
-            eyebrow: definition.eyebrow,
-            heading: definition.heading,
-            text: definition.text,
-            choices: decorateChoices(definition.choices),
-            acknowledge: definition.acknowledge !== false,
-          };
-          locationNarrative.value = null;
+        if (definition && atBeatTrigger(definition, loc)) {
+          pendingBeat.value = activeBeat(pendingId, definition);
           return;
         }
       }
-      locationNarrative.value = null;
       refreshNarrative();
     },
     { flush: "post" },

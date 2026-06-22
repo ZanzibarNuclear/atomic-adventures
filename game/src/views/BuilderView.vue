@@ -10,7 +10,6 @@ import { storyApi } from "../lib/storyApi.js";
 import { storyBeatYaml } from "../lib/storyYamlPreview.js";
 import { useWorldContent } from "../composables/useWorldContent.js";
 import { useBuildingContent } from "../composables/useBuildingContent.js";
-import CharacterEffectsEditor from "../components/builder/CharacterEffectsEditor.vue";
 
 const { worldData, revision: worldRevision } = useWorldContent();
 const { buildingData, revision: buildingRevision } = useBuildingContent();
@@ -65,14 +64,6 @@ const locationBeats = computed(() =>
 );
 const selectedRoom = computed(() => locationMode.value === "rooms" ? selectedLocation.value : "");
 const selectedExterior = computed(() => locationMode.value === "exterior" ? selectedLocation.value : null);
-const characterCatalog = computed(() => catalog.value.character ?? {
-  items: [], stats: [], knowledge: [], skills: [], quests: [], documents: [],
-});
-const requirementDomains = [
-  { id: "items", label: "Items" },
-  { id: "knowledge", label: "Knowledge" },
-  { id: "documents", label: "Documents" },
-];
 onMounted(async () => {
   window.addEventListener("beforeunload", warnBeforeUnload);
   try {
@@ -298,14 +289,12 @@ function emptyBeat() {
   return {
     id: "",
     order: beats.value.length,
-    once: true,
     acknowledge: true,
     eyebrow: "",
     heading: "",
     text: "",
     revisit: "",
     trigger,
-    require: { all: [], any: [], not: [] },
     choices: [],
   };
 }
@@ -408,8 +397,6 @@ function addChoice() {
     id: crypto.randomUUID(),
     order: draft.value.choices.length,
     text: "",
-    require: { all: [], any: [], not: [] },
-    effects: [],
     timeMinutes: 0,
     activity: "light",
     sets: [],
@@ -430,36 +417,6 @@ function moveChoice(index, delta) {
 
 function setCsv(target, key, event) {
   target[key] = event.target.value.split(",").map((item) => item.trim()).filter(Boolean);
-}
-
-function requirementIds(require, domain) {
-  const value = require?.[domain];
-  if (Array.isArray(value)) {
-    return value.map((entry) => typeof entry === "string" ? entry : entry.id);
-  }
-  return (value?.all ?? []).map((entry) => typeof entry === "string" ? entry : entry.id);
-}
-
-function setRequirementIds(require, domain, event) {
-  require[domain] = [...event.target.selectedOptions].map((option) => option.value);
-}
-
-function addCondition(require, domain) {
-  require[domain] ??= [];
-  const catalogEntries = characterCatalog.value[domain] ?? [];
-  if (!catalogEntries.length) return;
-  if (domain === "stats") {
-    require[domain].push({ id: catalogEntries[0].id, op: "gte", value: 0 });
-  } else if (domain === "skills") {
-    require[domain].push({ id: catalogEntries[0].id, op: "gte", rank: 1 });
-  } else if (domain === "quests") {
-    require[domain].push({ id: catalogEntries[0].id, status: "active" });
-  }
-}
-
-function ensureEffects(choice) {
-  choice.effects ??= [];
-  return choice.effects;
 }
 
 function destinationType(choice) {
@@ -643,7 +600,6 @@ async function saveAndContinue() {
             <label>Order
               <input v-model.number="draft.order" type="number" />
             </label>
-            <label class="check-field"><input v-model="draft.once" type="checkbox" /> Run once</label>
             <label class="check-field"><input v-model="draft.acknowledge" type="checkbox" /> Requires choice</label>
           </div>
 
@@ -657,71 +613,6 @@ async function saveAndContinue() {
             <span v-if="fieldError('text')" class="field-error">{{ fieldError("text") }}</span>
           </label>
           <label>Revisit text<textarea v-model="draft.revisit" rows="5" /></label>
-
-          <fieldset>
-            <legend>Requirements</legend>
-            <label>All flags<input :value="draft.require.all.join(', ')" @input="setCsv(draft.require, 'all', $event)" /></label>
-            <label>Any flags<input :value="draft.require.any.join(', ')" @input="setCsv(draft.require, 'any', $event)" /></label>
-            <label>Not flags<input :value="draft.require.not.join(', ')" @input="setCsv(draft.require, 'not', $event)" /></label>
-            <div class="field-grid">
-              <label v-for="domain in requirementDomains" :key="domain.id">
-                Required {{ domain.label }}
-                <select
-                  multiple
-                  :value="requirementIds(draft.require, domain.id)"
-                  @change="setRequirementIds(draft.require, domain.id, $event)">
-                  <option
-                    v-for="entry in characterCatalog[domain.id]"
-                    :key="entry.id"
-                    :value="entry.id">
-                    {{ entry.label ?? entry.title }} ({{ entry.id }})
-                  </option>
-                </select>
-              </label>
-            </div>
-            <section v-for="domain in ['stats', 'skills', 'quests']" :key="domain" class="condition-editor">
-              <div class="choice-toolbar">
-                <strong>{{ domain }}</strong>
-                <button type="button" class="sm" @click="addCondition(draft.require, domain)">Add</button>
-              </div>
-              <div
-                v-for="(condition, conditionIndex) in draft.require[domain] ?? []"
-                :key="`${domain}:${conditionIndex}`"
-                class="field-grid">
-                <select v-model="condition.id">
-                  <option
-                    v-for="entry in characterCatalog[domain]"
-                    :key="entry.id"
-                    :value="entry.id">{{ entry.label }} ({{ entry.id }})</option>
-                </select>
-                <template v-if="domain !== 'quests'">
-                  <select v-model="condition.op">
-                    <option>eq</option><option>ne</option><option>gt</option>
-                    <option>gte</option><option>lt</option><option>lte</option>
-                  </select>
-                  <input
-                    v-if="domain === 'stats'"
-                    v-model.number="condition.value"
-                    type="number"
-                    aria-label="Required stat value">
-                  <input
-                    v-else
-                    v-model.number="condition.rank"
-                    type="number"
-                    min="0"
-                    aria-label="Required skill rank">
-                </template>
-                <select v-else v-model="condition.status">
-                  <option>unavailable</option><option>available</option><option>active</option>
-                  <option>completed</option><option>failed</option><option>abandoned</option>
-                </select>
-                <button
-                  type="button"
-                  class="sm muted"
-                  @click="draft.require[domain].splice(conditionIndex, 1)">Remove</button>
-              </div>
-            </section>
-          </fieldset>
 
           <fieldset>
             <legend>Choices</legend>
@@ -740,26 +631,7 @@ async function saveAndContinue() {
                 <label>Set flags<input :value="choice.set_flags.join(', ')" @input="setCsv(choice, 'set_flags', $event)" /></label>
               </div>
               <details>
-                <summary>Character requirements and effects</summary>
-                <div class="field-grid">
-                  <label v-for="domain in requirementDomains" :key="domain.id">
-                    Required {{ domain.label }}
-                    <select
-                      multiple
-                      :value="requirementIds(choice.require, domain.id)"
-                      @change="setRequirementIds(choice.require, domain.id, $event)">
-                      <option
-                        v-for="entry in characterCatalog[domain.id]"
-                        :key="entry.id"
-                        :value="entry.id">
-                        {{ entry.label ?? entry.title }} ({{ entry.id }})
-                      </option>
-                    </select>
-                  </label>
-                </div>
-                <CharacterEffectsEditor
-                  :effects="ensureEffects(choice)"
-                  :character-catalog="characterCatalog" />
+                <summary>Time cost</summary>
                 <div class="field-grid">
                   <label>Game minutes<input v-model.number="choice.timeMinutes" type="number" min="0"></label>
                   <label>Activity

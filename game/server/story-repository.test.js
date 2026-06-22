@@ -25,12 +25,10 @@ function sampleBeat(overrides = {}) {
   return {
     id: "test-beat",
     order: 0,
-    once: true,
     acknowledge: true,
     heading: "Test",
     text: "Original text.",
     trigger: { place: "outdoors", hex: "trailhead" },
-    require: { all: [], any: [], not: [] },
     choices: [{ text: "Continue", sets: ["test.done"], go_hex: "east-pines" }],
     ...overrides,
   };
@@ -98,7 +96,7 @@ describe("StoryRepository", () => {
     db.close();
   });
 
-  it("persists generic character requirements and ordered effects", () => {
+  it("strips legacy story requirement and choice character fields", () => {
     const { db, repository } = createRepository();
     repository.createBeat("test-area", sampleBeat({
       require: { items: ["lobby-exterior-key"] },
@@ -113,11 +111,9 @@ describe("StoryRepository", () => {
     }));
 
     const beat = repository.getBeat("test-area", "test-beat");
-    expect(beat.require.items).toEqual(["lobby-exterior-key"]);
-    expect(beat.choices[0].effects.map((effect) => effect.op)).toEqual([
-      "item.add",
-      "flag.set",
-    ]);
+    expect(beat.require).toBeUndefined();
+    expect(beat.choices[0].require).toBeUndefined();
+    expect(beat.choices[0].effects).toBeUndefined();
     db.close();
   });
 });

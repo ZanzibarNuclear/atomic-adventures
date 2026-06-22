@@ -1,8 +1,4 @@
 import { randomUUID } from "node:crypto";
-import {
-  validateCharacterEffects,
-  validateCharacterRequirements,
-} from "./character-reference-validation.js";
 
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -25,13 +21,10 @@ export function normalizeBeat(input = {}) {
       event: nullableText(trigger.event),
       flag: nullableText(trigger.flag),
     },
-    require: normalizeRequirements(input.require),
     choices: (input.choices ?? []).map((choice, index) => ({
       id: choice.id || randomUUID(),
       order: Number.isFinite(Number(choice.order)) ? Number(choice.order) : index,
       text: String(choice.text ?? ""),
-      require: normalizeRequirements(choice.require),
-      effects: normalizeEffects(choice.effects),
       timeMinutes: finiteNumber(choice.timeMinutes, 0),
       activity: nullableText(choice.activity) ?? "light",
       sets: stringList(choice.sets),
@@ -89,32 +82,24 @@ export function validateBeat(input, world, character = null) {
     if (choice.go_hex && !world.hexIds.has(choice.go_hex)) add(`${base}.go_hex`, "Choose an existing hex.");
     if (choice.go_room && !world.roomIds.has(choice.go_room)) add(`${base}.go_room`, "Choose an existing room.");
     if (choice.enter && !world.buildingIds.has(choice.enter)) add(`${base}.enter`, "Choose an existing building.");
-    validateCharacterRequirements(choice.require, `${base}.require`, character, add);
-    validateCharacterEffects(choice.effects, `${base}.effects`, character, add);
     if (choice.timeMinutes < 0) add(`${base}.timeMinutes`, "Time cannot be negative.");
     if (!["resting", "light", "moderate", "strenuous"].includes(choice.activity)) {
       add(`${base}.activity`, "Choose a supported activity profile.");
     }
   });
-  validateCharacterRequirements(beat.require, "require", character, add);
-
   return { beat, errors, valid: Object.keys(errors).length === 0 };
 }
 
 export function beatToRuntime(beat) {
   return compactObject({
-    once: beat.once,
     acknowledge: beat.acknowledge,
     eyebrow: beat.eyebrow ?? undefined,
     heading: beat.heading ?? undefined,
     trigger: compactObject(beat.trigger),
     text: beat.text,
     revisit: beat.revisit ?? undefined,
-    require: compactRequirements(beat.require),
     choices: beat.choices.map((choice) => compactObject({
       text: choice.text,
-      require: compactRequirements(choice.require),
-      effects: choice.effects.length ? choice.effects : undefined,
       timeMinutes: choice.timeMinutes || undefined,
       activity: choice.timeMinutes ? choice.activity : undefined,
       sets: choice.sets.length ? choice.sets : undefined,
@@ -124,45 +109,6 @@ export function beatToRuntime(beat) {
       enter: choice.enter ?? undefined,
     })),
   });
-}
-
-function compactRequirements(require) {
-  const result = structuredClone(require ?? {});
-  if (result.flags && !Object.values(result.flags).some((value) => value?.length)) delete result.flags;
-  for (const key of ["all", "any", "not"]) if (!result[key]?.length) delete result[key];
-  for (const key of ["stats", "skills", "evidence", "quests"]) if (!result[key]?.length) delete result[key];
-  for (const key of ["items", "knowledge", "documents"]) {
-    if (Array.isArray(result[key]) && !result[key].length) delete result[key];
-    else if (result[key] && !Object.values(result[key]).some((value) => value?.length)) delete result[key];
-  }
-  return Object.keys(result).length ? result : undefined;
-}
-
-function normalizeRequirements(value) {
-  const source = value && typeof value === "object" ? structuredClone(value) : {};
-  const legacy = {
-    all: stringList(source.all),
-    any: stringList(source.any),
-    not: stringList(source.not),
-  };
-  delete source.all;
-  delete source.any;
-  delete source.not;
-  if (source.flags && typeof source.flags === "object") {
-    source.flags = {
-      all: stringList(source.flags.all),
-      any: stringList(source.flags.any),
-      not: stringList(source.flags.not),
-    };
-    return source;
-  }
-  return { ...source, ...legacy };
-}
-
-function normalizeEffects(value) {
-  return Array.isArray(value)
-    ? value.filter((effect) => effect && typeof effect === "object").map((effect) => structuredClone(effect))
-    : [];
 }
 
 function compactObject(value) {

@@ -2,15 +2,18 @@ import { describe, expect, it } from "vitest";
 import { nextTick, reactive, ref } from "vue";
 import { useStory } from "./useStory.js";
 import { createCharacterState, markCharacterChanged } from "./useCharacterState.js";
-import { addItem, itemQuantity } from "../lib/character/holdings.js";
+import { addItem } from "../lib/character/holdings.js";
 
-function harness(initialStory, { withCharacter = false, moveTo = () => {} } = {}) {
+function harness(initialStory, { withCharacter = false, withClock = false, moveTo = () => {} } = {}) {
   const story = ref(initialStory);
   const place = ref("outdoors");
   const gameState = reactive({
     flags: new Set(),
     storySeen: new Set(),
     endCardDismissed: false,
+    ...(withClock ? {
+      clock: { elapsedMinutes: 0, minuteOfDay: 8 * 60, day: 1 },
+    } : {}),
     ...(withCharacter ? {
       character: createCharacterState({
         items: [
@@ -45,7 +48,6 @@ function harness(initialStory, { withCharacter = false, moveTo = () => {} } = {}
 }
 
 const beat = {
-  once: true,
   heading: "Original",
   text: "Original text",
   trigger: { place: "outdoors", hex: "trailhead" },
@@ -63,26 +65,22 @@ describe("useStory reactive content", () => {
     expect(api.pendingBeat.value.text).toBe("Edited text");
   });
 
-  it("removes an ineligible pending beat and selects a newly eligible beat", async () => {
+  it("updates a pending beat when live content changes", async () => {
     const { story, api } = harness({ beats: { intro: beat } });
     api.refreshNarrative();
     story.value = {
       beats: {
-        replacement: {
-          ...beat,
-          heading: "Replacement",
-        },
         intro: {
           ...beat,
-          require: { all: ["missing.flag"] },
+          heading: "Edited again",
         },
       },
     };
     await nextTick();
-    expect(api.pendingBeat.value.id).toBe("replacement");
+    expect(api.pendingBeat.value.heading).toBe("Edited again");
   });
 
-  it("marks a one-time no-acknowledgement beat seen when it is presented", () => {
+  it("marks a beat seen when it is presented", () => {
     const passiveBeat = {
       ...beat,
       acknowledge: false,
@@ -97,17 +95,17 @@ describe("useStory reactive content", () => {
     expect(gameState.storySeen.has("intro")).toBe(true);
   });
 
-  it("shows revisit text after leaving and returning to a seen no-acknowledgement beat", async () => {
-    const passiveBeat = {
+  it("shows revisit text and keeps choices after leaving and returning to a seen beat", async () => {
+    const revisitBeat = {
       ...beat,
-      acknowledge: false,
-      choices: [],
+      choices: [{ text: "Try the trail again", go_hex: "east-pines" }],
       revisit: "Return text",
     };
-    const { api, outdoor } = harness({ beats: { intro: passiveBeat } });
+    const { api, outdoor } = harness({ beats: { intro: revisitBeat } });
 
     api.refreshNarrative();
     expect(api.narrativeBeat.value.text).toBe("Original text");
+    expect(api.pendingBeat.value.choices[0].text).toBe("Try the trail again");
 
     outdoor.state.currentId = "elsewhere";
     await nextTick();
@@ -117,59 +115,63 @@ describe("useStory reactive content", () => {
     await nextTick();
     expect(api.narrativeBeat.value.text).toBe("Return text");
     expect(api.narrativeBeat.value.revisit).toBe(true);
+    expect(api.pendingBeat.value.choices[0].text).toBe("Try the trail again");
   });
 
-  it("does not mark repeatable no-acknowledgement beats seen", () => {
-    const repeatableBeat = {
-      ...beat,
-      once: false,
-      acknowledge: false,
-      choices: [],
-      revisit: "Unused revisit text",
-    };
-    const { api, gameState } = harness({ beats: { ambient: repeatableBeat } });
+  it("shows story text again on return when no revisit text is defined", async () => {
+    const { api, outdoor, gameState } = harness({ beats: { ambient: beat } });
 
     api.refreshNarrative();
+    expect(api.narrativeBeat.value.text).toBe("Original text");
+    expect(gameState.storySeen.has("ambient")).toBe(true);
+
+    outdoor.state.currentId = "elsewhere";
+    await nextTick();
+    outdoor.state.currentId = "trailhead";
+    await nextTick();
 
     expect(api.narrativeBeat.value.text).toBe("Original text");
-    expect(gameState.storySeen.has("ambient")).toBe(false);
+    expect(api.narrativeBeat.value.revisit).toBe(false);
   });
 
-  it("does not store repeatable choice beats in seen state", () => {
-    const repeatableBeat = {
+  it("does not suppress a seen beat with choices", async () => {
+    const choiceBeat = {
       ...beat,
-      once: false,
+      choices: [{ text: "Continue" }],
     };
-    const { api, gameState } = harness({ beats: { ambient: repeatableBeat } });
+    const { api, outdoor, gameState } = harness({ beats: { ambient: choiceBeat } });
 
     api.refreshNarrative();
     api.applyChoice(0);
 
-    expect(gameState.storySeen.has("ambient")).toBe(false);
+    outdoor.state.currentId = "elsewhere";
+    await nextTick();
+    outdoor.state.currentId = "trailhead";
+    await nextTick();
+
+    expect(gameState.storySeen.has("ambient")).toBe(true);
+    expect(api.pendingBeat.value.id).toBe("ambient");
+    expect(api.pendingBeat.value.choices[0].text).toBe("Continue");
   });
 
-  it("uses character requirements for beats and choices", () => {
+  it("ignores legacy beat requirements", () => {
     const gatedBeat = {
       ...beat,
       require: { items: ["key"] },
       choices: [
-        { text: "Use the tool", require: { items: ["tool"] } },
+        { text: "Continue" },
       ],
     };
-    const { api, gameState } = harness({ beats: { gated: gatedBeat } }, {
+    const { api } = harness({ beats: { gated: gatedBeat } }, {
       withCharacter: true,
     });
 
     api.refreshNarrative();
-    expect(api.pendingBeat.value).toBeNull();
-
-    addItem(gameState.character.holdings, gameState.character.definitions, "key");
-    api.refreshNarrative();
     expect(api.pendingBeat.value.id).toBe("gated");
-    expect(api.pendingBeat.value.choices[0].disabled).toBe(true);
+    expect(api.pendingBeat.value.choices[0].disabled).toBeUndefined();
   });
 
-  it("refreshes gated beats when character revision changes", async () => {
+  it("keeps a legacy required beat visible after character revision changes", async () => {
     const gatedBeat = {
       ...beat,
       require: { items: ["key"] },
@@ -179,7 +181,7 @@ describe("useStory reactive content", () => {
     });
 
     api.refreshNarrative();
-    expect(api.pendingBeat.value).toBeNull();
+    expect(api.pendingBeat.value.id).toBe("gated");
 
     addItem(gameState.character.holdings, gameState.character.definitions, "key");
     markCharacterChanged(gameState.character);
@@ -188,50 +190,51 @@ describe("useStory reactive content", () => {
     expect(api.pendingBeat.value.id).toBe("gated");
   });
 
-  it("commits effects before movement", () => {
-    let heldDuringMove = false;
+  it("commits choice flags before movement", () => {
+    let flagSetDuringMove = false;
     const effectBeat = {
       ...beat,
       choices: [{
-        text: "Take the key and go",
-        effects: [{ op: "item.add", id: "key" }],
+        text: "Set the flag and go",
+        sets: ["story.flagged"],
         go_hex: "east-pines",
       }],
     };
     const setup = harness({ beats: { effect: effectBeat } }, {
-      withCharacter: true,
       moveTo: () => {
-        heldDuringMove = itemQuantity(setup.gameState.character.holdings, "key") === 1;
+        flagSetDuringMove = setup.gameState.flags.has("story.flagged");
       },
     });
 
     setup.api.refreshNarrative();
     setup.api.applyChoice(0);
 
-    expect(heldDuringMove).toBe(true);
+    expect(flagSetDuringMove).toBe(true);
     expect(setup.gameState.storySeen.has("effect")).toBe(true);
   });
 
-  it("does not move or consume the beat when an atomic effect fails", () => {
-    let moved = false;
+  it("advances choice time before movement", () => {
+    let minutesDuringMove = 0;
     const effectBeat = {
       ...beat,
       choices: [{
-        text: "Spend a missing key",
-        effects: [{ op: "item.remove", id: "key" }],
+        text: "Spend time and go",
+        timeMinutes: 5,
         go_hex: "east-pines",
       }],
     };
     const setup = harness({ beats: { effect: effectBeat } }, {
+      withClock: true,
       withCharacter: true,
-      moveTo: () => { moved = true; },
+      moveTo: () => {
+        minutesDuringMove = setup.gameState.clock.elapsedMinutes;
+      },
     });
 
     setup.api.refreshNarrative();
     setup.api.applyChoice(0);
 
-    expect(moved).toBe(false);
-    expect(setup.api.pendingBeat.value.id).toBe("effect");
-    expect(setup.gameState.storySeen.has("effect")).toBe(false);
+    expect(minutesDuringMove).toBe(5);
+    expect(setup.gameState.storySeen.has("effect")).toBe(true);
   });
 });

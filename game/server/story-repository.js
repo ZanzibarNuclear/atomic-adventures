@@ -251,40 +251,9 @@ export class StoryRepository {
   }
 
   findCharacterReferences(domain, id) {
-    const references = [];
-    for (const area of this.listAreas()) {
-      for (const beat of this.listBeats(area.id, { full: true })) {
-        collectRequirementReferences(beat.require, domain, id, (path) => {
-          references.push({
-            kind: "story",
-            areaId: area.id,
-            beatId: beat.id,
-            path: `require.${path}`,
-          });
-        });
-        beat.choices.forEach((choice, index) => {
-          collectRequirementReferences(choice.require, domain, id, (path) => {
-            references.push({
-              kind: "story",
-              areaId: area.id,
-              beatId: beat.id,
-              path: `choices.${index}.require.${path}`,
-            });
-          });
-          choice.effects.forEach((effect, effectIndex) => {
-            if (effectDomain(effect.op) === domain && effect.id === id) {
-              references.push({
-                kind: "story",
-                areaId: area.id,
-                beatId: beat.id,
-                path: `choices.${index}.effects.${effectIndex}`,
-              });
-            }
-          });
-        });
-      }
-    }
-    return references;
+    void domain;
+    void id;
+    return [];
   }
 
   findHexReferences(hexId) {
@@ -450,10 +419,10 @@ export class StoryRepository {
       beat.trigger.exteriorNode, beat.trigger.event, beat.trigger.flag,
       Number(beat.once), Number(beat.acknowledge), beat.eyebrow, beat.heading,
       beat.text, beat.revisit,
-      JSON.stringify(beat.require.all ?? beat.require.flags?.all ?? []),
-      JSON.stringify(beat.require.any ?? beat.require.flags?.any ?? []),
-      JSON.stringify(beat.require.not ?? beat.require.flags?.not ?? []),
-      JSON.stringify(beat.require), version, createdAt, now,
+      JSON.stringify([]),
+      JSON.stringify([]),
+      JSON.stringify([]),
+      JSON.stringify({}), version, createdAt, now,
     );
     this.#insertChoices(areaId, beat.id, beat.choices);
   }
@@ -474,7 +443,7 @@ export class StoryRepository {
     `);
     choices.forEach((choice, index) => statement.run(
       choice.id || randomUUID(), areaId, beatId, choice.order ?? index, choice.text,
-      JSON.stringify(choice.require), JSON.stringify(choice.effects),
+      JSON.stringify({}), JSON.stringify([]),
       choice.timeMinutes, choice.activity,
       JSON.stringify(choice.sets), JSON.stringify(choice.set_flags),
       choice.go_hex, choice.go_room, choice.enter,
@@ -500,13 +469,6 @@ export class StoryRepository {
         event: row.trigger_event,
         flag: row.trigger_flag,
       },
-      require: row.require_json
-        ? JSON.parse(row.require_json)
-        : {
-            all: JSON.parse(row.require_all),
-            any: JSON.parse(row.require_any),
-            not: JSON.parse(row.require_not),
-          },
       version: row.version,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -522,8 +484,6 @@ export class StoryRepository {
         id: choice.id,
         order: choice.sort_order,
         text: choice.text,
-        require: JSON.parse(choice.require_json),
-        effects: JSON.parse(choice.effects_json),
         timeMinutes: choice.time_minutes,
         activity: choice.activity,
         sets: JSON.parse(choice.sets_json),
@@ -571,40 +531,6 @@ function renameMapFor(renames, kind) {
       .filter((rename) => rename?.kind === kind && rename.from && rename.to)
       .map((rename) => [String(rename.from), String(rename.to)]),
   );
-}
-
-function collectRequirementReferences(require, domain, id, add) {
-  if (["stats", "skills", "quests"].includes(domain)) {
-    (require?.[domain] ?? []).forEach((entry, index) => {
-      if (entry?.id === id) add(String(index));
-    });
-  } else {
-    const value = require?.[domain];
-    if (value) {
-      const groups = Array.isArray(value) ? { all: value } : value;
-      for (const group of ["all", "any", "not"]) {
-        (groups[group] ?? []).forEach((entry, index) => {
-          const entryId = typeof entry === "string" ? entry : entry?.id;
-          if (entryId === id) add(`${group}.${index}`);
-        });
-      }
-    }
-  }
-  if (domain === "skills") {
-    (require?.evidence ?? []).forEach((entry, index) => {
-      if (entry?.skill === id) add(`evidence.${index}`);
-    });
-  }
-}
-
-function effectDomain(op) {
-  const domain = String(op ?? "").split(".")[0];
-  return domain === "item" ? "items"
-    : domain === "stat" ? "stats"
-      : domain === "skill" ? "skills"
-        : domain === "quest" ? "quests"
-          : domain === "document" ? "documents"
-            : domain;
 }
 
 export class ValidationError extends Error {

@@ -26,26 +26,22 @@ order.
 A beat is eligible when:
 
 1. Its trigger matches the current location or event.
-2. Its `require` conditions are satisfied.
-3. If `once` is enabled, it has not already been seen.
 
-The first eligible unseen beat wins. If no new beat is eligible, the engine
-looks for revisit prose from a previously seen beat at the current location.
-This means order matters when multiple beats can match the same place and state.
+The first eligible beat wins. This means order matters when multiple beats can
+match the same place and state.
 
-Multiple beats on one hex or room are expected. Requirements can make them
-represent different days, discoveries, facility states, or story phases:
+Multiple beats on one hex or room are expected. Use ordering, trigger flags,
+and seen state to represent different discoveries, facility states, or story
+phases:
 
 ```yaml
 day-1-pines:
   order: 10
-  trigger: { place: outdoors, hex: far-pines }
-  require: { all: [day.1] }
+  trigger: { place: outdoors, hex: far-pines, flag: day.1 }
 
 day-2-pines:
   order: 20
-  trigger: { place: outdoors, hex: far-pines }
-  require: { all: [day.2] }
+  trigger: { place: outdoors, hex: far-pines, flag: day.2 }
 ```
 
 The engine has no built-in calendar yet. Days and phases are represented by
@@ -74,77 +70,49 @@ change room-level trigger behavior. See
 later extension and are not part of the current beat schema.
 
 An optional trigger flag may further restrict a location trigger. Most state
-gating should use `require`, which is clearer in the builder and supports
-multiple conditions.
+gating should be handled with separate beats and clear story flags. The current
+story beat engine intentionally has no beat-level or choice-level requirements.
+Legacy `require` fields may still exist in old SQLite columns or imported
+snapshots, but the runtime, validator, repository, YAML preview, and builder
+ignore them.
 
-## Requirements
+## Future Beat Conditions
 
-Beat and choice requirements use the shared character requirement language.
-They can check flags, carried items and quantities, stats, knowledge, skill
-ranks or evidence, quest state, and discovered documents. All populated
-domains must pass.
+The removed Requirements model was an attempt at general-purpose beat
+conditions. It could express many things, but it made ordinary authoring feel
+abstract and overbuilt. Future conditions should keep the useful idea, while
+avoiding a broad requirements language.
 
-The legacy root-level flag groups remain supported:
+When we have concrete story use cases, add small, targeted trigger fields that
+match how an author thinks about the scene. Likely examples:
 
-| Field | Rule |
-| --- | --- |
-| `all` | Every listed flag must be set |
-| `any` | At least one listed flag must be set |
-| `not` | None of the listed flags may be set |
+- Story arc or phase, such as Part I, Part II, Part III, hydro restored, or
+  post-storm.
+- Time of day, such as morning, afternoon, evening, or night.
+- Season or weather, if the story needs those distinctions.
+- One simple story-state flag for bespoke cases that do not deserve their own
+  first-class field.
 
-For example:
-
-```yaml
-require:
-  all: [day.2]
-  any: [hydro.online, campus.backup-power]
-  not: [storm.active]
-```
-
-Requirements control eligibility; they do not automatically set or clear
-flags.
-
-Character-aware examples:
-
-```yaml
-require:
-  items: [lobby-exterior-key]
-  knowledge: [hydro-basics]
-  skills:
-    - { id: hydro-operations, op: gte, rank: 1 }
-```
-
-A beat whose requirements fail is not selected. A choice whose requirements
-fail remains visible but disabled.
+Do not reintroduce a generic list of items, knowledge, documents, stats,
+skills, and mixed boolean groups unless a specific gameplay problem proves that
+we need it. Prefer clear author-facing fields over abstract predicates. Add a
+condition only when there is an actual beat selection problem in authored
+content, and update the runtime, database schema, builder UI, validation, tests,
+and this document together.
 
 ## First View, Seen State, and Revisit Text
 
 The first time an eligible beat is presented, the narrative card shows its
-`text`. A one-time beat becomes **seen** in one of two ways:
-
-1. **Requires choice enabled (`acknowledge: true`)** — the beat becomes seen
-   when the player selects one of its choices.
-2. **Requires choice disabled (`acknowledge: false`)** — the beat becomes seen
-   immediately when its story text is presented.
-
-For a no-acknowledgement beat, marking it seen does not replace the card during
-the current visit. The original story text remains visible until the player
-leaves or another narrative transition occurs.
+`text`. The beat is then marked **seen** in the player's save data.
 
 When the player later returns:
 
-- If `revisit` exists, the narrative card shows it.
-- Otherwise, the original `text` is reused as the revisit prose.
-- Revisit cards do not offer the beat's choices.
+- If `revisit` exists, the narrative card shows it instead of `text`.
+- Otherwise, the original `text` is shown again.
+- Choices remain available on both first-view and revisit presentations.
 
 `storySeen` is part of the player's save data. Reloading a save therefore
-preserves whether a one-time beat should show first-view or revisit prose.
-
-### Repeatable beats
-
-When `once` is disabled, the beat is not stored in `storySeen`. It remains a new
-eligible beat each time the trigger and requirements match. The current engine
-does not use `revisit` for repeatable beats.
+preserves whether a beat should show first-view or revisit prose.
 
 ## Requires Choice
 
@@ -154,14 +122,15 @@ When enabled:
 
 - The beat remains pending until the player chooses one of its authored
   choices.
-- The choice can apply an ordered, atomic effect list and optionally move the
+- The choice can set story flags, advance game time, and optionally move the
   player.
-- Selecting a valid choice marks a one-time beat seen.
+- Selecting a valid choice can keep the same beat active, advance state through
+  flags, or move the player.
 
 When disabled:
 
 - The prose is informational and does not require a story action.
-- A one-time beat is marked seen on presentation.
+- The beat is marked seen on presentation.
 - Normal map movement and other gameplay actions remain available.
 
 A beat that requires a choice should have at least one usable choice. The
@@ -173,27 +142,25 @@ through the story UI and should be considered an authoring error.
 Choices appear in the game's **Choose an Action** panel. Choice order is
 author-controlled.
 
-The Story Builder exposes character catalog selectors for beat/choice
-requirements and ordered effects. Flag aliases remain editable alongside the
-generic controls during migration.
+Choices stay intentionally small so ordinary navigation and story actions do
+not sprawl across every action.
 
 A choice contains:
 
 | Field | Effect |
 | --- | --- |
 | `text` | Player-facing action label |
-| `require` | Shared character/flag requirements for enabling the choice |
-| `effects` | Ordered atomic effects on flags and character state |
 | `sets` | Sets global flags |
 | `set_flags` | Also sets global flags; retained for schema compatibility |
+| `timeMinutes` | Optional game-time cost for taking the choice |
+| `activity` | Activity profile used when applying the time cost |
 | `go_hex` | Moves to a reachable outdoor hex |
 | `go_room` | Moves to an indoor room |
 | `enter` | Enters the current building |
 
-A choice may have at most one movement destination. Effects are validated and
-committed before movement. If any effect fails, none are committed, the player
-does not move, and the beat remains pending. `sets` and `set_flags` are
-migration aliases for `flag.set` effects.
+A choice may have at most one movement destination. Flag changes and optional
+time costs are committed before movement. If applying a time cost fails, the
+player does not move and the beat remains pending.
 
 Outdoor `go_hex` choices obey the same reachability checks as ordinary map
 movement. Unreachable story choices are hidden rather than allowing narrative
@@ -212,18 +179,17 @@ For multiple beats at one location:
 
 - Put more specific or earlier-phase beats before broad fallback beats.
 - Use mutually exclusive flags where possible.
-- A new eligible unseen beat takes priority over revisit prose.
-- Once all eligible one-time beats have been seen, the first matching seen
-  beat with revisit prose supplies the ambient narrative.
+- The first eligible beat supplies either story text or revisit text depending
+  on whether it has been seen.
 
 Example progression at one hex:
 
-1. Arrival beat requiring `day.1`.
-2. Storm beat requiring `storm.active`.
-3. Post-power beat requiring `hydro.online`.
-4. Revisit prose from the earliest matching seen beat when no new beat applies.
+1. Arrival beat triggered by `day.1`.
+2. Storm beat triggered by `storm.active`.
+3. Post-power beat triggered by `hydro.online`.
+4. Revisit prose from the earliest matching seen beat.
 
-If several revisit beats remain eligible, the first one in beat order wins.
+If several matching beats remain eligible, the first one in beat order wins.
 
 ## Display Fields
 
@@ -232,7 +198,7 @@ If several revisit beats remain eligible, the first one in beat order wins.
 | Eyebrow | Small uppercase context label above the heading |
 | Heading | Narrative-card title |
 | Story text | Main prose on first presentation |
-| Revisit text | Prose on later visits after a one-time beat is seen |
+| Revisit text | Prose on later visits after a beat is seen |
 
 The eyebrow is useful for day, time, phase, or chapter context, such as
 `Day 1 · Evening`. All display fields except story text are optional.
@@ -288,9 +254,9 @@ The current beat engine does not yet implement the full planned passage schema.
 Notable omissions include:
 
 - A built-in day/calendar model
-- Choice-specific requirements
 - Clearing flags
-- Items and documents in story beats
+- Beat-level and choice-specific requirements
+- Choice-specific character effects
 - Passage-to-passage `go_to`
 - Variants
 - Simulation and mini-game gates

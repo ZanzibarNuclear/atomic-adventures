@@ -21,7 +21,7 @@ function actionButtonLabel(action) {
  * Story choices with go_hex use the same enterability predicate as movement options.
  */
 export function buildStoryChoices(pendingBeat, canReachHex = () => true) {
-  if (!pendingBeat?.choices?.length || pendingBeat.revisit) return [];
+  if (!pendingBeat?.choices?.length) return [];
   return pendingBeat.choices
     .map((choice, index) => ({ choice, index }))
     .filter(({ choice }) => !choice.go_hex || canReachHex(choice.go_hex))
