@@ -288,8 +288,6 @@ function emptyBeat() {
   if (locationMode.value === "events") trigger.event = selectedLocation.value || "enter-building";
   return {
     id: "",
-    order: beats.value.length,
-    acknowledge: true,
     eyebrow: "",
     heading: "",
     text: "",
@@ -597,10 +595,6 @@ async function saveAndContinue() {
               <input v-model="draft.id" :readonly="!isNew" />
               <span v-if="fieldError('id')" class="field-error">{{ fieldError("id") }}</span>
             </label>
-            <label>Order
-              <input v-model.number="draft.order" type="number" />
-            </label>
-            <label class="check-field"><input v-model="draft.acknowledge" type="checkbox" /> Requires choice</label>
           </div>
 
           <div class="field-grid">

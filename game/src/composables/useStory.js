@@ -78,7 +78,6 @@ export function useStory(storyData, ctx) {
       text: displayText(beat, seen),
       revisit: seen && Boolean(beat.revisit),
       choices: decorateChoices(beat.choices),
-      acknowledge: beat.acknowledge !== false,
     };
   }
 

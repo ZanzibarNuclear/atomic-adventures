@@ -24,8 +24,6 @@ function createRepository() {
 function sampleBeat(overrides = {}) {
   return {
     id: "test-beat",
-    order: 0,
-    acknowledge: true,
     heading: "Test",
     text: "Original text.",
     trigger: { place: "outdoors", hex: "trailhead" },

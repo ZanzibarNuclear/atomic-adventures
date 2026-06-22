@@ -83,7 +83,6 @@ describe("useStory reactive content", () => {
   it("marks a beat seen when it is presented", () => {
     const passiveBeat = {
       ...beat,
-      acknowledge: false,
       choices: [],
       revisit: "Return text",
     };

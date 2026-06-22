@@ -20,27 +20,27 @@ that the current beat engine does not yet support.
 ## Beat Selection
 
 Whenever the player changes location, flags change, the game starts, or live
-story content is updated, the engine evaluates beats in ascending authoring
-order.
+story content is updated, the engine evaluates beats for the current story
+area.
 
 A beat is eligible when:
 
 1. Its trigger matches the current location or event.
 
-The first eligible beat wins. This means order matters when multiple beats can
-match the same place and state.
+If exactly one beat matches, that beat is shown. If multiple beats match the
+same place and state, the result is ambiguous from an authoring point of view.
+Do not rely on beat ordering to choose between them; make the triggers distinct
+instead.
 
-Multiple beats on one hex or room are expected. Use ordering, trigger flags,
-and seen state to represent different discoveries, facility states, or story
-phases:
+Multiple beats on one hex or room are expected, but they should represent
+distinct story states. Use trigger flags and seen state to represent different
+discoveries, facility states, or story phases:
 
 ```yaml
 day-1-pines:
-  order: 10
   trigger: { place: outdoors, hex: far-pines, flag: day.1 }
 
 day-2-pines:
-  order: 20
   trigger: { place: outdoors, hex: far-pines, flag: day.2 }
 ```
 
@@ -114,36 +114,18 @@ When the player later returns:
 `storySeen` is part of the player's save data. Reloading a save therefore
 preserves whether a beat should show first-view or revisit prose.
 
-## Requires Choice
-
-The builder label **Requires choice** maps to `acknowledge`.
-
-When enabled:
-
-- The beat remains pending until the player chooses one of its authored
-  choices.
-- The choice can set story flags, advance game time, and optionally move the
-  player.
-- Selecting a valid choice can keep the same beat active, advance state through
-  flags, or move the player.
-
-When disabled:
-
-- The prose is informational and does not require a story action.
-- The beat is marked seen on presentation.
-- Normal map movement and other gameplay actions remain available.
-
-A beat that requires a choice should have at least one usable choice. The
-current validator permits an empty choice list, but such a beat cannot complete
-through the story UI and should be considered an authoring error.
-
 ## Choices
 
 Choices appear in the game's **Choose an Action** panel. Choice order is
 author-controlled.
 
-Choices stay intentionally small so ordinary navigation and story actions do
-not sprawl across every action.
+Choices are optional. If a beat has no choices, it is ambient/location prose. If
+a beat has choices, the available choices are shown whenever the beat is active,
+including revisit presentations. Choices stay intentionally small so ordinary
+navigation and story actions do not sprawl across every action.
+
+Future choice visibility rules should be simple and targeted, like future beat
+conditions. Wait for a concrete use case before adding them.
 
 A choice contains:
 
@@ -160,7 +142,7 @@ A choice contains:
 
 A choice may have at most one movement destination. Flag changes and optional
 time costs are committed before movement. If applying a time cost fails, the
-player does not move and the beat remains pending.
+player does not move and the beat remains active.
 
 Outdoor `go_hex` choices obey the same reachability checks as ordinary map
 movement. Unreachable story choices are hidden rather than allowing narrative
@@ -170,17 +152,14 @@ If a story choice and ordinary movement both lead to the same destination, the
 story choice replaces the generic movement action so the authored label is
 shown only once.
 
-## Ordering and Multiple Beats
-
-Beat order is global within the current story area. The runtime receives beats
-in that order and selects the first match.
+## Multiple Beats
 
 For multiple beats at one location:
 
-- Put more specific or earlier-phase beats before broad fallback beats.
 - Use mutually exclusive flags where possible.
-- The first eligible beat supplies either story text or revisit text depending
-  on whether it has been seen.
+- Avoid overlapping triggers that can match at the same time.
+- The matching beat supplies either story text or revisit text depending on
+  whether it has been seen.
 
 Example progression at one hex:
 
@@ -189,7 +168,8 @@ Example progression at one hex:
 3. Post-power beat triggered by `hydro.online`.
 4. Revisit prose from the earliest matching seen beat.
 
-If several matching beats remain eligible, the first one in beat order wins.
+If several matching beats remain eligible, treat that as an authoring problem
+and make the triggers distinct.
 
 ## Display Fields
 

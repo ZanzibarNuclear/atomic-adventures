@@ -54,7 +54,7 @@ export class StoryRepository {
         version, created_at, updated_at
       FROM story_beats
       WHERE area_id = ?
-      ORDER BY sort_order, id
+      ORDER BY id
     `).all(areaId);
     return rows.map((row) => {
       const beat = this.#rowToBeat(row, full);
@@ -166,8 +166,8 @@ export class StoryRepository {
     const areaId = String(data.area ?? "").trim();
     if (!areaId) throw new ValidationError({ area: ["Area ID is required."] });
     const entries = Object.entries(data.beats ?? {});
-    const normalized = entries.map(([id, beat], order) =>
-      validateBeat({ ...beat, id, order }, this.world, this.character));
+    const normalized = entries.map(([id, beat]) =>
+      validateBeat({ ...beat, id }, this.world, this.character));
     const errors = Object.fromEntries(
       normalized.flatMap((result, index) =>
         Object.entries(result.errors).map(([path, messages]) => [`beats.${entries[index][0]}.${path}`, messages]),
@@ -415,9 +415,9 @@ export class StoryRepository {
         version, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      areaId, beat.id, beat.order, beat.trigger.place, beat.trigger.hex, beat.trigger.room,
+      areaId, beat.id, 0, beat.trigger.place, beat.trigger.hex, beat.trigger.room,
       beat.trigger.exteriorNode, beat.trigger.event, beat.trigger.flag,
-      Number(beat.once), Number(beat.acknowledge), beat.eyebrow, beat.heading,
+      Number(beat.once), 1, beat.eyebrow, beat.heading,
       beat.text, beat.revisit,
       JSON.stringify([]),
       JSON.stringify([]),
@@ -454,9 +454,7 @@ export class StoryRepository {
     const beat = {
       areaId: row.area_id,
       id: row.id,
-      order: row.sort_order,
       once: Boolean(row.once_value),
-      acknowledge: Boolean(row.acknowledge),
       eyebrow: row.eyebrow,
       heading: row.heading,
       text: row.text,

@@ -6,9 +6,7 @@ export function normalizeBeat(input = {}) {
   const trigger = input.trigger ?? {};
   return {
     id: String(input.id ?? "").trim(),
-    order: Number.isFinite(Number(input.order)) ? Number(input.order) : 0,
     once: input.once !== false,
-    acknowledge: input.acknowledge !== false,
     eyebrow: nullableText(input.eyebrow),
     heading: nullableText(input.heading),
     text: String(input.text ?? ""),
@@ -92,7 +90,6 @@ export function validateBeat(input, world, character = null) {
 
 export function beatToRuntime(beat) {
   return compactObject({
-    acknowledge: beat.acknowledge,
     eyebrow: beat.eyebrow ?? undefined,
     heading: beat.heading ?? undefined,
     trigger: compactObject(beat.trigger),

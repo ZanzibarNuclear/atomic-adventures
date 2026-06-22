@@ -3,7 +3,6 @@ import yaml from "js-yaml";
 export function storyBeatYaml(beat) {
   if (!beat?.id) return "";
   const output = {
-    acknowledge: beat.acknowledge,
     eyebrow: optional(beat.eyebrow),
     heading: optional(beat.heading),
     trigger: compact(beat.trigger),
