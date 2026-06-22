@@ -80,6 +80,9 @@ const errorMessages = computed(() =>
     messages.map((message) => `${path}: ${message}`),
   ),
 );
+const invalidAuditEntries = computed(() =>
+  auditEntries.value.filter((entry) => entry.status === "invalid"),
+);
 const allHexIds = computed(() => outdoor.editableHexes.map((hex) => hex.id));
 const allHexSet = computed(() => new Set(allHexIds.value));
 const selected = computed(() => {
@@ -328,6 +331,10 @@ function onBuilderMapClick({ x, y }) {
   selectedHandleId.value = `point-${index}`;
 }
 
+function toggleAddPointMode() {
+  tool.value = tool.value === "add-point" ? "select" : "add-point";
+}
+
 function addStand() {
   if (!selected.value || !selectedIsPlacement.value) return;
   if (selected.value.landmark) ensureDefaultStandAt(selected.value);
@@ -518,6 +525,7 @@ async function renameSelected() {
 function cascadeHexRename(from, to) {
   if (draftMeta.value.start === from) draftMeta.value.start = to;
   draftMeta.value.journey = (draftMeta.value.journey ?? []).map((id) => id === from ? to : id);
+  cascadeMovementAuditRename(from, to);
   for (const route of outdoor.editableRoutes) {
     for (const point of route.points ?? []) if (point.hex === from) point.hex = to;
   }
@@ -526,6 +534,23 @@ function cascadeHexRename(from, to) {
     for (const key of ["at", "labelAt", "boothAt"]) if (feature[key]?.hex === from) feature[key].hex = to;
     for (const point of feature.points ?? []) if (point.hex === from) point.hex = to;
   }
+}
+
+function cascadeMovementAuditRename(from, to) {
+  const existing = Array.isArray(draftMeta.value.movementAuditRenames)
+    ? draftMeta.value.movementAuditRenames
+    : [];
+  let chained = false;
+  const updated = existing
+    .filter((item) => item.from !== from)
+    .map((item) => {
+      if (item.to !== from) return item;
+      chained = true;
+      return { ...item, to };
+    });
+  draftMeta.value.movementAuditRenames = chained
+    ? updated
+    : [...updated, { kind: "hex", from, to }];
 }
 
 function moveSelected(delta) {
@@ -582,7 +607,7 @@ function movePoint(index, delta) {
 
 function runMovementAudit(showStatus = true) {
   try {
-    auditEntries.value = buildMapMovementAudit(currentWorld.value);
+    auditEntries.value = buildMapMovementAudit(currentWorld.value, renames.value);
     auditSummary.value = movementAuditSummary(auditEntries.value);
     if (showStatus) {
       status.value = auditSummary.value.invalid
@@ -631,10 +656,6 @@ function focusSelection() {
   camera.value = { x: point.x - width / 2, y: point.y - height / 2, width, height };
 }
 
-function resetZoom() {
-  camera.value = { ...fitFrame.value };
-}
-
 function zoomBy(factor, clientX = null, clientY = null) {
   const rect = mapHost.value?.getBoundingClientRect();
   const fx = rect && clientX != null ? (clientX - rect.left) / rect.width : 0.5;
@@ -656,6 +677,15 @@ function zoomBy(factor, clientX = null, clientY = null) {
 
 function onWheel(event) {
   zoomBy(event.deltaY > 0 ? 1.12 : 0.88, event.clientX, event.clientY);
+}
+
+function applyZoomAction(event) {
+  const action = event.target.value;
+  event.target.value = "";
+  if (action === "in") zoomBy(0.8);
+  else if (action === "out") zoomBy(1.25);
+  else if (action === "fit") fitMap();
+  else if (action === "focus") focusSelection();
 }
 
 function startPan(event) {
@@ -772,20 +802,14 @@ function clonePlain(value) {
       <section class="canvas-column">
         <div class="canvas-toolbar panel">
           <div class="tool-group">
-            <button class="sm" :class="{ active: tool === 'select' }" @click="tool = 'select'">Select</button>
-            <button
-              class="sm"
-              :class="{ active: tool === 'add-point' }"
-              :disabled="!selectedIsLine"
-              @click="tool = tool === 'add-point' ? 'select' : 'add-point'"
-            >Add route point</button>
-          </div>
-          <div class="tool-group">
-            <button class="sm muted" @click="zoomBy(.8)">＋</button>
-            <button class="sm muted" @click="zoomBy(1.25)">−</button>
-            <button class="sm muted" @click="fitMap()">Fit map</button>
-            <button class="sm muted" :disabled="!selected" @click="focusSelection">Focus selection</button>
-            <button class="sm muted" @click="resetZoom">Reset zoom</button>
+            <select class="toolbar-select" aria-label="Map zoom actions" @change="applyZoomAction">
+              <option value="">Zoom</option>
+              <option value="in">Zoom in</option>
+              <option value="out">Zoom out</option>
+              <option value="fit">Fit map</option>
+              <option value="focus" :disabled="!selected">Focus selection</option>
+            </select>
+            <button class="sm muted" @click="runMovementAudit()">Run movement audit</button>
           </div>
         </div>
         <div
@@ -812,9 +836,9 @@ function clonePlain(value) {
             :edit-handles="editHandles"
             :edit-kind="selected?.kind ?? 'path'"
             :selected-handle-id="selectedHandleId"
-            :add-point-mode="tool === 'add-point'"
+            :add-point-mode="tool === 'add-point' && selectedIsLine"
             :clickable-hex-ids="allHexSet"
-            :selectable-objects="tool === 'select'"
+            :selectable-objects="tool !== 'add-point' || !selectedIsLine"
             :view-box-override="viewBoxString"
             :edit-handle-scale="editHandleScale"
             :movement-audit-entries="auditEntries"
@@ -1026,6 +1050,15 @@ function clonePlain(value) {
 
           <fieldset v-if="selectedIsLine">
             <legend>Control points</legend>
+            <div class="point-tools">
+              <button
+                class="sm"
+                :class="{ active: tool === 'add-point' }"
+                @click="toggleAddPointMode"
+              >
+                {{ tool === "add-point" ? "Done adding points" : "Add point on map" }}
+              </button>
+            </div>
             <article v-for="(point, index) in selected.points" :key="index" class="point-editor">
               <div class="point-heading">
                 <strong>Point {{ index + 1 }}</strong>
@@ -1057,11 +1090,19 @@ function clonePlain(value) {
         <p v-for="message in errorMessages.slice(0, 12)" :key="message" class="field-error">
           {{ message }}
         </p>
-        <section class="diagnostics">
-          <button class="sm muted" @click="runMovementAudit()">Run movement audit</button>
-          <p v-if="auditSummary">
-            {{ auditSummary.total }} cases · {{ auditSummary.invalid }} invalid
+        <section v-if="auditSummary || warnings.length" class="diagnostics">
+          <p v-if="auditSummary" :class="{ warning: auditSummary.invalid }">
+            Movement audit:
+            {{ auditSummary.invalid
+              ? `${auditSummary.invalid} invalid case(s) out of ${auditSummary.total}.`
+              : `passed ${auditSummary.total} cases.` }}
           </p>
+          <ul v-if="invalidAuditEntries.length" class="audit-issues">
+            <li v-for="entry in invalidAuditEntries.slice(0, 8)" :key="entry.id">
+              <strong>{{ entry.label }}</strong>
+              <span>{{ entry.reason || "Movement result did not match the audit expectation." }}</span>
+            </li>
+          </ul>
           <p v-for="warning in warnings" :key="`${warning.path}:${warning.message}`" class="warning">
             {{ warning.path }}: {{ warning.message }}
           </p>
@@ -1154,7 +1195,15 @@ function clonePlain(value) {
 .object-group h3 span { color: #6f7787; }
 .object-item { display: grid; width: 100%; gap: .1rem; margin-top: .25rem; text-align: left; background: #252b35; }
 .object-item span { color: #8e96a3; font-size: .72rem; }
-.object-item.active, .canvas-toolbar button.active { background: #49624f; border-color: #6f9b79; }
+.object-item.active, .canvas-toolbar button.active, .point-tools button.active { background: #49624f; border-color: #6f9b79; }
+.toolbar-select {
+  min-width: 10rem;
+  border: 1px solid #485267;
+  border-radius: 7px;
+  background: #171b22;
+  color: #eef1f5;
+  padding: .42rem .55rem;
+}
 .canvas-column { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: .55rem; min-width: 0; }
 .world-canvas { position: relative; min-height: 0; overflow: hidden; border: 1px solid #3b4655; border-radius: 11px; background: #1d241f; }
 .world-canvas :deep(.hexmap), .world-canvas :deep(.hexmap.expanded) { height: 100%; min-height: 100%; border-radius: 0; }
@@ -1169,9 +1218,14 @@ function clonePlain(value) {
 fieldset { display: grid; gap: .55rem; margin: 0; padding: .65rem; border: 1px solid #3b4557; border-radius: 8px; }
 legend { color: #8bc49a; }
 .point-editor { display: grid; gap: .4rem; padding: .5rem; border: 1px solid #343d4d; border-radius: 7px; background: #1b2028; }
+.point-tools { display: flex; justify-content: flex-end; }
 .danger-outline { border-color: #9b5050; color: #ffb5b5; background: #3d2729; }
 .diagnostics { display: grid; gap: .4rem; padding-top: .65rem; border-top: 1px solid #343d4d; }
 .diagnostics p { margin: 0; color: #aab2bd; font-size: .75rem; }
+.audit-issues { display: grid; gap: .35rem; margin: 0; padding: 0; list-style: none; }
+.audit-issues li { display: grid; gap: .15rem; padding: .45rem .55rem; border: 1px solid #704848; border-radius: 7px; background: #2c2024; }
+.audit-issues strong { color: #ffd0d0; font-size: .78rem; }
+.audit-issues span { color: #d8b5b5; font-size: .76rem; line-height: 1.35; }
 .warning { color: #efcb83 !important; }
 .field-error { color: #ff9e9e; font-size: .78rem; }
 .yaml-preview { max-height: 22rem; overflow: auto; padding: .65rem; border-radius: 7px; background: #11151b; white-space: pre-wrap; font-size: .72rem; }

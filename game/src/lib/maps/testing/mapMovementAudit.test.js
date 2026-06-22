@@ -29,6 +29,26 @@ function sorted(values) {
   return [...values].sort()
 }
 
+function renameWorldHex(world, from, to) {
+  world.hexes.find((hex) => hex.id === from).id = to
+  if (world.start === from) world.start = to
+  world.journey = world.journey.map((id) => (id === from ? to : id))
+  for (const route of world.routes ?? []) {
+    for (const point of route.points ?? []) {
+      if (point.hex === from) point.hex = to
+    }
+  }
+  for (const feature of world.features ?? []) {
+    if (feature.hex === from) feature.hex = to
+    for (const key of ['at', 'labelAt', 'boothAt']) {
+      if (feature[key]?.hex === from) feature[key].hex = to
+    }
+    for (const point of feature.points ?? []) {
+      if (point.hex === from) point.hex = to
+    }
+  }
+}
+
 function offeredDestinations(outdoor) {
   return sorted(
     new Set([
@@ -130,6 +150,57 @@ function movementRow({
 }
 
 describe('map-wide outdoor movement audit', () => {
+  it('reports stale audit cases instead of throwing when a hex is removed', () => {
+    const sourceHexId = mapData.start
+    const renamed = structuredClone(mapData)
+    renamed.hexes = renamed.hexes.filter((hex) => hex.id !== sourceHexId)
+    renamed.start = 'east-pines'
+    renamed.journey = renamed.journey.filter((id) => id !== sourceHexId)
+
+    expect(() => buildMapMovementAudit(renamed)).not.toThrow()
+    const entries = buildMapMovementAudit(renamed)
+
+    expect(
+      entries.some((entry) =>
+        entry.reason.includes(`missing source hex "${sourceHexId}"`),
+      ),
+    ).toBe(true)
+    expect(
+      entries.some((entry) =>
+        entry.reason.includes(`missing destination hex "${sourceHexId}"`),
+      ),
+    ).toBe(true)
+  })
+
+  it('infers audit renames when a hex id changes but its position does not', () => {
+    const sourceHexId = mapData.start
+    const renamedHexId = `${sourceHexId}-renamed`
+    const renamed = structuredClone(mapData)
+    renameWorldHex(renamed, sourceHexId, renamedHexId)
+
+    const entries = buildMapMovementAudit(renamed)
+
+    expect(
+      entries.filter((entry) => entry.reason.includes('missing')),
+    ).toEqual([])
+  })
+
+  it('uses authored audit renames to follow renamed hex ids', () => {
+    const sourceHexId = mapData.start
+    const renamedHexId = `${sourceHexId}-renamed`
+    const renamed = structuredClone(mapData)
+    renameWorldHex(renamed, sourceHexId, renamedHexId)
+    renamed.movementAuditRenames = [
+      { kind: 'hex', from: sourceHexId, to: renamedHexId },
+    ]
+
+    const entries = buildMapMovementAudit(renamed)
+
+    expect(
+      entries.filter((entry) => entry.reason.includes('missing')),
+    ).toEqual([])
+  })
+
   it('builds a complete visual overlay with no invalid paths', () => {
     const entries = buildMapMovementAudit(mapData)
     const summary = movementAuditSummary(entries)
