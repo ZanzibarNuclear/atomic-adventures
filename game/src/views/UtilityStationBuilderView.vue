@@ -49,7 +49,7 @@ const emptyUtilityStation = {
 };
 const source = ref(clonePlain(emptyUtilityStation));
 const draft = ref(clonePlain(source.value));
-const baseline = ref("");
+const baseline = ref(JSON.stringify(source.value));
 const version = ref(0);
 const loaded = ref(false);
 const level = ref(source.value.exterior?.level ?? source.value.levels?.at(-1)?.id ?? "");
@@ -78,7 +78,7 @@ const characterCatalog = ref({
 });
 
 const building = computed(() => buildBuilding(draft.value));
-const dirty = computed(() => JSON.stringify(draft.value) !== baseline.value);
+const dirty = computed(() => loaded.value && JSON.stringify(draft.value) !== baseline.value);
 const allRoomIds = computed(() => building.value.rooms.map((room) => room.id));
 const allExteriorIds = computed(() => building.value.exterior.nodes.map((node) => node.id));
 const editableItems = computed(() =>

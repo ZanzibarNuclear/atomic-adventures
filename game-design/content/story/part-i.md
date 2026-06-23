@@ -4,19 +4,25 @@
 
 ### Opening Scene
 
-Zanzibar had been walking in the forest for days. He and his small group of travelers had reached a fork in the path. The rest of the group thought it best to head eastward, while something inside of Zanzibar told him to go west. The situation was growing desperate. Splitting up was a calcuted risk.
+Zanzibar had been walking alone in the forest. It was early afternoon on a nice summer day. The sun was still high, the weather pleasant. A gentle warm breeze met his face. The natural pine scent kept Zanzibar alert.
 
-**Inventory:** Use this time to become familiar with the character, including how to review possessions.
+He did not need to check his backpack to know he was low on provisions. (TODO: check inventory button) His stomach made it clear that he would need to find something more to eat before too much longer.
 
-Not one to wallow for long, Zanzibar perries desperation with optimism. Things will be better. He will survive.
+Zanzibar was fueled by sheer optimism. At his most desperate moments, he thought, "Things will be better. I will survive."
 
-Early afternoon of a nice summer day. The sun is still high, the weather is pleasant, a gentle warm breeze meets his face. The natural fresh-pine scent keeps Zanzibar alert. His fasting stomach gives an edge to his senses.
+About a day before, he and his small group of travelers had reached a fork in the path. The others thought it best to head toward the east, while something inside of Zanzibar told him to go west. They could not agree on a direction, but they knew the must keep moving. Splitting up was a calculated risk.
 
-At the time of the disagreement, Zanzibar and his group were a bit lost. They reached a point where the path split. He was certain that the best strategy would be to head west. Everyone else thought it would be better to go east. It turned out that what seemed like a path dwindled to more of a suggestion, and then nothing at all but the random droppings of pine cones among the tall trees.
+Unfortunately for Zanzibar, what started as a path dwindled to more of a suggestion. At least the mature pines left a lot of open space that made it easy to pass. The ground was carpeted with dropped needles and small branches.
 
-Turning back would be a mistake.
+At this point, turning back would be a mistake.
 
-After a time, Zanzibar found the first sign of humanity in days. A chain-link fence covered in thick vines grew out of the ground, stretching in a straight line up and down the mountainside. Zanzibar turned uphill, hoping that higher ground would offer a vantage point. As he walked, Zanzibar thought about the fence and what was on the other side.
+At last, Zanzibar noticed something new. A wall of vines grew out of the ground ahead. The wall stretched in a straight line up and down the slope of the mountain, completely cutting off his progress to the west.
+
+Closer inspection revealed that the vines were covering a chain link fence. At the bottom, the fence was buried. Along the top, sharp coils of wire and regular spikes made it clear that one was not to go over.
+
+Zanzibar wanted to find out what this fence was keeping in.
+
+Zanzibar turned uphill, hoping that higher ground would offer a vantage point. As he walked, Zanzibar thought about the fence and what was on the other side.
 
 Zanzibar followed the fence for what might have been a half a mile. He reached a corner and rounded the bend to head west. Before long, he reached a paved road, a gate blocking the road, and a guard house. The gate and guard house were closed and locked. A pair of bolt cutters or a blow torch would come in handy. Or a tank.
 
