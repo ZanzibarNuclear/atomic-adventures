@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { loadCharacterSeed } from "./character-catalog.js";
 import { validateCharacterDocument } from "./character-model.js";
+import { loadContentDocuments } from "./test-content.js";
+
+function loadCharacter() {
+  return structuredClone(loadContentDocuments().character);
+}
 
 describe("character model", () => {
   it("normalizes and validates the checked-in seed", () => {
-    const result = validateCharacterDocument(loadCharacterSeed());
+    const result = validateCharacterDocument(loadCharacter());
     expect(result.valid).toBe(true);
     expect(result.character.profile.id).toBe("zanzibar-nuhero");
     expect(result.character.items).toHaveLength(7);
@@ -21,7 +25,7 @@ describe("character model", () => {
   });
 
   it("rejects duplicate IDs and unresolved groups/documents", () => {
-    const candidate = loadCharacterSeed();
+    const candidate = loadCharacter();
     candidate.items.push({
       ...candidate.items[0],
       group: "missing-group",

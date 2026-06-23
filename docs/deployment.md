@@ -115,8 +115,7 @@ Authoring remains local for now:
 There is no separate production content upload. The committed SQLite artifact
 is promoted through Git in the same deployment as the application.
 
-Direct changes to story or outdoor YAML do not reach production until imported
-into SQLite and committed:
+YAML snapshots do not reach production until imported into SQLite and committed:
 
 ```bash
 npm run content:import -w game -- path/to/story.yaml --replace
@@ -124,8 +123,8 @@ npm run world:import -w game -- path/to/map.yaml --replace
 ```
 
 Utility-station geometry is exported from the committed SQLite database to
-`game/public/content/utility-station.json` before Vite builds. The checked-in
-YAML file remains seed/import material and is not the live runtime source.
+`game/public/content/utility-station.json` before Vite builds. YAML is available
+only as an explicit import/export snapshot format.
 
 ## Pre-Deployment Checks
 

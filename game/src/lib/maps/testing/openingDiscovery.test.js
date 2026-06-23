@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import mapData from '../../../../content/world/map.yaml'
+import { mapData } from '../../testing/content.js'
 import { travelOpenings, buildPassageMarkers } from '../composables/useBarrierOpenings.js'
 import { buildRouteModels } from '../composables/useRoutes.js'
 import { barrierSegments } from '../composables/useTravelBarriers.js'

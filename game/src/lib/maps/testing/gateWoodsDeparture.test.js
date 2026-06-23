@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import mapData from '../../../../content/world/map.yaml'
+import { mapData } from '../../testing/content.js'
 import { buildGameplayWorld, gameplayMoveTo, offeredDestinations } from './gameplayTravel.js'
 
 describe('gate-woods departure', () => {

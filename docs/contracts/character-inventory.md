@@ -92,8 +92,8 @@ exported for review or interchange, but direct YAML edits are not live until
 imported:
 
 ```bash
-npm run character:import -w game -- content/character/character-main.yaml
 npm run character:export -w game -- /tmp/character-main.yaml
+npm run character:import -w game -- /tmp/character-main.yaml
 ```
 
 The document contains independent ordered catalogs:

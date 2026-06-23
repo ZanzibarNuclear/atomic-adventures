@@ -3,13 +3,8 @@ import { createReadStream, existsSync, statSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openDatabase } from "./db.js";
-import { StoryRepository } from "./story-repository.js";
-import { buildWorldCatalog, loadBuildingData, loadWorldSeed } from "./world-catalog.js";
 import { createApiHandler } from "./api.js";
-import { WorldRepository } from "./world-repository.js";
-import { BuildingRepository } from "./building-repository.js";
-import { loadCharacterSeed } from "./character-catalog.js";
-import { CharacterRepository } from "./character-repository.js";
+import { assertContentDocuments, createContentRepositories } from "./content-repositories.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const port = Number(process.env.PORT ?? 5173);
@@ -17,23 +12,18 @@ const host = process.env.HOST;
 const hmrHost = process.env.HMR_HOST ?? host ?? "127.0.0.1";
 const production = process.env.NODE_ENV === "production";
 const db = openDatabase();
-const seedWorld = loadWorldSeed();
-const buildingData = loadBuildingData();
-const characterRepository = new CharacterRepository(db, {
-  seedCharacter: loadCharacterSeed(),
-});
-const character = characterRepository.getDocument()?.character ?? null;
-const repository = new StoryRepository(db, buildWorldCatalog(seedWorld, buildingData), character);
-const worldRepository = new WorldRepository(db, { seedWorld, buildingData, storyRepository: repository });
-const buildingRepository = new BuildingRepository(db, {
-  seedBuilding: buildingData,
-  worldRepository,
+const {
   storyRepository: repository,
+  worldRepository,
+  buildingRepository,
+  characterRepository,
+} = createContentRepositories(db);
+assertContentDocuments({
+  storyRepository: repository,
+  worldRepository,
+  buildingRepository,
   characterRepository,
 });
-const authoredBuilding = buildingRepository.getDocument()?.building ?? buildingData;
-worldRepository.setBuildingData(authoredBuilding);
-repository.setWorld(worldRepository.getCatalog(authoredBuilding));
 const api = createApiHandler(
   repository,
   worldRepository,

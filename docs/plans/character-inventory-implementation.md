@@ -539,8 +539,8 @@ At the start of a future session:
   Map/Character shell navigation, placeholder Character view, blocking-view
   semantics, tests, production-build verification, and browser interaction
   check.
-- 2026-06-19 — Phase 1 completed. Added migration 003, checked-in character
-  seed YAML, character normalization/validation, revisioned SQLite repository,
+- 2026-06-19 — Phase 1 completed. Added migration 003, character snapshot YAML,
+  character normalization/validation, revisioned SQLite repository,
   API and SSE integration, static production export/verification, tracked
   database seed, deployment documentation, and server tests.
 - 2026-06-19 — Phase 2 completed. Added character content preload/live refresh,

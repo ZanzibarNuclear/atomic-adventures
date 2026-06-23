@@ -4,7 +4,6 @@
  * For pure geometry/barrier checks without game flags, use travelWorld.js.
  */
 
-import utilityData from '../../../../content/world/utility-station.yaml'
 import { createGameState } from '../../../composables/useGameState.js'
 import { useOutdoorWorld } from '../composables/useOutdoorWorld.js'
 
@@ -12,12 +11,24 @@ export const GATE_FLAG_UNLOCKED = 'compound.gate-unlocked'
 export const GATE_FLAG_PASSED = 'compound.gate-passed'
 import { hexDistance } from '../composables/useHexGeometry.js'
 
+const emptyBuildingData = {
+  id: 'test-building',
+  rooms: [],
+  levels: [],
+  links: [],
+  doors: [],
+  holders: [],
+}
+
 /**
- * @param {object} mapData — parsed map.yaml
- * @param {{ startHex?: string, flags?: string[] }} [opts]
+ * @param {object} mapData — parsed outdoor world document
+ * @param {{ startHex?: string, flags?: string[], buildingData?: object }} [opts]
  */
 export function buildGameplayWorld(mapData, opts = {}) {
-  const gameState = createGameState({ mapData, buildingData: utilityData })
+  const gameState = createGameState({
+    mapData,
+    buildingData: opts.buildingData ?? emptyBuildingData,
+  })
   if (opts.flags?.length) {
     for (const f of opts.flags) gameState.flags.add(f)
   }

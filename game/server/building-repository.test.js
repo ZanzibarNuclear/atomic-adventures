@@ -2,13 +2,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { openDatabase } from "./db.js";
-import { StoryRepository, ConflictError, ValidationError } from "./story-repository.js";
-import { buildWorldCatalog, loadBuildingData, loadWorldSeed } from "./world-catalog.js";
-import { WorldRepository } from "./world-repository.js";
-import { BuildingRepository } from "./building-repository.js";
-import { CharacterRepository } from "./character-repository.js";
-import { loadCharacterSeed } from "./character-catalog.js";
+import { ConflictError, ValidationError } from "./story-repository.js";
+import { createContentRepositories } from "./content-repositories.js";
+import { openContentDatabaseCopy } from "./test-content.js";
 
 const dirs = [];
 
@@ -19,38 +15,21 @@ afterEach(() => {
 function setup() {
   const dir = mkdtempSync(join(tmpdir(), "atomic-building-"));
   dirs.push(dir);
-  const db = openDatabase(join(dir, "building.sqlite"));
-  const seedWorld = loadWorldSeed();
-  const seedBuilding = loadBuildingData();
-  const character = new CharacterRepository(db, {
-    seedCharacter: loadCharacterSeed(),
-  });
-  const story = new StoryRepository(
-    db,
-    buildWorldCatalog(seedWorld, seedBuilding),
-    character.getDocument().character,
-  );
-  const world = new WorldRepository(db, {
-    seedWorld,
-    buildingData: seedBuilding,
+  const db = openContentDatabaseCopy(join(dir, "building.sqlite"));
+  const {
     storyRepository: story,
-  });
-  const building = new BuildingRepository(db, {
-    seedBuilding,
     worldRepository: world,
-    storyRepository: story,
-    characterRepository: character,
-  });
+    buildingRepository: building,
+  } = createContentRepositories(db);
   return { db, story, world, building };
 }
 
 describe("BuildingRepository", () => {
-  it("seeds the utility station as one revisioned document", () => {
+  it("loads the utility station from the content database", () => {
     const { db, building } = setup();
     const document = building.getDocument();
-    expect(document.version).toBe(1);
     expect(document.building.rooms.some((room) => room.id === "large-bay")).toBe(true);
-    expect(building.listRevisions()[0].operation).toBe("import");
+    expect(building.listRevisions().length).toBeGreaterThan(0);
     db.close();
   });
 
@@ -60,7 +39,7 @@ describe("BuildingRepository", () => {
     const candidate = structuredClone(before.building);
     candidate.rooms.find((room) => room.id === "library").x -= 0.5;
     const saved = building.save("utility-station", candidate, before.version);
-    expect(saved.version).toBe(2);
+    expect(saved.version).toBe(before.version + 1);
     expect(saved.changedObjectIds).toContain("room:library");
     expect(() => building.save("utility-station", candidate, before.version))
       .toThrow(ConflictError);
@@ -69,7 +48,7 @@ describe("BuildingRepository", () => {
     invalid.exterior.entry = "missing-node";
     expect(() => building.save("utility-station", invalid, saved.version))
       .toThrow(ValidationError);
-    expect(building.getDocument().version).toBe(2);
+    expect(building.getDocument().version).toBe(saved.version);
     db.close();
   });
 
@@ -117,7 +96,9 @@ describe("BuildingRepository", () => {
     const saved = building.save("utility-station", candidate, before.version, [
       { kind: "room", from: "library", to: "archive" },
     ]);
-    expect(saved.story.affected).toEqual([{ areaId: "test", beatId: "library-rename" }]);
+    expect(saved.story.affected).toEqual(expect.arrayContaining([
+      { areaId: "test", beatId: "library-rename" },
+    ]));
     expect(story.getBeat("test", "library-rename").trigger.room).toBe("archive");
     expect(story.getBeat("test", "library-rename").choices[0].go_room).toBe("archive");
     db.close();

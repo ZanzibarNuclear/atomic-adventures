@@ -31,7 +31,7 @@ Map rendering and interaction logic was **copied** (not moved) from `web/src` in
 
 - **`game/src/lib/maps/`** — hex outdoor, grid indoor, HUD, builder components. Edit here for anything the playable game needs.
 - **`web/`** — parallel prototype copy. May diverge over time. Use as a reference or sandbox; re-port into `game/` when a prototype change should land in the game.
-- **`game/content/world/`** — game world YAML (copied from `web/content/world/`, evolves for story triggers).
+- **`game/content/atomic-adventures.sqlite`** — canonical authored story, world, building, and character content.
 
 **Rule:** Never add game features (story, save/load, narrative overlay) to `web/`. Fix gameplay in `game/`, not by patching `web/`.
 
@@ -54,13 +54,13 @@ Authoring uses separate routes in the `game/` app, not modes layered onto the pl
 - `game/src/views/WorldBuilderView.vue` owns outdoor world authoring.
 - `game/src/views/CharacterBuilderView.vue` owns the Content Builder; its
   current route is `/builder/content`.
-- `game/content/atomic-adventures.sqlite` is canonical for story and outdoor world content and stores both revision histories.
+- `game/content/atomic-adventures.sqlite` is canonical for story, outdoor world, building, and character content and stores revision histories.
 - `game/server/` provides the SQLite repository, migrations, validation, JSON API, and SSE updates.
 - Saving a beat or world document publishes it immediately. Open game windows refresh content without reloading or losing player state.
 - The builder is currently for trusted local use and has no authentication or role system.
 - Keep builder form state separate from player state, saves, inventory, flags, and movement.
 - Outdoor world content is stored as one ordered JSON document; do not normalize individual hexes, routes, or points without a demonstrated need.
-- `game/content/world/map.yaml` is outdoor import/export material, not the live runtime source. Direct edits require `world:import`.
+- YAML is an explicit import/export snapshot format only. Do not add canonical content YAML under `game/content/`.
 - See [docs/contracts/world-authoring.md](docs/contracts/world-authoring.md) for the persistence, reference, and live-update contract.
 
 #### Prototype map geometry tools — separate
@@ -70,7 +70,7 @@ The production World Builder uses map-layer edit handles. The older prototype bu
 - `game/src/lib/maps/` contains the canonical game map components and reusable geometry-builder utilities.
 - `web/` remains a useful prototype and sandbox for map editing ideas.
 - Indoor utility-station geometry is database-backed and edited in the World
-  Builder; YAML is seed/import material.
+  Builder; YAML is only an explicit snapshot import/export format.
 - Players must never see geometry-editing controls. Keep edit layers separate from player-facing scene wiring.
 - Port useful prototype work into `game/`; do not implement game story or persistence features in `web/`.
 
@@ -132,9 +132,7 @@ Ren'Py, Twine, and Unity were evaluated and rejected. The sibling mini-game proj
 ```
 game/
 ├── content/
-│   ├── atomic-adventures.sqlite — Canonical story/outdoor-world content and revisions
-│   ├── world/          — Outdoor and indoor interchange/seed YAML
-│   └── story/          — Story YAML import/export snapshots
+│   └── atomic-adventures.sqlite — Canonical story/world/building/character content and revisions
 ├── server/             — Unified server, content API, SQLite repository, migrations
 ├── src/
 │   ├── composables/    — useGameState, useSaveGame, useStory (game-only)
@@ -166,7 +164,7 @@ Future layers (not all built yet):
 
 ## Story Data Format
 
-Story content lives canonically in `game/content/atomic-adventures.sqlite`. Authors normally edit it at `/builder/story`. YAML is retained as an interchange and review format, not as the live runtime source.
+Story content lives canonically in `game/content/atomic-adventures.sqlite`. Authors normally edit it at `/builder/story`. YAML can be exported or imported as an explicit snapshot, but no story YAML under `game/content/` is canonical.
 
 See [docs/contracts/story-beats.md](docs/contracts/story-beats.md) for the authoritative
 current runtime behavior: selection order, triggers, requirements, seen state,
@@ -178,7 +176,7 @@ npm run content:import -w game -- path/to/story.yaml
 npm run content:import -w game -- path/to/story.yaml --replace
 ```
 
-Direct edits to `game/content/story/*.yaml` do not affect the game until imported. See `game-design/content/story/story-data-format.md` for the broader planned schema. Key concepts:
+Snapshot edits do not affect the game until imported. See `game-design/content/story/story-data-format.md` for the broader planned schema. Key concepts:
 
 - **Passages** — Text + image + choices. The atomic unit.
 - **Conditions** — `require: { all: [...], not: [...], items: [...] }`
@@ -203,10 +201,9 @@ npm run building:export -w game -- utility-station /tmp/utility-station.yaml
 npm run building:import -w game -- /tmp/utility-station.yaml --replace
 ```
 
-Direct edits to `game/content/world/map.yaml` do not affect the game until
-imported. Utility-station geometry is stored as the `utility-station` building
+Snapshot edits do not affect the game until imported. Utility-station geometry is stored as the `utility-station` building
 document in SQLite and edited from the Utility Station workspace in
-`/builder/world`; its YAML file is seed/import material.
+`/builder/world`.
 
 ## Sibling Projects
 

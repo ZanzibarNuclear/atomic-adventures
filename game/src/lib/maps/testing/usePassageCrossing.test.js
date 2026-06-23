@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import mapData from '../../../../content/world/map.yaml'
+import { mapData } from '../../testing/content.js'
 import { axialToPixel } from '../composables/useHexGeometry.js'
 import { buildTravelWorld } from './travelWorld.js'
 import {

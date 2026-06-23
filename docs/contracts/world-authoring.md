@@ -38,9 +38,9 @@ Every successful save:
 6. Increments global story/world revisions as appropriate.
 7. Publishes SSE update events after the transaction commits.
 
-`game/content/world/map.yaml` is retained as an interchange and review format.
-It seeds an empty database and can be imported explicitly, but direct edits do
-not change a running game once the database contains `outdoor-main`.
+Outdoor world YAML is an explicit interchange and review format. Export a
+snapshot to a chosen path, edit or review it, then import it when SQLite should
+change.
 
 ```bash
 npm run world:export -w game -- outdoor-main /tmp/map.yaml
@@ -143,8 +143,8 @@ uses the catalog item's label and description. Taking a pickup commits an
 ordinary character item effect and records the placement as taken, so repeated
 interaction cannot duplicate a unique item.
 
-`game/content/world/utility-station.yaml` is import/seed material rather than
-the live runtime source. Development loads the building from
+Utility-station YAML is an explicit snapshot format rather than the live runtime
+source. Development loads the building from
 `GET /api/world/buildings/utility-station`; production loads
 `/content/utility-station.json`.
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import mapData from '../../../../content/world/map.yaml'
+import { mapData } from '../../testing/content.js'
 import { resolveAvatarPosition } from '../composables/useAvatarStand.js'
 import {
   buildGameplayWorld,
@@ -14,7 +14,7 @@ import {
  * Smoke: Day-1 mainline journey using real gameplay (moveTo + gameState).
  * Complements geometry coverage in travelWorld tests; see docs/contracts/hex-crawling.md.
  *
- * map.yaml `journey` is one story beat per hex; after the gate, gameplay walks
+ * The world `journey` is one story beat per hex; after the gate, gameplay walks
  * gate-woods → west-slope → utility-yard using generic adjacent travel.
  */
 describe('story journey smoke test (gameplay)', () => {

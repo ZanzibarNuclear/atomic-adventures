@@ -2,7 +2,6 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import yaml from "js-yaml";
-import utilityStationData from "../../content/world/utility-station.yaml";
 import GridMap from "../lib/maps/components/GridMap.vue";
 import { storyApi } from "../lib/storyApi.js";
 import CharacterEffectsEditor from "../components/builder/CharacterEffectsEditor.vue";
@@ -37,7 +36,18 @@ import {
 import { auditIndoorBuilding } from "../lib/maps/testing/indoorBuildingAudit.js";
 
 const router = useRouter();
-const source = ref(clonePlain(utilityStationData));
+const emptyUtilityStation = {
+  id: "utility-station",
+  label: "Utility Station",
+  cell: 64,
+  levels: [],
+  rooms: [],
+  doors: [],
+  links: [],
+  fixtures: [],
+  exterior: { nodes: [], paths: [] },
+};
+const source = ref(clonePlain(emptyUtilityStation));
 const draft = ref(clonePlain(source.value));
 const baseline = ref("");
 const version = ref(0);

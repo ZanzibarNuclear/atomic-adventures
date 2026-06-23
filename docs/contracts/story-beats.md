@@ -221,7 +221,7 @@ Story definitions and player story state are separate:
 | --- | --- |
 | Beat definitions and revision history | `game/content/atomic-adventures.sqlite` |
 | Seen beat IDs and gameplay flags | Player save in `localStorage` |
-| Map and building geometry | `game/content/world/*.yaml` |
+| Map and building geometry | `game/content/atomic-adventures.sqlite` |
 | YAML story snapshots | Import/export only |
 
 SQLite uses rollback-journal mode so each successful authoring save updates the

@@ -4,9 +4,7 @@
 
 ### Opening Scene
 
-The action takes place on a mountainside in an old-growth pine forest. Tight focus on Zanzibar Nuhero as we live his story.
-
-Zanzibar had been walking in the forest for days. He parted company with his small group of explorers, following an unshakable intuition and an impasse. Now the situation is growing desperate. Zanzibar is low on food and water, and his hunch has yet to play out.
+Zanzibar had been walking in the forest for days. He and his small group of travelers had reached a fork in the path. The rest of the group thought it best to head eastward, while something inside of Zanzibar told him to go west. The situation was growing desperate. Splitting up was a calcuted risk.
 
 **Inventory:** Use this time to become familiar with the character, including how to review possessions.
 

@@ -375,7 +375,7 @@ export function useGridMapPlacements({
 
   // ── Micro-hydro generator overlay ──────────────────────────────────────────
   // Layout constants (units: +x = north, +y = east, 1 unit = cell px).
-  // Anchored to the three riverbank nodes defined in utility-station.yaml:
+  // Anchored to the three riverbank nodes defined in the building content:
   //   upstream-bank   x=3.54,  y=-1.10
   //   midstream-bank  x=-1.12, y=-1.11
   //   downstream-bank x=-5.77, y=-1.11
@@ -386,7 +386,7 @@ export function useGridMapPlacements({
     if (level.value !== hydroLevel) return null
     const c = cell.value
 
-    // River geometry (derived from utility-station.yaml river config):
+    // River geometry (derived from the building river config):
     //   riverY  = content.minY(-1.11) - gap(1.0) - width(1.5) = -3.61
     //   river east edge = riverY + width = -2.11
     //   east bank gap: y from -2.11 (river edge) to -1.11 (riverside path)

@@ -33,9 +33,7 @@ atomic-adventures/
 
 Gameplay, narrative, persistence, and player-facing map changes belong in `game/`. Its main areas are:
 
-- `game/content/atomic-adventures.sqlite` — Canonical story and outdoor-world content with revision history
-- `game/content/story/` — Story YAML import/export snapshots
-- `game/content/world/` — Outdoor interchange YAML and canonical interior map data
+- `game/content/atomic-adventures.sqlite` — Canonical story, world, building, and character content with revision history
 - `game/server/` — Local content API, SQLite repository, migrations, and authoring server
 - `game/src/components/` — Story overlay and application UI
 - `game/src/composables/` — Game state, story, and save/load logic
@@ -70,7 +68,7 @@ Each successful save writes directly to the tracked SQLite file, so `git status`
 shows content edits immediately and committing that file carries them to remote
 installations.
 
-YAML remains available for interchange and review:
+YAML remains available for explicit interchange and review:
 
 ```bash
 npm run content:export -w game -- part-i /tmp/part-i.yaml
@@ -78,8 +76,8 @@ npm run content:import -w game -- path/to/story.yaml
 npm run content:import -w game -- path/to/story.yaml --replace
 ```
 
-Direct edits to `game/content/story/*.yaml` do not change the running game until
-they are explicitly imported.
+Snapshots are not tracked as canonical content. Export to an explicit path,
+review or edit that file, then import it when you want SQLite to change.
 
 ## World Authoring
 
@@ -88,16 +86,22 @@ Outdoor world content is canonical in SQLite and is edited at
 routes, barriers, passages, landmarks, and stand points. Saves create immutable
 world revisions and update open game windows without a page reload.
 
-`game/content/world/map.yaml` is retained for deterministic interchange:
+YAML snapshots remain available for deterministic interchange:
 
 ```bash
 npm run world:export -w game -- outdoor-main /tmp/map.yaml
 npm run world:import -w game -- /tmp/map.yaml --replace
 ```
 
-Direct edits to `map.yaml` do not affect the running game until imported. Indoor
-utility-station geometry is revisioned in SQLite and edited from the World
-Builder; YAML remains seed/import material. See
+Indoor utility-station geometry is revisioned in SQLite and edited from the World
+Builder; it can also be exported or imported as an explicit snapshot:
+
+```bash
+npm run building:export -w game -- utility-station /tmp/utility-station.yaml
+npm run building:import -w game -- /tmp/utility-station.yaml --replace
+```
+
+Snapshot files are not tracked as canonical content. See
 [docs/contracts/world-authoring.md](docs/contracts/world-authoring.md).
 
 ## Deployment

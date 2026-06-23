@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import utilityData from "../../../../content/world/utility-station.yaml";
+import { utilityData } from '../../testing/content.js';
 import {
   buildBuilding,
   exteriorMovesFrom,

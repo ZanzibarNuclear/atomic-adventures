@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import mapData from '../../../../content/world/map.yaml'
+import { mapData } from '../../testing/content.js'
 import { buildTravelWorld, evaluateNeighborMove } from '../testing/travelWorld.js'
 import { axialToPixel, NEIGHBOR_DIRS, pixelToHex } from './useHexGeometry.js'
 import { hexCenterStand } from './useAvatarStand.js'

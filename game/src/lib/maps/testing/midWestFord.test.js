@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import mapData from '../../../../content/world/map.yaml'
+import { mapData } from '../../testing/content.js'
 import { useOutdoorWorld } from '../composables/useOutdoorWorld.js'
 import { buildTravelWorld, evaluateNeighborMove } from './travelWorld.js'
 import { standAcrossOpening } from '../composables/usePassageCrossing.js'

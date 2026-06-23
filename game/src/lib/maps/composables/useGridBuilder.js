@@ -767,7 +767,7 @@ function serializeExterior(exterior, indent = 0) {
   return lines.join('\n')
 }
 
-/** YAML snippets ready to paste into utility-station.yaml. */
+/** YAML snippets for building snapshot export. */
 export function exportBuildingYaml(data) {
   const roomBlocks = (data.rooms ?? []).map((r) => serializeRoom(r, 2))
   const doorBlocks = (data.doors ?? []).map((d) => serializeDoor(d, 2))

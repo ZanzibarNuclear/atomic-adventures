@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import mapData from '../../../../content/world/map.yaml'
-import utilityData from '../../../../content/world/utility-station.yaml'
+import { mapData } from '../../testing/content.js'
+import { utilityData } from '../../testing/content.js'
 import { createGameState, captureSnapshot } from '../../../composables/useGameState.js'
 import { useOutdoorWorld } from '../composables/useOutdoorWorld.js'
 import { useIndoorBuilding } from '../composables/useIndoorBuilding.js'

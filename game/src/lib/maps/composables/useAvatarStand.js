@@ -55,7 +55,7 @@ export function authoredStandPositions(hex, size) {
 /**
  * Where the player stands on a hex (YAML / landmark / center).
  *
- * stand `at` forms (see map.yaml header):
+ * stand `at` forms:
  *   { x, y }                    — fixed world coords (e.g. gate approach)
  *   { from: landmark, dx, dy }  — beside the building; moves when landmark moves
  *   { dx, dy }                  — offset from hex center (e.g. river bank)

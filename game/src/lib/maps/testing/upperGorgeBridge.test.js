@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import mapData from '../../../../content/world/map.yaml'
+import { mapData } from '../../testing/content.js'
 import { buildTravelWorld, evaluateNeighborMove } from './travelWorld.js'
 import { standAcrossOpening } from '../composables/usePassageCrossing.js'
 import { hexCenterStand } from '../composables/useAvatarStand.js'

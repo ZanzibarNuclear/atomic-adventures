@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { loadWorldSeed } from "./world-catalog.js";
 import { applyHexRenames, validateWorld } from "./world-model.js";
+import { loadContentDocuments } from "./test-content.js";
+
+function loadWorld() {
+  return structuredClone(loadContentDocuments().world);
+}
 
 describe("world model", () => {
   it("rejects coordinate collisions and broken anchors", () => {
-    const world = structuredClone(loadWorldSeed());
+    const world = loadWorld();
     world.hexes[1].q = world.hexes[0].q;
     world.hexes[1].r = world.hexes[0].r;
     world.routes[0].points[0] = { hex: "missing-hex", dx: 0, dy: 0 };
@@ -15,7 +19,7 @@ describe("world model", () => {
   });
 
   it("cascades hex renames through map-level references", () => {
-    const world = structuredClone(loadWorldSeed());
+    const world = loadWorld();
     const origin = world.hexes.find((hex) => hex.id === "origin");
     origin.id = "arrival-trail";
     applyHexRenames(world, [{ kind: "hex", from: "origin", to: "arrival-trail" }]);
@@ -25,7 +29,7 @@ describe("world model", () => {
   });
 
   it("validates river cascade ranges", () => {
-    const world = structuredClone(loadWorldSeed());
+    const world = loadWorld();
     const river = world.features.find((feature) => feature.kind === "river");
     river.cascades = [{ id: "utility-falls", from: 0.55, to: 0.82 }];
     expect(validateWorld(world).valid).toBe(true);
@@ -39,7 +43,7 @@ describe("world model", () => {
   });
 
   it("keeps road-like travel geometry in routes instead of features", () => {
-    const world = structuredClone(loadWorldSeed());
+    const world = loadWorld();
     world.features.push({
       id: "duplicate-road",
       kind: "road",

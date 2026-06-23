@@ -5,13 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApiHandler } from "./api.js";
-import { openDatabase } from "./db.js";
-import { StoryRepository } from "./story-repository.js";
-import { buildWorldCatalog, loadBuildingData, loadWorldSeed } from "./world-catalog.js";
-import { WorldRepository } from "./world-repository.js";
-import { BuildingRepository } from "./building-repository.js";
-import { loadCharacterSeed } from "./character-catalog.js";
-import { CharacterRepository } from "./character-repository.js";
+import { createContentRepositories } from "./content-repositories.js";
+import { openContentDatabaseCopy } from "./test-content.js";
 
 const dirs = [];
 
@@ -22,24 +17,13 @@ afterEach(() => {
 function setup() {
   const dir = mkdtempSync(join(tmpdir(), "atomic-api-"));
   dirs.push(dir);
-  const db = openDatabase(join(dir, "api.sqlite"));
-  const seedWorld = loadWorldSeed();
-  const buildingData = loadBuildingData();
-  const characterRepository = new CharacterRepository(db, {
-    seedCharacter: loadCharacterSeed(),
-  });
-  const repository = new StoryRepository(
-    db,
-    buildWorldCatalog(seedWorld, buildingData),
-    characterRepository.getDocument()?.character,
-  );
-  const worldRepository = new WorldRepository(db, { seedWorld, buildingData, storyRepository: repository });
-  const buildingRepository = new BuildingRepository(db, {
-    seedBuilding: buildingData,
-    worldRepository,
+  const db = openContentDatabaseCopy(join(dir, "api.sqlite"));
+  const {
     storyRepository: repository,
+    worldRepository,
+    buildingRepository,
     characterRepository,
-  });
+  } = createContentRepositories(db);
   return {
     db,
     api: createApiHandler(
@@ -135,12 +119,13 @@ describe("story API", () => {
     expect(invalidRes.status).toBe(422);
 
     const current = characterRepository.getDocument();
+    const restoreRevision = characterRepository.listRevisions()[0].revision;
     characterRepository.save({
       ...current.character,
       profile: { ...current.character.profile, summary: "Temporary revision." },
     }, current.version);
     const restoreRes = responseCapture();
-    await api.handle(request("POST", "/api/character/revisions/1/restore"), restoreRes);
+    await api.handle(request("POST", `/api/character/revisions/${restoreRevision}/restore`), restoreRes);
     expect(restoreRes.status).toBe(200);
     expect(JSON.parse(restoreRes.chunks.join("")).character.profile.summary)
       .toBe(current.character.profile.summary);

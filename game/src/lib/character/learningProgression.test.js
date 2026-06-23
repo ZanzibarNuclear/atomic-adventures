@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { reactive, ref } from "vue";
-import characterDefinitions from "../../../content/character/character-main.yaml";
-import utilityStation from "../../../content/world/utility-station.yaml";
+import { characterDefinitions } from '../testing/content.js';
+import { utilityData as utilityStation } from '../testing/content.js';
 import { createCharacterState } from "../../composables/useCharacterState.js";
 import { createIndoorActions } from "../maps/composables/indoor/useIndoorActions.js";
 import { createGameClock } from "./gameTime.js";

@@ -1,13 +1,9 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { openDatabase } from "./db.js";
-import { StoryRepository } from "./story-repository.js";
-import { loadBuildingData, loadWorldSeed } from "./world-catalog.js";
-import { WorldRepository } from "./world-repository.js";
 import { BuildingRepository, UTILITY_STATION_ID } from "./building-repository.js";
 import { exportBuildingYaml, parseBuildingYaml } from "./building-yaml.js";
-import { loadCharacterSeed } from "./character-catalog.js";
-import { CharacterRepository } from "./character-repository.js";
+import { createContentRepositories } from "./content-repositories.js";
 
 const [command, ...args] = process.argv.slice(2);
 const flags = new Set(args.filter((item) => item.startsWith("--")));
@@ -15,26 +11,7 @@ const positional = args.filter((item) => !item.startsWith("--"));
 const db = openDatabase();
 
 try {
-  const seedBuilding = loadBuildingData();
-  const worldRepository = new WorldRepository(db, {
-    seedWorld: loadWorldSeed(),
-    buildingData: seedBuilding,
-  });
-  const characterRepository = new CharacterRepository(db, {
-    seedCharacter: loadCharacterSeed(),
-  });
-  const storyRepository = new StoryRepository(
-    db,
-    worldRepository.getCatalog(),
-    characterRepository.getDocument()?.character,
-  );
-  worldRepository.setStoryRepository(storyRepository);
-  const repository = new BuildingRepository(db, {
-    seedBuilding: command === "import" ? null : seedBuilding,
-    worldRepository,
-    storyRepository,
-    characterRepository,
-  });
+  const { buildingRepository: repository } = createContentRepositories(db);
 
   if (command === "import") {
     const file = positional[0];
@@ -44,7 +21,7 @@ try {
     console.log(`Imported ${result.building.id} version ${result.version}.`);
   } else if (command === "export") {
     const buildingId = positional[0] ?? UTILITY_STATION_ID;
-    const output = resolve(positional[1] ?? "content/world/utility-station.export.yaml");
+    const output = resolve(positional[1] ?? "/tmp/utility-station.building.yaml");
     const result = repository.getDocument(buildingId);
     if (!result) throw new Error(`Building "${buildingId}" is not initialized.`);
     writeFileSync(output, exportBuildingYaml(result.building));

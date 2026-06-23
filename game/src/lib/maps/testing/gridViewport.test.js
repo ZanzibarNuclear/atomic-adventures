@@ -7,7 +7,7 @@ import {
   rotatePointAround,
   zoomViewBoxAt,
 } from "../composables/useGridMapTransform.js";
-import utilityData from "../../../../content/world/utility-station.yaml";
+import { utilityData } from '../../testing/content.js';
 import { buildBuilding } from "../composables/useGrid.js";
 
 const frame = {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import mapData from "../../content/world/map.yaml";
+import { mapData } from '../lib/testing/content.js';
 import { useOutdoorWorld } from "../lib/maps/composables/useOutdoorWorld.js";
 import { applyOutdoorWorldUpdate } from "./worldRuntime.js";
 

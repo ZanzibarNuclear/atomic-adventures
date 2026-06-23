@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ref } from "vue";
-import utilityData from "../../../../content/world/utility-station.yaml";
+import { utilityData } from '../../testing/content.js';
 import { createIndoorPlayer } from "../composables/indoor/useIndoorPlayer.js";
 import { doorStateKey } from "../composables/useDoors.js";
 import { createCharacterState } from "../../../composables/useCharacterState.js";

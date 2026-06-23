@@ -343,7 +343,7 @@ function fmtLandmarkInline(lm) {
   return parts.join(', ')
 }
 
-/** Serialize one hex entry for map.yaml export. */
+/** Serialize one hex entry for world YAML export. */
 export function serializeHex(hex, indent = 2) {
   const pad = ' '.repeat(indent)
   const simple =
@@ -365,7 +365,7 @@ export function serializeHex(hex, indent = 2) {
   return serializeHexBlock(hex, indent)
 }
 
-/** YAML snippets ready to paste into map.yaml. */
+/** YAML snippets for world snapshot export. */
 export function exportMapYaml(routes, features, hexes) {
   const hexBlocks = (hexes ?? []).map((h) => serializeHex(h, 2))
   const featureBlocks = (features ?? [])

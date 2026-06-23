@@ -1,7 +1,7 @@
 # Hexcrawling Design
 
 **Status:** Source of truth for outdoor hex-map movement in the playable game  
-**Scope:** `game/` — `game/src/lib/maps/` and `game/content/world/map.yaml`  
+**Scope:** `game/` — `game/src/lib/maps/` and the SQLite `outdoor-main` world document  
 Outdoor play is **adjacent-step hexcrawling**: the player is represented by an avatar standing at a specific point inside one hex cell. From that point, the player may move within the current cell, cross an available local passage in that cell, follow a marked route, or move to a neighboring hex when the shared border is reachable. Multi-hex auto-pathfinding is not defined yet, but the feature is allowable and welcome given the time and motivation to implement it.
 
 ---
@@ -273,7 +273,7 @@ Adjacent move options and execution use one geometry authority:
 | `upper-gorge-bridge` | bridge | `upper-gorge` | `crossPassage` → then `north-west`                                                  |
 | `mid-west-ford`      | ford   | `mid-west`    | Search → `crossPassage`; bank walk to `utility-yard` without ford on inter-hex path |
 
-### Authoring reference (`map.yaml`)
+### Authoring Snapshot Reference
 
 **Hex `stands` forms:**
 

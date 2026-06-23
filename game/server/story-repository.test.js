@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openDatabase } from "./db.js";
 import { ConflictError, StoryRepository, ValidationError } from "./story-repository.js";
-import { loadWorldCatalog } from "./world-catalog.js";
+import { buildWorldCatalog } from "./world-catalog.js";
 import { parseStoryYaml } from "./story-yaml.js";
+import { loadContentDocuments } from "./test-content.js";
 
 const dirs = [];
 
@@ -18,8 +19,26 @@ function createRepository() {
   dirs.push(dir);
   const path = join(dir, "test.sqlite");
   const db = openDatabase(path);
-  return { db, path, repository: new StoryRepository(db, loadWorldCatalog()) };
+  const { world, building, character } = loadContentDocuments();
+  return {
+    db,
+    path,
+    repository: new StoryRepository(db, buildWorldCatalog(world, building), character),
+  };
 }
+
+const sampleAreaYaml = `
+area: part-i
+name: Day 1
+beats:
+  intro:
+    heading: Lost in the woods
+    text: A narrow trail vanishes into rain-dark pines.
+    trigger: { place: outdoors, hex: origin }
+    choices:
+      - text: Continue
+        go_hex: east-pines
+`;
 
 function sampleBeat(overrides = {}) {
   return {
@@ -35,9 +54,7 @@ function sampleBeat(overrides = {}) {
 describe("StoryRepository", () => {
   it("runs migrations repeatedly and imports the existing story", () => {
     const { db, path, repository } = createRepository();
-    const source = parseStoryYaml(
-      readFileSync(new URL("../content/story/part-i.yaml", import.meta.url), "utf8"),
-    );
+    const source = parseStoryYaml(sampleAreaYaml);
     repository.importArea(source);
     expect(repository.getRuntimeStory().areas["part-i"].beats.intro.heading).toBe("Lost in the woods");
     db.close();
