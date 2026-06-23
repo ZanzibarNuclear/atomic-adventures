@@ -7,6 +7,9 @@ containers, documents, and future media records; inventory, wellbeing,
 knowledge, skills, quests, requirements/effects, save data, and the
 player-facing character panel
 
+See [character-wellbeing.md](character-wellbeing.md) for focused notes on
+health, hunger, thirst, calorie/water targets, and future survival tuning.
+
 ---
 
 ## Purpose

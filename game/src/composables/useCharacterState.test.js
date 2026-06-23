@@ -13,6 +13,13 @@ const definitions = {
   items: [
     { id: "known-key", label: "Known key" },
     { id: "ration", label: "Ration", carrying: "stack", maxQuantity: 10 },
+    {
+      id: "pack",
+      label: "Pack",
+      carrying: "unique",
+      maxQuantity: 1,
+      container: { capacity: { slots: 4 }, accepts: { kinds: ["item"] } },
+    },
   ],
   stats: [{ id: "health", default: 100 }],
 };
@@ -38,6 +45,36 @@ describe("character state", () => {
       nextId: 2,
     });
     expect(state.stats.health).toBe(100);
+  });
+
+  it("starts and resets from authored holdings", () => {
+    const state = createCharacterState({
+      ...definitions,
+      profile: { id: "zanzibar" },
+      holdings: {
+        holders: {
+          "character:zanzibar": { id: "character:zanzibar", kind: "character", label: "Carried directly" },
+          "container:pack-1": { id: "container:pack-1", kind: "container", label: "Pack", instance: "pack-1" },
+        },
+        instances: {
+          "pack-1": { item: "pack", holder: "character:zanzibar" },
+        },
+        stacks: {
+          "stack-ration-2": { item: "ration", quantity: 2, holder: "container:pack-1" },
+        },
+        nextId: 3,
+      },
+    });
+
+    expect(itemQuantity(state.holdings, "pack")).toBe(1);
+    expect(itemQuantity(state.holdings, "ration")).toBe(2);
+    addItem(state.holdings, state.definitions, "known-key");
+
+    resetCharacterState(state);
+
+    expect(itemQuantity(state.holdings, "known-key")).toBe(0);
+    expect(itemQuantity(state.holdings, "pack")).toBe(1);
+    expect(itemQuantity(state.holdings, "ration")).toBe(2);
   });
 
   it("preserves holdings across definition refreshes and tracks orphans", () => {

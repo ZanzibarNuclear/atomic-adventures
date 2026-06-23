@@ -11,7 +11,11 @@ export function createCharacterState(definitions = {}, holderDefinitions = []) {
   const state = reactive({
     definitions: cloneDefinitions(definitions),
     holderDefinitions: clonePlain(holderDefinitions),
-    holdings: createHoldings(definitions.profile?.id, holderDefinitions),
+    holdings: normalizeHoldings(
+      definitions.holdings,
+      definitions,
+      holderDefinitions,
+    ),
     stats: {},
     knowledge: {},
     skills: {},
@@ -59,6 +63,11 @@ export function syncCharacterHolderDefinitions(state, holderDefinitions = []) {
 export function resetCharacterState(state) {
   state.holdings = createHoldings(
     state.definitions.profile?.id,
+    state.holderDefinitions,
+  );
+  state.holdings = normalizeHoldings(
+    state.definitions.holdings,
+    state.definitions,
     state.holderDefinitions,
   );
   state.stats = {};

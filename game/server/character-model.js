@@ -24,6 +24,7 @@ export function normalizeCharacterDocument(input = {}) {
       statGroups: normalizeOrdered(panel.statGroups),
       inventoryGroups: normalizeOrdered(panel.inventoryGroups),
     },
+    holdings: normalizeHoldings(source.holdings),
     items: array(source.items).map((item) => ({
       id: text(item.id),
       label: text(item.label),
@@ -138,6 +139,7 @@ export function validateCharacterDocument(input) {
   if (!character.panel.tabs.length) add("panel.tabs", "Choose at least one character tab.");
 
   const itemIds = validateIds(character.items, "items", add);
+  validateHoldings(character.holdings, itemIds, add);
   character.items.forEach((item, index) => {
     const base = `items.${index}`;
     if (!item.label) add(`${base}.label`, "Item label is required.");
@@ -276,6 +278,30 @@ export function validateCharacterDocument(input) {
   return { character, errors, warnings, valid: Object.keys(errors).length === 0 };
 }
 
+function normalizeHoldings(value) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    holders: plainObject(value.holders),
+    stacks: plainObject(value.stacks),
+    instances: plainObject(value.instances),
+    nextId: finiteNumber(value.nextId, 1),
+  };
+}
+
+function validateHoldings(holdings, itemIds, add) {
+  if (!holdings) return;
+  const holderIds = new Set(Object.keys(holdings.holders ?? {}));
+  for (const [id, stack] of Object.entries(holdings.stacks ?? {})) {
+    if (!itemIds.has(text(stack.item))) add(`holdings.stacks.${id}.item`, `Unknown item "${stack.item}".`);
+    if (!holderIds.has(text(stack.holder))) add(`holdings.stacks.${id}.holder`, `Unknown holder "${stack.holder}".`);
+    if (!(finiteNumber(stack.quantity, 0) > 0)) add(`holdings.stacks.${id}.quantity`, "Quantity must be positive.");
+  }
+  for (const [id, instance] of Object.entries(holdings.instances ?? {})) {
+    if (!itemIds.has(text(instance.item))) add(`holdings.instances.${id}.item`, `Unknown item "${instance.item}".`);
+    if (!holderIds.has(text(instance.holder))) add(`holdings.instances.${id}.holder`, `Unknown holder "${instance.holder}".`);
+  }
+}
+
 function normalizeCatalog(value, labelField = "label") {
   return array(value).map((entry, index) => ({
     ...entry,
@@ -306,6 +332,12 @@ function validateIds(items, path, add) {
 
 function array(value) {
   return Array.isArray(value) ? value : [];
+}
+
+function plainObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? structuredClone(value)
+    : {};
 }
 
 function text(value) {

@@ -11,7 +11,11 @@ describe("character model", () => {
     const result = validateCharacterDocument(loadCharacter());
     expect(result.valid).toBe(true);
     expect(result.character.profile.id).toBe("zanzibar-nuhero");
-    expect(result.character.items).toHaveLength(7);
+    expect(result.character.items).toHaveLength(9);
+    expect(result.character.holdings.instances["field-backpack-1"]).toEqual({
+      item: "field-backpack",
+      holder: "character:zanzibar-nuhero",
+    });
     expect(result.character.stats.map((stat) => stat.id)).toEqual([
       "health", "hunger", "thirst",
     ]);
