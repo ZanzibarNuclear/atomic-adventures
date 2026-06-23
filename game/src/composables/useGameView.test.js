@@ -21,6 +21,24 @@ describe("useGameView", () => {
     });
   });
 
+  it("opens focused stage views with payloads", () => {
+    const gameView = useGameView();
+
+    expect(gameView.openInventory({ kind: "inventory" })).toBe(true);
+    expect(gameView.activeView.value).toEqual({
+      kind: "inventory",
+      payload: { kind: "inventory" },
+      blocking: false,
+    });
+
+    expect(gameView.openCharacterStats({ kind: "character-stats", focus: "health" })).toBe(true);
+    expect(gameView.activeView.value.payload).toEqual({
+      kind: "character-stats",
+      focus: "health",
+    });
+  });
+
+
   it("keeps a blocking view open unless the caller explicitly forces exit", () => {
     const gameView = useGameView();
 

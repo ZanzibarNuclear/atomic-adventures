@@ -18,14 +18,23 @@ import {
 import { applyOutdoorWorldUpdate } from "../composables/worldRuntime.js";
 import { performItemAction } from "../lib/character/itemActions.js";
 import {
+  accessibleHolderIds,
   ensureWorldHolder,
+  holdingRecords,
   transferHolding,
 } from "../lib/character/holdings.js";
 import AppHeader from "../components/AppHeader.vue";
 import CharacterView from "../components/game-views/CharacterView.vue";
+import CharacterStatsStageView from "../components/game-views/CharacterStatsStageView.vue";
+import InventoryStageView from "../components/game-views/InventoryStageView.vue";
 import StoryOverlay from "../components/story/StoryOverlay.vue";
+import NarrativeCard from "../components/story/NarrativeCard.vue";
+import PlayPanel from "../components/hud/PlayPanel.vue";
+import TravelOptions from "../lib/maps/components/hud/TravelOptions.vue";
 import OutdoorScene from "../lib/maps/views/OutdoorScene.vue";
 import IndoorScene from "../lib/maps/views/IndoorScene.vue";
+import { visibleCharacterStats } from "../lib/character/panel.js";
+import { buildStoryChoices, handleStoryChoice } from "../composables/usePlayPanel.js";
 
 const place = ref("outdoors");
 const builderView = ref(false);
@@ -34,7 +43,10 @@ const {
   activeView,
   isMapView,
   isCharacterView,
+  openView,
   openCharacter,
+  openInventory,
+  openCharacterStats,
   returnToMap,
 } = useGameView();
 const { storyData, error: contentError, refresh: refreshContent } = useStoryContent();
@@ -77,7 +89,7 @@ const {
   travelToRoom,
   dismissEndCard,
   refreshNarrative,
-} = useStory(storyData, { gameState, place, outdoor, indoor });
+} = useStory(storyData, { gameState, place, outdoor, indoor, openStageView });
 
 const saveCtx = computed(() => ({ gameState, place, outdoor, indoor }));
 const nearbyHolderIds = computed(() => {
@@ -102,6 +114,43 @@ const nearbyHolderIds = computed(() => {
   }
   return ids;
 });
+const stageSelectedHoldingId = ref(null);
+const inventoryHolders = computed(() => {
+  const ids = [...accessibleHolderIds(
+    gameState.character.holdings,
+    "nearby",
+    [...nearbyHolderIds.value, currentWorldHolderId()],
+  )];
+  return ids.map((id) => ({
+    ...(gameState.character.holdings.holders[id] ?? { id, label: id, kind: "holder" }),
+    records: holdingRecords(
+      gameState.character.holdings,
+      gameState.character.definitions,
+      [id],
+    ).map((record) => ({
+      ...record,
+      label: record.definition?.label ?? record.item,
+      description: record.definition?.description ?? "",
+      kind: record.definition?.kind ?? "item",
+      icon: record.definition?.icon ?? null,
+      actions: record.definition?.actions ?? [],
+      relatedDocument: record.definition?.relatedDocument ?? null,
+    })),
+  }));
+});
+const transferTargets = computed(() => inventoryHolders.value.map((holder) => ({
+  id: holder.id,
+  label: holder.label ?? holder.id,
+})));
+const stageSelectedHolding = computed(() =>
+  inventoryHolders.value.flatMap((holder) =>
+    holder.records.map((record) => ({ ...record, holder })))
+    .find((record) => `${record.type}:${record.id}` === stageSelectedHoldingId.value) ?? null,
+);
+const characterStats = computed(() => visibleCharacterStats(gameState.character));
+const focusedStoryChoices = computed(() =>
+  buildStoryChoices(pendingBeat.value, (id) => outdoor.canReachHex(id)),
+);
 let deferredWorld = null;
 let deferredBuilding = null;
 
@@ -190,6 +239,30 @@ function handleOpenCharacter() {
   openCharacter();
 }
 
+function publicAssetPath(path) {
+  if (!path) return null;
+  if (/^(?:[a-z]+:)?\/\//i.test(path) || path.startsWith("data:") || path.startsWith("blob:")) {
+    return path;
+  }
+  return path.startsWith("/") ? path : `/${path.replace(/^\.?\//, "")}`;
+}
+
+function openStageView(view) {
+  const kind = view?.kind;
+  if (!kind) return false;
+  if (kind === "inventory") {
+    currentWorldHolderId();
+    return openInventory(view);
+  }
+  if (kind === "character-stats") return openCharacterStats(view);
+  if (kind === "character") return openCharacter(view);
+  return openView(kind, view);
+}
+
+function handleFocusedStoryChoice(id) {
+  handleStoryChoice(id.slice("story:".length), applyChoice);
+}
+
 function handleUseItem({ itemId, actionId }) {
   const result = performItemAction(gameState, itemId, actionId);
   if (result.ok) refreshNarrative();
@@ -265,14 +338,52 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       :audit-enabled="movementAuditVisible"
       @hide-movement-audit="movementAuditVisible = false" />
 
+    <InventoryStageView
+      v-else-if="activeView.kind === 'inventory'"
+      :holders="inventoryHolders"
+      :selected-holding="stageSelectedHolding"
+      :selected-holding-id="stageSelectedHoldingId"
+      :transfer-targets="transferTargets"
+      :public-asset-path="publicAssetPath"
+      @select-holding="stageSelectedHoldingId = $event"
+      @use-item="handleUseItem"
+      @transfer-item="handleTransferItem"
+      @return-to-map="handleReturnToMap" />
+
+    <CharacterStatsStageView
+      v-else-if="activeView.kind === 'character-stats'"
+      :stats="characterStats"
+      :focus="activeView.payload?.focus"
+      @return-to-map="handleReturnToMap" />
+
     <CharacterView
       v-else-if="isCharacterView"
       :character="gameState.character"
       :clock="gameState.clock"
       :nearby-holder-ids="[...nearbyHolderIds, currentWorldHolderId()]"
+      :initial-tab="activeView.payload?.tab"
       @use-item="handleUseItem"
       @transfer-item="handleTransferItem"
       @return-to-map="handleReturnToMap" />
+
+    <template v-if="!isMapView && !isCharacterView">
+      <NarrativeCard :beat="narrativeBeat" />
+
+      <PlayPanel>
+        <TravelOptions v-if="focusedStoryChoices.length" label="Choose an Action">
+          <button
+            v-for="item in focusedStoryChoices"
+            :key="item.id"
+            class="route-btn"
+            :class="item.kind ? 'k-' + item.kind : 'k-story'"
+            :disabled="item.disabled"
+            :title="item.hint ?? ''"
+            @click="handleFocusedStoryChoice(item.id)">
+            {{ item.label }}
+          </button>
+        </TravelOptions>
+      </PlayPanel>
+    </template>
 
     <StoryOverlay
       v-if="isMapView"

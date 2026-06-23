@@ -438,15 +438,15 @@ export class StoryRepository {
       INSERT INTO story_choices(
         id, area_id, beat_id, sort_order, text, require_json, effects_json,
         time_minutes, activity,
-        sets_json, set_flags_json, go_hex, go_room, enter_building
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        sets_json, set_flags_json, go_hex, go_room, enter_building, view_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     choices.forEach((choice, index) => statement.run(
       choice.id || randomUUID(), areaId, beatId, choice.order ?? index, choice.text,
       JSON.stringify({}), JSON.stringify([]),
       choice.timeMinutes, choice.activity,
       JSON.stringify(choice.sets), JSON.stringify(choice.set_flags),
-      choice.go_hex, choice.go_room, choice.enter,
+      choice.go_hex, choice.go_room, choice.enter, JSON.stringify(choice.view ?? {}),
     ));
   }
 
@@ -474,7 +474,7 @@ export class StoryRepository {
     if (includeChoices) {
       beat.choices = this.db.prepare(`
         SELECT id, sort_order, text, require_json, effects_json, time_minutes, activity,
-          sets_json, set_flags_json, go_hex, go_room, enter_building
+          sets_json, set_flags_json, go_hex, go_room, enter_building, view_json
         FROM story_choices
         WHERE area_id = ? AND beat_id = ?
         ORDER BY sort_order, id
@@ -489,6 +489,7 @@ export class StoryRepository {
         go_hex: choice.go_hex,
         go_room: choice.go_room,
         enter: choice.enter_building,
+        view: parseNullableJson(choice.view_json),
       }));
     }
     return beat;
@@ -529,6 +530,11 @@ function renameMapFor(renames, kind) {
       .filter((rename) => rename?.kind === kind && rename.from && rename.to)
       .map((rename) => [String(rename.from), String(rename.to)]),
   );
+}
+
+function parseNullableJson(value) {
+  const parsed = JSON.parse(value || "{}");
+  return parsed && Object.keys(parsed).length ? parsed : null;
 }
 
 export class ValidationError extends Error {

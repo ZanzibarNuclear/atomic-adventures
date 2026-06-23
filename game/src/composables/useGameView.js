@@ -2,6 +2,8 @@ import { computed, ref } from "vue";
 
 export const GAME_VIEW_KINDS = Object.freeze([
   "map",
+  "inventory",
+  "character-stats",
   "character",
   "closeup",
   "lesson",
@@ -36,8 +38,16 @@ export function useGameView() {
     return openView("map", null, options);
   }
 
-  function openCharacter() {
-    return openView("character");
+  function openCharacter(payload = null) {
+    return openView("character", payload);
+  }
+
+  function openInventory(payload = null) {
+    return openView("inventory", payload);
+  }
+
+  function openCharacterStats(payload = null) {
+    return openView("character-stats", payload);
   }
 
   return {
@@ -46,6 +56,8 @@ export function useGameView() {
     isCharacterView,
     openView,
     openCharacter,
+    openInventory,
+    openCharacterStats,
     returnToMap,
   };
 }

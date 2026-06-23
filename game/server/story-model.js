@@ -1,6 +1,16 @@
 import { randomUUID } from "node:crypto";
 
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const STAGE_VIEW_KINDS = new Set([
+  "inventory",
+  "character-stats",
+  "character",
+  "closeup",
+  "lesson",
+  "document",
+  "console",
+  "simulation",
+]);
 
 export function normalizeBeat(input = {}) {
   const trigger = input.trigger ?? {};
@@ -30,6 +40,7 @@ export function normalizeBeat(input = {}) {
       go_hex: nullableText(choice.go_hex),
       go_room: nullableText(choice.go_room),
       enter: nullableText(choice.enter),
+      view: normalizeStageView(choice.view),
     })),
   };
 }
@@ -77,9 +88,13 @@ export function validateBeat(input, world, character = null) {
     if (!choice.text.trim()) add(`${base}.text`, "Choice text is required.");
     const destinations = [choice.go_hex, choice.go_room, choice.enter].filter(Boolean);
     if (destinations.length > 1) add(`${base}.destination`, "Choose at most one movement destination.");
+    if (destinations.length && choice.view) add(`${base}.destination`, "Choose either movement or a stage view.");
     if (choice.go_hex && !world.hexIds.has(choice.go_hex)) add(`${base}.go_hex`, "Choose an existing hex.");
     if (choice.go_room && !world.roomIds.has(choice.go_room)) add(`${base}.go_room`, "Choose an existing room.");
     if (choice.enter && !world.buildingIds.has(choice.enter)) add(`${base}.enter`, "Choose an existing building.");
+    if (choice.view && !STAGE_VIEW_KINDS.has(choice.view.kind)) {
+      add(`${base}.view.kind`, "Choose a supported stage view.");
+    }
     if (choice.timeMinutes < 0) add(`${base}.timeMinutes`, "Time cannot be negative.");
     if (!["resting", "light", "moderate", "strenuous"].includes(choice.activity)) {
       add(`${base}.activity`, "Choose a supported activity profile.");
@@ -104,6 +119,7 @@ export function beatToRuntime(beat) {
       go_hex: choice.go_hex ?? undefined,
       go_room: choice.go_room ?? undefined,
       enter: choice.enter ?? undefined,
+      view: choice.view ?? undefined,
     })),
   });
 }
@@ -115,6 +131,18 @@ function compactObject(value) {
 function nullableText(value) {
   const text = value == null ? "" : String(value).trim();
   return text || null;
+}
+
+function normalizeStageView(value) {
+  if (!value || typeof value !== "object") return null;
+  const kind = nullableText(value.kind);
+  if (!kind) return null;
+  return compactObject({
+    kind,
+    focus: nullableText(value.focus) ?? undefined,
+    id: nullableText(value.id) ?? undefined,
+    tab: nullableText(value.tab) ?? undefined,
+  });
 }
 
 function stringList(value) {

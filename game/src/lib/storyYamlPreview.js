@@ -17,6 +17,7 @@ export function storyBeatYaml(beat) {
       go_hex: optional(choice.go_hex),
       go_room: optional(choice.go_room),
       enter: optional(choice.enter),
+      view: choice.view || undefined,
     })),
   };
   return yaml.dump({ [beat.id]: compact(output) }, {

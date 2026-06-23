@@ -8,7 +8,7 @@ import { advanceGameTime } from "../lib/character/gameTime.js";
  * authored. Choices remain available whenever the beat is active.
  */
 export function useStory(storyData, ctx) {
-  const { gameState, place, outdoor, indoor } = ctx;
+  const { gameState, place, outdoor, indoor, openStageView = () => false } = ctx;
   const beats = computed(() => unref(storyData)?.beats ?? {});
   const previousPlace = ref(place.value);
 
@@ -152,6 +152,12 @@ export function useStory(storyData, ctx) {
     }
 
     markSeen(beat.id);
+
+    if (choice.view) {
+      openStageView(choice.view);
+      return;
+    }
+
     pendingBeat.value = null;
 
     const movesPlayer =

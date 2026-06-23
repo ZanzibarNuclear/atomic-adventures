@@ -4,7 +4,12 @@ import { useStory } from "./useStory.js";
 import { createCharacterState, markCharacterChanged } from "./useCharacterState.js";
 import { addItem } from "../lib/character/holdings.js";
 
-function harness(initialStory, { withCharacter = false, withClock = false, moveTo = () => {} } = {}) {
+function harness(initialStory, {
+  withCharacter = false,
+  withClock = false,
+  moveTo = () => {},
+  openStageView = () => {},
+} = {}) {
   const story = ref(initialStory);
   const place = ref("outdoors");
   const gameState = reactive({
@@ -43,7 +48,7 @@ function harness(initialStory, { withCharacter = false, withClock = false, moveT
     story,
     gameState,
     outdoor,
-    api: useStory(story, { gameState, place, outdoor, indoor }),
+    api: useStory(story, { gameState, place, outdoor, indoor, openStageView }),
   };
 }
 
@@ -235,5 +240,26 @@ describe("useStory reactive content", () => {
 
     expect(minutesDuringMove).toBe(5);
     expect(setup.gameState.storySeen.has("effect")).toBe(true);
+  });
+
+  it("opens a stage view from a story choice without dismissing the beat", () => {
+    const opened = [];
+    const viewBeat = {
+      ...beat,
+      choices: [{
+        text: "Check your inventory",
+        view: { kind: "inventory" },
+      }],
+    };
+    const setup = harness({ beats: { intro: viewBeat } }, {
+      openStageView: (view) => opened.push(view),
+    });
+
+    setup.api.refreshNarrative();
+    setup.api.applyChoice(0);
+
+    expect(opened).toEqual([{ kind: "inventory" }]);
+    expect(setup.api.pendingBeat.value.id).toBe("intro");
+    expect(setup.gameState.storySeen.has("intro")).toBe(true);
   });
 });

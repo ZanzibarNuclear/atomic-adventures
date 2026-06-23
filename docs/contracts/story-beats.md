@@ -139,10 +139,15 @@ A choice contains:
 | `go_hex` | Moves to a reachable outdoor hex |
 | `go_room` | Moves to an indoor room |
 | `enter` | Enters the current building |
+| `view` | Opens a focused stage view such as inventory or character stats |
 
 A choice may have at most one movement destination. Flag changes and optional
 time costs are committed before movement. If applying a time cost fails, the
 player does not move and the beat remains active.
+
+A choice with `view` changes only the stage area above the narrative card. It
+does not also move the player, and it leaves the current beat and choices
+active. See [stage-views.md](stage-views.md).
 
 Outdoor `go_hex` choices obey the same reachability checks as ordinary map
 movement. Unreachable story choices are hidden rather than allowing narrative

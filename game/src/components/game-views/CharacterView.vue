@@ -23,6 +23,7 @@ const props = defineProps({
   character: { type: Object, required: true },
   clock: { type: Object, default: null },
   nearbyHolderIds: { type: Array, default: () => [] },
+  initialTab: { type: String, default: null },
 });
 
 defineEmits(["return-to-map", "use-item", "transfer-item"]);
@@ -30,7 +31,9 @@ defineEmits(["return-to-map", "use-item", "transfer-item"]);
 const tabs = computed(() => characterTabs(props.character.definitions));
 const storedTab = readStoredTab();
 const selectedTab = ref(
-  tabs.value.some((tab) => tab.id === storedTab) ? storedTab : tabs.value[0]?.id ?? "overview",
+  tabs.value.some((tab) => tab.id === props.initialTab)
+    ? props.initialTab
+    : tabs.value.some((tab) => tab.id === storedTab) ? storedTab : tabs.value[0]?.id ?? "overview",
 );
 const selectedHoldingId = ref(null);
 const tabButtons = ref([]);
@@ -87,6 +90,13 @@ watch(tabs, (next) => {
     selectedTab.value = next[0]?.id ?? "overview";
   }
 });
+
+watch(
+  () => props.initialTab,
+  (tab) => {
+    if (tabs.value.some((item) => item.id === tab)) selectTab(tab);
+  },
+);
 
 watch(selectedTab, (tab) => {
   if (typeof sessionStorage !== "undefined") {

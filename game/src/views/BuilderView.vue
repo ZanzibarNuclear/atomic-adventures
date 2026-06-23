@@ -402,6 +402,7 @@ function addChoice() {
     go_hex: null,
     go_room: null,
     enter: null,
+    view: null,
   });
 }
 
@@ -421,6 +422,7 @@ function destinationType(choice) {
   if (choice.go_hex) return "hex";
   if (choice.go_room) return "room";
   if (choice.enter) return "enter";
+  if (choice.view) return "view";
   return "";
 }
 
@@ -428,6 +430,13 @@ function setDestinationType(choice, type) {
   choice.go_hex = type === "hex" ? catalog.value.world.hexes[0]?.id ?? null : null;
   choice.go_room = type === "room" ? catalog.value.world.rooms[0]?.id ?? null : null;
   choice.enter = type === "enter" ? catalog.value.world.buildings[0]?.id ?? "building" : null;
+  choice.view = type === "view" ? { kind: "inventory" } : null;
+}
+
+function setChoiceViewKind(choice, kind) {
+  choice.view = kind === "character-stats"
+    ? { kind, focus: "health" }
+    : { kind };
 }
 
 function fieldError(path) {
@@ -636,12 +645,13 @@ async function saveAndContinue() {
                   </label>
                 </div>
               </details>
-              <label>Destination
+              <label>Action
                 <select :value="destinationType(choice)" @change="setDestinationType(choice, $event.target.value)">
-                  <option value="">No movement</option>
-                  <option value="hex">Outdoor hex</option>
-                  <option value="room">Indoor room</option>
+                  <option value="">Do nothing</option>
+                  <option value="hex">Outdoor move</option>
+                  <option value="room">Indoor move</option>
                   <option value="enter">Enter building</option>
+                  <option value="view">Open stage view</option>
                 </select>
               </label>
               <select v-if="choice.go_hex" v-model="choice.go_hex">
@@ -653,7 +663,19 @@ async function saveAndContinue() {
               <select v-if="choice.enter" v-model="choice.enter">
                 <option v-for="item in catalog.world.buildings" :key="item.id" :value="item.id">{{ item.label }}</option>
               </select>
+              <div v-if="choice.view" class="field-grid">
+                <label>Stage view
+                  <select :value="choice.view.kind" @change="setChoiceViewKind(choice, $event.target.value)">
+                    <option value="inventory">Inventory</option>
+                    <option value="character-stats">Character stats</option>
+                  </select>
+                </label>
+                <label v-if="choice.view.kind === 'character-stats'">Focus
+                  <input v-model="choice.view.focus" placeholder="health" />
+                </label>
+              </div>
               <p v-for="message in errors[`choices.${index}.destination`] ?? []" :key="message" class="field-error">{{ message }}</p>
+              <p v-for="message in errors[`choices.${index}.view.kind`] ?? []" :key="message" class="field-error">{{ message }}</p>
             </article>
             <button type="button" class="sm" @click="addChoice">Add choice</button>
           </fieldset>
