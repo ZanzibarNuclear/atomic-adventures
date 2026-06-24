@@ -394,9 +394,9 @@ describe('map-wide outdoor movement audit', () => {
           to: 'upper-gorge:west-bank',
         },
         {
-          from: 'mid-west:east-bank',
-          opening: 'mid-west-ford',
-          to: 'mid-west:west-bank',
+          from: 'the-flats:east-bank',
+          opening: 'the-flats-ford',
+          to: 'the-flats:west-bank',
           search: true,
         },
         {

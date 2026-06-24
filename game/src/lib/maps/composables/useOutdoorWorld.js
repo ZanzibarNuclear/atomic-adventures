@@ -129,6 +129,8 @@ export function useOutdoorWorld(mapData, gameState = null) {
     discoveredOpenings: [],
     /** Avatar world position — always persisted. */
     stand: initialStand(mapData, size.value),
+    /** Previous outdoor hex entered by inter-hex movement. */
+    previousId: null,
     /** Barrier kind when a crossing failed before entering the destination hex. */
     lastBlocked: null,
     /** Barrier kind when standing at a barrier line inside the current hex. */
@@ -464,12 +466,14 @@ export function useOutdoorWorld(mapData, gameState = null) {
   }
 
   /** Atomically commit hex + avatar position + barrier hints. */
-  function applyMove({ hexId, stand, blocked, atBarrier }) {
+  function applyMove({ hexId, stand, blocked, atBarrier, previousId = null }) {
     const rounded = {
       x: Math.round(stand.x),
       y: Math.round(stand.y),
     };
-    state.currentId = hexAtPoint(rounded, hexId);
+    const nextHexId = hexAtPoint(rounded, hexId);
+    if (nextHexId !== state.currentId) state.previousId = previousId ?? state.currentId;
+    state.currentId = nextHexId;
     state.stand = rounded;
     state.lastBlocked = blocked ?? null;
     state.atBarrier = atBarrier ?? null;
@@ -573,6 +577,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
       stand: blockedInPlace ? fromPos : result.stand,
       blocked: failedCrossing || blockedInPlace ? result.blockedKind : null,
       atBarrier: blockedInPlace ? result.blockedKind : atBarrier,
+      previousId: fromHex.id,
     });
     if (enteredDest && gameState?.clock && gameState?.character) {
       advanceGameTime(gameState, 15, "moderate");
@@ -584,6 +589,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
     state.discovered = startId.value ? [startId.value] : [];
     state.discoveredOpenings = [];
     state.stand = defaultStandForHex(startId.value);
+    state.previousId = null;
     state.lastBlocked = null;
     state.atBarrier = null;
     state.lastSearch = null;

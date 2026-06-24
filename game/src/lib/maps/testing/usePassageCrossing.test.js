@@ -26,7 +26,7 @@ describe('usePassageCrossing', () => {
   })
 
   it('offers ford only after discovery when east of the river', () => {
-    const mw = world.hexById['mid-west']
+    const mw = world.hexById['the-flats']
     const center = axialToPixel(mw.q, mw.r, world.size)
     const eastBank = { x: center.x + world.size * 0.35, y: center.y }
 
@@ -38,9 +38,9 @@ describe('usePassageCrossing', () => {
       hexById: world.hexById,
       size: world.size,
     })
-    expect(before.some((c) => c.openingId === 'mid-west-ford')).toBe(false)
+    expect(before.some((c) => c.openingId === 'the-flats-ford')).toBe(false)
 
-    world.revealOpening('mid-west-ford')
+    world.revealOpening('the-flats-ford')
     const after = availablePassageCrossings({
       hexId: mw.id,
       fromPos: eastBank,
@@ -50,12 +50,12 @@ describe('usePassageCrossing', () => {
       size: world.size,
       discoveredOpenings: world.discoveredOpenings,
     })
-    expect(after.some((c) => c.openingId === 'mid-west-ford')).toBe(true)
+    expect(after.some((c) => c.openingId === 'the-flats-ford')).toBe(true)
   })
 
   it('ford crossing flips river side in one step from the west bank', () => {
-    world.revealOpening('mid-west-ford')
-    const ford = world.ctx.openings.find((o) => o.id === 'mid-west-ford')
+    world.revealOpening('the-flats-ford')
+    const ford = world.ctx.openings.find((o) => o.id === 'the-flats-ford')
     const from = { x: ford.x - world.size * 0.5, y: ford.y }
     expect(isWestOfRiverAt(from, world.ctx.barriers)).toBe(true)
     const cross = standAcrossOpening(ford, from, world.ctx, world.size)
@@ -72,11 +72,11 @@ describe('usePassageCrossing', () => {
   })
 
   it('uses the same visible separation for bridge, ford, gate, and hole crossings', () => {
-    world.revealOpening('mid-west-ford')
+    world.revealOpening('the-flats-ford')
     world.revealOpening('south-pines-hole')
     const cases = [
       ['upper-gorge-bridge', { dx: 20, dy: 0 }],
-      ['mid-west-ford', { dx: -world.size * 0.5, dy: 0 }],
+      ['the-flats-ford', { dx: -world.size * 0.5, dy: 0 }],
       ['compound-gate', { dx: 0, dy: -14 }],
       ['south-pines-hole', { dx: 14, dy: 0 }],
     ]

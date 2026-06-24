@@ -222,6 +222,14 @@ export function validateBuilding(input, {
     if (transition.hex && outdoorHexIds.size && !outdoorHexIds.has(transition.hex)) {
       add(`${base}.hex`, "Transition hex must exist in the outdoor world.");
     }
+    if (transition.standAt && !validStandAt(transition.standAt)) {
+      add(`${base}.standAt`, "Transition standAt must use x/y or numeric dx/dy offsets.");
+    }
+    (transition.entryFrom ?? []).forEach((hexId, entryIndex) => {
+      if (outdoorHexIds.size && !outdoorHexIds.has(hexId)) {
+        add(`${base}.entryFrom.${entryIndex}`, `Unknown outdoor hex "${hexId}".`);
+      }
+    });
   });
 
   validateIds(building.fixtures, "fixtures", errors);
@@ -436,6 +444,16 @@ function validateIds(items, path, errors) {
 
 function validPoint(point) {
   return point && Number.isFinite(Number(point.x)) && Number.isFinite(Number(point.y));
+}
+
+function validStandAt(point) {
+  if (!point || typeof point !== "object") return false;
+  if (validPoint(point)) return true;
+  return (
+    (point.from === "landmark" || point.from == null) &&
+    (point.dx == null || Number.isFinite(Number(point.dx))) &&
+    (point.dy == null || Number.isFinite(Number(point.dy)))
+  );
 }
 
 function finiteNumber(value, fallback) {

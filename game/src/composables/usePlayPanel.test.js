@@ -205,8 +205,8 @@ describe('getMovementOptions', () => {
 
   it('offers barrier-following actions with barrier direction', () => {
     const outdoor = useOutdoorWorld(mapData)
-    outdoor.state.currentId = 'mid-west'
-    outdoor.state.stand = outdoor.defaultStandForHex('mid-west')
+    outdoor.state.currentId = 'the-flats'
+    outdoor.state.stand = outdoor.defaultStandForHex('the-flats')
 
     expect(buildOutdoorBarrierFollowActions(outdoor).map((action) => action.label)).toContain(
       'Walk southeast along the river',

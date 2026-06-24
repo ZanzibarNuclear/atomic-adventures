@@ -101,6 +101,9 @@ movement audit against its current draft and display the same overlay used by
 the development diagnostic. Saving with invalid audit cases requires explicit
 confirmation because some map redesigns intentionally change those cases.
 
+World/local map transitions, including Utility Station entry and return stand
+selection, are defined in [world-local-transitions.md](world-local-transitions.md).
+
 ## Runtime Updates
 
 The game and builders load outdoor world content from `GET /api/world/outdoors`.

@@ -113,7 +113,7 @@ The stand rule is the same for every passage type:
 | Gate    | Obvious    | When opened                  | Compound gate: player open/close state         |
 | Bridge  | Obvious    | Always (when on river bank)  |                                                |
 | Hole    | Hidden     | After search reveals it      | Pre-cut breach at `south-pines`                |
-| Ford    | Hidden     | After search                 | Also demonstrates river crossing at `mid-west` |
+| Ford    | Hidden     | After search                 | Also demonstrates river crossing at `the-flats` |
 
 River crossings require bank proximity (`isOnRiverBank`). All passage crossings use the same placement rule: near the opening, on the far side, with consistent visible separation from the barrier.
 
@@ -274,7 +274,7 @@ Gates use explicit player state for open/closed behavior. In gameplay, a gate cr
 | `compound-gate`      | gate   | `gate-woods`  | In-hex passage; player opens/closes it                                              |
 | `south-pines-hole`   | hole   | `south-pines` | Search → `crossPassage` → then `lower-stand`                                        |
 | `upper-gorge-bridge` | bridge | `upper-gorge` | `crossPassage` → then `lower-gorge`                                                  |
-| `mid-west-ford`      | ford   | `mid-west`    | Search → `crossPassage`; bank walk to `utility-yard` without ford on inter-hex path |
+| `the-flats-ford`      | ford   | `the-flats`    | Search → `crossPassage`; bank walk to `utility-yard` without ford on inter-hex path |
 
 ### Authoring Snapshot Reference
 
@@ -322,7 +322,7 @@ on_cross:
 | Test file                                                 | Covers                                                  |
 | --------------------------------------------------------- | ------------------------------------------------------- |
 | `useTravelBarriers.test.js`                               | Current resolver, geometry, enterability                |
-| `midWestGateWoods.test.js`                                | `mid-west → gate-woods` enters south of fence           |
+| `midWestGateWoods.test.js`                                | `the-flats → gate-woods` enters south of fence           |
 | `midWestFord.test.js`                                     | West-bank arrival clearance; search → ford action; crossing and adjacent walks |
 | `openingDiscovery.test.js`                                | Hole → `crossPassage`, not opening bypass on neighbors  |
 | `compoundGateGameplay.test.js`                            | Gate lock UI, passage, south moves after cross          |
@@ -351,19 +351,19 @@ In a development game build, use **Show movement audit** above the outdoor map. 
 | Scenario                                    | Border reachability                                            | Destination stand                                                            |
 | ------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | Open terrain                                | Chord or route to shared edge                                  | Authored stand or center                                                     |
-| `mid-west → gate-woods`                     | Reach east border without crossing compound fence              | Stand south of fence (center or accessible side)                             |
+| `the-flats → gate-woods`                     | Reach east border without crossing compound fence              | Stand south of fence (center or accessible side)                             |
 | `north-bend → gate-woods` via compound road | Follow route polyline to border                                | Route stand / gate approach **if** barrier-clear from entry (north of fence) |
 | `south-pines → lower-stand`                 | Blocked west of fence until `crossPassage('south-pines-hole')` | Stand in `lower-stand`                                                       |
 | `road-fork → upper-gorge`                   | Follow `river-access-drive`                                    | Stand on drive at east bank                                                  |
 | `upper-gorge → lower-gorge`                  | Inter-hex movement after bridge crossing                       | West-bank stand in `lower-gorge`                                              |
-| `lower-gorge → mid-west`                   | Enter on the west side of the river                             | Stable west-side area stand with visible river clearance                     |
+| `lower-gorge → the-flats`                   | Enter on the west side of the river                             | Stable west-side area stand with visible river clearance                     |
 
 ### Northern approach (play sequence)
 
 1. `origin → … → road-fork → upper-gorge` via `river-access-drive`
 2. `crossPassage('upper-gorge-bridge')`, then `upper-gorge → lower-gorge`
-3. West bank: `lower-gorge → mid-west` (river blocks center chord — use bank geometry / shared edge)
-4. Search ford at `mid-west`; `mid-west → utility-yard` on west bank without requiring ford on inter-hex path
+3. West bank: `lower-gorge → the-flats` (river blocks center chord — use bank geometry / shared edge)
+4. Search ford at `the-flats`; `the-flats → utility-yard` on west bank without requiring ford on inter-hex path
 5. Southern fence: `crossPassage` through gate/hole where needed before inter-hex steps
 
 ---

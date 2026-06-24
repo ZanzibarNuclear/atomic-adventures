@@ -46,7 +46,7 @@ describe('gameplay viewport at east-pines', () => {
       'east-pines',
       'center-pines',
       'utility-yard',
-      'mid-west',
+      'the-flats',
       'west-slope',
     ]
     outdoor.state.stand = outdoor.defaultStandForHex('east-pines')
@@ -67,8 +67,8 @@ describe('gameplay viewport at east-pines', () => {
     expect(vp.visibleHexes.map((h) => h.id).sort()).toEqual([
       'center-pines',
       'east-pines',
-      'mid-west',
       'origin',
+      'the-flats',
       'utility-yard',
       'west-slope',
     ])

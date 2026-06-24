@@ -3,11 +3,11 @@ import { mapData } from '../../testing/content.js'
 import { buildGameplayWorld, gameplayMoveTo } from './gameplayTravel.js'
 import { useOutdoorWorld } from '../composables/useOutdoorWorld.js'
 
-describe('mid-west to gate-woods gameplay', () => {
-  it('enters gate-woods from default mid-west stand', () => {
+describe('the-flats to gate-woods gameplay', () => {
+  it('enters gate-woods from default the-flats stand', () => {
     const { outdoor } = buildGameplayWorld(mapData)
-    outdoor.state.currentId = 'mid-west'
-    outdoor.state.stand = outdoor.defaultStandForHex('mid-west')
+    outdoor.state.currentId = 'the-flats'
+    outdoor.state.stand = outdoor.defaultStandForHex('the-flats')
     gameplayMoveTo(outdoor, 'gate-woods')
     expect(outdoor.state.currentId).toBe('gate-woods')
     expect(outdoor.state.stand.y).toBeGreaterThan(-61)
@@ -17,12 +17,12 @@ describe('mid-west to gate-woods gameplay', () => {
     const outdoor = useOutdoorWorld(mapData)
     outdoor.state.currentId = 'upper-gorge'
     outdoor.state.stand = outdoor.defaultStandForHex('upper-gorge')
-    outdoor.state.discoveredOpenings = ['mid-west-ford']
+    outdoor.state.discoveredOpenings = ['the-flats-ford']
     outdoor.crossPassage('upper-gorge-bridge')
     gameplayMoveTo(outdoor, 'lower-gorge')
-    gameplayMoveTo(outdoor, 'mid-west')
-    expect(outdoor.state.currentId).toBe('mid-west')
-    outdoor.crossPassage('mid-west-ford')
+    gameplayMoveTo(outdoor, 'the-flats')
+    expect(outdoor.state.currentId).toBe('the-flats')
+    outdoor.crossPassage('the-flats-ford')
     gameplayMoveTo(outdoor, 'gate-woods')
     expect(outdoor.state.currentId).toBe('gate-woods')
     expect(outdoor.state.stand.y).toBeGreaterThan(-61)

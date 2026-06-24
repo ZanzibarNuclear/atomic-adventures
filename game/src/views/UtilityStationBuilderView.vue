@@ -81,6 +81,15 @@ const building = computed(() => buildBuilding(draft.value));
 const dirty = computed(() => loaded.value && JSON.stringify(draft.value) !== baseline.value);
 const allRoomIds = computed(() => building.value.rooms.map((room) => room.id));
 const allExteriorIds = computed(() => building.value.exterior.nodes.map((node) => node.id));
+function csvList(value) {
+  return (value ?? []).join(", ");
+}
+function setCsvList(target, key, value) {
+  target[key] = String(value)
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
 const editableItems = computed(() =>
   listAllGridEditable(draft.value, level.value).filter((item) => {
     const term = search.value.trim().toLowerCase();
@@ -959,6 +968,26 @@ function clonePlain(value) {
 
           <template v-else-if="selection.source === 'exits'">
             <label>Label<input v-model="selection.entity.label" /></label>
+            <label>Outdoor hex<input v-model="selection.entity.hex" /></label>
+            <label>Local stand
+              <select v-model="selection.entity.exteriorNode">
+                <option value="">Default entry</option>
+                <option
+                  v-for="node in draft.exterior?.nodes ?? []"
+                  :key="node.id"
+                  :value="node.id"
+                >
+                  {{ node.label || node.id }}
+                </option>
+              </select>
+            </label>
+            <label>Entry from hex IDs
+              <input
+                :value="csvList(selection.entity.entryFrom)"
+                placeholder="south-pines, west-slope"
+                @input="setCsvList(selection.entity, 'entryFrom', $event.target.value)"
+              />
+            </label>
             <div class="field-grid">
               <label>Map X
                 <input

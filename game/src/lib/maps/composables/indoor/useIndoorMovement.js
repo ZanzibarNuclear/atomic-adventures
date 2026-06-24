@@ -16,6 +16,7 @@ import {
 } from "../useGrid.js";
 import { canBargeThroughDoor, canPassDoor } from "../useDoors.js";
 import { advanceGameTime } from "../../../character/gameTime.js";
+import { resolveStandPoint } from "../useAvatarStand.js";
 
 export const INDOOR_MOVE_MS = 550;
 export const FLOOR_MOVE_MS = 520;
@@ -194,15 +195,35 @@ export function createIndoorMovement(deps) {
 
   const levelsTopDown = computed(() => building.value.levels);
 
-  function resetOutdoorStand(hexId) {
-    outdoor.state.stand = outdoor.defaultStandForHex(hexId);
+  function resetOutdoorStand(hexId, standAt = null) {
+    const hex = outdoor.hexById[hexId];
+    outdoor.state.stand =
+      resolveStandPoint(hex, standAt, outdoor.size) ??
+      outdoor.defaultStandForHex(hexId);
     outdoor.state.lastBlocked = null;
     outdoor.state.atBarrier = null;
   }
 
-  function goIndoors() {
-    resetOutdoorStand(outdoor.state.currentId);
-    indoor.exteriorNode = building.value.exterior?.entry ?? null;
+  function transitionMatchesEntryFrom(transition, previousHexId) {
+    return !!previousHexId && (transition.entryFrom ?? []).includes(previousHexId);
+  }
+
+  function selectEntryTransition(hexId) {
+    const transitions = (building.value.exits ?? []).filter(
+      (exit) => (exit.hex ?? building.value.outdoorHex) === hexId,
+    );
+    if (!transitions.length) return null;
+    return (
+      transitions.find((transition) =>
+        transitionMatchesEntryFrom(transition, outdoor.state.previousId),
+      ) ??
+      transitions.find((transition) => transition.exteriorNode === building.value.exterior?.entry) ??
+      transitions[0]
+    );
+  }
+
+  function goIndoors(entryTransition = null) {
+    indoor.exteriorNode = entryTransition?.exteriorNode ?? building.value.exterior?.entry ?? null;
     indoor.currentRoom = null;
     indoor.currentStand = null;
     indoor.discovered = new Set();
@@ -216,7 +237,7 @@ export function createIndoorMovement(deps) {
     const id = hexId ?? outdoor.state.currentId;
     const hex = outdoor.hexById[id];
     if (hex?.landmark?.building !== UTILITY_STATION_BUILDING_ID) return;
-    goIndoors();
+    goIndoors(selectEntryTransition(id));
   }
 
   function visitStation() {
@@ -225,7 +246,7 @@ export function createIndoorMovement(deps) {
       outdoor.editableHexes.find((h) => h.landmark?.building === UTILITY_STATION_BUILDING_ID)?.id;
     if (!hexId) return;
     outdoor.state.currentId = hexId;
-    goIndoors();
+    goIndoors(selectEntryTransition(hexId));
   }
 
   function exitViaDoor(doorId) {
@@ -255,8 +276,10 @@ export function createIndoorMovement(deps) {
     exitTravelHint.value = "";
     const hexId = exit.hex ?? building.value.outdoorHex;
     if (!hexId) return;
+    const previousId = outdoor.state.currentId;
     outdoor.state.currentId = hexId;
-    resetOutdoorStand(hexId);
+    if (previousId !== hexId) outdoor.state.previousId = previousId;
+    resetOutdoorStand(hexId, exit.standAt);
     indoor.exteriorNode = null;
     indoor.currentRoom = null;
     indoor.currentStand = null;

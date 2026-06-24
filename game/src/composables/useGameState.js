@@ -51,6 +51,7 @@ export function captureSnapshot({ gameState, place, outdoor, indoor }) {
     character: captureCharacterState(gameState.character),
     outdoor: {
       currentId: outdoor.state.currentId,
+      previousId: outdoor.state.previousId ?? null,
       discovered: [...outdoor.state.discovered],
       stand: { ...outdoor.state.stand },
       lastBlocked: outdoor.state.lastBlocked,
@@ -80,6 +81,7 @@ export function captureSnapshot({ gameState, place, outdoor, indoor }) {
 
 function applyOutdoorSnapshot(o, outdoor) {
   outdoor.state.currentId = o.currentId ?? outdoor.START;
+  outdoor.state.previousId = o.previousId ?? null;
   outdoor.state.discovered = [...(o.discovered ?? [outdoor.state.currentId])];
 
   if (o.stand) {

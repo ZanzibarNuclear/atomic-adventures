@@ -722,6 +722,8 @@ function serializeExit(exit, indent) {
     if (exit.exteriorNode) lines.push(`${inner}exteriorNode: ${exit.exteriorNode}`)
     if (exit.at) lines.push(`${inner}at: ${fmtPoint(exit.at)}`)
     if (exit.hex) lines.push(`${inner}hex: ${exit.hex}`)
+    if (exit.entryFrom?.length) lines.push(`${inner}entryFrom: [${exit.entryFrom.join(', ')}]`)
+    if (exit.standAt) lines.push(`${inner}standAt: ${fmtStandAt(exit.standAt)}`)
     return lines.join('\n')
   }
   // Legacy door-based exit
@@ -732,17 +734,25 @@ function serializeExit(exit, indent) {
   if (exit.mapAt) lines.push(`${inner}mapAt: ${fmtPoint(exit.mapAt)}`)
   if (exit.hex) lines.push(`${inner}hex: ${exit.hex}`)
   if (exit.standAt) {
-    const st = exit.standAt
-    if (st.from === 'landmark') {
-      const parts = ['from: landmark']
-      if (st.dx !== undefined && st.dx !== 0) parts.push(`dx: ${round2(st.dx)}`)
-      if (st.dy !== undefined && st.dy !== 0) parts.push(`dy: ${round2(st.dy)}`)
-      lines.push(`${inner}standAt: { ${parts.join(', ')} }`)
-    } else if (st.x != null && st.y != null) {
-      lines.push(`${inner}standAt: { x: ${round2(st.x)}, y: ${round2(st.y)} }`)
-    }
+    lines.push(`${inner}standAt: ${fmtStandAt(exit.standAt)}`)
   }
   return lines.join('\n')
+}
+
+function fmtStandAt(st) {
+  if (st.from === 'landmark') {
+    const parts = ['from: landmark']
+    if (st.dx !== undefined && st.dx !== 0) parts.push(`dx: ${round2(st.dx)}`)
+    if (st.dy !== undefined && st.dy !== 0) parts.push(`dy: ${round2(st.dy)}`)
+    return `{ ${parts.join(', ')} }`
+  }
+  if (st.x != null && st.y != null) {
+    return `{ x: ${round2(st.x)}, y: ${round2(st.y)} }`
+  }
+  const parts = []
+  if (st.dx !== undefined && st.dx !== 0) parts.push(`dx: ${round2(st.dx)}`)
+  if (st.dy !== undefined && st.dy !== 0) parts.push(`dy: ${round2(st.dy)}`)
+  return `{ ${parts.join(', ')} }`
 }
 
 function serializeExterior(exterior, indent = 0) {

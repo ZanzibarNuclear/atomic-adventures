@@ -24,8 +24,8 @@ describe('landmark reachability', () => {
     ).toBe(true)
   })
 
-  it('lands at the driveway stand when arriving from mid-west', () => {
-    const mw = world.hexById['mid-west']
+  it('lands at the driveway stand when arriving from the-flats', () => {
+    const mw = world.hexById['the-flats']
     const m = evaluateNeighborMove(world, mw, uy, world.resolveStand(mw))
 
     expect(m.result.stand.x).toBeCloseTo(drivewayStand.x, 0)
@@ -77,8 +77,8 @@ describe('landmark reachability', () => {
 
     expect(outdoor.atBuildingEntrance).toBe(true)
 
-    outdoor.state.currentId = 'mid-west'
-    outdoor.state.stand = outdoor.defaultStandForHex('mid-west')
+    outdoor.state.currentId = 'the-flats'
+    outdoor.state.stand = outdoor.defaultStandForHex('the-flats')
     gameplayMoveTo(outdoor, 'utility-yard')
     expect(outdoor.atBuildingEntrance).toBe(true)
   })

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ref } from "vue";
-import { utilityData } from '../../testing/content.js';
+import { mapData, utilityData } from '../../testing/content.js';
 import {
   buildBuilding,
   defaultRoomStandId,
@@ -10,20 +10,33 @@ import {
 } from "../composables/useGrid.js";
 import { setAllDoorsOpen } from "../composables/useDoors.js";
 import { useIndoorBuilding } from "../composables/useIndoorBuilding.js";
+import { useOutdoorWorld } from "../composables/useOutdoorWorld.js";
 import { createFlags } from "../composables/useFlags.js";
 
 function indoorHarness() {
   const place = ref("indoors");
   const builderView = ref(false);
+  const utilityHex = {
+    id: "utility-yard",
+    q: -2,
+    r: 1,
+    landmark: {
+      building: "utility-station",
+      dx: 0.06,
+      dy: 0.19,
+    },
+  };
   const outdoor = {
     state: {
       currentId: "utility-yard",
       stand: { x: 0, y: 0 },
+      previousId: null,
       lastBlocked: null,
       atBarrier: null,
     },
-    editableHexes: [{ id: "utility-yard", landmark: { building: "utility-station" } }],
-    hexById: { "utility-yard": { id: "utility-yard", landmark: { building: "utility-station" } } },
+    size: 44,
+    editableHexes: [utilityHex],
+    hexById: { "utility-yard": utilityHex },
     defaultStandForHex: () => ({ x: 0, y: 0 }),
   };
   const gameState = { flags: createFlags() };
@@ -32,7 +45,7 @@ function indoorHarness() {
     builderView,
     gameState,
   });
-  return { indoor, place };
+  return { indoor, outdoor, place };
 }
 
 describe("indoor room stands", () => {
@@ -102,5 +115,72 @@ describe("indoor room stands", () => {
       indoor.indoor.currentStand,
     );
     expect(position).not.toBeNull();
+  });
+
+  it("enters the local exterior at the transition selected by previous world hex", () => {
+    const { indoor, outdoor, place } = indoorHarness();
+    place.value = "outdoors";
+    outdoor.state.previousId = "south-pines";
+
+    indoor.enterBuilding("utility-yard");
+
+    expect(place.value).toBe("indoors");
+    expect(indoor.indoor.exteriorNode).toBe("large-bay-man-front");
+  });
+
+  it("enters through the garage transition after approaching from west-slope", () => {
+    const { indoor, outdoor, place } = indoorHarness();
+    place.value = "outdoors";
+    outdoor.state.previousId = "west-slope";
+
+    indoor.enterBuilding("utility-yard");
+
+    expect(place.value).toBe("indoors");
+    expect(indoor.indoor.exteriorNode).toBe("garage-approach");
+  });
+
+  it("enters at the river walk after approaching from the-flats", () => {
+    const { indoor, outdoor, place } = indoorHarness();
+    place.value = "outdoors";
+    outdoor.state.previousId = "the-flats";
+
+    indoor.enterBuilding("utility-yard");
+
+    expect(place.value).toBe("indoors");
+    expect(indoor.indoor.exteriorNode).toBe("upstream-bank");
+  });
+
+  it("uses the river walk when entering utility-yard after outdoor movement from the-flats", () => {
+    const place = ref("outdoors");
+    const outdoor = useOutdoorWorld(mapData);
+    const indoor = useIndoorBuilding(utilityData, outdoor, {
+      place,
+      builderView: ref(false),
+      gameState: { flags: createFlags() },
+    });
+    outdoor.state.currentId = "the-flats";
+    outdoor.state.stand = outdoor.defaultStandForHex("the-flats");
+
+    outdoor.moveTo("utility-yard");
+    indoor.enterBuilding();
+
+    expect(outdoor.state.previousId).toBe("the-flats");
+    expect(place.value).toBe("indoors");
+    expect(indoor.indoor.exteriorNode).toBe("upstream-bank");
+  });
+
+  it("returns to the world at the transition stand", () => {
+    const { indoor, outdoor, place } = indoorHarness();
+    indoor.indoor.exteriorNode = "large-bay-man-front";
+
+    indoor.exitViaDoor("man-door-path");
+
+    expect(place.value).toBe("outdoors");
+    expect(outdoor.state.currentId).toBe("utility-yard");
+    expect(outdoor.state.stand).toMatchObject({
+      x: expect.any(Number),
+      y: expect.any(Number),
+    });
+    expect(outdoor.state.stand).not.toEqual(outdoor.defaultStandForHex("utility-yard"));
   });
 });
