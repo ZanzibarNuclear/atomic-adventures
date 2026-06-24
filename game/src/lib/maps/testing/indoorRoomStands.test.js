@@ -136,7 +136,7 @@ describe("indoor room stands", () => {
     indoor.enterBuilding("utility-yard");
 
     expect(place.value).toBe("indoors");
-    expect(indoor.indoor.exteriorNode).toBe("garage-approach");
+    expect(indoor.indoor.exteriorNode).toBe("garage-front-entrance");
   });
 
   it("enters at the river walk after approaching from the-flats", () => {

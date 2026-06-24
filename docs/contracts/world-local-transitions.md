@@ -22,6 +22,8 @@ local grid map such as the Utility Station exterior/interior map.
 | Local map | The grid map for a building/local area. |
 | Transition | A bidirectional connection between one world hex and one local-map exit marker. |
 | Local stand | The exterior node where the avatar appears on the local map. |
+| Arrival stand | A local stand used as the first position after switching maps. It may be off the walkable path graph. |
+| Join node | A walkable exterior node that an off-path arrival stand connects to when the player first steps onto the path network. |
 | World stand | The stand point where the avatar appears when returning to the world map. |
 | MAP marker | The visible hex/map icon on the local map. It is not necessarily the avatar stand. |
 
@@ -35,7 +37,7 @@ Each transition may be door-based or exterior-node based.
   id: "garage-exit",
   label: "Leave through the garage",
   hex: "utility-yard",
-  exteriorNode: "garage-approach",
+  exteriorNode: "garage-front-entrance",
   at: { x: 5.48, y: 1.96 },
   standAt: { from: "landmark", dx: 0.05, dy: -0.56 },
   entryFrom: ["west-slope"]
@@ -60,6 +62,22 @@ Fields:
 The existing `building.exterior.entry` remains the fallback local stand for
 legacy content and ambiguous entry.
 
+An exterior node may include `joinNode` when it is an arrival stand rather than
+part of an authored path:
+
+```js
+{
+  id: "garage-front-entrance",
+  label: "Garage front entrance",
+  at: { x: 5.11, y: 2.39 },
+  joinNode: "small-bay-roll-front"
+}
+```
+
+`joinNode` creates a logical movement connection to the path network without
+drawing the arrival stand into a visible route polyline. This keeps map-entry
+placement separate from driveway, riverbank, and perimeter path geometry.
+
 ## Entering Local From World
 
 When the player chooses to enter a building/local map from a world hex:
@@ -75,12 +93,14 @@ When the player chooses to enter a building/local map from a world hex:
    - finally `building.exterior.entry`.
 4. Set `indoor.exteriorNode` to the selected transition's `exteriorNode`.
 5. Set `place = "indoors"` without changing the outdoor current hex.
+6. Let normal story-beat selection show the beat for that exterior node. Do not
+   fire a generic map-switch or enter-building event.
 
 For Utility Station:
 
 | World approach | Preferred local transition | Local stand |
 | --- | --- | --- |
-| Driveway/building approach | `garage-exit` | `garage-approach` |
+| Driveway/building approach | `garage-exit` | `garage-front-entrance` |
 | `the-flats` approach | `river-walk` | `upstream-bank` or authored river-walk stand |
 | `south-pines` approach | `man-door-path` | `large-bay-man-front` |
 | Future southern approach | `southeast-corner` | `south-east-corner` |
@@ -130,5 +150,7 @@ The building/world validators should eventually check:
 - every transition `exteriorNode` exists in the local exterior graph;
 - every transition `standAt`, when present, resolves inside `transition.hex`;
 - every `entryFrom` hex exists when it names a world hex;
+- every exterior-node `joinNode`, when present, exists and connects the arrival
+  stand to the walkable local path network;
 - at least one transition exists for each building landmark that can be entered
   from the world.

@@ -53,6 +53,7 @@ function harness(initialStory, {
     gameState,
     outdoor,
     indoor,
+    place,
     api: useStory(story, { gameState, place, outdoor, indoor, openStageView }),
   };
 }
@@ -268,7 +269,7 @@ describe("useStory reactive content", () => {
     expect(setup.gameState.storySeen.has("intro")).toBe(true);
   });
 
-  it("prefers enter-building event beats over exterior-node beats during entry", () => {
+  it("shows the exterior-node beat after switching from world to local view", async () => {
     const setup = harness({
       beats: {
         "large-bay-roll-front": {
@@ -276,41 +277,48 @@ describe("useStory reactive content", () => {
           trigger: { place: "indoors", exteriorNode: "large-bay-roll-front" },
           choices: [],
         },
-        "the-garage": {
-          heading: "At the garage",
-          text: "Garage arrival prose.",
-          trigger: { event: "enter-building" },
+        "map-switch-event": {
+          heading: "Map switch",
+          text: "This event should not be shown automatically.",
+          trigger: { event: "map-switch" },
           choices: [],
         },
       },
     }, {
-      initialPlace: "indoors",
-      initialExteriorNode: "large-bay-roll-front",
+      initialPlace: "outdoors",
     });
 
-    setup.api.refreshNarrative("enter-building");
+    setup.indoor.indoor.exteriorNode = "large-bay-roll-front";
+    setup.place.value = "indoors";
+    await nextTick();
 
-    expect(setup.api.pendingBeat.value.id).toBe("the-garage");
+    expect(setup.api.pendingBeat.value.id).toBe("large-bay-roll-front");
   });
 
-  it("falls back to the entry exterior-node beat when no enter-building event beat exists", () => {
+  it("can still show an explicit event beat when code requests one", () => {
     const setup = harness({
       beats: {
-        "garage-approach": {
+        "garage-front-entrance": {
           heading: "At the garage",
           text: "Garage arrival prose.",
-          trigger: { place: "indoors", exteriorNode: "garage-approach" },
+          trigger: { place: "indoors", exteriorNode: "garage-front-entrance" },
+          choices: [],
+        },
+        "explicit-event": {
+          heading: "Special event",
+          text: "Event prose.",
+          trigger: { event: "custom-event" },
           choices: [],
         },
       },
     }, {
       initialPlace: "indoors",
-      initialExteriorNode: "garage-approach",
+      initialExteriorNode: "garage-front-entrance",
     });
 
-    setup.api.refreshNarrative("enter-building");
+    setup.api.refreshNarrative("custom-event");
 
-    expect(setup.api.pendingBeat.value.id).toBe("garage-approach");
+    expect(setup.api.pendingBeat.value.id).toBe("explicit-event");
   });
 
   it("moves to an exterior node from an indoor story choice", () => {

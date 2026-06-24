@@ -61,8 +61,11 @@ Every beat has exactly one primary trigger:
 Location triggers include `place: outdoors` or `place: indoors`. Event triggers
 do not use a place.
 
-The current Part I event is `enter-building`. Event beats are evaluated when
-the player transitions from outdoors into the indoor scene.
+Switching from the outdoor hex map to a local grid map is not a story event.
+It is a change of map perspective. After the switch, the runtime evaluates the
+normal indoor location trigger for the selected exterior node. Use a distinct
+exterior-node beat for each local-map arrival stand that needs its own prose.
+Event beats remain available only for explicit named events requested by code.
 
 Indoor stand movement refines the avatar position within a room but does not
 change room-level trigger behavior. See

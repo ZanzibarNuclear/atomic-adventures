@@ -43,7 +43,7 @@ const errors = ref({});
 const status = ref("");
 const revisions = ref([]);
 const showRevisions = ref(false);
-const eventLocationInput = ref("enter-building");
+const eventLocationInput = ref("custom-event");
 const navigationPromptVisible = ref(false);
 const pendingContextAction = ref(null);
 const savingBeforeNavigation = ref(false);
@@ -249,14 +249,14 @@ async function applyModeSelection(mode) {
     await applyExteriorSelection(buildingData.value.exterior?.entry);
   } else {
     locationMode.value = "events";
-    selectedLocation.value = "enter-building";
+    selectedLocation.value = "custom-event";
     eventLocationInput.value = selectedLocation.value;
     clearBeatSelection();
   }
 }
 
 function selectEventLocation(event) {
-  const next = event.target.value.trim() || "enter-building";
+  const next = event.target.value.trim() || "custom-event";
   if (next === selectedLocation.value) return;
   void requestContextChange(() => {
     locationMode.value = "events";
@@ -285,7 +285,7 @@ function emptyBeat() {
   if (locationMode.value === "outdoors") Object.assign(trigger, { place: "outdoors", hex: selectedLocation.value });
   if (locationMode.value === "rooms") Object.assign(trigger, { place: "indoors", room: selectedLocation.value });
   if (locationMode.value === "exterior") Object.assign(trigger, { place: "indoors", exteriorNode: selectedLocation.value });
-  if (locationMode.value === "events") trigger.event = selectedLocation.value || "enter-building";
+  if (locationMode.value === "events") trigger.event = selectedLocation.value || "custom-event";
   return {
     id: "",
     eyebrow: "",
@@ -556,7 +556,7 @@ async function saveAndContinue() {
         <label v-else>Event name
           <input
             v-model="eventLocationInput"
-            placeholder="enter-building"
+            placeholder="custom-event"
             @change="selectEventLocation" />
         </label>
       </section>

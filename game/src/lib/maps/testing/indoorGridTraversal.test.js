@@ -67,10 +67,20 @@ describe("utility station grid traversal contract", () => {
     expect(labels).toEqual(
       expect.arrayContaining([
         "east along the footpath",
-        "northwest along the footpath",
         "west along the footpath",
       ]),
     );
+  });
+
+  it("lets the off-path garage entrance join the driveway network", () => {
+    const moves = exteriorMovesFrom(building, "garage-front-entrance");
+
+    expect(moves.map((move) => move.toNodeId)).toContain("small-bay-roll-front");
+    expect(exteriorPathBetween(building, "garage-front-entrance", "north-east-corner")).toEqual([
+      "small-bay-roll-front",
+      "large-bay-roll-front",
+      "north-east-corner",
+    ]);
   });
 
   it("reaches every standable room when authored doors are open", () => {
@@ -106,10 +116,10 @@ describe("utility station grid traversal contract", () => {
     expect([...visitedRooms].sort()).toEqual(standableRoomIds.sort());
   });
 
-  it("starts outside on the garage approach without bypassing the locked roll-up", () => {
+  it("starts outside at the garage front entrance without bypassing the locked roll-up", () => {
     const doorState = buildInitialDoorState(building.areaId, building);
     const entry = building.exterior.nodeById[building.exterior.entry];
-    expect(entry.id).toBe("garage-approach");
+    expect(entry.id).toBe("garage-front-entrance");
     expect(entry.room).toBeUndefined();
     expect(entry.door).toBeUndefined();
     expect(canPassDoor(

@@ -37,6 +37,11 @@ function buildExteriorModel(exterior) {
       adj[b]?.add(a)
     }
   }
+  for (const node of nodes) {
+    if (!node.joinNode || !nodeById[node.joinNode]) continue
+    adj[node.id]?.add(node.joinNode)
+    adj[node.joinNode]?.add(node.id)
+  }
   const entryByDoorId = Object.fromEntries(
     nodes.filter((n) => n.door).map((n) => [n.door, n]),
   )

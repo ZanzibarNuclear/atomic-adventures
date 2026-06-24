@@ -191,6 +191,9 @@ export function validateBuilding(input, {
     if (!validPoint(node.at)) add(`${base}.at`, "Exterior nodes require numeric x/y coordinates.");
     if (node.room && !roomIds.has(node.room)) add(`${base}.room`, "Exterior node room must exist.");
     if (node.door && !doorIds.has(node.door)) add(`${base}.door`, "Exterior node door must exist.");
+    if (node.joinNode && !nodeIds.has(node.joinNode)) {
+      add(`${base}.joinNode`, "Exterior node joinNode must exist.");
+    }
   });
   if (building.exterior) {
     if (!levelIds.has(building.exterior.level)) add("exterior.level", "Exterior level must exist.");
@@ -306,6 +309,11 @@ function validateTraversalConnectivity(building, roomIds, nodeIds, add) {
         adjacent[nodes[index]].push(nodes[index + 1]);
         adjacent[nodes[index + 1]].push(nodes[index]);
       }
+    }
+    for (const node of building.exterior?.nodes ?? []) {
+      if (!node.joinNode || !nodeIds.has(node.joinNode)) continue;
+      adjacent[node.id].push(node.joinNode);
+      adjacent[node.joinNode].push(node.id);
     }
     const reachable = traverse(adjacent, entry);
     building.exterior.nodes.forEach((node, index) => {

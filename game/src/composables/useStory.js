@@ -10,7 +10,6 @@ import { advanceGameTime } from "../lib/character/gameTime.js";
 export function useStory(storyData, ctx) {
   const { gameState, place, outdoor, indoor, openStageView = () => false } = ctx;
   const beats = computed(() => unref(storyData)?.beats ?? {});
-  const previousPlace = ref(place.value);
 
   /** Active story beat, including repeat visits. */
   const pendingBeat = ref(null);
@@ -240,9 +239,6 @@ export function useStory(storyData, ctx) {
     ],
     () => {
       const loc = locationContext();
-      const enteredIndoors =
-        previousPlace.value === "outdoors" && place.value === "indoors";
-      previousPlace.value = place.value;
 
       if (pendingBeat.value) {
         const beatDef = beats.value[pendingBeat.value.id];
@@ -250,11 +246,7 @@ export function useStory(storyData, ctx) {
         pendingBeat.value = null;
       }
 
-      if (enteredIndoors) {
-        refreshNarrative("enter-building");
-      } else {
-        refreshNarrative();
-      }
+      refreshNarrative();
     },
     { flush: "post" },
   );
