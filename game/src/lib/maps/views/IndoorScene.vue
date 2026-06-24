@@ -74,7 +74,9 @@ const chooseActions = computed(() =>
 
 const statusLines = computed(() => buildIndoorStatusLines(props.indoor));
 
-const playActions = computed(() => buildIndoorPlayActions(props.indoor));
+const playActions = computed(() =>
+  buildIndoorPlayActions(props.indoor, props.pendingBeat),
+);
 
 const actions = computed(() => [...chooseActions.value, ...playActions.value]);
 

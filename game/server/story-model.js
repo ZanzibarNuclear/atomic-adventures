@@ -39,6 +39,7 @@ export function normalizeBeat(input = {}) {
       set_flags: stringList(choice.set_flags),
       go_hex: nullableText(choice.go_hex),
       go_room: nullableText(choice.go_room),
+      go_exterior_node: nullableText(choice.go_exterior_node),
       enter: nullableText(choice.enter),
       view: normalizeStageView(choice.view),
     })),
@@ -86,11 +87,19 @@ export function validateBeat(input, world, character = null) {
   beat.choices.forEach((choice, index) => {
     const base = `choices.${index}`;
     if (!choice.text.trim()) add(`${base}.text`, "Choice text is required.");
-    const destinations = [choice.go_hex, choice.go_room, choice.enter].filter(Boolean);
+    const destinations = [
+      choice.go_hex,
+      choice.go_room,
+      choice.go_exterior_node,
+      choice.enter,
+    ].filter(Boolean);
     if (destinations.length > 1) add(`${base}.destination`, "Choose at most one movement destination.");
     if (destinations.length && choice.view) add(`${base}.destination`, "Choose either movement or a stage view.");
     if (choice.go_hex && !world.hexIds.has(choice.go_hex)) add(`${base}.go_hex`, "Choose an existing hex.");
     if (choice.go_room && !world.roomIds.has(choice.go_room)) add(`${base}.go_room`, "Choose an existing room.");
+    if (choice.go_exterior_node && !world.exteriorNodeIds.has(choice.go_exterior_node)) {
+      add(`${base}.go_exterior_node`, "Choose an existing exterior node.");
+    }
     if (choice.enter && !world.buildingIds.has(choice.enter)) add(`${base}.enter`, "Choose an existing building.");
     if (choice.view && !STAGE_VIEW_KINDS.has(choice.view.kind)) {
       add(`${base}.view.kind`, "Choose a supported stage view.");
@@ -118,6 +127,7 @@ export function beatToRuntime(beat) {
       set_flags: choice.set_flags.length ? choice.set_flags : undefined,
       go_hex: choice.go_hex ?? undefined,
       go_room: choice.go_room ?? undefined,
+      go_exterior_node: choice.go_exterior_node ?? undefined,
       enter: choice.enter ?? undefined,
       view: choice.view ?? undefined,
     })),

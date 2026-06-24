@@ -16,6 +16,7 @@ export function storyBeatYaml(beat) {
       set_flags: list(choice.set_flags),
       go_hex: optional(choice.go_hex),
       go_room: optional(choice.go_room),
+      go_exterior_node: optional(choice.go_exterior_node),
       enter: optional(choice.enter),
       view: choice.view || undefined,
     })),

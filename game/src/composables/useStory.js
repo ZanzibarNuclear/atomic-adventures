@@ -108,6 +108,12 @@ export function useStory(storyData, ctx) {
     return beat.choices.findIndex((choice) => {
       if (dest.go_hex && choice.go_hex === dest.go_hex) return true;
       if (dest.go_room && choice.go_room === dest.go_room) return true;
+      if (
+        dest.go_exterior_node &&
+        choice.go_exterior_node === dest.go_exterior_node
+      ) {
+        return true;
+      }
       if (dest.enter && choice.enter) return true;
       return false;
     });
@@ -163,7 +169,8 @@ export function useStory(storyData, ctx) {
     const movesPlayer =
       (choice.go_hex && place.value === "outdoors") ||
       (choice.enter && place.value === "outdoors") ||
-      (choice.go_room && place.value === "indoors");
+      (choice.go_room && place.value === "indoors") ||
+      (choice.go_exterior_node && place.value === "indoors");
 
     if (choice.go_hex && place.value === "outdoors") {
       outdoor.moveTo(choice.go_hex);
@@ -171,6 +178,8 @@ export function useStory(storyData, ctx) {
       indoor.enterBuilding();
     } else if (choice.go_room && place.value === "indoors") {
       indoor.moveToRoom(choice.go_room);
+    } else if (choice.go_exterior_node && place.value === "indoors") {
+      indoor.moveToExteriorNode(choice.go_exterior_node);
     }
 
     if (!movesPlayer) refreshNarrative();
@@ -203,6 +212,15 @@ export function useStory(storyData, ctx) {
       return;
     }
     indoor.moveToRoom(roomId);
+  }
+
+  function travelToExteriorNode(nodeId) {
+    const idx = findChoiceIndex(pendingBeat.value, { go_exterior_node: nodeId });
+    if (idx >= 0) {
+      applyChoice(idx);
+      return;
+    }
+    indoor.moveToExteriorNode(nodeId);
   }
 
   function dismissEndCard() {
@@ -265,6 +283,7 @@ export function useStory(storyData, ctx) {
     travelToHex,
     enterBuilding,
     travelToRoom,
+    travelToExteriorNode,
     dismissEndCard,
     refreshNarrative,
   };

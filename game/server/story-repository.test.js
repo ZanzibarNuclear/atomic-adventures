@@ -59,7 +59,7 @@ describe("StoryRepository", () => {
     expect(repository.getRuntimeStory().areas["part-i"].beats.intro.heading).toBe("Lost in the woods");
     db.close();
     const reopened = openDatabase(path);
-    expect(reopened.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get().count).toBe(6);
+    expect(reopened.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get().count).toBe(7);
     reopened.close();
   });
 
@@ -145,6 +145,22 @@ describe("StoryRepository", () => {
     expect(beat.choices[0].view).toEqual({ kind: "inventory" });
     expect(repository.getRuntimeStory().areas["test-area"].beats["test-beat"].choices[0].view)
       .toEqual({ kind: "inventory" });
+    db.close();
+  });
+
+  it("round-trips exterior-node movement choices", () => {
+    const { db, repository } = createRepository();
+    repository.createBeat("test-area", sampleBeat({
+      choices: [{
+        text: "Walk around the building",
+        go_exterior_node: "north-east-corner",
+      }],
+    }));
+
+    const beat = repository.getBeat("test-area", "test-beat");
+    expect(beat.choices[0].go_exterior_node).toBe("north-east-corner");
+    expect(repository.getRuntimeStory().areas["test-area"].beats["test-beat"].choices[0].go_exterior_node)
+      .toBe("north-east-corner");
     db.close();
   });
 });

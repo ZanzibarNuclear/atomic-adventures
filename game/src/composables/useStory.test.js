@@ -8,10 +8,13 @@ function harness(initialStory, {
   withCharacter = false,
   withClock = false,
   moveTo = () => {},
+  moveToExteriorNode = () => {},
+  initialPlace = "outdoors",
+  initialExteriorNode = null,
   openStageView = () => {},
 } = {}) {
   const story = ref(initialStory);
-  const place = ref("outdoors");
+  const place = ref(initialPlace);
   const gameState = reactive({
     flags: new Set(),
     storySeen: new Set(),
@@ -40,14 +43,16 @@ function harness(initialStory, {
     atBuildingEntrance: false,
   };
   const indoor = {
-    indoor: reactive({ currentRoom: null, exteriorNode: null }),
+    indoor: reactive({ currentRoom: null, exteriorNode: initialExteriorNode }),
     enterBuilding: () => {},
     moveToRoom: () => {},
+    moveToExteriorNode,
   };
   return {
     story,
     gameState,
     outdoor,
+    indoor,
     api: useStory(story, { gameState, place, outdoor, indoor, openStageView }),
   };
 }
@@ -261,5 +266,29 @@ describe("useStory reactive content", () => {
     expect(opened).toEqual([{ kind: "inventory" }]);
     expect(setup.api.pendingBeat.value.id).toBe("intro");
     expect(setup.gameState.storySeen.has("intro")).toBe(true);
+  });
+
+  it("moves to an exterior node from an indoor story choice", () => {
+    let movedTo = null;
+    const exteriorBeat = {
+      heading: "Outside",
+      text: "The path bends around the station.",
+      trigger: { place: "indoors", exteriorNode: "large-bay-roll-front" },
+      choices: [{
+        text: "Look for a way in",
+        go_exterior_node: "north-east-corner",
+      }],
+    };
+    const setup = harness({ beats: { exterior: exteriorBeat } }, {
+      initialPlace: "indoors",
+      initialExteriorNode: "large-bay-roll-front",
+      moveToExteriorNode: (id) => { movedTo = id; },
+    });
+
+    setup.api.refreshNarrative();
+    setup.api.applyChoice(0);
+
+    expect(movedTo).toBe("north-east-corner");
+    expect(setup.gameState.storySeen.has("exterior")).toBe(true);
   });
 });

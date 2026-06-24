@@ -42,11 +42,11 @@ He headed down the road.
 
 The road was in decent shape. It was obscured by years of pine needle drops. In addition to the pine trees, the area had shrubs and a few thickets. As he walked, the white noise of running water entered his awareness. A stream or river was nearby, somewhere over the ridge to the west.
 
-Zanzibar stayed on the road.
+Zanzibar was curious what he would find along the road.
 
 Perhaps half a mile along, a gravel driveway split off to the right toward the now prominent sound of rushing water. Zanzi passed a few more trees, and there was a two-story building. To the west of the building was a spectacular river cascade. It was not accessible from the driveway.
 
-A bigger surprise was the building that stood before him. It had a large industrial-sized garage. One of the roll-up doors was a bit wider and twice the height of the other. A path went around to the side of the garage.
+The building that stood before him had a large industrial-sized garage with two large doors. One of the roll-up doors was a bit wider and twice the height of the other. A path went around to the side of the garage.
 
 Seeing no way to open the roll-up doors, Zanzibar followed the path to a man door at the side.
 

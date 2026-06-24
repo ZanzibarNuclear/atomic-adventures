@@ -401,6 +401,7 @@ function addChoice() {
     set_flags: [],
     go_hex: null,
     go_room: null,
+    go_exterior_node: null,
     enter: null,
     view: null,
   });
@@ -421,6 +422,7 @@ function setCsv(target, key, event) {
 function destinationType(choice) {
   if (choice.go_hex) return "hex";
   if (choice.go_room) return "room";
+  if (choice.go_exterior_node) return "exterior";
   if (choice.enter) return "enter";
   if (choice.view) return "view";
   return "";
@@ -429,6 +431,7 @@ function destinationType(choice) {
 function setDestinationType(choice, type) {
   choice.go_hex = type === "hex" ? catalog.value.world.hexes[0]?.id ?? null : null;
   choice.go_room = type === "room" ? catalog.value.world.rooms[0]?.id ?? null : null;
+  choice.go_exterior_node = type === "exterior" ? catalog.value.world.exteriorNodes[0]?.id ?? null : null;
   choice.enter = type === "enter" ? catalog.value.world.buildings[0]?.id ?? "building" : null;
   choice.view = type === "view" ? { kind: "inventory" } : null;
 }
@@ -650,6 +653,7 @@ async function saveAndContinue() {
                   <option value="">Do nothing</option>
                   <option value="hex">Outdoor move</option>
                   <option value="room">Indoor move</option>
+                  <option value="exterior">Exterior path move</option>
                   <option value="enter">Enter building</option>
                   <option value="view">Open stage view</option>
                 </select>
@@ -659,6 +663,9 @@ async function saveAndContinue() {
               </select>
               <select v-if="choice.go_room" v-model="choice.go_room">
                 <option v-for="room in catalog.world.rooms" :key="room.id" :value="room.id">{{ room.label }} ({{ room.id }})</option>
+              </select>
+              <select v-if="choice.go_exterior_node" v-model="choice.go_exterior_node">
+                <option v-for="node in catalog.world.exteriorNodes" :key="node.id" :value="node.id">{{ node.label }} ({{ node.id }})</option>
               </select>
               <select v-if="choice.enter" v-model="choice.enter">
                 <option v-for="item in catalog.world.buildings" :key="item.id" :value="item.id">{{ item.label }}</option>

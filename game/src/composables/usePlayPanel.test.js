@@ -12,6 +12,9 @@ import {
   buildOutdoorRouteActions,
   buildOutdoorSearchActions,
   buildStoryChoices,
+  buildIndoorMovementActions,
+  buildIndoorPlayActions,
+  handleIndoorPlayAction,
   handleOutdoorPlayAction,
 } from './usePlayPanel.js'
 import { hiddenOpeningsInHex } from '../lib/maps/composables/useBarrierOpenings.js'
@@ -65,6 +68,23 @@ describe('getMovementOptions', () => {
     expect(south).toBeDefined()
     expect(south.label).toBe('Continue west on the trail')
     expect(south.kind).toBe('story')
+  })
+
+  it('lists story choices that move to exterior path nodes', () => {
+    const pendingBeat = {
+      choices: [
+        { text: 'Look for a way in', go_exterior_node: 'north-east-corner' },
+      ],
+    }
+    const options = buildStoryChoices(pendingBeat)
+
+    expect(options).toMatchObject([
+      {
+        id: 'story:0',
+        label: 'Look for a way in',
+        kind: 'story',
+      },
+    ])
   })
 
   it('lists story choices on revisit beats', () => {
@@ -217,6 +237,105 @@ describe('getMovementOptions', () => {
       'passage:south-pines-hole',
       'move:gate-woods',
       'move:utility-yard',
+    ])
+  })
+
+  it('offers indoor exterior footpath movement as play actions', () => {
+    const indoor = {
+      indoorMoves: [
+        {
+          kind: 'path',
+          toExteriorNode: 'north-east-corner',
+          label: 'north along the footpath',
+        },
+        {
+          kind: 'door',
+          toRoomId: 'large-bay',
+          label: 'through the door',
+        },
+      ],
+    }
+
+    expect(buildIndoorMovementActions(indoor)).toEqual([
+      {
+        id: 'move-exterior:north-east-corner',
+        label: 'Go north along the footpath',
+        kind: 'path',
+      },
+      {
+        id: 'move-room:large-bay',
+        label: 'Go through the door',
+        kind: 'door',
+      },
+    ])
+  })
+
+  it('keeps indoor movement before contextual actions in the play action list', () => {
+    const indoor = {
+      indoorMoves: [
+        {
+          kind: 'stand',
+          toStandId: 'stairs-bottom',
+          label: 'to Bottom of the stairs',
+        },
+      ],
+      roomPickups: [{ id: 'wrench', label: 'Wrench' }],
+      availableActions: [],
+      nearbyDoors: [],
+      roomSwitches: [],
+      building: { doorById: {} },
+      indoor: { doorState: new Map(), facility: {} },
+      playerRoomId: 'large-bay',
+    }
+
+    expect(buildIndoorPlayActions(indoor).map((action) => action.id)).toEqual([
+      'move-stand:stairs-bottom',
+      'pickup:wrench',
+    ])
+  })
+
+  it('lets indoor story choices replace matching generic movement actions', () => {
+    const indoor = {
+      indoorMoves: [
+        {
+          kind: 'path',
+          toExteriorNode: 'north-east-corner',
+          label: 'north along the footpath',
+        },
+        {
+          kind: 'path',
+          toExteriorNode: 'small-bay-roll-front',
+          label: 'south along the footpath',
+        },
+      ],
+    }
+    const pendingBeat = {
+      choices: [
+        { text: 'Look for a way in', go_exterior_node: 'north-east-corner' },
+      ],
+    }
+
+    expect(buildIndoorMovementActions(indoor, pendingBeat).map((action) => action.id)).toEqual([
+      'move-exterior:small-bay-roll-front',
+    ])
+  })
+
+  it('dispatches indoor movement play actions to movement handlers', () => {
+    const calls = []
+    const indoor = {
+      moveToExteriorNode: (id) => calls.push(`exterior:${id}`),
+      moveToStand: (id) => calls.push(`stand:${id}`),
+      moveToRoom: (id) => calls.push(`room:${id}`),
+    }
+
+    handleIndoorPlayAction(indoor, 'move-exterior:north-east-corner')
+    handleIndoorPlayAction(indoor, 'move-stand:stairs-bottom')
+    handleIndoorPlayAction(indoor, 'move-room:large-bay')
+
+    expect(calls).toEqual([
+      'exterior:north-east-corner',
+      'stand:stairs-bottom',
+      'room:large-bay',
     ])
   })
 })

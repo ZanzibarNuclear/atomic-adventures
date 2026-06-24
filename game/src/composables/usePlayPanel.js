@@ -238,8 +238,8 @@ export function handleIndoorChooseAction(
 /**
  * Build a flat action list for the play panel (pickups, room actions, doors, switches).
  */
-export function buildIndoorPlayActions(indoor) {
-  const items = [];
+export function buildIndoorPlayActions(indoor, pendingBeat = null) {
+  const items = buildIndoorMovementActions(indoor, pendingBeat);
 
   for (const pickup of indoor.roomPickups ?? []) {
     items.push({
@@ -326,7 +326,64 @@ export function buildIndoorPlayActions(indoor) {
   return items;
 }
 
+function movementLabel(move) {
+  if (move.toExteriorNode) return `Go ${move.label ?? "along the footpath"}`;
+  if (move.toStandId) return `Go ${move.label ?? "to another spot"}`;
+  if (move.toRoomId) return `Go ${move.label ?? "to another room"}`;
+  return `Go ${move.label ?? "onward"}`;
+}
+
+export function buildIndoorMovementActions(indoor, pendingBeat = null) {
+  const moves = indoor.indoorMoves ?? [];
+  const storyDests = storyChoiceDestinations(pendingBeat);
+  const exteriorNodes = new Set(
+    (pendingBeat?.choices ?? [])
+      .map((choice) => choice.go_exterior_node)
+      .filter(Boolean),
+  );
+  return moves
+    .filter((move) => move.toExteriorNode || move.toStandId || move.toRoomId)
+    .filter((move) => {
+      if (move.toRoomId && storyDests.rooms.has(move.toRoomId)) return false;
+      if (move.toExteriorNode && exteriorNodes.has(move.toExteriorNode)) return false;
+      return true;
+    })
+    .map((move) => {
+      if (move.toExteriorNode) {
+        return {
+          id: `move-exterior:${move.toExteriorNode}`,
+          label: movementLabel(move),
+          kind: move.kind ?? "path",
+        };
+      }
+      if (move.toStandId) {
+        return {
+          id: `move-stand:${move.toStandId}`,
+          label: movementLabel(move),
+          kind: move.kind ?? "stand",
+        };
+      }
+      return {
+        id: `move-room:${move.toRoomId}`,
+        label: movementLabel(move),
+        kind: move.kind ?? "room",
+      };
+    });
+}
+
 export function handleIndoorPlayAction(indoor, actionId) {
+  if (actionId.startsWith("move-exterior:")) {
+    indoor.moveToExteriorNode(actionId.slice("move-exterior:".length));
+    return;
+  }
+  if (actionId.startsWith("move-stand:")) {
+    indoor.moveToStand(actionId.slice("move-stand:".length));
+    return;
+  }
+  if (actionId.startsWith("move-room:")) {
+    indoor.moveToRoom(actionId.slice("move-room:".length));
+    return;
+  }
   if (actionId.startsWith("pickup:")) {
     indoor.tryPickup(actionId.slice("pickup:".length));
     return;

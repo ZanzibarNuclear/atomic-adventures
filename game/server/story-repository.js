@@ -219,6 +219,9 @@ export class StoryRepository {
         for (const choice of beat.choices) {
           if (choice.go_hex) choice.go_hex = rename(choice.go_hex);
           if (choice.go_room) choice.go_room = resolveRename(roomRenameMap, choice.go_room);
+          if (choice.go_exterior_node) {
+            choice.go_exterior_node = resolveRename(exteriorRenameMap, choice.go_exterior_node);
+          }
         }
         const validation = validateBeat(beat, world, this.character);
         for (const [path, messages] of Object.entries(validation.errors)) {
@@ -241,6 +244,7 @@ export class StoryRepository {
             path === "trigger.exteriorNode" ||
             path.endsWith(".go_hex") ||
             path.endsWith(".go_room") ||
+            path.endsWith(".go_exterior_node") ||
             path.endsWith(".enter")
           ) continue;
           errors[`story.${area.id}.${beat.id}.${path}`] = messages;
@@ -306,6 +310,18 @@ export class StoryRepository {
                 areaId: area.id,
                 beatId: beat.id,
                 path: `choices.${index}.go_room`,
+              });
+            }
+          });
+        }
+        if (kind === "exteriorNode") {
+          beat.choices.forEach((choice, index) => {
+            if (choice.go_exterior_node === id) {
+              references.push({
+                kind: "story",
+                areaId: area.id,
+                beatId: beat.id,
+                path: `choices.${index}.go_exterior_node`,
               });
             }
           });
@@ -380,6 +396,10 @@ export class StoryRepository {
             choice.go_room = resolveRename(roomMap, choice.go_room);
             changed = true;
           }
+          if (choice.go_exterior_node && exteriorMap.has(choice.go_exterior_node)) {
+            choice.go_exterior_node = resolveRename(exteriorMap, choice.go_exterior_node);
+            changed = true;
+          }
         }
         if (!changed) continue;
         const validation = validateBeat(beat, world, this.character);
@@ -438,15 +458,17 @@ export class StoryRepository {
       INSERT INTO story_choices(
         id, area_id, beat_id, sort_order, text, require_json, effects_json,
         time_minutes, activity,
-        sets_json, set_flags_json, go_hex, go_room, enter_building, view_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        sets_json, set_flags_json, go_hex, go_room, go_exterior_node,
+        enter_building, view_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     choices.forEach((choice, index) => statement.run(
       choice.id || randomUUID(), areaId, beatId, choice.order ?? index, choice.text,
       JSON.stringify({}), JSON.stringify([]),
       choice.timeMinutes, choice.activity,
       JSON.stringify(choice.sets), JSON.stringify(choice.set_flags),
-      choice.go_hex, choice.go_room, choice.enter, JSON.stringify(choice.view ?? {}),
+      choice.go_hex, choice.go_room, choice.go_exterior_node,
+      choice.enter, JSON.stringify(choice.view ?? {}),
     ));
   }
 
@@ -474,7 +496,8 @@ export class StoryRepository {
     if (includeChoices) {
       beat.choices = this.db.prepare(`
         SELECT id, sort_order, text, require_json, effects_json, time_minutes, activity,
-          sets_json, set_flags_json, go_hex, go_room, enter_building, view_json
+          sets_json, set_flags_json, go_hex, go_room, go_exterior_node,
+          enter_building, view_json
         FROM story_choices
         WHERE area_id = ? AND beat_id = ?
         ORDER BY sort_order, id
@@ -488,6 +511,7 @@ export class StoryRepository {
         set_flags: JSON.parse(choice.set_flags_json),
         go_hex: choice.go_hex,
         go_room: choice.go_room,
+        go_exterior_node: choice.go_exterior_node,
         enter: choice.enter_building,
         view: parseNullableJson(choice.view_json),
       }));

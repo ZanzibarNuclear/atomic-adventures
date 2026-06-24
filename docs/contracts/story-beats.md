@@ -138,6 +138,7 @@ A choice contains:
 | `activity` | Activity profile used when applying the time cost |
 | `go_hex` | Moves to a reachable outdoor hex |
 | `go_room` | Moves to an indoor room |
+| `go_exterior_node` | Moves to an exterior path node on the indoor building map |
 | `enter` | Enters the current building |
 | `view` | Opens a focused stage view such as inventory or character stats |
 
@@ -152,6 +153,9 @@ active. See [stage-views.md](stage-views.md).
 Outdoor `go_hex` choices obey the same reachability checks as ordinary map
 movement. Unreachable story choices are hidden rather than allowing narrative
 data to bypass barriers.
+
+Indoor `go_room` and `go_exterior_node` choices use the same movement handlers
+as room and exterior-path map clicks.
 
 If a story choice and ordinary movement both lead to the same destination, the
 story choice replaces the generic movement action so the authored label is
