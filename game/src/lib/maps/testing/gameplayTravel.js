@@ -7,7 +7,6 @@
 import { createGameState } from '../../../composables/useGameState.js'
 import { useOutdoorWorld } from '../composables/useOutdoorWorld.js'
 
-export const GATE_FLAG_UNLOCKED = 'compound.gate-unlocked'
 export const GATE_FLAG_PASSED = 'compound.gate-passed'
 import { hexDistance } from '../composables/useHexGeometry.js'
 
@@ -63,9 +62,9 @@ export function gameplayMoveTo(outdoor, hexId) {
   return { ...outdoor.state.stand }
 }
 
-/** Solve gate puzzle and cross the compound gate (required before heading south). */
+/** Open and cross the compound gate (required before heading south). */
 export function passCompoundGate(outdoor) {
-  outdoor.unlockPassage('compound-gate')
+  outdoor.togglePassage('compound-gate')
   outdoor.crossPassage('compound-gate')
 }
 

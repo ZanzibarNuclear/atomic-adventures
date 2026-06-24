@@ -87,6 +87,15 @@ export function buildOutdoorPassageUnlockActions(outdoor) {
   }));
 }
 
+export function buildOutdoorPassageToggleActions(outdoor) {
+  return (outdoor.passageToggleActions ?? []).map((action) => ({
+    id: `passage-toggle:${action.openingId}`,
+    openingId: action.openingId,
+    label: action.label,
+    kind: "fence",
+  }));
+}
+
 /** @deprecated Use buildOutdoorPassageActions */
 export const buildOutdoorCrossingActions = buildOutdoorPassageActions;
 
@@ -156,6 +165,7 @@ export function buildOutdoorPlayActions(outdoor, pendingBeat = null) {
     ...buildOutdoorBarrierFollowActions(outdoor, pendingBeat),
     ...buildOutdoorSearchActions(outdoor),
     ...buildOutdoorPassageUnlockActions(outdoor),
+    ...buildOutdoorPassageToggleActions(outdoor),
     ...buildOutdoorPassageActions(outdoor),
   ];
 }
@@ -177,6 +187,10 @@ export function handleOutdoorChooseAction(
   }
   if (actionId.startsWith("passage-unlock:")) {
     outdoor.unlockPassage?.(actionId.slice("passage-unlock:".length));
+    return;
+  }
+  if (actionId.startsWith("passage-toggle:")) {
+    outdoor.togglePassage?.(actionId.slice("passage-toggle:".length));
     return;
   }
   if (actionId.startsWith("passage:")) {

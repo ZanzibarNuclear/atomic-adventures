@@ -32,7 +32,6 @@ import { barrierHintAtStand } from "./useBarrierStand.js";
 import {
   applyPassageCrossEffects,
   applyPassageUnlock,
-  filterAvailablePassages,
   passageRequirementSatisfied,
 } from "./usePassageState.js";
 import { advanceGameTime } from "../../character/gameTime.js";
@@ -120,7 +119,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
     return {
       barriers: barrierSegments(featureModels.value),
       allOpenings,
-      openings: filterAvailablePassages(allOpenings, gameState?.flags),
+      openings: allOpenings.filter((opening) => isPassageAvailable(opening)),
     };
   });
 
@@ -136,7 +135,32 @@ export function useOutdoorWorld(mapData, gameState = null) {
     atBarrier: null,
     /** Last explicit barrier inspection result, for player-facing status text. */
     lastSearch: null,
+    /** Explicit open/closed passage state, keyed by passage id. */
+    passageStates: {},
   });
+
+  function isGatePassage(opening) {
+    return opening?.kind === "gate";
+  }
+
+  function legacyGateOpen(opening) {
+    if (!opening?.require) return false;
+    return passageRequirementSatisfied(opening, gameState?.flags);
+  }
+
+  function isPassageOpen(opening) {
+    if (!isGatePassage(opening)) return true;
+    if (!gameState) return true;
+    if (Object.hasOwn(state.passageStates, opening.id)) {
+      return state.passageStates[opening.id] === true;
+    }
+    return legacyGateOpen(opening);
+  }
+
+  function isPassageAvailable(opening) {
+    if (isGatePassage(opening)) return isPassageOpen(opening);
+    return passageRequirementSatisfied(opening, gameState?.flags);
+  }
 
   function defaultStandForHex(hexId) {
     const hex = hexById.value[hexId];
@@ -321,6 +345,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
       state.lastBlocked;
     return ctx.allOpenings
       .filter((opening) => opening.hex === state.currentId)
+      .filter((opening) => !isGatePassage(opening))
       .filter((opening) => opening.unlock)
       .filter((opening) => !passageRequirementSatisfied(opening, gameState?.flags))
       .filter((opening) =>
@@ -335,6 +360,38 @@ export function useOutdoorWorld(mapData, gameState = null) {
         openingId: opening.id,
         label: opening.unlock.label ?? "Unlock the passage",
         status: opening.unlock.status ?? null,
+      }));
+  });
+
+  const passageMarkerStates = computed(() =>
+    Object.fromEntries(
+      editableFeatures.value
+        .filter((feature) => feature.kind === "gate")
+        .map((feature) => [feature.id, isPassageOpen(feature)]),
+    ),
+  );
+
+  const passageToggleActions = computed(() => {
+    const ctx = travelBarrierCtx.value;
+    const atBarrier =
+      barrierHintAtStand(avatarFromPos.value, ctx.barriers) ??
+      state.atBarrier ??
+      state.lastBlocked;
+    return ctx.allOpenings
+      .filter((opening) => opening.hex === state.currentId)
+      .filter((opening) => isGatePassage(opening))
+      .filter((opening) =>
+        shouldOfferPassageCrossing(
+          opening,
+          avatarFromPos.value,
+          ctx,
+          atBarrier,
+        ),
+      )
+      .map((opening) => ({
+        openingId: opening.id,
+        label: isPassageOpen(opening) ? "Close the gate" : "Open the gate",
+        open: isPassageOpen(opening),
       }));
   });
 
@@ -392,6 +449,18 @@ export function useOutdoorWorld(mapData, gameState = null) {
       (candidate) => candidate.id === openingId,
     );
     return applyPassageUnlock(opening, gameState?.flags);
+  }
+
+  function togglePassage(openingId) {
+    const action = passageToggleActions.value.find(
+      (candidate) => candidate.openingId === openingId,
+    );
+    if (!action) return false;
+    state.passageStates = {
+      ...state.passageStates,
+      [openingId]: !action.open,
+    };
+    return true;
   }
 
   /** Atomically commit hex + avatar position + barrier hints. */
@@ -518,6 +587,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
     state.lastBlocked = null;
     state.atBarrier = null;
     state.lastSearch = null;
+    state.passageStates = {};
   }
 
   function nameOf(hexId) {
@@ -565,9 +635,12 @@ export function useOutdoorWorld(mapData, gameState = null) {
     reachableHexIds,
     passageCrossings,
     lockedPassageActions,
+    passageToggleActions,
+    passageMarkerStates,
     atBuildingEntrance,
     flags,
     unlockPassage,
+    togglePassage,
     moveTo,
     crossPassage,
     previewMove,

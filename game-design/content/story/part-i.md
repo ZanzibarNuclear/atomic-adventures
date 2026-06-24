@@ -26,9 +26,17 @@ Zanzibar turned uphill, hoping that higher ground would offer a vantage point. A
 
 When he reached a corner, he rounded the bend. Before long, he could see a paved road and a little guard house. His pace quickened.
 
-, a gate blocking the road, and a guard house. The gate and guard house were closed and locked. A pair of bolt cutters or a blow torch would come in handy. Or a tank.
+At last, things were getting interesting. Zanzibar had discovered a little guard house where someone must have sat to examine the paperwork of visitors to the facility. The road slid under the fence at this point, where a closed gate was blocking the entrance.
 
-As he sipped some water and nibbled at his last energy bar, Zanzibar studied the gate. Something seemed off. On closer inspection, Zanzi notices that the chain holding the gate closed was unattached. More to reinforce the idea of impenetrability. Zanzi unraveled the chain, went through. He paused and replaced it to restore the illusion. Then he headed down the paved road, down the hill.
+The guard house was closed tight. Peeking in the windows made it plain that it was also empty. No point in breaking in.
+
+Zanzibar took a moment to relax while he thought about what to do. He nibbled at his last energy bar and sipped some water. Something about the gate seemed off.
+
+On closer inspection, Zanzi noticed that Mother Nature had taken the security of the premises into her hands. Vines had wrapped around the posts of the gate and fence, holding the gate closed.
+
+Zanzi unraveled the vines, slide the gate open just enough to slip through and replaced the vines as he found. The illusion of security was better than nothing.
+
+He headed down the road.
 
 ### The Compound
 

@@ -6,8 +6,6 @@ import { barrierSegments } from '../composables/useTravelBarriers.js'
 import { useOutdoorWorld } from '../composables/useOutdoorWorld.js'
 import { buildTravelWorld, evaluateNeighborMove } from './travelWorld.js'
 
-const GATE_FLAG_UNLOCKED = 'compound.gate-unlocked'
-
 describe('opening discovery', () => {
   const hexById = Object.fromEntries(mapData.hexes.map((h) => [h.id, h]))
   const size = mapData.size ?? 44
@@ -32,13 +30,13 @@ describe('opening discovery', () => {
     expect(without.some((o) => o.id === 'upper-gorge-bridge')).toBe(true)
   })
 
-  it('compound gate marker is closed until unlocked', () => {
+  it('compound gate marker follows explicit passage state', () => {
     const locked = buildPassageMarkers(mapData.features, hexById, size, {
-      flags: new Set(),
+      passageStates: { 'compound-gate': false },
       barriers,
     })
     const unlocked = buildPassageMarkers(mapData.features, hexById, size, {
-      flags: new Set([GATE_FLAG_UNLOCKED]),
+      passageStates: { 'compound-gate': true },
       barriers,
     })
     const gateLocked = locked.find((m) => m.id === 'compound-gate')

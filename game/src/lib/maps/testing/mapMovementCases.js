@@ -206,7 +206,6 @@ export const MAP_MOVEMENT_CASES = [
     auditStand: { x: -81, y: -76 },
     expectedMoves: ['north-bend', 'north-west', 'road-fork', 'upper-gorge'],
     forbiddenMoves: ['mid-west', 'west-slope'],
-    expectedUnlocks: ['compound-gate'],
     region: { fence: 'north' },
     setup: northGateApproach,
   },

@@ -200,17 +200,20 @@ describe('getMovementOptions', () => {
       searchableOpenings: () => [],
       state: { atBarrier: 'fence', lastBlocked: null },
       searchBarrier: () => calls.push('search'),
+      togglePassage: (id) => calls.push(`toggle:${id}`),
       crossPassage: (id) => calls.push(`passage:${id}`),
       moveTo: (id) => calls.push(`move:${id}`),
     }
 
     handleOutdoorPlayAction(outdoor, 'search:barrier')
+    handleOutdoorPlayAction(outdoor, 'passage-toggle:compound-gate')
     handleOutdoorPlayAction(outdoor, 'passage:south-pines-hole')
     handleOutdoorPlayAction(outdoor, 'route:gate-woods')
     handleOutdoorPlayAction(outdoor, 'barrier:utility-yard')
 
     expect(calls).toEqual([
       'search',
+      'toggle:compound-gate',
       'passage:south-pines-hole',
       'move:gate-woods',
       'move:utility-yard',

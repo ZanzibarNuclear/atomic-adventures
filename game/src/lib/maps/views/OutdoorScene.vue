@@ -28,6 +28,7 @@
       :current-hex="outdoor.state.currentId"
       :discovered="auditEnabled ? allHexIds : outdoor.discoveredList"
       :discovered-openings="outdoor.state.discoveredOpenings"
+      :passage-states="outdoor.passageMarkerStates"
       :flags="outdoor.flags"
       :mode="auditEnabled ? 'full' : outdoor.mode"
       :stand-override="outdoor.standOverride"

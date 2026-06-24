@@ -49,6 +49,25 @@ function cascadeSampleIndexes(samples, cascade) {
     .map((t) => Math.min(samples.length - 2, Math.max(1, Math.floor((samples.length - 1) * t))))
 }
 
+const FEATURE_DRAW_ORDER = {
+  road: 0,
+  drive: 0,
+  path: 0,
+  trail: 0,
+  river: 1,
+  cliff: 2,
+  ravine: 2,
+  fence: 3,
+}
+
+function featureDrawOrder(piece) {
+  return FEATURE_DRAW_ORDER[piece.kind] ?? 1
+}
+
+export function sortFeatureDrawPieces(pieces) {
+  return [...pieces].sort((a, b) => featureDrawOrder(a) - featureDrawOrder(b))
+}
+
 /**
  * Screen-space placements for HexMap layers (terrain scatter, routes, avatar, legend).
  */
@@ -61,6 +80,7 @@ export function useHexMapPlacements({
   standOverride,
   discoveredSet,
   discoveredOpenings,
+  passageStates,
   visibleHexes,
   fogMaskOpts,
   flags,
@@ -76,6 +96,7 @@ export function useHexMapPlacements({
     buildPassageMarkers(mapData.value.features ?? [], hexByIdFromMap(), size.value, {
       flags: flags?.value ?? flags ?? null,
       barriers: barrierSegments(featureModels.value ?? []),
+      passageStates: passageStates?.value ?? passageStates ?? {},
     }),
   )
 
@@ -170,13 +191,10 @@ export function useHexMapPlacements({
     const linear = featureModels.value.filter(
       (m) => !['gate', 'hole', 'bridge', 'ford'].includes(m.kind),
     )
-    const roadish = linear.filter((m) => m.kind === 'road' || m.kind === 'drive')
-    const other = linear.filter((m) => m.kind !== 'road' && m.kind !== 'drive')
     const stub = mode.value !== 'full'
-    return [
-      ...buildRouteDrawPieces(roadish, { isRevealed, inView, allowStub: stub }),
-      ...buildRouteDrawPieces(other, { isRevealed, inView, allowStub: false }),
-    ]
+    return sortFeatureDrawPieces(
+      buildRouteDrawPieces(linear, { isRevealed, inView, allowStub: stub }),
+    )
   })
 
   const legendTerrains = computed(() => {

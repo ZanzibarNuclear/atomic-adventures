@@ -28,6 +28,8 @@ const props = defineProps({
   discoveredOpenings: { type: Array, default: () => [] },
   /** Story flags — drives gate open/closed symbols. */
   flags: { type: [Set, Array, Object], default: null },
+  /** Explicit passage open/closed state, keyed by passage id. */
+  passageStates: { type: Object, default: () => ({}) },
   mode: { type: String, default: 'gameplay' }, // gameplay | full
   expanded: { type: Boolean, default: false },
   builderView: { type: Boolean, default: false },
@@ -123,6 +125,7 @@ const {
   standOverride: computed(() => props.standOverride),
   discoveredSet,
   discoveredOpenings: computed(() => props.discoveredOpenings),
+  passageStates: computed(() => props.passageStates),
   flags: computed(() => props.flags),
   visibleHexes,
   fogMaskOpts,
@@ -183,6 +186,12 @@ const {
 
       <HexSceneryLayer :trees="trees" />
 
+      <HexRouteLayer
+        :route-pieces="routePieces"
+        :selectable="selectableObjects"
+        @select="emit('route-select', $event)"
+      />
+
       <HexFeatureLayer
         :feature-pieces="featurePieces"
         :selectable="selectableObjects"
@@ -195,12 +204,6 @@ const {
         :passage-markers="visiblePassageMarkers"
         :selectable="selectableObjects"
         @select="emit('passage-select', $event)"
-      />
-
-      <HexRouteLayer
-        :route-pieces="routePieces"
-        :selectable="selectableObjects"
-        @select="emit('route-select', $event)"
       />
 
       <HexLandmarkLayer

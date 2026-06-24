@@ -56,6 +56,7 @@ export function captureSnapshot({ gameState, place, outdoor, indoor }) {
       lastBlocked: outdoor.state.lastBlocked,
       atBarrier: outdoor.state.atBarrier,
       discoveredOpenings: [...outdoor.state.discoveredOpenings],
+      passageStates: clonePlain(outdoor.state.passageStates ?? {}),
       mode: outdoor.mode,
     },
     indoor: {
@@ -92,6 +93,7 @@ function applyOutdoorSnapshot(o, outdoor) {
   outdoor.state.lastBlocked = o.lastBlocked ?? null;
   outdoor.state.atBarrier = o.atBarrier ?? null;
   outdoor.state.discoveredOpenings = [...(o.discoveredOpenings ?? [])];
+  outdoor.state.passageStates = clonePlain(o.passageStates ?? {});
   if (o.mode) outdoor.mode = normalizeMapMode(o.mode);
 }
 

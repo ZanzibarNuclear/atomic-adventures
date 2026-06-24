@@ -106,6 +106,29 @@ describe('useGameState save roundtrip', () => {
     ])
   })
 
+  it('persists outdoor passage open and closed state through capture and apply', () => {
+    const { outdoor, indoor, gameState, place } = buildTestHarness()
+    outdoor.state.passageStates = {
+      'compound-gate': true,
+      'service-gate': false,
+    }
+
+    const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
+    expect(snapshot.outdoor.passageStates).toEqual({
+      'compound-gate': true,
+      'service-gate': false,
+    })
+
+    outdoor.state.passageStates = {}
+    const ok = applySnapshot(snapshot, { gameState, place, outdoor, indoor })
+
+    expect(ok).toBe(true)
+    expect(outdoor.state.passageStates).toEqual({
+      'compound-gate': true,
+      'service-gate': false,
+    })
+  })
+
   it('persists an indoor room stand and falls back when it no longer exists', () => {
     const { outdoor, indoor, gameState, place } = buildTestHarness()
     indoor.indoor.currentRoom = 'large-bay'

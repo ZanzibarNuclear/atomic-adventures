@@ -6,7 +6,6 @@ import {
   canReachHex,
   gameplayMoveTo,
   GATE_FLAG_PASSED,
-  GATE_FLAG_UNLOCKED,
   passCompoundGate,
 } from './gameplayTravel.js'
 
@@ -55,13 +54,13 @@ describe('story journey smoke test (gameplay)', () => {
     expect(outdoor.state.stand).toEqual({ x: gateStand.x, y: gateStand.y })
     expect(outdoor.state.stand.y, 'north of locked gate on arrival').toBeLessThan(-62)
 
-    expect(outdoor.lockedPassageActions.map((action) => action.label)).toContain('Solve the puzzle to unlock')
+    expect(outdoor.passageToggleActions.map((action) => action.label)).toContain('Open the gate')
     expect(outdoor.passageCrossings.map((crossing) => crossing.label)).not.toContain('Go through the gate')
     expect(outdoor.canReachHex('west-slope')).toBe(false)
 
     passCompoundGate(outdoor)
-    expect(gameState.flags.has(GATE_FLAG_UNLOCKED), 'gate puzzle solved').toBe(true)
     expect(gameState.flags.has(GATE_FLAG_PASSED), 'gate crossed').toBe(true)
+    expect(outdoor.state.passageStates['compound-gate'], 'gate left open').toBe(true)
 
     expect(outdoor.state.stand.y).toBeGreaterThan(-62)
     expect(outdoor.canReachHex('west-slope')).toBe(true)
@@ -75,7 +74,6 @@ describe('story journey smoke test (gameplay)', () => {
     expect(outdoor.state.stand.x).toBeCloseTo(driveway.x, 0)
     expect(outdoor.state.stand.y).toBeCloseTo(driveway.y, 0)
     expect(outdoor.atBuildingEntrance).toBe(true)
-    expect(gameState.flags.has(GATE_FLAG_UNLOCKED)).toBe(true)
     expect(gameState.flags.has(GATE_FLAG_PASSED)).toBe(true)
   },
     15000,

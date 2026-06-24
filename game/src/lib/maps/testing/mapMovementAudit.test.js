@@ -382,7 +382,7 @@ describe('map-wide outdoor movement audit', () => {
           from: 'gate-woods:north-of-fence',
           opening: 'compound-gate',
           to: 'gate-woods:south-of-fence',
-          unlock: true,
+          toggle: true,
         },
         {
           from: 'upper-gorge:east-bank',
@@ -409,16 +409,16 @@ describe('map-wide outdoor movement audit', () => {
         const { outdoor } = createMovementCaseWorld(mapData, fromCase)
         const label = `${transition.from} --${transition.opening}--> ${transition.to}`
 
-        if (transition.unlock) {
+        if (transition.toggle) {
           expect.soft(
-            outdoor.lockedPassageActions.map((action) => action.openingId),
-            `${label}: unlock action`,
+            outdoor.passageToggleActions.map((action) => action.openingId),
+            `${label}: toggle action`,
           ).toContain(transition.opening)
           expect.soft(
             outdoor.passageCrossings.map((crossing) => crossing.openingId),
-            `${label}: locked passage should not be crossable`,
+            `${label}: closed passage should not be crossable`,
           ).not.toContain(transition.opening)
-          expect.soft(outdoor.unlockPassage(transition.opening), label).toBe(true)
+          expect.soft(outdoor.togglePassage(transition.opening), label).toBe(true)
         }
 
         if (transition.search) {

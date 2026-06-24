@@ -110,7 +110,7 @@ The stand rule is the same for every passage type:
 
 | Opening | Visibility | Passage                      | Notes                                          |
 | ------- | ---------- | ---------------------------- | ---------------------------------------------- |
-| Gate    | Obvious    | When unlocked / story allows | Compound gate: puzzle + flags                  |
+| Gate    | Obvious    | When opened                  | Compound gate: player open/close state         |
 | Bridge  | Obvious    | Always (when on river bank)  |                                                |
 | Hole    | Hidden     | After search reveals it      | Pre-cut breach at `south-pines`                |
 | Ford    | Hidden     | After search                 | Also demonstrates river crossing at `mid-west` |
@@ -124,7 +124,8 @@ From the current hex, the play panel combines:
 1. **Route moves** — destinations reachable via marked routes (`availableMoves`).
 2. **Direct moves** — adjacent hexes not already covered by a route (`directNeighbors`).
 3. **Passage crossings** — in-hex `crossPassage` actions (`availablePassageCrossings`).
-4. **Passage unlock actions** — authored actions such as “Solve the puzzle to unlock” for a passage whose requirements are not yet satisfied.
+4. **Passage toggle actions** — open/close actions for gates at the current barrier.
+5. **Passage unlock actions** — optional authored actions for a passage whose requirements are not yet satisfied.
 
 **Deduping:** If a neighbor is reachable by route, it is omitted from direct moves.
 
@@ -258,6 +259,8 @@ Adjacent move options and execution use one geometry authority:
 3. **Crossing effects** — a passage may define `on_cross.set_flags`, applied after a successful crossing.
 4. **Adjacent movement** — no passage ID, hex ID, destination ID, or coordinate-side heuristic participates in route or adjacent-move eligibility. The barrier itself blocks illegal movement.
 
+Gates use explicit player state for open/closed behavior. In gameplay, a gate crossing is available only while its `passageStates[gateId]` value is `true`; opening and closing the gate updates that state and save/load preserves it like door state.
+
 ### Opening discovery
 
 - **Obvious** openings always in `travelOpenings`.
@@ -268,7 +271,7 @@ Adjacent move options and execution use one geometry authority:
 
 | ID                   | Kind   | Hex           | Role                                                                                |
 | -------------------- | ------ | ------------- | ----------------------------------------------------------------------------------- |
-| `compound-gate`      | gate   | `gate-woods`  | In-hex passage; story lock                                                          |
+| `compound-gate`      | gate   | `gate-woods`  | In-hex passage; player opens/closes it                                              |
 | `south-pines-hole`   | hole   | `south-pines` | Search → `crossPassage` → then `lower-stand`                                        |
 | `upper-gorge-bridge` | bridge | `upper-gorge` | `crossPassage` → then `north-west`                                                  |
 | `mid-west-ford`      | ford   | `mid-west`    | Search → `crossPassage`; bank walk to `utility-yard` without ford on inter-hex path |
@@ -298,15 +301,9 @@ stands:
   at: { x: -155, y: -113 }
 ```
 
-An optional lock is authored on the passage itself:
+Optional crossing effects are authored on the passage itself:
 
 ```yaml
-require:
-  all: [compound.gate-unlocked]
-unlock:
-  label: "Solve the puzzle to unlock"
-  status: "A locked gate blocks the road — look closer."
-  set_flags: [compound.gate-unlocked]
 on_cross:
   set_flags: [compound.gate-passed]
 ```
