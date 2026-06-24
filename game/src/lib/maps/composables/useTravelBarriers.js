@@ -789,6 +789,20 @@ function resolveDestinationStand({
     return { stand: entryPoint, blockedKind: null }
   }
 
+  if (
+    toPos &&
+    standReachableFromEntry({
+      entryPoint,
+      target: toPos,
+      toHex,
+      ctx,
+      size,
+      hexAtPoint,
+    })
+  ) {
+    return { stand: toPos, blockedKind: null }
+  }
+
   const routeStand =
     walkPath.length > 2
       ? resolveArrivalStand(walkPath, toHex, toPos, hexAtPoint, {

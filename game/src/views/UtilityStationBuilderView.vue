@@ -98,6 +98,14 @@ function setOptionalField(target, key, value) {
     delete target[key];
   }
 }
+function setTransitionStand(target, value) {
+  const stand = String(value ?? "").trim();
+  if (stand) {
+    target.standAt = { stand };
+  } else {
+    delete target.standAt;
+  }
+}
 const editableItems = computed(() =>
   listAllGridEditable(draft.value, level.value).filter((item) => {
     const term = search.value.trim().toLowerCase();
@@ -992,6 +1000,13 @@ function clonePlain(value) {
           <template v-else-if="selection.source === 'exits'">
             <label>Label<input v-model="selection.entity.label" /></label>
             <label>Outdoor hex<input v-model="selection.entity.hex" /></label>
+            <label>World stand ID
+              <input
+                :value="selection.entity.standAt?.stand ?? ''"
+                placeholder="driveway"
+                @input="setTransitionStand(selection.entity, $event.target.value)"
+              />
+            </label>
             <label>Local stand
               <select v-model="selection.entity.exteriorNode">
                 <option value="">Default entry</option>

@@ -66,6 +66,11 @@ export function validateWorld(input) {
       if (!validStand(stand.at)) {
         add(`${standBase}.at`, "Stand points need x/y, dx/dy, or a landmark-relative offset.");
       }
+      (stand.entryFrom ?? []).forEach((hexId, entryIndex) => {
+        if (!hexIds.has(hexId)) {
+          warn(`${standBase}.entryFrom.${entryIndex}`, `Unknown outdoor hex "${hexId}".`);
+        }
+      });
     });
     if (hex.landmark && typeof hex.landmark !== "object") {
       add(`${base}.landmark`, "Landmark must be an object.");
@@ -221,6 +226,11 @@ export function applyHexRenames(world, renames = []) {
   };
   world.start = rename(world.start);
   world.journey = (world.journey ?? []).map(rename);
+  for (const hex of world.hexes ?? []) {
+    for (const stand of hex.stands ?? []) {
+      if (stand.entryFrom) stand.entryFrom = stand.entryFrom.map(rename);
+    }
+  }
   for (const route of world.routes ?? []) {
     for (const point of route.points ?? []) if (point.hex) point.hex = rename(point.hex);
   }

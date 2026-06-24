@@ -39,7 +39,7 @@ Each transition may be door-based or exterior-node based.
   hex: "utility-yard",
   exteriorNode: "garage-front-entrance",
   at: { x: 5.48, y: 1.96 },
-  standAt: { from: "landmark", dx: 0.05, dy: -0.56 },
+  standAt: { stand: "driveway" },
   entryFrom: ["west-slope"]
 }
 ```
@@ -54,8 +54,10 @@ Fields:
 - `at`: local-map position of the MAP marker. This is display/action geometry,
   not the avatar stand.
 - `standAt`: world-map stand where the avatar appears after exiting to the
-  world. If omitted, fall back to the destination hex's authored stand/default
-  stand.
+  world. Prefer `{ stand: "stand-id" }` to reference a named stand on
+  `transition.hex`. Coordinate forms such as `{ from: "landmark", dx, dy }`
+  remain supported for legacy/snapshot content. If omitted, fall back to the
+  destination hex's authored stand/default stand.
 - `entryFrom`: optional list of previous world hex IDs that prefer this
   transition when entering the local map.
 
@@ -121,18 +123,29 @@ If `transition.standAt` is omitted, use the existing fallback:
 
 ## Utility Yard Initial Stands
 
-The Utility Station should author distinct world stands in `utility-yard` for
-the likely return points:
+The Utility Station authors distinct world stands in `utility-yard` for return
+points and matching world-map approaches. A stand may include `entryFrom` so
+inter-hex movement into `utility-yard` lands at the same authored point that a
+local-map exit uses.
 
-| Transition | Suggested world stand |
+```js
+{
+  id: "upstream-corner",
+  label: "Upstream corner",
+  entryFrom: ["the-flats"],
+  at: { from: "landmark", dx: -0.1, dy: -0.42 }
+}
+```
+
+| Transition | World stand |
 | --- | --- |
-| `garage-exit` | Near the garage/driveway approach. |
-| `river-walk` | Near the east riverbank walk. |
-| `man-door-path` | Near the path from `south-pines`. |
-| `southeast-corner` | Near the future southern/southeastern approach. |
+| `garage-exit` | `driveway` |
+| `river-walk` | `upstream-corner` |
+| `man-door-path` | `man-door` |
+| `southeast-corner` | `lobby-entrance` |
 
-These stands belong to the transition or the `utility-yard` hex. They should
-not be inferred from unrelated route waypoints.
+These stands belong to the `utility-yard` hex. They should not be inferred from
+unrelated route waypoints.
 
 ## Non-Goals
 
@@ -149,6 +162,8 @@ The building/world validators should eventually check:
 - every transition `hex` exists in the outdoor world;
 - every transition `exteriorNode` exists in the local exterior graph;
 - every transition `standAt`, when present, resolves inside `transition.hex`;
+- every transition `standAt.stand`, when present, names a stand on
+  `transition.hex`;
 - every `entryFrom` hex exists when it names a world hex;
 - every exterior-node `joinNode`, when present, exists and connects the arrival
   stand to the walkable local path network;

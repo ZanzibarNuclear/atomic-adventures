@@ -282,6 +282,7 @@ function serializeFeature(feature, indent) {
 }
 
 function fmtStandAt(stand) {
+  if (stand.stand) return `{ stand: ${stand.stand} }`
   if (stand.from === 'landmark') {
     const parts = ['from: landmark']
     if (stand.dx !== undefined && stand.dx !== 0) parts.push(`dx: ${round2(stand.dx)}`)
@@ -302,6 +303,7 @@ function serializeStand(stand, indent) {
   const inner = ' '.repeat(indent + 2)
   const lines = [`${pad}- id: ${stand.id}`]
   if (stand.label) lines.push(`${inner}label: ${JSON.stringify(stand.label)}`)
+  if (stand.entryFrom?.length) lines.push(`${inner}entryFrom: [${stand.entryFrom.join(', ')}]`)
   lines.push(`${inner}at: ${fmtStandAt(stand.at)}`)
   return lines.join('\n')
 }

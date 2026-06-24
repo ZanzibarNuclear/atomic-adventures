@@ -27,6 +27,7 @@ export function normalizeStandEntries(hex) {
           id: stand.id ?? `stand-${index + 1}`,
           label: stand.label ?? stand.id ?? `Stand ${index + 1}`,
           at: stand.at,
+          entryFrom: Array.isArray(stand.entryFrom) ? stand.entryFrom : [],
           source: 'stands',
           index,
         }))
@@ -35,6 +36,11 @@ export function normalizeStandEntries(hex) {
 
 export function resolveStandPoint(hex, at, size) {
   if (!hex || !at) return null
+  if (at.stand) {
+    const stand = normalizeStandEntries(hex).find((item) => item.id === at.stand)
+    if (!stand || stand.at?.stand === at.stand) return null
+    return resolveStandPoint(hex, stand.at, size)
+  }
   const c = axialToPixel(hex.q, hex.r, size)
   if (at.from !== 'landmark' && at.x != null && at.y != null) {
     return { x: at.x, y: at.y }
@@ -88,6 +94,10 @@ export function hexCenterStand(hex, size) {
  * `resolveMove` from useTravelBarriers.js.
  */
 export function resolveNeighborStand(fromHex, toHex, fromPos, size, barrierCtx) {
-  if (normalizeStandEntries(toHex).length) return resolveAvatarPosition(toHex, size)
+  const stands = normalizeStandEntries(toHex)
+  if (stands.length) {
+    const entryStand = stands.find((stand) => stand.entryFrom.includes(fromHex?.id))
+    return resolveStandPoint(toHex, entryStand?.at ?? stands[0].at, size)
+  }
   return hexCenterStand(toHex, size)
 }

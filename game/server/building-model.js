@@ -40,6 +40,7 @@ export function normalizeBuilding(input = {}) {
 
 export function validateBuilding(input, {
   outdoorHexIds = new Set(),
+  outdoorStandIdsByHex = {},
   characterItemIds = new Set(),
   character = null,
 } = {}) {
@@ -227,6 +228,12 @@ export function validateBuilding(input, {
     }
     if (transition.standAt && !validStandAt(transition.standAt)) {
       add(`${base}.standAt`, "Transition standAt must use x/y or numeric dx/dy offsets.");
+    }
+    if (transition.standAt?.stand && transition.hex) {
+      const standIds = outdoorStandIdsByHex[transition.hex];
+      if (standIds && !standIds.has(transition.standAt.stand)) {
+        add(`${base}.standAt.stand`, `Unknown stand "${transition.standAt.stand}" on hex "${transition.hex}".`);
+      }
     }
     (transition.entryFrom ?? []).forEach((hexId, entryIndex) => {
       if (outdoorHexIds.size && !outdoorHexIds.has(hexId)) {
@@ -456,6 +463,7 @@ function validPoint(point) {
 
 function validStandAt(point) {
   if (!point || typeof point !== "object") return false;
+  if (point.stand) return ID_PATTERN.test(String(point.stand));
   if (validPoint(point)) return true;
   return (
     (point.from === "landmark" || point.from == null) &&

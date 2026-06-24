@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { mapData } from '../../testing/content.js'
-import { resolveAvatarPosition } from '../composables/useAvatarStand.js'
+import { resolveStandPoint } from '../composables/useAvatarStand.js'
 import {
   barrierBlocksReach,
   isLandmarkReachable,
@@ -11,36 +11,19 @@ import { buildTravelWorld, evaluateNeighborMove } from './travelWorld.js'
 describe('landmark reachability', () => {
   const world = buildTravelWorld(mapData)
   const uy = world.hexById['utility-yard']
-  const drivewayStand = resolveAvatarPosition(uy, world.size)
+  const expectedStand = (stand) => resolveStandPoint(uy, { stand }, world.size)
 
-  it('lands at the driveway stand when arriving from west-slope', () => {
-    const ws = world.hexById['west-slope']
-    const m = evaluateNeighborMove(world, ws, uy, world.resolveStand(ws))
+  it.each([
+    ['driveway', 'west-slope'],
+    ['upstream-corner', 'the-flats'],
+    ['man-door', 'south-pines'],
+  ])('lands at the %s stand when arriving from %s', (standId, fromHexId) => {
+    const from = world.hexById[fromHexId]
+    const stand = expectedStand(standId)
+    const m = evaluateNeighborMove(world, from, uy, world.resolveStand(from))
 
-    expect(m.result.stand.x).toBeCloseTo(drivewayStand.x, 0)
-    expect(m.result.stand.y).toBeCloseTo(drivewayStand.y, 0)
-    expect(
-      isLandmarkReachable(uy, m.result.stand, world.ctx, world.size),
-    ).toBe(true)
-  })
-
-  it('lands at the driveway stand when arriving from the-flats', () => {
-    const mw = world.hexById['the-flats']
-    const m = evaluateNeighborMove(world, mw, uy, world.resolveStand(mw))
-
-    expect(m.result.stand.x).toBeCloseTo(drivewayStand.x, 0)
-    expect(m.result.stand.y).toBeCloseTo(drivewayStand.y, 0)
-    expect(
-      isLandmarkReachable(uy, m.result.stand, world.ctx, world.size),
-    ).toBe(true)
-  })
-
-  it('lands at the driveway stand when arriving from south-pines', () => {
-    const sp = world.hexById['south-pines']
-    const m = evaluateNeighborMove(world, sp, uy, world.resolveStand(sp))
-
-    expect(m.result.stand.x).toBeCloseTo(drivewayStand.x, 0)
-    expect(m.result.stand.y).toBeCloseTo(drivewayStand.y, 0)
+    expect(m.result.stand.x).toBeCloseTo(stand.x, 0)
+    expect(m.result.stand.y).toBeCloseTo(stand.y, 0)
     expect(
       isLandmarkReachable(uy, m.result.stand, world.ctx, world.size),
     ).toBe(true)

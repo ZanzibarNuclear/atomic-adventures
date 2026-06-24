@@ -11,6 +11,7 @@ import {
 import { setAllDoorsOpen } from "../composables/useDoors.js";
 import { useIndoorBuilding } from "../composables/useIndoorBuilding.js";
 import { useOutdoorWorld } from "../composables/useOutdoorWorld.js";
+import { resolveStandPoint } from "../composables/useAvatarStand.js";
 import { createFlags } from "../composables/useFlags.js";
 
 function indoorHarness() {
@@ -25,6 +26,12 @@ function indoorHarness() {
       dx: 0.06,
       dy: 0.19,
     },
+    stands: [
+      { id: "driveway", at: { from: "landmark", dx: 0.05, dy: -0.56 } },
+      { id: "upstream-corner", at: { from: "landmark", dx: -0.18, dy: -0.42 } },
+      { id: "man-door", at: { from: "landmark", dx: 0.29, dy: -0.13 } },
+      { id: "lobby-entrance", at: { from: "landmark", dx: 0.12, dy: 0.37 } },
+    ],
   };
   const outdoor = {
     state: {
@@ -169,7 +176,32 @@ describe("indoor room stands", () => {
     expect(indoor.indoor.exteriorNode).toBe("upstream-bank");
   });
 
-  it("returns to the world at the transition stand", () => {
+  it("lands on the named utility-yard stand for the source hex", () => {
+    const utilityHex = mapData.hexes.find((hex) => hex.id === "utility-yard");
+    const expectedBySource = {
+      "west-slope": "driveway",
+      "the-flats": "upstream-corner",
+      "south-pines": "man-door",
+    };
+
+    for (const [sourceHexId, standId] of Object.entries(expectedBySource)) {
+      const outdoor = useOutdoorWorld(mapData);
+      outdoor.state.currentId = sourceHexId;
+      outdoor.state.stand = outdoor.defaultStandForHex(sourceHexId);
+
+      outdoor.moveTo("utility-yard");
+
+      expect(outdoor.state.currentId).toBe("utility-yard");
+      expect(outdoor.state.previousId).toBe(sourceHexId);
+      const expected = resolveStandPoint(utilityHex, { stand: standId }, mapData.size ?? 44);
+      expect(outdoor.state.stand).toEqual({
+        x: Math.round(expected.x),
+        y: Math.round(expected.y),
+      });
+    }
+  });
+
+  it("returns to the world at the named transition stand", () => {
     const { indoor, outdoor, place } = indoorHarness();
     indoor.indoor.exteriorNode = "large-bay-man-front";
 
@@ -177,10 +209,8 @@ describe("indoor room stands", () => {
 
     expect(place.value).toBe("outdoors");
     expect(outdoor.state.currentId).toBe("utility-yard");
-    expect(outdoor.state.stand).toMatchObject({
-      x: expect.any(Number),
-      y: expect.any(Number),
-    });
-    expect(outdoor.state.stand).not.toEqual(outdoor.defaultStandForHex("utility-yard"));
+    expect(outdoor.state.stand).toEqual(
+      resolveStandPoint(outdoor.hexById["utility-yard"], { stand: "man-door" }, outdoor.size),
+    );
   });
 });

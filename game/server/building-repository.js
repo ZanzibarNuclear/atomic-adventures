@@ -66,8 +66,13 @@ export class BuildingRepository {
   }
 
   validate(input, { character = null } = {}) {
-    const outdoorHexIds = new Set(
-      (this.worldRepository?.getDocument()?.world.hexes ?? []).map((hex) => hex.id),
+    const outdoorHexes = this.worldRepository?.getDocument()?.world.hexes ?? [];
+    const outdoorHexIds = new Set(outdoorHexes.map((hex) => hex.id));
+    const outdoorStandIdsByHex = Object.fromEntries(
+      outdoorHexes.map((hex) => [
+        hex.id,
+        new Set((hex.stands ?? []).map((stand) => stand.id)),
+      ]),
     );
     const characterDocument = character ?? this.characterRepository?.getDocument()?.character ?? null;
     const characterItemIds = new Set(
@@ -75,6 +80,7 @@ export class BuildingRepository {
     );
     return validateBuilding(input, {
       outdoorHexIds,
+      outdoorStandIdsByHex,
       characterItemIds,
       character: characterDocument,
     });

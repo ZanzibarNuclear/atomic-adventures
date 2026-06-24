@@ -740,6 +740,7 @@ function serializeExit(exit, indent) {
 }
 
 function fmtStandAt(st) {
+  if (st.stand) return `{ stand: ${st.stand} }`
   if (st.from === 'landmark') {
     const parts = ['from: landmark']
     if (st.dx !== undefined && st.dx !== 0) parts.push(`dx: ${round2(st.dx)}`)
