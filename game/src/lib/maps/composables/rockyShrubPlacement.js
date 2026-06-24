@@ -92,10 +92,10 @@ function buildSceneryForHex(hex, center, size, rng, features) {
     if (placed.some((item) => Math.hypot(item.x - x, item.y - y) < minDist)) continue
 
     placed.push({
-      key: `${hex.id}-rock-shrub-${placed.length}`,
+      key: `${hex.id}-shrub-${placed.length}`,
       x,
       y,
-      kind: rng() > 0.42 ? 'shrub' : 'rock',
+      kind: 'shrub',
       scale: (0.68 + rng() * 0.5) * (size / 44),
       rotate: Math.round(rng() * 360),
     })
@@ -104,7 +104,7 @@ function buildSceneryForHex(hex, center, size, rng, features) {
   return placed
 }
 
-/** Deterministic low scenery for exposed rocky terrain with sparse shrubs. */
+/** Deterministic low shrub scatter for exposed rocky terrain. */
 export function buildRockyShrubScenery({
   visibleHexes,
   routeModels,

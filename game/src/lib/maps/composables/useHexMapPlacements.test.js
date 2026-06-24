@@ -42,6 +42,27 @@ describe('hex map feature placement', () => {
     expect(featureIndex).toBeLessThan(passageIndex)
   })
 
+  it('renders terrain close-up details below scenery and routes', () => {
+    const terrainSource = readFileSync(
+      resolve(here, '../components/hex/HexTerrainLayer.vue'),
+      'utf8',
+    )
+    const mapSource = readFileSync(resolve(here, '../components/HexMap.vue'), 'utf8')
+
+    expect(terrainSource).toContain('class="terrain-detail gorge-detail"')
+    expect(terrainSource).toContain("hex.terrain === 'gorge'")
+
+    const terrainIndex = mapSource.indexOf('<HexTerrainLayer')
+    const sceneryIndex = mapSource.indexOf('<HexSceneryLayer')
+    const routeIndex = mapSource.indexOf('<HexRouteLayer')
+
+    expect(terrainIndex).toBeGreaterThan(-1)
+    expect(sceneryIndex).toBeGreaterThan(-1)
+    expect(routeIndex).toBeGreaterThan(-1)
+    expect(terrainIndex).toBeLessThan(sceneryIndex)
+    expect(sceneryIndex).toBeLessThan(routeIndex)
+  })
+
   it('adds deterministic low scenery only to gorge terrain', () => {
     const center = (hex) => axialToPixel(hex.q, hex.r, 44)
     const visibleHexes = [
@@ -63,6 +84,5 @@ describe('hex map feature placement', () => {
     expect(first.map((item) => item.key)).toEqual(second.map((item) => item.key))
     expect(first.every((item) => item.key.startsWith('upper-gorge-'))).toBe(true)
     expect(first.some((item) => item.kind === 'shrub')).toBe(true)
-    expect(first.some((item) => item.kind === 'rock')).toBe(true)
   })
 })

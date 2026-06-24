@@ -5,15 +5,9 @@
       :key="item.key"
       :transform="`translate(${item.x},${item.y}) rotate(${item.rotate}) scale(${item.scale})`"
     >
-      <template v-if="item.kind === 'rock'">
-        <ellipse cx="0" cy="0" rx="6.8" ry="3.8" fill="#7e7c72" />
-        <ellipse cx="-1.6" cy="-1" rx="3.7" ry="1.7" fill="#b5b0a0" opacity="0.68" />
-      </template>
-      <template v-else>
-        <circle cx="-3.6" cy="0.8" r="3.3" fill="#5f7445" />
-        <circle cx="1" cy="-1.7" r="3.9" fill="#6d814b" />
-        <circle cx="4.2" cy="1.2" r="2.8" fill="#516a3d" />
-      </template>
+      <circle cx="-3.6" cy="0.8" r="3.3" fill="#5f7445" />
+      <circle cx="1" cy="-1.7" r="3.9" fill="#6d814b" />
+      <circle cx="4.2" cy="1.2" r="2.8" fill="#516a3d" />
     </g>
     <g
       v-for="t in trees"
