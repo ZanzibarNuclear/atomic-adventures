@@ -37,7 +37,7 @@ describe("BuildingRepository", () => {
     const { db, building } = setup();
     const before = building.getDocument();
     const candidate = structuredClone(before.building);
-    candidate.rooms.find((room) => room.id === "library").x -= 0.5;
+    moveRoom(candidate, "library", -0.5, 0);
     const saved = building.save("utility-station", candidate, before.version);
     expect(saved.version).toBe(before.version + 1);
     expect(saved.changedObjectIds).toContain("room:library");
@@ -116,3 +116,13 @@ describe("BuildingRepository", () => {
     db.close();
   });
 });
+
+function moveRoom(building, roomId, dx, dy) {
+  const room = building.rooms.find((item) => item.id === roomId);
+  room.x += dx;
+  room.y += dy;
+  for (const stand of room.stands ?? []) {
+    stand.at.x += dx;
+    stand.at.y += dy;
+  }
+}

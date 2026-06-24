@@ -194,7 +194,7 @@ describe("story API", () => {
         building: {
           ...currentBuilding.building,
           rooms: currentBuilding.building.rooms.map((room) =>
-            room.id === "library" ? { ...room, x: room.x - 0.5 } : room,
+            room.id === "library" ? movedRoom(room, -0.5, 0) : room,
           ),
         },
         expectedVersion: currentBuilding.version,
@@ -227,3 +227,18 @@ describe("story API", () => {
     db.close();
   });
 });
+
+function movedRoom(room, dx, dy) {
+  return {
+    ...room,
+    x: room.x + dx,
+    y: room.y + dy,
+    stands: (room.stands ?? []).map((stand) => ({
+      ...stand,
+      at: {
+        x: stand.at.x + dx,
+        y: stand.at.y + dy,
+      },
+    })),
+  };
+}

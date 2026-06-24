@@ -37,7 +37,7 @@ describe("indoor building live refresh", () => {
     player.syncFromBuildingData(next);
 
     expect(player.indoor.currentRoom).toBe("library");
-    expect(player.indoor.currentStand).toBeNull();
+    expect(player.indoor.currentStand).toBe("holo-readers");
     expect(player.indoor.discovered).toEqual(new Set(["library"]));
     expect(player.indoor.revealed).toContain("door:library-hallway");
     expect(player.indoor.doorState[
