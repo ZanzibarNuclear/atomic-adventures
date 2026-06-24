@@ -40,15 +40,19 @@ He headed down the road.
 
 ### The Compound
 
-The road was in decent shape. It was obscured by years of pine needle drops. In addition to the pine trees, the area had shrubs and a few thickets. As he walked, the white noise of running water entered his awareness. A stream or river was nearby, somewhere over the ridge to the west.
+The road was in decent shape. It was obscured by years of pine needle drops. In addition to the pine trees, the area had shrubs and a few thickets. As he walked, Zanzibar began to notice the white noise of falling water. There must be a nearby stream or river.
 
 Zanzibar was curious what he would find along the road.
 
-Perhaps half a mile along, a gravel driveway split off to the right toward the now prominent sound of rushing water. Zanzi passed a few more trees, and there was a two-story building. To the west of the building was a spectacular river cascade. It was not accessible from the driveway.
+Just ahead was a gravel driveway that joined the road at the right and ran off toward the water sounds. Zanzi turned down the driveway, walked past a few more trees into a clearing. The driveway came to a building, some kind of outpost or ranger station. Further to the west of the building was the source of the white noise, a section of rapids on what was either a large stream or a small river.
 
-The building that stood before him had a large industrial-sized garage with two large doors. One of the roll-up doors was a bit wider and twice the height of the other. A path went around to the side of the garage.
+The building featured a large industrial-sized garage with two roll-up doors. One side was more of a regular door, one story high and wide enough to fit a car or pickup truck. The other side was impressive. Two stories high, almost twice as wide as the smaller door. Large enough to fit construction equipment.
 
-Seeing no way to open the roll-up doors, Zanzibar followed the path to a man door at the side.
+A stone wall lined the western edge of the driveway, keeping vehicles from falling over the riverbank. Stone stairs sat between the building and the wall for easy access by foot to the cascade.
+
+A walkway wrapped around to the other side of the garage.
+
+Zanzibar wanted to get inside the building. Seeing no way to open the roll-up doors, Zanzibar followed the path to a man door at the side.
 
 ### The Garage
 
@@ -56,13 +60,15 @@ It is no wonder that the side door was locked. Whoever left this area might have
 
 Zanzibar had bested more formidable locks. Still, he would have preferred to leave it functional. For now, getting in was more important.
 
-He stepped into the larger garage bay, which was rather empty. Tire marks and oil stains made it clear that some large equipment was parked here at some point. Directly opposite was a staircase to a door on the second story. Above the stairs was a row of grimy windows. Around the permimeter were strong posts supporting beams. A cross beam had a set of pulleys and chains hanging down. Zanzibar imagined that this rigging could help to unload heavy objects.
+He stepped into the larger garage bay, which was rather empty. Tire marks and oil stains made it clear that some large equipment was parked here at some point. Directly opposite was a staircase to a door on the second story. Above the stairs was a row of grimy windows. Around the perimeter were strong posts supporting beams. A cross beam had a set of pulleys and chains hanging down. Zanzibar imagined that this rigging could help to unload heavy objects.
 
-While Zanzibar was taking that in, something in the next bay caught his eye. He walked over to get a closer look. Although it was covered, this had the distinctive shape of a small vehicle. He lifted the cover just enough to peek at the shiny chrome and knobby wheels of a stylish dune buggy.
+There were stairs along the side wall to a door on the second story.
 
-As much fun as that looked, Zanzibar's stomach told him to come back later. He replaced the cover and continued his self-guided tour of the building.
+While Zanzibar was taking that in, something in the next bay caught his eye. He walked over to get a closer look.
 
-This garage bay has a tool rack and what looks like charging cables, certainly for the buggy. There was also a door in the back wall. Locked. Zanzibar decided to see if the stairs would provide for a more civilized entry.
+This side of the garage had a tool bench, charging cables, and a power panel. Although it was covered, the lump in the middle of this garage bay had the distinctive shape of a vehicle. He pealed back the cover to reveal a stylish dune buggy with shiny chrome and knobby wheels.
+
+As much fun as that looked, Zanzibar needed to find some food. He replaced the cover and continued his self-guided tour. There was a door in the back wall. Locked. Zanzibar decided to see if the stairs would provide for a more civilized entry.
 
 ### The Conference Room
 
