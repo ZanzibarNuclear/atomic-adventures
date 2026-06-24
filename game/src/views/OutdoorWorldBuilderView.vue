@@ -25,7 +25,7 @@ import { useWorldContent } from "../composables/useWorldContent.js";
 const PASSAGE_KINDS = new Set(["gate", "hole", "bridge", "ford", "stair"]);
 const ROUTE_KINDS = ["road", "drive", "path", "trail"];
 const FEATURE_LINE_KINDS = ["river", "fence", "cliff", "ravine"];
-const TERRAIN_KINDS = ["forest", "clearing", "rock", "water"];
+const TERRAIN_KINDS = ["forest", "clearing", "gorge", "rock", "water"];
 const { refresh: refreshSharedWorld } = useWorldContent();
 const builderFlags = new Set();
 const router = useRouter();

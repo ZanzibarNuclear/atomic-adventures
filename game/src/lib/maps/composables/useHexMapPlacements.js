@@ -3,6 +3,7 @@ import { buildRouteDrawPieces } from './useRoutes.js'
 import { riverSegments, barrierSegments } from './useTravelBarriers.js'
 import { resolveAvatarPosition, hasLandmarkMarker } from './useAvatarStand.js'
 import { buildForestTrees } from './forestTreePlacement.js'
+import { buildRockyShrubScenery } from './rockyShrubPlacement.js'
 import {
   buildPassageMarkers,
   visiblePassageMarkers,
@@ -171,6 +172,16 @@ export function useHexMapPlacements({
     }),
   )
 
+  const rockyShrubs = computed(() =>
+    buildRockyShrubScenery({
+      visibleHexes: visibleHexes.value,
+      routeModels: routeModels.value,
+      featureModels: featureModels.value,
+      size: size.value,
+      center,
+    }),
+  )
+
   const routePieces = computed(() => {
     const { isRevealed, inView } = fogMaskOpts()
     const featureIds = new Set(
@@ -242,6 +253,7 @@ export function useHexMapPlacements({
     avatarPos,
     cascadeChevrons,
     trees,
+    rockyShrubs,
     routePieces,
     featurePieces,
     legendTerrains,

@@ -110,6 +110,7 @@ const {
   avatarPos,
   cascadeChevrons,
   trees,
+  rockyShrubs,
   routePieces,
   featurePieces,
   legendTerrains,
@@ -184,7 +185,7 @@ const {
         @hex-click="onHexClick"
       />
 
-      <HexSceneryLayer :trees="trees" />
+      <HexSceneryLayer :trees="trees" :rocky-shrubs="rockyShrubs" />
 
       <HexRouteLayer
         :route-pieces="routePieces"
