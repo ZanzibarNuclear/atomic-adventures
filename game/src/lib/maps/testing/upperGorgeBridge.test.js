@@ -8,25 +8,25 @@ import { isEastOfRiverAt, isWestOfRiverAt } from './riverSide.js'
 describe('upper-gorge east bank', () => {
   const world = buildTravelWorld(mapData)
 
-  it('walks along the east river bank into north-west without crossing the river', () => {
+  it('walks along the east river bank into lower-gorge without crossing the river', () => {
     const ug = world.hexById['upper-gorge']
     const stand = world.resolveStand(ug)
     const nw = evaluateNeighborMove(
       world,
       ug,
-      world.hexById['north-west'],
+      world.hexById['lower-gorge'],
       stand,
     )
     expect(stand.x).toBeGreaterThan(-140)
     expect(nw.reachable).toBe(true)
     expect(nw.result.blockedKind).toBeNull()
-    expect(nw.result.activeHexId).toBe('north-west')
+    expect(nw.result.activeHexId).toBe('lower-gorge')
     expect(isEastOfRiverAt(nw.result.stand, world.ctx.barriers)).toBe(true)
     expect(isWestOfRiverAt(nw.result.stand, world.ctx.barriers)).toBe(false)
-    expect(nw.result.stand).not.toEqual(hexCenterStand(world.hexById['north-west'], world.size))
+    expect(nw.result.stand).not.toEqual(hexCenterStand(world.hexById['lower-gorge'], world.size))
   })
 
-  it('reaches north-west from the west bank after crossing the bridge', () => {
+  it('reaches lower-gorge from the west bank after crossing the bridge', () => {
     const ug = world.hexById['upper-gorge']
     const stand = world.resolveStand(ug)
     const bridge = world.ctx.openings.find((o) => o.kind === 'bridge')
@@ -34,11 +34,11 @@ describe('upper-gorge east bank', () => {
     const nw = evaluateNeighborMove(
       world,
       ug,
-      world.hexById['north-west'],
+      world.hexById['lower-gorge'],
       west,
     )
     expect(nw.reachable).toBe(true)
     expect(nw.result.blockedKind).toBeNull()
-    expect(nw.result.activeHexId).toBe('north-west')
+    expect(nw.result.activeHexId).toBe('lower-gorge')
   })
 })

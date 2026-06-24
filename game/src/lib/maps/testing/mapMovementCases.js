@@ -1,9 +1,11 @@
 import { barrierXAtY } from '../composables/useBarrierStand.js'
+import { pointInHexPolygon } from '../composables/useTravelBarriers.js'
 import {
   buildGameplayWorld,
   gameplayMoveTo,
   passCompoundGate,
 } from './gameplayTravel.js'
+import { buildTravelWorld } from './travelWorld.js'
 
 function move(outdoor, ...hexIds) {
   for (const hexId of hexIds) gameplayMoveTo(outdoor, hexId)
@@ -44,13 +46,13 @@ function upperGorgeWest(outdoor) {
   outdoor.crossPassage('upper-gorge-bridge')
 }
 
-function northWestWest(outdoor) {
+function lowerGorgeWest(outdoor) {
   upperGorgeWest(outdoor)
-  move(outdoor, 'north-west')
+  move(outdoor, 'lower-gorge')
 }
 
 function midWestWest(outdoor) {
-  northWestWest(outdoor)
+  lowerGorgeWest(outdoor)
   move(outdoor, 'mid-west')
 }
 
@@ -204,7 +206,7 @@ export const MAP_MOVEMENT_CASES = [
     id: 'gate-woods:north-of-fence',
     hexId: 'gate-woods',
     auditStand: { x: -81, y: -76 },
-    expectedMoves: ['north-bend', 'north-west', 'road-fork', 'upper-gorge'],
+    expectedMoves: ['north-bend', 'lower-gorge', 'road-fork', 'upper-gorge'],
     forbiddenMoves: ['mid-west', 'west-slope'],
     region: { fence: 'north' },
     setup: northGateApproach,
@@ -213,7 +215,7 @@ export const MAP_MOVEMENT_CASES = [
     id: 'gate-woods:south-of-fence',
     hexId: 'gate-woods',
     auditStand: { x: -81, y: -50 },
-    expectedMoves: ['mid-west', 'north-bend', 'north-west', 'west-slope'],
+    expectedMoves: ['mid-west', 'north-bend', 'lower-gorge', 'west-slope'],
     forbiddenMoves: ['road-fork', 'upper-gorge'],
     expectedPassages: ['compound-gate'],
     region: { fence: 'inside' },
@@ -223,7 +225,7 @@ export const MAP_MOVEMENT_CASES = [
     id: 'upper-gorge:east-bank',
     hexId: 'upper-gorge',
     auditStand: { x: -131, y: -129 },
-    expectedMoves: ['gate-woods', 'north-west', 'road-fork'],
+    expectedMoves: ['gate-woods', 'lower-gorge', 'road-fork'],
     forbiddenMoves: [],
     expectedPassages: ['upper-gorge-bridge'],
     region: { river: 'east' },
@@ -233,50 +235,50 @@ export const MAP_MOVEMENT_CASES = [
     id: 'upper-gorge:west-bank',
     hexId: 'upper-gorge',
     auditStand: { x: -147, y: -150 },
-    expectedMoves: ['north-west'],
+    expectedMoves: ['lower-gorge'],
     forbiddenMoves: ['gate-woods', 'road-fork'],
     expectedPassages: ['upper-gorge-bridge'],
     region: { river: 'west' },
     setup: upperGorgeWest,
   },
   {
-    id: 'north-west:east-bank',
-    hexId: 'north-west',
+    id: 'lower-gorge:east-bank',
+    hexId: 'lower-gorge',
     auditStand: { x: -158, y: -77 },
     expectedMoves: ['gate-woods', 'upper-gorge'],
     forbiddenMoves: ['mid-west'],
     region: { river: 'east' },
     setup(outdoor) {
       northGateApproach(outdoor)
-      move(outdoor, 'north-west')
+      move(outdoor, 'lower-gorge')
     },
   },
   {
-    id: 'north-west:east-bank-inside-fence',
-    hexId: 'north-west',
+    id: 'lower-gorge:east-bank-inside-fence',
+    hexId: 'lower-gorge',
     auditStand: { x: -158, y: -55 },
     expectedMoves: ['gate-woods', 'mid-west'],
     forbiddenMoves: ['upper-gorge'],
     region: { river: 'east', fence: 'inside' },
     setup(outdoor) {
       southOfGate(outdoor)
-      move(outdoor, 'north-west')
+      move(outdoor, 'lower-gorge')
     },
   },
   {
-    id: 'north-west:west-bank',
-    hexId: 'north-west',
+    id: 'lower-gorge:west-bank',
+    hexId: 'lower-gorge',
     auditStand: { x: -202, y: -66 },
     expectedMoves: ['mid-west', 'upper-gorge'],
     forbiddenMoves: ['gate-woods'],
     region: { river: 'west' },
-    setup: northWestWest,
+    setup: lowerGorgeWest,
   },
   {
     id: 'mid-west:east-bank',
     hexId: 'mid-west',
     auditStand: { x: -138, y: -16 },
-    expectedMoves: ['gate-woods', 'north-west', 'utility-yard', 'west-slope'],
+    expectedMoves: ['gate-woods', 'lower-gorge', 'utility-yard', 'west-slope'],
     forbiddenMoves: [],
     expectedSearch: ['mid-west-ford'],
     region: { river: 'east' },
@@ -289,7 +291,7 @@ export const MAP_MOVEMENT_CASES = [
     id: 'mid-west:west-bank',
     hexId: 'mid-west',
     auditStand: { x: -162, y: 16 },
-    expectedMoves: ['north-west', 'utility-yard'],
+    expectedMoves: ['lower-gorge', 'utility-yard'],
     forbiddenMoves: ['gate-woods', 'west-slope'],
     expectedSearch: ['mid-west-ford'],
     region: { river: 'west' },
@@ -357,6 +359,128 @@ export function createMovementCaseWorld(mapData, movementCase) {
   return { outdoor, gameState }
 }
 
+export function renameResolver(renames = []) {
+  const map = new Map(
+    renames
+      .filter((rename) => rename?.kind === 'hex' && rename.from && rename.to)
+      .map((rename) => [String(rename.from), String(rename.to)]),
+  )
+  return (value) => {
+    let current = value
+    const seen = new Set()
+    while (map.has(current) && !seen.has(current)) {
+      seen.add(current)
+      current = map.get(current)
+    }
+    return current
+  }
+}
+
+export function renameCaseId(id, renames = []) {
+  return renames
+    .filter((rename) => rename?.kind === 'hex' && rename.from && rename.to)
+    .reduce(
+      (result, rename) =>
+        result.replaceAll(String(rename.from), String(rename.to)),
+      id,
+    )
+}
+
+function hexAtAuditStand(world, stand) {
+  return world.hexes.find((hex) => pointInHexPolygon(stand, hex, world.size))
+}
+
+export function inferAuditRenames(world) {
+  const hexIds = new Set(world.hexes.map((hex) => hex.id))
+  const renames = []
+  const addInferredRename = (from, stand) => {
+    if (!from || hexIds.has(from)) return
+    const replacement = hexAtAuditStand(world, stand)
+    if (!replacement) return
+    renames.push({ kind: 'hex', from, to: replacement.id })
+  }
+
+  for (const movementCase of MAP_MOVEMENT_CASES) {
+    addInferredRename(movementCase.hexId, movementCase.auditStand)
+    for (const destination of [
+      ...movementCase.expectedMoves,
+      ...movementCase.forbiddenMoves,
+    ]) {
+      if (hexIds.has(destination)) continue
+      const destinationCase = MAP_MOVEMENT_CASES.find(
+        (candidate) => candidate.hexId === destination,
+      )
+      addInferredRename(destination, destinationCase?.auditStand)
+    }
+  }
+  return renames
+}
+
+export function resolveMovementAuditRenames(mapData, world, renames = []) {
+  return [
+    ...inferAuditRenames(world),
+    ...(mapData.movementAuditRenames ?? []),
+    ...renames,
+  ]
+}
+
+function remapSetup(setup, renames) {
+  const rename = renameResolver(renames)
+  return (outdoor, gameState) => {
+    const state = new Proxy(outdoor.state, {
+      get(target, property) {
+        return target[property]
+      },
+      set(target, property, value) {
+        target[property] = property === 'currentId' ? rename(value) : value
+        return true
+      },
+    })
+    const proxy = new Proxy(outdoor, {
+      get(target, property) {
+        if (property === 'state') return state
+        if (
+          ['defaultStandForHex', 'moveTo', 'canReachHex', 'previewMove'].includes(
+            property,
+          )
+        ) {
+          return (hexId, ...args) => target[property](rename(hexId), ...args)
+        }
+        return target[property]
+      },
+      set(target, property, value) {
+        target[property] = value
+        return true
+      },
+    })
+    return setup(proxy, gameState)
+  }
+}
+
+export function remapMovementCase(movementCase, renames = []) {
+  const rename = renameResolver(renames)
+  return {
+    ...movementCase,
+    sourceId: movementCase.sourceId ?? movementCase.id,
+    auditRenames: renames,
+    id: renameCaseId(movementCase.id, renames),
+    hexId: rename(movementCase.hexId),
+    expectedMoves: movementCase.expectedMoves.map(rename),
+    forbiddenMoves: movementCase.forbiddenMoves.map(rename),
+    setup: remapSetup(movementCase.setup, renames),
+  }
+}
+
+export function movementCasesForMap(mapData, world, renames = []) {
+  if (!world) {
+    world = buildTravelWorld(mapData)
+  }
+  const auditRenames = resolveMovementAuditRenames(mapData, world, renames)
+  return MAP_MOVEMENT_CASES.map((movementCase) =>
+    remapMovementCase(movementCase, auditRenames),
+  )
+}
+
 export function riverSideAt(stand, barriers) {
   const river = (barriers ?? []).filter((segment) => segment.kind === 'river')
   const x = barrierXAtY(river, stand.y)
@@ -383,7 +507,7 @@ const DEFAULT_ARRIVAL_STATE = {
   'road-fork': 'road-fork:north',
   'gate-woods': 'gate-woods:north-of-fence',
   'upper-gorge': 'upper-gorge:east-bank',
-  'north-west': 'north-west:east-bank',
+  'lower-gorge': 'lower-gorge:east-bank',
   'mid-west': 'mid-west:east-bank',
   'west-slope': 'west-slope:inside-fence',
   'utility-yard': 'utility-yard:east-bank',
@@ -394,7 +518,7 @@ const INSIDE_FENCE_STATES = new Set([
   'center-pines:inside-fence',
   'north-bend:inside-fence',
   'gate-woods:south-of-fence',
-  'north-west:east-bank-inside-fence',
+  'lower-gorge:east-bank-inside-fence',
   'mid-west:east-bank',
   'west-slope:inside-fence',
   'utility-yard:east-bank',
@@ -404,56 +528,78 @@ const INSIDE_FENCE_STATES = new Set([
 /** Expected canonical region after a successful map-specific move. */
 export function expectedArrivalState(movementCase, destination) {
   const from = movementCase.id
+  const rename = renameResolver(movementCase.auditRenames)
+  const stateId = (id) => renameCaseId(id, movementCase.auditRenames)
+  const hexId = (id) => rename(id)
+  const insideFenceStates = new Set(
+    [...INSIDE_FENCE_STATES].map((id) => stateId(id)),
+  )
 
   if (
-    destination === 'center-pines' &&
-    INSIDE_FENCE_STATES.has(from)
+    destination === hexId('center-pines') &&
+    insideFenceStates.has(from)
   ) {
-    return 'center-pines:inside-fence'
+    return stateId('center-pines:inside-fence')
   }
-  if (destination === 'north-bend' && INSIDE_FENCE_STATES.has(from)) {
-    return 'north-bend:inside-fence'
+  if (destination === hexId('north-bend') && insideFenceStates.has(from)) {
+    return stateId('north-bend:inside-fence')
   }
-  if (destination === 'gate-woods' && INSIDE_FENCE_STATES.has(from)) {
-    return 'gate-woods:south-of-fence'
+  if (destination === hexId('gate-woods') && insideFenceStates.has(from)) {
+    return stateId('gate-woods:south-of-fence')
   }
-  if (destination === 'north-west') {
+  if (destination === hexId('lower-gorge')) {
     if (
-      from === 'upper-gorge:west-bank' ||
-      from === 'mid-west:west-bank'
+      from === stateId('upper-gorge:west-bank') ||
+      from === stateId('mid-west:west-bank')
     ) {
-      return 'north-west:west-bank'
+      return stateId('lower-gorge:west-bank')
     }
-    if (INSIDE_FENCE_STATES.has(from)) {
-      return 'north-west:east-bank-inside-fence'
+    if (insideFenceStates.has(from)) {
+      return stateId('lower-gorge:east-bank-inside-fence')
     }
-    return 'north-west:east-bank'
-  }
-  if (destination === 'upper-gorge' && from === 'north-west:west-bank') {
-    return 'upper-gorge:west-bank'
-  }
-  if (destination === 'mid-west') {
-    if (
-      from === 'north-west:west-bank' ||
-      from === 'utility-yard:west-bank'
-    ) {
-      return 'mid-west:west-bank'
-    }
-    return 'mid-west:east-bank'
-  }
-  if (destination === 'utility-yard' && from === 'mid-west:west-bank') {
-    return 'utility-yard:west-bank'
+    return stateId('lower-gorge:east-bank')
   }
   if (
-    destination === 'south-pines' &&
-    INSIDE_FENCE_STATES.has(from)
+    destination === hexId('upper-gorge') &&
+    from === stateId('lower-gorge:west-bank')
   ) {
-    return 'south-pines:west-of-fence'
+    return stateId('upper-gorge:west-bank')
+  }
+  if (destination === hexId('mid-west')) {
+    if (
+      from === stateId('lower-gorge:west-bank') ||
+      from === stateId('utility-yard:west-bank')
+    ) {
+      return stateId('mid-west:west-bank')
+    }
+    return stateId('mid-west:east-bank')
+  }
+  if (
+    destination === hexId('utility-yard') &&
+    from === stateId('mid-west:west-bank')
+  ) {
+    return stateId('utility-yard:west-bank')
+  }
+  if (
+    destination === hexId('south-pines') &&
+    insideFenceStates.has(from)
+  ) {
+    return stateId('south-pines:west-of-fence')
   }
 
-  return DEFAULT_ARRIVAL_STATE[destination] ?? null
+  const sourceDestination = Object.keys(DEFAULT_ARRIVAL_STATE).find(
+    (id) => hexId(id) === destination,
+  )
+  const arrivalState = sourceDestination
+    ? DEFAULT_ARRIVAL_STATE[sourceDestination]
+    : null
+  return arrivalState ? stateId(arrivalState) : null
 }
 
-export function movementCaseById(id) {
-  return MAP_MOVEMENT_CASES.find((movementCase) => movementCase.id === id) ?? null
+export function movementCaseById(id, movementCases = MAP_MOVEMENT_CASES) {
+  return movementCases.find((movementCase) => movementCase.id === id) ?? null
+}
+
+export function movementCaseBySourceId(id, movementCases = MAP_MOVEMENT_CASES) {
+  return movementCases.find((movementCase) => movementCase.sourceId === id) ?? null
 }

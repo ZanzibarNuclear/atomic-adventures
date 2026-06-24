@@ -55,8 +55,8 @@ describe('in-hex passage crossing', () => {
 
     const eastDirect = offeredMoves(world, ug, east).directMoves.map((m) => m.toHexId)
     const westDirect = offeredMoves(world, ug, west).directMoves.map((m) => m.toHexId)
-    expect(eastDirect).toContain('north-west')
-    expect(westDirect).toContain('north-west')
+    expect(eastDirect).toContain('lower-gorge')
+    expect(westDirect).toContain('lower-gorge')
 
     const crossings = availablePassageCrossings({
       hexId: ug.id,

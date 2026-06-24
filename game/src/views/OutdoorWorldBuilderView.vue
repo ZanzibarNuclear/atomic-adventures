@@ -59,6 +59,7 @@ const landmarkDraft = ref(null);
 const landmarkEditDraft = ref(null);
 const standDraft = ref(null);
 const standEditDraft = ref(null);
+const auditRenameDraft = ref({ from: "", to: "" });
 const navigationPromptVisible = ref(false);
 const pendingRoute = ref("");
 const savingBeforeNavigation = ref(false);
@@ -89,6 +90,11 @@ const errorMessages = computed(() =>
 );
 const invalidAuditEntries = computed(() =>
   auditEntries.value.filter((entry) => entry.status === "invalid"),
+);
+const movementAuditRenames = computed(() =>
+  Array.isArray(draftMeta.value.movementAuditRenames)
+    ? draftMeta.value.movementAuditRenames
+    : [],
 );
 const allHexIds = computed(() => outdoor.editableHexes.map((hex) => hex.id));
 const allHexSet = computed(() => new Set(allHexIds.value));
@@ -836,6 +842,28 @@ function cascadeMovementAuditRename(from, to) {
     : [...updated, { kind: "hex", from, to }];
 }
 
+function setMovementAuditRenames(next) {
+  draftMeta.value.movementAuditRenames = next;
+}
+
+function addMovementAuditRename() {
+  const from = auditRenameDraft.value.from.trim();
+  const to = auditRenameDraft.value.to.trim();
+  if (!from || !to) {
+    status.value = "Movement audit aliases need both old and current hex IDs.";
+    return;
+  }
+  const existing = movementAuditRenames.value.filter((item) => item.from !== from);
+  setMovementAuditRenames([...existing, { kind: "hex", from, to }]);
+  auditRenameDraft.value = { from: "", to: "" };
+  status.value = `Movement audit alias added: ${from} → ${to}.`;
+}
+
+function removeMovementAuditRename(index) {
+  setMovementAuditRenames(movementAuditRenames.value.filter((_, i) => i !== index));
+  status.value = "Movement audit alias removed.";
+}
+
 function moveSelected(delta) {
   const [type, id] = splitKey(selectedKey.value);
   const list = type === "hex"
@@ -1476,6 +1504,34 @@ function clonePlain(value) {
         <p v-for="message in errorMessages.slice(0, 12)" :key="message" class="field-error">
           {{ message }}
         </p>
+        <section class="audit-renames">
+          <div class="subitem-heading">
+            <strong>Movement audit names</strong>
+          </div>
+          <p class="empty-note">
+            Keep old audit IDs mapped to current hex IDs after renames.
+          </p>
+          <div v-if="movementAuditRenames.length" class="audit-rename-list">
+            <div
+              v-for="(rename, index) in movementAuditRenames"
+              :key="`${rename.from}:${rename.to}:${index}`"
+              class="audit-rename-row"
+            >
+              <code>{{ rename.from }}</code>
+              <span>→</span>
+              <code>{{ rename.to }}</code>
+              <button class="sm muted" @click="removeMovementAuditRename(index)">Remove</button>
+            </div>
+          </div>
+          <div class="audit-rename-form">
+            <input v-model.trim="auditRenameDraft.from" placeholder="old hex ID" />
+            <select v-model="auditRenameDraft.to">
+              <option value="">current hex ID</option>
+              <option v-for="id in allHexIds" :key="id">{{ id }}</option>
+            </select>
+            <button class="sm" @click="addMovementAuditRename">Add alias</button>
+          </div>
+        </section>
         <section v-if="auditSummary || warnings.length" class="diagnostics">
           <p v-if="auditSummary" :class="{ warning: auditSummary.invalid }">
             Movement audit:
@@ -1650,6 +1706,11 @@ legend { color: #8bc49a; }
 .point-editor { display: grid; gap: .4rem; padding: .5rem; border: 1px solid #343d4d; border-radius: 7px; background: #1b2028; }
 .point-tools { display: flex; justify-content: flex-end; }
 .danger-outline { border-color: #9b5050; color: #ffb5b5; background: #3d2729; }
+.audit-renames { display: grid; gap: .45rem; padding-top: .65rem; border-top: 1px solid #343d4d; }
+.audit-rename-list { display: grid; gap: .35rem; }
+.audit-rename-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; align-items: center; gap: .4rem; }
+.audit-rename-row code { overflow: hidden; text-overflow: ellipsis; color: #d9e0ea; font-size: .74rem; }
+.audit-rename-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: .4rem; align-items: center; }
 .diagnostics { display: grid; gap: .4rem; padding-top: .65rem; border-top: 1px solid #343d4d; }
 .diagnostics p { margin: 0; color: #aab2bd; font-size: .75rem; }
 .audit-issues { display: grid; gap: .35rem; margin: 0; padding: 0; list-style: none; }

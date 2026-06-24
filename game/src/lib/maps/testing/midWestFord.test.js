@@ -40,7 +40,7 @@ describe('mid-west ford and bank column return', () => {
     outdoor.state.stand = outdoor.defaultStandForHex('upper-gorge')
 
     outdoor.crossPassage('upper-gorge-bridge')
-    gameplayMoveTo(outdoor, 'north-west')
+    gameplayMoveTo(outdoor, 'lower-gorge')
     gameplayMoveTo(outdoor, 'mid-west')
 
     expect(outdoor.state.currentId).toBe('mid-west')
@@ -97,7 +97,7 @@ describe('mid-west ford and bank column return', () => {
     outdoor.state.discoveredOpenings = ['mid-west-ford']
 
     outdoor.crossPassage('upper-gorge-bridge')
-    outdoor.moveTo('north-west')
+    outdoor.moveTo('lower-gorge')
     await new Promise((r) => setTimeout(r, 700))
     outdoor.moveTo('mid-west')
     await new Promise((r) => setTimeout(r, 700))

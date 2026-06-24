@@ -19,7 +19,7 @@ describe('mid-west to gate-woods gameplay', () => {
     outdoor.state.stand = outdoor.defaultStandForHex('upper-gorge')
     outdoor.state.discoveredOpenings = ['mid-west-ford']
     outdoor.crossPassage('upper-gorge-bridge')
-    gameplayMoveTo(outdoor, 'north-west')
+    gameplayMoveTo(outdoor, 'lower-gorge')
     gameplayMoveTo(outdoor, 'mid-west')
     expect(outdoor.state.currentId).toBe('mid-west')
     outdoor.crossPassage('mid-west-ford')

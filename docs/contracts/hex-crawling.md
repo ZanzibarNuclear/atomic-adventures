@@ -273,7 +273,7 @@ Gates use explicit player state for open/closed behavior. In gameplay, a gate cr
 | -------------------- | ------ | ------------- | ----------------------------------------------------------------------------------- |
 | `compound-gate`      | gate   | `gate-woods`  | In-hex passage; player opens/closes it                                              |
 | `south-pines-hole`   | hole   | `south-pines` | Search → `crossPassage` → then `lower-stand`                                        |
-| `upper-gorge-bridge` | bridge | `upper-gorge` | `crossPassage` → then `north-west`                                                  |
+| `upper-gorge-bridge` | bridge | `upper-gorge` | `crossPassage` → then `lower-gorge`                                                  |
 | `mid-west-ford`      | ford   | `mid-west`    | Search → `crossPassage`; bank walk to `utility-yard` without ford on inter-hex path |
 
 ### Authoring Snapshot Reference
@@ -355,14 +355,14 @@ In a development game build, use **Show movement audit** above the outdoor map. 
 | `north-bend → gate-woods` via compound road | Follow route polyline to border                                | Route stand / gate approach **if** barrier-clear from entry (north of fence) |
 | `south-pines → lower-stand`                 | Blocked west of fence until `crossPassage('south-pines-hole')` | Stand in `lower-stand`                                                       |
 | `road-fork → upper-gorge`                   | Follow `river-access-drive`                                    | Stand on drive at east bank                                                  |
-| `upper-gorge → north-west`                  | Inter-hex movement after bridge crossing                       | West-bank stand in `north-west`                                              |
-| `north-west → mid-west`                   | Enter on the west side of the river                             | Stable west-side area stand with visible river clearance                     |
+| `upper-gorge → lower-gorge`                  | Inter-hex movement after bridge crossing                       | West-bank stand in `lower-gorge`                                              |
+| `lower-gorge → mid-west`                   | Enter on the west side of the river                             | Stable west-side area stand with visible river clearance                     |
 
 ### Northern approach (play sequence)
 
 1. `origin → … → road-fork → upper-gorge` via `river-access-drive`
-2. `crossPassage('upper-gorge-bridge')`, then `upper-gorge → north-west`
-3. West bank: `north-west → mid-west` (river blocks center chord — use bank geometry / shared edge)
+2. `crossPassage('upper-gorge-bridge')`, then `upper-gorge → lower-gorge`
+3. West bank: `lower-gorge → mid-west` (river blocks center chord — use bank geometry / shared edge)
 4. Search ford at `mid-west`; `mid-west → utility-yard` on west bank without requiring ford on inter-hex path
 5. Southern fence: `crossPassage` through gate/hole where needed before inter-hex steps
 

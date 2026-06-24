@@ -18,8 +18,9 @@ import {
   createMovementCaseWorld,
   expectedArrivalState,
   fenceSideAt,
-  MAP_MOVEMENT_CASES,
+  movementCasesForMap,
   movementCaseById,
+  movementCaseBySourceId,
   riverSideAt,
 } from './mapMovementCases.js'
 
@@ -205,9 +206,10 @@ describe('map-wide outdoor movement audit', () => {
     const entries = buildMapMovementAudit(mapData)
     const summary = movementAuditSummary(entries)
     const states = new Set(entries.map((entry) => entry.stateId))
+    const movementCases = movementCasesForMap(mapData)
 
     expect(states).toEqual(
-      new Set(MAP_MOVEMENT_CASES.map((movementCase) => movementCase.id)),
+      new Set(movementCases.map((movementCase) => movementCase.id)),
     )
     expect(summary.total).toBeGreaterThan(54)
     expect(summary.valid).toBeGreaterThan(0)
@@ -220,6 +222,7 @@ describe('map-wide outdoor movement audit', () => {
   })
 
   it('classifies every adjacent direction from every canonical state', () => {
+    const movementCases = movementCasesForMap(mapData)
     const directedEdges = new Set()
     for (const fromHex of mapData.hexes) {
       for (const toHex of adjacentHexes(fromHex, mapData.hexes)) {
@@ -228,7 +231,7 @@ describe('map-wide outdoor movement audit', () => {
     }
 
     const classifiedEdges = new Set()
-    for (const movementCase of MAP_MOVEMENT_CASES) {
+    for (const movementCase of movementCases) {
       const fromHex = mapData.hexes.find(
         (hex) => hex.id === movementCase.hexId,
       )
@@ -254,7 +257,7 @@ describe('map-wide outdoor movement audit', () => {
       for (const destination of expected) {
         const arrivalId = expectedArrivalState(movementCase, destination)
         expect.soft(
-          movementCaseById(arrivalId),
+          movementCaseById(arrivalId, movementCases),
           `${movementCase.id}->${destination}: missing canonical arrival state ${arrivalId}`,
         ).toBeTruthy()
       }
@@ -268,7 +271,8 @@ describe('map-wide outdoor movement audit', () => {
     'executes every expected move and rejects every forbidden move',
     () => {
       const auditRows = []
-      for (const movementCase of MAP_MOVEMENT_CASES) {
+      const movementCases = movementCasesForMap(mapData)
+      for (const movementCase of movementCases) {
         const { outdoor, gameState } = createMovementCaseWorld(
           mapData,
           movementCase,
@@ -293,7 +297,7 @@ describe('map-wide outdoor movement audit', () => {
             movementCase,
             destination,
           )
-          const expectedCase = movementCaseById(expectedStateId)
+          const expectedCase = movementCaseById(expectedStateId, movementCases)
           const preview = outdoor.previewMove(destination)
 
           expect.soft(
@@ -402,12 +406,13 @@ describe('map-wide outdoor movement audit', () => {
           search: true,
         },
       ]
+      const movementCases = movementCasesForMap(mapData)
 
       for (const transition of transitions) {
-        const fromCase = movementCaseById(transition.from)
-        const toCase = movementCaseById(transition.to)
+        const fromCase = movementCaseBySourceId(transition.from, movementCases)
+        const toCase = movementCaseBySourceId(transition.to, movementCases)
         const { outdoor } = createMovementCaseWorld(mapData, fromCase)
-        const label = `${transition.from} --${transition.opening}--> ${transition.to}`
+        const label = `${fromCase.id} --${transition.opening}--> ${toCase.id}`
 
         if (transition.toggle) {
           expect.soft(

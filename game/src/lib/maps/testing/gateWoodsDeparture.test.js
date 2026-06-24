@@ -23,12 +23,12 @@ describe('gate-woods departure', () => {
     expect(outdoor.state.lastBlocked).toBeNull()
   })
 
-  it('northwest to north-west walks straight from the gate approach', () => {
+  it('northwest to lower-gorge walks straight from the gate approach', () => {
     const { outdoor } = buildGameplayWorld(mapData)
     atGateApproach(outdoor)
-    expect(outdoor.canReachHex('north-west')).toBe(true)
-    gameplayMoveTo(outdoor, 'north-west')
-    expect(outdoor.state.currentId).toBe('north-west')
+    expect(outdoor.canReachHex('lower-gorge')).toBe(true)
+    gameplayMoveTo(outdoor, 'lower-gorge')
+    expect(outdoor.state.currentId).toBe('lower-gorge')
     expect(outdoor.state.atBarrier).not.toBe('fence')
     expect(outdoor.state.lastBlocked).toBeNull()
   })

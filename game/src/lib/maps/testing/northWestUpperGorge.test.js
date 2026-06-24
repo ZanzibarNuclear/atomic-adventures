@@ -2,21 +2,21 @@ import { describe, expect, it } from 'vitest'
 import { mapData } from '../../testing/content.js'
 import { buildGameplayWorld, gameplayMoveTo } from './gameplayTravel.js'
 
-/** Round-trip: northeast to upper-gorge, bridge to west bank, southwest to north-west. */
-function atNorthWestFromUpperGorgeSouthwest(outdoor) {
-  for (const h of ['east-pines', 'center-pines', 'north-bend', 'gate-woods', 'north-west']) {
+/** Round-trip: northeast to upper-gorge, bridge to west bank, southwest to lower-gorge. */
+function atLowerGorgeFromUpperGorgeSouthwest(outdoor) {
+  for (const h of ['east-pines', 'center-pines', 'north-bend', 'gate-woods', 'lower-gorge']) {
     gameplayMoveTo(outdoor, h)
   }
   gameplayMoveTo(outdoor, 'upper-gorge')
   outdoor.crossPassage('upper-gorge-bridge')
-  gameplayMoveTo(outdoor, 'north-west')
-  expect(outdoor.state.currentId).toBe('north-west')
+  gameplayMoveTo(outdoor, 'lower-gorge')
+  expect(outdoor.state.currentId).toBe('lower-gorge')
 }
 
-describe('north-west to upper-gorge after southwest arrival', () => {
+describe('lower-gorge to upper-gorge after southwest arrival', () => {
   it('offers go northeast after walking southwest from upper-gorge (west bank)', () => {
     const { outdoor } = buildGameplayWorld(mapData)
-    atNorthWestFromUpperGorgeSouthwest(outdoor)
+    atLowerGorgeFromUpperGorgeSouthwest(outdoor)
 
     expect(outdoor.canReachHex('upper-gorge')).toBe(true)
 

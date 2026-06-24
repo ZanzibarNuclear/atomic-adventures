@@ -11,80 +11,12 @@ import {
 import {
   expectedArrivalState,
   fenceSideAt,
-  MAP_MOVEMENT_CASES,
+  movementCasesForMap,
   movementCaseById,
   riverSideAt,
 } from '../testing/mapMovementCases.js'
 
 const BARRIER_KINDS = ['fence', 'river', 'cliff', 'ravine']
-
-function renameResolver(renames = []) {
-  const map = new Map(
-    renames
-      .filter((rename) => rename?.kind === 'hex' && rename.from && rename.to)
-      .map((rename) => [String(rename.from), String(rename.to)]),
-  )
-  return (value) => {
-    let current = value
-    const seen = new Set()
-    while (map.has(current) && !seen.has(current)) {
-      seen.add(current)
-      current = map.get(current)
-    }
-    return current
-  }
-}
-
-function renameCaseId(id, renames = []) {
-  return renames
-    .filter((rename) => rename?.kind === 'hex' && rename.from && rename.to)
-    .reduce(
-      (result, rename) =>
-        result.replaceAll(String(rename.from), String(rename.to)),
-      id,
-    )
-}
-
-function remapMovementCase(movementCase, renames = []) {
-  const rename = renameResolver(renames)
-  return {
-    ...movementCase,
-    id: renameCaseId(movementCase.id, renames),
-    hexId: rename(movementCase.hexId),
-    expectedMoves: movementCase.expectedMoves.map(rename),
-    forbiddenMoves: movementCase.forbiddenMoves.map(rename),
-  }
-}
-
-function hexAtAuditStand(world, stand) {
-  return world.hexes.find((hex) => pointInHexPolygon(stand, hex, world.size))
-}
-
-function inferAuditRenames(world) {
-  const hexIds = new Set(world.hexes.map((hex) => hex.id))
-  const renames = []
-  const addInferredRename = (from, stand) => {
-    if (!from || hexIds.has(from)) return
-    const replacement = hexAtAuditStand(world, stand)
-    if (!replacement) return
-    renames.push({ kind: 'hex', from, to: replacement.id })
-  }
-
-  for (const movementCase of MAP_MOVEMENT_CASES) {
-    addInferredRename(movementCase.hexId, movementCase.auditStand)
-    for (const destination of [
-      ...movementCase.expectedMoves,
-      ...movementCase.forbiddenMoves,
-    ]) {
-      if (hexIds.has(destination)) continue
-      const destinationCase = MAP_MOVEMENT_CASES.find(
-        (candidate) => candidate.hexId === destination,
-      )
-      addInferredRename(destination, destinationCase?.auditStand)
-    }
-  }
-  return renames
-}
 
 function staleAuditEntry(movementCase, destination, reason) {
   return {
@@ -135,14 +67,9 @@ function hasSafeClearance(stand, barriers) {
 export function buildMapMovementAudit(mapData, renames = []) {
   const world = buildTravelWorld(mapData)
   const entries = []
-  const auditRenames = [
-    ...inferAuditRenames(world),
-    ...(mapData.movementAuditRenames ?? []),
-    ...renames,
-  ]
+  const movementCases = movementCasesForMap(mapData, world, renames)
 
-  for (const sourceCase of MAP_MOVEMENT_CASES) {
-    const movementCase = remapMovementCase(sourceCase, auditRenames)
+  for (const movementCase of movementCases) {
     const fromHex = world.hexById[movementCase.hexId]
     for (const destination of [
       ...movementCase.expectedMoves,
@@ -180,7 +107,7 @@ export function buildMapMovementAudit(mapData, renames = []) {
         ? expectedArrivalState(movementCase, destination)
         : null
       const expectedCase = expectedStateId
-        ? movementCaseById(expectedStateId)
+        ? movementCaseById(expectedStateId, movementCases)
         : null
       const path = evaluated.result.path ?? evaluated.path
       const stand = evaluated.result.stand
