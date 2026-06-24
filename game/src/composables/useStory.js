@@ -42,6 +42,7 @@ export function useStory(storyData, ctx) {
 
   function triggerMatches(beat, loc, event) {
     const trigger = beat.trigger ?? {};
+    if (event && !trigger.event) return false;
     if (trigger.event) {
       return event === trigger.event;
     }
@@ -86,6 +87,7 @@ export function useStory(storyData, ctx) {
       if (!triggerMatches(beat, loc, event)) continue;
       return activeBeat(id, beat);
     }
+    if (event) return findBeat(loc, null);
     return null;
   }
 

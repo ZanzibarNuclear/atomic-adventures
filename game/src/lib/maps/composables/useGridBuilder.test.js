@@ -13,7 +13,7 @@ describe("grid builder room stands", () => {
     const items = listEditableRoomStands(draft, "first");
     expect(items.map((item) => item.id)).toEqual(
       expect.arrayContaining([
-        "large-bay/center",
+        "large-bay/midway",
         "large-bay/stairs-bottom",
         "large-bay/service-area",
       ]),

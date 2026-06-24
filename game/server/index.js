@@ -29,6 +29,7 @@ const api = createApiHandler(
   worldRepository,
   buildingRepository,
   characterRepository,
+  { syncRuntimeContentOnMutation: !production },
 );
 
 let vite = null;

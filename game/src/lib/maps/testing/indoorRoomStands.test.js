@@ -39,7 +39,7 @@ describe("indoor room stands", () => {
   it("models authored stands and derived door thresholds inside the room", () => {
     const building = buildBuilding(utilityData);
     const room = building.roomById["large-bay"];
-    expect(defaultRoomStandId(room)).toBe("center");
+    expect(defaultRoomStandId(room)).toBe("midway");
     expect(roomStandById(building, "large-bay", "stairs-bottom")).toMatchObject({
       label: "Bottom of the stairs",
       kind: "authored",
@@ -61,7 +61,7 @@ describe("indoor room stands", () => {
     const { indoor } = indoorHarness();
     indoor.indoor.currentRoom = "large-bay";
     indoor.indoor.exteriorNode = null;
-    indoor.indoor.currentStand = "center";
+    indoor.indoor.currentStand = "midway";
     indoor.indoor.discovered = new Set(["large-bay"]);
 
     expect(indoor.indoorMoves.map((move) => move.toStandId)).toEqual(

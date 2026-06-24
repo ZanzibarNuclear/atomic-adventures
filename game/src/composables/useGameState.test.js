@@ -144,7 +144,7 @@ describe('useGameState save roundtrip', () => {
 
     snapshot.indoor.currentStand = 'missing-stand'
     expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
-    expect(indoor.indoor.currentStand).toBe('center')
+    expect(indoor.indoor.currentStand).toBe('midway')
   })
 
   it('migrates v1 barrierStand saves to stand', () => {

@@ -268,6 +268,51 @@ describe("useStory reactive content", () => {
     expect(setup.gameState.storySeen.has("intro")).toBe(true);
   });
 
+  it("prefers enter-building event beats over exterior-node beats during entry", () => {
+    const setup = harness({
+      beats: {
+        "large-bay-roll-front": {
+          text: "Roll-up door prose.",
+          trigger: { place: "indoors", exteriorNode: "large-bay-roll-front" },
+          choices: [],
+        },
+        "the-garage": {
+          heading: "At the garage",
+          text: "Garage arrival prose.",
+          trigger: { event: "enter-building" },
+          choices: [],
+        },
+      },
+    }, {
+      initialPlace: "indoors",
+      initialExteriorNode: "large-bay-roll-front",
+    });
+
+    setup.api.refreshNarrative("enter-building");
+
+    expect(setup.api.pendingBeat.value.id).toBe("the-garage");
+  });
+
+  it("falls back to the entry exterior-node beat when no enter-building event beat exists", () => {
+    const setup = harness({
+      beats: {
+        "garage-approach": {
+          heading: "At the garage",
+          text: "Garage arrival prose.",
+          trigger: { place: "indoors", exteriorNode: "garage-approach" },
+          choices: [],
+        },
+      },
+    }, {
+      initialPlace: "indoors",
+      initialExteriorNode: "garage-approach",
+    });
+
+    setup.api.refreshNarrative("enter-building");
+
+    expect(setup.api.pendingBeat.value.id).toBe("garage-approach");
+  });
+
   it("moves to an exterior node from an indoor story choice", () => {
     let movedTo = null;
     const exteriorBeat = {

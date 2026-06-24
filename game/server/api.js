@@ -3,12 +3,14 @@ import { handleRuntimeRoutes } from "./api-runtime-routes.js";
 import { handleStoryRoutes } from "./api-story-routes.js";
 import { json } from "./api-utils.js";
 import { handleWorldRoutes } from "./api-world-routes.js";
+import { writeRuntimeContent } from "./runtime-content-writer.js";
 
 export function createApiHandler(
   repository,
   worldRepository,
   buildingRepository = null,
   characterRepository = null,
+  { syncRuntimeContentOnMutation = false } = {},
 ) {
   const clients = new Set();
   characterRepository?.setIntegrationValidator?.((character) => {
@@ -38,6 +40,18 @@ export function createApiHandler(
     for (const response of clients) response.write(message);
   }
 
+  function syncRuntimeContent() {
+    if (!syncRuntimeContentOnMutation || !buildingRepository || !characterRepository) {
+      return;
+    }
+    writeRuntimeContent({
+      storyRepository: repository,
+      worldRepository,
+      buildingRepository,
+      characterRepository,
+    });
+  }
+
   const routeContext = {
     repository,
     worldRepository,
@@ -45,6 +59,7 @@ export function createApiHandler(
     characterRepository,
     clients,
     broadcast,
+    syncRuntimeContent,
   };
   const routeHandlers = [
     handleRuntimeRoutes,

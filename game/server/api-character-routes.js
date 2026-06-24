@@ -5,6 +5,7 @@ export async function handleCharacterRoutes(req, res, url, {
   buildingRepository,
   characterRepository,
   broadcast,
+  syncRuntimeContent,
 }) {
   if (req.method === "GET" && url.pathname === "/api/character") {
     const result = characterRepository?.getDocument();
@@ -42,6 +43,7 @@ export async function handleCharacterRoutes(req, res, url, {
       body.expectedVersion,
     );
     repository.setCharacter?.(result.character);
+    syncRuntimeContent?.();
     broadcast("character.updated", { revision: result.revision });
     return json(res, 200, result);
   }
@@ -56,6 +58,7 @@ export async function handleCharacterRoutes(req, res, url, {
     if (!characterRepository) return json(res, 404, { message: "Character content not found." });
     const result = characterRepository.restore(restoreMatch[1]);
     repository.setCharacter?.(result.character);
+    syncRuntimeContent?.();
     broadcast("character.updated", { revision: result.revision, restored: true });
     return json(res, 200, result);
   }

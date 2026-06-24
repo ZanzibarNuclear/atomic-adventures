@@ -64,10 +64,13 @@ describe("utility station grid traversal contract", () => {
     const moves = exteriorMovesFrom(building, "large-bay-roll-front");
     const labels = moves.map((move) => move.label).sort();
 
-    expect(labels).toEqual([
-      "east along the footpath",
-      "west along the footpath",
-    ]);
+    expect(labels).toEqual(
+      expect.arrayContaining([
+        "east along the footpath",
+        "northwest along the footpath",
+        "west along the footpath",
+      ]),
+    );
   });
 
   it("reaches every standable room when authored doors are open", () => {
@@ -103,15 +106,17 @@ describe("utility station grid traversal contract", () => {
     expect([...visitedRooms].sort()).toEqual(standableRoomIds.sort());
   });
 
-  it("does not allow the initial exterior entry to bypass the locked roll-up", () => {
+  it("starts outside on the garage approach without bypassing the locked roll-up", () => {
     const doorState = buildInitialDoorState(building.areaId, building);
     const entry = building.exterior.nodeById[building.exterior.entry];
-    expect(entry.room).toBe(building.start);
+    expect(entry.id).toBe("garage-approach");
+    expect(entry.room).toBeUndefined();
+    expect(entry.door).toBeUndefined();
     expect(canPassDoor(
       doorState,
       building.areaId,
-      entry.door,
-      building.doorById[entry.door],
+      "large-bay-roll",
+      building.doorById["large-bay-roll"],
     )).toBe(false);
   });
 

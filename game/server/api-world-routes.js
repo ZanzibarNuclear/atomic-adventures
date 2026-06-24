@@ -6,6 +6,7 @@ export async function handleWorldRoutes(req, res, url, {
   worldRepository,
   buildingRepository,
   broadcast,
+  syncRuntimeContent,
 }) {
   if (req.method === "GET" && url.pathname === "/api/world/outdoors") {
     const result = worldRepository.getDocument();
@@ -61,6 +62,7 @@ export async function handleWorldRoutes(req, res, url, {
     );
     worldRepository.setBuildingData(result.building);
     repository.setWorld(worldRepository.getCatalog(result.building));
+    syncRuntimeContent?.();
     broadcast("building.updated", {
       revision: result.revision,
       buildingId: id,
@@ -92,6 +94,7 @@ export async function handleWorldRoutes(req, res, url, {
     const result = buildingRepository.restore(id, buildingRestoreMatch[2]);
     worldRepository.setBuildingData(result.building);
     repository.setWorld(worldRepository.getCatalog(result.building));
+    syncRuntimeContent?.();
     broadcast("building.updated", {
       revision: result.revision,
       buildingId: id,
@@ -120,6 +123,7 @@ export async function handleWorldRoutes(req, res, url, {
     const body = await readJson(req);
     const result = worldRepository.save(body.world, body.expectedVersion, body.renames ?? []);
     repository.setWorld(worldRepository.getCatalog());
+    syncRuntimeContent?.();
     broadcast("world.updated", {
       revision: result.revision,
       worldId: "outdoor-main",
@@ -144,6 +148,7 @@ export async function handleWorldRoutes(req, res, url, {
   if (worldRestoreMatch && req.method === "POST") {
     const result = worldRepository.restore(worldRestoreMatch[1]);
     repository.setWorld(worldRepository.getCatalog());
+    syncRuntimeContent?.();
     broadcast("world.updated", {
       revision: result.revision,
       worldId: "outdoor-main",
