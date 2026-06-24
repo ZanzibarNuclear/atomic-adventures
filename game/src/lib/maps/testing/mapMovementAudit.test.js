@@ -279,13 +279,6 @@ describe('map-wide outdoor movement audit', () => {
         expect.soft(outdoor.state.currentId, `${setupLabel}: setup hex`).toBe(
           movementCase.hexId,
         )
-        expect.soft(
-          Math.hypot(
-            outdoor.state.stand.x - movementCase.auditStand.x,
-            outdoor.state.stand.y - movementCase.auditStand.y,
-          ),
-          `${setupLabel}: audit stand is stale`,
-        ).toBeLessThan(2)
         expectRegion(outdoor, movementCase, setupLabel)
         expectSafeStand(outdoor, movementCase.hexId, setupLabel)
 

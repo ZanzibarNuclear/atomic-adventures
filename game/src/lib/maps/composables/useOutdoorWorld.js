@@ -134,6 +134,8 @@ export function useOutdoorWorld(mapData, gameState = null) {
     lastBlocked: null,
     /** Barrier kind when standing at a barrier line inside the current hex. */
     atBarrier: null,
+    /** Last explicit barrier inspection result, for player-facing status text. */
+    lastSearch: null,
   });
 
   function defaultStandForHex(hexId) {
@@ -162,8 +164,42 @@ export function useOutdoorWorld(mapData, gameState = null) {
     return hidden;
   }
 
+  function barrierCutsCurrentHex(kind) {
+    const hexId = state.currentId;
+    if (!hexId) return false;
+    const sampleStep = size.value / 6;
+    for (const seg of travelBarrierCtx.value.barriers ?? []) {
+      if (seg.kind !== kind) continue;
+      const length = Math.hypot(seg.b.x - seg.a.x, seg.b.y - seg.a.y);
+      const steps = Math.max(1, Math.ceil(length / sampleStep));
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const point = {
+          x: seg.a.x + (seg.b.x - seg.a.x) * t,
+          y: seg.a.y + (seg.b.y - seg.a.y) * t,
+        };
+        if (hexAtPoint(point, null) === hexId) return true;
+      }
+    }
+    return false;
+  }
+
+  function discoveredFenceOpeningInCurrentHex() {
+    const discovered = new Set(state.discoveredOpenings);
+    return editableFeatures.value.some(
+      (f) =>
+        f.hex === state.currentId &&
+        BARRIER_OPENING_KINDS.has(f.kind) &&
+        barrierKindForOpening(f.kind) === "fence" &&
+        discovered.has(f.id),
+    );
+  }
+
   function canSearchHere() {
-    return searchableOpenings().length > 0;
+    return (
+      searchableOpenings().length > 0 ||
+      (barrierCutsCurrentHex("fence") && !discoveredFenceOpeningInCurrentHex())
+    );
   }
 
   function searchBarrier() {
@@ -171,6 +207,14 @@ export function useOutdoorWorld(mapData, gameState = null) {
     for (const f of found) {
       markOpeningDiscovered(f.id);
     }
+    const kind = barrierCutsCurrentHex("fence")
+      ? "fence"
+      : found.map((f) => barrierKindForOpening(f.kind)).find(Boolean) ?? null;
+    state.lastSearch = {
+      kind,
+      found: found.map((f) => f.id),
+      foundKinds: found.map((f) => f.kind),
+    };
     return found.map((f) => f.id);
   }
 
@@ -360,6 +404,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
     state.stand = rounded;
     state.lastBlocked = blocked ?? null;
     state.atBarrier = atBarrier ?? null;
+    state.lastSearch = null;
   }
 
   const atBuildingEntrance = computed(
@@ -472,6 +517,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
     state.stand = defaultStandForHex(startId.value);
     state.lastBlocked = null;
     state.atBarrier = null;
+    state.lastSearch = null;
   }
 
   function nameOf(hexId) {
@@ -513,6 +559,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
     canSearchHere,
     searchBarrier,
     searchableOpenings,
+    barrierCutsCurrentHex,
     moves,
     directMoves,
     reachableHexIds,

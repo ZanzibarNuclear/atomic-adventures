@@ -15,24 +15,18 @@
   <PlayPanel>
     <StatusLines :lines="statusLines" />
 
-    <TravelOptions v-if="chooseActions.length" label="Choose an Action">
+    <TravelOptions v-if="actions.length" label="Choose an Action">
       <button
-        v-for="item in chooseActions"
+        v-for="item in actions"
         :key="item.id"
         class="route-btn"
         :class="item.kind ? 'k-' + item.kind : 'k-story'"
         :disabled="indoor.indoor.moving || item.disabled"
         :title="item.hint ?? ''"
-        @click="onChooseAction(item.id)">
+        @click="onAction(item.id)">
         {{ item.label }}
       </button>
     </TravelOptions>
-
-    <PlayActions
-      v-if="playActions.length"
-      :items="playActions"
-      label="Actions"
-      @select="onPlayAction" />
   </PlayPanel>
 </template>
 
@@ -44,7 +38,6 @@ import PlayPanel from "../../../components/hud/PlayPanel.vue";
 import MapCaption from "../components/hud/MapCaption.vue";
 import TravelOptions from "../components/hud/TravelOptions.vue";
 import StatusLines from "../../../components/hud/StatusLines.vue";
-import PlayActions from "../../../components/hud/PlayActions.vue";
 import NarrativeCard from "../../../components/story/NarrativeCard.vue";
 import IndoorMovementAudit from "../components/diagnostics/IndoorMovementAudit.vue";
 import {
@@ -83,16 +76,18 @@ const statusLines = computed(() => buildIndoorStatusLines(props.indoor));
 
 const playActions = computed(() => buildIndoorPlayActions(props.indoor));
 
-function onChooseAction(id) {
-  handleIndoorChooseAction(
-    props.indoor,
-    props.applyChoice,
-    id,
-    props.travelToRoom,
-  );
-}
+const actions = computed(() => [...chooseActions.value, ...playActions.value]);
 
-function onPlayAction(id) {
+function onAction(id) {
+  if (id.startsWith("story:")) {
+    handleIndoorChooseAction(
+      props.indoor,
+      props.applyChoice,
+      id,
+      props.travelToRoom,
+    );
+    return;
+  }
   handleIndoorPlayAction(props.indoor, id);
 }
 

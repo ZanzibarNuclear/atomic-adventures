@@ -127,7 +127,7 @@ describe('getMovementOptions', () => {
 
     const actions = buildOutdoorSearchActions(outdoor)
     expect(actions).toHaveLength(1)
-    expect(actions[0].label).toBe('Search along the fence')
+    expect(actions[0].label).toBe('Inspect the fence')
     expect(
       hiddenOpeningsInHex(mapData.features, 'south-pines').some(
         (f) => f.kind === 'hole',
@@ -143,6 +143,17 @@ describe('getMovementOptions', () => {
     expect(buildOutdoorPlayActions(outdoor).map((action) => action.id)).toContain(
       'search:barrier',
     )
+  })
+
+  it('hides fence inspection after the hidden opening is found', () => {
+    const outdoor = useOutdoorWorld(mapData)
+    outdoor.state.currentId = 'south-pines'
+    outdoor.state.stand = outdoor.defaultStandForHex('south-pines')
+    outdoor.state.discoveredOpenings = ['south-pines-hole']
+
+    const actions = buildOutdoorSearchActions(outdoor)
+
+    expect(actions).toEqual([])
   })
 
   it('offers contextual route-following actions with route direction', () => {

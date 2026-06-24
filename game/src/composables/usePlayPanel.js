@@ -61,7 +61,9 @@ export function buildOutdoorSearchActions(outdoor) {
   if (!outdoor.canSearchHere?.()) return [];
   const label = searchActionLabel({
     openings: outdoor.searchableOpenings?.() ?? [],
-    atBarrier: outdoor.state.atBarrier,
+    atBarrier: outdoor.barrierCutsCurrentHex?.("fence")
+      ? "fence"
+      : outdoor.state.atBarrier,
     lastBlocked: outdoor.state.lastBlocked,
   });
   return [{ id: "search:barrier", label, kind: "search" }];
@@ -356,6 +358,17 @@ export function buildOutdoorStatusLines(outdoor, indoor) {
   const lines = [];
   for (const action of outdoor.lockedPassageActions ?? []) {
     if (action.status) lines.push(action.status);
+  }
+  if (
+    outdoor.state.lastSearch?.kind === "fence" &&
+    outdoor.state.lastSearch.foundKinds?.includes("hole")
+  ) {
+    lines.push("On closer inspection, you have found a hole in the fence.");
+  } else if (
+    outdoor.state.lastSearch?.kind === "fence" &&
+    !outdoor.state.lastSearch.found?.length
+  ) {
+    lines.push("You see a sturdy fence covered in ivy.");
   }
   if (outdoor.state.lastBlocked === "fence") {
     lines.push("A fence blocks the way.");

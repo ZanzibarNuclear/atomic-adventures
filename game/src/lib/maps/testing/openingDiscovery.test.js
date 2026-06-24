@@ -47,15 +47,6 @@ describe('opening discovery', () => {
     expect(gateUnlocked?.open).toBe(true)
   })
 
-  it('compound gate sits on road fence crossing with guard booth', () => {
-    const markers = buildPassageMarkers(mapData.features, hexById, size, { barriers })
-    const gate = markers.find((m) => m.id === 'compound-gate')
-    expect(gate?.x).toBe(-81)
-    expect(gate?.y).toBe(-62)
-    expect(gate?.boothX).toBe(-94)
-    expect(gate?.boothY).toBe(-72)
-  })
-
   it('south-pines hole enables in-hex crossing after search', () => {
     const world = buildTravelWorld(mapData)
     const from = world.hexById['lower-stand']

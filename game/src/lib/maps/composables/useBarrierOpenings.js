@@ -73,7 +73,7 @@ export function searchBarrierKind({ openings = [], atBarrier = null, lastBlocked
 
 export function searchActionLabel(opts) {
   const kind = searchBarrierKind(opts)
-  if (kind === 'fence') return 'Search along the fence'
+  if (kind === 'fence') return 'Inspect the fence'
   if (kind === 'river') return 'Search the riverbank'
   return 'Search carefully'
 }

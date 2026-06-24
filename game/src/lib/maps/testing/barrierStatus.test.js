@@ -46,4 +46,26 @@ describe('outdoor barrier status lines', () => {
     expect(lines).toContain('The river bank is here.')
     expect(outdoor.state.atBarrier).toBe('river')
   })
+
+  it('describes a normal fence stretch when inspection finds nothing hidden', () => {
+    const outdoor = useOutdoorWorld(mapData)
+    outdoor.state.currentId = 'center-pines'
+    outdoor.state.stand = outdoor.defaultStandForHex('center-pines')
+
+    expect(outdoor.searchBarrier()).toEqual([])
+
+    const lines = buildOutdoorStatusLines(outdoor, indoor)
+    expect(lines).toContain('You see a sturdy fence covered in ivy.')
+  })
+
+  it('reports a hole found during fence inspection', () => {
+    const outdoor = useOutdoorWorld(mapData)
+    outdoor.state.currentId = 'south-pines'
+    outdoor.state.stand = outdoor.defaultStandForHex('south-pines')
+
+    expect(outdoor.searchBarrier()).toContain('south-pines-hole')
+
+    const lines = buildOutdoorStatusLines(outdoor, indoor)
+    expect(lines).toContain('On closer inspection, you have found a hole in the fence.')
+  })
 })
