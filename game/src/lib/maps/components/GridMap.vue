@@ -49,6 +49,7 @@ const props = defineProps({
   expanded: { type: Boolean, default: false },
   viewportMode: { type: String, default: 'gameplay' },
   exteriorFog: { type: Boolean, default: false },
+  orientationControls: { type: Boolean, default: true },
   wheelZoom: { type: Boolean, default: false },
   dragPan: { type: Boolean, default: false },
 })
@@ -286,6 +287,7 @@ const {
     :add-point-mode="addPointMode"
     :north="building.north"
     :rotation="rotation"
+    :orientation-controls="orientationControls"
     :path-builder-legend="pathBuilderLegend"
     :add-point-hint="addPointHint"
     :add-node-hint="addNodeHint"

@@ -548,6 +548,9 @@ async function saveAndContinue() {
             :hydro-discovered="true"
             :viewport-mode="indoorViewportMode"
             :exterior-fog="previewExteriorFog"
+            :orientation-controls="false"
+            :wheel-zoom="true"
+            :drag-pan="true"
             @room-click="selectRoom"
             @exterior-node-click="selectExterior"
             @select-item="selectIndoorMapItem" />
