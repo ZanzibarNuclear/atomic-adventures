@@ -1,10 +1,14 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { onBeforeRouteLeave, useRouter } from "vue-router";
+import { computed, onMounted, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 import yaml from "js-yaml";
 import GridMap from "../lib/maps/components/GridMap.vue";
 import { storyApi } from "../lib/storyApi.js";
 import CharacterEffectsEditor from "../components/builder/CharacterEffectsEditor.vue";
+import RevisionHistoryPanel from "../components/builder/RevisionHistoryPanel.vue";
+import UnsavedChangesDialog from "../components/builder/UnsavedChangesDialog.vue";
+import StationObjectBrowser from "../components/builder/station/StationObjectBrowser.vue";
+import { useDirtyDocumentNavigation } from "../composables/useDirtyDocumentNavigation.js";
 import { buildBuilding } from "../lib/maps/composables/useGrid.js";
 import { buildInitialDoorState, setAllDoorsOpen } from "../lib/maps/composables/useDoors.js";
 import {
@@ -69,9 +73,6 @@ const revisions = ref([]);
 const showHistory = ref(false);
 const renames = ref([]);
 const auditResult = ref(null);
-const pendingRoute = ref("");
-const navigationPromptVisible = ref(false);
-const savingBeforeNavigation = ref(false);
 const doorStates = ref(buildInitialDoorState(source.value.id, buildBuilding(source.value)));
 const characterCatalog = ref({
   items: [], stats: [], knowledge: [], skills: [], quests: [], documents: [],
@@ -79,6 +80,18 @@ const characterCatalog = ref({
 
 const building = computed(() => buildBuilding(draft.value));
 const dirty = computed(() => loaded.value && JSON.stringify(draft.value) !== baseline.value);
+const navigation = useDirtyDocumentNavigation({
+  dirty,
+  router,
+  save: () => saveDraft(),
+  discard: () => {
+    draft.value = clonePlain(source.value);
+    baseline.value = JSON.stringify(source.value);
+  },
+  onError: (error) => {
+    status.value = error.message ?? "Could not finish changing workspaces.";
+  },
+});
 const allRoomIds = computed(() => building.value.rooms.map((room) => room.id));
 const allExteriorIds = computed(() => building.value.exterior.nodes.map((node) => node.id));
 function csvList(value) {
@@ -173,9 +186,7 @@ const errorMessages = computed(() =>
   ),
 );
 
-onBeforeUnmount(() => window.removeEventListener("beforeunload", warnBeforeUnload));
 onMounted(async () => {
-  window.addEventListener("beforeunload", warnBeforeUnload);
   try {
     const [buildingResult, catalogResult] = await Promise.all([
       storyApi("/api/world/buildings/utility-station"),
@@ -223,19 +234,6 @@ function setActionRequirementIds(action, domain, event) {
 function ensureActionEffects(action) {
   action.effects ??= [];
   return action.effects;
-}
-
-onBeforeRouteLeave((to) => {
-  if (!dirty.value) return true;
-  pendingRoute.value = to.fullPath;
-  navigationPromptVisible.value = true;
-  return false;
-});
-
-function warnBeforeUnload(event) {
-  if (!dirty.value) return;
-  event.preventDefault();
-  event.returnValue = "";
 }
 
 function splitKey(key) {
@@ -703,31 +701,6 @@ function setDoorPreview(open) {
   doorStates.value = next;
 }
 
-function keepEditing() {
-  navigationPromptVisible.value = false;
-  pendingRoute.value = "";
-}
-
-async function discardAndLeave() {
-  const route = pendingRoute.value;
-  navigationPromptVisible.value = false;
-  pendingRoute.value = "";
-  draft.value = clonePlain(source.value);
-  baseline.value = JSON.stringify(source.value);
-  await router.push(route);
-}
-
-async function saveAndLeave() {
-  savingBeforeNavigation.value = true;
-  const saved = await saveDraft();
-  savingBeforeNavigation.value = false;
-  if (!saved) return;
-  const route = pendingRoute.value;
-  navigationPromptVisible.value = false;
-  pendingRoute.value = "";
-  await router.push(route);
-}
-
 function clonePlain(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -760,31 +733,14 @@ function clonePlain(value) {
       class="station-workspace"
       :class="{ 'left-collapsed': leftCollapsed, 'right-collapsed': rightCollapsed }"
     >
-      <aside v-if="!leftCollapsed" class="object-browser panel">
-        <input v-model="search" placeholder="Search station objects…" />
-        <div class="create-grid">
-          <button class="sm" @click="addObject('rooms')">+ Room</button>
-          <button class="sm" @click="addObject('doors')">+ Door</button>
-          <button class="sm" @click="addObject('paths')">+ Path</button>
-          <button class="sm" @click="addObject('nodes')">+ Node</button>
-          <button class="sm" @click="addObject('exits')">+ Transition</button>
-          <button class="sm" @click="addObject('links')">+ Connection</button>
-          <button class="sm" @click="addObject('stands')">+ Stand</button>
-        </div>
-        <section v-for="group in groupedItems" :key="group.source" class="object-group">
-          <h3>{{ group.label }} <span>{{ group.items.length }}</span></h3>
-          <button
-            v-for="item in group.items"
-            :key="`${item.source}:${item.id}`"
-            class="object-item"
-            :class="{ active: selectedKey === `${item.source}:${item.id}` }"
-            @click="selectItem(item.source, item.id)"
-          >
-            <strong>{{ item.label }}</strong>
-            <span>{{ item.id }}</span>
-          </button>
-        </section>
-      </aside>
+      <StationObjectBrowser
+        v-if="!leftCollapsed"
+        v-model:search="search"
+        :groups="groupedItems"
+        :selected-key="selectedKey"
+        @add="addObject"
+        @select="selectItem($event.source, $event.id)"
+      />
 
       <section class="canvas-column">
         <div class="canvas-toolbar panel">
@@ -1190,37 +1146,25 @@ function clonePlain(value) {
             </p>
           </template>
         </section>
-        <section v-if="showHistory" class="history">
-          <h3>Building revisions</h3>
-          <button
-            v-for="revision in revisions"
-            :key="revision.revision"
-            class="revision-item"
-            @click="restoreRevision(revision.revision)"
-          >
-            r{{ revision.revision }} · {{ revision.operation }} ·
-            {{ new Date(revision.createdAt).toLocaleString() }}
-          </button>
-        </section>
+        <RevisionHistoryPanel
+          :visible="showHistory"
+          title="Building revisions"
+          :revisions="revisions"
+          @restore="restoreRevision"
+        />
       </aside>
     </div>
 
-    <div v-if="navigationPromptVisible" class="unsaved-backdrop" role="dialog" aria-modal="true">
-      <section class="unsaved-dialog">
-        <p class="label">Unsaved utility station changes</p>
-        <h2>Leave this map workspace?</h2>
-        <p>Save the draft, discard it, or return to the map without changing workspaces.</p>
-        <div class="row-actions">
-          <button :disabled="savingBeforeNavigation" @click="saveAndLeave">
-            {{ savingBeforeNavigation ? "Saving…" : "Save and continue" }}
-          </button>
-          <button class="danger-outline" :disabled="savingBeforeNavigation" @click="discardAndLeave">
-            Discard changes
-          </button>
-          <button class="muted" @click="keepEditing">Keep editing</button>
-        </div>
-      </section>
-    </div>
+    <UnsavedChangesDialog
+      :visible="navigation.promptVisible.value"
+      label="Unsaved utility station changes"
+      title="Leave this map workspace?"
+      message="Save the draft, discard it, or return to the map without changing workspaces."
+      :saving="navigation.saving.value"
+      @save="navigation.saveAndContinue"
+      @discard="navigation.discardAndContinue"
+      @keep="navigation.keepEditing"
+    />
   </main>
 </template>
 

@@ -1,7 +1,10 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
-import { onBeforeRouteLeave, useRouter } from "vue-router";
+import { useRouter } from "vue-router";
 import yaml from "js-yaml";
+import RevisionHistoryPanel from "../components/builder/RevisionHistoryPanel.vue";
+import UnsavedChangesDialog from "../components/builder/UnsavedChangesDialog.vue";
+import OutdoorObjectBrowser from "../components/builder/outdoor/OutdoorObjectBrowser.vue";
 import HexMap from "../lib/maps/components/HexMap.vue";
 import { useOutdoorWorld } from "../lib/maps/composables/useOutdoorWorld.js";
 import {
@@ -19,7 +22,16 @@ import {
   buildMapMovementAudit,
   movementAuditSummary,
 } from "../lib/maps/debug/mapMovementAudit.js";
+import {
+  applyStandPointToDraft,
+  landmarkDraftFrom,
+  landmarkFromDraft,
+  normalizeStand,
+  standDraftFrom,
+  standFromDraft,
+} from "../lib/maps/builder/outdoorDrafts.js";
 import { storyApi } from "../lib/storyApi.js";
+import { useDirtyDocumentNavigation } from "../composables/useDirtyDocumentNavigation.js";
 import { useWorldContent } from "../composables/useWorldContent.js";
 
 const PASSAGE_KINDS = new Set(["gate", "hole", "bridge", "ford", "stair"]);
@@ -60,9 +72,6 @@ const landmarkEditDraft = ref(null);
 const standDraft = ref(null);
 const standEditDraft = ref(null);
 const auditRenameDraft = ref({ from: "", to: "" });
-const navigationPromptVisible = ref(false);
-const pendingRoute = ref("");
-const savingBeforeNavigation = ref(false);
 let resizeObserver = null;
 
 const emptyWorld = {
@@ -83,6 +92,17 @@ const currentWorld = computed(() => ({
   routes: clonePlain(outdoor.editableRoutes),
 }));
 const dirty = computed(() => Boolean(baseline.value) && JSON.stringify(currentWorld.value) !== baseline.value);
+const navigation = useDirtyDocumentNavigation({
+  dirty,
+  router,
+  save: () => saveWorld(),
+  discard: () => {
+    if (loaded.value) applyLoaded(loaded.value);
+  },
+  onError: (error) => {
+    status.value = error.message ?? "Could not finish changing workspaces.";
+  },
+});
 const errorMessages = computed(() =>
   Object.entries(errors.value).flatMap(([path, messages]) =>
     messages.map((message) => `${path}: ${message}`),
@@ -218,7 +238,6 @@ const filteredGroups = computed(() => {
 });
 
 onMounted(async () => {
-  window.addEventListener("beforeunload", warnBeforeUnload);
   try {
     await loadWorld();
     resizeObserver = new ResizeObserver(() => fitMap(false));
@@ -229,23 +248,9 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
-  window.removeEventListener("beforeunload", warnBeforeUnload);
   resizeObserver?.disconnect();
   stopPan();
 });
-
-onBeforeRouteLeave((to) => {
-  if (!dirty.value) return true;
-  pendingRoute.value = to.fullPath;
-  navigationPromptVisible.value = true;
-  return false;
-});
-
-function warnBeforeUnload(event) {
-  if (!dirty.value) return;
-  event.preventDefault();
-  event.returnValue = "";
-}
 
 async function loadWorld() {
   const result = await storyApi("/api/world/outdoors");
@@ -304,30 +309,6 @@ function revertWorld() {
   if (!loaded.value) return;
   applyLoaded(loaded.value);
   status.value = "Reverted unsaved changes.";
-}
-
-function keepEditing() {
-  navigationPromptVisible.value = false;
-  pendingRoute.value = "";
-}
-
-async function discardAndLeave() {
-  const route = pendingRoute.value;
-  navigationPromptVisible.value = false;
-  pendingRoute.value = "";
-  if (loaded.value) applyLoaded(loaded.value);
-  await router.push(route);
-}
-
-async function saveAndLeave() {
-  savingBeforeNavigation.value = true;
-  const saved = await saveWorld();
-  savingBeforeNavigation.value = false;
-  if (!saved) return;
-  const route = pendingRoute.value;
-  navigationPromptVisible.value = false;
-  pendingRoute.value = "";
-  await router.push(route);
 }
 
 async function loadHistory() {
@@ -421,7 +402,7 @@ function onHandleMove({ x, y, role, index }) {
     setLandmarkWorld(selected.value, x, y, outdoor.size);
   } else if (role === "stand") {
     if (selectedType.value === "stand" && standEditDraft.value) {
-      applyStandPointToDraft(standEditDraft.value, selected.value, x, y);
+      applyStandPointToDraft(standEditDraft.value, selected.value, x, y, outdoor.size);
       return;
     }
     setStandWorld(selected.value, x, y, outdoor.size, index ?? selectedStandIndex.value);
@@ -562,79 +543,6 @@ function backToHexFromStand() {
   }
   standEditDraft.value = null;
   select("hex", hexId);
-}
-
-function landmarkDraftFrom(landmark = {}) {
-  return {
-    icon: landmark.icon ?? "",
-    label: landmark.label ?? "",
-    building: landmark.building ?? "",
-    blurb: landmark.blurb ?? "",
-    dx: Number(landmark.dx ?? 0),
-    dy: Number(landmark.dy ?? 0),
-  };
-}
-
-function landmarkFromDraft(draft = {}) {
-  return {
-    ...(String(draft.building ?? "").trim() ? { building: String(draft.building).trim() } : {}),
-    ...(String(draft.icon ?? "").trim() ? { icon: String(draft.icon).trim() } : {}),
-    ...(String(draft.label ?? "").trim() ? { label: String(draft.label).trim() } : {}),
-    ...(Number(draft.dx) ? { dx: Number(draft.dx) } : {}),
-    ...(Number(draft.dy) ? { dy: Number(draft.dy) } : {}),
-    ...(String(draft.blurb ?? "").trim() ? { blurb: String(draft.blurb).trim() } : {}),
-  };
-}
-
-function standDraftFrom(stand = {}) {
-  const at = stand.at ?? {};
-  return {
-    id: stand.id ?? "",
-    label: stand.label ?? "",
-    anchor: at.from === "landmark" ? "landmark" : at.x != null ? "world" : "hex",
-    dx: Number(at.dx ?? 0),
-    dy: Number(at.dy ?? 0),
-    x: Number(at.x ?? 0),
-    y: Number(at.y ?? 0),
-  };
-}
-
-function standFromDraft(draft = {}) {
-  const at = draft.anchor === "world"
-    ? { x: Number(draft.x), y: Number(draft.y) }
-    : draft.anchor === "landmark"
-      ? { from: "landmark", dx: Number(draft.dx), dy: Number(draft.dy) }
-      : { dx: Number(draft.dx), dy: Number(draft.dy) };
-  return {
-    id: String(draft.id ?? "").trim(),
-    ...(String(draft.label ?? "").trim() ? { label: String(draft.label).trim() } : {}),
-    at,
-  };
-}
-
-function normalizeStand(stand = {}) {
-  return {
-    id: String(stand.id ?? "").trim(),
-    ...(String(stand.label ?? "").trim() ? { label: String(stand.label).trim() } : {}),
-    at: clonePlain(stand.at ?? {}),
-  };
-}
-
-function applyStandPointToDraft(draft, hex, x, y) {
-  if (!draft || !hex) return;
-  if (draft.anchor === "world") {
-    draft.x = Math.round(x);
-    draft.y = Math.round(y);
-    return;
-  }
-  const anchor = draft.anchor === "landmark" && hex.landmark
-    ? {
-      x: axialToPixel(hex.q, hex.r, outdoor.size).x + outdoor.size * (hex.landmark.dx ?? 0),
-      y: axialToPixel(hex.q, hex.r, outdoor.size).y + outdoor.size * (hex.landmark.dy ?? 0),
-    }
-    : axialToPixel(hex.q, hex.r, outdoor.size);
-  draft.dx = Math.round(((x - anchor.x) / outdoor.size) * 100) / 100;
-  draft.dy = Math.round(((y - anchor.y) / outdoor.size) * 100) / 100;
 }
 
 function addHex() {
@@ -1100,29 +1008,18 @@ function clonePlain(value) {
       class="world-workspace"
       :class="{ 'left-collapsed': leftCollapsed, 'right-collapsed': rightCollapsed }"
     >
-      <aside v-if="!leftCollapsed" class="object-browser panel">
-        <input v-model="search" placeholder="Search world objects…" />
-        <div class="create-grid">
-          <button class="sm" @click="addHex">+ Hex</button>
-          <button class="sm" @click="addRoute">+ Route</button>
-          <button class="sm" @click="addBarrier">+ Barrier</button>
-          <button class="sm" @click="addPassage">+ Passage</button>
-          <button class="sm" @click="beginAddLandmark">+ Landmark</button>
-        </div>
-        <section v-for="group in filteredGroups" :key="group.label" class="object-group">
-          <h3>{{ group.label }} <span>{{ group.items.length }}</span></h3>
-          <button
-            v-for="item in group.items"
-            :key="`${group.type}:${item.id}`"
-            class="object-item"
-            :class="{ active: selectedKey === `${group.type}:${item.id}` }"
-            @click="select(group.type, item.id)"
-          >
-            <strong>{{ item.label || item.landmark?.label || item.id }}</strong>
-            <span>{{ item.id }}<template v-if="item.kind"> · {{ item.kind }}</template></span>
-          </button>
-        </section>
-      </aside>
+      <OutdoorObjectBrowser
+        v-if="!leftCollapsed"
+        v-model:search="search"
+        :groups="filteredGroups"
+        :selected-key="selectedKey"
+        @add-hex="addHex"
+        @add-route="addRoute"
+        @add-barrier="addBarrier"
+        @add-passage="addPassage"
+        @add-landmark="beginAddLandmark"
+        @select="select($event.type, $event.id)"
+      />
 
       <section class="canvas-column">
         <div class="canvas-toolbar panel">
@@ -1550,45 +1447,25 @@ function clonePlain(value) {
           </p>
         </section>
 
-        <section v-if="showHistory" class="history">
-          <h3>World revisions</h3>
-          <button
-            v-for="revision in revisions"
-            :key="revision.revision"
-            class="revision-item"
-            @click="restoreRevision(revision.revision)"
-          >
-            r{{ revision.revision }} · {{ revision.operation }} ·
-            {{ new Date(revision.createdAt).toLocaleString() }}
-          </button>
-        </section>
+        <RevisionHistoryPanel
+          :visible="showHistory"
+          title="World revisions"
+          :revisions="revisions"
+          @restore="restoreRevision"
+        />
       </aside>
     </div>
 
-    <div
-      v-if="navigationPromptVisible"
-      class="unsaved-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="world-unsaved-title"
-    >
-      <section class="unsaved-dialog">
-        <p class="label">Unsaved world changes</p>
-        <h2 id="world-unsaved-title">Save before leaving World Builder?</h2>
-        <p>Save the draft, discard it, or return to the map without changing workspaces.</p>
-        <div class="row-actions">
-          <button :disabled="savingBeforeNavigation" @click="saveAndLeave">
-            {{ savingBeforeNavigation ? "Saving…" : "Save and continue" }}
-          </button>
-          <button class="danger-outline" :disabled="savingBeforeNavigation" @click="discardAndLeave">
-            Discard changes
-          </button>
-          <button class="muted" :disabled="savingBeforeNavigation" @click="keepEditing">
-            Keep editing
-          </button>
-        </div>
-      </section>
-    </div>
+    <UnsavedChangesDialog
+      :visible="navigation.promptVisible.value"
+      label="Unsaved world changes"
+      title="Save before leaving World Builder?"
+      message="Save the draft, discard it, or return to the map without changing workspaces."
+      :saving="navigation.saving.value"
+      @save="navigation.saveAndContinue"
+      @discard="navigation.discardAndContinue"
+      @keep="navigation.keepEditing"
+    />
   </main>
 </template>
 

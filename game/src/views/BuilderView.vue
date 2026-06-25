@@ -1,13 +1,23 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, toRaw, watch } from "vue";
-import { onBeforeRouteLeave, useRouter } from "vue-router";
+import { computed, onMounted, ref, toRaw, watch } from "vue";
+import { useRouter } from "vue-router";
 import HexMap from "../lib/maps/components/HexMap.vue";
 import GridMap from "../lib/maps/components/GridMap.vue";
+import RevisionHistoryPanel from "../components/builder/RevisionHistoryPanel.vue";
+import StoryChoiceEditor from "../components/builder/story/StoryChoiceEditor.vue";
+import UnsavedChangesDialog from "../components/builder/UnsavedChangesDialog.vue";
 import { useOutdoorWorld } from "../lib/maps/composables/useOutdoorWorld.js";
 import { buildBuilding } from "../lib/maps/composables/useGrid.js";
 import { buildInitialDoorState } from "../lib/maps/composables/useDoors.js";
 import { storyApi } from "../lib/storyApi.js";
+import {
+  choiceDestinationType,
+  createEmptyChoice,
+  setChoiceDestinationType,
+  setChoiceViewKind as applyChoiceViewKind,
+} from "../lib/storyChoiceDrafts.js";
 import { storyBeatYaml } from "../lib/storyYamlPreview.js";
+import { useDirtyDocumentNavigation } from "../composables/useDirtyDocumentNavigation.js";
 import { useWorldContent } from "../composables/useWorldContent.js";
 import { useBuildingContent } from "../composables/useBuildingContent.js";
 
@@ -44,9 +54,6 @@ const status = ref("");
 const revisions = ref([]);
 const showRevisions = ref(false);
 const eventLocationInput = ref("custom-event");
-const navigationPromptVisible = ref(false);
-const pendingContextAction = ref(null);
-const savingBeforeNavigation = ref(false);
 let beatLoadRequest = 0;
 
 function clonePlain(value) {
@@ -55,6 +62,18 @@ function clonePlain(value) {
 
 const dirty = computed(() => draft.value && JSON.stringify(draft.value) !== baseline.value);
 const yamlPreview = computed(() => storyBeatYaml(draft.value));
+const navigation = useDirtyDocumentNavigation({
+  dirty,
+  router,
+  save: () => saveBeat(),
+  discard: () => clearBeatSelection(),
+  keep: () => {
+    eventLocationInput.value = selectedLocation.value;
+  },
+  onError: (error) => {
+    status.value = error.message ?? "Could not finish changing context.";
+  },
+});
 function beatsForLocation(mode, location) {
   return beats.value.filter((beat) => {
     if (mode === "outdoors") return beat.trigger.hex === location;
@@ -94,20 +113,12 @@ const draftIsOutdoorHexBeat = computed(() =>
 const selectedRoom = computed(() => locationMode.value === "rooms" ? selectedLocation.value : "");
 const selectedExterior = computed(() => locationMode.value === "exterior" ? selectedLocation.value : null);
 onMounted(async () => {
-  window.addEventListener("beforeunload", warnBeforeUnload);
   try {
     catalog.value = await storyApi("/api/catalog");
     await loadBeats();
   } catch (error) {
     status.value = error.message;
   }
-});
-
-onBeforeUnmount(() => window.removeEventListener("beforeunload", warnBeforeUnload));
-onBeforeRouteLeave((to) => {
-  if (!dirty.value) return true;
-  void requestContextChange(() => router.push(to.fullPath));
-  return false;
 });
 
 watch(worldRevision, async () => {
@@ -448,20 +459,7 @@ async function restoreRevision(revision) {
 }
 
 function addChoice() {
-  draft.value.choices.push({
-    id: crypto.randomUUID(),
-    order: draft.value.choices.length,
-    text: "",
-    timeMinutes: 0,
-    activity: "light",
-    sets: [],
-    set_flags: [],
-    go_hex: null,
-    go_room: null,
-    go_exterior_node: null,
-    enter: null,
-    view: null,
-  });
+  draft.value.choices.push(createEmptyChoice({ order: draft.value.choices.length }));
 }
 
 function moveChoice(index, delta) {
@@ -477,82 +475,23 @@ function setCsv(target, key, event) {
 }
 
 function destinationType(choice) {
-  if (choice.go_hex) return "hex";
-  if (choice.go_room) return "room";
-  if (choice.go_exterior_node) return "exterior";
-  if (choice.enter) return "enter";
-  if (choice.view) return "view";
-  return "";
+  return choiceDestinationType(choice);
 }
 
 function setDestinationType(choice, type) {
-  choice.go_hex = type === "hex" ? catalog.value.world.hexes[0]?.id ?? null : null;
-  choice.go_room = type === "room" ? catalog.value.world.rooms[0]?.id ?? null : null;
-  choice.go_exterior_node = type === "exterior" ? catalog.value.world.exteriorNodes[0]?.id ?? null : null;
-  choice.enter = type === "enter" ? catalog.value.world.buildings[0]?.id ?? "building" : null;
-  choice.view = type === "view" ? { kind: "inventory" } : null;
+  setChoiceDestinationType(choice, type, catalog.value);
 }
 
 function setChoiceViewKind(choice, kind) {
-  choice.view = kind === "character-stats"
-    ? { kind, focus: "health" }
-    : { kind };
+  applyChoiceViewKind(choice, kind);
 }
 
 function fieldError(path) {
   return errors.value[path]?.join(" ");
 }
 
-function warnBeforeUnload(event) {
-  if (!dirty.value) return;
-  event.preventDefault();
-  event.returnValue = "";
-}
-
 function requestContextChange(action) {
-  if (!dirty.value) return Promise.resolve(action());
-  pendingContextAction.value = action;
-  navigationPromptVisible.value = true;
-  return Promise.resolve(false);
-}
-
-function closeNavigationPrompt() {
-  navigationPromptVisible.value = false;
-  pendingContextAction.value = null;
-}
-
-function keepEditing() {
-  eventLocationInput.value = selectedLocation.value;
-  closeNavigationPrompt();
-}
-
-async function discardAndContinue() {
-  const action = pendingContextAction.value;
-  closeNavigationPrompt();
-  clearBeatSelection();
-  await action?.();
-}
-
-async function saveAndContinue() {
-  const action = pendingContextAction.value;
-  savingBeforeNavigation.value = true;
-  let saved = false;
-  try {
-    saved = await saveBeat();
-  } catch (error) {
-    status.value = error.message ?? "Save failed.";
-  } finally {
-    savingBeforeNavigation.value = false;
-  }
-  if (!saved) {
-    return;
-  }
-  closeNavigationPrompt();
-  try {
-    await action?.();
-  } catch (error) {
-    status.value = error.message ?? "Could not finish changing context.";
-  }
+  return navigation.requestChange(action);
 }
 
 </script>
@@ -708,68 +647,20 @@ async function saveAndContinue() {
 
           <fieldset>
             <legend>Choices</legend>
-            <article v-for="(choice, index) in draft.choices" :key="choice.id" class="choice-editor">
-              <div class="choice-toolbar">
-                <strong>Choice {{ index + 1 }}</strong>
-                <div>
-                  <button type="button" class="sm muted" @click="moveChoice(index, -1)">↑</button>
-                  <button type="button" class="sm muted" @click="moveChoice(index, 1)">↓</button>
-                  <button type="button" class="sm muted" @click="draft.choices.splice(index, 1)">Remove</button>
-                </div>
-              </div>
-              <label>Label<input v-model="choice.text" /></label>
-              <div class="field-grid">
-                <label>Sets<input :value="choice.sets.join(', ')" @input="setCsv(choice, 'sets', $event)" /></label>
-                <label>Set flags<input :value="choice.set_flags.join(', ')" @input="setCsv(choice, 'set_flags', $event)" /></label>
-              </div>
-              <details>
-                <summary>Time cost</summary>
-                <div class="field-grid">
-                  <label>Game minutes<input v-model.number="choice.timeMinutes" type="number" min="0"></label>
-                  <label>Activity
-                    <select v-model="choice.activity">
-                      <option>resting</option><option>light</option>
-                      <option>moderate</option><option>strenuous</option>
-                    </select>
-                  </label>
-                </div>
-              </details>
-              <label>Action
-                <select :value="destinationType(choice)" @change="setDestinationType(choice, $event.target.value)">
-                  <option value="">Do nothing</option>
-                  <option value="hex">Outdoor move</option>
-                  <option value="room">Indoor move</option>
-                  <option value="exterior">Exterior path move</option>
-                  <option value="enter">Enter building</option>
-                  <option value="view">Open stage view</option>
-                </select>
-              </label>
-              <select v-if="choice.go_hex" v-model="choice.go_hex">
-                <option v-for="hex in catalog.world.hexes" :key="hex.id" :value="hex.id">{{ hex.label }} ({{ hex.id }})</option>
-              </select>
-              <select v-if="choice.go_room" v-model="choice.go_room">
-                <option v-for="room in catalog.world.rooms" :key="room.id" :value="room.id">{{ room.label }} ({{ room.id }})</option>
-              </select>
-              <select v-if="choice.go_exterior_node" v-model="choice.go_exterior_node">
-                <option v-for="node in catalog.world.exteriorNodes" :key="node.id" :value="node.id">{{ node.label }} ({{ node.id }})</option>
-              </select>
-              <select v-if="choice.enter" v-model="choice.enter">
-                <option v-for="item in catalog.world.buildings" :key="item.id" :value="item.id">{{ item.label }}</option>
-              </select>
-              <div v-if="choice.view" class="field-grid">
-                <label>Stage view
-                  <select :value="choice.view.kind" @change="setChoiceViewKind(choice, $event.target.value)">
-                    <option value="inventory">Inventory</option>
-                    <option value="character-stats">Character stats</option>
-                  </select>
-                </label>
-                <label v-if="choice.view.kind === 'character-stats'">Focus
-                  <input v-model="choice.view.focus" placeholder="health" />
-                </label>
-              </div>
-              <p v-for="message in errors[`choices.${index}.destination`] ?? []" :key="message" class="field-error">{{ message }}</p>
-              <p v-for="message in errors[`choices.${index}.view.kind`] ?? []" :key="message" class="field-error">{{ message }}</p>
-            </article>
+            <StoryChoiceEditor
+              v-for="(choice, index) in draft.choices"
+              :key="choice.id"
+              :choice="choice"
+              :index="index"
+              :catalog="catalog"
+              :errors="errors"
+              :destination-type="destinationType"
+              @move="moveChoice(index, $event)"
+              @remove="draft.choices.splice(index, 1)"
+              @set-csv="setCsv($event.choice, $event.key, $event.event)"
+              @set-destination-type="setDestinationType($event.choice, $event.type)"
+              @set-view-kind="setChoiceViewKind($event.choice, $event.kind)"
+            />
             <button type="button" class="sm" @click="addChoice">Add choice</button>
           </fieldset>
 
@@ -778,61 +669,29 @@ async function saveAndContinue() {
             <pre class="yaml-preview">{{ yamlPreview }}</pre>
           </details>
 
-          <div v-if="showRevisions" class="revision-panel">
-            <h3>Revision history</h3>
-            <button
-              v-for="revision in revisions"
-              :key="revision.revision"
-              type="button"
-              class="revision-item"
-              @click="restoreRevision(revision.revision)">
-              r{{ revision.revision }} · {{ revision.operation }} · {{ new Date(revision.createdAt).toLocaleString() }}
-            </button>
-          </div>
+          <RevisionHistoryPanel
+            class="revision-panel"
+            :visible="showRevisions"
+            title="Revision history"
+            :revisions="revisions"
+            @restore="restoreRevision"
+          />
 
           <button v-if="!isNew" type="button" class="danger" @click="deleteBeat">Delete beat</button>
         </form>
       </section>
     </div>
 
-    <div
-      v-if="navigationPromptVisible"
-      class="unsaved-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="unsaved-title">
-      <section class="unsaved-dialog">
-        <p class="label">Unsaved changes</p>
-        <h2 id="unsaved-title">Save before leaving this beat?</h2>
-        <p>
-          You can save these edits, discard them, or return to the editor
-          without changing context.
-        </p>
-        <p v-if="status" class="builder-status">{{ status }}</p>
-        <div class="unsaved-actions">
-          <button
-            type="button"
-            :disabled="savingBeforeNavigation"
-            @click="saveAndContinue">
-            {{ savingBeforeNavigation ? "Saving…" : "Save and continue" }}
-          </button>
-          <button
-            type="button"
-            class="danger-outline"
-            :disabled="savingBeforeNavigation"
-            @click="discardAndContinue">
-            Discard changes
-          </button>
-          <button
-            type="button"
-            class="muted"
-            :disabled="savingBeforeNavigation"
-            @click="keepEditing">
-            Keep editing
-          </button>
-        </div>
-      </section>
-    </div>
+    <UnsavedChangesDialog
+      :visible="navigation.promptVisible.value"
+      title="Save before leaving this beat?"
+      message="You can save these edits, discard them, or return to the editor without changing context."
+      :status="status"
+      :saving="navigation.saving.value"
+      @save="navigation.saveAndContinue"
+      @discard="navigation.discardAndContinue"
+      @keep="navigation.keepEditing"
+    />
   </main>
 </template>
 

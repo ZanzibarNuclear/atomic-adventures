@@ -18,80 +18,28 @@ import {
   normalizeStandEntries,
 } from './useAvatarStand.js'
 import { axialToPixel, hexCorners, hexDistance } from './useHexGeometry.js'
+import { segmentIntersection, segmentsCross, sideOfLine } from '../geometry/segments.js'
+import {
+  BARRIER_KINDS,
+  BARRIER_OPENING_KINDS,
+  barrierList,
+  barrierSegments,
+  fenceSegments,
+  riverSegments,
+} from '../travel/barrierContext.js'
 
 export { travelOpenings } from './useBarrierOpenings.js'
+export { segmentIntersection, segmentsCross, sideOfLine } from '../geometry/segments.js'
+export {
+  BARRIER_KINDS,
+  BARRIER_OPENINGS,
+  BARRIER_OPENING_KINDS,
+  barrierSegments,
+  fenceSegments,
+  riverSegments,
+} from '../travel/barrierContext.js'
 const PATH_ORIGIN_EPS = 0.02
 const BARRIER_JUNCTION_CACHE = new WeakMap()
-
-/** Which point-feature kinds allow crossing each barrier kind. */
-export const BARRIER_OPENINGS = {
-  fence: ['gate', 'hole'],
-  river: ['bridge', 'ford'],
-  cliff: ['stair'],
-  ravine: ['bridge'],
-}
-
-export const BARRIER_KINDS = Object.keys(BARRIER_OPENINGS)
-
-/** Point features — not drawable / routable polylines. */
-export const BARRIER_OPENING_KINDS = new Set(
-  Object.values(BARRIER_OPENINGS).flat(),
-)
-
-/** Do segments AB and CD intersect (strict crossing, not collinear touch)? */
-export function segmentsCross(a, b, c, d) {
-  const ccw = (p, q, r) => (r.y - p.y) * (q.x - p.x) - (q.y - p.y) * (r.x - p.x)
-  const d1 = ccw(c, d, a)
-  const d2 = ccw(c, d, b)
-  const d3 = ccw(a, b, c)
-  const d4 = ccw(a, b, d)
-  return d1 * d2 < 0 && d3 * d4 < 0
-}
-
-/** Intersection of segment AB with segment CD; t is param along AB in [0, 1]. */
-export function segmentIntersection(a, b, c, d) {
-  const denom = (b.x - a.x) * (d.y - c.y) - (b.y - a.y) * (d.x - c.x)
-  if (Math.abs(denom) < 1e-9) return null
-  const t =
-    ((c.x - a.x) * (d.y - c.y) - (c.y - a.y) * (d.x - c.x)) / denom
-  const u =
-    ((c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x)) / denom
-  if (t < 0 || t > 1 || u < 0 || u > 1) return null
-  return {
-    x: a.x + t * (b.x - a.x),
-    y: a.y + t * (b.y - a.y),
-    t,
-  }
-}
-
-/** All barrier polylines from feature models. */
-export function barrierSegments(featureModels) {
-  const segs = []
-  for (const m of featureModels) {
-    if (!BARRIER_KINDS.includes(m.kind)) continue
-    for (let i = 0; i < m.points.length - 1; i++) {
-      segs.push({ a: m.points[i], b: m.points[i + 1], kind: m.kind })
-    }
-  }
-  return segs
-}
-
-export function fenceSegments(featureModels) {
-  return barrierSegments(featureModels).filter((s) => s.kind === 'fence')
-}
-
-export function riverSegments(featureModels) {
-  return barrierSegments(featureModels).filter((s) => s.kind === 'river')
-}
-
-function barrierList(ctx) {
-  return ctx.barriers ?? [...(ctx.fences ?? []), ...(ctx.rivers ?? [])]
-}
-
-/** Signed area — which side of line AB point P lies on. */
-export function sideOfLine(p, a, b) {
-  return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)
-}
 
 function sameBarrierSide(a, b, seg) {
   const sa = sideOfLine(a, seg.a, seg.b)

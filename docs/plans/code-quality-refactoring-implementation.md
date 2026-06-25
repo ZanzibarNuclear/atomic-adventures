@@ -110,18 +110,18 @@ clear list of test cleanup opportunities before code movement begins.
 **Purpose:** Remove duplicated builder chrome and navigation workflows before
 splitting the largest views.
 
-- [ ] Create `UnsavedChangesDialog.vue` for save/discard/keep-editing prompts.
-- [ ] Create `RevisionHistoryPanel.vue` for revision list and restore actions.
+- [x] Create `UnsavedChangesDialog.vue` for save/discard/keep-editing prompts.
+- [x] Create `RevisionHistoryPanel.vue` for revision list and restore actions.
 - [ ] Create a small `BuilderStatusBanner.vue` or similar for status and dirty
       messages if the views continue to duplicate that markup.
-- [ ] Add `useDirtyDocumentNavigation()` for:
+- [x] Add `useDirtyDocumentNavigation()` for:
   - before-unload warnings;
   - route-leave interception;
   - pending navigation/action storage;
   - save-and-continue/discard-and-continue/keep-editing flows.
-- [ ] Replace duplicated unsaved-dialog logic in story, outdoor world, and
+- [x] Replace duplicated unsaved-dialog logic in story, outdoor world, and
       utility-station builders.
-- [ ] Keep labels and button text route-specific through props or slots.
+- [x] Keep labels and button text route-specific through props or slots.
 
 Likely files:
 
@@ -164,12 +164,12 @@ preserving the current authoring workflow.
   - add/duplicate/delete/move/rename;
   - local rename cascade.
 - [ ] Extract map camera and pan/zoom behavior to `useWorldBuilderCamera()`.
-- [ ] Extract landmark and stand draft helpers to a plain module:
+- [x] Extract landmark and stand draft helpers to a plain module:
   - draft-from-model;
   - model-from-draft;
   - validation helpers;
   - point application.
-- [ ] Extract `OutdoorObjectBrowser.vue`.
+- [x] Extract `OutdoorObjectBrowser.vue`.
 - [ ] Extract `OutdoorCanvasPanel.vue`.
 - [ ] Extract `OutdoorInspector.vue`.
 - [ ] Split the inspector into smaller editors once the first extraction lands:
@@ -192,7 +192,7 @@ Likely files:
 
 Automation cleanup:
 
-- Add focused tests for landmark/stand draft conversion helpers.
+- [x] Add focused tests for landmark/stand draft conversion helpers.
 - Keep selection/object-operation tests at the composable level where possible.
 - Avoid large component tests for every inspector field; reserve component tests
   for wiring that cannot be covered by plain modules.
@@ -220,7 +220,7 @@ outdoor object browser, canvas, and inspector concerns are separately owned.
   - local rename cascade.
 - [ ] Keep reusable geometry operations in `useGridBuilder.js`, but move
       route-view-only behavior out of `UtilityStationBuilderView.vue`.
-- [ ] Extract `StationObjectBrowser.vue`.
+- [x] Extract `StationObjectBrowser.vue`.
 - [ ] Extract `StationCanvasPanel.vue`.
 - [ ] Extract `StationInspector.vue`.
 - [ ] Split the inspector into smaller editors:
@@ -273,8 +273,8 @@ lifecycle concerns are separately owned.
   - revisions/restore;
   - draft/baseline/dirty/errors/status.
 - [ ] Extract `StoryBeatEditor.vue` for top-level beat fields.
-- [ ] Extract `StoryChoiceEditor.vue` for one choice.
-- [ ] Extract choice destination helpers to a plain module if they remain in the
+- [x] Extract `StoryChoiceEditor.vue` for one choice.
+- [x] Extract choice destination helpers to a plain module if they remain in the
       route after component extraction.
 
 Likely files:
@@ -286,7 +286,7 @@ Likely files:
 
 Automation cleanup:
 
-- Add focused tests for choice destination helpers and beat draft lifecycle.
+- [x] Add focused tests for choice destination helpers.
 - Review builder-view tests and keep only integration assertions that remain
   valuable after extraction.
 - Move repeated beat fixture creation into a shared helper if it reduces noise.
@@ -301,18 +301,19 @@ components with route-level state kept small.
 **Purpose:** Separate movement algorithms by layer so future barrier changes are
 easier to test and reason about.
 
-- [ ] Move geometry primitives from `useTravelBarriers.js` into a plain geometry
+- [x] Move geometry primitives from `useTravelBarriers.js` into a plain geometry
       module.
-- [ ] Move barrier segment extraction, barrier lists, junction cache, and
-      first-hit detection into a barrier-context module.
+- [x] Move barrier segment extraction and barrier lists into a barrier-context
+      module.
+- [ ] Move junction cache and first-hit detection into a barrier-context module.
 - [ ] Move hex polygon tests and local pathfinding to a `pathInHex` module.
 - [ ] Move destination stand selection and arrival heuristics to an arrival
       module.
-- [ ] Keep a public compatibility module at `useTravelBarriers.js` that
+- [x] Keep a public compatibility module at `useTravelBarriers.js` that
       re-exports the stable API during the transition.
-- [ ] Add focused tests for each extracted plain module where existing tests do
+- [x] Add focused tests for each extracted plain module where existing tests do
       not already cover the behavior directly.
-- [ ] Run the movement/barrier/audit tests after each extraction step.
+- [x] Run the movement/barrier/audit tests after each extraction step.
 
 Likely files:
 
