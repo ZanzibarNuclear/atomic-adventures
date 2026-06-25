@@ -62,6 +62,26 @@ function beatsForLocation(mode, location) {
 const locationBeats = computed(() =>
   beatsForLocation(locationMode.value, selectedLocation.value),
 );
+const matchWarnings = computed(() => {
+  const groups = new Map();
+  for (const beat of locationBeats.value) {
+    const origin = beat.match?.originHex ?? "";
+    const key = `${locationMode.value}:${selectedLocation.value}:origin=${origin}`;
+    const group = groups.get(key) ?? [];
+    group.push(beat);
+    groups.set(key, group);
+  }
+  return [...groups.values()]
+    .filter((group) => group.length > 1)
+    .map((group) => {
+      const origin = group[0].match?.originHex;
+      const label = origin ? `origin ${origin}` : "default/no origin";
+      return `Multiple beats use ${label}: ${group.map((beat) => beat.id).join(", ")}. The first sorted beat wins.`;
+    });
+});
+const draftIsOutdoorHexBeat = computed(() =>
+  draft.value?.trigger?.place === "outdoors" && Boolean(draft.value?.trigger?.hex),
+);
 const selectedRoom = computed(() => locationMode.value === "rooms" ? selectedLocation.value : "");
 const selectedExterior = computed(() => locationMode.value === "exterior" ? selectedLocation.value : null);
 onMounted(async () => {
@@ -293,6 +313,7 @@ function emptyBeat() {
     text: "",
     revisit: "",
     trigger,
+    match: { originHex: null },
     choices: [],
   };
 }
@@ -310,7 +331,10 @@ function uniqueId(base) {
 }
 
 function setDraft(value) {
-  draft.value = structuredClone(value);
+  const next = structuredClone(value);
+  next.match ??= { originHex: null };
+  next.match.originHex ??= null;
+  draft.value = next;
   baseline.value = JSON.stringify(draft.value);
   errors.value = {};
   status.value = "";
@@ -327,24 +351,37 @@ async function saveBeat() {
   if (!draft.value) return false;
   errors.value = {};
   status.value = "Saving…";
+  const submitted = structuredClone(draft.value);
   try {
     let result;
     if (isNew.value) {
       result = await storyApi(`/api/story/areas/${STORY_AREA_ID}/beats`, {
         method: "POST",
-        body: JSON.stringify(draft.value),
+        body: JSON.stringify(submitted),
       });
     } else {
       result = await storyApi(
         `/api/story/areas/${STORY_AREA_ID}/beats/${encodeURIComponent(selectedBeatId.value)}`,
         {
           method: "PUT",
-          body: JSON.stringify({ beat: draft.value, expectedVersion: draft.value.version }),
+          body: JSON.stringify({ beat: submitted, expectedVersion: submitted.version }),
         },
       );
     }
     selectedBeatId.value = result.beat.id;
     isNew.value = false;
+    const submittedOrigin = submitted.match?.originHex ?? null;
+    const savedOrigin = result.beat.match?.originHex ?? null;
+    if (submittedOrigin !== savedOrigin) {
+      const saved = structuredClone(result.beat);
+      const editable = structuredClone(result.beat);
+      editable.match = { ...(editable.match ?? {}), originHex: submittedOrigin };
+      draft.value = editable;
+      baseline.value = JSON.stringify(saved);
+      await refreshBeatList();
+      status.value = "The content API did not preserve the origin hex. Restart the game dev server, then save again.";
+      return false;
+    }
     setDraft(result.beat);
     await refreshBeatList();
     status.value = `Saved revision ${result.beat.version}.`;
@@ -580,8 +617,10 @@ async function saveAndContinue() {
           @click="selectBeat(beat.id)">
           <strong>{{ beat.heading || beat.id }}</strong>
           <span>{{ beat.id }}</span>
+          <small v-if="beat.match?.originHex">from {{ beat.match.originHex }}</small>
         </button>
         <p v-if="!locationBeats.length" class="empty-note">No beats are attached here yet.</p>
+        <p v-for="warning in matchWarnings" :key="warning" class="builder-warning">{{ warning }}</p>
       </section>
 
       <section class="builder-form-column panel">
@@ -609,6 +648,13 @@ async function saveAndContinue() {
             <label>Beat ID
               <input v-model="draft.id" :readonly="!isNew" />
               <span v-if="fieldError('id')" class="field-error">{{ fieldError("id") }}</span>
+            </label>
+            <label v-if="draftIsOutdoorHexBeat">Origin hex
+              <select v-model="draft.match.originHex">
+                <option :value="null">Default</option>
+                <option v-for="hex in catalog.world.hexes" :key="hex.id" :value="hex.id">{{ hex.label }} ({{ hex.id }})</option>
+              </select>
+              <span v-if="fieldError('match.originHex')" class="field-error">{{ fieldError("match.originHex") }}</span>
             </label>
           </div>
 
@@ -801,7 +847,8 @@ async function saveAndContinue() {
 .mode-tabs { display: flex; gap: .4rem; margin-bottom: .75rem; }
 .mode-tabs button.active, .beat-list-item.active { background: #49624f; border-color: #6f9b79; }
 .beat-list-item { display: flex; width: 100%; flex-direction: column; align-items: flex-start; gap: .2rem; margin-top: .5rem; text-align: left; }
-.beat-list-item span, .empty-note { color: #9aa0ac; font-size: .8rem; }
+.beat-list-item span, .beat-list-item small, .empty-note { color: #9aa0ac; font-size: .8rem; }
+.builder-warning { color: #f1c879; font-size: .82rem; line-height: 1.35; }
 .builder-form-column form, fieldset { display: grid; gap: .8rem; }
 label { display: grid; gap: .35rem; color: #bfc5cf; font-size: .82rem; }
 input, textarea, select { width: 100%; border: 1px solid #485267; border-radius: 7px; background: #171b22; color: #eef1f5; padding: .5rem .6rem; font: inherit; }

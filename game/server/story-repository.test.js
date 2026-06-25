@@ -59,7 +59,7 @@ describe("StoryRepository", () => {
     expect(repository.getRuntimeStory().areas["part-i"].beats.intro.heading).toBe("Lost in the woods");
     db.close();
     const reopened = openDatabase(path);
-    expect(reopened.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get().count).toBe(7);
+    expect(reopened.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get().count).toBe(8);
     reopened.close();
   });
 
@@ -161,6 +161,28 @@ describe("StoryRepository", () => {
     expect(beat.choices[0].go_exterior_node).toBe("north-east-corner");
     expect(repository.getRuntimeStory().areas["test-area"].beats["test-beat"].choices[0].go_exterior_node)
       .toBe("north-east-corner");
+    db.close();
+  });
+
+  it("round-trips origin-hex beat matching", () => {
+    const { db, repository } = createRepository();
+    repository.createBeat("test-area", sampleBeat({
+      match: { originHex: "the-flats" },
+    }));
+
+    const beat = repository.getBeat("test-area", "test-beat");
+    expect(beat.match).toEqual({ originHex: "the-flats" });
+    expect(repository.getRuntimeStory().areas["test-area"].beats["test-beat"].match)
+      .toEqual({ originHex: "the-flats" });
+    db.close();
+  });
+
+  it("rejects origin-hex matching on non-hex beats", () => {
+    const { db, repository } = createRepository();
+    expect(() => repository.createBeat("test-area", sampleBeat({
+      trigger: { place: "indoors", room: "small-bay" },
+      match: { originHex: "the-flats" },
+    }))).toThrow(ValidationError);
     db.close();
   });
 });

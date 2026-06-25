@@ -26,11 +26,22 @@ area.
 A beat is eligible when:
 
 1. Its trigger matches the current location or event.
+2. Every authored `match` criterion matches the current context.
 
-If exactly one beat matches, that beat is shown. If multiple beats match the
-same place and state, the result is ambiguous from an authoring point of view.
-Do not rely on beat ordering to choose between them; make the triggers distinct
-instead.
+If multiple beats match the same location, the runtime prefers the eligible beat
+with the most authored matching criteria. A beat with `match.originHex` is more
+specific than a default beat with no `match`, so it wins when the player entered
+from that origin. A default beat remains eligible as fallback when no
+origin-specific beat matches.
+
+If two eligible beats have the same trigger and the same match specificity, the
+first beat by story sort order and ID wins. This tie-breaker is deterministic,
+but it is an authoring warning rather than a narrative design tool. The story
+builder should warn when multiple beats at the selected location use the same
+match criteria.
+
+If no beat has matching criteria and no default beat exists for the location,
+the runtime shows no new beat.
 
 Multiple beats on one hex or room are expected, but they should represent
 distinct story states. Use trigger flags and seen state to represent different
@@ -78,6 +89,34 @@ story beat engine intentionally has no beat-level or choice-level requirements.
 Legacy `require` fields may still exist in old SQLite columns or imported
 snapshots, but the runtime, validator, repository, YAML preview, and builder
 ignore them.
+
+## Optional Match Criteria
+
+`match` contains small, targeted context criteria used after the primary trigger
+matches. It is not the old general-purpose requirements system. It should grow
+one concrete authoring need at a time.
+
+The first supported criterion is `originHex`:
+
+```yaml
+utility-yard-from-flats:
+  trigger: { place: outdoors, hex: utility-yard }
+  match: { originHex: the-flats }
+  text: The riverbank path drops you into the yard near the intake approach.
+```
+
+`originHex` means the neighboring outdoor hex the avatar entered from. The
+runtime reads it from `outdoor.state.previousId`, the same movement hint used to
+choose destination stands. It is valid only on outdoor hex beats.
+
+Selection examples for `utility-yard`:
+
+- A beat with `match: { originHex: the-flats }` wins over the default
+  `utility-yard` beat when the player arrives from `the-flats`.
+- The default `utility-yard` beat wins when the player arrives from an origin
+  with no matching origin-specific beat.
+- If all `utility-yard` beats define nonmatching `originHex` values, no
+  `utility-yard` beat is shown.
 
 ## Future Beat Conditions
 

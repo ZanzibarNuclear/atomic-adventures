@@ -29,6 +29,7 @@ export function normalizeBeat(input = {}) {
       event: nullableText(trigger.event),
       flag: nullableText(trigger.flag),
     },
+    match: normalizeMatch(input.match),
     choices: (input.choices ?? []).map((choice, index) => ({
       id: choice.id || randomUUID(),
       order: Number.isFinite(Number(choice.order)) ? Number(choice.order) : index,
@@ -83,6 +84,10 @@ export function validateBeat(input, world, character = null) {
   if (beat.trigger.exteriorNode && !world.exteriorNodeIds.has(beat.trigger.exteriorNode)) {
     add("trigger.exteriorNode", "Choose an existing exterior node.");
   }
+  if (beat.match.originHex) {
+    if (!beat.trigger.hex) add("match.originHex", "Origin hex matching is only supported for outdoor hex beats.");
+    if (!world.hexIds.has(beat.match.originHex)) add("match.originHex", "Choose an existing origin hex.");
+  }
 
   beat.choices.forEach((choice, index) => {
     const base = `choices.${index}`;
@@ -113,10 +118,12 @@ export function validateBeat(input, world, character = null) {
 }
 
 export function beatToRuntime(beat) {
+  const match = compactObject(beat.match ?? {});
   return compactObject({
     eyebrow: beat.eyebrow ?? undefined,
     heading: beat.heading ?? undefined,
     trigger: compactObject(beat.trigger),
+    match: Object.keys(match).length ? match : undefined,
     text: beat.text,
     revisit: beat.revisit ?? undefined,
     choices: beat.choices.map((choice) => compactObject({
@@ -153,6 +160,12 @@ function normalizeStageView(value) {
     id: nullableText(value.id) ?? undefined,
     tab: nullableText(value.tab) ?? undefined,
   });
+}
+
+function normalizeMatch(value = {}) {
+  return {
+    originHex: nullableText(value.originHex),
+  };
 }
 
 function stringList(value) {

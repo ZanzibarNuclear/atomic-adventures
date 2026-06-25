@@ -11,6 +11,7 @@ function harness(initialStory, {
   moveToExteriorNode = () => {},
   initialPlace = "outdoors",
   initialExteriorNode = null,
+  initialOriginHex = null,
   openStageView = () => {},
 } = {}) {
   const story = ref(initialStory);
@@ -37,7 +38,7 @@ function harness(initialStory, {
     } : {}),
   });
   const outdoor = {
-    state: reactive({ currentId: "origin" }),
+    state: reactive({ currentId: "origin", previousId: initialOriginHex }),
     canReachHex: () => true,
     moveTo,
     atBuildingEntrance: false,
@@ -319,6 +320,103 @@ describe("useStory reactive content", () => {
     setup.api.refreshNarrative("custom-event");
 
     expect(setup.api.pendingBeat.value.id).toBe("explicit-event");
+  });
+
+  it("prefers an origin-specific outdoor beat over the default hex beat", () => {
+    const setup = harness({
+      beats: {
+        "utility-yard-default": {
+          heading: "Default yard",
+          text: "The utility station is just ahead.",
+          trigger: { place: "outdoors", hex: "origin" },
+          choices: [],
+        },
+        "utility-yard-from-flats": {
+          heading: "Riverbank approach",
+          text: "The riverbank path brings you in by the intake.",
+          trigger: { place: "outdoors", hex: "origin" },
+          match: { originHex: "the-flats" },
+          choices: [],
+        },
+      },
+    }, {
+      initialOriginHex: "the-flats",
+    });
+
+    setup.api.refreshNarrative();
+
+    expect(setup.api.pendingBeat.value.id).toBe("utility-yard-from-flats");
+  });
+
+  it("falls back to the default outdoor beat when origin-specific beats do not match", () => {
+    const setup = harness({
+      beats: {
+        "utility-yard-from-flats": {
+          text: "The riverbank path brings you in by the intake.",
+          trigger: { place: "outdoors", hex: "origin" },
+          match: { originHex: "the-flats" },
+          choices: [],
+        },
+        "utility-yard-default": {
+          text: "The utility station is just ahead.",
+          trigger: { place: "outdoors", hex: "origin" },
+          choices: [],
+        },
+      },
+    }, {
+      initialOriginHex: "west-slope",
+    });
+
+    setup.api.refreshNarrative();
+
+    expect(setup.api.pendingBeat.value.id).toBe("utility-yard-default");
+  });
+
+  it("shows no outdoor beat when only nonmatching origin-specific beats exist", () => {
+    const setup = harness({
+      beats: {
+        "utility-yard-from-flats": {
+          text: "The riverbank path brings you in by the intake.",
+          trigger: { place: "outdoors", hex: "origin" },
+          match: { originHex: "the-flats" },
+          choices: [],
+        },
+      },
+    }, {
+      initialOriginHex: "west-slope",
+    });
+
+    setup.api.refreshNarrative();
+
+    expect(setup.api.pendingBeat.value).toBeNull();
+  });
+
+  it("uses revisit prose for the selected origin-specific beat", () => {
+    const setup = harness({
+      beats: {
+        "utility-yard-default": {
+          text: "The utility station is just ahead.",
+          trigger: { place: "outdoors", hex: "origin" },
+          choices: [],
+        },
+        "utility-yard-from-flats": {
+          text: "The riverbank path brings you in by the intake.",
+          revisit: "You are back by the intake approach.",
+          trigger: { place: "outdoors", hex: "origin" },
+          match: { originHex: "the-flats" },
+          choices: [],
+        },
+      },
+    }, {
+      initialOriginHex: "the-flats",
+    });
+
+    setup.gameState.storySeen.add("utility-yard-from-flats");
+    setup.api.refreshNarrative();
+
+    expect(setup.api.pendingBeat.value.id).toBe("utility-yard-from-flats");
+    expect(setup.api.pendingBeat.value.text).toBe("You are back by the intake approach.");
+    expect(setup.api.pendingBeat.value.revisit).toBe(true);
   });
 
   it("moves to an exterior node from an indoor story choice", () => {

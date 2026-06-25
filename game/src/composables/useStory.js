@@ -34,6 +34,7 @@ export function useStory(storyData, ctx) {
     return {
       place: place.value,
       hex: outdoor.state.currentId,
+      originHex: outdoor.state.previousId,
       room: indoor.indoor.currentRoom,
       exteriorNode: indoor.indoor.exteriorNode,
     };
@@ -61,6 +62,16 @@ export function useStory(storyData, ctx) {
     return true;
   }
 
+  function matchScore(beat, loc) {
+    const match = beat.match ?? {};
+    let score = 0;
+    if (match.originHex) {
+      if (loc.place !== "outdoors" || match.originHex !== loc.originHex) return -1;
+      score += 1;
+    }
+    return score;
+  }
+
   function decorateChoices(choices = []) {
     return choices;
   }
@@ -82,10 +93,16 @@ export function useStory(storyData, ctx) {
   }
 
   function findBeat(loc, event = null) {
+    let selected = null;
+    let selectedScore = -1;
     for (const [id, beat] of Object.entries(beats.value)) {
       if (!triggerMatches(beat, loc, event)) continue;
-      return activeBeat(id, beat);
+      const score = matchScore(beat, loc);
+      if (score < 0 || score <= selectedScore) continue;
+      selected = { id, beat };
+      selectedScore = score;
     }
+    if (selected) return activeBeat(selected.id, selected.beat);
     if (event) return findBeat(loc, null);
     return null;
   }
@@ -124,6 +141,7 @@ export function useStory(storyData, ctx) {
     const trigger = beat.trigger ?? {};
     if (trigger.event) return true;
     if (trigger.place && trigger.place !== loc.place) return false;
+    if (matchScore(beat, loc) < 0) return false;
     if (trigger.hex) return loc.place === "outdoors" && trigger.hex === loc.hex;
     if (trigger.room) return loc.place === "indoors" && trigger.room === loc.room;
     if (trigger.exteriorNode) {
@@ -232,6 +250,7 @@ export function useStory(storyData, ctx) {
     () => [
       place.value,
       outdoor.state.currentId,
+      outdoor.state.previousId,
       indoor.indoor.currentRoom,
       indoor.indoor.exteriorNode,
       [...gameState.flags].join("\0"),

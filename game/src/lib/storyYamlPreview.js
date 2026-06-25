@@ -2,10 +2,12 @@ import yaml from "js-yaml";
 
 export function storyBeatYaml(beat) {
   if (!beat?.id) return "";
+  const match = compact(beat.match);
   const output = {
     eyebrow: optional(beat.eyebrow),
     heading: optional(beat.heading),
     trigger: compact(beat.trigger),
+    match: Object.keys(match).length ? match : undefined,
     text: beat.text ?? "",
     revisit: optional(beat.revisit),
     choices: (beat.choices ?? []).map((choice) => compact({

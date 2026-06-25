@@ -50,11 +50,11 @@ export class StoryRepository {
     const rows = this.db.prepare(`
       SELECT area_id, id, sort_order, trigger_place, trigger_hex, trigger_room,
         trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
-        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json,
+        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json, match_json,
         version, created_at, updated_at
       FROM story_beats
       WHERE area_id = ?
-      ORDER BY id
+      ORDER BY sort_order, id
     `).all(areaId);
     return rows.map((row) => {
       const beat = this.#rowToBeat(row, full);
@@ -67,7 +67,7 @@ export class StoryRepository {
     const row = this.db.prepare(`
       SELECT area_id, id, sort_order, trigger_place, trigger_hex, trigger_room,
         trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
-        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json,
+        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json, match_json,
         version, created_at, updated_at
       FROM story_beats
       WHERE area_id = ? AND id = ?
@@ -212,6 +212,7 @@ export class StoryRepository {
       for (const original of this.listBeats(area.id, { full: true })) {
         const beat = structuredClone(original);
         if (beat.trigger.hex) beat.trigger.hex = rename(beat.trigger.hex);
+        if (beat.match?.originHex) beat.match.originHex = rename(beat.match.originHex);
         if (beat.trigger.room) beat.trigger.room = resolveRename(roomRenameMap, beat.trigger.room);
         if (beat.trigger.exteriorNode) {
           beat.trigger.exteriorNode = resolveRename(exteriorRenameMap, beat.trigger.exteriorNode);
@@ -270,6 +271,14 @@ export class StoryRepository {
             areaId: area.id,
             beatId: beat.id,
             path: "trigger.hex",
+          });
+        }
+        if (beat.match?.originHex === hexId) {
+          references.push({
+            kind: "story",
+            areaId: area.id,
+            beatId: beat.id,
+            path: "match.originHex",
           });
         }
         beat.choices.forEach((choice, index) => {
@@ -349,6 +358,10 @@ export class StoryRepository {
         let changed = false;
         if (beat.trigger.hex && renameMap.has(beat.trigger.hex)) {
           beat.trigger.hex = rename(beat.trigger.hex);
+          changed = true;
+        }
+        if (beat.match?.originHex && renameMap.has(beat.match.originHex)) {
+          beat.match.originHex = rename(beat.match.originHex);
           changed = true;
         }
         for (const choice of beat.choices) {
@@ -431,9 +444,9 @@ export class StoryRepository {
       INSERT INTO story_beats(
         area_id, id, sort_order, trigger_place, trigger_hex, trigger_room,
         trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
-        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json,
+        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json, match_json,
         version, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       areaId, beat.id, 0, beat.trigger.place, beat.trigger.hex, beat.trigger.room,
       beat.trigger.exteriorNode, beat.trigger.event, beat.trigger.flag,
@@ -442,7 +455,9 @@ export class StoryRepository {
       JSON.stringify([]),
       JSON.stringify([]),
       JSON.stringify([]),
-      JSON.stringify({}), version, createdAt, now,
+      JSON.stringify({}),
+      JSON.stringify(compactObject(beat.match ?? {})),
+      version, createdAt, now,
     );
     this.#insertChoices(areaId, beat.id, beat.choices);
   }
@@ -489,6 +504,7 @@ export class StoryRepository {
         event: row.trigger_event,
         flag: row.trigger_flag,
       },
+      match: parseMatchJson(row.match_json),
       version: row.version,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -559,6 +575,24 @@ function renameMapFor(renames, kind) {
 function parseNullableJson(value) {
   const parsed = JSON.parse(value || "{}");
   return parsed && Object.keys(parsed).length ? parsed : null;
+}
+
+function parseMatchJson(value) {
+  const parsed = JSON.parse(value || "{}");
+  return {
+    originHex: nullableText(parsed.originHex),
+  };
+}
+
+function compactObject(value) {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, item]) => item !== undefined && item !== null && item !== ""),
+  );
+}
+
+function nullableText(value) {
+  const text = value == null ? "" : String(value).trim();
+  return text || null;
 }
 
 export class ValidationError extends Error {
