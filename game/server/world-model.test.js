@@ -42,6 +42,37 @@ describe("world model", () => {
     expect(result.errors["features.0.cascades.0.to"]).toBeDefined();
   });
 
+  it("allows stand entryFrom references to hexes declared later in the world", () => {
+    const world = {
+      orientation: "pointy",
+      size: 44,
+      start: "utility-yard",
+      journey: ["utility-yard", "south-pines"],
+      hexes: [
+        {
+          id: "utility-yard",
+          q: 0,
+          r: 0,
+          stands: [
+            {
+              id: "man-door",
+              at: { dx: 0, dy: 0 },
+              entryFrom: ["south-pines"],
+            },
+          ],
+        },
+        { id: "south-pines", q: 0, r: 1 },
+      ],
+      routes: [],
+      features: [],
+    };
+
+    const result = validateWorld(world);
+
+    expect(result.valid).toBe(true);
+    expect(result.warnings).toEqual([]);
+  });
+
   it("keeps road-like travel geometry in routes instead of features", () => {
     const world = loadWorld();
     world.features.push({

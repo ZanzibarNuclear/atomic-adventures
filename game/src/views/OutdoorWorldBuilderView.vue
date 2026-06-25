@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import BuilderStatusBanner from "../components/builder/BuilderStatusBanner.vue";
 import UnsavedChangesDialog from "../components/builder/UnsavedChangesDialog.vue";
@@ -194,6 +194,15 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect();
   stopPan();
 });
+
+watch(
+  () => selectedKey.value,
+  async () => {
+    if (zoomAction.value !== "focus") return;
+    await nextTick();
+    focusSelection();
+  },
+);
 
 function setMovementAuditRenames(next) {
   draftMeta.value.movementAuditRenames = next;

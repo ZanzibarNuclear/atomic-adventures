@@ -74,6 +74,86 @@ Edits remain local to the browser until **Save world**. Revert restores the last
 loaded version. Leaving with unsaved changes offers Save, Discard, or Keep
 Editing.
 
+## Outdoor Builder Camera
+
+The outdoor World Builder camera is an authoring tool camera. It is separate
+from the player-facing gameplay/full-map viewport described in
+[hex-viewport.md](hex-viewport.md). Camera state is not saved to the world
+document and never affects movement, barriers, story triggers, discoveries, or
+runtime save state.
+
+The camera emits the SVG `viewBox` consumed by `HexMap.vue`. A valid builder
+camera frame always has finite `x`, `y`, `width`, and `height` values; `NaN`
+viewBox values are a regression because they break map centering, wheel zoom,
+focus selection, and pan.
+
+### Default Fit
+
+When `/builder/world` loads, when **Fit map** is selected, and when the map
+container is resized, the camera fits the authored outdoor hex footprint into
+the available canvas:
+
+- The default fit uses the outdoor hex bounds from `boundsOf(hexes, size)`.
+- The fitted frame leaves a modest visual margin around the authored map. The
+  target added margin is `5%` of the hex-bounds frame before aspect expansion,
+  which reads as roughly a `10%` side margin with the current authored map
+  footprint.
+- The frame expands to the canvas aspect ratio so the SVG fills the available
+  authoring area without distortion.
+- Empty or not-yet-loaded maps fall back to the stable default frame.
+- Route and feature geometry do not currently expand the fitted frame; authors
+  should keep authored line geometry near the outdoor hex footprint unless this
+  contract is intentionally revised.
+
+### Zoom
+
+The canvas supports pointer-centered wheel zoom:
+
+- Wheel up zooms in around the pointer.
+- Wheel down zooms out around the pointer.
+- Zoom preserves the current aspect ratio.
+- Zoom is clamped between `12%` and `300%` of the current fitted frame width.
+- Zooming must never mutate authored geometry or selected objects.
+
+### Pan
+
+The canvas supports manual panning for geometry work:
+
+- Shift-drag with the primary button pans.
+- Middle-drag pans.
+- Plain primary-button drag remains available for map selection and edit-handle
+  interactions.
+- Panning is ignored when the pointer starts on an edit handle.
+- Panning updates only camera position; it does not change selection, geometry,
+  or document dirty state.
+
+### Focus Selection
+
+The **Focus selection** zoom action recenters and zooms to the selected object:
+
+- Placement selections (`hex`, `landmark`, `stand`) focus the selected hex
+  center.
+- Line selections (`route`, line `feature`) focus the average of their edit
+  handles.
+- Passage selections focus their passage/booth handles when available.
+- Focus uses `42%` of the current fitted frame width so the selected object has
+  local context.
+- While **Focus selection** is the active zoom action, changing selection from
+  the object browser or map recenters to the new selection.
+
+### Verification Anchors
+
+Camera behavior is covered by focused tests in
+`game/src/composables/useWorldBuilderCamera.test.js`. Browser smoke checks for
+this contract should verify:
+
+- initial World Builder SVG `viewBox` is finite;
+- **Fit map** restores the fitted frame;
+- wheel input changes the `viewBox`;
+- **Focus selection** changes the `viewBox`;
+- selecting another object while focus mode is active recenters the camera;
+- Shift-drag or middle-drag changes the `viewBox` position.
+
 ## IDs and References
 
 IDs use kebab-case and are stable references. Hex IDs may be renamed only

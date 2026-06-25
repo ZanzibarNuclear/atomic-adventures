@@ -1,7 +1,8 @@
-import { computed, ref } from "vue";
+import { computed, ref, unref } from "vue";
 import { boundsOf } from "../lib/maps/composables/useHexGeometry.js";
 
 const DEFAULT_FRAME = { x: -250, y: -220, width: 500, height: 440 };
+const FIT_MARGIN_RATIO = 0.05;
 
 export function expandToAspect(frame, aspect) {
   const current = frame.width / frame.height;
@@ -27,13 +28,22 @@ export function useWorldBuilderCamera() {
   const editHandleScale = computed(() => camera.value.width / Math.max(fitFrame.value.width, 1));
 
   function fitMap({ hexes = [], routes = [], features = [], size = 44 } = {}, updateCamera = true) {
-    const bounds = boundsOf(hexes, routes, features, size);
-    const padding = Math.max(size * 2, 80);
+    const mapSize = unref(size);
+    const mapHexes = unref(hexes);
+    if (!mapHexes.length) {
+      fitFrame.value = { ...DEFAULT_FRAME };
+      if (updateCamera) camera.value = { ...DEFAULT_FRAME };
+      return;
+    }
+    const bounds = boundsOf(mapHexes, mapSize);
+    const scale = 1 / (1 - FIT_MARGIN_RATIO * 2);
+    const width = Math.max(bounds.width * scale, mapSize * 2.5);
+    const height = Math.max(bounds.height * scale, mapSize * 2.5);
     const rawFrame = {
-      x: bounds.minX - padding,
-      y: bounds.minY - padding,
-      width: Math.max(bounds.maxX - bounds.minX + padding * 2, 240),
-      height: Math.max(bounds.maxY - bounds.minY + padding * 2, 200),
+      x: bounds.x - (width - bounds.width) / 2,
+      y: bounds.y - (height - bounds.height) / 2,
+      width,
+      height,
     };
     const rect = mapHost.value?.getBoundingClientRect();
     const aspect = rect?.width && rect?.height ? rect.width / rect.height : 1.3;

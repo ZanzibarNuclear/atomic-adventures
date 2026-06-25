@@ -175,6 +175,8 @@ onMounted(() => {
   border: 1px solid #3b4655;
   border-radius: 11px;
   background: #1d241f;
+  --map-height: 100%;
+  --map-height-expanded: 100%;
 }
 
 .world-canvas :deep(.hexmap),

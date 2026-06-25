@@ -40,6 +40,10 @@ export function validateWorld(input) {
 
   const hexIds = new Set();
   const coordinates = new Set();
+  for (const hex of world.hexes) {
+    const id = String(hex.id ?? "").trim();
+    if (ID_PATTERN.test(id)) hexIds.add(id);
+  }
   world.hexes.forEach((hex, index) => {
     const base = `hexes.${index}`;
     hex.id = String(hex.id ?? "").trim();
@@ -47,8 +51,9 @@ export function validateWorld(input) {
     hex.r = finiteNumber(hex.r, NaN);
     hex.terrain = String(hex.terrain ?? "forest").trim() || "forest";
     if (!ID_PATTERN.test(hex.id)) add(`${base}.id`, "Use a unique kebab-case hex ID.");
-    if (hexIds.has(hex.id)) add(`${base}.id`, "Hex IDs must be unique.");
-    hexIds.add(hex.id);
+    if (world.hexes.findIndex((item) => String(item.id ?? "").trim() === hex.id) !== index) {
+      add(`${base}.id`, "Hex IDs must be unique.");
+    }
     if (!Number.isInteger(hex.q) || !Number.isInteger(hex.r)) {
       add(`${base}.coordinates`, "Axial q and r coordinates must be integers.");
     } else {
