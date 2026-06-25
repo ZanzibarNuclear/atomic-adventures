@@ -12,7 +12,9 @@ import { distToBarrierKind } from '../composables/useBarrierStand.js'
  * Geometry-only tests (buildTravelWorld) leave the gate open and miss these paths.
  */
 describe('compound gate gameplay', () => {
-  const FENCE_X = -30
+  const FENCE_X = 84.32
+  const NORTH_FENCE_Y = -128
+  const GATE_APPROACH = { x: 33, y: -142 }
 
   function walkToRoadFork(outdoor) {
     for (const h of ['east-pines', 'center-pines', 'north-bend', 'road-fork']) {
@@ -42,8 +44,8 @@ describe('compound gate gameplay', () => {
     gameplayMoveTo(outdoor, 'gate-woods')
 
     expect(outdoor.state.currentId).toBe('gate-woods')
-    expect(outdoor.state.stand).toEqual({ x: -81, y: -76 })
-    expect(outdoor.state.stand.y).toBeLessThan(-62)
+    expect(outdoor.state.stand).toEqual(GATE_APPROACH)
+    expect(outdoor.state.stand.y).toBeLessThan(NORTH_FENCE_Y)
     expect(outdoor.state.atBarrier).not.toBe('fence')
     expect(outdoor.state.lastBlocked).toBeNull()
   })
@@ -57,7 +59,7 @@ describe('compound gate gameplay', () => {
 
     gameplayMoveTo(outdoor, 'gate-woods')
     expect(outdoor.state.currentId).toBe('gate-woods')
-    expect(outdoor.state.stand).toEqual({ x: -81, y: -76 })
+    expect(outdoor.state.stand).toEqual(GATE_APPROACH)
   })
 
   it('offers gate opening before gate passage or south moves', () => {
@@ -98,7 +100,7 @@ describe('compound gate gameplay', () => {
       flags: [GATE_FLAG_PASSED],
     })
     outdoor.state.currentId = 'gate-woods'
-    outdoor.state.stand = { x: -81, y: -76 }
+    outdoor.state.stand = { ...GATE_APPROACH }
     outdoor.state.passageStates['compound-gate'] = true
     outdoor.crossPassage('compound-gate')
 

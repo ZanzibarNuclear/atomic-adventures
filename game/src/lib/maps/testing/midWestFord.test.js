@@ -12,6 +12,8 @@ import { gameplayMoveTo } from './gameplayTravel.js'
 import { isWestOfRiverAt, isEastOfRiverAt } from './riverSide.js'
 
 describe('the-flats ford and bank column return', () => {
+  const NORTH_FENCE_Y = -128
+
   const world = buildTravelWorld(mapData)
   world.revealOpening('the-flats-ford')
   const ford = world.ctx.openings.find((o) => o.id === 'the-flats-ford')
@@ -110,7 +112,7 @@ describe('the-flats ford and bank column return', () => {
     const closedBarriers = { barriers: outdoor.travelBarrierCtx.barriers, openings: [] }
     expect(outdoor.state.currentId).toBe('gate-woods')
     expect(outdoor.state.atBarrier).toBe('fence')
-    expect(outdoor.state.stand.y).toBeGreaterThan(-61)
+    expect(outdoor.state.stand.y).toBeGreaterThan(NORTH_FENCE_Y)
     expect(firstBlockedOnPath([beforeGate, outdoor.state.stand], closedBarriers)).toBeNull()
   })
 })

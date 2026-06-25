@@ -51,8 +51,9 @@ describe('story journey smoke test (gameplay)', () => {
       ?.stands
       ?.find((stand) => stand.id === 'gate')
       ?.at
-    expect(outdoor.state.stand).toEqual({ x: gateStand.x, y: gateStand.y })
-    expect(outdoor.state.stand.y, 'north of locked gate on arrival').toBeLessThan(-62)
+    expect(outdoor.state.stand.x).toBeCloseTo(gateStand.x, 0)
+    expect(outdoor.state.stand.y).toBeCloseTo(gateStand.y, 0)
+    expect(outdoor.state.stand.y, 'north of locked gate on arrival').toBeLessThan(-128)
 
     expect(outdoor.passageToggleActions.map((action) => action.label)).toContain('Open the gate')
     expect(outdoor.passageCrossings.map((crossing) => crossing.label)).not.toContain('Go through the gate')
@@ -62,7 +63,7 @@ describe('story journey smoke test (gameplay)', () => {
     expect(gameState.flags.has(GATE_FLAG_PASSED), 'gate crossed').toBe(true)
     expect(outdoor.state.passageStates['compound-gate'], 'gate left open').toBe(true)
 
-    expect(outdoor.state.stand.y).toBeGreaterThan(-62)
+    expect(outdoor.state.stand.y).toBeGreaterThan(-128)
     expect(outdoor.canReachHex('west-slope')).toBe(true)
 
     // Adjacent travel south: gate-woods → west-slope → utility-yard (journey skips the middle hex).

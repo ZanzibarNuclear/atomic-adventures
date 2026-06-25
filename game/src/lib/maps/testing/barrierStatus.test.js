@@ -38,7 +38,7 @@ describe('outdoor barrier status lines', () => {
   it('road-fork → upper-gorge still reports river bank at the drive end', async () => {
     const outdoor = useOutdoorWorld(mapData)
     outdoor.state.currentId = 'road-fork'
-    outdoor.state.stand = { x: -76, y: -132 }
+    outdoor.state.stand = outdoor.defaultStandForHex('road-fork')
     outdoor.moveTo('upper-gorge')
     await new Promise((r) => setTimeout(r, 700))
 

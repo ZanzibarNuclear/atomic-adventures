@@ -6,18 +6,18 @@ const SQRT3 = Math.sqrt(3)
 // Pointy-top neighbor directions in axial (q, r) space.
 export const NEIGHBOR_DIRS = [
   { q: 1, r: 0 }, // E
-  { q: 1, r: -1 }, // NE
-  { q: 0, r: -1 }, // NW
+  { q: 0, r: 1 }, // NE
+  { q: -1, r: 1 }, // NW
   { q: -1, r: 0 }, // W
-  { q: -1, r: 1 }, // SW
-  { q: 0, r: 1 }, // SE
+  { q: 0, r: -1 }, // SW
+  { q: 1, r: -1 }, // SE
 ]
 
 // Center pixel of a hex, given its size (corner-to-center radius).
 export function axialToPixel(q, r, size) {
   return {
     x: size * SQRT3 * (q + r / 2),
-    y: size * (3 / 2) * r,
+    y: size * (-3 / 2) * r,
   }
 }
 
@@ -42,8 +42,8 @@ export function hexCornerPoints(cx, cy, size) {
 // This is what lets a path's geometry decide which hex "lights up",
 // independent of how the path is aligned to the grid.
 export function pixelToHex(x, y, size) {
-  const qf = ((Math.sqrt(3) / 3) * x - (1 / 3) * y) / size
-  const rf = ((2 / 3) * y) / size
+  const qf = ((Math.sqrt(3) / 3) * x + (1 / 3) * y) / size
+  const rf = (-(2 / 3) * y) / size
   return cubeRound(qf, rf)
 }
 
@@ -57,6 +57,8 @@ function cubeRound(qf, rf) {
   if (dx > dy && dx > dz) rx = -ry - rz
   else if (dy > dz) ry = -rx - rz
   else rz = -rx - ry
+  if (Object.is(rx, -0)) rx = 0
+  if (Object.is(rz, -0)) rz = 0
   return { q: rx, r: rz }
 }
 

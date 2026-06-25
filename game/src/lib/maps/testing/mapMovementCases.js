@@ -92,7 +92,7 @@ export const MAP_MOVEMENT_CASES = [
   {
     id: 'origin:start',
     hexId: 'origin',
-    auditStand: { x: 152, y: 0 },
+    auditStand: { x: 266.7358243656071, y: -66 },
     expectedMoves: ['east-pines'],
     forbiddenMoves: [],
     setup: (outdoor) => startAt(outdoor, 'origin'),
@@ -100,7 +100,7 @@ export const MAP_MOVEMENT_CASES = [
   {
     id: 'east-pines:from-origin',
     hexId: 'east-pines',
-    auditStand: { x: 76, y: 0 },
+    auditStand: { x: 191, y: -66 },
     expectedMoves: ['center-pines', 'far-pines', 'lower-stand', 'origin'],
     forbiddenMoves: [],
     setup(outdoor) {
@@ -111,7 +111,7 @@ export const MAP_MOVEMENT_CASES = [
   {
     id: 'far-pines:from-east',
     hexId: 'far-pines',
-    auditStand: { x: 38, y: -66 },
+    auditStand: { x: 152, y: -132 },
     expectedMoves: ['center-pines', 'east-pines', 'north-bend'],
     forbiddenMoves: [],
     setup(outdoor) {
@@ -122,7 +122,7 @@ export const MAP_MOVEMENT_CASES = [
   {
     id: 'center-pines:from-east',
     hexId: 'center-pines',
-    auditStand: { x: 0, y: 0 },
+    auditStand: { x: 114, y: -66 },
     expectedMoves: [
       'east-pines',
       'far-pines',
@@ -140,7 +140,7 @@ export const MAP_MOVEMENT_CASES = [
   {
     id: 'center-pines:inside-fence',
     hexId: 'center-pines',
-    auditStand: { x: -35, y: -14 },
+    auditStand: { x: 79, y: -80 },
     expectedMoves: ['north-bend', 'south-pines', 'west-slope'],
     forbiddenMoves: ['east-pines', 'far-pines', 'lower-stand'],
     region: { fence: 'inside' },
@@ -152,7 +152,7 @@ export const MAP_MOVEMENT_CASES = [
   {
     id: 'lower-stand:from-east',
     hexId: 'lower-stand',
-    auditStand: { x: 38, y: 66 },
+    auditStand: { x: 152, y: 0 },
     expectedMoves: ['center-pines', 'east-pines', 'south-pines'],
     forbiddenMoves: [],
     setup(outdoor) {
@@ -163,7 +163,7 @@ export const MAP_MOVEMENT_CASES = [
   {
     id: 'north-bend:east-of-fence',
     hexId: 'north-bend',
-    auditStand: { x: -10, y: -70 },
+    auditStand: { x: 93, y: -138 },
     expectedMoves: ['center-pines', 'far-pines', 'gate-woods', 'road-fork'],
     forbiddenMoves: ['west-slope'],
     region: { fence: 'north' },
@@ -175,7 +175,7 @@ export const MAP_MOVEMENT_CASES = [
   {
     id: 'north-bend:inside-fence',
     hexId: 'north-bend',
-    auditStand: { x: -44, y: -46 },
+    auditStand: { x: 70, y: -112 },
     expectedMoves: ['center-pines', 'gate-woods', 'west-slope'],
     forbiddenMoves: ['far-pines', 'road-fork'],
     region: { fence: 'inside' },
@@ -187,7 +187,7 @@ export const MAP_MOVEMENT_CASES = [
   {
     id: 'road-fork:north',
     hexId: 'road-fork',
-    auditStand: { x: -83, y: -122 },
+    auditStand: { x: 32, y: -188 },
     expectedMoves: ['gate-woods', 'north-bend', 'upper-gorge'],
     forbiddenMoves: [],
     region: { fence: 'north' },
@@ -205,7 +205,7 @@ export const MAP_MOVEMENT_CASES = [
   {
     id: 'gate-woods:north-of-fence',
     hexId: 'gate-woods',
-    auditStand: { x: -81, y: -76 },
+    auditStand: { x: 33, y: -142 },
     expectedMoves: ['north-bend', 'lower-gorge', 'road-fork', 'upper-gorge'],
     forbiddenMoves: ['the-flats', 'west-slope'],
     region: { fence: 'north' },
@@ -214,7 +214,7 @@ export const MAP_MOVEMENT_CASES = [
   {
     id: 'gate-woods:south-of-fence',
     hexId: 'gate-woods',
-    auditStand: { x: -81, y: -50 },
+    auditStand: { x: 33, y: -116 },
     expectedMoves: ['the-flats', 'north-bend', 'lower-gorge', 'west-slope'],
     forbiddenMoves: ['road-fork', 'upper-gorge'],
     expectedPassages: ['compound-gate'],
@@ -224,7 +224,7 @@ export const MAP_MOVEMENT_CASES = [
   {
     id: 'upper-gorge:east-bank',
     hexId: 'upper-gorge',
-    auditStand: { x: -131, y: -129 },
+    auditStand: { x: -18, y: -191 },
     expectedMoves: ['gate-woods', 'lower-gorge', 'road-fork'],
     forbiddenMoves: [],
     expectedPassages: ['upper-gorge-bridge'],
@@ -234,7 +234,7 @@ export const MAP_MOVEMENT_CASES = [
   {
     id: 'upper-gorge:west-bank',
     hexId: 'upper-gorge',
-    auditStand: { x: -147, y: -150 },
+    auditStand: { x: -32, y: -216 },
     expectedMoves: ['lower-gorge'],
     forbiddenMoves: ['gate-woods', 'road-fork'],
     expectedPassages: ['upper-gorge-bridge'],
@@ -244,7 +244,7 @@ export const MAP_MOVEMENT_CASES = [
   {
     id: 'lower-gorge:east-bank',
     hexId: 'lower-gorge',
-    auditStand: { x: -158, y: -77 },
+    auditStand: { x: -43, y: -143 },
     expectedMoves: ['gate-woods', 'upper-gorge'],
     forbiddenMoves: ['the-flats'],
     region: { river: 'east' },
@@ -256,7 +256,7 @@ export const MAP_MOVEMENT_CASES = [
   {
     id: 'lower-gorge:east-bank-inside-fence',
     hexId: 'lower-gorge',
-    auditStand: { x: -158, y: -55 },
+    auditStand: { x: -43, y: -121 },
     expectedMoves: ['gate-woods', 'the-flats'],
     forbiddenMoves: ['upper-gorge'],
     region: { river: 'east', fence: 'inside' },
@@ -268,7 +268,7 @@ export const MAP_MOVEMENT_CASES = [
   {
     id: 'lower-gorge:west-bank',
     hexId: 'lower-gorge',
-    auditStand: { x: -202, y: -66 },
+    auditStand: { x: -87, y: -132 },
     expectedMoves: ['the-flats', 'upper-gorge'],
     forbiddenMoves: ['gate-woods'],
     region: { river: 'west' },
@@ -277,7 +277,7 @@ export const MAP_MOVEMENT_CASES = [
   {
     id: 'the-flats:east-bank',
     hexId: 'the-flats',
-    auditStand: { x: -138, y: -16 },
+    auditStand: { x: -24, y: -82 },
     expectedMoves: ['gate-woods', 'lower-gorge', 'utility-yard', 'west-slope'],
     forbiddenMoves: [],
     expectedSearch: ['the-flats-ford'],
@@ -290,7 +290,7 @@ export const MAP_MOVEMENT_CASES = [
   {
     id: 'the-flats:west-bank',
     hexId: 'the-flats',
-    auditStand: { x: -162, y: 16 },
+    auditStand: { x: -47, y: -50 },
     expectedMoves: ['lower-gorge', 'utility-yard'],
     forbiddenMoves: ['gate-woods', 'west-slope'],
     expectedSearch: ['the-flats-ford'],
@@ -300,7 +300,7 @@ export const MAP_MOVEMENT_CASES = [
   {
     id: 'west-slope:inside-fence',
     hexId: 'west-slope',
-    auditStand: { x: -81, y: -22 },
+    auditStand: { x: 33, y: -88 },
     expectedMoves: [
       'center-pines',
       'gate-woods',
@@ -316,7 +316,7 @@ export const MAP_MOVEMENT_CASES = [
   {
     id: 'utility-yard:east-bank',
     hexId: 'utility-yard',
-    auditStand: { x: -109, y: 50 },
+    auditStand: { x: 5, y: -16 },
     expectedMoves: ['the-flats', 'south-pines', 'west-slope'],
     forbiddenMoves: [],
     region: { river: 'east' },
@@ -325,7 +325,7 @@ export const MAP_MOVEMENT_CASES = [
   {
     id: 'utility-yard:west-bank',
     hexId: 'utility-yard',
-    auditStand: { x: -136, y: 66 },
+    auditStand: { x: -22, y: 0 },
     expectedMoves: ['the-flats'],
     forbiddenMoves: ['south-pines', 'west-slope'],
     region: { river: 'west' },
@@ -334,7 +334,7 @@ export const MAP_MOVEMENT_CASES = [
   {
     id: 'south-pines:east-of-fence',
     hexId: 'south-pines',
-    auditStand: { x: -16, y: 55 },
+    auditStand: { x: 98, y: -11 },
     expectedMoves: ['center-pines', 'lower-stand'],
     forbiddenMoves: ['utility-yard', 'west-slope'],
     expectedSearch: ['south-pines-hole'],
@@ -344,7 +344,7 @@ export const MAP_MOVEMENT_CASES = [
   {
     id: 'south-pines:west-of-fence',
     hexId: 'south-pines',
-    auditStand: { x: -38, y: 66 },
+    auditStand: { x: 76, y: 0 },
     expectedMoves: ['utility-yard', 'west-slope'],
     forbiddenMoves: ['center-pines', 'lower-stand'],
     expectedSearch: ['south-pines-hole'],
@@ -373,9 +373,9 @@ export function riverSideAt(stand, barriers) {
 }
 
 export function fenceSideAt(stand) {
-  if (stand.y < -62) return 'north'
-  if (stand.y > -61 && stand.x < -30) return 'inside'
-  if (stand.x > -30) return 'east'
+  if (stand.y < -128) return 'north'
+  if (stand.y > -127 && stand.x < 84.32) return 'inside'
+  if (stand.x > 84.32) return 'east'
   return 'on'
 }
 

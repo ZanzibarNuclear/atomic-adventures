@@ -62,13 +62,13 @@ describe('barrierHintAtStand', () => {
   const barriers = world.ctx.barriers
 
   it('flags upper-gorge drive end as river bank', () => {
-    const pos = { x: -133, y: -130 }
+    const pos = world.resolveStand(world.hexById['upper-gorge'])
     expect(isNearBarrierKind(pos, 'river', barriers)).toBe(true)
     expect(barrierHintAtStand(pos, barriers)).toBe('river')
   })
 
   it('does not flag south-pines or lower-stand as river bank', () => {
-    const south = { x: -38, y: 66 }
+    const south = world.resolveStand(world.hexById['south-pines'])
     const lower = world.resolveStand(world.hexById['lower-stand'])
     expect(isNearBarrierKind(south, 'river', barriers)).toBe(false)
     expect(isNearBarrierKind(lower, 'river', barriers)).toBe(false)
@@ -77,18 +77,18 @@ describe('barrierHintAtStand', () => {
   })
 
   it('prefers fence when closer than river at south-pines', () => {
-    const south = { x: -38, y: 66 }
+    const south = world.resolveStand(world.hexById['south-pines'])
     expect(barrierHintAtStand(south, barriers)).toBe('fence')
   })
 
   it('does not flag gate approach north of the compound west fence run', () => {
-    const approach = { x: -81, y: -76 }
+    const approach = world.resolveStand(world.hexById['gate-woods'])
     expect(barrierHintAtStand(approach, barriers)).toBeNull()
   })
 
   it('uses a tight river proximity threshold', () => {
     expect(RIVER_BANK_MAX_DIST).toBeLessThan(30)
-    const inland = { x: -38, y: 66 }
+    const inland = world.resolveStand(world.hexById['south-pines'])
     expect(isNearBarrierKind(inland, 'river', barriers)).toBe(false)
   })
 })

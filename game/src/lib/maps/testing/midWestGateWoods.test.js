@@ -4,13 +4,15 @@ import { buildGameplayWorld, gameplayMoveTo } from './gameplayTravel.js'
 import { useOutdoorWorld } from '../composables/useOutdoorWorld.js'
 
 describe('the-flats to gate-woods gameplay', () => {
+  const NORTH_FENCE_Y = -128
+
   it('enters gate-woods from default the-flats stand', () => {
     const { outdoor } = buildGameplayWorld(mapData)
     outdoor.state.currentId = 'the-flats'
     outdoor.state.stand = outdoor.defaultStandForHex('the-flats')
     gameplayMoveTo(outdoor, 'gate-woods')
     expect(outdoor.state.currentId).toBe('gate-woods')
-    expect(outdoor.state.stand.y).toBeGreaterThan(-61)
+    expect(outdoor.state.stand.y).toBeGreaterThan(NORTH_FENCE_Y)
   })
 
   it('enters gate-woods after ford crossing from west bank column', () => {
@@ -25,6 +27,6 @@ describe('the-flats to gate-woods gameplay', () => {
     outdoor.crossPassage('the-flats-ford')
     gameplayMoveTo(outdoor, 'gate-woods')
     expect(outdoor.state.currentId).toBe('gate-woods')
-    expect(outdoor.state.stand.y).toBeGreaterThan(-61)
+    expect(outdoor.state.stand.y).toBeGreaterThan(NORTH_FENCE_Y)
   })
 })

@@ -33,6 +33,9 @@ function hexAtPoint(pt, fallback) {
   if (fallback === 'from' || fallback === 'to') {
     return { '0,0': 'from', '1,0': 'to' }[key] ?? fallback
   }
+  if (fallback === 'lower-stand' || fallback === 'south-pines') {
+    return { '2,0': 'lower-stand', '1,0': 'south-pines' }[key] ?? fallback
+  }
   return {
     '0,0': 'west',
     '1,0': 'east',
@@ -218,12 +221,12 @@ describe('resolveMove', () => {
   })
 
   it('enters the destination hex on the accessible side of an in-hex fence', () => {
-    const fromHex = { id: 'lower-stand', q: 0, r: 1 }
-    const toHex = { id: 'south-pines', q: -1, r: 1 }
-    const fromPos = { x: 38.1, y: 66 }
-    const toPos = { x: -38.1, y: 66 }
+    const fromHex = { id: 'lower-stand', q: 2, r: 0 }
+    const toHex = { id: 'south-pines', q: 1, r: 0 }
+    const fromPos = { x: 152.4, y: 0 }
+    const toPos = { x: 76.2, y: 0 }
     const eastFence = {
-      barriers: [{ a: { x: -30, y: -50 }, b: { x: -30, y: 140 }, kind: 'fence' }],
+      barriers: [{ a: { x: 84.32, y: -128 }, b: { x: 84.32, y: 74 }, kind: 'fence' }],
       openings: [],
     }
 
@@ -240,7 +243,7 @@ describe('resolveMove', () => {
 
     expect(result.blockedKind).toBeNull()
     expect(result.activeHexId).toBe('south-pines')
-    expect(result.stand.x).toBeGreaterThan(-30)
+    expect(result.stand.x).toBeGreaterThan(84.32)
   })
 })
 
@@ -362,8 +365,8 @@ describe('single adjacent-move authority', () => {
 
     expect(m.enters).toBe(true)
     expect(m.result.activeHexId).toBe('south-pines')
-    expect(m.result.stand.x).toBeGreaterThan(-30)
-    expect(m.result.stand.x).toBeLessThan(0)
+    expect(m.result.stand.x).toBeGreaterThan(84.32)
+    expect(m.result.stand.x).toBeLessThan(115)
   })
 })
 

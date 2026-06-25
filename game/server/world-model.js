@@ -112,7 +112,7 @@ export function validateWorld(input) {
     for (const [standIndex, stand] of (hex.stands ?? []).entries()) {
       if (stand.at?.x == null || stand.at?.y == null) continue;
       const centerX = world.size * Math.sqrt(3) * (hex.q + hex.r / 2);
-      const centerY = world.size * 1.5 * hex.r;
+      const centerY = world.size * -1.5 * hex.r;
       const distance = Math.hypot(stand.at.x - centerX, stand.at.y - centerY);
       if (distance > world.size * 1.15) {
         warn(`hexes.${index}.stands.${standIndex}.at`, "The stand point appears to be outside its hex.");
