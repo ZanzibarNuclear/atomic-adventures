@@ -455,6 +455,88 @@ describe("useStory reactive content", () => {
     expect(setup.api.pendingBeat.value.id).toBe("utility-yard-from-garage");
   });
 
+  it("lets one beat match origin entry or local exit depending on the action", () => {
+    const setup = harness({
+      beats: {
+        "utility-yard-default": {
+          text: "The utility station is just ahead.",
+          trigger: { place: "outdoors", hex: "origin" },
+          choices: [],
+        },
+        "utility-yard-action-specific": {
+          text: "You arrive at the utility yard from a familiar approach.",
+          trigger: { place: "outdoors", hex: "origin" },
+          match: { originHex: "the-flats", localExit: "garage-exit" },
+          choices: [],
+        },
+      },
+    }, {
+      initialOriginHex: "the-flats",
+      initialLocalExit: null,
+    });
+
+    setup.api.refreshNarrative();
+
+    expect(setup.api.pendingBeat.value.id).toBe("utility-yard-action-specific");
+
+    setup.api.pendingBeat.value = null;
+    setup.outdoor.state.previousId = "west-slope";
+    setup.outdoor.state.localExit = "garage-exit";
+    setup.api.refreshNarrative();
+
+    expect(setup.api.pendingBeat.value.id).toBe("utility-yard-action-specific");
+  });
+
+  it("ignores origin-specific criteria during local-exit selection", () => {
+    const setup = harness({
+      beats: {
+        "utility-yard-default": {
+          text: "The utility station is just ahead.",
+          trigger: { place: "outdoors", hex: "origin" },
+          choices: [],
+        },
+        "utility-yard-from-flats-and-garage": {
+          text: "You are standing in front of the garage doors.",
+          trigger: { place: "outdoors", hex: "origin" },
+          match: { originHex: "the-flats", localExit: "garage-exit" },
+          choices: [],
+        },
+      },
+    }, {
+      initialOriginHex: "west-slope",
+      initialLocalExit: "garage-exit",
+    });
+
+    setup.api.refreshNarrative();
+
+    expect(setup.api.pendingBeat.value.id).toBe("utility-yard-from-flats-and-garage");
+  });
+
+  it("does not treat local-exit-only beats as defaults during inter-hex entry", () => {
+    const setup = harness({
+      beats: {
+        "utility-yard-default": {
+          text: "The utility station is just ahead.",
+          trigger: { place: "outdoors", hex: "origin" },
+          choices: [],
+        },
+        "utility-yard-from-garage": {
+          text: "You are standing in front of the garage doors.",
+          trigger: { place: "outdoors", hex: "origin" },
+          match: { localExit: "garage-exit" },
+          choices: [],
+        },
+      },
+    }, {
+      initialOriginHex: "the-flats",
+      initialLocalExit: null,
+    });
+
+    setup.api.refreshNarrative();
+
+    expect(setup.api.pendingBeat.value.id).toBe("utility-yard-default");
+  });
+
   it("does not keep using an origin-specific beat after a local exit clears origin", () => {
     const setup = harness({
       beats: {

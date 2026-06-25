@@ -21,18 +21,37 @@ that the current beat engine does not yet support.
 
 Whenever the player changes location, flags change, the game starts, or live
 story content is updated, the engine evaluates beats for the current story
-area.
+area using the current story action context. The action context describes why
+story is being evaluated, such as:
+
+| Action context | Meaning |
+| --- | --- |
+| `enterOutdoorHex` | The player moved from one outdoor hex into another |
+| `exitLocalMap` | The player returned from a local/grid map to an outdoor hex |
+| `enterIndoorLocation` | The player entered or moved within an indoor/local map location |
+| `event` | Code explicitly requested a named story event |
+| `ambientRefresh` | Story refreshed because flags, save state, startup, or live content changed |
 
 A beat is eligible when:
 
 1. Its trigger matches the current location or event.
-2. Every authored `match` criterion matches the current context.
+2. Every authored `match` criterion relevant to the current action context
+   matches that context.
 
 If multiple beats match the same location, the runtime prefers the eligible beat
-with the most authored matching criteria. A beat with `match.originHex` is more
-specific than a default beat with no `match`, so it wins when the player entered
-from that origin. A default beat remains eligible as fallback when no
-origin-specific beat matches.
+with the most matching criteria relevant to the current action context. A beat
+with `match.originHex` is more specific than a default beat with no `match`
+during inter-hex travel, so it wins when the player entered from that origin. A
+beat with `match.localExit` is more specific than a default beat with no `match`
+when returning from a local map. A default beat remains eligible as fallback
+when no action-specific beat matches.
+
+Authored `match` criteria from other action contexts are ignored for the current
+selection pass. This means one beat may include both `originHex` and
+`localExit`: the same beat can be selected when entering an outdoor hex from a
+neighboring hex and when returning to that hex through a local-map exit. A beat
+with authored `match` criteria is not treated as a default beat for action
+contexts where none of its criteria are relevant.
 
 If two eligible beats have the same trigger and the same match specificity, the
 first beat by story sort order and ID wins. This tie-breaker is deterministic,
@@ -92,16 +111,16 @@ ignore them.
 
 ## Optional Match Criteria
 
-`match` contains small, targeted context criteria used after the primary trigger
-matches. It is not the old general-purpose requirements system. It should grow
-one concrete authoring need at a time.
+`match` contains small, targeted action-context criteria used after the primary
+trigger matches. It is not the old general-purpose requirements system. It
+should grow one concrete authoring need at a time.
 
 The supported criteria are:
 
-| Criterion | Meaning |
-| --- | --- |
-| `originHex` | Neighboring outdoor hex the avatar entered from during inter-hex movement |
-| `localExit` | Local-map transition ID the avatar used to return to the outdoor hex |
+| Criterion | Applies during | Meaning |
+| --- | --- | --- |
+| `originHex` | `enterOutdoorHex` | Neighboring outdoor hex the avatar entered from during inter-hex movement |
+| `localExit` | `exitLocalMap` | Local-map transition ID the avatar used to return to the outdoor hex |
 
 `originHex` example:
 
@@ -126,20 +145,30 @@ utility-yard-from-garage:
 ```
 
 `localExit` is set when the player switches from a local map back to the world
-map through a MAP exit. Returning through a local exit clears `originHex`,
-because local exploration may have made the original neighboring hex irrelevant.
+map through a MAP exit.
+
+`originHex` and `localExit` are different action-context criteria. They may be
+authored on the same beat, but they are never evaluated in the same
+beat-selection pass. During `enterOutdoorHex`, only `originHex` participates in
+selection. During `exitLocalMap`, only `localExit` participates in selection.
 
 Selection examples for `utility-yard`:
 
 - A beat with `match: { originHex: the-flats }` wins over the default
-  `utility-yard` beat when the player arrives from `the-flats`.
+  `utility-yard` beat when the player moves from `the-flats` into
+  `utility-yard`. Beats with only `match.localExit` are not eligible for this
+  inter-hex selection pass.
 - A beat with `match: { localExit: garage-exit }` wins over the default
   `utility-yard` beat when the player returns to the world through the garage
-  MAP exit.
-- The default `utility-yard` beat wins when the player arrives from an origin
-  or local exit with no matching specific beat.
-- If all `utility-yard` beats define nonmatching `originHex` values, no
-  `utility-yard` beat is shown.
+  MAP exit. Beats with only `match.originHex` are not eligible for this
+  local-exit selection pass.
+- A beat with `match: { originHex: the-flats, localExit: garage-exit }` can be
+  selected by either action. The runtime considers only `originHex` during
+  inter-hex movement and only `localExit` during local-map exit.
+- The default `utility-yard` beat wins when the current action has no matching
+  specific beat.
+- If all `utility-yard` beats define nonmatching criteria for the current
+  action and no default beat exists, no `utility-yard` beat is shown.
 
 ## Future Beat Conditions
 

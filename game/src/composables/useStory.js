@@ -41,6 +41,14 @@ export function useStory(storyData, ctx) {
     };
   }
 
+  function storyActionContext(loc, event = null) {
+    if (event) return "event";
+    if (loc.place === "outdoors" && loc.localExit) return "exitLocalMap";
+    if (loc.place === "outdoors" && loc.originHex) return "enterOutdoorHex";
+    if (loc.place === "indoors") return "enterIndoorLocation";
+    return "ambientRefresh";
+  }
+
   function triggerMatches(beat, loc, event) {
     const trigger = beat.trigger ?? {};
     if (event && !trigger.event) return false;
@@ -63,17 +71,22 @@ export function useStory(storyData, ctx) {
     return true;
   }
 
-  function matchScore(beat, loc) {
+  function matchScore(beat, loc, action = storyActionContext(loc)) {
     const match = beat.match ?? {};
+    const hasMatch = Boolean(match.originHex || match.localExit);
+    let relevant = 0;
     let score = 0;
-    if (match.originHex) {
+    if (action === "enterOutdoorHex" && match.originHex) {
+      relevant += 1;
       if (loc.place !== "outdoors" || match.originHex !== loc.originHex) return -1;
       score += 1;
     }
-    if (match.localExit) {
+    if (action === "exitLocalMap" && match.localExit) {
+      relevant += 1;
       if (loc.place !== "outdoors" || match.localExit !== loc.localExit) return -1;
       score += 1;
     }
+    if (hasMatch && relevant === 0) return -1;
     return score;
   }
 
@@ -100,9 +113,10 @@ export function useStory(storyData, ctx) {
   function findBeat(loc, event = null) {
     let selected = null;
     let selectedScore = -1;
+    const action = storyActionContext(loc, event);
     for (const [id, beat] of Object.entries(beats.value)) {
       if (!triggerMatches(beat, loc, event)) continue;
-      const score = matchScore(beat, loc);
+      const score = matchScore(beat, loc, action);
       if (score < 0 || score <= selectedScore) continue;
       selected = { id, beat };
       selectedScore = score;
