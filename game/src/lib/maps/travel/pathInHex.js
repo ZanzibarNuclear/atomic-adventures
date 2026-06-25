@@ -1,14 +1,11 @@
-import { BARRIER_STAND_INSET } from "../composables/useBarrierStand.js";
 import { hexCenterStand } from "../composables/useAvatarStand.js";
-import { segmentIntersection } from "../geometry/segments.js";
-import { barrierList } from "./barrierContext.js";
+import { BARRIER_STAND_INSET } from "../composables/useBarrierStand.js";
+import { barrierJunctions } from "./barrierContext.js";
 import {
   hexPolygon,
   pointInHexPolygon,
   segmentInsideHex,
 } from "./hexPolygon.js";
-
-const BARRIER_JUNCTION_CACHE = new WeakMap();
 
 function samePoint(a, b) {
   return !!a && !!b && Math.hypot(a.x - b.x, a.y - b.y) < 1e-6;
@@ -43,35 +40,6 @@ function uniquePush(points, point) {
   if (!point) return;
   if (points.some((p) => samePoint(p, point))) return;
   points.push(point);
-}
-
-export function barrierJunctions(ctx) {
-  const barriers = barrierList(ctx);
-  const cached = BARRIER_JUNCTION_CACHE.get(barriers);
-  if (cached) return cached;
-  const junctions = [];
-  for (let i = 0; i < barriers.length; i++) {
-    const seg = barriers[i];
-    for (let j = i + 1; j < barriers.length; j++) {
-      const other = barriers[j];
-      const intersection = segmentIntersection(seg.a, seg.b, other.a, other.b);
-      if (intersection) {
-        uniquePush(junctions, { x: intersection.x, y: intersection.y });
-      }
-    }
-    for (const endpoint of [seg.a, seg.b]) {
-      const connects = barriers.some((other) => {
-        if (other === seg) return false;
-        const clearance =
-          (BARRIER_STAND_INSET[seg.kind] ?? BARRIER_STAND_INSET.fence) +
-          (BARRIER_STAND_INSET[other.kind] ?? BARRIER_STAND_INSET.fence);
-        return pointToSegmentDistance(endpoint, other) <= clearance;
-      });
-      if (connects) uniquePush(junctions, endpoint);
-    }
-  }
-  BARRIER_JUNCTION_CACHE.set(barriers, junctions);
-  return junctions;
 }
 
 function segmentClearsBarrierJunctions(a, b, ctx, minClearance) {

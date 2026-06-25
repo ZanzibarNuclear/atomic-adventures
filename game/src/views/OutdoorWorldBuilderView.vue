@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import yaml from "js-yaml";
+import BuilderStatusBanner from "../components/builder/BuilderStatusBanner.vue";
 import RevisionHistoryPanel from "../components/builder/RevisionHistoryPanel.vue";
 import UnsavedChangesDialog from "../components/builder/UnsavedChangesDialog.vue";
 import OutdoorObjectBrowser from "../components/builder/outdoor/OutdoorObjectBrowser.vue";
@@ -928,8 +929,11 @@ function clonePlain(value) {
       </div>
     </header>
 
-    <p v-if="status" class="world-status">{{ status }}</p>
-    <p v-if="dirty" class="dirty-banner">Unsaved world changes</p>
+    <BuilderStatusBanner
+      :status="status"
+      :dirty="Boolean(dirty)"
+      dirty-message="Unsaved world changes"
+    />
 
     <div
       class="world-workspace"
@@ -1406,9 +1410,6 @@ function clonePlain(value) {
   flex-wrap: wrap;
 }
 .world-toolbar h2, .world-toolbar p, .inspector h3 { margin: 0; }
-.world-status, .dirty-banner { margin: .65rem 0 0; padding: .55rem .75rem; border-radius: 7px; }
-.world-status { background: #24344a; color: #b8d8ff; }
-.dirty-banner { background: #59481f; color: #ffe4a3; }
 .world-workspace {
   display: grid;
   grid-template-columns: minmax(220px, 270px) minmax(440px, 1fr) minmax(290px, 350px);

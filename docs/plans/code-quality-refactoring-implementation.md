@@ -32,6 +32,9 @@ Completed so far:
 - story beat editor extraction;
 - station canvas panel extraction;
 - tested path-in-hex travel module;
+- shared builder status banner;
+- tested story beat document lifecycle composable;
+- tested outdoor world model and barrier-search composables;
 - compatibility re-exports from `useTravelBarriers.js` so existing callers keep
   working.
 
@@ -39,10 +42,10 @@ Deferred from the first pass:
 
 - Phase 0 audit/checklist work was mostly superseded by direct refactoring and
   targeted test additions.
-- `BuilderStatusBanner.vue` remains optional; status/dirty markup duplication is
-  smaller but still present.
-- The large route-level document lifecycle, selection, most canvas panels, and inspector
-  extractions remain open.
+- `BuilderStatusBanner.vue` now centralizes shared page-level status/dirty
+  messages.
+- The large route-level outdoor/station document lifecycle, selection, and
+  inspector extractions remain open.
 - The deeper `useTravelBarriers.js`, `useOutdoorWorld.js`, and server repository
   splits remain open.
 
@@ -150,12 +153,12 @@ clear list of test cleanup opportunities before code movement begins.
 **Purpose:** Remove duplicated builder chrome and navigation workflows before
 splitting the largest views.
 
-**Status:** Mostly complete. The remaining status-banner item is optional and
-can be done later if duplication is still annoying.
+**Status:** Complete. Shared dirty-navigation, revision UI, unsaved-change
+dialog, and status banners are now centralized.
 
 - [x] Create `UnsavedChangesDialog.vue` for save/discard/keep-editing prompts.
 - [x] Create `RevisionHistoryPanel.vue` for revision list and restore actions.
-- [ ] Create a small `BuilderStatusBanner.vue` or similar for status and dirty
+- [x] Create a small `BuilderStatusBanner.vue` or similar for status and dirty
       messages if the views continue to duplicate that markup.
 - [x] Add `useDirtyDocumentNavigation()` for:
   - before-unload warnings;
@@ -313,13 +316,13 @@ lifecycle concerns are separately owned.
 
 **Purpose:** Make story authoring easier to extend before beat complexity grows.
 
-**Status:** Partially complete. Choice editing and choice helper logic were
-extracted along with the location picker, beat list, and top-level beat editor;
-beat document lifecycle remains.
+**Status:** Complete for the planned route decomposition. Choice editing,
+choice helper logic, location picker, beat list, top-level beat editor, and beat
+document lifecycle are extracted.
 
 - [x] Extract location/map selection to `StoryLocationPicker.vue`.
 - [x] Extract beat list and match warnings to `StoryBeatList.vue`.
-- [ ] Extract beat document lifecycle to `useStoryBeatDocument()`:
+- [x] Extract beat document lifecycle to `useStoryBeatDocument()`:
   - load list;
   - load selected beat;
   - create/copy;
@@ -357,14 +360,14 @@ components with route-level state kept small.
 easier to test and reason about.
 
 **Status:** Partially complete. Geometry primitives, hex polygon helpers,
-barrier segment/list helpers, and local pathfinding were extracted; first-hit
-detection, arrival stands, and move resolution remain.
+barrier segment/list helpers, first-hit detection, and local pathfinding were
+extracted; arrival stands and move resolution remain.
 
 - [x] Move geometry primitives from `useTravelBarriers.js` into a plain geometry
       module.
 - [x] Move barrier segment extraction and barrier lists into a barrier-context
       module.
-- [ ] Move junction cache and first-hit detection into a barrier-context module.
+- [x] Move junction cache and first-hit detection into a barrier-context module.
 - [x] Move hex polygon helpers and tests to a travel module.
 - [x] Move local pathfinding to a `pathInHex` module.
 - [ ] Move destination stand selection and arrival heuristics to an arrival
@@ -402,11 +405,12 @@ separated into smaller modules.
 **Purpose:** Keep `useOutdoorWorld()` as a stable facade while reducing the
 number of responsibilities inside the file.
 
-**Status:** Not started.
+**Status:** Started. The outdoor map/model layer and barrier search behavior
+were extracted; passages, movement, and game-time advancement remain.
 
-- [ ] Extract map data/model concerns to `useOutdoorWorldModel()`.
+- [x] Extract map data/model concerns to `useOutdoorWorldModel()`.
 - [ ] Extract passage/opening state to `useOutdoorPassages()`.
-- [ ] Extract barrier search/discovery behavior to `useOutdoorBarrierSearch()`.
+- [x] Extract barrier search/discovery behavior to `useOutdoorBarrierSearch()`.
 - [ ] Extract movement preview and commit behavior to `useOutdoorMovement()`.
 - [ ] Keep `useOutdoorWorld()` returning the existing API while composing the
       smaller modules.

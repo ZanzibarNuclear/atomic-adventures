@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref, toRaw, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import StoryBeatEditor from "../components/builder/story/StoryBeatEditor.vue";
 import StoryBeatList from "../components/builder/story/StoryBeatList.vue";
@@ -14,8 +14,8 @@ import {
   setChoiceDestinationType,
   setChoiceViewKind as applyChoiceViewKind,
 } from "../lib/storyChoiceDrafts.js";
-import { storyBeatYaml } from "../lib/storyYamlPreview.js";
 import { useDirtyDocumentNavigation } from "../composables/useDirtyDocumentNavigation.js";
+import { useStoryBeatDocument } from "../composables/useStoryBeatDocument.js";
 import { useWorldContent } from "../composables/useWorldContent.js";
 import { useBuildingContent } from "../composables/useBuildingContent.js";
 
@@ -35,8 +35,6 @@ const STORY_AREA_ID = "part-i";
 const router = useRouter();
 
 const catalog = ref({ world: { hexes: [], rooms: [], exteriorNodes: [], localExits: [], buildings: [] } });
-const beats = ref([]);
-const selectedBeatId = ref("");
 const locationMode = ref("outdoors");
 const selectedLocation = ref(mapData.start);
 const indoorLevel = ref(
@@ -44,22 +42,39 @@ const indoorLevel = ref(
 );
 const indoorViewportMode = ref("fit-all");
 const previewExteriorFog = ref(false);
-const draft = ref(null);
-const baseline = ref("");
-const isNew = ref(false);
-const errors = ref({});
-const status = ref("");
-const revisions = ref([]);
-const showRevisions = ref(false);
 const eventLocationInput = ref("custom-event");
-let beatLoadRequest = 0;
-
-function clonePlain(value) {
-  return JSON.parse(JSON.stringify(toRaw(value)));
-}
-
-const dirty = computed(() => draft.value && JSON.stringify(draft.value) !== baseline.value);
-const yamlPreview = computed(() => storyBeatYaml(draft.value));
+const {
+  beats,
+  selectedBeatId,
+  draft,
+  isNew,
+  errors,
+  status,
+  revisions,
+  showRevisions,
+  dirty,
+  yamlPreview,
+  clearBeatSelection,
+  loadBeat,
+  loadBeats,
+  openFirstBeatForSelectedLocation,
+  beginNewBeat,
+  revertDraft,
+  saveBeat,
+  deleteBeat,
+  loadRevisions,
+  restoreRevision,
+} = useStoryBeatDocument({
+  areaId: STORY_AREA_ID,
+  getCurrentLocation: () => ({
+    mode: locationMode.value,
+    location: selectedLocation.value,
+  }),
+  getSelectedLocationKey: selectedLocationKey,
+  getBeatsForLocation: beatsForLocation,
+  createEmptyBeat: emptyBeat,
+  suggestedId,
+});
 const navigation = useDirtyDocumentNavigation({
   dirty,
   router,
@@ -155,27 +170,6 @@ watch(buildingRevision, async () => {
   }
 });
 
-async function loadBeats(selectId = "") {
-  await refreshBeatList();
-  if (selectId) await loadBeat(selectId);
-  else await openFirstBeatForSelectedLocation();
-}
-
-async function refreshBeatList() {
-  beats.value = await storyApi(`/api/story/areas/${STORY_AREA_ID}/beats`);
-}
-
-async function loadBeat(id, selectionKey = selectedLocationKey()) {
-  const request = ++beatLoadRequest;
-  const result = await storyApi(
-    `/api/story/areas/${STORY_AREA_ID}/beats/${encodeURIComponent(id)}`,
-  );
-  if (request !== beatLoadRequest || selectionKey !== selectedLocationKey()) return;
-  selectedBeatId.value = id;
-  isNew.value = false;
-  setDraft(result.beat);
-}
-
 function selectBeat(id) {
   if (selectedBeatId.value === id) return;
   void requestContextChange(() => loadBeat(id));
@@ -194,42 +188,8 @@ async function applyHexSelection(id) {
   await openFirstBeatForSelectedLocation();
 }
 
-function clearBeatSelection() {
-  beatLoadRequest += 1;
-  selectedBeatId.value = "";
-  draft.value = null;
-  baseline.value = "";
-  isNew.value = false;
-  errors.value = {};
-  status.value = "";
-}
-
 function selectedLocationKey() {
   return `${locationMode.value}:${selectedLocation.value}`;
-}
-
-async function openFirstBeatForSelectedLocation(
-  mode = locationMode.value,
-  location = selectedLocation.value,
-) {
-  const selectionKey = `${mode}:${location}`;
-  const firstBeat = beatsForLocation(mode, location)[0];
-  if (!firstBeat) return;
-  const request = ++beatLoadRequest;
-
-  try {
-    const result = await storyApi(
-      `/api/story/areas/${STORY_AREA_ID}/beats/${encodeURIComponent(firstBeat.id)}`,
-    );
-    if (request !== beatLoadRequest || selectionKey !== selectedLocationKey()) return;
-    selectedBeatId.value = firstBeat.id;
-    isNew.value = false;
-    setDraft(result.beat);
-  } catch (error) {
-    if (request === beatLoadRequest && selectionKey === selectedLocationKey()) {
-      status.value = error.message;
-    }
-  }
 }
 
 function selectRoom(id) {
@@ -308,16 +268,6 @@ function newBeat(copy = null) {
   void requestContextChange(() => beginNewBeat(copy));
 }
 
-function beginNewBeat(copy = null) {
-  const source = copy ? clonePlain(copy) : emptyBeat();
-  source.id = uniqueId(copy ? `${copy.id}-copy` : suggestedId());
-  source.version = undefined;
-  source.choices = (source.choices ?? []).map((choice) => ({ ...choice, id: crypto.randomUUID() }));
-  selectedBeatId.value = "";
-  isNew.value = true;
-  setDraft(source);
-}
-
 function emptyBeat() {
   const trigger = { place: null, hex: null, room: null, exteriorNode: null, event: null, flag: null };
   if (locationMode.value === "outdoors") Object.assign(trigger, { place: "outdoors", hex: selectedLocation.value });
@@ -340,121 +290,6 @@ function suggestedId() {
   return String(selectedLocation.value || "new-beat").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
-function uniqueId(base) {
-  const used = new Set(beats.value.map((beat) => beat.id));
-  let candidate = base || "new-beat";
-  let suffix = 2;
-  while (used.has(candidate)) candidate = `${base}-${suffix++}`;
-  return candidate;
-}
-
-function setDraft(value) {
-  const next = clonePlain(value);
-  next.match ??= { originHex: null, localExit: null };
-  next.match.originHex ??= null;
-  next.match.localExit ??= null;
-  draft.value = next;
-  baseline.value = JSON.stringify(draft.value);
-  errors.value = {};
-  status.value = "";
-  revisions.value = [];
-  showRevisions.value = false;
-}
-
-function revertDraft() {
-  draft.value = JSON.parse(baseline.value);
-  errors.value = {};
-}
-
-async function saveBeat() {
-  if (!draft.value) return false;
-  errors.value = {};
-  status.value = "Saving…";
-  try {
-    const submitted = clonePlain(draft.value);
-    let result;
-    if (isNew.value) {
-      result = await storyApi(`/api/story/areas/${STORY_AREA_ID}/beats`, {
-        method: "POST",
-        body: JSON.stringify(submitted),
-      });
-    } else {
-      result = await storyApi(
-        `/api/story/areas/${STORY_AREA_ID}/beats/${encodeURIComponent(selectedBeatId.value)}`,
-        {
-          method: "PUT",
-          body: JSON.stringify({ beat: submitted, expectedVersion: submitted.version }),
-        },
-      );
-    }
-    selectedBeatId.value = result.beat.id;
-    isNew.value = false;
-    const submittedOrigin = submitted.match?.originHex ?? null;
-    const savedOrigin = result.beat.match?.originHex ?? null;
-    const submittedLocalExit = submitted.match?.localExit ?? null;
-    const savedLocalExit = result.beat.match?.localExit ?? null;
-    if (submittedOrigin !== savedOrigin || submittedLocalExit !== savedLocalExit) {
-      const saved = clonePlain(result.beat);
-      const editable = clonePlain(result.beat);
-      editable.match = {
-        ...(editable.match ?? {}),
-        originHex: submittedOrigin,
-        localExit: submittedLocalExit,
-      };
-      draft.value = editable;
-      baseline.value = JSON.stringify(saved);
-      await refreshBeatList();
-      status.value = "The content API did not preserve the match criteria. Restart the game dev server, then save again.";
-      return false;
-    }
-    setDraft(result.beat);
-    await refreshBeatList();
-    status.value = result.renamedFrom
-      ? `Renamed ${result.renamedFrom} to ${result.beat.id} and saved revision ${result.beat.version}.`
-      : `Saved revision ${result.beat.version}.`;
-    return true;
-  } catch (error) {
-    errors.value = error.errors ?? {};
-    status.value = error.status === 409
-      ? "This beat changed elsewhere. Reload it before saving."
-      : error.message;
-    return false;
-  }
-}
-
-async function deleteBeat() {
-  if (!draft.value || isNew.value) return;
-  const beatId = selectedBeatId.value;
-  if (!window.confirm(`Delete "${beatId}"? Its revision history will remain available.`)) return;
-  await storyApi(
-    `/api/story/areas/${STORY_AREA_ID}/beats/${encodeURIComponent(beatId)}`,
-    { method: "DELETE", body: JSON.stringify({ expectedVersion: draft.value.version }) },
-  );
-  draft.value = null;
-  selectedBeatId.value = "";
-  baseline.value = "";
-  await loadBeats();
-}
-
-async function loadRevisions() {
-  if (!draft.value || isNew.value) return;
-  revisions.value = await storyApi(
-    `/api/story/areas/${STORY_AREA_ID}/beats/${encodeURIComponent(selectedBeatId.value)}/revisions`,
-  );
-  showRevisions.value = true;
-}
-
-async function restoreRevision(revision) {
-  if (!window.confirm(`Restore revision ${revision}? This creates a new revision.`)) return;
-  const result = await storyApi(
-    `/api/story/areas/${STORY_AREA_ID}/beats/${encodeURIComponent(selectedBeatId.value)}/revisions/${revision}/restore`,
-    { method: "POST" },
-  );
-  selectedBeatId.value = result.beat.id;
-  setDraft(result.beat);
-  await loadBeats();
-  await loadRevisions();
-}
 
 function addChoice() {
   draft.value.choices.push(createEmptyChoice({ order: draft.value.choices.length }));

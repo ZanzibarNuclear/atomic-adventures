@@ -3,26 +3,20 @@ import { hexLabel } from "../../displayLabel.js";
 import {
   availableMoves,
   directNeighbors,
-  buildRouteModels,
   buildMovePath,
   routeLegBetween,
 } from "./useRoutes.js";
-import { hexDistance, pixelToHex } from "./useHexGeometry.js";
+import { hexDistance } from "./useHexGeometry.js";
 import {
   resolveAvatarPosition,
   resolveNeighborStand,
 } from "./useAvatarStand.js";
 import {
-  BARRIER_OPENING_KINDS,
   barrierSegments,
   travelOpenings,
   resolveMove,
   isLandmarkReachable,
 } from "./useTravelBarriers.js";
-import {
-  barrierKindForOpening,
-  hiddenOpeningsInHex,
-} from "./useBarrierOpenings.js";
 import {
   availablePassageCrossings,
   resolvePassageStand,
@@ -34,11 +28,9 @@ import {
   applyPassageUnlock,
   passageRequirementSatisfied,
 } from "./usePassageState.js";
+import { useOutdoorWorldModel } from "./useOutdoorWorldModel.js";
+import { useOutdoorBarrierSearch } from "./useOutdoorBarrierSearch.js";
 import { advanceGameTime } from "../../character/gameTime.js";
-
-function clonePlain(value) {
-  return JSON.parse(JSON.stringify(value));
-}
 
 function initialStand(mapData, size) {
   const START = mapData.start ?? mapData.journey[0];
@@ -49,66 +41,22 @@ function initialStand(mapData, size) {
 }
 
 export function useOutdoorWorld(mapData, gameState = null) {
-  const size = ref(mapData.size ?? 44);
-  const startId = ref(mapData.start ?? mapData.journey?.[0] ?? null);
-  const sourceMapData = ref(clonePlain(mapData));
-
-  const editableHexes = ref(clonePlain(mapData.hexes ?? []));
-  const editableFeatures = ref(clonePlain(mapData.features ?? []));
-  const editableRoutes = ref(clonePlain(mapData.routes ?? []));
-
-  function syncFromMapData(data) {
-    sourceMapData.value = clonePlain(data);
-    size.value = data.size ?? size.value;
-    startId.value = data.start ?? data.journey?.[0] ?? startId.value;
-    editableHexes.value = clonePlain(data.hexes ?? []);
-    editableFeatures.value = clonePlain(data.features ?? []);
-    editableRoutes.value = clonePlain(data.routes ?? []);
-  }
-
-  const hexById = computed(() =>
-    Object.fromEntries(editableHexes.value.map((h) => [h.id, h])),
-  );
-
-  const displayMapData = computed(() => ({
-    ...sourceMapData.value,
-    hexes: editableHexes.value,
-    features: editableFeatures.value,
-  }));
-
-  const routeModels = computed(() =>
-    buildRouteModels(
-      editableRoutes.value,
-      hexById.value,
-      editableHexes.value,
-      size.value,
-    ),
-  );
-
-  const mapFeatures = computed(() =>
-    editableFeatures.value.filter((f) => !BARRIER_OPENING_KINDS.has(f.kind)),
-  );
-
-  const featureModels = computed(() =>
-    buildRouteModels(
-      mapFeatures.value,
-      hexById.value,
-      editableHexes.value,
-      size.value,
-    ),
-  );
-
-  const rivers = computed(() =>
-    barrierSegments(featureModels.value).filter((s) => s.kind === "river"),
-  );
-  const hexCoordMap = computed(
-    () => new Map(editableHexes.value.map((h) => [`${h.q},${h.r}`, h.id])),
-  );
-
-  function hexAtPoint(pt, fallbackHexId) {
-    const { q, r } = pixelToHex(pt.x, pt.y, size.value);
-    return hexCoordMap.value.get(`${q},${r}`) ?? fallbackHexId;
-  }
+  const {
+    size,
+    startId,
+    sourceMapData,
+    editableHexes,
+    editableFeatures,
+    editableRoutes,
+    hexById,
+    displayMapData,
+    routeModels,
+    mapFeatures,
+    featureModels,
+    rivers,
+    hexAtPoint,
+    syncFromMapData,
+  } = useOutdoorWorldModel(mapData);
 
   const travelBarrierCtx = computed(() => {
     const allOpenings = travelOpenings(editableFeatures.value, {
@@ -172,79 +120,19 @@ export function useOutdoorWorld(mapData, gameState = null) {
     return resolveAvatarPosition(hex, size.value);
   }
 
-  function markOpeningDiscovered(openingId) {
-    if (!openingId || state.discoveredOpenings.includes(openingId)) return;
-    state.discoveredOpenings = [...state.discoveredOpenings, openingId];
-  }
-
-  function searchableOpenings() {
-    const hexId = state.currentId;
-    const hidden = hiddenOpeningsInHex(
-      editableFeatures.value,
-      hexId,
-      state.discoveredOpenings,
-    );
-    if (!hidden.length) return [];
-    const barrier = state.atBarrier ?? state.lastBlocked;
-    if (barrier) {
-      return hidden.filter((f) => barrierKindForOpening(f.kind) === barrier);
-    }
-    return hidden;
-  }
-
-  function barrierCutsCurrentHex(kind) {
-    const hexId = state.currentId;
-    if (!hexId) return false;
-    const sampleStep = size.value / 6;
-    for (const seg of travelBarrierCtx.value.barriers ?? []) {
-      if (seg.kind !== kind) continue;
-      const length = Math.hypot(seg.b.x - seg.a.x, seg.b.y - seg.a.y);
-      const steps = Math.max(1, Math.ceil(length / sampleStep));
-      for (let i = 0; i <= steps; i++) {
-        const t = i / steps;
-        const point = {
-          x: seg.a.x + (seg.b.x - seg.a.x) * t,
-          y: seg.a.y + (seg.b.y - seg.a.y) * t,
-        };
-        if (hexAtPoint(point, null) === hexId) return true;
-      }
-    }
-    return false;
-  }
-
-  function discoveredFenceOpeningInCurrentHex() {
-    const discovered = new Set(state.discoveredOpenings);
-    return editableFeatures.value.some(
-      (f) =>
-        f.hex === state.currentId &&
-        BARRIER_OPENING_KINDS.has(f.kind) &&
-        barrierKindForOpening(f.kind) === "fence" &&
-        discovered.has(f.id),
-    );
-  }
-
-  function canSearchHere() {
-    return (
-      searchableOpenings().length > 0 ||
-      (barrierCutsCurrentHex("fence") && !discoveredFenceOpeningInCurrentHex())
-    );
-  }
-
-  function searchBarrier() {
-    const found = searchableOpenings();
-    for (const f of found) {
-      markOpeningDiscovered(f.id);
-    }
-    const kind = barrierCutsCurrentHex("fence")
-      ? "fence"
-      : found.map((f) => barrierKindForOpening(f.kind)).find(Boolean) ?? null;
-    state.lastSearch = {
-      kind,
-      found: found.map((f) => f.id),
-      foundKinds: found.map((f) => f.kind),
-    };
-    return found.map((f) => f.id);
-  }
+  const {
+    markOpeningDiscovered,
+    canSearchHere,
+    searchBarrier,
+    searchableOpenings,
+    barrierCutsCurrentHex,
+  } = useOutdoorBarrierSearch({
+    state,
+    editableFeatures,
+    travelBarrierCtx,
+    size,
+    hexAtPoint,
+  });
 
   function markDiscovered(hexId) {
     if (!hexId || state.discovered.includes(hexId)) return;

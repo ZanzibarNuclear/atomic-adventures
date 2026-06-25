@@ -5,6 +5,9 @@ import {
   barrierList,
   barrierSegments,
   fenceSegments,
+  firstBlockedOnPath,
+  firstBlockedOnPathInHex,
+  pathCrossesBarrier,
   riverSegments,
 } from "./barrierContext.js";
 
@@ -36,5 +39,37 @@ describe("barrier context", () => {
     const rivers = [{ kind: "river" }];
     expect(barrierList({ fences, rivers })).toEqual([...fences, ...rivers]);
     expect(barrierList({ barriers: fences })).toBe(fences);
+  });
+
+  it("finds the first blocking barrier hit while ignoring path-origin contact", () => {
+    const ctx = {
+      barriers: [{ kind: "fence", a: { x: 100, y: -80 }, b: { x: 100, y: 200 } }],
+      openings: [{ kind: "gate", x: 100, y: 100, r: 22 }],
+    };
+
+    expect(pathCrossesBarrier(
+      { x: 50, y: 100 },
+      { x: 150, y: 100 },
+      ctx.barriers[0].a,
+      ctx.barriers[0].b,
+    )).toBe(true);
+    expect(firstBlockedOnPath([{ x: 50, y: 100 }, { x: 150, y: 100 }], ctx)).toMatchObject({
+      kind: "fence",
+      x: 100,
+      y: 100,
+      segIndex: 0,
+    });
+    expect(firstBlockedOnPath([{ x: 100, y: 100 }, { x: 180, y: 100 }], ctx)).toBeNull();
+  });
+
+  it("filters first hits to the requested hex", () => {
+    const ctx = {
+      barriers: [{ kind: "river", a: { x: 50, y: 50 }, b: { x: 150, y: 50 } }],
+    };
+    const path = [{ x: 100, y: 0 }, { x: 100, y: 100 }];
+    const hexAtPoint = (point) => point.y < 75 ? "north" : "south";
+
+    expect(firstBlockedOnPathInHex(path, ctx, "north", hexAtPoint)?.kind).toBe("river");
+    expect(firstBlockedOnPathInHex(path, ctx, "south", hexAtPoint)).toBeNull();
   });
 });

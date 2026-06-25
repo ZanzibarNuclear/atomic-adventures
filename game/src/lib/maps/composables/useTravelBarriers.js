@@ -21,20 +21,23 @@ import { axialToPixel, hexCorners, hexDistance } from './useHexGeometry.js'
 import { segmentIntersection, segmentsCross, sideOfLine } from '../geometry/segments.js'
 import {
   BARRIER_KINDS,
+  BARRIER_OPENINGS,
   BARRIER_OPENING_KINDS,
   barrierList,
   barrierSegments,
+  chordCrossesBarrierKind as barrierChordCrossesBarrierKind,
   fenceSegments,
+  firstBlockedOnPath as firstBarrierHitOnPath,
+  firstBlockedOnPathInHex as firstBarrierHitOnPathInHex,
+  interHexTravelCtx,
+  pathCrossesBarrier as segmentPathCrossesBarrier,
   riverSegments,
 } from '../travel/barrierContext.js'
 import {
   hexPolygon,
   pointInHexPolygon,
 } from '../travel/hexPolygon.js'
-import {
-  barrierJunctions,
-  pathInHex as findPathInHex,
-} from '../travel/pathInHex.js'
+import { pathInHex as findPathInHex } from '../travel/pathInHex.js'
 
 export { travelOpenings } from './useBarrierOpenings.js'
 export { segmentIntersection, segmentsCross, sideOfLine } from '../geometry/segments.js'
@@ -47,8 +50,6 @@ export {
   fenceSegments,
   riverSegments,
 } from '../travel/barrierContext.js'
-const PATH_ORIGIN_EPS = 0.02
-
 function sameBarrierSide(a, b, seg) {
   const sa = sideOfLine(a, seg.a, seg.b)
   const sb = sideOfLine(b, seg.a, seg.b)
@@ -75,23 +76,12 @@ function sameBarrierSubarea(a, b, barriers) {
  * Ignores grazing / parallel walks that stay on one side of the barrier line.
  */
 export function pathCrossesBarrier(a, b, c, d) {
-  const sa = sideOfLine(a, c, d)
-  const sb = sideOfLine(b, c, d)
-  const eps = 1e-3
-  if (Math.abs(sa) <= eps && Math.abs(sb) <= eps) return false
-  if (Math.abs(sa) <= eps || Math.abs(sb) <= eps) {
-    return segmentIntersection(a, b, c, d) != null
-  }
-  return sa * sb < 0
+  return segmentPathCrossesBarrier(a, b, c, d)
 }
 
 /** True when chord AB crosses any segment of `kind`. */
 export function chordCrossesBarrierKind(fromPos, toPos, kind, ctx) {
-  for (const seg of ctx.barriers ?? []) {
-    if (seg.kind !== kind) continue
-    if (pathCrossesBarrier(fromPos, toPos, seg.a, seg.b)) return true
-  }
-  return false
+  return barrierChordCrossesBarrierKind(fromPos, toPos, kind, ctx)
 }
 
 function moveHexContext(fromHex, toHex) {
@@ -174,15 +164,6 @@ function sampleSharedEdge(edge, toHex, size) {
 
 function pathClear(path, ctx, moveCtx = null) {
   return firstBlockedOnPath(path, ctx, moveCtx) == null
-}
-
-function closedBarrierCtx(ctx) {
-  return ctx ? { ...ctx, openings: [] } : ctx
-}
-
-/** Context for adjacent hex travel — barriers block; openings do not apply. */
-function interHexTravelCtx(ctx) {
-  return closedBarrierCtx(ctx)
 }
 
 function standBeforeFirstHit(path, ctx, moveCtx = null) {
@@ -298,31 +279,6 @@ function barriersIntersectingHex(ctx, hex, size) {
       pointInHexPolygon(seg.b, hex, size) ||
       edges.some((edge) => segmentIntersection(seg.a, seg.b, edge.a, edge.b)),
   )
-}
-
-function nearBarrierJunctionHit(a, b, ctx) {
-  const vx = b.x - a.x
-  const vy = b.y - a.y
-  const denom = vx * vx + vy * vy || 1
-  for (const junction of barrierJunctions(ctx)) {
-    const t = Math.max(
-      0,
-      Math.min(
-        1,
-        ((junction.x - a.x) * vx + (junction.y - a.y) * vy) / denom,
-      ),
-    )
-    if (t < PATH_ORIGIN_EPS) continue
-    const point = { x: a.x + vx * t, y: a.y + vy * t }
-    if (pointDistance(point, junction) >= 3) continue
-    const connected = barrierList(ctx).filter(
-      (seg) => pointToSegmentDistance(junction, seg) < 1,
-    )
-    const seg = connected[0]
-    if (!seg) continue
-    return { ...point, t, kind: seg.kind, a: seg.a, b: seg.b }
-  }
-  return null
 }
 
 /**
@@ -769,20 +725,7 @@ function resolveBlockedDeparture({
 
 /** First barrier hit along a polyline path; null when none. Ignores passage openings. */
 export function firstBlockedOnPath(path, ctx, moveCtx = null) {
-  const travelCtx = interHexTravelCtx(ctx)
-  for (let i = 0; i < path.length - 1; i++) {
-    const a = path[i]
-    const b = path[i + 1]
-    const junctionHit = nearBarrierJunctionHit(a, b, travelCtx)
-    if (junctionHit) return { ...junctionHit, segIndex: i }
-    for (const seg of barrierList(travelCtx)) {
-      const cross = segmentIntersection(a, b, seg.a, seg.b)
-      if (!cross || cross.t < PATH_ORIGIN_EPS) continue
-      if (!pathCrossesBarrier(a, b, seg.a, seg.b)) continue
-      return { ...cross, kind: seg.kind, segIndex: i, a: seg.a, b: seg.b }
-    }
-  }
-  return null
+  return firstBarrierHitOnPath(path, ctx, moveCtx)
 }
 
 /**
@@ -790,27 +733,7 @@ export function firstBlockedOnPath(path, ctx, moveCtx = null) {
  * Used for movement options — barriers in neighboring hexes are ignored.
  */
 export function firstBlockedOnPathInHex(path, ctx, hexId, hexAtPoint, moveCtx = null) {
-  const travelCtx = interHexTravelCtx(ctx)
-  for (let i = 0; i < path.length - 1; i++) {
-    const a = path[i]
-    const b = path[i + 1]
-    const junctionHit = nearBarrierJunctionHit(a, b, travelCtx)
-    if (
-      junctionHit &&
-      hexAtPoint({ x: junctionHit.x, y: junctionHit.y }, hexId) === hexId
-    ) {
-      return { ...junctionHit, segIndex: i }
-    }
-    for (const seg of barrierList(travelCtx)) {
-      const cross = segmentIntersection(a, b, seg.a, seg.b)
-      if (!cross || cross.t < PATH_ORIGIN_EPS) continue
-      if (!pathCrossesBarrier(a, b, seg.a, seg.b)) continue
-      if (hexAtPoint({ x: cross.x, y: cross.y }, hexId) === hexId) {
-        return { ...cross, kind: seg.kind, segIndex: i, a: seg.a, b: seg.b }
-      }
-    }
-  }
-  return null
+  return firstBarrierHitOnPathInHex(path, ctx, hexId, hexAtPoint, moveCtx)
 }
 
 /**
