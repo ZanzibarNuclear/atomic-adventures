@@ -83,6 +83,16 @@ describe("utility station grid traversal contract", () => {
     ]);
   });
 
+  it("lets the off-path intake entrance join the riverbank path", () => {
+    const moves = exteriorMovesFrom(building, "intake-entrance");
+
+    expect(moves.map((move) => move.toNodeId)).toContain("upstream-bank");
+    expect(exteriorPathBetween(building, "intake-entrance", "midstream-bank")).toEqual([
+      "upstream-bank",
+      "midstream-bank",
+    ]);
+  });
+
   it("reaches every standable room when authored doors are open", () => {
     const doorState = buildInitialDoorState(building.areaId, building);
     setAllDoorsOpen(doorState, building.areaId, building, true);

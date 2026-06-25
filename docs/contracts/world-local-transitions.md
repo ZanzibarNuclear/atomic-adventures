@@ -103,9 +103,9 @@ For Utility Station:
 | World approach | Preferred local transition | Local stand |
 | --- | --- | --- |
 | Driveway/building approach | `garage-exit` | `garage-front-entrance` |
-| `the-flats` approach | `river-walk` | `upstream-bank` or authored river-walk stand |
-| `south-pines` approach | `man-door-path` | `large-bay-man-front` |
-| Future southern approach | `southeast-corner` | `south-east-corner` |
+| `the-flats` approach | `river-walk` | `intake-entrance` |
+| `south-pines` approach | `man-door-path` | `side-entrance` |
+| Future southern approach | `southeast-corner` | `south-east-corner-entrance` |
 
 ## Exiting Local To World
 

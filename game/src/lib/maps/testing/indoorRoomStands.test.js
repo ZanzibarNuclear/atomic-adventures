@@ -132,7 +132,7 @@ describe("indoor room stands", () => {
     indoor.enterBuilding("utility-yard");
 
     expect(place.value).toBe("indoors");
-    expect(indoor.indoor.exteriorNode).toBe("large-bay-man-front");
+    expect(indoor.indoor.exteriorNode).toBe("side-entrance");
   });
 
   it("enters through the garage transition after approaching from west-slope", () => {
@@ -154,7 +154,7 @@ describe("indoor room stands", () => {
     indoor.enterBuilding("utility-yard");
 
     expect(place.value).toBe("indoors");
-    expect(indoor.indoor.exteriorNode).toBe("upstream-bank");
+    expect(indoor.indoor.exteriorNode).toBe("intake-entrance");
   });
 
   it("uses the river walk when entering utility-yard after outdoor movement from the-flats", () => {
@@ -173,7 +173,7 @@ describe("indoor room stands", () => {
 
     expect(outdoor.state.previousId).toBe("the-flats");
     expect(place.value).toBe("indoors");
-    expect(indoor.indoor.exteriorNode).toBe("upstream-bank");
+    expect(indoor.indoor.exteriorNode).toBe("intake-entrance");
   });
 
   it("lands on the named utility-yard stand for the source hex", () => {
