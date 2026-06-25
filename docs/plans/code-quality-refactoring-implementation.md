@@ -1,21 +1,19 @@
 # Code Quality and Builder Refactoring - Implementation Plan
 
-**Status:** In progress
+**Status:** Complete
 **Last updated:** 2026-06-25
 **Primary areas:** `game/src/views`, `game/src/lib/maps/composables`, `game/server`
 
-This file is the durable handoff for breaking down oversized builder views,
-untangling movement/domain modules, and reducing duplicated authoring
-infrastructure. Future work should update the checkboxes and notes here rather
-than relying on conversation history.
+This file is the durable record for the completed builder, movement, runtime,
+and server refactoring pass.
 
 ## Current Progress
 
-The first implementation pass landed shared builder shell pieces, several
-component extractions, and the first travel-barrier module splits. The plan is
-not complete; unchecked items below are intentional follow-up work, especially
-the large document-lifecycle, inspector, runtime-facade, and server-repository
-extractions.
+The refactoring pass is complete. Large builder views now delegate document
+lifecycle, selection operations, browser/canvas panels, and inspector editors to
+focused modules; movement/runtime internals were split behind stable facades;
+server revision/reference/document concerns were separated; and targeted tests
+cover the extracted behavior.
 
 Completed so far:
 
@@ -47,17 +45,17 @@ Completed so far:
 
 Latest verification checkpoint:
 
-- `npm run test` — 67 files, 313 tests passing.
+- `npm run test` — 68 files, 316 tests passing.
 - `npm run build:game` — production content export, Vite build, and production
   bundle verification passing.
 
-Deferred from the first pass:
+Notes from the pass:
 
-- Phase 0 audit/checklist work was mostly superseded by direct refactoring and
-  targeted test additions.
+- Phase 0 audit/checklist work was satisfied through direct refactoring and
+  targeted tests rather than producing additional inventory files.
 - `BuilderStatusBanner.vue` now centralizes shared page-level status/dirty
   messages.
-- Outdoor/station selection CRUD and inspector extractions remain open.
+- Outdoor and station selection CRUD and inspector extractions are complete.
 - The deeper `useTravelBarriers.js`, `useOutdoorWorld.js`, and server repository
   splits are complete.
 
@@ -209,9 +207,10 @@ centralized tests for the common behavior.
 **Purpose:** Split `OutdoorWorldBuilderView.vue` into focused pieces while
 preserving the current authoring workflow.
 
-**Status:** In progress. Pure draft helpers, document lifecycle, camera logic,
-object browser, and canvas panel were extracted; selection and inspector
-extraction remain.
+**Status:** Complete. Document lifecycle, camera logic, pure draft helpers,
+selection/object operations, object browser, canvas panel, inspector shell, and
+focused outdoor inspector editors were extracted; the route now coordinates
+state, document services, camera, audit aliases, and component wiring.
 
 - [x] Extract document lifecycle to `useOutdoorWorldBuilderDocument()`:
   - load;
@@ -220,7 +219,7 @@ extraction remain.
   - revert;
   - history/restore;
   - baseline/dirty/errors/status/yaml preview.
-- [ ] Extract selection and object operations to `useOutdoorBuilderSelection()`:
+- [x] Extract selection and object operations to `useOutdoorBuilderSelection()`:
   - selected key/type/item;
   - select/select feature;
   - add/duplicate/delete/move/rename;
@@ -233,15 +232,15 @@ extraction remain.
   - point application.
 - [x] Extract `OutdoorObjectBrowser.vue`.
 - [x] Extract `OutdoorCanvasPanel.vue`.
-- [ ] Extract `OutdoorInspector.vue`.
-- [ ] Split the inspector into smaller editors once the first extraction lands:
+- [x] Extract `OutdoorInspector.vue`.
+- [x] Split the inspector into smaller editors once the first extraction lands:
   - `HexInspector.vue`;
   - `RouteInspector.vue`;
   - `FeatureInspector.vue`;
   - `PassageInspector.vue`;
   - `LandmarkInspector.vue`;
   - `StandInspector.vue`.
-- [ ] Keep `OutdoorWorldBuilderView.vue` as the route-level coordinator.
+- [x] Keep `OutdoorWorldBuilderView.vue` as the route-level coordinator.
 
 Likely files:
 
@@ -255,7 +254,7 @@ Likely files:
 Automation cleanup:
 
 - [x] Add focused tests for landmark/stand draft conversion helpers.
-- Keep selection/object-operation tests at the composable level where possible.
+- [x] Keep selection/object-operation tests at the composable level where possible.
 - Avoid large component tests for every inspector field; reserve component tests
   for wiring that cannot be covered by plain modules.
 
