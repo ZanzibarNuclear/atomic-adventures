@@ -27,9 +27,15 @@ import {
   fenceSegments,
   riverSegments,
 } from '../travel/barrierContext.js'
+import {
+  hexPolygon,
+  pointInHexPolygon,
+  segmentInsideHex as segmentInsideHexWithInterpolator,
+} from '../travel/hexPolygon.js'
 
 export { travelOpenings } from './useBarrierOpenings.js'
 export { segmentIntersection, segmentsCross, sideOfLine } from '../geometry/segments.js'
+export { hexPolygon, pointInHexPolygon } from '../travel/hexPolygon.js'
 export {
   BARRIER_KINDS,
   BARRIER_OPENINGS,
@@ -277,12 +283,6 @@ function standInDestinationHex(point, toHex, hexAtPoint, size = null) {
   return hexAtPoint(point, null) === toHex.id
 }
 
-function hexPolygon(hex, size) {
-  if (!hex || size == null) return []
-  const center = axialToPixel(hex.q, hex.r, size)
-  return hexCorners(center.x, center.y, size)
-}
-
 function barriersIntersectingHex(ctx, hex, size) {
   const polygon = hexPolygon(hex, size)
   if (polygon.length < 3) return []
@@ -298,29 +298,8 @@ function barriersIntersectingHex(ctx, hex, size) {
   )
 }
 
-export function pointInHexPolygon(point, hex, size) {
-  if (!point || !hex || size == null) return false
-  const corners = hexPolygon(hex, size)
-  if (corners.length < 3) return false
-  const eps = 1e-6
-  let sign = 0
-  for (let i = 0; i < corners.length; i++) {
-    const a = corners[i]
-    const b = corners[(i + 1) % corners.length]
-    const cross = sideOfLine(point, a, b)
-    if (Math.abs(cross) <= eps) continue
-    const nextSign = Math.sign(cross)
-    if (sign && nextSign !== sign) return false
-    sign = nextSign
-  }
-  return true
-}
-
 function segmentInsideHex(a, b, hex, size) {
-  for (const t of [0, 0.2, 0.4, 0.6, 0.8, 1]) {
-    if (!pointInHexPolygon(interpolate(a, b, t), hex, size)) return false
-  }
-  return true
+  return segmentInsideHexWithInterpolator(a, b, hex, size, interpolate)
 }
 
 function uniquePush(points, point) {

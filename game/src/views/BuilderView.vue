@@ -1,14 +1,13 @@
 <script setup>
 import { computed, onMounted, ref, toRaw, watch } from "vue";
 import { useRouter } from "vue-router";
-import HexMap from "../lib/maps/components/HexMap.vue";
-import GridMap from "../lib/maps/components/GridMap.vue";
 import RevisionHistoryPanel from "../components/builder/RevisionHistoryPanel.vue";
+import StoryBeatList from "../components/builder/story/StoryBeatList.vue";
 import StoryChoiceEditor from "../components/builder/story/StoryChoiceEditor.vue";
+import StoryLocationPicker from "../components/builder/story/StoryLocationPicker.vue";
 import UnsavedChangesDialog from "../components/builder/UnsavedChangesDialog.vue";
 import { useOutdoorWorld } from "../lib/maps/composables/useOutdoorWorld.js";
 import { buildBuilding } from "../lib/maps/composables/useGrid.js";
-import { buildInitialDoorState } from "../lib/maps/composables/useDoors.js";
 import { storyApi } from "../lib/storyApi.js";
 import {
   choiceDestinationType,
@@ -499,98 +498,39 @@ function requestContextChange(action) {
 <template>
   <main class="builder-page">
     <div class="builder-workspace">
-      <section class="builder-map-column panel">
-        <div class="mode-tabs">
-          <button :class="{ active: locationMode === 'outdoors' }" @click="switchMode('outdoors')">Outdoor</button>
-          <button :class="{ active: ['rooms', 'exterior'].includes(locationMode) }" @click="switchMode('rooms')">Indoor</button>
-          <button :class="{ active: locationMode === 'events' }" @click="switchMode('events')">Events</button>
-        </div>
+      <StoryLocationPicker
+        v-model:indoor-level="indoorLevel"
+        v-model:indoor-viewport-mode="indoorViewportMode"
+        v-model:preview-exterior-fog="previewExteriorFog"
+        v-model:event-location-input="eventLocationInput"
+        :location-mode="locationMode"
+        :selected-location="selectedLocation"
+        :outdoor="outdoor"
+        :building="building"
+        :building-data="buildingData"
+        :all-hex-ids="allHexIds"
+        :all-hex-set="allHexSet"
+        :all-room-ids="allRoomIds"
+        :all-exterior-ids="allExteriorIds"
+        :builder-flags="builderFlags"
+        :selected-room="selectedRoom"
+        :selected-exterior="selectedExterior"
+        @switch-mode="switchMode"
+        @select-hex="selectHex"
+        @select-room="selectRoom"
+        @select-exterior="selectExterior"
+        @select-indoor-item="selectIndoorMapItem"
+        @select-event="selectEventLocation"
+      />
 
-        <HexMap
-          v-if="locationMode === 'outdoors'"
-          :map-data="outdoor.displayMapData"
-          :route-models="outdoor.routeModels"
-          :feature-models="outdoor.featureModels"
-          :current-hex="selectedLocation"
-          :discovered="allHexIds"
-          :flags="builderFlags"
-          :mode="'full'"
-          :builder-view="true"
-          :clickable-hex-ids="allHexSet"
-          :avatar-instant="true"
-          @hex-click="selectHex" />
-
-        <template v-else-if="locationMode !== 'events'">
-          <div class="indoor-preview-controls">
-            <label>Floor
-              <select v-model="indoorLevel">
-                <option v-for="level in buildingData.levels" :key="level.id" :value="level.id">{{ level.label }}</option>
-              </select>
-            </label>
-            <label>Camera
-              <select v-model="indoorViewportMode">
-                <option value="gameplay">Gameplay preview</option>
-                <option value="fit-all">Fit all</option>
-              </select>
-            </label>
-            <label class="preview-check">
-              <input v-model="previewExteriorFog" type="checkbox">
-              Exterior fog
-            </label>
-          </div>
-          <GridMap
-            :building="building"
-            :current-room="selectedRoom"
-            :exterior-node="selectedExterior"
-            :discovered="allRoomIds"
-            :revealed="allRoomIds"
-            :level="indoorLevel"
-            :stand-level="indoorLevel"
-            :reachable-rooms="allRoomIds"
-            :reachable-exterior-nodes="allExteriorIds"
-            :door-states="buildInitialDoorState(building.areaId, building)"
-            :builder-view="true"
-            :hydro-discovered="true"
-            :viewport-mode="indoorViewportMode"
-            :exterior-fog="previewExteriorFog"
-            :orientation-controls="false"
-            :wheel-zoom="true"
-            :drag-pan="true"
-            @room-click="selectRoom"
-            @exterior-node-click="selectExterior"
-            @select-item="selectIndoorMapItem" />
-        </template>
-
-        <label v-else>Event name
-          <input
-            v-model="eventLocationInput"
-            placeholder="custom-event"
-            @change="selectEventLocation" />
-        </label>
-      </section>
-
-      <section class="builder-list-column panel">
-        <div class="section-heading">
-          <div>
-            <p class="label">Selected location</p>
-            <h2>{{ selectedLocation }}</h2>
-          </div>
-          <button class="sm" @click="newBeat()">New beat</button>
-        </div>
-        <button
-          v-for="beat in locationBeats"
-          :key="beat.id"
-          class="beat-list-item"
-          :class="{ active: selectedBeatId === beat.id }"
-          @click="selectBeat(beat.id)">
-          <strong>{{ beat.heading || beat.id }}</strong>
-          <span>{{ beat.id }}</span>
-          <small v-if="beat.match?.originHex">from {{ beat.match.originHex }}</small>
-          <small v-if="beat.match?.localExit">exit {{ beat.match.localExit }}</small>
-        </button>
-        <p v-if="!locationBeats.length" class="empty-note">No beats are attached here yet.</p>
-        <p v-for="warning in matchWarnings" :key="warning" class="builder-warning">{{ warning }}</p>
-      </section>
+      <StoryBeatList
+        :selected-location="selectedLocation"
+        :beats="locationBeats"
+        :selected-beat-id="selectedBeatId"
+        :warnings="matchWarnings"
+        @new="newBeat()"
+        @select="selectBeat"
+      />
 
       <section class="builder-form-column panel">
         <div v-if="!draft" class="empty-editor">

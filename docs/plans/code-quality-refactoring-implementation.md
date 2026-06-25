@@ -1,6 +1,6 @@
 # Code Quality and Builder Refactoring - Implementation Plan
 
-**Status:** Proposed
+**Status:** In progress
 **Last updated:** 2026-06-25
 **Primary areas:** `game/src/views`, `game/src/lib/maps/composables`, `game/server`
 
@@ -8,6 +8,40 @@ This file is the durable handoff for breaking down oversized builder views,
 untangling movement/domain modules, and reducing duplicated authoring
 infrastructure. Future work should update the checkboxes and notes here rather
 than relying on conversation history.
+
+## Current Progress
+
+The first implementation pass landed shared builder shell pieces, several
+component extractions, and the first travel-barrier module splits. The plan is
+not complete; unchecked items below are intentional follow-up work, especially
+the large document-lifecycle, inspector, runtime-facade, and server-repository
+extractions.
+
+Completed in the first pass:
+
+- shared unsaved-change dialog, revision-history panel, and dirty-navigation
+  composable;
+- shared dirty-navigation wiring in Story Builder, World Builder, and Utility
+  Station Builder;
+- outdoor and utility-station object-browser components;
+- story location picker, beat list, choice editor, and tested story-choice helper
+  module;
+- tested outdoor landmark/stand draft helper module;
+- tested world-builder camera composable;
+- tested segment-geometry, hex-polygon, and barrier-context modules;
+- compatibility re-exports from `useTravelBarriers.js` so existing callers keep
+  working.
+
+Deferred from the first pass:
+
+- Phase 0 audit/checklist work was mostly superseded by direct refactoring and
+  targeted test additions.
+- `BuilderStatusBanner.vue` remains optional; status/dirty markup duplication is
+  smaller but still present.
+- The large route-level document lifecycle, selection, most canvas panels, and inspector
+  extractions remain open.
+- The deeper `useTravelBarriers.js`, `useOutdoorWorld.js`, and server repository
+  splits remain open.
 
 ## Goal
 
@@ -86,13 +120,16 @@ Test automation cleanup goals:
 
 **Purpose:** Prepare the codebase for direct refactoring work.
 
-- [ ] Record current line-count hotspots so progress can be measured without
+**Status:** Skipped/superseded. We chose direct refactoring plus focused tests
+instead of a separate up-front audit phase.
+
+- [x] Skipped: record current line-count hotspots so progress can be measured without
       treating line count as the only goal.
-- [ ] Identify existing tests that cover movement, barriers, world content,
+- [x] Skipped: identify existing tests that cover movement, barriers, world content,
       building content, story builder behavior, and play-panel actions.
-- [ ] Identify low-signal tests that mostly restate implementation details and
+- [x] Skipped: identify low-signal tests that mostly restate implementation details and
       mark them for rewrite or deletion during the relevant phase.
-- [ ] Add missing low-risk tests where extraction would otherwise be hard to
+- [x] Superseded: add missing low-risk tests where extraction would otherwise be hard to
       verify, especially for plain helper modules.
 
 Likely files:
@@ -109,6 +146,9 @@ clear list of test cleanup opportunities before code movement begins.
 
 **Purpose:** Remove duplicated builder chrome and navigation workflows before
 splitting the largest views.
+
+**Status:** Mostly complete. The remaining status-banner item is optional and
+can be done later if duplication is still annoying.
 
 - [x] Create `UnsavedChangesDialog.vue` for save/discard/keep-editing prompts.
 - [x] Create `RevisionHistoryPanel.vue` for revision list and restore actions.
@@ -151,6 +191,10 @@ centralized tests for the common behavior.
 **Purpose:** Split `OutdoorWorldBuilderView.vue` into focused pieces while
 preserving the current authoring workflow.
 
+**Status:** Partially complete. Pure draft helpers, camera logic, and the object
+browser were extracted; document lifecycle, selection, canvas panel, and
+inspector extraction remain.
+
 - [ ] Extract document lifecycle to `useOutdoorWorldBuilderDocument()`:
   - load;
   - apply loaded result;
@@ -163,7 +207,7 @@ preserving the current authoring workflow.
   - select/select feature;
   - add/duplicate/delete/move/rename;
   - local rename cascade.
-- [ ] Extract map camera and pan/zoom behavior to `useWorldBuilderCamera()`.
+- [x] Extract map camera and pan/zoom behavior to `useWorldBuilderCamera()`.
 - [x] Extract landmark and stand draft helpers to a plain module:
   - draft-from-model;
   - model-from-draft;
@@ -205,6 +249,9 @@ outdoor object browser, canvas, and inspector concerns are separately owned.
 ## Phase 3 - Utility Station Builder Decomposition
 
 **Purpose:** Apply the same route/component boundaries to indoor world authoring.
+
+**Status:** Started. The object browser was extracted; document lifecycle,
+selection, canvas, inspector, item placement, and action authoring remain.
 
 - [ ] Extract document lifecycle to `useBuildingBuilderDocument()`:
   - load;
@@ -262,8 +309,12 @@ lifecycle concerns are separately owned.
 
 **Purpose:** Make story authoring easier to extend before beat complexity grows.
 
-- [ ] Extract location/map selection to `StoryLocationPicker.vue`.
-- [ ] Extract beat list and match warnings to `StoryBeatList.vue`.
+**Status:** Partially complete. Choice editing and choice helper logic were
+extracted along with the location picker and beat list; beat lifecycle and
+top-level beat editor remain.
+
+- [x] Extract location/map selection to `StoryLocationPicker.vue`.
+- [x] Extract beat list and match warnings to `StoryBeatList.vue`.
 - [ ] Extract beat document lifecycle to `useStoryBeatDocument()`:
   - load list;
   - load selected beat;
@@ -301,12 +352,17 @@ components with route-level state kept small.
 **Purpose:** Separate movement algorithms by layer so future barrier changes are
 easier to test and reason about.
 
+**Status:** Partially complete. Geometry primitives, hex polygon helpers, and
+barrier segment/list helpers were extracted; first-hit detection, pathfinding,
+arrival stands, and move resolution remain.
+
 - [x] Move geometry primitives from `useTravelBarriers.js` into a plain geometry
       module.
 - [x] Move barrier segment extraction and barrier lists into a barrier-context
       module.
 - [ ] Move junction cache and first-hit detection into a barrier-context module.
-- [ ] Move hex polygon tests and local pathfinding to a `pathInHex` module.
+- [x] Move hex polygon helpers and tests to a travel module.
+- [ ] Move local pathfinding to a `pathInHex` module.
 - [ ] Move destination stand selection and arrival heuristics to an arrival
       module.
 - [x] Keep a public compatibility module at `useTravelBarriers.js` that
@@ -342,6 +398,8 @@ separated into smaller modules.
 **Purpose:** Keep `useOutdoorWorld()` as a stable facade while reducing the
 number of responsibilities inside the file.
 
+**Status:** Not started.
+
 - [ ] Extract map data/model concerns to `useOutdoorWorldModel()`.
 - [ ] Extract passage/opening state to `useOutdoorPassages()`.
 - [ ] Extract barrier search/discovery behavior to `useOutdoorBarrierSearch()`.
@@ -375,6 +433,8 @@ passages, search, and movement are independently testable modules.
 
 **Purpose:** Reduce duplicated repository mechanics and isolate cross-domain
 reference orchestration.
+
+**Status:** Not started.
 
 - [ ] Extract shared revision behavior to a helper or `RevisionStore`:
   - list revisions;
