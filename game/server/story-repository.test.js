@@ -167,13 +167,13 @@ describe("StoryRepository", () => {
   it("round-trips origin-hex beat matching", () => {
     const { db, repository } = createRepository();
     repository.createBeat("test-area", sampleBeat({
-      match: { originHex: "the-flats" },
+      match: { originHex: "the-flats", localExit: "garage-exit" },
     }));
 
     const beat = repository.getBeat("test-area", "test-beat");
-    expect(beat.match).toEqual({ originHex: "the-flats" });
+    expect(beat.match).toEqual({ originHex: "the-flats", localExit: "garage-exit" });
     expect(repository.getRuntimeStory().areas["test-area"].beats["test-beat"].match)
-      .toEqual({ originHex: "the-flats" });
+      .toEqual({ originHex: "the-flats", localExit: "garage-exit" });
     db.close();
   });
 

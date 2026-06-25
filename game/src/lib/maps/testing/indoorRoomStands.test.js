@@ -204,11 +204,14 @@ describe("indoor room stands", () => {
   it("returns to the world at the named transition stand", () => {
     const { indoor, outdoor, place } = indoorHarness();
     indoor.indoor.exteriorNode = "large-bay-man-front";
+    outdoor.state.previousId = "the-flats";
 
     indoor.exitViaDoor("man-door-path");
 
     expect(place.value).toBe("outdoors");
     expect(outdoor.state.currentId).toBe("utility-yard");
+    expect(outdoor.state.previousId).toBeNull();
+    expect(outdoor.state.localExit).toBe("man-door-path");
     expect(outdoor.state.stand).toEqual(
       resolveStandPoint(outdoor.hexById["utility-yard"], { stand: "man-door" }, outdoor.size),
     );

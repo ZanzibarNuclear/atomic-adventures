@@ -12,6 +12,7 @@ function harness(initialStory, {
   initialPlace = "outdoors",
   initialExteriorNode = null,
   initialOriginHex = null,
+  initialLocalExit = null,
   openStageView = () => {},
 } = {}) {
   const story = ref(initialStory);
@@ -38,7 +39,11 @@ function harness(initialStory, {
     } : {}),
   });
   const outdoor = {
-    state: reactive({ currentId: "origin", previousId: initialOriginHex }),
+    state: reactive({
+      currentId: "origin",
+      previousId: initialOriginHex,
+      localExit: initialLocalExit,
+    }),
     canReachHex: () => true,
     moveTo,
     atBuildingEntrance: false,
@@ -417,6 +422,62 @@ describe("useStory reactive content", () => {
     expect(setup.api.pendingBeat.value.id).toBe("utility-yard-from-flats");
     expect(setup.api.pendingBeat.value.text).toBe("You are back by the intake approach.");
     expect(setup.api.pendingBeat.value.revisit).toBe(true);
+  });
+
+  it("uses a local-exit beat after returning from a local map", () => {
+    const setup = harness({
+      beats: {
+        "utility-yard-default": {
+          text: "The utility station is just ahead.",
+          trigger: { place: "outdoors", hex: "origin" },
+          choices: [],
+        },
+        "utility-yard-from-flats": {
+          text: "The riverbank path brings you in by the intake.",
+          trigger: { place: "outdoors", hex: "origin" },
+          match: { originHex: "the-flats" },
+          choices: [],
+        },
+        "utility-yard-from-garage": {
+          text: "You are standing in front of the garage doors.",
+          trigger: { place: "outdoors", hex: "origin" },
+          match: { localExit: "garage-exit" },
+          choices: [],
+        },
+      },
+    }, {
+      initialOriginHex: null,
+      initialLocalExit: "garage-exit",
+    });
+
+    setup.api.refreshNarrative();
+
+    expect(setup.api.pendingBeat.value.id).toBe("utility-yard-from-garage");
+  });
+
+  it("does not keep using an origin-specific beat after a local exit clears origin", () => {
+    const setup = harness({
+      beats: {
+        "utility-yard-default": {
+          text: "The utility station is just ahead.",
+          trigger: { place: "outdoors", hex: "origin" },
+          choices: [],
+        },
+        "utility-yard-from-flats": {
+          text: "The riverbank path brings you in by the intake.",
+          trigger: { place: "outdoors", hex: "origin" },
+          match: { originHex: "the-flats" },
+          choices: [],
+        },
+      },
+    }, {
+      initialOriginHex: null,
+      initialLocalExit: "garage-exit",
+    });
+
+    setup.api.refreshNarrative();
+
+    expect(setup.api.pendingBeat.value.id).toBe("utility-yard-default");
   });
 
   it("moves to an exterior node from an indoor story choice", () => {

@@ -35,6 +35,7 @@ export function useStory(storyData, ctx) {
       place: place.value,
       hex: outdoor.state.currentId,
       originHex: outdoor.state.previousId,
+      localExit: outdoor.state.localExit,
       room: indoor.indoor.currentRoom,
       exteriorNode: indoor.indoor.exteriorNode,
     };
@@ -67,6 +68,10 @@ export function useStory(storyData, ctx) {
     let score = 0;
     if (match.originHex) {
       if (loc.place !== "outdoors" || match.originHex !== loc.originHex) return -1;
+      score += 1;
+    }
+    if (match.localExit) {
+      if (loc.place !== "outdoors" || match.localExit !== loc.localExit) return -1;
       score += 1;
     }
     return score;
@@ -251,6 +256,7 @@ export function useStory(storyData, ctx) {
       place.value,
       outdoor.state.currentId,
       outdoor.state.previousId,
+      outdoor.state.localExit,
       indoor.indoor.currentRoom,
       indoor.indoor.exteriorNode,
       [...gameState.flags].join("\0"),

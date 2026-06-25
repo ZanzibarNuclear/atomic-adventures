@@ -581,6 +581,7 @@ function parseMatchJson(value) {
   const parsed = JSON.parse(value || "{}");
   return {
     originHex: nullableText(parsed.originHex),
+    localExit: nullableText(parsed.localExit),
   };
 }
 

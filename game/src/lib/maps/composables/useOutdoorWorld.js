@@ -131,6 +131,8 @@ export function useOutdoorWorld(mapData, gameState = null) {
     stand: initialStand(mapData, size.value),
     /** Previous outdoor hex entered by inter-hex movement. */
     previousId: null,
+    /** Local-map transition used to return to the current outdoor hex. */
+    localExit: null,
     /** Barrier kind when a crossing failed before entering the destination hex. */
     lastBlocked: null,
     /** Barrier kind when standing at a barrier line inside the current hex. */
@@ -473,6 +475,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
     };
     const nextHexId = hexAtPoint(rounded, hexId);
     if (nextHexId !== state.currentId) state.previousId = previousId ?? state.currentId;
+    state.localExit = null;
     state.currentId = nextHexId;
     state.stand = rounded;
     state.lastBlocked = blocked ?? null;
@@ -590,6 +593,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
     state.discoveredOpenings = [];
     state.stand = defaultStandForHex(startId.value);
     state.previousId = null;
+    state.localExit = null;
     state.lastBlocked = null;
     state.atBarrier = null;
     state.lastSearch = null;

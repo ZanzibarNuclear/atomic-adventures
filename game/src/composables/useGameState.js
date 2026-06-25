@@ -16,7 +16,7 @@ import {
 } from "./useCharacterState.js";
 import { createGameClock } from "../lib/character/gameTime.js";
 
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 /** Plain JSON-safe clone — structuredClone fails on Vue reactive proxies. */
 function clonePlain(value) {
@@ -52,6 +52,7 @@ export function captureSnapshot({ gameState, place, outdoor, indoor }) {
     outdoor: {
       currentId: outdoor.state.currentId,
       previousId: outdoor.state.previousId ?? null,
+      localExit: outdoor.state.localExit ?? null,
       discovered: [...outdoor.state.discovered],
       stand: { ...outdoor.state.stand },
       lastBlocked: outdoor.state.lastBlocked,
@@ -82,6 +83,7 @@ export function captureSnapshot({ gameState, place, outdoor, indoor }) {
 function applyOutdoorSnapshot(o, outdoor) {
   outdoor.state.currentId = o.currentId ?? outdoor.START;
   outdoor.state.previousId = o.previousId ?? null;
+  outdoor.state.localExit = o.localExit ?? null;
   outdoor.state.discovered = [...(o.discovered ?? [outdoor.state.currentId])];
 
   if (o.stand) {

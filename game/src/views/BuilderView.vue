@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, toRaw, watch } from "vue";
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import HexMap from "../lib/maps/components/HexMap.vue";
 import GridMap from "../lib/maps/components/GridMap.vue";
@@ -26,7 +26,7 @@ const builderFlags = new Set();
 const STORY_AREA_ID = "part-i";
 const router = useRouter();
 
-const catalog = ref({ world: { hexes: [], rooms: [], exteriorNodes: [], buildings: [] } });
+const catalog = ref({ world: { hexes: [], rooms: [], exteriorNodes: [], localExits: [], buildings: [] } });
 const beats = ref([]);
 const selectedBeatId = ref("");
 const locationMode = ref("outdoors");
@@ -49,6 +49,10 @@ const pendingContextAction = ref(null);
 const savingBeforeNavigation = ref(false);
 let beatLoadRequest = 0;
 
+function clonePlain(value) {
+  return JSON.parse(JSON.stringify(toRaw(value)));
+}
+
 const dirty = computed(() => draft.value && JSON.stringify(draft.value) !== baseline.value);
 const yamlPreview = computed(() => storyBeatYaml(draft.value));
 function beatsForLocation(mode, location) {
@@ -66,7 +70,8 @@ const matchWarnings = computed(() => {
   const groups = new Map();
   for (const beat of locationBeats.value) {
     const origin = beat.match?.originHex ?? "";
-    const key = `${locationMode.value}:${selectedLocation.value}:origin=${origin}`;
+    const localExit = beat.match?.localExit ?? "";
+    const key = `${locationMode.value}:${selectedLocation.value}:origin=${origin}:localExit=${localExit}`;
     const group = groups.get(key) ?? [];
     group.push(beat);
     groups.set(key, group);
@@ -75,7 +80,11 @@ const matchWarnings = computed(() => {
     .filter((group) => group.length > 1)
     .map((group) => {
       const origin = group[0].match?.originHex;
-      const label = origin ? `origin ${origin}` : "default/no origin";
+      const localExit = group[0].match?.localExit;
+      const label = [
+        origin ? `origin ${origin}` : "",
+        localExit ? `local exit ${localExit}` : "",
+      ].filter(Boolean).join(", ") || "default/no origin or local exit";
       return `Multiple beats use ${label}: ${group.map((beat) => beat.id).join(", ")}. The first sorted beat wins.`;
     });
 });
@@ -291,7 +300,7 @@ function newBeat(copy = null) {
 }
 
 function beginNewBeat(copy = null) {
-  const source = copy ? structuredClone(copy) : emptyBeat();
+  const source = copy ? clonePlain(copy) : emptyBeat();
   source.id = uniqueId(copy ? `${copy.id}-copy` : suggestedId());
   source.version = undefined;
   source.choices = (source.choices ?? []).map((choice) => ({ ...choice, id: crypto.randomUUID() }));
@@ -313,7 +322,7 @@ function emptyBeat() {
     text: "",
     revisit: "",
     trigger,
-    match: { originHex: null },
+    match: { originHex: null, localExit: null },
     choices: [],
   };
 }
@@ -331,9 +340,10 @@ function uniqueId(base) {
 }
 
 function setDraft(value) {
-  const next = structuredClone(value);
-  next.match ??= { originHex: null };
+  const next = clonePlain(value);
+  next.match ??= { originHex: null, localExit: null };
   next.match.originHex ??= null;
+  next.match.localExit ??= null;
   draft.value = next;
   baseline.value = JSON.stringify(draft.value);
   errors.value = {};
@@ -351,8 +361,8 @@ async function saveBeat() {
   if (!draft.value) return false;
   errors.value = {};
   status.value = "Saving…";
-  const submitted = structuredClone(draft.value);
   try {
+    const submitted = clonePlain(draft.value);
     let result;
     if (isNew.value) {
       result = await storyApi(`/api/story/areas/${STORY_AREA_ID}/beats`, {
@@ -372,14 +382,20 @@ async function saveBeat() {
     isNew.value = false;
     const submittedOrigin = submitted.match?.originHex ?? null;
     const savedOrigin = result.beat.match?.originHex ?? null;
-    if (submittedOrigin !== savedOrigin) {
-      const saved = structuredClone(result.beat);
-      const editable = structuredClone(result.beat);
-      editable.match = { ...(editable.match ?? {}), originHex: submittedOrigin };
+    const submittedLocalExit = submitted.match?.localExit ?? null;
+    const savedLocalExit = result.beat.match?.localExit ?? null;
+    if (submittedOrigin !== savedOrigin || submittedLocalExit !== savedLocalExit) {
+      const saved = clonePlain(result.beat);
+      const editable = clonePlain(result.beat);
+      editable.match = {
+        ...(editable.match ?? {}),
+        originHex: submittedOrigin,
+        localExit: submittedLocalExit,
+      };
       draft.value = editable;
       baseline.value = JSON.stringify(saved);
       await refreshBeatList();
-      status.value = "The content API did not preserve the origin hex. Restart the game dev server, then save again.";
+      status.value = "The content API did not preserve the match criteria. Restart the game dev server, then save again.";
       return false;
     }
     setDraft(result.beat);
@@ -516,14 +532,23 @@ async function discardAndContinue() {
 async function saveAndContinue() {
   const action = pendingContextAction.value;
   savingBeforeNavigation.value = true;
-  const saved = await saveBeat();
-  savingBeforeNavigation.value = false;
+  let saved = false;
+  try {
+    saved = await saveBeat();
+  } catch (error) {
+    status.value = error.message ?? "Save failed.";
+  } finally {
+    savingBeforeNavigation.value = false;
+  }
   if (!saved) {
-    closeNavigationPrompt();
     return;
   }
   closeNavigationPrompt();
-  await action?.();
+  try {
+    await action?.();
+  } catch (error) {
+    status.value = error.message ?? "Could not finish changing context.";
+  }
 }
 
 </script>
@@ -618,6 +643,7 @@ async function saveAndContinue() {
           <strong>{{ beat.heading || beat.id }}</strong>
           <span>{{ beat.id }}</span>
           <small v-if="beat.match?.originHex">from {{ beat.match.originHex }}</small>
+          <small v-if="beat.match?.localExit">exit {{ beat.match.localExit }}</small>
         </button>
         <p v-if="!locationBeats.length" class="empty-note">No beats are attached here yet.</p>
         <p v-for="warning in matchWarnings" :key="warning" class="builder-warning">{{ warning }}</p>
@@ -655,6 +681,13 @@ async function saveAndContinue() {
                 <option v-for="hex in catalog.world.hexes" :key="hex.id" :value="hex.id">{{ hex.label }} ({{ hex.id }})</option>
               </select>
               <span v-if="fieldError('match.originHex')" class="field-error">{{ fieldError("match.originHex") }}</span>
+            </label>
+            <label v-if="draftIsOutdoorHexBeat">Local exit
+              <select v-model="draft.match.localExit">
+                <option :value="null">Default</option>
+                <option v-for="exit in catalog.world.localExits" :key="exit.id" :value="exit.id">{{ exit.label }} ({{ exit.id }})</option>
+              </select>
+              <span v-if="fieldError('match.localExit')" class="field-error">{{ fieldError("match.localExit") }}</span>
             </label>
           </div>
 
@@ -771,6 +804,7 @@ async function saveAndContinue() {
           You can save these edits, discard them, or return to the editor
           without changing context.
         </p>
+        <p v-if="status" class="builder-status">{{ status }}</p>
         <div class="unsaved-actions">
           <button
             type="button"

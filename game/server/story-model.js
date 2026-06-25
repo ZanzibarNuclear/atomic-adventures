@@ -88,6 +88,10 @@ export function validateBeat(input, world, character = null) {
     if (!beat.trigger.hex) add("match.originHex", "Origin hex matching is only supported for outdoor hex beats.");
     if (!world.hexIds.has(beat.match.originHex)) add("match.originHex", "Choose an existing origin hex.");
   }
+  if (beat.match.localExit) {
+    if (!beat.trigger.hex) add("match.localExit", "Local exit matching is only supported for outdoor hex beats.");
+    if (!world.localExitIds?.has(beat.match.localExit)) add("match.localExit", "Choose an existing local map exit.");
+  }
 
   beat.choices.forEach((choice, index) => {
     const base = `choices.${index}`;
@@ -165,6 +169,7 @@ function normalizeStageView(value) {
 function normalizeMatch(value = {}) {
   return {
     originHex: nullableText(value.originHex),
+    localExit: nullableText(value.localExit),
   };
 }
 

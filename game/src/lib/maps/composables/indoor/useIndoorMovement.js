@@ -278,7 +278,8 @@ export function createIndoorMovement(deps) {
     if (!hexId) return;
     const previousId = outdoor.state.currentId;
     outdoor.state.currentId = hexId;
-    if (previousId !== hexId) outdoor.state.previousId = previousId;
+    outdoor.state.previousId = previousId !== hexId ? previousId : null;
+    outdoor.state.localExit = exit.id ?? doorId;
     resetOutdoorStand(hexId, exit.standAt);
     indoor.exteriorNode = null;
     indoor.currentRoom = null;
@@ -289,6 +290,8 @@ export function createIndoorMovement(deps) {
   function exitBuilding() {
     const hexId = building.value.outdoorHex ?? outdoor.state.currentId;
     outdoor.state.currentId = hexId;
+    outdoor.state.previousId = null;
+    outdoor.state.localExit = null;
     resetOutdoorStand(hexId);
     indoor.exteriorNode = null;
     indoor.currentRoom = null;

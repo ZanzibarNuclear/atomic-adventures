@@ -96,7 +96,14 @@ ignore them.
 matches. It is not the old general-purpose requirements system. It should grow
 one concrete authoring need at a time.
 
-The first supported criterion is `originHex`:
+The supported criteria are:
+
+| Criterion | Meaning |
+| --- | --- |
+| `originHex` | Neighboring outdoor hex the avatar entered from during inter-hex movement |
+| `localExit` | Local-map transition ID the avatar used to return to the outdoor hex |
+
+`originHex` example:
 
 ```yaml
 utility-yard-from-flats:
@@ -109,12 +116,28 @@ utility-yard-from-flats:
 runtime reads it from `outdoor.state.previousId`, the same movement hint used to
 choose destination stands. It is valid only on outdoor hex beats.
 
+`localExit` example:
+
+```yaml
+utility-yard-from-garage:
+  trigger: { place: outdoors, hex: utility-yard }
+  match: { localExit: garage-exit }
+  text: Zanzi stands back in the gravel apron before the garage doors.
+```
+
+`localExit` is set when the player switches from a local map back to the world
+map through a MAP exit. Returning through a local exit clears `originHex`,
+because local exploration may have made the original neighboring hex irrelevant.
+
 Selection examples for `utility-yard`:
 
 - A beat with `match: { originHex: the-flats }` wins over the default
   `utility-yard` beat when the player arrives from `the-flats`.
+- A beat with `match: { localExit: garage-exit }` wins over the default
+  `utility-yard` beat when the player returns to the world through the garage
+  MAP exit.
 - The default `utility-yard` beat wins when the player arrives from an origin
-  with no matching origin-specific beat.
+  or local exit with no matching specific beat.
 - If all `utility-yard` beats define nonmatching `originHex` values, no
   `utility-yard` beat is shown.
 
