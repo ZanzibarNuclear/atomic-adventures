@@ -1,12 +1,11 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import yaml from "js-yaml";
 import BuilderStatusBanner from "../components/builder/BuilderStatusBanner.vue";
 import RevisionHistoryPanel from "../components/builder/RevisionHistoryPanel.vue";
 import UnsavedChangesDialog from "../components/builder/UnsavedChangesDialog.vue";
+import OutdoorCanvasPanel from "../components/builder/outdoor/OutdoorCanvasPanel.vue";
 import OutdoorObjectBrowser from "../components/builder/outdoor/OutdoorObjectBrowser.vue";
-import HexMap from "../lib/maps/components/HexMap.vue";
 import { useOutdoorWorld } from "../lib/maps/composables/useOutdoorWorld.js";
 import {
   addWaypoint,
@@ -33,6 +32,7 @@ import {
 } from "../lib/maps/builder/outdoorDrafts.js";
 import { storyApi } from "../lib/storyApi.js";
 import { useDirtyDocumentNavigation } from "../composables/useDirtyDocumentNavigation.js";
+import { useOutdoorWorldBuilderDocument } from "../composables/useOutdoorWorldBuilderDocument.js";
 import { useWorldBuilderCamera } from "../composables/useWorldBuilderCamera.js";
 import { useWorldContent } from "../composables/useWorldContent.js";
 
@@ -44,23 +44,10 @@ const { refresh: refreshSharedWorld } = useWorldContent();
 const builderFlags = new Set();
 const router = useRouter();
 
-const loaded = ref(null);
-const draftMeta = ref({});
-const baseline = ref("");
-const version = ref(0);
 const selectedKey = ref("");
 const selectedHandleId = ref(null);
 const tool = ref("select");
 const search = ref("");
-const status = ref("");
-const errors = ref({});
-const warnings = ref([]);
-const yamlPreview = ref("");
-const revisions = ref([]);
-const showHistory = ref(false);
-const renames = ref([]);
-const auditEntries = ref([]);
-const auditSummary = ref(null);
 const leftCollapsed = ref(false);
 const rightCollapsed = ref(false);
 const canvasView = ref("map");
@@ -93,20 +80,41 @@ const {
   stopPan,
 } = worldCamera;
 
-const currentWorld = computed(() => ({
-  ...clonePlain(draftMeta.value),
-  hexes: clonePlain(outdoor.editableHexes),
-  features: clonePlain(outdoor.editableFeatures),
-  routes: clonePlain(outdoor.editableRoutes),
-}));
-const dirty = computed(() => Boolean(baseline.value) && JSON.stringify(currentWorld.value) !== baseline.value);
+const {
+  loaded,
+  draftMeta,
+  status,
+  errors,
+  warnings,
+  yamlPreview,
+  revisions,
+  showHistory,
+  renames,
+  auditEntries,
+  auditSummary,
+  currentWorld,
+  dirty,
+  dumpYaml,
+  loadWorld,
+  discardWorld,
+  revertWorld,
+  saveWorld,
+  loadHistory,
+  restoreRevision,
+} = useOutdoorWorldBuilderDocument({
+  outdoor,
+  refreshSharedWorld,
+  runMovementAudit,
+  hasSelection: () => Boolean(selected.value),
+  selectInitial: (start) => {
+    selectedKey.value = start ? `hex:${start}` : "";
+  },
+});
 const navigation = useDirtyDocumentNavigation({
   dirty,
   router,
   save: () => saveWorld(),
-  discard: () => {
-    if (loaded.value) applyLoaded(loaded.value);
-  },
+  discard: discardWorld,
   onError: (error) => {
     status.value = error.message ?? "Could not finish changing workspaces.";
   },
@@ -242,6 +250,8 @@ const filteredGroups = computed(() => {
 onMounted(async () => {
   try {
     await loadWorld();
+    await nextTick();
+    fitMap();
     resizeObserver = new ResizeObserver(() => fitMap(false));
     if (mapHost.value) resizeObserver.observe(mapHost.value);
   } catch (error) {
@@ -253,87 +263,6 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect();
   stopPan();
 });
-
-async function loadWorld() {
-  const result = await storyApi("/api/world/outdoors");
-  applyLoaded(result);
-  await nextTick();
-  fitMap();
-}
-
-function applyLoaded(result) {
-  loaded.value = result;
-  version.value = result.version;
-  warnings.value = result.warnings ?? [];
-  yamlPreview.value = result.yaml ?? dumpYaml(result.world);
-  errors.value = {};
-  renames.value = [];
-  auditEntries.value = [];
-  auditSummary.value = null;
-  const world = clonePlain(result.world);
-  const { hexes, features, routes, ...meta } = world;
-  draftMeta.value = meta;
-  outdoor.syncFromMapData({ ...meta, hexes, features, routes });
-  baseline.value = JSON.stringify(currentWorld.value);
-  if (!selected.value) selectedKey.value = world.start ? `hex:${world.start}` : "";
-}
-
-async function saveWorld() {
-  errors.value = {};
-  status.value = "";
-  const audit = runMovementAudit(false);
-  if (audit?.invalid > 0 && !window.confirm(
-    `The movement audit reports ${audit.invalid} invalid case(s). Save this deliberate geometry change anyway?`,
-  )) return false;
-  try {
-    const result = await storyApi("/api/world/outdoors", {
-      method: "PUT",
-      body: JSON.stringify({
-        world: currentWorld.value,
-        expectedVersion: version.value,
-        renames: renames.value,
-      }),
-    });
-    applyLoaded(result);
-    await refreshSharedWorld(result.revision);
-    status.value = `Saved world version ${result.version}.`;
-    return true;
-  } catch (error) {
-    errors.value = error.errors ?? {};
-    status.value = error.status === 409
-      ? "This world changed in another window. Revert or reload before saving."
-      : error.message;
-    return false;
-  }
-}
-
-function revertWorld() {
-  if (!loaded.value) return;
-  applyLoaded(loaded.value);
-  status.value = "Reverted unsaved changes.";
-}
-
-async function loadHistory() {
-  revisions.value = await storyApi("/api/world/outdoors/revisions");
-  showHistory.value = true;
-}
-
-async function restoreRevision(revision) {
-  if (dirty.value && !window.confirm("Discard unsaved edits and restore this revision?")) return;
-  if (!window.confirm(`Restore world revision ${revision} as a new revision?`)) return;
-  try {
-    const result = await storyApi(`/api/world/outdoors/revisions/${revision}/restore`, {
-      method: "POST",
-      body: "{}",
-    });
-    applyLoaded(result);
-    await refreshSharedWorld(result.revision);
-    status.value = `Restored revision ${revision}.`;
-  } catch (error) {
-    errors.value = error.errors ?? {};
-    status.value = error.message;
-  }
-}
 
 function select(type, id) {
   if (
@@ -890,6 +819,11 @@ function applyZoomAction(event) {
   });
 }
 
+function setMapHost(element) {
+  mapHost.value = element;
+  if (resizeObserver && element) resizeObserver.observe(element);
+}
+
 function uniqueId(base, list) {
   const used = new Set(list.map((item) => item.id));
   let id = base;
@@ -901,10 +835,6 @@ function uniqueId(base, list) {
 function removeById(list, id) {
   const index = list.findIndex((item) => item.id === id);
   if (index >= 0) list.splice(index, 1);
-}
-
-function dumpYaml(world) {
-  return yaml.dump(world, { noRefs: true, lineWidth: 100, noCompatMode: true, sortKeys: false });
 }
 
 function clonePlain(value) {
@@ -952,68 +882,38 @@ function clonePlain(value) {
         @select="select($event.type, $event.id)"
       />
 
-      <section class="canvas-column">
-        <div class="canvas-toolbar panel">
-          <div class="tool-group">
-            <label class="toolbar-field">
-              <span>Zoom</span>
-              <select v-model="zoomAction" class="toolbar-select" aria-label="Map zoom actions" @change="applyZoomAction">
-                <option value="fit">Fit map</option>
-                <option value="focus" :disabled="!selected">Focus selection</option>
-              </select>
-            </label>
-            <div class="segmented-control" aria-label="Canvas view">
-              <button class="sm" :class="{ active: canvasView === 'map' }" @click="canvasView = 'map'">Map</button>
-              <button class="sm" :class="{ active: canvasView === 'yaml' }" @click="canvasView = 'yaml'">YAML</button>
-            </div>
-            <button class="sm muted" @click="runMovementAudit()">Run movement audit</button>
-          </div>
-        </div>
-        <div
-          v-show="canvasView === 'map'"
-          ref="mapHost"
-          class="world-canvas"
-          :class="{ panning }"
-          @wheel.prevent="onWheel"
-          @pointerdown="startPan"
-        >
-          <HexMap
-            v-if="loaded"
-            :map-data="outdoor.displayMapData"
-            :route-models="outdoor.routeModels"
-            :feature-models="outdoor.featureModels"
-            :current-hex="selectedIsPlacement ? selected?.id ?? draftMeta.start : draftMeta.start"
-            :discovered="allHexIds"
-            :discovered-openings="outdoor.editableFeatures.map((feature) => feature.id)"
-            :flags="builderFlags"
-            :mode="'full'"
-            :builder-view="true"
-            :expanded="true"
-            :builder-edit="builderEdit"
-            :edit-mode="editMode"
-            :edit-handles="editHandles"
-            :edit-kind="selected?.kind ?? 'path'"
-            :selected-handle-id="selectedHandleId"
-            :add-point-mode="tool === 'add-point' && selectedIsLine"
-            :clickable-hex-ids="allHexSet"
-            :selectable-objects="tool !== 'add-point' || !selectedIsLine"
-            :view-box-override="viewBoxString"
-            :edit-handle-scale="editHandleScale"
-            :movement-audit-entries="auditEntries"
-            :avatar-instant="true"
-            @hex-click="select('hex', $event)"
-            @route-select="select('route', $event)"
-            @feature-select="selectFeature"
-            @passage-select="select('passage', $event)"
-            @landmark-select="select('landmark', $event)"
-            @select-handle="selectedHandleId = $event"
-            @waypoint-move="onHandleMove"
-            @builder-map-click="onBuilderMapClick"
-          />
-          <p class="pan-hint">Wheel to zoom · Shift-drag or middle-drag to pan</p>
-        </div>
-        <pre v-show="canvasView === 'yaml'" class="yaml-canvas">{{ dirty ? dumpYaml(currentWorld) : yamlPreview }}</pre>
-      </section>
+      <OutdoorCanvasPanel
+        v-model:canvas-view="canvasView"
+        v-model:zoom-action="zoomAction"
+        v-model:selected-handle-id="selectedHandleId"
+        :loaded="Boolean(loaded)"
+        :selected="selected"
+        :selected-is-placement="selectedIsPlacement"
+        :selected-is-line="selectedIsLine"
+        :draft-start="draftMeta.start"
+        :outdoor="outdoor"
+        :all-hex-ids="allHexIds"
+        :all-hex-set="allHexSet"
+        :builder-flags="builderFlags"
+        :builder-edit="builderEdit"
+        :edit-mode="editMode"
+        :edit-handles="editHandles"
+        :tool="tool"
+        :view-box-string="viewBoxString"
+        :edit-handle-scale="editHandleScale"
+        :audit-entries="auditEntries"
+        :panning="Boolean(panning)"
+        :yaml-text="dirty ? dumpYaml(currentWorld) : yamlPreview"
+        @canvas-mounted="setMapHost"
+        @zoom-action="applyZoomAction"
+        @run-movement-audit="runMovementAudit()"
+        @wheel="onWheel"
+        @pointerdown="startPan"
+        @select="select($event.type, $event.id)"
+        @select-feature="selectFeature"
+        @waypoint-move="onHandleMove"
+        @builder-map-click="onBuilderMapClick"
+      />
 
       <aside v-if="!rightCollapsed" class="inspector panel">
         <template v-if="selected">
@@ -1402,7 +1302,7 @@ function clonePlain(value) {
 
 <style scoped>
 .world-builder { padding: .85rem; }
-.world-toolbar, .toolbar-group, .tool-group, .canvas-toolbar, .inspector-heading, .row-actions, .point-heading {
+.world-toolbar, .toolbar-group, .inspector-heading, .row-actions, .point-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1422,8 +1322,8 @@ function clonePlain(value) {
 .world-workspace.right-collapsed { grid-template-columns: minmax(220px, 270px) minmax(440px, 1fr); }
 .world-workspace.left-collapsed.right-collapsed { grid-template-columns: 1fr; }
 .panel { min-width: 0; border: 1px solid #343d4d; border-radius: 10px; background: #20252f; padding: .75rem; }
-.object-browser, .inspector { overflow: auto; }
-.object-browser input, .inspector input, .inspector textarea, .inspector select {
+.inspector { overflow: auto; }
+.inspector input, .inspector textarea, .inspector select {
   width: 100%;
   border: 1px solid #485267;
   border-radius: 7px;
@@ -1431,54 +1331,7 @@ function clonePlain(value) {
   color: #eef1f5;
   padding: .45rem .55rem;
 }
-.create-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .4rem; margin-top: .6rem; }
-.object-group { margin-top: .9rem; }
-.object-group h3 { display: flex; justify-content: space-between; margin: 0 0 .35rem; color: #aeb5c0; font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; }
-.object-group h3 span { color: #6f7787; }
-.object-item { display: grid; width: 100%; gap: .1rem; margin-top: .25rem; text-align: left; background: #252b35; }
-.object-item span { color: #8e96a3; font-size: .72rem; }
-.object-item.active, .canvas-toolbar button.active, .point-tools button.active { background: #49624f; border-color: #6f9b79; }
-.segmented-control {
-  display: flex;
-  gap: .2rem;
-  padding: .16rem;
-  border: 1px solid #343d4d;
-  border-radius: 8px;
-  background: #171b22;
-}
-.toolbar-field {
-  display: flex;
-  align-items: center;
-  gap: .4rem;
-  color: #bdc4ce;
-  font-size: .78rem;
-}
-.toolbar-select {
-  min-width: 10rem;
-  border: 1px solid #485267;
-  border-radius: 7px;
-  background: #171b22;
-  color: #eef1f5;
-  padding: .42rem .55rem;
-}
-.canvas-column { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: .55rem; min-width: 0; }
-.world-canvas { position: relative; min-height: 0; overflow: hidden; border: 1px solid #3b4655; border-radius: 11px; background: #1d241f; }
-.yaml-canvas {
-  min-height: 0;
-  margin: 0;
-  overflow: auto;
-  padding: .85rem;
-  border: 1px solid #3b4655;
-  border-radius: 11px;
-  background: #11151b;
-  color: #d8dee8;
-  white-space: pre;
-  font-size: .75rem;
-  line-height: 1.45;
-}
-.world-canvas :deep(.hexmap), .world-canvas :deep(.hexmap.expanded) { height: 100%; min-height: 100%; border-radius: 0; }
-.world-canvas.panning { cursor: grabbing; }
-.pan-hint { position: absolute; left: .65rem; bottom: .45rem; margin: 0; padding: .25rem .45rem; border-radius: 5px; background: rgba(10, 13, 11, .7); color: #aeb7ad; font-size: .72rem; pointer-events: none; }
+.point-tools button.active { background: #49624f; border-color: #6f9b79; }
 .inspector { display: grid; align-content: start; gap: .7rem; }
 .inspector label { display: grid; gap: .3rem; color: #bdc4ce; font-size: .8rem; }
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; }
@@ -1553,7 +1406,6 @@ legend { color: #8bc49a; }
     height: auto;
   }
   .inspector { grid-column: 1 / -1; max-height: none; }
-  .world-canvas { min-height: 68vh; }
 }
 @media (max-width: 720px) {
   .world-workspace, .world-workspace.left-collapsed, .world-workspace.right-collapsed {

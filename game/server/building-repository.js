@@ -6,6 +6,9 @@ import {
   applyBuildingRenames,
   validateBuilding,
 } from "./building-model.js";
+import { RevisionStore } from "./revision-store.js";
+import { WorldDocumentStore } from "./world-document-store.js";
+import { ContentReferenceService } from "./content-reference-service.js";
 
 export const UTILITY_STATION_ID = "utility-station";
 
@@ -20,6 +23,13 @@ export class BuildingRepository {
     this.worldRepository = worldRepository;
     this.storyRepository = storyRepository;
     this.characterRepository = characterRepository;
+    this.references = new ContentReferenceService({ storyRepository });
+    this.documents = new WorldDocumentStore(db, { kind: "building" });
+    this.revisions = new RevisionStore(db, {
+      table: "world_revisions",
+      idColumn: "world_id",
+      metaKey: "world_revision",
+    });
     if (seedBuilding) this.ensureSeed(seedBuilding);
   }
 
@@ -27,6 +37,7 @@ export class BuildingRepository {
     this.worldRepository = worldRepository;
     this.storyRepository = storyRepository;
     this.characterRepository = characterRepository ?? this.characterRepository;
+    this.references.setStoryRepository(storyRepository);
   }
 
   ensureSeed(seedBuilding) {
@@ -34,30 +45,21 @@ export class BuildingRepository {
     const validation = this.validate(seedBuilding);
     if (!validation.valid) throw new ValidationError(validation.errors);
     transaction(this.db, () => {
-      const now = new Date().toISOString();
-      this.db.prepare(`
-        INSERT INTO world_documents(id, kind, document_json, version, created_at, updated_at)
-        VALUES (?, 'building', ?, 1, ?, ?)
-      `).run(validation.building.id, JSON.stringify(validation.building), now, now);
-      this.#recordRevision(validation.building.id, "import", validation.building);
-      this.#incrementGlobalRevision();
+      this.documents.insert(validation.building.id, validation.building);
+      this.revisions.record(validation.building.id, "import", validation.building);
+      this.revisions.incrementGlobalRevision();
     });
   }
 
   getGlobalRevision() {
-    return Number(
-      this.db.prepare("SELECT value FROM content_meta WHERE key = 'world_revision'").get()?.value ?? 0,
-    );
+    return this.revisions.getGlobalRevision();
   }
 
   getDocument(id = UTILITY_STATION_ID) {
-    const row = this.db.prepare(`
-      SELECT document_json, version, created_at AS createdAt, updated_at AS updatedAt
-      FROM world_documents WHERE id = ? AND kind = 'building'
-    `).get(id);
+    const row = this.documents.get(id);
     if (!row) return null;
     return {
-      building: JSON.parse(row.document_json),
+      building: row.document,
       version: row.version,
       revision: this.getGlobalRevision(),
       createdAt: row.createdAt,
@@ -153,8 +155,12 @@ export class BuildingRepository {
   previewRename(id, kind, from, to, candidateBuilding = null) {
     const document = this.getDocument(id);
     if (!document) throw new NotFoundError("Building not found.");
-    const references = this.storyRepository?.findBuildingReferences(kind, from) ?? [];
-    return { kind, from, to, references, building: candidateBuilding ?? document.building };
+    return this.references.previewBuildingRename(
+      candidateBuilding ?? document.building,
+      kind,
+      from,
+      to,
+    );
   }
 
   save(id, input, expectedVersion, renames = []) {
@@ -176,18 +182,11 @@ export class BuildingRepository {
         this.worldRepository.getDocument()?.world ?? { hexes: [] },
         validation.building,
       );
-      const story = this.storyRepository?.cascadeBuildingRenames(renames, nextCatalog) ?? {
-        affected: [],
-        revision: this.storyRepository?.getGlobalRevision?.() ?? 0,
-      };
+      const story = this.references.cascadeBuildingRenames(renames, nextCatalog);
       const nextVersion = existing.version + 1;
-      this.db.prepare(`
-        UPDATE world_documents
-        SET document_json = ?, version = ?, updated_at = ?
-        WHERE id = ? AND kind = 'building'
-      `).run(JSON.stringify(validation.building), nextVersion, new Date().toISOString(), id);
-      this.#recordRevision(id, "update", validation.building);
-      const revision = this.#incrementGlobalRevision();
+      this.documents.update(id, validation.building, nextVersion);
+      this.revisions.record(id, "update", validation.building);
+      const revision = this.revisions.incrementGlobalRevision();
       return {
         building: validation.building,
         version: nextVersion,
@@ -200,33 +199,22 @@ export class BuildingRepository {
   }
 
   listRevisions(id = UTILITY_STATION_ID) {
-    return this.db.prepare(`
-      SELECT revision, operation, created_at AS createdAt
-      FROM world_revisions
-      WHERE world_id = ?
-      ORDER BY revision DESC
-    `).all(id);
+    return this.revisions.list(id);
   }
 
   restore(id, revisionNumber) {
-    const row = this.db.prepare(`
-      SELECT snapshot_json FROM world_revisions
-      WHERE world_id = ? AND revision = ?
-    `).get(id, Number(revisionNumber));
-    if (!row) throw new NotFoundError("Building revision not found.");
-    const validation = this.validate(JSON.parse(row.snapshot_json));
+    const snapshot = this.revisions.getSnapshot(id, revisionNumber);
+    if (!snapshot) throw new NotFoundError("Building revision not found.");
+    const validation = this.validate(snapshot);
     if (!validation.valid) throw new ValidationError(validation.errors);
     this.#validateStory(validation.building);
     const existing = this.getDocument(id);
 
     return transaction(this.db, () => {
       const nextVersion = existing.version + 1;
-      this.db.prepare(`
-        UPDATE world_documents SET document_json = ?, version = ?, updated_at = ?
-        WHERE id = ? AND kind = 'building'
-      `).run(JSON.stringify(validation.building), nextVersion, new Date().toISOString(), id);
-      this.#recordRevision(id, "restore", validation.building);
-      const revision = this.#incrementGlobalRevision();
+      this.documents.update(id, validation.building, nextVersion);
+      this.revisions.record(id, "restore", validation.building);
+      const revision = this.revisions.incrementGlobalRevision();
       return {
         building: validation.building,
         version: nextVersion,
@@ -248,20 +236,13 @@ export class BuildingRepository {
     }
     this.#validateStory(validation.building);
     transaction(this.db, () => {
-      const now = new Date().toISOString();
       if (existing) {
-        this.db.prepare(`
-          UPDATE world_documents SET document_json = ?, version = version + 1, updated_at = ?
-          WHERE id = ? AND kind = 'building'
-        `).run(JSON.stringify(validation.building), now, validation.building.id);
+        this.documents.updateIncrementingVersion(validation.building.id, validation.building);
       } else {
-        this.db.prepare(`
-          INSERT INTO world_documents(id, kind, document_json, version, created_at, updated_at)
-          VALUES (?, 'building', ?, 1, ?, ?)
-        `).run(validation.building.id, JSON.stringify(validation.building), now, now);
+        this.documents.insert(validation.building.id, validation.building);
       }
-      this.#recordRevision(validation.building.id, "import", validation.building);
-      this.#incrementGlobalRevision();
+      this.revisions.record(validation.building.id, "import", validation.building);
+      this.revisions.incrementGlobalRevision();
     });
     this.worldRepository?.setBuildingData(validation.building);
     this.storyRepository?.setWorld(
@@ -274,29 +255,13 @@ export class BuildingRepository {
   }
 
   #validateStory(building, renames = []) {
-    if (!this.storyRepository || !this.worldRepository) return;
+    if (!this.worldRepository) return;
     const outdoor = this.worldRepository.getDocument()?.world ?? { hexes: [] };
     const catalog = buildWorldCatalog(outdoor, building);
-    const result = this.storyRepository.validateAgainstWorld(catalog, renames);
+    const result = this.references.validateWorldReferences(catalog, renames);
     if (Object.keys(result.errors).length) throw new ValidationError(result.errors);
   }
 
-  #recordRevision(id, operation, snapshot) {
-    const revision = Number(this.db.prepare(`
-      SELECT COALESCE(MAX(revision), 0) + 1 AS next
-      FROM world_revisions WHERE world_id = ?
-    `).get(id).next);
-    this.db.prepare(`
-      INSERT INTO world_revisions(world_id, revision, operation, snapshot_json, created_at)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(id, revision, operation, JSON.stringify(snapshot), new Date().toISOString());
-  }
-
-  #incrementGlobalRevision() {
-    const next = this.getGlobalRevision() + 1;
-    this.db.prepare("UPDATE content_meta SET value = ? WHERE key = 'world_revision'").run(String(next));
-    return next;
-  }
 }
 
 function characterEffectDomain(op) {

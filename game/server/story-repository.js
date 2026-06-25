@@ -1,12 +1,18 @@
 import { randomUUID } from "node:crypto";
 import { transaction } from "./db.js";
 import { beatToRuntime, normalizeBeat, validateBeat } from "./story-model.js";
+import { RevisionStore } from "./revision-store.js";
 
 export class StoryRepository {
   constructor(db, world, character = null) {
     this.db = db;
     this.world = world;
     this.character = character;
+    this.revisions = new RevisionStore(db, {
+      table: "story_revisions",
+      idColumns: ["area_id", "beat_id"],
+      metaKey: "story_revision",
+    });
   }
 
   setWorld(world) {
@@ -18,9 +24,7 @@ export class StoryRepository {
   }
 
   getGlobalRevision() {
-    return Number(
-      this.db.prepare("SELECT value FROM content_meta WHERE key = 'story_revision'").get()?.value ?? 0,
-    );
+    return this.revisions.getGlobalRevision();
   }
 
   getRuntimeStory() {
@@ -85,8 +89,8 @@ export class StoryRepository {
       this.#ensureArea(areaId);
       this.#insertBeat(areaId, validation.beat, 1);
       const saved = this.getBeat(areaId, validation.beat.id);
-      this.#recordRevision(areaId, saved.id, "create", saved);
-      const revision = this.#incrementGlobalRevision();
+      this.revisions.record([areaId, saved.id], "create", saved);
+      const revision = this.revisions.incrementGlobalRevision();
       return { beat: saved, revision };
     });
   }
@@ -120,8 +124,8 @@ export class StoryRepository {
       this.#replaceBeat(areaId, beatId, validation.beat, nextVersion, existing.createdAt);
       if (renamedFrom) this.#renameRevisionHistory(areaId, renamedFrom, nextBeatId);
       const saved = this.getBeat(areaId, nextBeatId);
-      this.#recordRevision(areaId, nextBeatId, "update", saved);
-      const revision = this.#incrementGlobalRevision();
+      this.revisions.record([areaId, nextBeatId], "update", saved);
+      const revision = this.revisions.incrementGlobalRevision();
       return { beat: saved, revision, renamedFrom };
     });
   }
@@ -133,30 +137,21 @@ export class StoryRepository {
       throw new ConflictError("This beat changed in another window.", existing);
     }
     return transaction(this.db, () => {
-      this.#recordRevision(areaId, beatId, "delete", existing);
+      this.revisions.record([areaId, beatId], "delete", existing);
       this.db.prepare("DELETE FROM story_beats WHERE area_id = ? AND id = ?").run(areaId, beatId);
-      const revision = this.#incrementGlobalRevision();
+      const revision = this.revisions.incrementGlobalRevision();
       return { deleted: true, revision };
     });
   }
 
   listRevisions(areaId, beatId) {
-    return this.db.prepare(`
-      SELECT revision, operation, created_at AS createdAt
-      FROM story_revisions
-      WHERE area_id = ? AND beat_id = ?
-      ORDER BY revision DESC
-    `).all(areaId, beatId);
+    return this.revisions.list([areaId, beatId]);
   }
 
   restoreRevision(areaId, beatId, revisionNumber) {
-    const row = this.db.prepare(`
-      SELECT snapshot_json
-      FROM story_revisions
-      WHERE area_id = ? AND beat_id = ? AND revision = ?
-    `).get(areaId, beatId, Number(revisionNumber));
+    const row = this.revisions.getSnapshot([areaId, beatId], revisionNumber);
     if (!row) throw new NotFoundError("Revision not found.");
-    const snapshot = normalizeBeat({ ...JSON.parse(row.snapshot_json), id: beatId });
+    const snapshot = normalizeBeat({ ...row, id: beatId });
     const validation = validateBeat(snapshot, this.world, this.character);
     if (!validation.valid) throw new ValidationError(validation.errors);
 
@@ -170,8 +165,8 @@ export class StoryRepository {
         this.#insertBeat(areaId, validation.beat, nextVersion);
       }
       const saved = this.getBeat(areaId, beatId);
-      this.#recordRevision(areaId, beatId, "restore", saved);
-      const revision = this.#incrementGlobalRevision();
+      this.revisions.record([areaId, beatId], "restore", saved);
+      const revision = this.revisions.incrementGlobalRevision();
       return { beat: saved, revision };
     });
   }
@@ -205,9 +200,9 @@ export class StoryRepository {
       `).run(areaId, data.name ?? areaId, this.listAreas().length, now, now);
       normalized.forEach((result) => {
         this.#insertBeat(areaId, result.beat, 1);
-        this.#recordRevision(areaId, result.beat.id, "create", this.getBeat(areaId, result.beat.id));
+        this.revisions.record([areaId, result.beat.id], "create", this.getBeat(areaId, result.beat.id));
       });
-      this.#incrementGlobalRevision();
+      this.revisions.incrementGlobalRevision();
     });
     return this.getRuntimeStory();
   }
@@ -389,12 +384,12 @@ export class StoryRepository {
         if (!validation.valid) throw new ValidationError(validation.errors);
         this.#replaceBeat(area.id, original.id, validation.beat, original.version + 1, original.createdAt);
         const saved = this.getBeat(area.id, original.id);
-        this.#recordRevision(area.id, original.id, "update", saved);
+        this.revisions.record([area.id, original.id], "update", saved);
         affected.push({ areaId: area.id, beatId: original.id });
       }
     }
     this.world = world;
-    const revision = affected.length ? this.#incrementGlobalRevision() : this.getGlobalRevision();
+    const revision = affected.length ? this.revisions.incrementGlobalRevision() : this.getGlobalRevision();
     return { affected, revision };
   }
 
@@ -433,12 +428,12 @@ export class StoryRepository {
         if (!validation.valid) throw new ValidationError(validation.errors);
         this.#replaceBeat(area.id, original.id, validation.beat, original.version + 1, original.createdAt);
         const saved = this.getBeat(area.id, original.id);
-        this.#recordRevision(area.id, original.id, "update", saved);
+        this.revisions.record([area.id, original.id], "update", saved);
         affected.push({ areaId: area.id, beatId: original.id });
       }
     }
     this.world = world;
-    const revision = affected.length ? this.#incrementGlobalRevision() : this.getGlobalRevision();
+    const revision = affected.length ? this.revisions.incrementGlobalRevision() : this.getGlobalRevision();
     return { affected, revision };
   }
 
@@ -549,18 +544,6 @@ export class StoryRepository {
     return beat;
   }
 
-  #recordRevision(areaId, beatId, operation, snapshot) {
-    const revision = Number(this.db.prepare(`
-      SELECT COALESCE(MAX(revision), 0) + 1 AS next
-      FROM story_revisions
-      WHERE area_id = ? AND beat_id = ?
-    `).get(areaId, beatId).next);
-    this.db.prepare(`
-      INSERT INTO story_revisions(area_id, beat_id, revision, operation, snapshot_json, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(areaId, beatId, revision, operation, JSON.stringify(snapshot), new Date().toISOString());
-  }
-
   #renameRevisionHistory(areaId, fromBeatId, toBeatId) {
     this.db.prepare(`
       UPDATE story_revisions
@@ -569,11 +552,6 @@ export class StoryRepository {
     `).run(toBeatId, areaId, fromBeatId);
   }
 
-  #incrementGlobalRevision() {
-    const next = this.getGlobalRevision() + 1;
-    this.db.prepare("UPDATE content_meta SET value = ? WHERE key = 'story_revision'").run(String(next));
-    return next;
-  }
 }
 
 function resolveRename(map, value) {

@@ -1,6 +1,7 @@
 import { transaction } from "./db.js";
 import { ConflictError, NotFoundError, ValidationError } from "./story-repository.js";
 import { validateCharacterDocument } from "./character-model.js";
+import { RevisionStore } from "./revision-store.js";
 
 export const CHARACTER_DOCUMENT_ID = "character-main";
 
@@ -8,6 +9,11 @@ export class CharacterRepository {
   constructor(db, { seedCharacter } = {}) {
     this.db = db;
     this.integrationValidator = null;
+    this.revisions = new RevisionStore(db, {
+      table: "character_revisions",
+      idColumn: "character_id",
+      metaKey: "character_revision",
+    });
     if (seedCharacter) this.ensureSeed(seedCharacter);
   }
 
@@ -25,15 +31,13 @@ export class CharacterRepository {
         INSERT INTO character_documents(id, document_json, version, created_at, updated_at)
         VALUES (?, ?, 1, ?, ?)
       `).run(CHARACTER_DOCUMENT_ID, JSON.stringify(validation.character), now, now);
-      this.#recordRevision("import", validation.character);
-      this.#incrementGlobalRevision();
+      this.revisions.record(CHARACTER_DOCUMENT_ID, "import", validation.character);
+      this.revisions.incrementGlobalRevision();
     });
   }
 
   getGlobalRevision() {
-    return Number(
-      this.db.prepare("SELECT value FROM content_meta WHERE key = 'character_revision'").get()?.value ?? 0,
-    );
+    return this.revisions.getGlobalRevision();
   }
 
   getDocument() {
@@ -93,8 +97,8 @@ export class CharacterRepository {
         new Date().toISOString(),
         CHARACTER_DOCUMENT_ID,
       );
-      this.#recordRevision("update", validation.character);
-      const revision = this.#incrementGlobalRevision();
+      this.revisions.record(CHARACTER_DOCUMENT_ID, "update", validation.character);
+      const revision = this.revisions.incrementGlobalRevision();
       return {
         character: validation.character,
         version: nextVersion,
@@ -105,21 +109,13 @@ export class CharacterRepository {
   }
 
   listRevisions() {
-    return this.db.prepare(`
-      SELECT revision, operation, created_at AS createdAt
-      FROM character_revisions
-      WHERE character_id = ?
-      ORDER BY revision DESC
-    `).all(CHARACTER_DOCUMENT_ID);
+    return this.revisions.list(CHARACTER_DOCUMENT_ID);
   }
 
   restore(revisionNumber) {
-    const row = this.db.prepare(`
-      SELECT snapshot_json FROM character_revisions
-      WHERE character_id = ? AND revision = ?
-    `).get(CHARACTER_DOCUMENT_ID, Number(revisionNumber));
-    if (!row) throw new NotFoundError("Character revision not found.");
-    const validation = this.validate(JSON.parse(row.snapshot_json));
+    const snapshot = this.revisions.getSnapshot(CHARACTER_DOCUMENT_ID, revisionNumber);
+    if (!snapshot) throw new NotFoundError("Character revision not found.");
+    const validation = this.validate(snapshot);
     if (!validation.valid) throw new ValidationError(validation.errors);
     const existing = this.getDocument();
     return transaction(this.db, () => {
@@ -134,8 +130,8 @@ export class CharacterRepository {
         new Date().toISOString(),
         CHARACTER_DOCUMENT_ID,
       );
-      this.#recordRevision("restore", validation.character);
-      const revision = this.#incrementGlobalRevision();
+      this.revisions.record(CHARACTER_DOCUMENT_ID, "restore", validation.character);
+      const revision = this.revisions.incrementGlobalRevision();
       return {
         character: validation.character,
         version: nextVersion,
@@ -145,29 +141,4 @@ export class CharacterRepository {
     });
   }
 
-  #recordRevision(operation, snapshot) {
-    const revision = Number(this.db.prepare(`
-      SELECT COALESCE(MAX(revision), 0) + 1 AS next
-      FROM character_revisions WHERE character_id = ?
-    `).get(CHARACTER_DOCUMENT_ID).next);
-    this.db.prepare(`
-      INSERT INTO character_revisions(
-        character_id, revision, operation, snapshot_json, created_at
-      ) VALUES (?, ?, ?, ?, ?)
-    `).run(
-      CHARACTER_DOCUMENT_ID,
-      revision,
-      operation,
-      JSON.stringify(snapshot),
-      new Date().toISOString(),
-    );
-  }
-
-  #incrementGlobalRevision() {
-    const next = this.getGlobalRevision() + 1;
-    this.db.prepare(
-      "UPDATE content_meta SET value = ? WHERE key = 'character_revision'",
-    ).run(String(next));
-    return next;
-  }
 }

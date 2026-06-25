@@ -3,10 +3,7 @@ import { hexLabel } from "../../displayLabel.js";
 import {
   availableMoves,
   directNeighbors,
-  buildMovePath,
-  routeLegBetween,
 } from "./useRoutes.js";
-import { hexDistance } from "./useHexGeometry.js";
 import {
   resolveAvatarPosition,
   resolveNeighborStand,
@@ -14,22 +11,13 @@ import {
 import {
   barrierSegments,
   travelOpenings,
-  resolveMove,
   isLandmarkReachable,
 } from "./useTravelBarriers.js";
-import {
-  availablePassageCrossings,
-  resolvePassageStand,
-  shouldOfferPassageCrossing,
-} from "./usePassageCrossing.js";
 import { barrierHintAtStand } from "./useBarrierStand.js";
-import {
-  applyPassageCrossEffects,
-  applyPassageUnlock,
-  passageRequirementSatisfied,
-} from "./usePassageState.js";
 import { useOutdoorWorldModel } from "./useOutdoorWorldModel.js";
 import { useOutdoorBarrierSearch } from "./useOutdoorBarrierSearch.js";
+import { useOutdoorPassages } from "./useOutdoorPassages.js";
+import { useOutdoorMovement } from "./useOutdoorMovement.js";
 import { advanceGameTime } from "../../character/gameTime.js";
 
 function initialStand(mapData, size) {
@@ -58,19 +46,6 @@ export function useOutdoorWorld(mapData, gameState = null) {
     syncFromMapData,
   } = useOutdoorWorldModel(mapData);
 
-  const travelBarrierCtx = computed(() => {
-    const allOpenings = travelOpenings(editableFeatures.value, {
-      hexById: hexById.value,
-      size: size.value,
-      discoveredOpenings: state.discoveredOpenings,
-    });
-    return {
-      barriers: barrierSegments(featureModels.value),
-      allOpenings,
-      openings: allOpenings.filter((opening) => isPassageAvailable(opening)),
-    };
-  });
-
   const state = reactive({
     currentId: startId.value,
     discovered: startId.value ? [startId.value] : [],
@@ -91,28 +66,41 @@ export function useOutdoorWorld(mapData, gameState = null) {
     passageStates: {},
   });
 
-  function isGatePassage(opening) {
-    return opening?.kind === "gate";
-  }
+  const passages = useOutdoorPassages({
+    state,
+    gameState,
+    editableFeatures,
+    hexById,
+    size,
+    hexAtPoint,
+    getTravelBarrierCtx: () => travelBarrierCtx.value,
+    getCurrentHex: () => currentHexData.value,
+    getAvatarFromPos: () => avatarFromPos.value,
+    applyMove,
+  });
 
-  function legacyGateOpen(opening) {
-    if (!opening?.require) return false;
-    return passageRequirementSatisfied(opening, gameState?.flags);
-  }
+  const travelBarrierCtx = computed(() => {
+    const allOpenings = travelOpenings(editableFeatures.value, {
+      hexById: hexById.value,
+      size: size.value,
+      discoveredOpenings: state.discoveredOpenings,
+    });
+    return {
+      barriers: barrierSegments(featureModels.value),
+      allOpenings,
+      openings: allOpenings.filter((opening) => passages.isPassageAvailable(opening)),
+    };
+  });
 
-  function isPassageOpen(opening) {
-    if (!isGatePassage(opening)) return true;
-    if (!gameState) return true;
-    if (Object.hasOwn(state.passageStates, opening.id)) {
-      return state.passageStates[opening.id] === true;
-    }
-    return legacyGateOpen(opening);
-  }
-
-  function isPassageAvailable(opening) {
-    if (isGatePassage(opening)) return isPassageOpen(opening);
-    return passageRequirementSatisfied(opening, gameState?.flags);
-  }
+  const {
+    passageCrossings,
+    lockedPassageActions,
+    passageToggleActions,
+    passageMarkerStates,
+    unlockPassage,
+    togglePassage,
+    crossPassage,
+  } = passages;
 
   function defaultStandForHex(hexId) {
     const hex = hexById.value[hexId];
@@ -146,7 +134,6 @@ export function useOutdoorWorld(mapData, gameState = null) {
   );
 
   const mode = ref("gameplay");
-  const traveling = ref(false);
 
   const currentHexData = computed(() => hexById.value[state.currentId]);
 
@@ -204,6 +191,30 @@ export function useOutdoorWorld(mapData, gameState = null) {
     ),
   );
 
+  const {
+    traveling,
+    isAdjacentHex,
+    previewMove,
+    canReachHex,
+    moveTo,
+  } = useOutdoorMovement({
+    state,
+    hexById,
+    size,
+    routeModels,
+    moves,
+    travelOpts,
+    avatarFromPos,
+    travelBarrierCtx,
+    hexAtPoint,
+    applyMove,
+    advanceTime: () => {
+      if (gameState?.clock && gameState?.character) {
+        advanceGameTime(gameState, 15, "moderate");
+      }
+    },
+  });
+
   /** Hex ids the player may travel to from the current stand (route + direct). */
   const reachableHexIds = computed(() => {
     const ids = new Set([state.currentId]);
@@ -211,149 +222,6 @@ export function useOutdoorWorld(mapData, gameState = null) {
     for (const m of directMoves.value) ids.add(m.toHexId);
     return ids;
   });
-
-  /** In-hex passage crossings (bridge, ford, gate, hole) — same hex, other side of barrier. */
-  const passageCrossings = computed(() =>
-    availablePassageCrossings({
-      hexId: state.currentId,
-      fromPos: avatarFromPos.value,
-      mapFeatures: editableFeatures.value,
-      ctx: travelBarrierCtx.value,
-      hexById: hexById.value,
-      size: size.value,
-      discoveredOpenings: state.discoveredOpenings,
-      atBarrier:
-        barrierHintAtStand(avatarFromPos.value, travelBarrierCtx.value.barriers) ??
-        state.atBarrier ??
-        state.lastBlocked,
-    }),
-  );
-
-  const lockedPassageActions = computed(() => {
-    const ctx = travelBarrierCtx.value;
-    const atBarrier =
-      barrierHintAtStand(avatarFromPos.value, ctx.barriers) ??
-      state.atBarrier ??
-      state.lastBlocked;
-    return ctx.allOpenings
-      .filter((opening) => opening.hex === state.currentId)
-      .filter((opening) => !isGatePassage(opening))
-      .filter((opening) => opening.unlock)
-      .filter((opening) => !passageRequirementSatisfied(opening, gameState?.flags))
-      .filter((opening) =>
-        shouldOfferPassageCrossing(
-          opening,
-          avatarFromPos.value,
-          ctx,
-          atBarrier,
-        ),
-      )
-      .map((opening) => ({
-        openingId: opening.id,
-        label: opening.unlock.label ?? "Unlock the passage",
-        status: opening.unlock.status ?? null,
-      }));
-  });
-
-  const passageMarkerStates = computed(() =>
-    Object.fromEntries(
-      editableFeatures.value
-        .filter((feature) => feature.kind === "gate")
-        .map((feature) => [feature.id, isPassageOpen(feature)]),
-    ),
-  );
-
-  const passageToggleActions = computed(() => {
-    const ctx = travelBarrierCtx.value;
-    const atBarrier =
-      barrierHintAtStand(avatarFromPos.value, ctx.barriers) ??
-      state.atBarrier ??
-      state.lastBlocked;
-    return ctx.allOpenings
-      .filter((opening) => opening.hex === state.currentId)
-      .filter((opening) => isGatePassage(opening))
-      .filter((opening) =>
-        shouldOfferPassageCrossing(
-          opening,
-          avatarFromPos.value,
-          ctx,
-          atBarrier,
-        ),
-      )
-      .map((opening) => ({
-        openingId: opening.id,
-        label: isPassageOpen(opening) ? "Close the gate" : "Open the gate",
-        open: isPassageOpen(opening),
-      }));
-  });
-
-  function crossPassage(openingId) {
-    const fromHex = currentHexData.value;
-    if (!fromHex || !openingId) return;
-    const fromPos = avatarFromPos.value;
-    const ctx = travelBarrierCtx.value;
-    const opening = ctx.openings.find((o) => o.id === openingId);
-    if (!opening) return;
-    const feature = editableFeatures.value.find((f) => f.id === openingId);
-    if (feature?.hex !== fromHex.id) return;
-    if (
-      !shouldOfferPassageCrossing(
-        opening,
-        fromPos,
-        ctx,
-        barrierHintAtStand(fromPos, ctx.barriers) ??
-          state.atBarrier ??
-          state.lastBlocked,
-      )
-    ) {
-      return;
-    }
-
-    const stand = resolvePassageStand(
-      opening,
-      fromPos,
-      ctx,
-      size.value,
-      fromHex,
-    );
-    if (!stand) return;
-    if (hexAtPoint(stand, fromHex.id) !== fromHex.id) return;
-
-    applyMove({
-      hexId: fromHex.id,
-      stand,
-      blocked: null,
-      atBarrier: barrierHintAtStand(stand, ctx.barriers),
-    });
-
-    applyPassageCrossEffects(opening, gameState?.flags);
-  }
-
-  function unlockPassage(openingId) {
-    if (
-      !lockedPassageActions.value.some(
-        (action) => action.openingId === openingId,
-      )
-    ) {
-      return false;
-    }
-    const opening = travelBarrierCtx.value.allOpenings.find(
-      (candidate) => candidate.id === openingId,
-    );
-    return applyPassageUnlock(opening, gameState?.flags);
-  }
-
-  function togglePassage(openingId) {
-    const action = passageToggleActions.value.find(
-      (candidate) => candidate.openingId === openingId,
-    );
-    if (!action) return false;
-    state.passageStates = {
-      ...state.passageStates,
-      [openingId]: !action.open,
-    };
-    return true;
-  }
 
   /** Atomically commit hex + avatar position + barrier hints. */
   function applyMove({ hexId, stand, blocked, atBarrier, previousId = null }) {
@@ -381,100 +249,6 @@ export function useOutdoorWorld(mapData, gameState = null) {
         size.value,
       ),
   );
-  function isAdjacentHex(hexId) {
-    const fromHex = hexById.value[state.currentId];
-    const toHex = hexById.value[hexId];
-    if (!fromHex || !toHex) return false;
-    return hexDistance(fromHex, toHex) === 1;
-  }
-
-  function resolveRouteLeg(toHexId) {
-    const opts = travelOpts.value;
-    const fromId = state.currentId;
-    return (
-      moves.value.find((m) => m.toHexId === toHexId) ??
-      availableMoves(fromId, routeModels.value, opts).find(
-        (m) => m.toHexId === toHexId,
-      ) ??
-      routeLegBetween(fromId, toHexId, routeModels.value)
-    );
-  }
-
-  // "Reach" in the outdoor UI means "enter the destination cell"; the final
-  // stand may still be an accessible-side barrier stop inside that cell.
-  function previewMove(hexId) {
-    if (hexId === state.currentId || !isAdjacentHex(hexId)) return null;
-    const fromHex = hexById.value[state.currentId];
-    const toHex = hexById.value[hexId];
-    if (!fromHex || !toHex) return null;
-
-    const fromPos = avatarFromPos.value;
-    const ctx = travelBarrierCtx.value;
-    const toPos = resolveNeighborStand(fromHex, toHex, fromPos, size.value, ctx);
-    const routeLeg = resolveRouteLeg(hexId);
-    const path = buildMovePath(
-      fromPos,
-      fromHex,
-      toHex,
-      toPos,
-      routeLeg,
-      routeModels.value,
-    );
-    const result = resolveMove({
-      fromHex,
-      toHex,
-      fromPos,
-      toPos,
-      path,
-      ctx,
-      hexAtPoint,
-      size: size.value,
-    });
-    return { fromHex, toHex, fromPos, toPos, routeLeg, path, result };
-  }
-
-  function canReachHex(hexId) {
-    if (hexId === state.currentId) return true;
-    const preview = previewMove(hexId);
-    return preview?.result.activeHexId === preview?.toHex.id;
-  }
-
-  function moveTo(hexId) {
-    if (traveling.value || !hexById.value[hexId]) return;
-    const preview = previewMove(hexId);
-    if (!preview || preview.result.activeHexId !== preview.toHex.id) return;
-    const { fromHex, toHex, result } = preview;
-    const ctx = travelBarrierCtx.value;
-
-    traveling.value = true;
-    setTimeout(() => {
-      traveling.value = false;
-    }, 650);
-
-    const enteredDest = result.activeHexId === toHex.id;
-    const failedCrossing = result.blockedKind && !enteredDest;
-    const blockedInPlace =
-      result.blockedKind &&
-      result.activeHexId === fromHex.id &&
-      !enteredDest;
-    let atBarrier =
-      result.blockedKind && enteredDest ? result.blockedKind : null;
-    if (!atBarrier && enteredDest) {
-      atBarrier = barrierHintAtStand(result.stand, ctx.barriers);
-    }
-
-    applyMove({
-      hexId: result.activeHexId,
-      stand: blockedInPlace ? fromPos : result.stand,
-      blocked: failedCrossing || blockedInPlace ? result.blockedKind : null,
-      atBarrier: blockedInPlace ? result.blockedKind : atBarrier,
-      previousId: fromHex.id,
-    });
-    if (enteredDest && gameState?.clock && gameState?.character) {
-      advanceGameTime(gameState, 15, "moderate");
-    }
-  }
-
   function resetPlayer() {
     state.currentId = startId.value;
     state.discovered = startId.value ? [startId.value] : [];

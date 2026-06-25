@@ -37,6 +37,19 @@ Completed so far:
 - tested outdoor world model and barrier-search composables;
 - compatibility re-exports from `useTravelBarriers.js` so existing callers keep
   working.
+- outdoor and building document lifecycle composables with focused tests;
+- station selection parsing and geometry-handle state in `useGridBuilderSelection()`;
+- outdoor runtime passage and movement modules behind the stable
+  `useOutdoorWorld()` facade;
+- destination-arrival and blocked-departure travel logic in `arrivalStand.js`;
+- shared server revision, world-document persistence, and content-reference
+  orchestration modules.
+
+Latest verification checkpoint:
+
+- `npm run test` — 67 files, 313 tests passing.
+- `npm run build:game` — production content export, Vite build, and production
+  bundle verification passing.
 
 Deferred from the first pass:
 
@@ -44,10 +57,9 @@ Deferred from the first pass:
   targeted test additions.
 - `BuilderStatusBanner.vue` now centralizes shared page-level status/dirty
   messages.
-- The large route-level outdoor/station document lifecycle, selection, and
-  inspector extractions remain open.
+- Outdoor/station selection CRUD and inspector extractions remain open.
 - The deeper `useTravelBarriers.js`, `useOutdoorWorld.js`, and server repository
-  splits remain open.
+  splits are complete.
 
 ## Goal
 
@@ -197,11 +209,11 @@ centralized tests for the common behavior.
 **Purpose:** Split `OutdoorWorldBuilderView.vue` into focused pieces while
 preserving the current authoring workflow.
 
-**Status:** Partially complete. Pure draft helpers, camera logic, and the object
-browser were extracted; document lifecycle, selection, canvas panel, and
-inspector extraction remain.
+**Status:** In progress. Pure draft helpers, document lifecycle, camera logic,
+object browser, and canvas panel were extracted; selection and inspector
+extraction remain.
 
-- [ ] Extract document lifecycle to `useOutdoorWorldBuilderDocument()`:
+- [x] Extract document lifecycle to `useOutdoorWorldBuilderDocument()`:
   - load;
   - apply loaded result;
   - save;
@@ -220,7 +232,7 @@ inspector extraction remain.
   - validation helpers;
   - point application.
 - [x] Extract `OutdoorObjectBrowser.vue`.
-- [ ] Extract `OutdoorCanvasPanel.vue`.
+- [x] Extract `OutdoorCanvasPanel.vue`.
 - [ ] Extract `OutdoorInspector.vue`.
 - [ ] Split the inspector into smaller editors once the first extraction lands:
   - `HexInspector.vue`;
@@ -256,28 +268,29 @@ outdoor object browser, canvas, and inspector concerns are separately owned.
 
 **Purpose:** Apply the same route/component boundaries to indoor world authoring.
 
-**Status:** Started. The object browser and canvas panel were extracted;
-document lifecycle, selection, inspector, item placement, and action authoring
-remain.
+**Status:** Complete. The object browser, canvas panel, document lifecycle,
+selection/object operations, canvas view state, item placement, action authoring
+sections, first-pass station inspector, and smaller station editor components
+were extracted.
 
-- [ ] Extract document lifecycle to `useBuildingBuilderDocument()`:
+- [x] Extract document lifecycle to `useBuildingBuilderDocument()`:
   - load;
   - save;
   - revert;
   - history/restore;
   - baseline/dirty/errors/status/warnings.
-- [ ] Extract selection and object operations to `useGridBuilderSelection()`:
+- [x] Extract selection and object operations to `useGridBuilderSelection()`:
   - selection parsing;
   - collection lookup;
   - add/duplicate/delete/move/rename;
   - stand selection;
   - local rename cascade.
-- [ ] Keep reusable geometry operations in `useGridBuilder.js`, but move
+- [x] Keep reusable geometry operations in `useGridBuilder.js`, but move
       route-view-only behavior out of `UtilityStationBuilderView.vue`.
 - [x] Extract `StationObjectBrowser.vue`.
 - [x] Extract `StationCanvasPanel.vue`.
-- [ ] Extract `StationInspector.vue`.
-- [ ] Split the inspector into smaller editors:
+- [x] Extract `StationInspector.vue`.
+- [x] Split the inspector into smaller editors:
   - `RoomInspector.vue`;
   - `DoorInspector.vue`;
   - `PathInspector.vue`;
@@ -286,7 +299,7 @@ remain.
   - `FixtureInspector.vue`;
   - `LinkInspector.vue`;
   - `RoomStandInspector.vue`.
-- [ ] Extract item placement and action authoring sections into dedicated
+- [x] Extract item placement and action authoring sections into dedicated
       components if they still dominate the station inspector.
 
 Likely files:
@@ -359,9 +372,10 @@ components with route-level state kept small.
 **Purpose:** Separate movement algorithms by layer so future barrier changes are
 easier to test and reason about.
 
-**Status:** Partially complete. Geometry primitives, hex polygon helpers,
-barrier segment/list helpers, first-hit detection, and local pathfinding were
-extracted; arrival stands and move resolution remain.
+**Status:** Complete. Geometry primitives, hex polygon helpers, barrier
+segment/list helpers, first-hit detection, local pathfinding, route-arrival
+helpers, destination-cell stand selection, and blocked-departure resolution are
+now split out behind the stable compatibility exports.
 
 - [x] Move geometry primitives from `useTravelBarriers.js` into a plain geometry
       module.
@@ -370,7 +384,7 @@ extracted; arrival stands and move resolution remain.
 - [x] Move junction cache and first-hit detection into a barrier-context module.
 - [x] Move hex polygon helpers and tests to a travel module.
 - [x] Move local pathfinding to a `pathInHex` module.
-- [ ] Move destination stand selection and arrival heuristics to an arrival
+- [x] Move destination stand selection and arrival heuristics to an arrival
       module.
 - [x] Keep a public compatibility module at `useTravelBarriers.js` that
       re-exports the stable API during the transition.
@@ -405,16 +419,18 @@ separated into smaller modules.
 **Purpose:** Keep `useOutdoorWorld()` as a stable facade while reducing the
 number of responsibilities inside the file.
 
-**Status:** Started. The outdoor map/model layer and barrier search behavior
-were extracted; passages, movement, and game-time advancement remain.
+**Status:** Complete for the planned facade split. The outdoor map/model layer,
+barrier search behavior, passage/opening state, movement preview/commit logic,
+and game-time advancement callback are now separate from the route-facing
+facade.
 
 - [x] Extract map data/model concerns to `useOutdoorWorldModel()`.
-- [ ] Extract passage/opening state to `useOutdoorPassages()`.
+- [x] Extract passage/opening state to `useOutdoorPassages()`.
 - [x] Extract barrier search/discovery behavior to `useOutdoorBarrierSearch()`.
-- [ ] Extract movement preview and commit behavior to `useOutdoorMovement()`.
-- [ ] Keep `useOutdoorWorld()` returning the existing API while composing the
+- [x] Extract movement preview and commit behavior to `useOutdoorMovement()`.
+- [x] Keep `useOutdoorWorld()` returning the existing API while composing the
       smaller modules.
-- [ ] Move game-time advancement behind a small callback or option so movement
+- [x] Move game-time advancement behind a small callback or option so movement
       logic is not directly responsible for character clock concerns.
 
 Likely files:
@@ -442,18 +458,20 @@ passages, search, and movement are independently testable modules.
 **Purpose:** Reduce duplicated repository mechanics and isolate cross-domain
 reference orchestration.
 
-**Status:** Not started.
+**Status:** Complete. Shared revision listing, snapshot lookup, recording,
+global revision increments, world-document persistence, and cross-domain
+reference orchestration are extracted behind stable repository APIs.
 
-- [ ] Extract shared revision behavior to a helper or `RevisionStore`:
+- [x] Extract shared revision behavior to a helper or `RevisionStore`:
   - list revisions;
   - record snapshots;
   - increment/read global revision.
-- [ ] Extract shared JSON world-document persistence if it can serve both world
+- [x] Extract shared JSON world-document persistence if it can serve both world
       and building documents without obscuring simple SQL.
-- [ ] Extract cross-domain reference preview/cascade/validation to a
+- [x] Extract cross-domain reference preview/cascade/validation to a
       `ContentReferenceService` or small focused modules.
-- [ ] Keep repository public APIs stable until all routes and CLIs are updated.
-- [ ] Add tests around rename preview/cascade before moving cross-domain logic.
+- [x] Keep repository public APIs stable until all routes and CLIs are updated.
+- [x] Add tests around rename preview/cascade before moving cross-domain logic.
 
 Likely files:
 
@@ -462,7 +480,7 @@ Likely files:
 - `game/server/building-repository.js`
 - `game/server/character-repository.js`
 - `game/server/revision-store.js` (new)
-- `game/server/content-reference-service.js` (optional/new)
+- `game/server/content-reference-service.js` (new)
 
 Automated checks:
 

@@ -1,0 +1,84 @@
+<script setup>
+import {
+  getExitMapAt,
+  setExitMapAt,
+} from "../../../lib/maps/composables/useGridBuilder.js";
+
+defineProps({
+  draft: { type: Object, required: true },
+  selection: { type: Object, required: true },
+});
+
+function csvList(value) {
+  return (value ?? []).join(", ");
+}
+
+function setCsvList(target, key, value) {
+  target[key] = String(value)
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function setTransitionStand(target, value) {
+  const stand = String(value ?? "").trim();
+  if (stand) {
+    target.standAt = { stand };
+  } else {
+    delete target.standAt;
+  }
+}
+</script>
+
+<template>
+  <label>Label<input v-model="selection.entity.label" /></label>
+  <label>Outdoor hex<input v-model="selection.entity.hex" /></label>
+  <label>World stand ID
+    <input
+      :value="selection.entity.standAt?.stand ?? ''"
+      placeholder="driveway"
+      @input="setTransitionStand(selection.entity, $event.target.value)"
+    />
+  </label>
+  <label>Local stand
+    <select v-model="selection.entity.exteriorNode">
+      <option value="">Default entry</option>
+      <option
+        v-for="node in draft.exterior?.nodes ?? []"
+        :key="node.id"
+        :value="node.id"
+      >
+        {{ node.label || node.id }}
+      </option>
+    </select>
+  </label>
+  <label>Entry from hex IDs
+    <input
+      :value="csvList(selection.entity.entryFrom)"
+      placeholder="south-pines, west-slope"
+      @input="setCsvList(selection.entity, 'entryFrom', $event.target.value)"
+    />
+  </label>
+  <div class="field-grid">
+    <label>Map X
+      <input
+        :value="getExitMapAt(selection.entity).x"
+        type="number"
+        step=".01"
+        @input="setExitMapAt(draft, selection.id, Number($event.target.value), getExitMapAt(selection.entity).y)"
+      />
+    </label>
+    <label>Map Y
+      <input
+        :value="getExitMapAt(selection.entity).y"
+        type="number"
+        step=".01"
+        @input="setExitMapAt(draft, selection.id, getExitMapAt(selection.entity).x, Number($event.target.value))"
+      />
+    </label>
+  </div>
+</template>
+
+<style scoped>
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; }
+</style>
