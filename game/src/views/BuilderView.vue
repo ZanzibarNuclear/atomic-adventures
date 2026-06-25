@@ -1,9 +1,8 @@
 <script setup>
 import { computed, onMounted, ref, toRaw, watch } from "vue";
 import { useRouter } from "vue-router";
-import RevisionHistoryPanel from "../components/builder/RevisionHistoryPanel.vue";
+import StoryBeatEditor from "../components/builder/story/StoryBeatEditor.vue";
 import StoryBeatList from "../components/builder/story/StoryBeatList.vue";
-import StoryChoiceEditor from "../components/builder/story/StoryChoiceEditor.vue";
 import StoryLocationPicker from "../components/builder/story/StoryLocationPicker.vue";
 import UnsavedChangesDialog from "../components/builder/UnsavedChangesDialog.vue";
 import { useOutdoorWorld } from "../lib/maps/composables/useOutdoorWorld.js";
@@ -485,10 +484,6 @@ function setChoiceViewKind(choice, kind) {
   applyChoiceViewKind(choice, kind);
 }
 
-function fieldError(path) {
-  return errors.value[path]?.join(" ");
-}
-
 function requestContextChange(action) {
   return navigation.requestChange(action);
 }
@@ -532,94 +527,31 @@ function requestContextChange(action) {
         @select="selectBeat"
       />
 
-      <section class="builder-form-column panel">
-        <div v-if="!draft" class="empty-editor">
-          Select a beat or create a new one.
-        </div>
-        <form v-else @submit.prevent="saveBeat">
-          <div class="form-toolbar">
-            <div>
-              <span v-if="dirty" class="dirty-pill">Unsaved</span>
-              <span v-else class="saved-pill">Saved</span>
-            </div>
-            <div class="toolbar-actions">
-              <button type="button" class="sm muted" :disabled="!dirty" @click="revertDraft">Revert</button>
-              <button type="button" class="sm muted" @click="newBeat(draft)">Duplicate</button>
-              <button type="button" class="sm muted" :disabled="isNew" @click="loadRevisions">History</button>
-              <button type="submit" class="sm" :disabled="!dirty">Save</button>
-            </div>
-          </div>
-
-          <p v-if="status" class="builder-status">{{ status }}</p>
-          <p v-for="message in errors.trigger ?? []" :key="message" class="field-error">{{ message }}</p>
-
-          <div class="field-grid">
-            <label>Beat ID
-              <input v-model="draft.id" />
-              <span v-if="fieldError('id')" class="field-error">{{ fieldError("id") }}</span>
-            </label>
-            <label v-if="draftIsOutdoorHexBeat">Origin hex
-              <select v-model="draft.match.originHex">
-                <option :value="null">Default</option>
-                <option v-for="hex in catalog.world.hexes" :key="hex.id" :value="hex.id">{{ hex.label }} ({{ hex.id }})</option>
-              </select>
-              <span v-if="fieldError('match.originHex')" class="field-error">{{ fieldError("match.originHex") }}</span>
-            </label>
-            <label v-if="draftIsOutdoorHexBeat">Local exit
-              <select v-model="draft.match.localExit">
-                <option :value="null">Default</option>
-                <option v-for="exit in catalog.world.localExits" :key="exit.id" :value="exit.id">{{ exit.label }} ({{ exit.id }})</option>
-              </select>
-              <span v-if="fieldError('match.localExit')" class="field-error">{{ fieldError("match.localExit") }}</span>
-            </label>
-          </div>
-
-          <div class="field-grid">
-            <label>Eyebrow<input v-model="draft.eyebrow" /></label>
-            <label>Heading<input v-model="draft.heading" /></label>
-          </div>
-
-          <label>Story text
-            <textarea v-model="draft.text" rows="10" />
-            <span v-if="fieldError('text')" class="field-error">{{ fieldError("text") }}</span>
-          </label>
-          <label>Revisit text<textarea v-model="draft.revisit" rows="5" /></label>
-
-          <fieldset>
-            <legend>Choices</legend>
-            <StoryChoiceEditor
-              v-for="(choice, index) in draft.choices"
-              :key="choice.id"
-              :choice="choice"
-              :index="index"
-              :catalog="catalog"
-              :errors="errors"
-              :destination-type="destinationType"
-              @move="moveChoice(index, $event)"
-              @remove="draft.choices.splice(index, 1)"
-              @set-csv="setCsv($event.choice, $event.key, $event.event)"
-              @set-destination-type="setDestinationType($event.choice, $event.type)"
-              @set-view-kind="setChoiceViewKind($event.choice, $event.kind)"
-            />
-            <button type="button" class="sm" @click="addChoice">Add choice</button>
-          </fieldset>
-
-          <details>
-            <summary>Generated YAML</summary>
-            <pre class="yaml-preview">{{ yamlPreview }}</pre>
-          </details>
-
-          <RevisionHistoryPanel
-            class="revision-panel"
-            :visible="showRevisions"
-            title="Revision history"
-            :revisions="revisions"
-            @restore="restoreRevision"
-          />
-
-          <button v-if="!isNew" type="button" class="danger" @click="deleteBeat">Delete beat</button>
-        </form>
-      </section>
+      <StoryBeatEditor
+        :draft="draft"
+        :dirty="Boolean(dirty)"
+        :is-new="isNew"
+        :status="status"
+        :errors="errors"
+        :catalog="catalog"
+        :yaml-preview="yamlPreview"
+        :draft-is-outdoor-hex-beat="draftIsOutdoorHexBeat"
+        :show-revisions="showRevisions"
+        :revisions="revisions"
+        :destination-type="destinationType"
+        @save="saveBeat"
+        @revert="revertDraft"
+        @duplicate="newBeat"
+        @history="loadRevisions"
+        @delete="deleteBeat"
+        @add-choice="addChoice"
+        @move-choice="moveChoice($event.index, $event.delta)"
+        @remove-choice="draft.choices.splice($event, 1)"
+        @set-csv="setCsv($event.choice, $event.key, $event.event)"
+        @set-destination-type="setDestinationType($event.choice, $event.type)"
+        @set-view-kind="setChoiceViewKind($event.choice, $event.kind)"
+        @restore-revision="restoreRevision"
+      />
     </div>
 
     <UnsavedChangesDialog
@@ -637,10 +569,11 @@ function requestContextChange(action) {
 
 <style scoped>
 .builder-page { max-width: 1500px; margin: 0 auto; padding: 1rem; }
-.builder-header, .builder-header-actions, .section-heading, .form-toolbar, .toolbar-actions, .choice-toolbar {
+.builder-header,
+.builder-header-actions {
   display: flex; align-items: center; justify-content: space-between; gap: .65rem; flex-wrap: wrap;
 }
-.builder-header h1, .section-heading h2 { margin: 0; }
+.builder-header h1 { margin: 0; }
 .open-menu { position: relative; }
 .open-menu summary {
   list-style: none;
@@ -678,80 +611,13 @@ function requestContextChange(action) {
 }
 .open-menu-item:hover:not(:disabled) { background: #344158; }
 .builder-workspace { display: grid; grid-template-columns: minmax(320px, 1fr) 260px minmax(420px, 1.35fr); gap: 1rem; margin-top: 1rem; align-items: start; }
-.panel { border: 1px solid #343d4d; border-radius: 12px; background: #20252f; padding: 1rem; min-width: 0; }
-.builder-map-column { position: sticky; top: 1rem; }
-.builder-list-column { max-height: calc(100vh - 2rem); overflow: auto; }
-.mode-tabs { display: flex; gap: .4rem; margin-bottom: .75rem; }
-.mode-tabs button.active, .beat-list-item.active { background: #49624f; border-color: #6f9b79; }
-.beat-list-item { display: flex; width: 100%; flex-direction: column; align-items: flex-start; gap: .2rem; margin-top: .5rem; text-align: left; }
-.beat-list-item span, .beat-list-item small, .empty-note { color: #9aa0ac; font-size: .8rem; }
-.builder-warning { color: #f1c879; font-size: .82rem; line-height: 1.35; }
-.builder-form-column form, fieldset { display: grid; gap: .8rem; }
-label { display: grid; gap: .35rem; color: #bfc5cf; font-size: .82rem; }
-input, textarea, select { width: 100%; border: 1px solid #485267; border-radius: 7px; background: #171b22; color: #eef1f5; padding: .5rem .6rem; font: inherit; }
-textarea { resize: vertical; line-height: 1.5; }
-.field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; }
-.check-field { display: flex; align-items: center; align-self: end; }
-.check-field input { width: auto; }
-fieldset { border: 1px solid #3b4557; border-radius: 9px; padding: .85rem; }
-legend { color: #8bc49a; padding: 0 .35rem; }
-.choice-editor { display: grid; gap: .65rem; border: 1px solid #343d4d; border-radius: 8px; padding: .75rem; background: #1b2028; }
-.dirty-pill, .saved-pill { border-radius: 99px; padding: .25rem .55rem; font-size: .75rem; }
-.dirty-pill { background: #6d5625; color: #ffe19a; }
-.saved-pill { background: #294d35; color: #bce8c7; }
-.builder-status { color: #9fc7ff; margin: 0; }
-.field-error { color: #ff9e9e; font-size: .78rem; margin: .2rem 0 0; }
-.yaml-preview { max-height: 28rem; overflow: auto; padding: .8rem; background: #11151b; border-radius: 8px; white-space: pre-wrap; }
-.revision-panel { display: grid; gap: .4rem; }
-.revision-item { text-align: left; }
-.danger { margin-top: 1rem; background: #5a2929; border-color: #854141; }
-.unsaved-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: grid;
-  place-items: center;
-  padding: 1rem;
-  background: rgba(8, 10, 14, .72);
-  backdrop-filter: blur(3px);
-}
-.unsaved-dialog {
-  width: min(32rem, 100%);
-  padding: 1.25rem;
-  border: 1px solid #4a566b;
-  border-radius: 12px;
-  background: #202630;
-  box-shadow: 0 18px 48px rgba(0, 0, 0, .45);
-}
-.unsaved-dialog h2 { margin: .25rem 0 .65rem; font-size: 1.15rem; }
-.unsaved-dialog p:not(.label) { margin: 0; color: #bfc5cf; line-height: 1.5; }
-.unsaved-actions { display: flex; flex-wrap: wrap; gap: .55rem; margin-top: 1.1rem; }
-.danger-outline { border-color: #9b5050; color: #ffb5b5; background: #3d2729; }
-.danger-outline:hover:not(:disabled) { background: #543034; }
-.unsaved-actions .muted { background: #252a33; border-color: #3a404a; color: #b2b8c2; }
-.level-picker { margin-bottom: .6rem; }
-.indoor-preview-controls {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: .55rem;
-  margin-bottom: .6rem;
-}
-.preview-check {
-  grid-column: 1 / -1;
-  display: flex;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  gap: .45rem;
-}
-.preview-check input { width: auto; }
-.empty-editor { color: #9aa0ac; padding: 3rem 1rem; text-align: center; }
 @media (max-width: 1100px) {
   .builder-workspace { grid-template-columns: 1fr 1fr; }
   .builder-form-column { grid-column: 1 / -1; }
   .builder-map-column { position: static; }
 }
 @media (max-width: 720px) {
-  .builder-workspace, .field-grid { grid-template-columns: 1fr; }
+  .builder-workspace { grid-template-columns: 1fr; }
   .builder-form-column { grid-column: auto; }
 }
 </style>

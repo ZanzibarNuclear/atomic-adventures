@@ -72,11 +72,11 @@ export function useWorldBuilderCamera() {
     zoomBy(event.deltaY > 0 ? 1.12 : 0.88, event.clientX, event.clientY);
   }
 
-  function applyZoomAction(actionOrEvent, focus = () => {}) {
+  function applyZoomAction(actionOrEvent, actions = {}) {
     const action = typeof actionOrEvent === "string" ? actionOrEvent : actionOrEvent.target.value;
     zoomAction.value = action;
-    if (action === "fit") fitMap();
-    else if (action === "focus") focus();
+    if (action === "fit") actions.fit?.();
+    else if (action === "focus") actions.focus?.();
   }
 
   function startPan(event) {

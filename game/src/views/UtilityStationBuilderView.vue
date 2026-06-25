@@ -2,11 +2,11 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import yaml from "js-yaml";
-import GridMap from "../lib/maps/components/GridMap.vue";
 import { storyApi } from "../lib/storyApi.js";
 import CharacterEffectsEditor from "../components/builder/CharacterEffectsEditor.vue";
 import RevisionHistoryPanel from "../components/builder/RevisionHistoryPanel.vue";
 import UnsavedChangesDialog from "../components/builder/UnsavedChangesDialog.vue";
+import StationCanvasPanel from "../components/builder/station/StationCanvasPanel.vue";
 import StationObjectBrowser from "../components/builder/station/StationObjectBrowser.vue";
 import { useDirtyDocumentNavigation } from "../composables/useDirtyDocumentNavigation.js";
 import { buildBuilding } from "../lib/maps/composables/useGrid.js";
@@ -742,85 +742,29 @@ function clonePlain(value) {
         @select="selectItem($event.source, $event.id)"
       />
 
-      <section class="canvas-column">
-        <div class="canvas-toolbar panel">
-          <div class="tool-group">
-            <label>Floor
-              <select v-model="level">
-                <option v-for="item in building.levels" :key="item.id" :value="item.id">
-                  {{ item.label }}
-                </option>
-              </select>
-            </label>
-            <label>Camera
-              <select v-model="viewportMode">
-                <option value="fit-all">Fit all</option>
-                <option value="gameplay">Gameplay preview</option>
-              </select>
-            </label>
-            <label class="check-field">
-              <input v-model="exteriorFog" type="checkbox" />
-              Exterior fog
-            </label>
-          </div>
-          <div class="tool-group">
-            <button
-              class="sm"
-              :class="{ active: geometryEditing }"
-              :disabled="!canEditGeometry"
-              @click="toggleGeometryEditing"
-            >
-              {{ geometryEditing ? "Done editing" : "Edit geometry" }}
-            </button>
-            <span v-if="geometryEditing" class="mode-indicator">Geometry editing</span>
-            <button class="sm muted" @click="setDoorPreview(true)">Open all doors</button>
-            <button class="sm muted" @click="setDoorPreview(false)">Close all doors</button>
-          </div>
-        </div>
-
-        <div class="station-canvas">
-          <GridMap
-            v-if="loaded"
-            :building="building"
-            :current-room="
-              selection?.source === 'rooms'
-                ? selection.id
-                : selection?.source === 'stands'
-                  ? selection.id.split('/')[0]
-                  : ''
-            "
-            :current-stand="selection?.source === 'stands' ? selection.id.split('/')[1] : null"
-            :discovered="allRoomIds"
-            :revealed="allRoomIds"
-            :level="level"
-            :stand-level="level"
-            :reachable-rooms="allRoomIds"
-            :reachable-exterior-nodes="allExteriorIds"
-            :door-states="doorStates"
-            :builder-view="true"
-            :builder-edit="geometryEditing"
-            :edit-mode="editMode"
-            :edit-handles="editHandles"
-            :selected-handle-id="selectedHandleId"
-            :selected-item-id="selection?.id ?? ''"
-            :add-point-mode="!!addMode"
-            :map-click-mode="addMode"
-            :hydro-discovered="true"
-            :viewport-mode="viewportMode"
-            :exterior-fog="exteriorFog"
-            :wheel-zoom="true"
-            :drag-pan="true"
-            @select-item="selectItem($event.source, $event.id)"
-            @select-handle="selectedHandleId = $event"
-            @grid-handle-move="onHandleMove"
-            @builder-map-click="onMapClick"
-            @room-click="selectItem('rooms', $event)"
-            @exterior-node-click="selectItem('nodes', $event)"
-            @stand-click="selectStand"
-          />
-        </div>
-        <p class="canvas-hint">Drag empty map to pan · Drag a selected stand or colored handle to move it · Wheel to zoom</p>
-      </section>
+      <StationCanvasPanel
+        v-model:level="level"
+        v-model:viewport-mode="viewportMode"
+        v-model:exterior-fog="exteriorFog"
+        v-model:selected-handle-id="selectedHandleId"
+        :loaded="loaded"
+        :building="building"
+        :selection="selection"
+        :all-room-ids="allRoomIds"
+        :all-exterior-ids="allExteriorIds"
+        :geometry-editing="geometryEditing"
+        :can-edit-geometry="canEditGeometry"
+        :door-states="doorStates"
+        :edit-mode="editMode"
+        :edit-handles="editHandles"
+        :add-mode="addMode"
+        @toggle-geometry-editing="toggleGeometryEditing"
+        @set-door-preview="setDoorPreview"
+        @select-item="selectItem($event.source, $event.id)"
+        @grid-handle-move="onHandleMove"
+        @builder-map-click="onMapClick"
+        @stand-click="selectStand"
+      />
 
       <aside v-if="!rightCollapsed" class="inspector panel">
         <template v-if="selection">
@@ -1193,8 +1137,8 @@ function clonePlain(value) {
 .station-workspace.right-collapsed { grid-template-columns: minmax(220px, 270px) minmax(440px, 1fr); }
 .station-workspace.left-collapsed.right-collapsed { grid-template-columns: 1fr; }
 .panel { min-width: 0; border: 1px solid #343d4d; border-radius: 10px; background: #20252f; padding: .75rem; }
-.object-browser, .inspector { overflow: auto; }
-.object-browser input, .inspector input, .inspector textarea, .inspector select, .canvas-toolbar select {
+.inspector { overflow: auto; }
+.inspector input, .inspector textarea, .inspector select {
   width: 100%;
   border: 1px solid #485267;
   border-radius: 7px;
@@ -1202,31 +1146,7 @@ function clonePlain(value) {
   color: #eef1f5;
   padding: .45rem .55rem;
 }
-.object-group { margin-top: .9rem; }
-.create-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .4rem; margin-top: .6rem; }
-.object-group h3 { display: flex; justify-content: space-between; margin: 0 0 .35rem; color: #aeb5c0; font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; }
-.object-group h3 span { color: #6f7787; }
-.object-item { display: grid; width: 100%; gap: .1rem; margin-top: .25rem; text-align: left; background: #252b35; }
-.object-item span { color: #8e96a3; font-size: .72rem; }
-.object-item.active, button.active { background: #49624f; border-color: #6f9b79; }
-.canvas-column { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: .55rem; min-width: 0; }
-.canvas-toolbar label { display: flex; align-items: center; gap: .35rem; color: #bdc4ce; font-size: .8rem; }
-.mode-indicator {
-  padding: .3rem .5rem;
-  border: 1px solid rgba(200, 162, 255, .5);
-  border-radius: 999px;
-  color: #e0c9ff;
-  background: rgba(112, 72, 145, .28);
-  font-size: .72rem;
-}
-.station-canvas { min-height: 0; overflow: hidden; border: 1px solid #3b4655; border-radius: 11px; }
-.station-canvas :deep(.gridmap), .station-canvas :deep(.gridmap.builder-view:not(.expanded)) {
-  width: 100%;
-  height: 100%;
-  min-height: 100%;
-  border-radius: 0;
-}
-.canvas-hint { margin: 0; color: #8e96a3; font-size: .72rem; text-align: center; }
+button.active { background: #49624f; border-color: #6f9b79; }
 .inspector { display: grid; align-content: start; gap: .7rem; }
 .inspector label { display: grid; gap: .3rem; color: #bdc4ce; font-size: .8rem; }
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; }
@@ -1266,7 +1186,6 @@ function clonePlain(value) {
     grid-template-columns: 220px minmax(420px, 1fr); height: auto;
   }
   .inspector { grid-column: 1 / -1; }
-  .station-canvas { min-height: 68vh; }
 }
 @media (max-width: 720px) {
   .station-workspace, .station-workspace.left-collapsed, .station-workspace.right-collapsed { grid-template-columns: 1fr; }

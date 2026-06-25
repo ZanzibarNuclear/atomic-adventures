@@ -883,7 +883,10 @@ function focusSelection() {
 }
 
 function applyZoomAction(event) {
-  worldCamera.applyZoomAction(event, focusSelection);
+  worldCamera.applyZoomAction(event, {
+    fit: () => fitMap(),
+    focus: focusSelection,
+  });
 }
 
 function uniqueId(base, list) {

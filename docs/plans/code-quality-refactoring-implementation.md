@@ -17,7 +17,7 @@ not complete; unchecked items below are intentional follow-up work, especially
 the large document-lifecycle, inspector, runtime-facade, and server-repository
 extractions.
 
-Completed in the first pass:
+Completed so far:
 
 - shared unsaved-change dialog, revision-history panel, and dirty-navigation
   composable;
@@ -29,6 +29,9 @@ Completed in the first pass:
 - tested outdoor landmark/stand draft helper module;
 - tested world-builder camera composable;
 - tested segment-geometry, hex-polygon, and barrier-context modules;
+- story beat editor extraction;
+- station canvas panel extraction;
+- tested path-in-hex travel module;
 - compatibility re-exports from `useTravelBarriers.js` so existing callers keep
   working.
 
@@ -250,8 +253,9 @@ outdoor object browser, canvas, and inspector concerns are separately owned.
 
 **Purpose:** Apply the same route/component boundaries to indoor world authoring.
 
-**Status:** Started. The object browser was extracted; document lifecycle,
-selection, canvas, inspector, item placement, and action authoring remain.
+**Status:** Started. The object browser and canvas panel were extracted;
+document lifecycle, selection, inspector, item placement, and action authoring
+remain.
 
 - [ ] Extract document lifecycle to `useBuildingBuilderDocument()`:
   - load;
@@ -268,7 +272,7 @@ selection, canvas, inspector, item placement, and action authoring remain.
 - [ ] Keep reusable geometry operations in `useGridBuilder.js`, but move
       route-view-only behavior out of `UtilityStationBuilderView.vue`.
 - [x] Extract `StationObjectBrowser.vue`.
-- [ ] Extract `StationCanvasPanel.vue`.
+- [x] Extract `StationCanvasPanel.vue`.
 - [ ] Extract `StationInspector.vue`.
 - [ ] Split the inspector into smaller editors:
   - `RoomInspector.vue`;
@@ -310,8 +314,8 @@ lifecycle concerns are separately owned.
 **Purpose:** Make story authoring easier to extend before beat complexity grows.
 
 **Status:** Partially complete. Choice editing and choice helper logic were
-extracted along with the location picker and beat list; beat lifecycle and
-top-level beat editor remain.
+extracted along with the location picker, beat list, and top-level beat editor;
+beat document lifecycle remains.
 
 - [x] Extract location/map selection to `StoryLocationPicker.vue`.
 - [x] Extract beat list and match warnings to `StoryBeatList.vue`.
@@ -323,7 +327,7 @@ top-level beat editor remain.
   - delete;
   - revisions/restore;
   - draft/baseline/dirty/errors/status.
-- [ ] Extract `StoryBeatEditor.vue` for top-level beat fields.
+- [x] Extract `StoryBeatEditor.vue` for top-level beat fields.
 - [x] Extract `StoryChoiceEditor.vue` for one choice.
 - [x] Extract choice destination helpers to a plain module if they remain in the
       route after component extraction.
@@ -352,9 +356,9 @@ components with route-level state kept small.
 **Purpose:** Separate movement algorithms by layer so future barrier changes are
 easier to test and reason about.
 
-**Status:** Partially complete. Geometry primitives, hex polygon helpers, and
-barrier segment/list helpers were extracted; first-hit detection, pathfinding,
-arrival stands, and move resolution remain.
+**Status:** Partially complete. Geometry primitives, hex polygon helpers,
+barrier segment/list helpers, and local pathfinding were extracted; first-hit
+detection, arrival stands, and move resolution remain.
 
 - [x] Move geometry primitives from `useTravelBarriers.js` into a plain geometry
       module.
@@ -362,7 +366,7 @@ arrival stands, and move resolution remain.
       module.
 - [ ] Move junction cache and first-hit detection into a barrier-context module.
 - [x] Move hex polygon helpers and tests to a travel module.
-- [ ] Move local pathfinding to a `pathInHex` module.
+- [x] Move local pathfinding to a `pathInHex` module.
 - [ ] Move destination stand selection and arrival heuristics to an arrival
       module.
 - [x] Keep a public compatibility module at `useTravelBarriers.js` that
