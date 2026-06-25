@@ -31,7 +31,12 @@ export async function handleStoryRoutes(req, res, url, {
       const body = await readJson(req);
       const result = repository.updateBeat(areaId, beatId, body.beat ?? body, body.expectedVersion);
       syncRuntimeContent?.();
-      broadcast("story.updated", { revision: result.revision, areaId, beatId });
+      broadcast("story.updated", {
+        revision: result.revision,
+        areaId,
+        beatId: result.beat.id,
+        renamedFrom: result.renamedFrom,
+      });
       return json(res, 200, { ...result, yaml: exportBeatYaml(result.beat) });
     }
     if (req.method === "DELETE") {

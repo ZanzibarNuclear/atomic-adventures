@@ -99,16 +99,30 @@ export class StoryRepository {
     }
     const validation = validateBeat(input, this.world, this.character);
     if (!validation.valid) throw new ValidationError(validation.errors);
-    if (validation.beat.id !== beatId) {
-      throw new ValidationError({ id: ["Existing beat IDs cannot be renamed. Duplicate it instead."] });
+    const nextBeatId = validation.beat.id;
+    const renamedFrom = nextBeatId === beatId ? null : beatId;
+    if (renamedFrom) {
+      if (this.getBeat(areaId, nextBeatId)) {
+        throw new ValidationError({ id: ["That beat ID already exists in this area."] });
+      }
+      const existingHistory = this.db.prepare(`
+        SELECT 1 AS found
+        FROM story_revisions
+        WHERE area_id = ? AND beat_id = ?
+        LIMIT 1
+      `).get(areaId, nextBeatId);
+      if (existingHistory) {
+        throw new ValidationError({ id: ["That beat ID already has revision history in this area."] });
+      }
     }
     return transaction(this.db, () => {
       const nextVersion = existing.version + 1;
       this.#replaceBeat(areaId, beatId, validation.beat, nextVersion, existing.createdAt);
-      const saved = this.getBeat(areaId, beatId);
-      this.#recordRevision(areaId, beatId, "update", saved);
+      if (renamedFrom) this.#renameRevisionHistory(areaId, renamedFrom, nextBeatId);
+      const saved = this.getBeat(areaId, nextBeatId);
+      this.#recordRevision(areaId, nextBeatId, "update", saved);
       const revision = this.#incrementGlobalRevision();
-      return { beat: saved, revision };
+      return { beat: saved, revision, renamedFrom };
     });
   }
 
@@ -142,7 +156,7 @@ export class StoryRepository {
       WHERE area_id = ? AND beat_id = ? AND revision = ?
     `).get(areaId, beatId, Number(revisionNumber));
     if (!row) throw new NotFoundError("Revision not found.");
-    const snapshot = normalizeBeat(JSON.parse(row.snapshot_json));
+    const snapshot = normalizeBeat({ ...JSON.parse(row.snapshot_json), id: beatId });
     const validation = validateBeat(snapshot, this.world, this.character);
     if (!validation.valid) throw new ValidationError(validation.errors);
 
@@ -545,6 +559,14 @@ export class StoryRepository {
       INSERT INTO story_revisions(area_id, beat_id, revision, operation, snapshot_json, created_at)
       VALUES (?, ?, ?, ?, ?, ?)
     `).run(areaId, beatId, revision, operation, JSON.stringify(snapshot), new Date().toISOString());
+  }
+
+  #renameRevisionHistory(areaId, fromBeatId, toBeatId) {
+    this.db.prepare(`
+      UPDATE story_revisions
+      SET beat_id = ?
+      WHERE area_id = ? AND beat_id = ?
+    `).run(toBeatId, areaId, fromBeatId);
   }
 
   #incrementGlobalRevision() {

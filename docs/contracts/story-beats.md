@@ -208,6 +208,10 @@ When the player later returns:
 `storySeen` is part of the player's save data. Reloading a save therefore
 preserves whether a beat should show first-view or revisit prose.
 
+Beat IDs are the keys used in `storySeen`. Renaming a beat ID is treated as an
+authoring content change, not a player-save migration. Existing saves may
+therefore show the renamed beat as unseen.
+
 ## Choices
 
 Choices appear in the game's **Choose an Action** panel. Choice order is
@@ -302,6 +306,13 @@ place when it remains eligible. If it no longer matches, the engine removes it
 and evaluates the next eligible beat.
 
 Restoring history creates a new revision rather than deleting later history.
+
+The story builder may rename an existing beat ID. Renaming validates the new ID,
+rejects IDs already used by active beats or existing revision history in the
+same area, and cascades the saved authoring data from the old ID to the new ID:
+the beat row, choices, revision history, runtime story export key, and live
+authoring update all use the new ID after the save. Player save state is not
+migrated.
 
 ## Builder Editing Safety
 

@@ -89,6 +89,58 @@ describe("StoryRepository", () => {
     db.close();
   });
 
+  it("renames an existing beat and preserves choices and revision history", () => {
+    const { db, repository } = createRepository();
+    repository.createBeat("test-area", sampleBeat());
+    repository.updateBeat(
+      "test-area",
+      "test-beat",
+      sampleBeat({ text: "Updated text." }),
+      1,
+    );
+
+    const renamed = repository.updateBeat(
+      "test-area",
+      "test-beat",
+      sampleBeat({ id: "renamed-beat", text: "Renamed text." }),
+      2,
+    );
+
+    expect(renamed.renamedFrom).toBe("test-beat");
+    expect(repository.getBeat("test-area", "test-beat")).toBeNull();
+    expect(repository.getBeat("test-area", "renamed-beat").choices[0].go_hex).toBe("east-pines");
+    expect(repository.getRuntimeStory().areas["test-area"].beats["test-beat"]).toBeUndefined();
+    expect(repository.getRuntimeStory().areas["test-area"].beats["renamed-beat"].text).toBe("Renamed text.");
+    expect(repository.listRevisions("test-area", "test-beat")).toEqual([]);
+    expect(repository.listRevisions("test-area", "renamed-beat")).toHaveLength(3);
+
+    const restored = repository.restoreRevision("test-area", "renamed-beat", 1);
+    expect(restored.beat.id).toBe("renamed-beat");
+    expect(restored.beat.text).toBe("Original text.");
+    db.close();
+  });
+
+  it("rejects renaming a beat to an active or historic beat ID", () => {
+    const { db, repository } = createRepository();
+    repository.createBeat("test-area", sampleBeat());
+    repository.createBeat("test-area", sampleBeat({ id: "other-beat" }));
+    expect(() => repository.updateBeat(
+      "test-area",
+      "test-beat",
+      sampleBeat({ id: "other-beat" }),
+      1,
+    )).toThrow(ValidationError);
+
+    repository.deleteBeat("test-area", "other-beat", 1);
+    expect(() => repository.updateBeat(
+      "test-area",
+      "test-beat",
+      sampleBeat({ id: "other-beat" }),
+      1,
+    )).toThrow(ValidationError);
+    db.close();
+  });
+
   it("rejects invalid content without incrementing the global revision", () => {
     const { db, repository } = createRepository();
     const before = repository.getGlobalRevision();

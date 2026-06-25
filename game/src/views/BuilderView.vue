@@ -400,7 +400,9 @@ async function saveBeat() {
     }
     setDraft(result.beat);
     await refreshBeatList();
-    status.value = `Saved revision ${result.beat.version}.`;
+    status.value = result.renamedFrom
+      ? `Renamed ${result.renamedFrom} to ${result.beat.id} and saved revision ${result.beat.version}.`
+      : `Saved revision ${result.beat.version}.`;
     return true;
   } catch (error) {
     errors.value = error.errors ?? {};
@@ -413,9 +415,10 @@ async function saveBeat() {
 
 async function deleteBeat() {
   if (!draft.value || isNew.value) return;
-  if (!window.confirm(`Delete "${draft.value.id}"? Its revision history will remain available.`)) return;
+  const beatId = selectedBeatId.value;
+  if (!window.confirm(`Delete "${beatId}"? Its revision history will remain available.`)) return;
   await storyApi(
-    `/api/story/areas/${STORY_AREA_ID}/beats/${encodeURIComponent(draft.value.id)}`,
+    `/api/story/areas/${STORY_AREA_ID}/beats/${encodeURIComponent(beatId)}`,
     { method: "DELETE", body: JSON.stringify({ expectedVersion: draft.value.version }) },
   );
   draft.value = null;
@@ -427,7 +430,7 @@ async function deleteBeat() {
 async function loadRevisions() {
   if (!draft.value || isNew.value) return;
   revisions.value = await storyApi(
-    `/api/story/areas/${STORY_AREA_ID}/beats/${encodeURIComponent(draft.value.id)}/revisions`,
+    `/api/story/areas/${STORY_AREA_ID}/beats/${encodeURIComponent(selectedBeatId.value)}/revisions`,
   );
   showRevisions.value = true;
 }
@@ -435,9 +438,10 @@ async function loadRevisions() {
 async function restoreRevision(revision) {
   if (!window.confirm(`Restore revision ${revision}? This creates a new revision.`)) return;
   const result = await storyApi(
-    `/api/story/areas/${STORY_AREA_ID}/beats/${encodeURIComponent(draft.value.id)}/revisions/${revision}/restore`,
+    `/api/story/areas/${STORY_AREA_ID}/beats/${encodeURIComponent(selectedBeatId.value)}/revisions/${revision}/restore`,
     { method: "POST" },
   );
+  selectedBeatId.value = result.beat.id;
   setDraft(result.beat);
   await loadBeats();
   await loadRevisions();
@@ -672,7 +676,7 @@ async function saveAndContinue() {
 
           <div class="field-grid">
             <label>Beat ID
-              <input v-model="draft.id" :readonly="!isNew" />
+              <input v-model="draft.id" />
               <span v-if="fieldError('id')" class="field-error">{{ fieldError("id") }}</span>
             </label>
             <label v-if="draftIsOutdoorHexBeat">Origin hex
