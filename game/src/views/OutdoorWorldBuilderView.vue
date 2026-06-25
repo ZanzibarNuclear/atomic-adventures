@@ -36,7 +36,6 @@ const landmarkDraft = ref(null);
 const landmarkEditDraft = ref(null);
 const standDraft = ref(null);
 const standEditDraft = ref(null);
-const auditRenameDraft = ref({ from: "", to: "" });
 let resizeObserver = null;
 
 const emptyWorld = {
@@ -107,11 +106,6 @@ const errorMessages = computed(() =>
 );
 const invalidAuditEntries = computed(() =>
   auditEntries.value.filter((entry) => entry.status === "invalid"),
-);
-const movementAuditRenames = computed(() =>
-  Array.isArray(draftMeta.value.movementAuditRenames)
-    ? draftMeta.value.movementAuditRenames
-    : [],
 );
 const allHexIds = computed(() => outdoor.editableHexes.map((hex) => hex.id));
 const allHexSet = computed(() => new Set(allHexIds.value));
@@ -204,31 +198,9 @@ watch(
   },
 );
 
-function setMovementAuditRenames(next) {
-  draftMeta.value.movementAuditRenames = next;
-}
-
-function addMovementAuditRename() {
-  const from = auditRenameDraft.value.from.trim();
-  const to = auditRenameDraft.value.to.trim();
-  if (!from || !to) {
-    status.value = "Movement audit aliases need both old and current hex IDs.";
-    return;
-  }
-  const existing = movementAuditRenames.value.filter((item) => item.from !== from);
-  setMovementAuditRenames([...existing, { kind: "hex", from, to }]);
-  auditRenameDraft.value = { from: "", to: "" };
-  status.value = `Movement audit alias added: ${from} → ${to}.`;
-}
-
-function removeMovementAuditRename(index) {
-  setMovementAuditRenames(movementAuditRenames.value.filter((_, i) => i !== index));
-  status.value = "Movement audit alias removed.";
-}
-
 function runMovementAudit(showStatus = true) {
   try {
-    auditEntries.value = buildMapMovementAudit(currentWorld.value, renames.value);
+    auditEntries.value = buildMapMovementAudit(currentWorld.value);
     auditSummary.value = movementAuditSummary(auditEntries.value);
     if (showStatus) {
       status.value = auditSummary.value.invalid
@@ -358,8 +330,6 @@ function setMapHost(element) {
         :passage-kinds="[...PASSAGE_KINDS]"
         :all-hex-ids="allHexIds"
         :error-messages="errorMessages"
-        :movement-audit-renames="movementAuditRenames"
-        :audit-rename-draft="auditRenameDraft"
         :audit-summary="auditSummary"
         :invalid-audit-entries="invalidAuditEntries"
         :warnings="warnings"
@@ -391,8 +361,6 @@ function setMapHost(element) {
         :toggle-add-point-mode="toggleAddPointMode"
         :move-point="movePoint"
         :remove-point="removePoint"
-        :remove-movement-audit-rename="removeMovementAuditRename"
-        :add-movement-audit-rename="addMovementAuditRename"
         :restore-revision="restoreRevision"
       />
     </div>

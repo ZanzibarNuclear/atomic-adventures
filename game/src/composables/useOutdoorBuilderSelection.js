@@ -564,7 +564,6 @@ export function useOutdoorBuilderSelection({
   function cascadeHexRename(from, to) {
     if (draftMeta.value.start === from) draftMeta.value.start = to;
     draftMeta.value.journey = (draftMeta.value.journey ?? []).map((id) => id === from ? to : id);
-    cascadeMovementAuditRename(from, to);
     for (const route of outdoor.editableRoutes) {
       for (const point of route.points ?? []) if (point.hex === from) point.hex = to;
     }
@@ -573,23 +572,6 @@ export function useOutdoorBuilderSelection({
       for (const key of ["at", "labelAt", "boothAt"]) if (feature[key]?.hex === from) feature[key].hex = to;
       for (const point of feature.points ?? []) if (point.hex === from) point.hex = to;
     }
-  }
-
-  function cascadeMovementAuditRename(from, to) {
-    const existing = Array.isArray(draftMeta.value.movementAuditRenames)
-      ? draftMeta.value.movementAuditRenames
-      : [];
-    let chained = false;
-    const updated = existing
-      .filter((item) => item.from !== from)
-      .map((item) => {
-        if (item.to !== from) return item;
-        chained = true;
-        return { ...item, to };
-      });
-    draftMeta.value.movementAuditRenames = chained
-      ? updated
-      : [...updated, { kind: "hex", from, to }];
   }
 
   function moveSelected(delta) {

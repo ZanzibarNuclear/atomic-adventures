@@ -64,10 +64,10 @@ function hasSafeClearance(stand, barriers) {
 }
 
 /** Build the visual audit from the same checked-in map state manifest as tests. */
-export function buildMapMovementAudit(mapData, renames = []) {
+export function buildMapMovementAudit(mapData) {
   const world = buildTravelWorld(mapData)
   const entries = []
-  const movementCases = movementCasesForMap(mapData, world, renames)
+  const movementCases = movementCasesForMap(mapData, world)
 
   for (const movementCase of movementCases) {
     const fromHex = world.hexById[movementCase.hexId]

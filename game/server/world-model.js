@@ -8,6 +8,7 @@ export function normalizeWorld(input = {}) {
   world.size = finiteNumber(world.size, 44);
   world.start = nullableText(world.start);
   world.journey = stringList(world.journey);
+  delete world.movementAuditRenames;
   world.hexes = Array.isArray(world.hexes) ? world.hexes : [];
   world.hexes.forEach(normalizeHexStands);
   world.features = Array.isArray(world.features) ? world.features : [];
