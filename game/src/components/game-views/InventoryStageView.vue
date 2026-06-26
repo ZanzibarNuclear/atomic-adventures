@@ -39,9 +39,11 @@ defineEmits(["select-holding", "transfer-item", "use-item", "return-to-map"]);
   gap: 1rem;
   margin-bottom: 1rem;
   padding: 1rem;
-  border: 1px solid #2f3540;
-  border-radius: 8px;
-  background: #20242d;
+  border: 1px solid rgba(120, 150, 195, 0.28);
+  border-radius: 10px;
+  background: radial-gradient(circle at 50% 25%, #2a3548, #151a24);
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.45);
+  color: #e8edf5;
 }
 .stage-header {
   display: flex;
@@ -49,9 +51,13 @@ defineEmits(["select-holding", "transfer-item", "use-item", "return-to-map"]);
   justify-content: space-between;
   gap: 1rem;
 }
+.stage-header .label {
+  color: #8faed6;
+}
 .stage-header h2 {
   margin: 0.1rem 0 0;
   font-size: 1.15rem;
+  color: #eef3fb;
 }
 @media (max-width: 640px) {
   .stage-header {

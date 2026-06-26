@@ -5,7 +5,7 @@ export function createHoldings(profileId = "player", holderDefinitions = []) {
       [characterId]: {
         id: characterId,
         kind: "character",
-        label: "Carried directly",
+        label: "Holding",
       },
       ...Object.fromEntries(
         holderDefinitions.map((holder) => [holder.id, clonePlain(holder)]),
@@ -169,7 +169,7 @@ export function ensureWorldHolder(holdings, location) {
   holdings.holders[id] ??= {
     id,
     kind: "world",
-    label: "Ground here",
+    label: "Within reach",
     location: clonePlain(location),
   };
   return id;

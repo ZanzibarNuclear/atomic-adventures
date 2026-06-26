@@ -138,10 +138,13 @@ const inventoryHolders = computed(() => {
     })),
   }));
 });
-const transferTargets = computed(() => inventoryHolders.value.map((holder) => ({
-  id: holder.id,
-  label: holder.label ?? holder.id,
-})));
+const transferTargets = computed(() => inventoryHolders.value
+  .filter((holder) => holder.kind !== "container")
+  .map((holder) => ({
+    id: holder.id,
+    label: holder.label ?? holder.id,
+    kind: holder.kind,
+  })));
 const stageSelectedHolding = computed(() =>
   inventoryHolders.value.flatMap((holder) =>
     holder.records.map((record) => ({ ...record, holder })))
