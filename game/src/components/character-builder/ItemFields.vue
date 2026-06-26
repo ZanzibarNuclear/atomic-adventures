@@ -1,7 +1,8 @@
 <script setup>
-import { ref, watch } from "vue";
+import { ref } from "vue";
+import PublicImagePicker from "./PublicImagePicker.vue";
 
-const props = defineProps({
+defineProps({
   draft: { type: Object, required: true },
   entry: { type: Object, required: true },
   visibilityOptions: { type: Array, required: true },
@@ -10,24 +11,6 @@ const props = defineProps({
 });
 
 const activeTab = ref("details");
-const imagePreviewFailed = ref(false);
-
-function assetUrl(path) {
-  if (!path) return null;
-  if (/^(?:[a-z]+:)?\/\//i.test(path) || path.startsWith("data:")) return path;
-  return path.startsWith("/") ? path : `/${path.replace(/^\.?\//, "")}`;
-}
-
-function onIconInput() {
-  imagePreviewFailed.value = false;
-}
-
-watch(
-  () => [props.entry?.id, props.entry?.icon],
-  () => {
-    imagePreviewFailed.value = false;
-  },
-);
 </script>
 
 <template>
@@ -84,25 +67,11 @@ watch(
         </label>
       </div>
 
-      <div class="image-field">
-        <label>Image asset
-          <input
-            v-model="entry.icon"
-            placeholder="items/field-backpack.png"
-            @input="onIconInput">
-          <small>Reference files already in the deployed game under game/public (e.g. items/field-backpack.png).</small>
-        </label>
-        <div v-if="entry.icon && !imagePreviewFailed" class="image-preview">
-          <img
-            :src="assetUrl(entry.icon)"
-            :alt="entry.label || entry.id"
-            @error="imagePreviewFailed = true">
-        </div>
-        <p v-else-if="entry.icon && imagePreviewFailed" class="image-hint">
-          Could not load {{ entry.icon }}. Check the path under game/public.
-        </p>
-        <p v-else class="image-hint">No image set.</p>
-      </div>
+      <PublicImagePicker
+        :model-value="entry.icon ?? ''"
+        folder="items"
+        placeholder="items/..."
+        @update:model-value="entry.icon = $event || null" />
 
       <label>Tags
         <input :value="entry.tags.join(', ')" @input="setCsv(entry, 'tags', $event)">
@@ -180,28 +149,6 @@ label {
   display: flex;
   align-items: center;
 }
-.image-field {
-  display: grid;
-  gap: 0.65rem;
-  padding: 0.75rem;
-  border: 1px solid #343d4d;
-  border-radius: 10px;
-  background: #181d25;
-}
-.image-preview {
-  width: min(100%, 10rem);
-  padding: 0.65rem;
-  border: 1px solid #3a4558;
-  border-radius: 10px;
-  background: #12161d;
-}
-.image-preview img {
-  display: block;
-  width: 100%;
-  height: auto;
-  object-fit: contain;
-}
-.image-hint,
 .custom-intro {
   margin: 0;
   color: #8f98a6;
