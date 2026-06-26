@@ -1,6 +1,7 @@
 <script setup>
 import CharacterCatalogBrowser from "../components/character-builder/CharacterCatalogBrowser.vue";
 import CharacterEntryEditor from "../components/character-builder/CharacterEntryEditor.vue";
+import CharacterOptionsEditor from "../components/character-builder/CharacterOptionsEditor.vue";
 import CharacterView from "../components/game-views/CharacterView.vue";
 import {
   useCharacterBuilderDraft,
@@ -72,6 +73,12 @@ const {
           </button>
           <button
             type="button"
+            :class="{ active: workspaceMode === 'options' }"
+            @click="selectWorkspace('options')">
+            Options
+          </button>
+          <button
+            type="button"
             :class="{ active: workspaceMode === 'preview' }"
             @click="selectWorkspace('preview')">
             Preview
@@ -86,7 +93,7 @@ const {
 
     <p v-if="status" class="status">{{ status }}</p>
 
-    <div v-if="workspaceMode !== 'preview'" class="builder-grid edit-grid">
+    <div v-if="workspaceMode === 'character' || workspaceMode === 'artifacts'" class="builder-grid edit-grid">
       <CharacterCatalogBrowser
         :draft="draft"
         :workspace-mode="workspaceMode"
@@ -112,14 +119,19 @@ const {
         :set-csv="setCsv"
         :set-optional-number="setOptionalNumber"
         :set-json="setJson"
-        @add-group="addGroup"
         @delete-entry="deleteEntry"
         @duplicate-entry="duplicateEntry"
         @move-entry="moveEntry"
-        @remove-group="removeGroup"
         @rename-entry="renameEntry"
         @restore-revision="restoreRevision" />
     </div>
+
+    <section v-else-if="workspaceMode === 'options'" class="options-workspace panel">
+      <CharacterOptionsEditor
+        :draft="draft"
+        @add-group="addGroup"
+        @remove-group="removeGroup" />
+    </section>
 
     <section v-else class="preview-workspace panel">
       <div class="preview-toolbar">
@@ -201,6 +213,10 @@ const {
   display: grid;
   gap: .75rem;
   max-width: 72rem;
+  margin-top: .75rem;
+}
+.options-workspace {
+  max-width: 48rem;
   margin-top: .75rem;
 }
 .panel { padding: .85rem; border: 1px solid #343d4d; border-radius: 10px; background: #1d222b; }

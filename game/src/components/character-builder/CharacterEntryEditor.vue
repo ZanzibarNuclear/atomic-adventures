@@ -20,11 +20,9 @@ defineProps({
 });
 
 defineEmits([
-  "add-group",
   "delete-entry",
   "duplicate-entry",
   "move-entry",
-  "remove-group",
   "rename-entry",
   "restore-revision",
 ]);
@@ -57,6 +55,7 @@ defineEmits([
         v-if="selectedCatalog === 'items'"
         :draft="draft"
         :entry="selectedEntry"
+        :visibility-options="visibilityOptions"
         :set-csv="setCsv"
         :set-json="setJson" />
 
@@ -78,7 +77,7 @@ defineEmits([
         :entry="selectedEntry"
         :set-json="setJson" />
 
-      <div class="field-grid">
+      <div v-if="selectedCatalog !== 'items'" class="field-grid">
         <label v-if="'order' in selectedEntry">Order<input v-model.number="selectedEntry.order" type="number"></label>
         <label>Visibility
           <select v-model="selectedEntry.visible">
@@ -88,26 +87,6 @@ defineEmits([
       </div>
     </template>
     <p v-else class="empty-note">Choose or add an entry.</p>
-
-    <details class="group-editor">
-      <summary>Panel groups</summary>
-      <section>
-        <h4>Stat groups</h4>
-        <div v-for="group in draft.panel.statGroups" :key="group.id" class="group-row">
-          <input v-model="group.id"><input v-model="group.label">
-          <button class="sm muted" @click="$emit('remove-group', 'statGroups', group.id)">Remove</button>
-        </div>
-        <button class="sm" @click="$emit('add-group', 'statGroups')">Add stat group</button>
-      </section>
-      <section>
-        <h4>Inventory groups</h4>
-        <div v-for="group in draft.panel.inventoryGroups" :key="group.id" class="group-row">
-          <input v-model="group.id"><input v-model="group.label">
-          <button class="sm muted" @click="$emit('remove-group', 'inventoryGroups', group.id)">Remove</button>
-        </div>
-        <button class="sm" @click="$emit('add-group', 'inventoryGroups')">Add inventory group</button>
-      </section>
-    </details>
 
     <p v-for="message in errorMessages.slice(0, 16)" :key="message" class="field-error">
       {{ message }}
@@ -134,8 +113,7 @@ defineEmits([
 .panel { padding: .85rem; border: 1px solid #343d4d; border-radius: 10px; background: #1d222b; }
 .entry-editor { display: grid; gap: .75rem; max-height: calc(100vh - 10.7rem); overflow: auto; }
 .entry-heading,
-.toolbar-actions,
-.group-row {
+.toolbar-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -145,9 +123,6 @@ defineEmits([
 .entry-heading h3,
 .entry-heading p { margin: 0; }
 label { display: grid; gap: .3rem; color: #bdc4ce; font-size: .82rem; }
-.group-editor section { margin-top: .75rem; }
-.group-row { margin: .35rem 0; }
-.group-row input { min-width: 0; flex: 1; }
 .field-error { color: #e88c8c; }
 .warning { color: #d7b66d; }
 .history { display: grid; gap: .35rem; margin-top: 1rem; }
