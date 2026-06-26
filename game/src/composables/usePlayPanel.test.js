@@ -1,15 +1,21 @@
 import { describe, expect, it } from 'vitest'
-import mapData from '../../content/world/map.yaml'
+import { mapData } from '../lib/testing/content.js'
 import {
   buildTravelWorld,
   offeredMoves,
   adjacentHexes,
 } from '../lib/maps/testing/travelWorld.js'
 import {
-  defaultMovementLabel,
   getMovementOptions,
+  buildOutdoorBarrierFollowActions,
+  buildOutdoorPlayActions,
+  buildOutdoorRouteActions,
   buildOutdoorSearchActions,
   buildStoryChoices,
+  buildIndoorMovementActions,
+  buildIndoorPlayActions,
+  handleIndoorPlayAction,
+  handleOutdoorPlayAction,
 } from './usePlayPanel.js'
 import { hiddenOpeningsInHex } from '../lib/maps/composables/useBarrierOpenings.js'
 import { useOutdoorWorld } from '../lib/maps/composables/useOutdoorWorld.js'
@@ -41,29 +47,15 @@ function outdoorAt(hexId, pendingBeat = null) {
   }
 }
 
-describe('defaultMovementLabel', () => {
-  it('prefixes compass direction from the move', () => {
-    expect(defaultMovementLabel({ label: 'west' })).toBe('Go west')
-    expect(defaultMovementLabel({ label: 'northwest' })).toBe('Go northwest')
-  })
-
-  it('falls back when direction is missing', () => {
-    expect(defaultMovementLabel({})).toBe('Go onward')
-  })
-})
-
 describe('getMovementOptions', () => {
-  it('lists offerable directions (departure-hex barriers only)', () => {
+  it('does not list generated outdoor movement directions', () => {
     const outdoor = outdoorAt('lower-stand')
     const options = getMovementOptions(outdoor, null)
-    const dests = new Map(options.map((o) => [o.toHexId, o.label]))
 
-    expect(dests.get('south-pines')).toBe('Go west')
-    expect(dests.get('center-pines')).toMatch(/^Go /)
-    expect(dests.get('east-pines')).toMatch(/^Go /)
+    expect(options).toEqual([])
   })
 
-  it('uses story choice text instead of compass labels for covered destinations', () => {
+  it('lists story choice text for reachable story destinations', () => {
     const pendingBeat = {
       choices: [
         { text: 'Continue west on the trail', go_hex: 'south-pines' },
@@ -78,24 +70,46 @@ describe('getMovementOptions', () => {
     expect(south.kind).toBe('story')
   })
 
-  it('does not duplicate a destination in both story and movement options', () => {
+  it('lists story choices that move to exterior path nodes', () => {
+    const pendingBeat = {
+      choices: [
+        { text: 'Look for a way in', go_exterior_node: 'north-east-corner' },
+      ],
+    }
+    const options = buildStoryChoices(pendingBeat)
+
+    expect(options).toMatchObject([
+      {
+        id: 'story:0',
+        label: 'Look for a way in',
+        kind: 'story',
+      },
+    ])
+  })
+
+  it('lists story choices on revisit beats', () => {
+    const pendingBeat = {
+      revisit: true,
+      choices: [
+        { text: 'Try the trail again', go_hex: 'south-pines' },
+      ],
+    }
+    const outdoor = outdoorAt('lower-stand')
+    const options = getMovementOptions(outdoor, pendingBeat)
+
+    expect(options.map((option) => option.label)).toContain('Try the trail again')
+  })
+
+  it('does not add movement options beside a story destination', () => {
     const pendingBeat = {
       choices: [{ text: 'Keep walking west', go_hex: 'east-pines' }],
     }
-    const outdoor = outdoorAt('trailhead')
+    const outdoor = outdoorAt('origin')
     const options = getMovementOptions(outdoor, pendingBeat)
     const eastPines = options.filter((o) => o.toHexId === 'east-pines')
 
     expect(eastPines).toHaveLength(1)
     expect(eastPines[0].kind).toBe('story')
-  })
-
-  it('offers fence-stop entries from center-pines to south-pines', () => {
-    const outdoor = outdoorAt('center-pines')
-    const options = getMovementOptions(outdoor, null)
-    const dests = options.map((o) => o.toHexId)
-
-    expect(dests).toContain('south-pines')
   })
 
   it('omits story choices to adjacent but unreachable hexes', () => {
@@ -124,21 +138,6 @@ describe('getMovementOptions', () => {
     expect(options.some((o) => o.toHexId === 'south-pines')).toBe(true)
   })
 
-  it('derives labels from move geometry, not map hex fields', () => {
-    const outdoor = outdoorAt('lower-stand')
-    const { directMoves } = offeredMoves(
-      world,
-      outdoor.currentHexData,
-      world.resolveStand(outdoor.currentHexData),
-    )
-    const centerMove = directMoves.find((m) => m.toHexId === 'center-pines')
-    const options = getMovementOptions(outdoor, null)
-    const center = options.find((o) => o.toHexId === 'center-pines')
-
-    expect(world.hexById['lower-stand'].travel).toBeUndefined()
-    expect(center?.label).toBe(defaultMovementLabel(centerMove))
-  })
-
   it('labels fence search from hidden hole openings, not riverbank default', () => {
     const outdoor = useOutdoorWorld(mapData)
     outdoor.state.currentId = 'south-pines'
@@ -148,11 +147,195 @@ describe('getMovementOptions', () => {
 
     const actions = buildOutdoorSearchActions(outdoor)
     expect(actions).toHaveLength(1)
-    expect(actions[0].label).toBe('Search along the fence')
+    expect(actions[0].label).toBe('Inspect the fence')
     expect(
       hiddenOpeningsInHex(mapData.features, 'south-pines').some(
         (f) => f.kind === 'hole',
       ),
     ).toBe(true)
+  })
+
+  it('keeps outdoor search actions in the contextual play action list', () => {
+    const outdoor = useOutdoorWorld(mapData)
+    outdoor.state.currentId = 'south-pines'
+    outdoor.state.stand = outdoor.defaultStandForHex('south-pines')
+
+    expect(buildOutdoorPlayActions(outdoor).map((action) => action.id)).toContain(
+      'search:barrier',
+    )
+  })
+
+  it('hides fence inspection after the hidden opening is found', () => {
+    const outdoor = useOutdoorWorld(mapData)
+    outdoor.state.currentId = 'south-pines'
+    outdoor.state.stand = outdoor.defaultStandForHex('south-pines')
+    outdoor.state.discoveredOpenings = ['south-pines-hole']
+
+    const actions = buildOutdoorSearchActions(outdoor)
+
+    expect(actions).toEqual([])
+  })
+
+  it('offers contextual route-following actions with route direction', () => {
+    const outdoor = useOutdoorWorld(mapData)
+    outdoor.state.currentId = 'road-fork'
+    outdoor.state.stand = outdoor.defaultStandForHex('road-fork')
+
+    expect(buildOutdoorRouteActions(outdoor).map((action) => action.label)).toEqual(
+      expect.arrayContaining([
+        'Follow the main road to the south',
+        'Follow the vista drive to the west',
+      ]),
+    )
+  })
+
+  it('lets story choices replace route actions to the same destination', () => {
+    const outdoor = useOutdoorWorld(mapData)
+    outdoor.state.currentId = 'road-fork'
+    outdoor.state.stand = outdoor.defaultStandForHex('road-fork')
+    const pendingBeat = {
+      choices: [{ text: 'Take the road toward the gate', go_hex: 'gate-woods' }],
+    }
+
+    const actions = buildOutdoorRouteActions(outdoor, pendingBeat)
+
+    expect(actions.map((action) => action.toHexId)).not.toContain('gate-woods')
+    expect(actions.map((action) => action.toHexId)).toContain('upper-gorge')
+  })
+
+  it('offers barrier-following actions with barrier direction', () => {
+    const outdoor = useOutdoorWorld(mapData)
+    outdoor.state.currentId = 'the-flats'
+    outdoor.state.stand = outdoor.defaultStandForHex('the-flats')
+
+    expect(buildOutdoorBarrierFollowActions(outdoor).map((action) => action.label)).toContain(
+      'Walk southeast along the river',
+    )
+  })
+
+  it('dispatches outdoor contextual actions to search and passage handlers', () => {
+    const calls = []
+    const outdoor = {
+      canSearchHere: () => true,
+      searchableOpenings: () => [],
+      state: { atBarrier: 'fence', lastBlocked: null },
+      searchBarrier: () => calls.push('search'),
+      togglePassage: (id) => calls.push(`toggle:${id}`),
+      crossPassage: (id) => calls.push(`passage:${id}`),
+      moveTo: (id) => calls.push(`move:${id}`),
+    }
+
+    handleOutdoorPlayAction(outdoor, 'search:barrier')
+    handleOutdoorPlayAction(outdoor, 'passage-toggle:compound-gate')
+    handleOutdoorPlayAction(outdoor, 'passage:south-pines-hole')
+    handleOutdoorPlayAction(outdoor, 'route:gate-woods')
+    handleOutdoorPlayAction(outdoor, 'barrier:utility-yard')
+
+    expect(calls).toEqual([
+      'search',
+      'toggle:compound-gate',
+      'passage:south-pines-hole',
+      'move:gate-woods',
+      'move:utility-yard',
+    ])
+  })
+
+  it('offers indoor exterior footpath movement as play actions', () => {
+    const indoor = {
+      indoorMoves: [
+        {
+          kind: 'path',
+          toExteriorNode: 'north-east-corner',
+          label: 'north along the footpath',
+        },
+        {
+          kind: 'door',
+          toRoomId: 'large-bay',
+          label: 'through the door',
+        },
+      ],
+    }
+
+    expect(buildIndoorMovementActions(indoor)).toEqual([
+      {
+        id: 'move-exterior:north-east-corner',
+        label: 'Go north along the footpath',
+        kind: 'path',
+      },
+      {
+        id: 'move-room:large-bay',
+        label: 'Go through the door',
+        kind: 'door',
+      },
+    ])
+  })
+
+  it('keeps indoor movement before contextual actions in the play action list', () => {
+    const indoor = {
+      indoorMoves: [
+        {
+          kind: 'stand',
+          toStandId: 'stairs-bottom',
+          label: 'to Bottom of the stairs',
+        },
+      ],
+      roomPickups: [{ id: 'wrench', label: 'Wrench' }],
+      availableActions: [],
+      nearbyDoors: [],
+      roomSwitches: [],
+      building: { doorById: {} },
+      indoor: { doorState: new Map(), facility: {} },
+      playerRoomId: 'large-bay',
+    }
+
+    expect(buildIndoorPlayActions(indoor).map((action) => action.id)).toEqual([
+      'move-stand:stairs-bottom',
+      'pickup:wrench',
+    ])
+  })
+
+  it('lets indoor story choices replace matching generic movement actions', () => {
+    const indoor = {
+      indoorMoves: [
+        {
+          kind: 'path',
+          toExteriorNode: 'north-east-corner',
+          label: 'north along the footpath',
+        },
+        {
+          kind: 'path',
+          toExteriorNode: 'small-bay-roll-front',
+          label: 'south along the footpath',
+        },
+      ],
+    }
+    const pendingBeat = {
+      choices: [
+        { text: 'Look for a way in', go_exterior_node: 'north-east-corner' },
+      ],
+    }
+
+    expect(buildIndoorMovementActions(indoor, pendingBeat).map((action) => action.id)).toEqual([
+      'move-exterior:small-bay-roll-front',
+    ])
+  })
+
+  it('dispatches indoor movement play actions to movement handlers', () => {
+    const calls = []
+    const indoor = {
+      moveToExteriorNode: (id) => calls.push(`exterior:${id}`),
+      moveToStand: (id) => calls.push(`stand:${id}`),
+      moveToRoom: (id) => calls.push(`room:${id}`),
+    }
+
+    handleIndoorPlayAction(indoor, 'move-exterior:north-east-corner')
+    handleIndoorPlayAction(indoor, 'move-stand:stairs-bottom')
+    handleIndoorPlayAction(indoor, 'move-room:large-bay')
+
+    expect(calls).toEqual([
+      'exterior:north-east-corner',
+      'stand:stairs-bottom',
+      'room:large-bay',
+    ])
   })
 })

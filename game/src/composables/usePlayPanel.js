@@ -10,6 +10,7 @@ import {
   isSelfClosingDoor,
 } from "../lib/maps/composables/useDoors.js";
 import { searchActionLabel } from "../lib/maps/composables/useBarrierOpenings.js";
+import { barrierHintAtStand } from "../lib/maps/composables/useBarrierStand.js";
 
 function actionButtonLabel(action) {
   if (action.verb) return `${action.verb} — ${action.label}`;
@@ -21,7 +22,7 @@ function actionButtonLabel(action) {
  * Story choices with go_hex use the same enterability predicate as movement options.
  */
 export function buildStoryChoices(pendingBeat, canReachHex = () => true) {
-  if (!pendingBeat?.choices?.length || pendingBeat.revisit) return [];
+  if (!pendingBeat?.choices?.length) return [];
   return pendingBeat.choices
     .map((choice, index) => ({ choice, index }))
     .filter(({ choice }) => !choice.go_hex || canReachHex(choice.go_hex))
@@ -30,6 +31,8 @@ export function buildStoryChoices(pendingBeat, canReachHex = () => true) {
       toHexId: choice.go_hex ?? null,
       label: choice.text,
       kind: "story",
+      disabled: choice.disabled,
+      hint: choice.disabled ? "Requirements not met" : null,
     }));
 }
 
@@ -54,16 +57,13 @@ export function storyChoiceDestinations(pendingBeat) {
   return { hexes, rooms };
 }
 
-/**
- * Reachable outdoor moves for "Choose an Action".
- * Story choice labels (part-i.yaml) override; otherwise compass defaults from path geometry.
- * Blocked directions are omitted — outdoor.moves / directMoves are pre-filtered.
- */
 export function buildOutdoorSearchActions(outdoor) {
   if (!outdoor.canSearchHere?.()) return [];
   const label = searchActionLabel({
     openings: outdoor.searchableOpenings?.() ?? [],
-    atBarrier: outdoor.state.atBarrier,
+    atBarrier: outdoor.barrierCutsCurrentHex?.("fence")
+      ? "fence"
+      : outdoor.state.atBarrier,
     lastBlocked: outdoor.state.lastBlocked,
   });
   return [{ id: "search:barrier", label, kind: "search" }];
@@ -87,43 +87,92 @@ export function buildOutdoorPassageUnlockActions(outdoor) {
   }));
 }
 
+export function buildOutdoorPassageToggleActions(outdoor) {
+  return (outdoor.passageToggleActions ?? []).map((action) => ({
+    id: `passage-toggle:${action.openingId}`,
+    openingId: action.openingId,
+    label: action.label,
+    kind: "fence",
+  }));
+}
+
 /** @deprecated Use buildOutdoorPassageActions */
 export const buildOutdoorCrossingActions = buildOutdoorPassageActions;
 
+function directionPhrase(direction, style = "to") {
+  if (!direction) return style === "along" ? "onward" : "onward";
+  return style === "along" ? direction : `to the ${direction}`;
+}
+
+function routeActionLabel(move) {
+  const routeName = move.routeName ?? move.kind ?? "route";
+  return `Follow the ${routeName} ${directionPhrase(move.label)}`;
+}
+
+function barrierName(kind) {
+  if (kind === "fence") return "fence line";
+  if (kind === "river") return "river";
+  if (kind === "cliff") return "cliff edge";
+  if (kind === "ravine") return "ravine";
+  return kind ?? "barrier";
+}
+
+export function buildOutdoorRouteActions(outdoor, pendingBeat = null) {
+  const storyDests = storyChoiceDestinations(pendingBeat).hexes;
+  return (outdoor.moves ?? [])
+    .filter((move) => move.routeId && !storyDests.has(move.toHexId))
+    .map((move) => ({
+      id: `route:${move.toHexId}`,
+      toHexId: move.toHexId,
+      label: routeActionLabel(move),
+      kind: move.kind ?? "route",
+    }));
+}
+
+export function buildOutdoorBarrierFollowActions(outdoor, pendingBeat = null) {
+  const currentBarrier =
+    outdoor.barrierHintAtStand?.() ??
+    outdoor.state?.atBarrier ??
+    outdoor.state?.lastBlocked ??
+    null;
+  if (!currentBarrier) return [];
+
+  const storyDests = storyChoiceDestinations(pendingBeat).hexes;
+  return (outdoor.directMoves ?? [])
+    .filter((move) => !storyDests.has(move.toHexId))
+    .filter((move) => {
+      const preview = outdoor.previewMove?.(move.toHexId);
+      if (!preview || preview.result?.activeHexId !== move.toHexId) return false;
+      const destinationBarrier = barrierHintAtStand(
+        preview.result.stand,
+        outdoor.travelBarrierCtx?.barriers ?? [],
+      );
+      return destinationBarrier === currentBarrier;
+    })
+    .map((move) => ({
+      id: `barrier:${move.toHexId}`,
+      toHexId: move.toHexId,
+      label: `Walk ${directionPhrase(move.label, "along")} along the ${barrierName(
+        currentBarrier,
+      )}`,
+      kind: currentBarrier,
+    }));
+}
+
+export function buildOutdoorPlayActions(outdoor, pendingBeat = null) {
+  return [
+    ...buildOutdoorRouteActions(outdoor, pendingBeat),
+    ...buildOutdoorBarrierFollowActions(outdoor, pendingBeat),
+    ...buildOutdoorSearchActions(outdoor),
+    ...buildOutdoorPassageUnlockActions(outdoor),
+    ...buildOutdoorPassageToggleActions(outdoor),
+    ...buildOutdoorPassageActions(outdoor),
+  ];
+}
+
 export function getMovementOptions(outdoor, pendingBeat) {
   const canReach = (hexId) => outdoor.canReachHex?.(hexId) ?? true;
-  const items = [...buildStoryChoices(pendingBeat, canReach)];
-  const { hexes: storyHexes } = storyChoiceDestinations(pendingBeat);
-  const seen = new Set(storyHexes);
-
-  items.push(...buildOutdoorPassageUnlockActions(outdoor));
-
-  for (const m of outdoor.moves ?? []) {
-    if (seen.has(m.toHexId)) continue;
-    seen.add(m.toHexId);
-    items.push({
-      id: `move:${m.toHexId}`,
-      toHexId: m.toHexId,
-      label: defaultMovementLabel(m),
-      kind: m.kind,
-    });
-  }
-
-  for (const o of outdoor.directMoves ?? []) {
-    if (seen.has(o.toHexId)) continue;
-    seen.add(o.toHexId);
-    items.push({
-      id: `hex:${o.toHexId}`,
-      toHexId: o.toHexId,
-      label: defaultMovementLabel(o),
-      kind: "hex",
-    });
-  }
-
-  items.push(...buildOutdoorPassageActions(outdoor));
-  items.push(...buildOutdoorSearchActions(outdoor));
-
-  return items;
+  return buildStoryChoices(pendingBeat, canReach);
 }
 
 export function handleOutdoorChooseAction(
@@ -140,45 +189,36 @@ export function handleOutdoorChooseAction(
     outdoor.unlockPassage?.(actionId.slice("passage-unlock:".length));
     return;
   }
-  if (actionId.startsWith("story:")) {
-    handleStoryChoice(actionId.slice("story:".length), applyChoice);
+  if (actionId.startsWith("passage-toggle:")) {
+    outdoor.togglePassage?.(actionId.slice("passage-toggle:".length));
     return;
   }
   if (actionId.startsWith("passage:")) {
     outdoor.crossPassage?.(actionId.slice("passage:".length));
     return;
   }
-  if (actionId.startsWith("move:") || actionId.startsWith("hex:")) {
-    const hexId = actionId.includes("hex:")
-      ? actionId.slice("hex:".length)
-      : actionId.slice("move:".length);
-    travelToHex(hexId);
+  if (actionId.startsWith("route:") || actionId.startsWith("barrier:")) {
+    travelToHex(actionId.slice(actionId.indexOf(":") + 1));
+    return;
   }
+  if (actionId.startsWith("story:")) {
+    handleStoryChoice(actionId.slice("story:".length), applyChoice);
+    return;
+  }
+  void travelToHex;
 }
 
-/** Indoor items for "Choose an Action" — story choices, then moves (deduped). */
+export function handleOutdoorPlayAction(
+  outdoor,
+  actionId,
+  travelToHex = (hexId) => outdoor.moveTo(hexId),
+) {
+  handleOutdoorChooseAction(outdoor, () => {}, actionId, travelToHex);
+}
+
 export function buildIndoorChooseActions(indoor, pendingBeat) {
-  const items = [...buildStoryChoices(pendingBeat)];
-  const { hexes: storyHexes, rooms: storyRooms } =
-    storyChoiceDestinations(pendingBeat);
-  if (storyHexes.has("__enter__")) {
-    // enter-building is handled via story applyChoice, not move list
-  }
-
-  const fromRoom = indoor.currentRoomData;
-  for (const m of indoor.indoorMoves ?? []) {
-    const dest = m.toExteriorNode ?? m.toRoomId;
-    if (dest && storyRooms.has(dest)) continue;
-    const custom = fromRoom?.travel?.[dest];
-    items.push({
-      id: `move:${indoor.moveKey(m)}`,
-      label: custom ?? `Go ${m.label}`,
-      kind: m.kind === "door" ? "path" : m.kind === "path" ? "trail" : "road",
-      move: m,
-    });
-  }
-
-  return items;
+  void indoor;
+  return buildStoryChoices(pendingBeat);
 }
 
 export function handleIndoorChooseAction(
@@ -191,23 +231,15 @@ export function handleIndoorChooseAction(
     handleStoryChoice(actionId.slice("story:".length), applyChoice);
     return;
   }
-  if (actionId.startsWith("move:")) {
-    const key = actionId.slice("move:".length);
-    const m = indoor.indoorMoves.find((mv) => indoor.moveKey(mv) === key);
-    if (!m) return;
-    if (m.toRoomId) {
-      travelToRoom(m.toRoomId);
-      return;
-    }
-    indoor.applyIndoorMove(m);
-  }
+  void indoor;
+  void travelToRoom;
 }
 
 /**
  * Build a flat action list for the play panel (pickups, room actions, doors, switches).
  */
-export function buildIndoorPlayActions(indoor) {
-  const items = [];
+export function buildIndoorPlayActions(indoor, pendingBeat = null) {
+  const items = buildIndoorMovementActions(indoor, pendingBeat);
 
   for (const pickup of indoor.roomPickups ?? []) {
     items.push({
@@ -226,7 +258,7 @@ export function buildIndoorPlayActions(indoor) {
   const building = indoor.building;
   const doorState = indoor.indoor.doorState;
   const facility = indoor.indoor.facility;
-  const inventory = indoor.indoor.inventory;
+  const inventory = indoor.character ?? indoor.indoor.inventory;
   const playerRoomId = indoor.playerRoomId;
 
   for (const d of indoor.nearbyDoors ?? []) {
@@ -291,24 +323,67 @@ export function buildIndoorPlayActions(indoor) {
     });
   }
 
-  if (indoor.worldMapExit) {
-    items.push({
-      id: `exit-world:${indoor.worldMapExit.doorId}`,
-      label: indoor.worldMapExit.label,
-    });
-  }
-
-  if (indoor.indoor.exteriorNode) {
-    items.push({
-      id: "exit-building",
-      label: "Return to the trail map",
-    });
-  }
-
   return items;
 }
 
+function movementLabel(move) {
+  if (move.toExteriorNode) return `Go ${move.label ?? "along the footpath"}`;
+  if (move.toStandId) return `Go ${move.label ?? "to another spot"}`;
+  if (move.toRoomId) return `Go ${move.label ?? "to another room"}`;
+  return `Go ${move.label ?? "onward"}`;
+}
+
+export function buildIndoorMovementActions(indoor, pendingBeat = null) {
+  const moves = indoor.indoorMoves ?? [];
+  const storyDests = storyChoiceDestinations(pendingBeat);
+  const exteriorNodes = new Set(
+    (pendingBeat?.choices ?? [])
+      .map((choice) => choice.go_exterior_node)
+      .filter(Boolean),
+  );
+  return moves
+    .filter((move) => move.toExteriorNode || move.toStandId || move.toRoomId)
+    .filter((move) => {
+      if (move.toRoomId && storyDests.rooms.has(move.toRoomId)) return false;
+      if (move.toExteriorNode && exteriorNodes.has(move.toExteriorNode)) return false;
+      return true;
+    })
+    .map((move) => {
+      if (move.toExteriorNode) {
+        return {
+          id: `move-exterior:${move.toExteriorNode}`,
+          label: movementLabel(move),
+          kind: move.kind ?? "path",
+        };
+      }
+      if (move.toStandId) {
+        return {
+          id: `move-stand:${move.toStandId}`,
+          label: movementLabel(move),
+          kind: move.kind ?? "stand",
+        };
+      }
+      return {
+        id: `move-room:${move.toRoomId}`,
+        label: movementLabel(move),
+        kind: move.kind ?? "room",
+      };
+    });
+}
+
 export function handleIndoorPlayAction(indoor, actionId) {
+  if (actionId.startsWith("move-exterior:")) {
+    indoor.moveToExteriorNode(actionId.slice("move-exterior:".length));
+    return;
+  }
+  if (actionId.startsWith("move-stand:")) {
+    indoor.moveToStand(actionId.slice("move-stand:".length));
+    return;
+  }
+  if (actionId.startsWith("move-room:")) {
+    indoor.moveToRoom(actionId.slice("move-room:".length));
+    return;
+  }
   if (actionId.startsWith("pickup:")) {
     indoor.tryPickup(actionId.slice("pickup:".length));
     return;
@@ -354,6 +429,17 @@ export function buildOutdoorStatusLines(outdoor, indoor) {
   const lines = [];
   for (const action of outdoor.lockedPassageActions ?? []) {
     if (action.status) lines.push(action.status);
+  }
+  if (
+    outdoor.state.lastSearch?.kind === "fence" &&
+    outdoor.state.lastSearch.foundKinds?.includes("hole")
+  ) {
+    lines.push("On closer inspection, you have found a hole in the fence.");
+  } else if (
+    outdoor.state.lastSearch?.kind === "fence" &&
+    !outdoor.state.lastSearch.found?.length
+  ) {
+    lines.push("You see a sturdy fence covered in ivy.");
   }
   if (outdoor.state.lastBlocked === "fence") {
     lines.push("A fence blocks the way.");

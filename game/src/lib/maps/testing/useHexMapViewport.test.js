@@ -13,7 +13,7 @@ const size = 44
 const hexes = [
   { id: 'center-pines', q: 0, r: 0, terrain: 'forest' },
   { id: 'east-pines', q: 1, r: 0, terrain: 'forest' },
-  { id: 'trailhead', q: 2, r: 0, terrain: 'forest' },
+  { id: 'origin', q: 2, r: 0, terrain: 'forest' },
   { id: 'far-pines', q: 1, r: -1, terrain: 'forest' },
   { id: 'utility-yard', q: -2, r: 1, terrain: 'yard' },
 ]
@@ -32,31 +32,31 @@ describe('normalizeMapMode', () => {
 })
 
 describe('evaluateMapViewport — gameplay', () => {
-  it('shows trailhead and fog neighbor at start', () => {
+  it('shows origin and fog neighbor at start', () => {
     const vp = evaluateMapViewport({
       allHexes: hexes,
-      currentHexId: 'trailhead',
-      discovered: ['trailhead'],
+      currentHexId: 'origin',
+      discovered: ['origin'],
       mode: 'gameplay',
       size,
     })
 
-    expect(vp.visibleHexes.map((h) => h.id)).toEqual(['trailhead'])
+    expect(vp.visibleHexes.map((h) => h.id)).toEqual(['origin'])
     expect(vp.fogHexes.map((h) => h.id)).toEqual(['east-pines'])
   })
 
   it('keeps fixed viewBox size after visiting more hexes', () => {
     const start = evaluateMapViewport({
       allHexes: hexes,
-      currentHexId: 'trailhead',
-      discovered: ['trailhead'],
+      currentHexId: 'origin',
+      discovered: ['origin'],
       mode: 'gameplay',
       size,
     })
     const later = evaluateMapViewport({
       allHexes: hexes,
       currentHexId: 'east-pines',
-      discovered: ['trailhead', 'east-pines', 'center-pines', 'far-pines'],
+      discovered: ['origin', 'east-pines', 'center-pines', 'far-pines'],
       mode: 'gameplay',
       size,
     })
@@ -69,7 +69,7 @@ describe('evaluateMapViewport — gameplay', () => {
     const vp = evaluateMapViewport({
       allHexes: hexes,
       currentHexId: 'east-pines',
-      discovered: ['trailhead', 'east-pines'],
+      discovered: ['origin', 'east-pines'],
       mode: 'gameplay',
       size,
     })
@@ -84,20 +84,20 @@ describe('evaluateMapViewport — gameplay', () => {
     const vp = evaluateMapViewport({
       allHexes: hexes,
       currentHexId: 'east-pines',
-      discovered: ['trailhead', 'east-pines'],
+      discovered: ['origin', 'east-pines'],
       mode: 'gameplay',
       size,
     })
 
     const ids = vp.visibleHexes.map((h) => h.id).sort()
-    expect(ids).toEqual(['east-pines', 'trailhead'])
+    expect(ids).toEqual(['east-pines', 'origin'])
   })
 
   it('only fogs undiscovered neighbors of the current hex', () => {
     const vp = evaluateMapViewport({
       allHexes: hexes,
       currentHexId: 'east-pines',
-      discovered: ['trailhead', 'east-pines'],
+      discovered: ['origin', 'east-pines'],
       mode: 'gameplay',
       size,
     })
@@ -111,8 +111,8 @@ describe('evaluateMapViewport — gameplay', () => {
   it('does not fog undiscovered hexes that are not neighbors of current', () => {
     const vp = evaluateMapViewport({
       allHexes: hexes,
-      currentHexId: 'trailhead',
-      discovered: ['trailhead'],
+      currentHexId: 'origin',
+      discovered: ['origin'],
       mode: 'gameplay',
       size,
     })
@@ -123,19 +123,19 @@ describe('evaluateMapViewport — gameplay', () => {
   })
 
   it('drops fog for hexes that are no longer neighbors of current', () => {
-    const atTrailhead = evaluateMapViewport({
+    const atOrigin = evaluateMapViewport({
       allHexes: hexes,
-      currentHexId: 'trailhead',
-      discovered: ['trailhead'],
+      currentHexId: 'origin',
+      discovered: ['origin'],
       mode: 'gameplay',
       size,
     })
-    expect(atTrailhead.fogHexes.map((h) => h.id)).toEqual(['east-pines'])
+    expect(atOrigin.fogHexes.map((h) => h.id)).toEqual(['east-pines'])
 
     const atEastPines = evaluateMapViewport({
       allHexes: hexes,
       currentHexId: 'east-pines',
-      discovered: ['trailhead', 'east-pines'],
+      discovered: ['origin', 'east-pines'],
       mode: 'gameplay',
       size,
     })
@@ -149,14 +149,14 @@ describe('evaluateMapViewport — gameplay', () => {
   it('hides discovered hexes outside the gameplay viewport', () => {
     const vp = evaluateMapViewport({
       allHexes: hexes,
-      currentHexId: 'trailhead',
-      discovered: ['trailhead', 'east-pines', 'center-pines', 'utility-yard'],
+      currentHexId: 'origin',
+      discovered: ['origin', 'east-pines', 'center-pines', 'utility-yard'],
       mode: 'gameplay',
       size,
     })
 
     const ids = vp.visibleHexes.map((h) => h.id).sort()
-    expect(ids).toEqual(['center-pines', 'east-pines', 'trailhead'])
+    expect(ids).toEqual(['center-pines', 'east-pines', 'origin'])
     expect(vp.visibleHexes.some((h) => h.id === 'utility-yard')).toBe(false)
   })
 })
@@ -166,14 +166,14 @@ describe('evaluateMapViewport — full', () => {
     const vp = evaluateMapViewport({
       allHexes: hexes,
       currentHexId: 'east-pines',
-      discovered: ['trailhead', 'east-pines'],
+      discovered: ['origin', 'east-pines'],
       mode: 'full',
       size,
     })
 
     expect(vp.visibleHexes.map((h) => h.id).sort()).toEqual([
       'east-pines',
-      'trailhead',
+      'origin',
     ])
     expect(vp.fogHexes).toEqual([])
   })
@@ -181,15 +181,15 @@ describe('evaluateMapViewport — full', () => {
   it('expands viewBox to fit discovered territory', () => {
     const one = evaluateMapViewport({
       allHexes: hexes,
-      currentHexId: 'trailhead',
-      discovered: ['trailhead'],
+      currentHexId: 'origin',
+      discovered: ['origin'],
       mode: 'full',
       size,
     })
     const two = evaluateMapViewport({
       allHexes: hexes,
       currentHexId: 'east-pines',
-      discovered: ['trailhead', 'east-pines', 'center-pines'],
+      discovered: ['origin', 'east-pines', 'center-pines'],
       mode: 'full',
       size,
     })

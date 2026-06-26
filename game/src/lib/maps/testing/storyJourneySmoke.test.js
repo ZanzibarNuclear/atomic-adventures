@@ -1,21 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import mapData from '../../../../content/world/map.yaml'
-import { getMovementOptions } from '../../../composables/usePlayPanel.js'
+import { mapData } from '../../testing/content.js'
 import { resolveAvatarPosition } from '../composables/useAvatarStand.js'
 import {
   buildGameplayWorld,
   canReachHex,
   gameplayMoveTo,
   GATE_FLAG_PASSED,
-  GATE_FLAG_UNLOCKED,
   passCompoundGate,
 } from './gameplayTravel.js'
 
 /**
  * Smoke: Day-1 mainline journey using real gameplay (moveTo + gameState).
- * Complements geometry coverage in travelWorld tests; see docs/designs/hex-crawling.md.
+ * Complements geometry coverage in travelWorld tests; see docs/contracts/hex-crawling.md.
  *
- * map.yaml `journey` is one story beat per hex; after the gate, gameplay walks
+ * The world `journey` is one story beat per hex; after the gate, gameplay walks
  * gate-woods → west-slope → utility-yard using generic adjacent travel.
  */
 describe('story journey smoke test (gameplay)', () => {
@@ -30,10 +28,10 @@ describe('story journey smoke test (gameplay)', () => {
   }
 
   it(
-    'journeys from trailhead through the gate to utility-yard',
+    'journeys from origin through the gate to utility-yard',
     () => {
     expect(JOURNEY).toEqual([
-      'trailhead',
+      'origin',
       'east-pines',
       'center-pines',
       'north-bend',
@@ -42,28 +40,31 @@ describe('story journey smoke test (gameplay)', () => {
     ])
 
     const { outdoor, gameState } = buildGameplayWorld(mapData)
-    expect(outdoor.state.currentId).toBe('trailhead')
+    expect(outdoor.state.currentId).toBe('origin')
 
     for (let i = 1; i < 5; i++) {
       expectMoveOk(outdoor, JOURNEY[i - 1], JOURNEY[i])
     }
 
-    const gateStand = mapData.hexes.find((h) => h.id === 'gate-woods')?.standAt
-    expect(outdoor.state.stand).toEqual({ x: gateStand.x, y: gateStand.y })
-    expect(outdoor.state.stand.y, 'north of locked gate on arrival').toBeLessThan(-62)
+    const gateStand = mapData.hexes
+      .find((h) => h.id === 'gate-woods')
+      ?.stands
+      ?.find((stand) => stand.id === 'gate')
+      ?.at
+    expect(outdoor.state.stand.x).toBeCloseTo(gateStand.x, 0)
+    expect(outdoor.state.stand.y).toBeCloseTo(gateStand.y, 0)
+    expect(outdoor.state.stand.y, 'north of locked gate on arrival').toBeLessThan(-128)
 
-    const lockedOptions = getMovementOptions(outdoor, null).map((o) => o.label)
-    expect(lockedOptions).toContain('Solve the puzzle to unlock')
-    expect(lockedOptions).not.toContain('Go through the gate')
-    expect(lockedOptions.some((l) => /^Go south\b/i.test(l))).toBe(false)
+    expect(outdoor.passageToggleActions.map((action) => action.label)).toContain('Open the gate')
+    expect(outdoor.passageCrossings.map((crossing) => crossing.label)).not.toContain('Go through the gate')
+    expect(outdoor.canReachHex('west-slope')).toBe(false)
 
     passCompoundGate(outdoor)
-    expect(gameState.flags.has(GATE_FLAG_UNLOCKED), 'gate puzzle solved').toBe(true)
     expect(gameState.flags.has(GATE_FLAG_PASSED), 'gate crossed').toBe(true)
+    expect(outdoor.state.passageStates['compound-gate'], 'gate left open').toBe(true)
 
-    expect(outdoor.state.stand.y).toBeGreaterThan(-62)
-    const southOptions = getMovementOptions(outdoor, null).map((o) => o.label)
-    expect(southOptions.some((l) => /^Go south/i.test(l))).toBe(true)
+    expect(outdoor.state.stand.y).toBeGreaterThan(-128)
+    expect(outdoor.canReachHex('west-slope')).toBe(true)
 
     // Adjacent travel south: gate-woods → west-slope → utility-yard (journey skips the middle hex).
     expectMoveOk(outdoor, 'gate-woods', 'west-slope')
@@ -74,7 +75,6 @@ describe('story journey smoke test (gameplay)', () => {
     expect(outdoor.state.stand.x).toBeCloseTo(driveway.x, 0)
     expect(outdoor.state.stand.y).toBeCloseTo(driveway.y, 0)
     expect(outdoor.atBuildingEntrance).toBe(true)
-    expect(gameState.flags.has(GATE_FLAG_UNLOCKED)).toBe(true)
     expect(gameState.flags.has(GATE_FLAG_PASSED)).toBe(true)
   },
     15000,

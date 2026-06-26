@@ -1,21 +1,30 @@
 import { randomUUID } from "node:crypto";
 import { transaction } from "./db.js";
 import { beatToRuntime, normalizeBeat, validateBeat } from "./story-model.js";
+import { RevisionStore } from "./revision-store.js";
 
 export class StoryRepository {
-  constructor(db, world) {
+  constructor(db, world, character = null) {
     this.db = db;
     this.world = world;
+    this.character = character;
+    this.revisions = new RevisionStore(db, {
+      table: "story_revisions",
+      idColumns: ["area_id", "beat_id"],
+      metaKey: "story_revision",
+    });
   }
 
   setWorld(world) {
     this.world = world;
   }
 
+  setCharacter(character) {
+    this.character = character;
+  }
+
   getGlobalRevision() {
-    return Number(
-      this.db.prepare("SELECT value FROM content_meta WHERE key = 'story_revision'").get()?.value ?? 0,
-    );
+    return this.revisions.getGlobalRevision();
   }
 
   getRuntimeStory() {
@@ -45,7 +54,7 @@ export class StoryRepository {
     const rows = this.db.prepare(`
       SELECT area_id, id, sort_order, trigger_place, trigger_hex, trigger_room,
         trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
-        eyebrow, heading, text, revisit, require_all, require_any, require_not,
+        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json, match_json,
         version, created_at, updated_at
       FROM story_beats
       WHERE area_id = ?
@@ -62,7 +71,7 @@ export class StoryRepository {
     const row = this.db.prepare(`
       SELECT area_id, id, sort_order, trigger_place, trigger_hex, trigger_room,
         trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
-        eyebrow, heading, text, revisit, require_all, require_any, require_not,
+        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json, match_json,
         version, created_at, updated_at
       FROM story_beats
       WHERE area_id = ? AND id = ?
@@ -71,7 +80,7 @@ export class StoryRepository {
   }
 
   createBeat(areaId, input) {
-    const validation = validateBeat(input, this.world);
+    const validation = validateBeat(input, this.world, this.character);
     if (!validation.valid) throw new ValidationError(validation.errors);
     if (this.getBeat(areaId, validation.beat.id)) {
       throw new ValidationError({ id: ["That beat ID already exists in this area."] });
@@ -80,8 +89,8 @@ export class StoryRepository {
       this.#ensureArea(areaId);
       this.#insertBeat(areaId, validation.beat, 1);
       const saved = this.getBeat(areaId, validation.beat.id);
-      this.#recordRevision(areaId, saved.id, "create", saved);
-      const revision = this.#incrementGlobalRevision();
+      this.revisions.record([areaId, saved.id], "create", saved);
+      const revision = this.revisions.incrementGlobalRevision();
       return { beat: saved, revision };
     });
   }
@@ -92,18 +101,32 @@ export class StoryRepository {
     if (Number(expectedVersion) !== existing.version) {
       throw new ConflictError("This beat changed in another window.", existing);
     }
-    const validation = validateBeat(input, this.world);
+    const validation = validateBeat(input, this.world, this.character);
     if (!validation.valid) throw new ValidationError(validation.errors);
-    if (validation.beat.id !== beatId) {
-      throw new ValidationError({ id: ["Existing beat IDs cannot be renamed. Duplicate it instead."] });
+    const nextBeatId = validation.beat.id;
+    const renamedFrom = nextBeatId === beatId ? null : beatId;
+    if (renamedFrom) {
+      if (this.getBeat(areaId, nextBeatId)) {
+        throw new ValidationError({ id: ["That beat ID already exists in this area."] });
+      }
+      const existingHistory = this.db.prepare(`
+        SELECT 1 AS found
+        FROM story_revisions
+        WHERE area_id = ? AND beat_id = ?
+        LIMIT 1
+      `).get(areaId, nextBeatId);
+      if (existingHistory) {
+        throw new ValidationError({ id: ["That beat ID already has revision history in this area."] });
+      }
     }
     return transaction(this.db, () => {
       const nextVersion = existing.version + 1;
       this.#replaceBeat(areaId, beatId, validation.beat, nextVersion, existing.createdAt);
-      const saved = this.getBeat(areaId, beatId);
-      this.#recordRevision(areaId, beatId, "update", saved);
-      const revision = this.#incrementGlobalRevision();
-      return { beat: saved, revision };
+      if (renamedFrom) this.#renameRevisionHistory(areaId, renamedFrom, nextBeatId);
+      const saved = this.getBeat(areaId, nextBeatId);
+      this.revisions.record([areaId, nextBeatId], "update", saved);
+      const revision = this.revisions.incrementGlobalRevision();
+      return { beat: saved, revision, renamedFrom };
     });
   }
 
@@ -114,31 +137,22 @@ export class StoryRepository {
       throw new ConflictError("This beat changed in another window.", existing);
     }
     return transaction(this.db, () => {
-      this.#recordRevision(areaId, beatId, "delete", existing);
+      this.revisions.record([areaId, beatId], "delete", existing);
       this.db.prepare("DELETE FROM story_beats WHERE area_id = ? AND id = ?").run(areaId, beatId);
-      const revision = this.#incrementGlobalRevision();
+      const revision = this.revisions.incrementGlobalRevision();
       return { deleted: true, revision };
     });
   }
 
   listRevisions(areaId, beatId) {
-    return this.db.prepare(`
-      SELECT revision, operation, created_at AS createdAt
-      FROM story_revisions
-      WHERE area_id = ? AND beat_id = ?
-      ORDER BY revision DESC
-    `).all(areaId, beatId);
+    return this.revisions.list([areaId, beatId]);
   }
 
   restoreRevision(areaId, beatId, revisionNumber) {
-    const row = this.db.prepare(`
-      SELECT snapshot_json
-      FROM story_revisions
-      WHERE area_id = ? AND beat_id = ? AND revision = ?
-    `).get(areaId, beatId, Number(revisionNumber));
+    const row = this.revisions.getSnapshot([areaId, beatId], revisionNumber);
     if (!row) throw new NotFoundError("Revision not found.");
-    const snapshot = normalizeBeat(JSON.parse(row.snapshot_json));
-    const validation = validateBeat(snapshot, this.world);
+    const snapshot = normalizeBeat({ ...row, id: beatId });
+    const validation = validateBeat(snapshot, this.world, this.character);
     if (!validation.valid) throw new ValidationError(validation.errors);
 
     return transaction(this.db, () => {
@@ -151,8 +165,8 @@ export class StoryRepository {
         this.#insertBeat(areaId, validation.beat, nextVersion);
       }
       const saved = this.getBeat(areaId, beatId);
-      this.#recordRevision(areaId, beatId, "restore", saved);
-      const revision = this.#incrementGlobalRevision();
+      this.revisions.record([areaId, beatId], "restore", saved);
+      const revision = this.revisions.incrementGlobalRevision();
       return { beat: saved, revision };
     });
   }
@@ -161,7 +175,8 @@ export class StoryRepository {
     const areaId = String(data.area ?? "").trim();
     if (!areaId) throw new ValidationError({ area: ["Area ID is required."] });
     const entries = Object.entries(data.beats ?? {});
-    const normalized = entries.map(([id, beat], order) => validateBeat({ ...beat, id, order }, this.world));
+    const normalized = entries.map(([id, beat]) =>
+      validateBeat({ ...beat, id }, this.world, this.character));
     const errors = Object.fromEntries(
       normalized.flatMap((result, index) =>
         Object.entries(result.errors).map(([path, messages]) => [`beats.${entries[index][0]}.${path}`, messages]),
@@ -185,9 +200,9 @@ export class StoryRepository {
       `).run(areaId, data.name ?? areaId, this.listAreas().length, now, now);
       normalized.forEach((result) => {
         this.#insertBeat(areaId, result.beat, 1);
-        this.#recordRevision(areaId, result.beat.id, "create", this.getBeat(areaId, result.beat.id));
+        this.revisions.record([areaId, result.beat.id], "create", this.getBeat(areaId, result.beat.id));
       });
-      this.#incrementGlobalRevision();
+      this.revisions.incrementGlobalRevision();
     });
     return this.getRuntimeStory();
   }
@@ -199,21 +214,60 @@ export class StoryRepository {
         .map((rename) => [String(rename.from), String(rename.to)]),
     );
     const rename = (value) => resolveRename(renameMap, value);
+    const roomRenameMap = renameMapFor(renames, "room");
+    const exteriorRenameMap = renameMapFor(renames, "exteriorNode");
     const errors = {};
     for (const area of this.listAreas()) {
       for (const original of this.listBeats(area.id, { full: true })) {
         const beat = structuredClone(original);
         if (beat.trigger.hex) beat.trigger.hex = rename(beat.trigger.hex);
+        if (beat.match?.originHex) beat.match.originHex = rename(beat.match.originHex);
+        if (beat.trigger.room) beat.trigger.room = resolveRename(roomRenameMap, beat.trigger.room);
+        if (beat.trigger.exteriorNode) {
+          beat.trigger.exteriorNode = resolveRename(exteriorRenameMap, beat.trigger.exteriorNode);
+        }
         for (const choice of beat.choices) {
           if (choice.go_hex) choice.go_hex = rename(choice.go_hex);
+          if (choice.go_room) choice.go_room = resolveRename(roomRenameMap, choice.go_room);
+          if (choice.go_exterior_node) {
+            choice.go_exterior_node = resolveRename(exteriorRenameMap, choice.go_exterior_node);
+          }
         }
-        const validation = validateBeat(beat, world);
+        const validation = validateBeat(beat, world, this.character);
         for (const [path, messages] of Object.entries(validation.errors)) {
           errors[`story.${area.id}.${beat.id}.${path}`] = messages;
         }
       }
     }
     return { valid: Object.keys(errors).length === 0, errors };
+  }
+
+  validateAgainstCharacter(character) {
+    const errors = {};
+    for (const area of this.listAreas()) {
+      for (const beat of this.listBeats(area.id, { full: true })) {
+        const validation = validateBeat(beat, this.world, character);
+        for (const [path, messages] of Object.entries(validation.errors)) {
+          if (
+            path === "trigger.hex" ||
+            path === "trigger.room" ||
+            path === "trigger.exteriorNode" ||
+            path.endsWith(".go_hex") ||
+            path.endsWith(".go_room") ||
+            path.endsWith(".go_exterior_node") ||
+            path.endsWith(".enter")
+          ) continue;
+          errors[`story.${area.id}.${beat.id}.${path}`] = messages;
+        }
+      }
+    }
+    return { valid: Object.keys(errors).length === 0, errors };
+  }
+
+  findCharacterReferences(domain, id) {
+    void domain;
+    void id;
+    return [];
   }
 
   findHexReferences(hexId) {
@@ -228,6 +282,14 @@ export class StoryRepository {
             path: "trigger.hex",
           });
         }
+        if (beat.match?.originHex === hexId) {
+          references.push({
+            kind: "story",
+            areaId: area.id,
+            beatId: beat.id,
+            path: "match.originHex",
+          });
+        }
         beat.choices.forEach((choice, index) => {
           if (choice.go_hex === hexId) {
             references.push({
@@ -238,6 +300,50 @@ export class StoryRepository {
             });
           }
         });
+      }
+    }
+    return references;
+  }
+
+  findBuildingReferences(kind, id) {
+    const references = [];
+    for (const area of this.listAreas()) {
+      for (const beat of this.listBeats(area.id, { full: true })) {
+        if (kind === "room" && beat.trigger.room === id) {
+          references.push({ kind: "story", areaId: area.id, beatId: beat.id, path: "trigger.room" });
+        }
+        if (kind === "exteriorNode" && beat.trigger.exteriorNode === id) {
+          references.push({
+            kind: "story",
+            areaId: area.id,
+            beatId: beat.id,
+            path: "trigger.exteriorNode",
+          });
+        }
+        if (kind === "room") {
+          beat.choices.forEach((choice, index) => {
+            if (choice.go_room === id) {
+              references.push({
+                kind: "story",
+                areaId: area.id,
+                beatId: beat.id,
+                path: `choices.${index}.go_room`,
+              });
+            }
+          });
+        }
+        if (kind === "exteriorNode") {
+          beat.choices.forEach((choice, index) => {
+            if (choice.go_exterior_node === id) {
+              references.push({
+                kind: "story",
+                areaId: area.id,
+                beatId: beat.id,
+                path: `choices.${index}.go_exterior_node`,
+              });
+            }
+          });
+        }
       }
     }
     return references;
@@ -263,6 +369,10 @@ export class StoryRepository {
           beat.trigger.hex = rename(beat.trigger.hex);
           changed = true;
         }
+        if (beat.match?.originHex && renameMap.has(beat.match.originHex)) {
+          beat.match.originHex = rename(beat.match.originHex);
+          changed = true;
+        }
         for (const choice of beat.choices) {
           if (choice.go_hex && renameMap.has(choice.go_hex)) {
             choice.go_hex = rename(choice.go_hex);
@@ -270,16 +380,60 @@ export class StoryRepository {
           }
         }
         if (!changed) continue;
-        const validation = validateBeat(beat, world);
+        const validation = validateBeat(beat, world, this.character);
         if (!validation.valid) throw new ValidationError(validation.errors);
         this.#replaceBeat(area.id, original.id, validation.beat, original.version + 1, original.createdAt);
         const saved = this.getBeat(area.id, original.id);
-        this.#recordRevision(area.id, original.id, "update", saved);
+        this.revisions.record([area.id, original.id], "update", saved);
         affected.push({ areaId: area.id, beatId: original.id });
       }
     }
     this.world = world;
-    const revision = affected.length ? this.#incrementGlobalRevision() : this.getGlobalRevision();
+    const revision = affected.length ? this.revisions.incrementGlobalRevision() : this.getGlobalRevision();
+    return { affected, revision };
+  }
+
+  cascadeBuildingRenames(renames = [], world = this.world) {
+    const roomMap = renameMapFor(renames, "room");
+    const exteriorMap = renameMapFor(renames, "exteriorNode");
+    if (!roomMap.size && !exteriorMap.size) {
+      this.world = world;
+      return { affected: [], revision: this.getGlobalRevision() };
+    }
+    const affected = [];
+    for (const area of this.listAreas()) {
+      for (const original of this.listBeats(area.id, { full: true })) {
+        const beat = structuredClone(original);
+        let changed = false;
+        if (beat.trigger.room && roomMap.has(beat.trigger.room)) {
+          beat.trigger.room = resolveRename(roomMap, beat.trigger.room);
+          changed = true;
+        }
+        if (beat.trigger.exteriorNode && exteriorMap.has(beat.trigger.exteriorNode)) {
+          beat.trigger.exteriorNode = resolveRename(exteriorMap, beat.trigger.exteriorNode);
+          changed = true;
+        }
+        for (const choice of beat.choices) {
+          if (choice.go_room && roomMap.has(choice.go_room)) {
+            choice.go_room = resolveRename(roomMap, choice.go_room);
+            changed = true;
+          }
+          if (choice.go_exterior_node && exteriorMap.has(choice.go_exterior_node)) {
+            choice.go_exterior_node = resolveRename(exteriorMap, choice.go_exterior_node);
+            changed = true;
+          }
+        }
+        if (!changed) continue;
+        const validation = validateBeat(beat, world, this.character);
+        if (!validation.valid) throw new ValidationError(validation.errors);
+        this.#replaceBeat(area.id, original.id, validation.beat, original.version + 1, original.createdAt);
+        const saved = this.getBeat(area.id, original.id);
+        this.revisions.record([area.id, original.id], "update", saved);
+        affected.push({ areaId: area.id, beatId: original.id });
+      }
+    }
+    this.world = world;
+    const revision = affected.length ? this.revisions.incrementGlobalRevision() : this.getGlobalRevision();
     return { affected, revision };
   }
 
@@ -299,15 +453,20 @@ export class StoryRepository {
       INSERT INTO story_beats(
         area_id, id, sort_order, trigger_place, trigger_hex, trigger_room,
         trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
-        eyebrow, heading, text, revisit, require_all, require_any, require_not,
+        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json, match_json,
         version, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      areaId, beat.id, beat.order, beat.trigger.place, beat.trigger.hex, beat.trigger.room,
+      areaId, beat.id, 0, beat.trigger.place, beat.trigger.hex, beat.trigger.room,
       beat.trigger.exteriorNode, beat.trigger.event, beat.trigger.flag,
-      Number(beat.once), Number(beat.acknowledge), beat.eyebrow, beat.heading,
-      beat.text, beat.revisit, JSON.stringify(beat.require.all), JSON.stringify(beat.require.any),
-      JSON.stringify(beat.require.not), version, createdAt, now,
+      Number(beat.once), 1, beat.eyebrow, beat.heading,
+      beat.text, beat.revisit,
+      JSON.stringify([]),
+      JSON.stringify([]),
+      JSON.stringify([]),
+      JSON.stringify({}),
+      JSON.stringify(compactObject(beat.match ?? {})),
+      version, createdAt, now,
     );
     this.#insertChoices(areaId, beat.id, beat.choices);
   }
@@ -321,14 +480,19 @@ export class StoryRepository {
   #insertChoices(areaId, beatId, choices) {
     const statement = this.db.prepare(`
       INSERT INTO story_choices(
-        id, area_id, beat_id, sort_order, text, sets_json, set_flags_json,
-        go_hex, go_room, enter_building
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        id, area_id, beat_id, sort_order, text, require_json, effects_json,
+        time_minutes, activity,
+        sets_json, set_flags_json, go_hex, go_room, go_exterior_node,
+        enter_building, view_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     choices.forEach((choice, index) => statement.run(
       choice.id || randomUUID(), areaId, beatId, choice.order ?? index, choice.text,
+      JSON.stringify({}), JSON.stringify([]),
+      choice.timeMinutes, choice.activity,
       JSON.stringify(choice.sets), JSON.stringify(choice.set_flags),
-      choice.go_hex, choice.go_room, choice.enter,
+      choice.go_hex, choice.go_room, choice.go_exterior_node,
+      choice.enter, JSON.stringify(choice.view ?? {}),
     ));
   }
 
@@ -336,9 +500,7 @@ export class StoryRepository {
     const beat = {
       areaId: row.area_id,
       id: row.id,
-      order: row.sort_order,
       once: Boolean(row.once_value),
-      acknowledge: Boolean(row.acknowledge),
       eyebrow: row.eyebrow,
       heading: row.heading,
       text: row.text,
@@ -351,18 +513,16 @@ export class StoryRepository {
         event: row.trigger_event,
         flag: row.trigger_flag,
       },
-      require: {
-        all: JSON.parse(row.require_all),
-        any: JSON.parse(row.require_any),
-        not: JSON.parse(row.require_not),
-      },
+      match: parseMatchJson(row.match_json),
       version: row.version,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
     if (includeChoices) {
       beat.choices = this.db.prepare(`
-        SELECT id, sort_order, text, sets_json, set_flags_json, go_hex, go_room, enter_building
+        SELECT id, sort_order, text, require_json, effects_json, time_minutes, activity,
+          sets_json, set_flags_json, go_hex, go_room, go_exterior_node,
+          enter_building, view_json
         FROM story_choices
         WHERE area_id = ? AND beat_id = ?
         ORDER BY sort_order, id
@@ -370,33 +530,28 @@ export class StoryRepository {
         id: choice.id,
         order: choice.sort_order,
         text: choice.text,
+        timeMinutes: choice.time_minutes,
+        activity: choice.activity,
         sets: JSON.parse(choice.sets_json),
         set_flags: JSON.parse(choice.set_flags_json),
         go_hex: choice.go_hex,
         go_room: choice.go_room,
+        go_exterior_node: choice.go_exterior_node,
         enter: choice.enter_building,
+        view: parseNullableJson(choice.view_json),
       }));
     }
     return beat;
   }
 
-  #recordRevision(areaId, beatId, operation, snapshot) {
-    const revision = Number(this.db.prepare(`
-      SELECT COALESCE(MAX(revision), 0) + 1 AS next
-      FROM story_revisions
-      WHERE area_id = ? AND beat_id = ?
-    `).get(areaId, beatId).next);
+  #renameRevisionHistory(areaId, fromBeatId, toBeatId) {
     this.db.prepare(`
-      INSERT INTO story_revisions(area_id, beat_id, revision, operation, snapshot_json, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(areaId, beatId, revision, operation, JSON.stringify(snapshot), new Date().toISOString());
+      UPDATE story_revisions
+      SET beat_id = ?
+      WHERE area_id = ? AND beat_id = ?
+    `).run(toBeatId, areaId, fromBeatId);
   }
 
-  #incrementGlobalRevision() {
-    const next = this.getGlobalRevision() + 1;
-    this.db.prepare("UPDATE content_meta SET value = ? WHERE key = 'story_revision'").run(String(next));
-    return next;
-  }
 }
 
 function resolveRename(map, value) {
@@ -407,6 +562,38 @@ function resolveRename(map, value) {
     current = map.get(current);
   }
   return current;
+}
+
+function renameMapFor(renames, kind) {
+  return new Map(
+    renames
+      .filter((rename) => rename?.kind === kind && rename.from && rename.to)
+      .map((rename) => [String(rename.from), String(rename.to)]),
+  );
+}
+
+function parseNullableJson(value) {
+  const parsed = JSON.parse(value || "{}");
+  return parsed && Object.keys(parsed).length ? parsed : null;
+}
+
+function parseMatchJson(value) {
+  const parsed = JSON.parse(value || "{}");
+  return {
+    originHex: nullableText(parsed.originHex),
+    localExit: nullableText(parsed.localExit),
+  };
+}
+
+function compactObject(value) {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, item]) => item !== undefined && item !== null && item !== ""),
+  );
+}
+
+function nullableText(value) {
+  const text = value == null ? "" : String(value).trim();
+  return text || null;
 }
 
 export class ValidationError extends Error {

@@ -1,18 +1,12 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { openDatabase } from "./db.js";
-import { StoryRepository } from "./story-repository.js";
-import { loadBuildingData, loadWorldSeed } from "./world-catalog.js";
-import { WorldRepository } from "./world-repository.js";
 import { exportAreaYaml, parseStoryYaml } from "./story-yaml.js";
+import { createContentRepositories } from "./content-repositories.js";
 
 const [command, fileArg, ...flags] = process.argv.slice(2);
 const db = openDatabase();
-const worldRepository = new WorldRepository(db, {
-  seedWorld: loadWorldSeed(),
-  buildingData: loadBuildingData(),
-});
-const repository = new StoryRepository(db, worldRepository.getCatalog());
+const { storyRepository: repository } = createContentRepositories(db);
 
 try {
   if (command === "import") {
@@ -25,7 +19,7 @@ try {
     if (!areaId) throw new Error("No story area is available to export.");
     const area = repository.listAreas().find((item) => item.id === areaId);
     if (!area) throw new Error(`Unknown story area "${areaId}".`);
-    const output = resolve(flags.find((item) => !item.startsWith("--")) ?? `content/story/${areaId}.export.yaml`);
+    const output = resolve(flags.find((item) => !item.startsWith("--")) ?? `/tmp/${areaId}.story.yaml`);
     writeFileSync(output, exportAreaYaml(area, repository.listBeats(areaId, { full: true })));
     console.log(`Exported "${areaId}" to ${output}.`);
   } else {

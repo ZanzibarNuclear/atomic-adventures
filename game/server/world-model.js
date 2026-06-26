@@ -1,5 +1,6 @@
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const PASSAGE_KINDS = new Set(["gate", "hole", "bridge", "ford", "stair"]);
+export const ROUTE_KINDS = new Set(["road", "drive", "path", "trail"]);
 
 export function normalizeWorld(input = {}) {
   const world = structuredClone(input && typeof input === "object" ? input : {});
@@ -7,10 +8,25 @@ export function normalizeWorld(input = {}) {
   world.size = finiteNumber(world.size, 44);
   world.start = nullableText(world.start);
   world.journey = stringList(world.journey);
+  delete world.movementAuditRenames;
   world.hexes = Array.isArray(world.hexes) ? world.hexes : [];
+  world.hexes.forEach(normalizeHexStands);
   world.features = Array.isArray(world.features) ? world.features : [];
   world.routes = Array.isArray(world.routes) ? world.routes : [];
   return world;
+}
+
+function normalizeHexStands(hex) {
+  if (!hex || typeof hex !== "object") return;
+  const stands = Array.isArray(hex.stands) ? hex.stands : [];
+  if (hex.standAt && !stands.length) {
+    hex.stands = [{ id: "default", label: "Default stand", at: hex.standAt }];
+  } else if (stands.length) {
+    hex.stands = stands;
+  } else {
+    delete hex.stands;
+  }
+  delete hex.standAt;
 }
 
 export function validateWorld(input) {
@@ -25,6 +41,10 @@ export function validateWorld(input) {
 
   const hexIds = new Set();
   const coordinates = new Set();
+  for (const hex of world.hexes) {
+    const id = String(hex.id ?? "").trim();
+    if (ID_PATTERN.test(id)) hexIds.add(id);
+  }
   world.hexes.forEach((hex, index) => {
     const base = `hexes.${index}`;
     hex.id = String(hex.id ?? "").trim();
@@ -32,8 +52,9 @@ export function validateWorld(input) {
     hex.r = finiteNumber(hex.r, NaN);
     hex.terrain = String(hex.terrain ?? "forest").trim() || "forest";
     if (!ID_PATTERN.test(hex.id)) add(`${base}.id`, "Use a unique kebab-case hex ID.");
-    if (hexIds.has(hex.id)) add(`${base}.id`, "Hex IDs must be unique.");
-    hexIds.add(hex.id);
+    if (world.hexes.findIndex((item) => String(item.id ?? "").trim() === hex.id) !== index) {
+      add(`${base}.id`, "Hex IDs must be unique.");
+    }
     if (!Number.isInteger(hex.q) || !Number.isInteger(hex.r)) {
       add(`${base}.coordinates`, "Axial q and r coordinates must be integers.");
     } else {
@@ -41,9 +62,22 @@ export function validateWorld(input) {
       if (coordinates.has(key)) add(`${base}.coordinates`, "Another hex already occupies these coordinates.");
       coordinates.add(key);
     }
-    if (hex.standAt && !validStand(hex.standAt)) {
-      add(`${base}.standAt`, "Stand points need x/y, dx/dy, or a landmark-relative offset.");
-    }
+    const standIds = new Set();
+    (hex.stands ?? []).forEach((stand, standIndex) => {
+      const standBase = `${base}.stands.${standIndex}`;
+      stand.id = String(stand.id ?? "").trim();
+      if (!ID_PATTERN.test(stand.id)) add(`${standBase}.id`, "Use a unique kebab-case stand ID.");
+      if (standIds.has(stand.id)) add(`${standBase}.id`, "Stand IDs must be unique within a hex.");
+      standIds.add(stand.id);
+      if (!validStand(stand.at)) {
+        add(`${standBase}.at`, "Stand points need x/y, dx/dy, or a landmark-relative offset.");
+      }
+      (stand.entryFrom ?? []).forEach((hexId, entryIndex) => {
+        if (!hexIds.has(hexId)) {
+          warn(`${standBase}.entryFrom.${entryIndex}`, `Unknown outdoor hex "${hexId}".`);
+        }
+      });
+    });
     if (hex.landmark && typeof hex.landmark !== "object") {
       add(`${base}.landmark`, "Landmark must be an object.");
     }
@@ -67,18 +101,21 @@ export function validateWorld(input) {
       if (!["obvious", "hidden"].includes(feature.visibility ?? "obvious")) {
         add(`${base}.visibility`, "Visibility must be obvious or hidden.");
       }
+    } else if (ROUTE_KINDS.has(feature.kind)) {
+      add(`${base}.kind`, "Roads, drives, paths, and trails belong in routes, not features.");
     } else if (!Array.isArray(feature.points) || feature.points.length < 2) {
       add(`${base}.points`, "Line features require at least two points.");
     }
   });
 
   world.hexes.forEach((hex, index) => {
-    if (hex.standAt?.x != null && hex.standAt?.y != null) {
+    for (const [standIndex, stand] of (hex.stands ?? []).entries()) {
+      if (stand.at?.x == null || stand.at?.y == null) continue;
       const centerX = world.size * Math.sqrt(3) * (hex.q + hex.r / 2);
-      const centerY = world.size * 1.5 * hex.r;
-      const distance = Math.hypot(hex.standAt.x - centerX, hex.standAt.y - centerY);
+      const centerY = world.size * -1.5 * hex.r;
+      const distance = Math.hypot(stand.at.x - centerX, stand.at.y - centerY);
       if (distance > world.size * 1.15) {
-        warn(`hexes.${index}.standAt`, "The stand point appears to be outside its hex.");
+        warn(`hexes.${index}.stands.${standIndex}.at`, "The stand point appears to be outside its hex.");
       }
     }
   });
@@ -110,6 +147,30 @@ function validateCollection(items, path, hexIds, errors, warnings, options = {})
         add(`${base}.points.${pointIndex}`, "Use either an existing hex anchor or numeric x/y coordinates.");
       }
     });
+    if (item.kind === "river") {
+      (item.cascades ?? []).forEach((cascade, cascadeIndex) => {
+        if (!cascade || typeof cascade !== "object") {
+          add(`${base}.cascades.${cascadeIndex}`, "Cascade entries must be objects.");
+          return;
+        }
+        if (cascade.id != null && !ID_PATTERN.test(String(cascade.id).trim())) {
+          add(`${base}.cascades.${cascadeIndex}.id`, "Use a kebab-case cascade ID.");
+        }
+        const from = Number(cascade.from);
+        const to = Number(cascade.to);
+        if (!Number.isFinite(from) || from < 0 || from > 1) {
+          add(`${base}.cascades.${cascadeIndex}.from`, "Cascade start must be between 0 and 1.");
+        }
+        if (!Number.isFinite(to) || to < 0 || to > 1) {
+          add(`${base}.cascades.${cascadeIndex}.to`, "Cascade end must be between 0 and 1.");
+        }
+        if (Number.isFinite(from) && Number.isFinite(to) && from === to) {
+          add(`${base}.cascades.${cascadeIndex}.to`, "Cascade end must differ from start.");
+        }
+      });
+    } else if (item.cascades?.length) {
+      add(`${base}.cascades`, "Only river features can have cascades.");
+    }
     if (item.points?.length > 60) {
       warnings.push({ path: `${base}.points`, message: "This line has many control points and may be difficult to edit." });
     }
@@ -171,6 +232,11 @@ export function applyHexRenames(world, renames = []) {
   };
   world.start = rename(world.start);
   world.journey = (world.journey ?? []).map(rename);
+  for (const hex of world.hexes ?? []) {
+    for (const stand of hex.stands ?? []) {
+      if (stand.entryFrom) stand.entryFrom = stand.entryFrom.map(rename);
+    }
+  }
   for (const route of world.routes ?? []) {
     for (const point of route.points ?? []) if (point.hex) point.hex = rename(point.hex);
   }

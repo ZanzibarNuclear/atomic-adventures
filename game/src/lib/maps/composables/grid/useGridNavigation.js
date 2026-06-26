@@ -42,6 +42,7 @@ function standLevel(room, atLevel) {
 }
 
 export function moveKey(move) {
+  if (move.toStandId) return `stand:${move.toStandId}`
   if (move.onSpiral) return `${move.toRoomId}:${move.dir}`
   if (move.toExteriorNode) return `ext:${move.toExteriorNode}`
   return move.toRoomId

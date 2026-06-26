@@ -28,6 +28,8 @@ const props = defineProps({
   discoveredOpenings: { type: Array, default: () => [] },
   /** Story flags — drives gate open/closed symbols. */
   flags: { type: [Set, Array, Object], default: null },
+  /** Explicit passage open/closed state, keyed by passage id. */
+  passageStates: { type: Object, default: () => ({}) },
   mode: { type: String, default: 'gameplay' }, // gameplay | full
   expanded: { type: Boolean, default: false },
   builderView: { type: Boolean, default: false },
@@ -37,7 +39,7 @@ const props = defineProps({
   editKind: { type: String, default: 'path' },
   selectedHandleId: { type: String, default: null },
   addPointMode: { type: Boolean, default: false },
-  standOverride: { type: Object, default: null }, // { hexId, standAt }
+  standOverride: { type: Object, default: null }, // { hexId, standAt: current avatar point }
   clickableHexIds: { type: Object, default: null },
   avatarInstant: { type: Boolean, default: false },
   buildingEnterable: { type: Boolean, default: false },
@@ -108,6 +110,7 @@ const {
   avatarPos,
   cascadeChevrons,
   trees,
+  rockyShrubs,
   routePieces,
   featurePieces,
   legendTerrains,
@@ -123,6 +126,7 @@ const {
   standOverride: computed(() => props.standOverride),
   discoveredSet,
   discoveredOpenings: computed(() => props.discoveredOpenings),
+  passageStates: computed(() => props.passageStates),
   flags: computed(() => props.flags),
   visibleHexes,
   fogMaskOpts,
@@ -181,7 +185,13 @@ const {
         @hex-click="onHexClick"
       />
 
-      <HexSceneryLayer :trees="trees" />
+      <HexSceneryLayer :trees="trees" :rocky-shrubs="rockyShrubs" />
+
+      <HexRouteLayer
+        :route-pieces="routePieces"
+        :selectable="selectableObjects"
+        @select="emit('route-select', $event)"
+      />
 
       <HexFeatureLayer
         :feature-pieces="featurePieces"
@@ -195,12 +205,6 @@ const {
         :passage-markers="visiblePassageMarkers"
         :selectable="selectableObjects"
         @select="emit('passage-select', $event)"
-      />
-
-      <HexRouteLayer
-        :route-pieces="routePieces"
-        :selectable="selectableObjects"
-        @select="emit('route-select', $event)"
       />
 
       <HexLandmarkLayer

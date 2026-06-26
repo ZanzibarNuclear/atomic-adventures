@@ -1,13 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import mapData from '../../../../content/world/map.yaml'
+import { mapData } from '../../testing/content.js'
 import { useOutdoorWorld } from '../composables/useOutdoorWorld.js'
-import { getMovementOptions } from '../../../composables/usePlayPanel.js'
 
 describe('passage crossing toggle', () => {
   const outdoor = useOutdoorWorld(mapData)
 
   function movementDests() {
-    return getMovementOptions(outdoor, null).map((o) => o.toHexId).filter(Boolean)
+    return outdoor.directMoves.map((move) => move.toHexId)
   }
 
   it('refreshes travel options and allows crossing back after bridge toggle', () => {
@@ -18,7 +17,7 @@ describe('passage crossing toggle', () => {
     outdoor.state.lastBlocked = null
 
     const eastDests = new Set(movementDests())
-    expect(eastDests.has('north-west')).toBe(true)
+    expect(eastDests.has('lower-gorge')).toBe(true)
     expect(outdoor.passageCrossings.some((c) => c.openingId === 'upper-gorge-bridge')).toBe(
       true,
     )
@@ -30,7 +29,7 @@ describe('passage crossing toggle', () => {
     expect(outdoor.passageCrossings.some((c) => c.openingId === 'upper-gorge-bridge')).toBe(
       true,
     )
-    expect(westDests).toContain('north-west')
+    expect(westDests).toContain('lower-gorge')
 
     outdoor.crossPassage('upper-gorge-bridge')
 

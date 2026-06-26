@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import mapData from '../../../../content/world/map.yaml'
+import { mapData } from '../../testing/content.js'
 import { useOutdoorWorld } from '../composables/useOutdoorWorld.js'
 import { buildTravelWorld, evaluateNeighborMove } from './travelWorld.js'
 import { standAcrossOpening } from '../composables/usePassageCrossing.js'
@@ -11,11 +11,13 @@ import {
 import { gameplayMoveTo } from './gameplayTravel.js'
 import { isWestOfRiverAt, isEastOfRiverAt } from './riverSide.js'
 
-describe('mid-west ford and bank column return', () => {
+describe('the-flats ford and bank column return', () => {
+  const NORTH_FENCE_Y = -128
+
   const world = buildTravelWorld(mapData)
-  world.revealOpening('mid-west-ford')
-  const ford = world.ctx.openings.find((o) => o.id === 'mid-west-ford')
-  const mw = world.hexById['mid-west']
+  world.revealOpening('the-flats-ford')
+  const ford = world.ctx.openings.find((o) => o.id === 'the-flats-ford')
+  const mw = world.hexById['the-flats']
   const uy = world.hexById['utility-yard']
 
   function westBankAtMidWest() {
@@ -40,10 +42,10 @@ describe('mid-west ford and bank column return', () => {
     outdoor.state.stand = outdoor.defaultStandForHex('upper-gorge')
 
     outdoor.crossPassage('upper-gorge-bridge')
-    gameplayMoveTo(outdoor, 'north-west')
-    gameplayMoveTo(outdoor, 'mid-west')
+    gameplayMoveTo(outdoor, 'lower-gorge')
+    gameplayMoveTo(outdoor, 'the-flats')
 
-    expect(outdoor.state.currentId).toBe('mid-west')
+    expect(outdoor.state.currentId).toBe('the-flats')
     expect(isWestOfRiverAt(outdoor.state.stand, outdoor.rivers)).toBe(true)
     expect(
       distToBarrierKind(outdoor.state.stand, 'river', outdoor.rivers),
@@ -52,19 +54,19 @@ describe('mid-west ford and bank column return', () => {
 
     outdoor.searchBarrier()
 
-    expect(outdoor.state.discoveredOpenings).toContain('mid-west-ford')
+    expect(outdoor.state.discoveredOpenings).toContain('the-flats-ford')
     expect(outdoor.passageCrossings.map((crossing) => crossing.openingId)).toContain(
-      'mid-west-ford',
+      'the-flats-ford',
     )
   })
 
   it('round-trips utility-yard after a single ford crossing', async () => {
     const outdoor = useOutdoorWorld(mapData)
-    outdoor.state.currentId = 'mid-west'
+    outdoor.state.currentId = 'the-flats'
     outdoor.state.stand = westBankAtMidWest()
-    outdoor.state.discoveredOpenings = ['mid-west-ford']
+    outdoor.state.discoveredOpenings = ['the-flats-ford']
 
-    outdoor.crossPassage('mid-west-ford')
+    outdoor.crossPassage('the-flats-ford')
     expect(isEastOfRiverAt(outdoor.state.stand, outdoor.rivers)).toBe(true)
 
     outdoor.moveTo('utility-yard')
@@ -72,11 +74,11 @@ describe('mid-west ford and bank column return', () => {
     expect(outdoor.state.currentId).toBe('utility-yard')
     expect(isEastOfRiverAt(outdoor.state.stand, outdoor.rivers)).toBe(true)
 
-    expect(outdoor.directMoves.map((m) => m.toHexId)).toContain('mid-west')
+    expect(outdoor.directMoves.map((m) => m.toHexId)).toContain('the-flats')
 
-    outdoor.moveTo('mid-west')
+    outdoor.moveTo('the-flats')
     await new Promise((r) => setTimeout(r, 700))
-    expect(outdoor.state.currentId).toBe('mid-west')
+    expect(outdoor.state.currentId).toBe('the-flats')
     expect(isEastOfRiverAt(outdoor.state.stand, outdoor.rivers)).toBe(true)
   })
 
@@ -94,14 +96,14 @@ describe('mid-west ford and bank column return', () => {
     const outdoor = useOutdoorWorld(mapData)
     outdoor.state.currentId = 'upper-gorge'
     outdoor.state.stand = outdoor.defaultStandForHex('upper-gorge')
-    outdoor.state.discoveredOpenings = ['mid-west-ford']
+    outdoor.state.discoveredOpenings = ['the-flats-ford']
 
     outdoor.crossPassage('upper-gorge-bridge')
-    outdoor.moveTo('north-west')
+    outdoor.moveTo('lower-gorge')
     await new Promise((r) => setTimeout(r, 700))
-    outdoor.moveTo('mid-west')
+    outdoor.moveTo('the-flats')
     await new Promise((r) => setTimeout(r, 700))
-    outdoor.crossPassage('mid-west-ford')
+    outdoor.crossPassage('the-flats-ford')
     const beforeGate = { ...outdoor.state.stand }
 
     outdoor.moveTo('gate-woods')
@@ -110,7 +112,7 @@ describe('mid-west ford and bank column return', () => {
     const closedBarriers = { barriers: outdoor.travelBarrierCtx.barriers, openings: [] }
     expect(outdoor.state.currentId).toBe('gate-woods')
     expect(outdoor.state.atBarrier).toBe('fence')
-    expect(outdoor.state.stand.y).toBeGreaterThan(-61)
+    expect(outdoor.state.stand.y).toBeGreaterThan(NORTH_FENCE_Y)
     expect(firstBlockedOnPath([beforeGate, outdoor.state.stand], closedBarriers)).toBeNull()
   })
 })

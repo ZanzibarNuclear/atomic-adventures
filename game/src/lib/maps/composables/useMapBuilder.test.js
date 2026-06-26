@@ -72,4 +72,34 @@ describe('outdoor map builder export', () => {
     expect(yaml).toContain('kind: stair')
     expect(yaml).toContain('labelAt: { x: 9, y: 10 }')
   })
+
+  it('serializes river cascades on the river instead of the hex', () => {
+    const features = [
+      {
+        id: 'mountain-river',
+        kind: 'river',
+        smooth: true,
+        points: [
+          { hex: 'upper-gorge', dx: 0.1, dy: 0.2 },
+          { hex: 'utility-yard', dx: -0.3, dy: 0.4 },
+        ],
+        cascades: [{ id: 'utility-falls', from: 0.55, to: 0.82 }],
+      },
+    ]
+    const hexes = [
+      {
+        id: 'utility-yard',
+        q: -2,
+        r: 1,
+        terrain: 'clearing',
+        landmark: { building: 'utility-station' },
+      },
+    ]
+
+    const yaml = exportMapYaml([], features, hexes)
+
+    expect(yaml.features).toContain('cascades:\n      - { id: utility-falls, from: 0.55, to: 0.82 }')
+    expect(yaml.hexes).not.toContain('area:')
+    expect(yaml.hexes).not.toContain('cascade:')
+  })
 })

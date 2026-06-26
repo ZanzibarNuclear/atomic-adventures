@@ -46,6 +46,7 @@ export function useGridMapInteractions({
       h.role === 'path-node' ||
       h.role === 'node-at' ||
       h.role === 'door-at' ||
+      h.role === 'room-stand' ||
       h.role === 'exit-map'
     ) {
       return pathNodeHandleColor()
@@ -61,6 +62,7 @@ export function useGridMapInteractions({
     if (
       h.role === 'node-at' ||
       h.role === 'door-at' ||
+      h.role === 'room-stand' ||
       h.role === 'exit-map'
     ) {
       return '#d4f5e2'

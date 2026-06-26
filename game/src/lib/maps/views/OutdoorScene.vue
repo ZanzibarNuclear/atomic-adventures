@@ -28,6 +28,7 @@
       :current-hex="outdoor.state.currentId"
       :discovered="auditEnabled ? allHexIds : outdoor.discoveredList"
       :discovered-openings="outdoor.state.discoveredOpenings"
+      :passage-states="outdoor.passageMarkerStates"
       :flags="outdoor.flags"
       :mode="auditEnabled ? 'full' : outdoor.mode"
       :stand-override="outdoor.standOverride"
@@ -45,24 +46,19 @@
   <PlayPanel>
     <StatusLines :lines="statusLines" />
 
-    <TravelOptions v-if="chooseActions.length" label="Choose an Action">
+    <TravelOptions v-if="actions.length" label="Choose an Action">
       <button
-        v-for="item in chooseActions"
+        v-for="item in actions"
         :key="item.id"
         class="route-btn"
         :class="item.kind ? 'k-' + item.kind : 'k-story'"
-        :disabled="outdoor.traveling"
+        :disabled="outdoor.traveling || item.disabled"
         :title="item.hint ?? ''"
-        @click="onChooseAction(item.id)">
+        @click="onAction(item.id)">
         {{ item.label }}
       </button>
     </TravelOptions>
 
-    <PlayActions
-      v-if="playActions.length"
-      :items="playActions"
-      label="Actions"
-      @select="onPlayAction" />
   </PlayPanel>
 </template>
 
@@ -74,9 +70,9 @@ import PlayPanel from "../../../components/hud/PlayPanel.vue";
 import MapCaption from "../components/hud/MapCaption.vue";
 import TravelOptions from "../components/hud/TravelOptions.vue";
 import StatusLines from "../../../components/hud/StatusLines.vue";
-import PlayActions from "../../../components/hud/PlayActions.vue";
 import NarrativeCard from "../../../components/story/NarrativeCard.vue";
 import {
+  buildOutdoorPlayActions,
   getMovementOptions,
   buildOutdoorStatusLines,
   handleOutdoorChooseAction,
@@ -133,26 +129,22 @@ const chooseActions = computed(() => {
 });
 
 const playActions = computed(() => {
-  if (!props.outdoor.atBuildingEntrance) return [];
-  return [
-    {
-      id: "enter-building",
-      label: `Enter the ${props.indoor.building.label}`,
-    },
-  ];
+  // Barrier searches and passage crossings depend on current stand and barrier hint.
+  void props.outdoor.state?.stand?.x;
+  void props.outdoor.state?.stand?.y;
+  void props.outdoor.state?.discoveredOpenings?.length;
+  return buildOutdoorPlayActions(props.outdoor, props.pendingBeat);
 });
 
-function onChooseAction(id) {
+const actions = computed(() => [...chooseActions.value, ...playActions.value]);
+
+function onAction(id) {
   handleOutdoorChooseAction(
     props.outdoor,
     props.applyChoice,
     id,
     props.travelToHex,
   );
-}
-
-function onPlayAction(id) {
-  if (id === "enter-building") props.enterBuilding();
 }
 </script>
 

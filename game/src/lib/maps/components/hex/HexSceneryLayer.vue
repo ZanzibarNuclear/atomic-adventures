@@ -1,5 +1,14 @@
 <template>
-  <g class="tree-layer">
+  <g class="scenery-layer">
+    <g
+      v-for="item in rockyShrubs"
+      :key="item.key"
+      :transform="`translate(${item.x},${item.y}) rotate(${item.rotate}) scale(${item.scale})`"
+    >
+      <circle cx="-3.6" cy="0.8" r="3.3" fill="#5f7445" />
+      <circle cx="1" cy="-1.7" r="3.9" fill="#6d814b" />
+      <circle cx="4.2" cy="1.2" r="2.8" fill="#516a3d" />
+    </g>
     <g
       v-for="t in trees"
       :key="t.key"
@@ -15,11 +24,12 @@
 <script setup>
 defineProps({
   trees: { type: Array, default: () => [] },
+  rockyShrubs: { type: Array, default: () => [] },
 })
 </script>
 
 <style scoped>
-.tree-layer {
+.scenery-layer {
   pointer-events: none;
 }
 </style>

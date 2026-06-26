@@ -2,25 +2,82 @@ import { computed, reactive, ref } from "vue";
 import {
   applyRevealDoorsForRoom,
   buildBuilding,
+  defaultRoomStandId,
   mapVisibilityCtx,
+  roomStandById,
 } from "../useGrid.js";
 import { buildInitialDoorState } from "../useDoors.js";
-import { createInventory, addItem, inventoryItems } from "../useInventory.js";
+import { createInventory } from "../useInventory.js";
+import { applyEffectsAtomically } from "../../../character/effects.js";
+import { characterItems } from "../../../../composables/useCharacterState.js";
 import { createFlags } from "../useFlags.js";
 
-export function createIndoorPlayer(buildingData, builderView, { flags: sharedFlags } = {}) {
+export function createIndoorPlayer(
+  buildingData,
+  builderView,
+  { flags: sharedFlags, character } = {},
+) {
   const flagsAreShared = !!sharedFlags;
+  const inventoryIsShared = !!character;
   const editableBuildingData = ref(structuredClone(buildingData));
   const building = computed(() => buildBuilding(editableBuildingData.value));
 
   function syncFromBuildingData(data) {
+    const nextBuilding = buildBuilding(data);
+    const currentRoom = nextBuilding.roomById[indoor.currentRoom] ? indoor.currentRoom : null;
+    const exteriorNode = nextBuilding.exterior?.nodeById?.[indoor.exteriorNode]
+      ? indoor.exteriorNode
+      : currentRoom
+        ? null
+        : nextBuilding.exterior?.entry ?? null;
+    const currentDoorState = indoor.doorState;
+    const nextDoorState = buildInitialDoorState(nextBuilding.areaId, nextBuilding);
+    for (const key of Object.keys(nextDoorState)) {
+      if (currentDoorState[key]) nextDoorState[key] = { ...currentDoorState[key] };
+    }
     editableBuildingData.value = structuredClone(data);
-  }
-
-  if (import.meta.hot) {
-    import.meta.hot.accept("../../../../../content/world/utility-station.yaml", (mod) => {
-      if (mod?.default) syncFromBuildingData(mod.default);
-    });
+    indoor.currentRoom = currentRoom;
+    indoor.currentStand = currentRoom && roomStandById(
+      nextBuilding,
+      currentRoom,
+      indoor.currentStand,
+    )
+      ? indoor.currentStand
+      : currentRoom
+        ? defaultRoomStandId(nextBuilding.roomById[currentRoom])
+        : null;
+    indoor.exteriorNode = exteriorNode;
+    indoor.discovered = new Set(
+      [...indoor.discovered].filter((id) => nextBuilding.roomById[id]),
+    );
+    indoor.revealed = new Set(
+      [...indoor.revealed].filter((id) => {
+        if (nextBuilding.roomById[id]) return true;
+        if (id.startsWith("door:")) return !!nextBuilding.doorById[id.slice(5)];
+        if (id.startsWith("fixture:")) {
+          return nextBuilding.fixtures.some((fixture) => fixture.id === id.slice(8));
+        }
+        return false;
+      }),
+    );
+    indoor.level = nextBuilding.levelById[indoor.level]
+      ? indoor.level
+      : nextBuilding.exterior?.level ?? nextBuilding.levels[0]?.id;
+    indoor.viewLevel = nextBuilding.levelById[indoor.viewLevel]
+      ? indoor.viewLevel
+      : indoor.level;
+    indoor.doorState = nextDoorState;
+    indoor.pickupsTaken = new Set(
+      [...indoor.pickupsTaken].filter((id) =>
+        nextBuilding.pickups.some((pickup) => pickup.id === id),
+      ),
+    );
+    indoor.completedActions = new Set(
+      [...indoor.completedActions].filter((id) =>
+        nextBuilding.actions.some((action) => action.id === id),
+      ),
+    );
+    indoor.avatarWaypoint = null;
   }
 
   const initialBuilding = buildBuilding(buildingData);
@@ -28,13 +85,14 @@ export function createIndoorPlayer(buildingData, builderView, { flags: sharedFla
 
   const indoor = reactive({
     currentRoom: null,
+    currentStand: null,
     exteriorNode: initialBuilding.exterior?.entry ?? null,
     discovered: new Set(),
     revealed: new Set(),
     level: initialBuilding.exterior?.level ?? initialBuilding.levels[0]?.id,
     viewLevel: initialBuilding.exterior?.level ?? initialBuilding.levels[0]?.id,
     doorState: buildInitialDoorState(initialBuilding.areaId, initialBuilding),
-    inventory: createInventory(),
+    inventory: character ? null : createInventory(),
     pickupsTaken: new Set(),
     facility: {
       hydroOnline: false,
@@ -72,15 +130,21 @@ export function createIndoorPlayer(buildingData, builderView, { flags: sharedFla
   const playerRoomId = computed(() => indoor.currentRoom ?? null);
 
   const carriedItems = computed(() =>
-    inventoryItems(indoor.inventory, building.value.itemById),
+    character ? characterItems(character) : [],
   );
 
   const roomPickups = computed(() => {
     const roomId = indoor.currentRoom;
     if (!roomId) return [];
-    return (building.value.pickups ?? []).filter(
-      (p) => p.room === roomId && !indoor.pickupsTaken.has(p.id),
+    const catalog = Object.fromEntries(
+      (character?.definitions?.items ?? []).map((item) => [item.id, item]),
     );
+    return (building.value.pickups ?? [])
+      .filter((p) => p.room === roomId && !indoor.pickupsTaken.has(p.id))
+      .map((pickup) => ({
+        ...pickup,
+        label: pickup.label ?? catalog[pickup.item]?.label ?? pickup.item,
+      }));
   });
 
   function discoverIndoorRoom(roomId) {
@@ -94,13 +158,22 @@ export function createIndoorPlayer(buildingData, builderView, { flags: sharedFla
     const pickup = (building.value.pickups ?? []).find((p) => p.id === pickupId);
     if (!pickup || indoor.pickupsTaken.has(pickupId)) return;
     if (pickup.room !== indoor.currentRoom) return;
-    addItem(indoor.inventory, pickup.item);
+    if (character) {
+      const result = applyEffectsAtomically(
+        [{ op: "item.add", id: pickup.item, quantity: 1 }],
+        { character, flags: indoor.flags },
+      );
+      if (!result.ok) return;
+    } else {
+      indoor.inventory.add(pickup.item);
+    }
     indoor.pickupsTaken = new Set([...indoor.pickupsTaken, pickupId]);
   }
 
   function resetIndoor() {
     indoor.exteriorNode = building.value.exterior?.entry ?? null;
     indoor.currentRoom = null;
+    indoor.currentStand = null;
     indoor.discovered = new Set();
     indoor.revealed = new Set();
     indoor.level = building.value.exterior?.level ?? "first";
@@ -109,7 +182,7 @@ export function createIndoorPlayer(buildingData, builderView, { flags: sharedFla
       building.value.areaId,
       building.value,
     );
-    indoor.inventory = createInventory();
+    if (!inventoryIsShared) indoor.inventory = createInventory();
     indoor.pickupsTaken = new Set();
     indoor.facility.hydroOnline = false;
     indoor.facility.manualMode = {};
@@ -118,6 +191,7 @@ export function createIndoorPlayer(buildingData, builderView, { flags: sharedFla
     }
     indoor.completedActions = new Set();
     indoor.avatarWaypoint = null;
+    indoor.moving = false;
   }
 
   return {
@@ -136,5 +210,6 @@ export function createIndoorPlayer(buildingData, builderView, { flags: sharedFla
     tryPickup,
     resetIndoor,
     flagsAreShared,
+    inventoryIsShared,
   };
 }

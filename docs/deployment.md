@@ -11,7 +11,7 @@ Production is intentionally read-only:
 ```text
 Committed SQLite content
   → build-time runtime export
-  → static story.json + world.json
+  → static story.json + world.json + utility-station.json + character.json
   → Vite production bundle
   → Vercel CDN
 ```
@@ -22,6 +22,8 @@ for story and outdoor-world authoring. During every production build,
 
 - `/content/story.json`
 - `/content/world.json`
+- `/content/utility-station.json`
+- `/content/character.json`
 
 These files are copied into `game/dist` by Vite. The production game reads them
 instead of calling the local authoring API.
@@ -113,15 +115,16 @@ Authoring remains local for now:
 There is no separate production content upload. The committed SQLite artifact
 is promoted through Git in the same deployment as the application.
 
-Direct changes to story or outdoor YAML do not reach production until imported
-into SQLite and committed:
+YAML snapshots do not reach production until imported into SQLite and committed:
 
 ```bash
 npm run content:import -w game -- path/to/story.yaml --replace
 npm run world:import -w game -- path/to/map.yaml --replace
 ```
 
-Indoor building geometry remains YAML-backed and is bundled normally.
+Utility-station geometry is exported from the committed SQLite database to
+`game/public/content/utility-station.json` before Vite builds. YAML is available
+only as an explicit import/export snapshot format.
 
 ## Pre-Deployment Checks
 
@@ -135,9 +138,13 @@ Check that:
 
 - `game/dist/content/story.json` exists and contains the expected story revision.
 - `game/dist/content/world.json` exists and contains `outdoor-main`.
+- `game/dist/content/utility-station.json` exists and contains the utility
+  station rooms.
+- `game/dist/content/character.json` exists and contains the authored player,
+  item, and progression catalogs.
 - No `BuilderView` or `WorldBuilderView` JavaScript chunks appear in
   `game/dist/assets`.
-- Opening `/builder/story` or `/builder/world` in the production preview
+- Opening `/builder/story`, `/builder/world`, or `/builder/content` in the production preview
   redirects to `/`.
 - A saved local game still loads and the opening story/map render correctly.
 
@@ -153,8 +160,10 @@ After a Vercel preview or production deployment:
 1. Open `/` and confirm the map and opening beat load.
 2. Move to at least one adjacent hex.
 3. Save, reload, and confirm player progress restores.
-4. Open `/content/story.json` and `/content/world.json`; both should return JSON.
-5. Open `/builder/story` and `/builder/world`; both should return to `/`.
+4. Open `/content/story.json`, `/content/world.json`,
+   `/content/utility-station.json`, and `/content/character.json`; all should
+   return JSON.
+5. Open `/builder/story`, `/builder/world`, and `/builder/content`; all should return to `/`.
 6. Check the browser console for failed content requests.
 
 ## Rollback

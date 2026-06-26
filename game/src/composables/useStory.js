@@ -1,31 +1,18 @@
 import { computed, ref, unref, watch } from "vue";
-import { hasFlag, requireSatisfied, setFlags } from "../lib/maps/composables/useFlags.js";
+import { hasFlag, setFlags } from "../lib/maps/composables/useFlags.js";
+import { advanceGameTime } from "../lib/character/gameTime.js";
 
 /**
  * Location-triggered narrative for the card between map and play panel.
- * First visit: full beat + acknowledge. Return visit: revisit text, or original
- * text if no revisit is authored.
+ * First presentation: story text. Later presentations use revisit text when
+ * authored. Choices remain available whenever the beat is active.
  */
 export function useStory(storyData, ctx) {
-  const { gameState, place, outdoor, indoor } = ctx;
+  const { gameState, place, outdoor, indoor, openStageView = () => false } = ctx;
   const beats = computed(() => unref(storyData)?.beats ?? {});
-  const previousPlace = ref(place.value);
 
-  /** Beat awaiting player acknowledgment (blocks narrative updates). */
+  /** Active story beat, including repeat visits. */
   const pendingBeat = ref(null);
-  /** Current location narrative (revisit or ambient). */
-  const locationNarrative = ref(null);
-  /** Suppress revisit for a beat until the player leaves this location. */
-  const suppressedRevisit = ref(null);
-
-  function locationKey(loc) {
-    return [
-      loc.place,
-      loc.hex ?? "",
-      loc.room ?? "",
-      loc.exteriorNode ?? "",
-    ].join("|");
-  }
 
   const showEndCard = computed(
     () =>
@@ -33,7 +20,7 @@ export function useStory(storyData, ctx) {
       !gameState.endCardDismissed,
   );
 
-  const narrativeBeat = computed(() => pendingBeat.value ?? locationNarrative.value);
+  const narrativeBeat = computed(() => pendingBeat.value);
 
   function beatSeen(id) {
     return gameState.storySeen.has(id);
@@ -47,13 +34,24 @@ export function useStory(storyData, ctx) {
     return {
       place: place.value,
       hex: outdoor.state.currentId,
+      originHex: outdoor.state.previousId,
+      localExit: outdoor.state.localExit,
       room: indoor.indoor.currentRoom,
       exteriorNode: indoor.indoor.exteriorNode,
     };
   }
 
+  function storyActionContext(loc, event = null) {
+    if (event) return "event";
+    if (loc.place === "outdoors" && loc.localExit) return "exitLocalMap";
+    if (loc.place === "outdoors" && loc.originHex) return "enterOutdoorHex";
+    if (loc.place === "indoors") return "enterIndoorLocation";
+    return "ambientRefresh";
+  }
+
   function triggerMatches(beat, loc, event) {
     const trigger = beat.trigger ?? {};
+    if (event && !trigger.event) return false;
     if (trigger.event) {
       return event === trigger.event;
     }
@@ -73,50 +71,58 @@ export function useStory(storyData, ctx) {
     return true;
   }
 
-  function beatMatchesLocation(id, beat, loc) {
-    if (!requireSatisfied(beat.require, gameState.flags)) return false;
-    return triggerMatches(beat, loc);
+  function matchScore(beat, loc, action = storyActionContext(loc)) {
+    const match = beat.match ?? {};
+    const hasMatch = Boolean(match.originHex || match.localExit);
+    let relevant = 0;
+    let score = 0;
+    if (action === "enterOutdoorHex" && match.originHex) {
+      relevant += 1;
+      if (loc.place !== "outdoors" || match.originHex !== loc.originHex) return -1;
+      score += 1;
+    }
+    if (action === "exitLocalMap" && match.localExit) {
+      relevant += 1;
+      if (loc.place !== "outdoors" || match.localExit !== loc.localExit) return -1;
+      score += 1;
+    }
+    if (hasMatch && relevant === 0) return -1;
+    return score;
   }
 
-  function findNewBeat(loc, event = null) {
+  function decorateChoices(choices = []) {
+    return choices;
+  }
+
+  function displayText(beat, seen) {
+    return seen && beat.revisit ? beat.revisit : beat.text;
+  }
+
+  function activeBeat(id, beat) {
+    const seen = beatSeen(id);
+    return {
+      id,
+      eyebrow: beat.eyebrow,
+      heading: beat.heading,
+      text: displayText(beat, seen),
+      revisit: seen && Boolean(beat.revisit),
+      choices: decorateChoices(beat.choices),
+    };
+  }
+
+  function findBeat(loc, event = null) {
+    let selected = null;
+    let selectedScore = -1;
+    const action = storyActionContext(loc, event);
     for (const [id, beat] of Object.entries(beats.value)) {
-      if (beat.once !== false && beatSeen(id)) continue;
-      if (!requireSatisfied(beat.require, gameState.flags)) continue;
       if (!triggerMatches(beat, loc, event)) continue;
-      return {
-        id,
-        eyebrow: beat.eyebrow,
-        heading: beat.heading,
-        text: beat.text,
-        choices: beat.choices,
-        acknowledge: beat.acknowledge !== false,
-      };
+      const score = matchScore(beat, loc, action);
+      if (score < 0 || score <= selectedScore) continue;
+      selected = { id, beat };
+      selectedScore = score;
     }
-    return null;
-  }
-
-  function findRevisitBeat(loc) {
-    const key = locationKey(loc);
-    for (const [id, beat] of Object.entries(beats.value)) {
-      if (beat.once === false || !beatSeen(id)) continue;
-      const text = beat.revisit ?? beat.text;
-      if (!text) continue;
-      if (
-        suppressedRevisit.value?.beatId === id &&
-        suppressedRevisit.value?.locationKey === key
-      ) {
-        continue;
-      }
-      if (!beatMatchesLocation(id, beat, loc)) continue;
-      return {
-        id,
-        eyebrow: beat.eyebrow,
-        heading: beat.heading,
-        text,
-        revisit: true,
-        acknowledge: false,
-      };
-    }
+    if (selected) return activeBeat(selected.id, selected.beat);
+    if (event) return findBeat(loc, null);
     return null;
   }
 
@@ -124,21 +130,14 @@ export function useStory(storyData, ctx) {
     if (pendingBeat.value || showEndCard.value) return;
 
     const loc = locationContext();
-    const fresh = findNewBeat(loc, event);
+    const fresh = findBeat(loc, event);
     if (fresh) {
       pendingBeat.value = fresh;
-      locationNarrative.value = null;
-      if (
-        fresh.acknowledge === false &&
-        beats.value[fresh.id]?.once !== false
-      ) {
-        markSeen(fresh.id);
-      }
+      markSeen(fresh.id);
       return;
     }
 
     pendingBeat.value = null;
-    locationNarrative.value = findRevisitBeat(loc);
   }
 
   function findChoiceIndex(beat, dest) {
@@ -146,6 +145,12 @@ export function useStory(storyData, ctx) {
     return beat.choices.findIndex((choice) => {
       if (dest.go_hex && choice.go_hex === dest.go_hex) return true;
       if (dest.go_room && choice.go_room === dest.go_room) return true;
+      if (
+        dest.go_exterior_node &&
+        choice.go_exterior_node === dest.go_exterior_node
+      ) {
+        return true;
+      }
       if (dest.enter && choice.enter) return true;
       return false;
     });
@@ -155,6 +160,7 @@ export function useStory(storyData, ctx) {
     const trigger = beat.trigger ?? {};
     if (trigger.event) return true;
     if (trigger.place && trigger.place !== loc.place) return false;
+    if (matchScore(beat, loc) < 0) return false;
     if (trigger.hex) return loc.place === "outdoors" && trigger.hex === loc.hex;
     if (trigger.room) return loc.place === "indoors" && trigger.room === loc.room;
     if (trigger.exteriorNode) {
@@ -169,6 +175,7 @@ export function useStory(storyData, ctx) {
 
     const choice = beat.choices?.[choiceIndex];
     if (!choice) return;
+    if (choice.disabled) return;
 
     if (choice.go_hex && place.value === "outdoors") {
       if (!outdoor.canReachHex(choice.go_hex)) return;
@@ -179,20 +186,29 @@ export function useStory(storyData, ctx) {
 
     if (choice.sets) setFlags(gameState.flags, choice.sets);
     if (choice.set_flags) setFlags(gameState.flags, choice.set_flags);
-
-    if (beats.value[beat.id]?.once !== false) {
-      markSeen(beat.id);
+    if (Number(choice.timeMinutes) > 0 && gameState.clock) {
+      const timeResult = advanceGameTime(
+        gameState,
+        Number(choice.timeMinutes),
+        choice.activity ?? "light",
+      );
+      if (!timeResult.ok) return;
     }
+
+    markSeen(beat.id);
+
+    if (choice.view) {
+      openStageView(choice.view);
+      return;
+    }
+
     pendingBeat.value = null;
-    suppressedRevisit.value = {
-      beatId: beat.id,
-      locationKey: locationKey(locationContext()),
-    };
 
     const movesPlayer =
       (choice.go_hex && place.value === "outdoors") ||
       (choice.enter && place.value === "outdoors") ||
-      (choice.go_room && place.value === "indoors");
+      (choice.go_room && place.value === "indoors") ||
+      (choice.go_exterior_node && place.value === "indoors");
 
     if (choice.go_hex && place.value === "outdoors") {
       outdoor.moveTo(choice.go_hex);
@@ -200,6 +216,8 @@ export function useStory(storyData, ctx) {
       indoor.enterBuilding();
     } else if (choice.go_room && place.value === "indoors") {
       indoor.moveToRoom(choice.go_room);
+    } else if (choice.go_exterior_node && place.value === "indoors") {
+      indoor.moveToExteriorNode(choice.go_exterior_node);
     }
 
     if (!movesPlayer) refreshNarrative();
@@ -234,6 +252,15 @@ export function useStory(storyData, ctx) {
     indoor.moveToRoom(roomId);
   }
 
+  function travelToExteriorNode(nodeId) {
+    const idx = findChoiceIndex(pendingBeat.value, { go_exterior_node: nodeId });
+    if (idx >= 0) {
+      applyChoice(idx);
+      return;
+    }
+    indoor.moveToExteriorNode(nodeId);
+  }
+
   function dismissEndCard() {
     gameState.endCardDismissed = true;
   }
@@ -242,20 +269,15 @@ export function useStory(storyData, ctx) {
     () => [
       place.value,
       outdoor.state.currentId,
+      outdoor.state.previousId,
+      outdoor.state.localExit,
       indoor.indoor.currentRoom,
       indoor.indoor.exteriorNode,
       [...gameState.flags].join("\0"),
+      gameState.character?.revision ?? 0,
     ],
     () => {
       const loc = locationContext();
-      const key = locationKey(loc);
-      if (suppressedRevisit.value?.locationKey !== key) {
-        suppressedRevisit.value = null;
-      }
-
-      const enteredIndoors =
-        previousPlace.value === "outdoors" && place.value === "indoors";
-      previousPlace.value = place.value;
 
       if (pendingBeat.value) {
         const beatDef = beats.value[pendingBeat.value.id];
@@ -263,11 +285,7 @@ export function useStory(storyData, ctx) {
         pendingBeat.value = null;
       }
 
-      if (enteredIndoors) {
-        refreshNarrative("enter-building");
-      } else {
-        refreshNarrative();
-      }
+      refreshNarrative();
     },
     { flush: "post" },
   );
@@ -280,24 +298,11 @@ export function useStory(storyData, ctx) {
       if (pendingId) {
         const definition = beats.value[pendingId];
         pendingBeat.value = null;
-        if (
-          definition &&
-          requireSatisfied(definition.require, gameState.flags) &&
-          atBeatTrigger(definition, loc)
-        ) {
-          pendingBeat.value = {
-            id: pendingId,
-            eyebrow: definition.eyebrow,
-            heading: definition.heading,
-            text: definition.text,
-            choices: definition.choices,
-            acknowledge: definition.acknowledge !== false,
-          };
-          locationNarrative.value = null;
+        if (definition && atBeatTrigger(definition, loc)) {
+          pendingBeat.value = activeBeat(pendingId, definition);
           return;
         }
       }
-      locationNarrative.value = null;
       refreshNarrative();
     },
     { flush: "post" },
@@ -311,6 +316,7 @@ export function useStory(storyData, ctx) {
     travelToHex,
     enterBuilding,
     travelToRoom,
+    travelToExteriorNode,
     dismissEndCard,
     refreshNarrative,
   };

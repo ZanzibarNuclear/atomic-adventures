@@ -1,0 +1,26 @@
+<script setup>
+defineProps({
+  selected: { type: Object, required: true },
+  standEditDraft: { type: Object, required: true },
+});
+</script>
+
+<template>
+  <label>ID<input v-model="standEditDraft.id" /></label>
+  <label>Label<input v-model="standEditDraft.label" /></label>
+  <label>Anchor
+    <select v-model="standEditDraft.anchor">
+      <option value="hex">Hex-relative</option>
+      <option value="landmark" :disabled="!selected.landmark">Landmark-relative</option>
+      <option value="world">World coordinates</option>
+    </select>
+  </label>
+  <div v-if="standEditDraft.anchor === 'world'" class="field-grid">
+    <label>X<input v-model.number="standEditDraft.x" type="number" /></label>
+    <label>Y<input v-model.number="standEditDraft.y" type="number" /></label>
+  </div>
+  <div v-else class="field-grid">
+    <label>Offset x<input v-model.number="standEditDraft.dx" type="number" step=".01" /></label>
+    <label>Offset y<input v-model.number="standEditDraft.dy" type="number" step=".01" /></label>
+  </div>
+</template>

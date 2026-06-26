@@ -26,7 +26,7 @@ export { firstBlockedOnPath }
 /** @typedef {import('../composables/useTravelBarriers.js').resolveMove} ResolveMoveResult */
 
 /**
- * @param {object} mapData — parsed map.yaml
+ * @param {object} mapData — parsed outdoor world document
  * @param {{ discoveredOpenings?: string[] }} [opts]
  */
 export function buildTravelWorld(mapData, opts = {}) {

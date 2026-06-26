@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import mapData from '../../../../content/world/map.yaml'
-import utilityData from '../../../../content/world/utility-station.yaml'
+import { mapData } from '../../testing/content.js'
+import { utilityData } from '../../testing/content.js'
 import { createGameState, captureSnapshot } from '../../../composables/useGameState.js'
 import { useOutdoorWorld } from '../composables/useOutdoorWorld.js'
 import { useIndoorBuilding } from '../composables/useIndoorBuilding.js'
@@ -25,7 +25,7 @@ describe('gameplay viewport at east-pines', () => {
 
     expect(vp.visibleHexes.map((h) => h.id).sort()).toEqual([
       'east-pines',
-      'trailhead',
+      'origin',
     ])
   })
 
@@ -42,11 +42,11 @@ describe('gameplay viewport at east-pines', () => {
 
     outdoor.state.currentId = 'east-pines'
     outdoor.state.discovered = [
-      'trailhead',
+      'origin',
       'east-pines',
       'center-pines',
       'utility-yard',
-      'mid-west',
+      'the-flats',
       'west-slope',
     ]
     outdoor.state.stand = outdoor.defaultStandForHex('east-pines')
@@ -67,8 +67,8 @@ describe('gameplay viewport at east-pines', () => {
     expect(vp.visibleHexes.map((h) => h.id).sort()).toEqual([
       'center-pines',
       'east-pines',
-      'mid-west',
-      'trailhead',
+      'origin',
+      'the-flats',
       'utility-yard',
       'west-slope',
     ])

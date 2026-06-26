@@ -1,6 +1,15 @@
 import { exteriorNodeLabel } from "../../../displayLabel.js";
 import { canPassDoor } from '../useDoors.js'
 
+export function exteriorStepDirection(from, to) {
+  if (!from?.at || !to?.at) return null
+  const north = to.at.x - from.at.x
+  const east = to.at.y - from.at.y
+  const ns = Math.abs(north) > 0.35 ? (north > 0 ? 'north' : 'south') : ''
+  const ew = Math.abs(east) > 0.35 ? (east > 0 ? 'east' : 'west') : ''
+  return `${ns}${ew}` || null
+}
+
 export function canUseExteriorExit(
   building,
   exit,
@@ -21,10 +30,13 @@ export function exteriorMovesFrom(building, nodeId) {
   const neighbors = building.exterior?.adj?.[nodeId] ?? []
   return neighbors.map((toNodeId) => {
     const other = building.exterior.nodeById[toNodeId]
+    const direction = exteriorStepDirection(node, other)
     return {
       toNodeId,
       kind: 'path',
-      label: 'along the footpath',
+      label: direction
+        ? `${direction} along the footpath`
+        : 'along the footpath',
       toName: exteriorNodeLabel(other),
     }
   })

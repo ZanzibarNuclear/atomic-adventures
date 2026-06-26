@@ -1,6 +1,7 @@
 // Player inventory — keys and other carry items (story engine will share this shape).
 
 import { displayLabel } from '../../displayLabel.js'
+import { itemQuantity } from '../../character/holdings.js'
 
 export function normalizeItem(raw = {}) {
   if (!raw.id) return null
@@ -27,7 +28,11 @@ export function createInventory(initialIds = []) {
 }
 
 export function hasItem(inventory, itemId) {
-  return !!itemId && inventory.has(itemId)
+  if (!itemId || !inventory) return false
+  if (inventory.holdings?.holders) {
+    return itemQuantity(inventory.holdings, itemId) > 0
+  }
+  return inventory.has(itemId)
 }
 
 export function addItem(inventory, itemId) {

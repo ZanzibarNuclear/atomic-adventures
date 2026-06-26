@@ -6,8 +6,7 @@ import {
   roomsOnLevel,
   roomRect,
   roomStandPosition,
-  ROOM_ICON_HALF_HEIGHT,
-  FEET_GAP_ABOVE_ROOM_ICON,
+  roomStandModels,
   isStairLanding,
   levelBeams,
   doorsOnLevel,
@@ -37,6 +36,7 @@ export function useGridMapPlacements({
   building,
   level,
   currentRoom,
+  currentStand,
   exteriorNode,
   avatarWaypoint,
   standLevel,
@@ -92,6 +92,12 @@ export function useGridMapPlacements({
       ring.map((p) => tp(p.x * cell.value, p.y * cell.value)),
     )
   })
+
+  const placedFogBuildingShell = computed(() =>
+    levelBuildingPerimeter(building.value, level.value).map((ring) =>
+      ring.map((p) => tp(p.x * cell.value, p.y * cell.value)),
+    ),
+  )
 
   const placedRooms = computed(() =>
     mappedRooms.value.map((room) => {
@@ -292,6 +298,35 @@ export function useGridMapPlacements({
     layoutPlacedFixtures(fixtures.value, building.value, cell.value, tp),
   )
 
+  const placedRoomStands = computed(() => {
+    const rooms = builderView.value
+      ? levelRooms.value.filter((room) => !room.feature && !room.open)
+      : current.value && !current.value.feature
+        ? [current.value]
+        : []
+    return rooms.flatMap((room) =>
+      roomStandModels(building.value, room.id).map((stand) => {
+        const point = tp(stand.at.x * cell.value, stand.at.y * cell.value)
+        return {
+          key: `${room.id}/${stand.id}`,
+          id: stand.id,
+          roomId: room.id,
+          label: stand.label ?? stand.id,
+          kind: stand.kind,
+          cx: point.x,
+          cy: point.y,
+          r: cell.value * (stand.kind === 'door' ? 0.065 : 0.075),
+          current: room.id === currentRoom.value && stand.id === currentStand.value,
+          reachable:
+            !builderView.value &&
+            room.id === currentRoom.value &&
+            stand.id !== currentStand.value,
+          selected: selectedItemId.value === `${room.id}/${stand.id}`,
+        }
+      }),
+    )
+  })
+
   const avatarScale = computed(() => (cell.value / 64) * 0.42)
   const avatarFootOffset = computed(() => 26 * avatarScale.value)
   const stairLandingFixture = computed(() => {
@@ -332,21 +367,15 @@ export function useGridMapPlacements({
       }
     }
     if (current.value.level !== level.value) return null
-    const stand = roomStandPosition(building.value, current.value)
+    const stand = roomStandPosition(building.value, current.value, currentStand.value)
     if (!stand) return null
     const pt = tp(stand.x, stand.y)
-    if (current.value.icon) {
-      // Screen-space offset: stand above the centered room icon.
-      const feetY = pt.y - ROOM_ICON_HALF_HEIGHT - FEET_GAP_ABOVE_ROOM_ICON
-      return { x: pt.x, y: feetY - avatarFootOffset.value }
-    }
-    // No icon — stand at room center (icon anchor position).
     return { x: pt.x, y: pt.y - avatarFootOffset.value }
   })
 
   // ── Micro-hydro generator overlay ──────────────────────────────────────────
   // Layout constants (units: +x = north, +y = east, 1 unit = cell px).
-  // Anchored to the three riverbank nodes defined in utility-station.yaml:
+  // Anchored to the three riverbank nodes defined in the building content:
   //   upstream-bank   x=3.54,  y=-1.10
   //   midstream-bank  x=-1.12, y=-1.11
   //   downstream-bank x=-5.77, y=-1.11
@@ -357,7 +386,7 @@ export function useGridMapPlacements({
     if (level.value !== hydroLevel) return null
     const c = cell.value
 
-    // River geometry (derived from utility-station.yaml river config):
+    // River geometry (derived from the building river config):
     //   riverY  = content.minY(-1.11) - gap(1.0) - width(1.5) = -3.61
     //   river east edge = riverY + width = -2.11
     //   east bank gap: y from -2.11 (river edge) to -1.11 (riverside path)
@@ -467,6 +496,7 @@ export function useGridMapPlacements({
     levelRooms,
     mappedRooms,
     placedBuildingShell,
+    placedFogBuildingShell,
     placedRooms,
     placedDoors,
     placedBeams,
@@ -474,6 +504,7 @@ export function useGridMapPlacements({
     placedExteriorNodes,
     placedExits,
     placedFixtures,
+    placedRoomStands,
     editPathControlLine,
     pathBuilderLegend,
     addPointHint,

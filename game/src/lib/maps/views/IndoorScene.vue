@@ -6,28 +6,27 @@
 
   <NarrativeCard :beat="narrativeBeat" />
 
+  <IndoorMovementAudit
+    v-if="auditEnabled && devMode"
+    :indoor="indoor"
+    @close="$emit('hide-movement-audit')"
+  />
+
   <PlayPanel>
     <StatusLines :lines="statusLines" />
 
-    <TravelOptions v-if="chooseActions.length" label="Choose an Action">
+    <TravelOptions v-if="actions.length" label="Choose an Action">
       <button
-        v-for="item in chooseActions"
+        v-for="item in actions"
         :key="item.id"
         class="route-btn"
         :class="item.kind ? 'k-' + item.kind : 'k-story'"
-        :disabled="indoor.indoor.moving"
-        @click="onChooseAction(item.id)">
+        :disabled="indoor.indoor.moving || item.disabled"
+        :title="item.hint ?? ''"
+        @click="onAction(item.id)">
         {{ item.label }}
       </button>
     </TravelOptions>
-
-    <InventoryPanel :items="indoor.carriedItems" />
-
-    <PlayActions
-      v-if="playActions.length"
-      :items="playActions"
-      label="Actions"
-      @select="onPlayAction" />
   </PlayPanel>
 </template>
 
@@ -38,10 +37,9 @@ import IndoorMapStage from "../components/IndoorMapStage.vue";
 import PlayPanel from "../../../components/hud/PlayPanel.vue";
 import MapCaption from "../components/hud/MapCaption.vue";
 import TravelOptions from "../components/hud/TravelOptions.vue";
-import InventoryPanel from "../components/hud/InventoryPanel.vue";
 import StatusLines from "../../../components/hud/StatusLines.vue";
-import PlayActions from "../../../components/hud/PlayActions.vue";
 import NarrativeCard from "../../../components/story/NarrativeCard.vue";
+import IndoorMovementAudit from "../components/diagnostics/IndoorMovementAudit.vue";
 import {
   buildIndoorChooseActions,
   buildIndoorPlayActions,
@@ -56,7 +54,11 @@ const props = defineProps({
   pendingBeat: { type: Object, default: null },
   applyChoice: { type: Function, required: true },
   travelToRoom: { type: Function, required: true },
+  auditEnabled: { type: Boolean, default: false },
 });
+
+defineEmits(["hide-movement-audit"]);
+const devMode = import.meta.env.DEV;
 
 const locationTitle = computed(() => {
   const { indoor } = props;
@@ -72,24 +74,29 @@ const chooseActions = computed(() =>
 
 const statusLines = computed(() => buildIndoorStatusLines(props.indoor));
 
-const playActions = computed(() => buildIndoorPlayActions(props.indoor));
+const playActions = computed(() =>
+  buildIndoorPlayActions(props.indoor, props.pendingBeat),
+);
 
-function onChooseAction(id) {
-  handleIndoorChooseAction(
-    props.indoor,
-    props.applyChoice,
-    id,
-    props.travelToRoom,
-  );
-}
+const actions = computed(() => [...chooseActions.value, ...playActions.value]);
 
-function onPlayAction(id) {
+function onAction(id) {
+  if (id.startsWith("story:")) {
+    handleIndoorChooseAction(
+      props.indoor,
+      props.applyChoice,
+      id,
+      props.travelToRoom,
+    );
+    return;
+  }
   handleIndoorPlayAction(props.indoor, id);
 }
 
 const mapStageProps = computed(() => ({
   building: props.indoor.building,
   currentRoom: props.indoor.indoor.currentRoom ?? "",
+  currentStand: props.indoor.indoor.currentStand,
   exteriorNode: props.indoor.indoor.exteriorNode,
   avatarWaypoint: props.indoor.indoor.avatarWaypoint,
   discovered: [...props.indoor.indoor.discovered],
@@ -106,6 +113,9 @@ const mapStageProps = computed(() => ({
 
 const mapStageListeners = computed(() => ({
   "room-click": props.travelToRoom,
+  "stand-click": ({ roomId, standId }) => {
+    if (roomId === props.indoor.indoor.currentRoom) props.indoor.moveToStand(standId);
+  },
   "exterior-node-click": props.indoor.moveToExteriorNode,
   "door-click": props.indoor.tryToggleDoor,
   "exit-click": props.indoor.exitViaDoor,

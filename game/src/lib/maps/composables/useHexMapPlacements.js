@@ -3,6 +3,7 @@ import { buildRouteDrawPieces } from './useRoutes.js'
 import { riverSegments, barrierSegments } from './useTravelBarriers.js'
 import { resolveAvatarPosition, hasLandmarkMarker } from './useAvatarStand.js'
 import { buildForestTrees } from './forestTreePlacement.js'
+import { buildRockyShrubScenery } from './rockyShrubPlacement.js'
 import {
   buildPassageMarkers,
   visiblePassageMarkers,
@@ -31,6 +32,43 @@ function chevronPath(x, y, dx, dy, scale = 1) {
   return `M ${bx - px * s * 0.45} ${by - py * s * 0.45} L ${tipX} ${tipY} L ${bx + px * s * 0.45} ${by + py * s * 0.45}`
 }
 
+function clamp01(value) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return null
+  return Math.max(0, Math.min(1, number))
+}
+
+function cascadeSampleIndexes(samples, cascade) {
+  if (samples.length < 4) return []
+  const from = clamp01(cascade?.from)
+  const to = clamp01(cascade?.to)
+  if (from == null || to == null || from === to) return []
+  const lo = Math.min(from, to)
+  const hi = Math.max(from, to)
+  return [0.25, 0.5, 0.75]
+    .map((t) => lo + (hi - lo) * t)
+    .map((t) => Math.min(samples.length - 2, Math.max(1, Math.floor((samples.length - 1) * t))))
+}
+
+const FEATURE_DRAW_ORDER = {
+  road: 0,
+  drive: 0,
+  path: 0,
+  trail: 0,
+  river: 1,
+  cliff: 2,
+  ravine: 2,
+  fence: 3,
+}
+
+function featureDrawOrder(piece) {
+  return FEATURE_DRAW_ORDER[piece.kind] ?? 1
+}
+
+export function sortFeatureDrawPieces(pieces) {
+  return [...pieces].sort((a, b) => featureDrawOrder(a) - featureDrawOrder(b))
+}
+
 /**
  * Screen-space placements for HexMap layers (terrain scatter, routes, avatar, legend).
  */
@@ -43,6 +81,7 @@ export function useHexMapPlacements({
   standOverride,
   discoveredSet,
   discoveredOpenings,
+  passageStates,
   visibleHexes,
   fogMaskOpts,
   flags,
@@ -58,6 +97,7 @@ export function useHexMapPlacements({
     buildPassageMarkers(mapData.value.features ?? [], hexByIdFromMap(), size.value, {
       flags: flags?.value ?? flags ?? null,
       barriers: barrierSegments(featureModels.value ?? []),
+      passageStates: passageStates?.value ?? passageStates ?? {},
     }),
   )
 
@@ -91,44 +131,30 @@ export function useHexMapPlacements({
       standOverride.value?.hexId === hex.id &&
       standOverride.value?.standAt
     ) {
-      return resolveAvatarPosition(
-        { ...hex, standAt: standOverride.value.standAt },
-        size.value,
-      )
+      return standOverride.value.standAt
     }
     return resolveAvatarPosition(hex, size.value)
   })
 
   const cascadeChevrons = computed(() => {
-    const cascadeIds = new Set(
-      (mapData.value.hexes ?? []).filter((h) => h.cascade).map((h) => h.id),
-    )
-    if (!cascadeIds.size) return []
     const riverModels = featureModels.value.filter(
-      (model) => model.kind === 'river' && model.samples?.length,
+      (model) => model.kind === 'river' && model.samples?.length && model.cascades?.length,
     )
     if (!riverModels.length) return []
     const { isRevealed, inView } = fogMaskOpts()
     const out = []
-    for (const hexId of cascadeIds) {
-      if (!isRevealed(hexId) || !inView(hexId)) continue
-      const river = riverModels.find((model) =>
-        model.samples.some((sample) => sample.hexId === hexId),
-      )
-      if (!river) continue
-      const pts = river.samples.filter((s) => s.hexId === hexId)
-      if (pts.length < 4) continue
-      const picks = [0.35, 0.55, 0.75].map((t) =>
-        Math.min(pts.length - 2, Math.max(1, Math.floor(pts.length * t))),
-      )
-      for (const i of picks) {
-        const p = pts[i]
-        const prev = pts[i - 1]
-        const next = pts[i + 1]
-        out.push({
-          key: `${hexId}-${i}`,
-          d: chevronPath(p.x, p.y, next.x - prev.x, next.y - prev.y),
-        })
+    for (const river of riverModels) {
+      for (const cascade of river.cascades ?? []) {
+        for (const i of cascadeSampleIndexes(river.samples, cascade)) {
+          const p = river.samples[i]
+          if (!p?.hexId || !isRevealed(p.hexId) || !inView(p.hexId)) continue
+          const prev = river.samples[i - 1]
+          const next = river.samples[i + 1]
+          out.push({
+            key: `${river.id}-${cascade.id ?? 'cascade'}-${i}`,
+            d: chevronPath(p.x, p.y, next.x - prev.x, next.y - prev.y),
+          })
+        }
       }
     }
     return out
@@ -141,6 +167,16 @@ export function useHexMapPlacements({
       featureModels: featureModels.value,
       mapFeatures: mapData.value.features,
       hexById: hexByIdFromMap(),
+      size: size.value,
+      center,
+    }),
+  )
+
+  const rockyShrubs = computed(() =>
+    buildRockyShrubScenery({
+      visibleHexes: visibleHexes.value,
+      routeModels: routeModels.value,
+      featureModels: featureModels.value,
       size: size.value,
       center,
     }),
@@ -166,13 +202,10 @@ export function useHexMapPlacements({
     const linear = featureModels.value.filter(
       (m) => !['gate', 'hole', 'bridge', 'ford'].includes(m.kind),
     )
-    const roadish = linear.filter((m) => m.kind === 'road' || m.kind === 'drive')
-    const other = linear.filter((m) => m.kind !== 'road' && m.kind !== 'drive')
     const stub = mode.value !== 'full'
-    return [
-      ...buildRouteDrawPieces(roadish, { isRevealed, inView, allowStub: stub }),
-      ...buildRouteDrawPieces(other, { isRevealed, inView, allowStub: false }),
-    ]
+    return sortFeatureDrawPieces(
+      buildRouteDrawPieces(linear, { isRevealed, inView, allowStub: stub }),
+    )
   })
 
   const legendTerrains = computed(() => {
@@ -220,6 +253,7 @@ export function useHexMapPlacements({
     avatarPos,
     cascadeChevrons,
     trees,
+    rockyShrubs,
     routePieces,
     featurePieces,
     legendTerrains,

@@ -5,10 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApiHandler } from "./api.js";
-import { openDatabase } from "./db.js";
-import { StoryRepository } from "./story-repository.js";
-import { buildWorldCatalog, loadBuildingData, loadWorldSeed } from "./world-catalog.js";
-import { WorldRepository } from "./world-repository.js";
+import { createContentRepositories } from "./content-repositories.js";
+import { openContentDatabaseCopy } from "./test-content.js";
 
 const dirs = [];
 
@@ -19,12 +17,25 @@ afterEach(() => {
 function setup() {
   const dir = mkdtempSync(join(tmpdir(), "atomic-api-"));
   dirs.push(dir);
-  const db = openDatabase(join(dir, "api.sqlite"));
-  const seedWorld = loadWorldSeed();
-  const buildingData = loadBuildingData();
-  const repository = new StoryRepository(db, buildWorldCatalog(seedWorld, buildingData));
-  const worldRepository = new WorldRepository(db, { seedWorld, buildingData, storyRepository: repository });
-  return { db, api: createApiHandler(repository, worldRepository), worldRepository };
+  const db = openContentDatabaseCopy(join(dir, "api.sqlite"));
+  const {
+    storyRepository: repository,
+    worldRepository,
+    buildingRepository,
+    characterRepository,
+  } = createContentRepositories(db);
+  return {
+    db,
+    api: createApiHandler(
+      repository,
+      worldRepository,
+      buildingRepository,
+      characterRepository,
+    ),
+    worldRepository,
+    buildingRepository,
+    characterRepository,
+  };
 }
 
 function responseCapture() {
@@ -53,18 +64,97 @@ function request(method, url, body) {
 }
 
 describe("story API", () => {
+  it("publishes the character catalog and protects referenced definitions", async () => {
+    const { db, api, characterRepository } = setup();
+
+    const catalogRes = responseCapture();
+    await api.handle(request("GET", "/api/catalog"), catalogRes);
+    const catalog = JSON.parse(catalogRes.chunks.join(""));
+    expect(catalog.character.items.map((item) => item.id)).toContain("lobby-exterior-key");
+
+    const referencesRes = responseCapture();
+    await api.handle(
+      request("GET", "/api/character/references?domain=items&id=lobby-exterior-key"),
+      referencesRes,
+    );
+    const references = JSON.parse(referencesRes.chunks.join(""));
+    expect(references.some((reference) => reference.path.includes("lock.key"))).toBe(true);
+    expect(references.some((reference) => reference.path.includes("pickups"))).toBe(true);
+
+    const current = characterRepository.getDocument();
+    const removeRes = responseCapture();
+    await api.handle(request("PUT", "/api/character", {
+      character: {
+        ...current.character,
+        items: current.character.items.filter((item) => item.id !== "lobby-exterior-key"),
+      },
+      expectedVersion: current.version,
+    }), removeRes);
+    expect(removeRes.status).toBe(422);
+    expect(
+      Object.keys(JSON.parse(removeRes.chunks.join("")).errors)
+        .some((path) => path.startsWith("building.") && path.endsWith(".lock.key")),
+    ).toBe(true);
+    db.close();
+  });
+
+  it("serves, validates, and restores revisioned character content", async () => {
+    const { db, api, characterRepository } = setup();
+
+    const getRes = responseCapture();
+    await api.handle(request("GET", "/api/character"), getRes);
+    expect(getRes.status).toBe(200);
+    expect(JSON.parse(getRes.chunks.join("")).character.items).toEqual(
+      expect.any(Array),
+    );
+
+    const invalidRes = responseCapture();
+    await api.handle(
+      request("POST", "/api/character/validate", {
+        character: {
+          ...characterRepository.getDocument().character,
+          profile: { id: "Bad ID", name: "" },
+        },
+      }),
+      invalidRes,
+    );
+    expect(invalidRes.status).toBe(422);
+
+    const current = characterRepository.getDocument();
+    const restoreRevision = characterRepository.listRevisions()[0].revision;
+    characterRepository.save({
+      ...current.character,
+      profile: { ...current.character.profile, summary: "Temporary revision." },
+    }, current.version);
+    const restoreRes = responseCapture();
+    await api.handle(request("POST", `/api/character/revisions/${restoreRevision}/restore`), restoreRes);
+    expect(restoreRes.status).toBe(200);
+    expect(JSON.parse(restoreRes.chunks.join("")).character.profile.summary)
+      .toBe(current.character.profile.summary);
+
+    api.close();
+    db.close();
+  });
+
   it("broadcasts committed mutations and not rejected saves", async () => {
-    const { db, api, worldRepository } = setup();
+    const {
+      db,
+      api,
+      worldRepository,
+      buildingRepository,
+      characterRepository,
+    } = setup();
     const eventReq = new EventEmitter();
     eventReq.method = "GET";
     eventReq.url = "/api/content/events";
     const eventRes = responseCapture();
     await api.handle(eventReq, eventRes);
+    expect(eventRes.chunks.join("")).toContain("characterRevision");
 
     const valid = {
       id: "api-beat",
       text: "API story",
-      trigger: { place: "outdoors", hex: "trailhead" },
+      trigger: { place: "outdoors", hex: "origin" },
       choices: [],
     };
     const createRes = responseCapture();
@@ -97,7 +187,58 @@ describe("story API", () => {
     expect(worldRes.status).toBe(200);
     expect(eventRes.chunks.filter((chunk) => chunk.includes("world.updated"))).toHaveLength(1);
 
+    const currentBuilding = buildingRepository.getDocument();
+    const buildingRes = responseCapture();
+    await api.handle(
+      request("PUT", "/api/world/buildings/utility-station", {
+        building: {
+          ...currentBuilding.building,
+          rooms: currentBuilding.building.rooms.map((room) =>
+            room.id === "library" ? movedRoom(room, -0.5, 0) : room,
+          ),
+        },
+        expectedVersion: currentBuilding.version,
+      }),
+      buildingRes,
+    );
+    expect(buildingRes.status).toBe(200);
+    expect(eventRes.chunks.filter((chunk) => chunk.includes("building.updated"))).toHaveLength(1);
+
+    const currentCharacter = characterRepository.getDocument();
+    const characterRes = responseCapture();
+    await api.handle(
+      request("PUT", "/api/character", {
+        character: {
+          ...currentCharacter.character,
+          profile: {
+            ...currentCharacter.character.profile,
+            summary: "Updated through the API.",
+          },
+        },
+        expectedVersion: currentCharacter.version,
+      }),
+      characterRes,
+    );
+    expect(characterRes.status).toBe(200);
+    expect(eventRes.chunks.filter((chunk) => chunk.includes("character.updated")))
+      .toHaveLength(1);
+
     api.close();
     db.close();
   });
 });
+
+function movedRoom(room, dx, dy) {
+  return {
+    ...room,
+    x: room.x + dx,
+    y: room.y + dy,
+    stands: (room.stands ?? []).map((stand) => ({
+      ...stand,
+      at: {
+        x: stand.at.x + dx,
+        y: stand.at.y + dy,
+      },
+    })),
+  };
+}

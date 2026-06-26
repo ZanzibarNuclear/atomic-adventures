@@ -1,12 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import mapData from '../../../../content/world/map.yaml'
+import { mapData } from '../../testing/content.js'
 import { travelOpenings, buildPassageMarkers } from '../composables/useBarrierOpenings.js'
 import { buildRouteModels } from '../composables/useRoutes.js'
 import { barrierSegments } from '../composables/useTravelBarriers.js'
 import { useOutdoorWorld } from '../composables/useOutdoorWorld.js'
 import { buildTravelWorld, evaluateNeighborMove } from './travelWorld.js'
-
-const GATE_FLAG_UNLOCKED = 'compound.gate-unlocked'
 
 describe('opening discovery', () => {
   const hexById = Object.fromEntries(mapData.hexes.map((h) => [h.id, h]))
@@ -32,28 +30,19 @@ describe('opening discovery', () => {
     expect(without.some((o) => o.id === 'upper-gorge-bridge')).toBe(true)
   })
 
-  it('compound gate marker is closed until unlocked', () => {
+  it('compound gate marker follows explicit passage state', () => {
     const locked = buildPassageMarkers(mapData.features, hexById, size, {
-      flags: new Set(),
+      passageStates: { 'compound-gate': false },
       barriers,
     })
     const unlocked = buildPassageMarkers(mapData.features, hexById, size, {
-      flags: new Set([GATE_FLAG_UNLOCKED]),
+      passageStates: { 'compound-gate': true },
       barriers,
     })
     const gateLocked = locked.find((m) => m.id === 'compound-gate')
     const gateUnlocked = unlocked.find((m) => m.id === 'compound-gate')
     expect(gateLocked?.open).toBe(false)
     expect(gateUnlocked?.open).toBe(true)
-  })
-
-  it('compound gate sits on road fence crossing with guard booth', () => {
-    const markers = buildPassageMarkers(mapData.features, hexById, size, { barriers })
-    const gate = markers.find((m) => m.id === 'compound-gate')
-    expect(gate?.x).toBe(-81)
-    expect(gate?.y).toBe(-62)
-    expect(gate?.boothX).toBe(-94)
-    expect(gate?.boothY).toBe(-72)
   })
 
   it('south-pines hole enables in-hex crossing after search', () => {

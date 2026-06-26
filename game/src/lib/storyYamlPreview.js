@@ -2,22 +2,25 @@ import yaml from "js-yaml";
 
 export function storyBeatYaml(beat) {
   if (!beat?.id) return "";
+  const match = compact(beat.match);
   const output = {
-    once: beat.once,
-    acknowledge: beat.acknowledge,
     eyebrow: optional(beat.eyebrow),
     heading: optional(beat.heading),
     trigger: compact(beat.trigger),
-    require: compactLists(beat.require),
+    match: Object.keys(match).length ? match : undefined,
     text: beat.text ?? "",
     revisit: optional(beat.revisit),
     choices: (beat.choices ?? []).map((choice) => compact({
       text: choice.text,
+      timeMinutes: choice.timeMinutes || undefined,
+      activity: choice.timeMinutes ? choice.activity : undefined,
       sets: list(choice.sets),
       set_flags: list(choice.set_flags),
       go_hex: optional(choice.go_hex),
       go_room: optional(choice.go_room),
+      go_exterior_node: optional(choice.go_exterior_node),
       enter: optional(choice.enter),
+      view: choice.view || undefined,
     })),
   };
   return yaml.dump({ [beat.id]: compact(output) }, {
@@ -31,15 +34,6 @@ function compact(value = {}) {
   return Object.fromEntries(
     Object.entries(value).filter(([, item]) => item !== null && item !== undefined && item !== ""),
   );
-}
-
-function compactLists(value = {}) {
-  const result = {};
-  for (const key of ["all", "any", "not"]) {
-    const items = list(value[key]);
-    if (items?.length) result[key] = items;
-  }
-  return Object.keys(result).length ? result : undefined;
 }
 
 function list(value) {

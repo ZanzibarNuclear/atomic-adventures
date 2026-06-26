@@ -23,8 +23,8 @@ This monorepo contains two independent Vue 3 + Vite applications:
 
 ```text
 atomic-adventures/
-├── design/     # Narrative, learning, art, and simulation design
-├── docs/       # Technical designs and implementation roadmaps
+├── game-design/  # Game design — vision, story, progression, simulation specs, art
+├── docs/         # Technical docs — runtime contracts, deployment, roadmap
 ├── game/       # Playable vertical slice and full game
 ├── samples/    # Sample map data
 ├── scripts/    # Repository development scripts
@@ -33,9 +33,7 @@ atomic-adventures/
 
 Gameplay, narrative, persistence, and player-facing map changes belong in `game/`. Its main areas are:
 
-- `game/content/atomic-adventures.sqlite` — Canonical story and outdoor-world content with revision history
-- `game/content/story/` — Story YAML import/export snapshots
-- `game/content/world/` — Outdoor interchange YAML and canonical interior map data
+- `game/content/atomic-adventures.sqlite` — Canonical story, world, building, and character content with revision history
 - `game/server/` — Local content API, SQLite repository, migrations, and authoring server
 - `game/src/components/` — Story overlay and application UI
 - `game/src/composables/` — Game state, story, and save/load logic
@@ -70,7 +68,7 @@ Each successful save writes directly to the tracked SQLite file, so `git status`
 shows content edits immediately and committing that file carries them to remote
 installations.
 
-YAML remains available for interchange and review:
+YAML remains available for explicit interchange and review:
 
 ```bash
 npm run content:export -w game -- part-i /tmp/part-i.yaml
@@ -78,8 +76,8 @@ npm run content:import -w game -- path/to/story.yaml
 npm run content:import -w game -- path/to/story.yaml --replace
 ```
 
-Direct edits to `game/content/story/*.yaml` do not change the running game until
-they are explicitly imported.
+Snapshots are not tracked as canonical content. Export to an explicit path,
+review or edit that file, then import it when you want SQLite to change.
 
 ## World Authoring
 
@@ -88,16 +86,23 @@ Outdoor world content is canonical in SQLite and is edited at
 routes, barriers, passages, landmarks, and stand points. Saves create immutable
 world revisions and update open game windows without a page reload.
 
-`game/content/world/map.yaml` is retained for deterministic interchange:
+YAML snapshots remain available for deterministic interchange:
 
 ```bash
 npm run world:export -w game -- outdoor-main /tmp/map.yaml
 npm run world:import -w game -- /tmp/map.yaml --replace
 ```
 
-Direct edits to `map.yaml` do not affect the running game until imported. Indoor
-building geometry remains YAML-backed for now. See
-[docs/design/world-authoring.md](docs/design/world-authoring.md).
+Indoor utility-station geometry is revisioned in SQLite and edited from the World
+Builder; it can also be exported or imported as an explicit snapshot:
+
+```bash
+npm run building:export -w game -- utility-station /tmp/utility-station.yaml
+npm run building:import -w game -- /tmp/utility-station.yaml --replace
+```
+
+Snapshot files are not tracked as canonical content. See
+[docs/contracts/world-authoring.md](docs/contracts/world-authoring.md).
 
 ## Deployment
 
@@ -111,20 +116,54 @@ content promotion, smoke tests, and rollback procedures.
 
 Run `npm run deploy:check` before promoting a production deployment.
 
-## Quick Links
+## Documentation
 
-- [Game Design Overview](design/game-design-overview.md) — Core vision, pillars, and scope
-- [Story & Narrative](design/content/story/story-overview.md) — Beginning storyline and narrative design
-- [Simulation Specifications](design/content/subject-matter/simulation-overview.md) — Physics and engineering simulation designs
+Two top-level directories separate **what we are building** from **how it is implemented**:
 
-## Technologies in Scope
+| Directory | Audience | Contents |
+| --------- | -------- | -------- |
+| [`game-design/`](game-design/) | Writers, designers, educators | Vision, narrative, progression, simulation specs, art references |
+| [`docs/`](docs/) | Engineers, agents, operators | Runtime contracts, deployment, technology roadmap |
 
-| Category             | Technologies                                           |
-| -------------------- | ------------------------------------------------------ |
-| **Hydro**            | Diversion / penstock, run-of-river, pumped storage     |
-| **Photovoltaic**     | Solar panels, inverters, grid integration              |
-| **Nuclear (Gen IV)** | Sodium-cooled fast reactor, others as they come online |
-| **Fusion**           | Tokamak / magnetic confinement concepts                |
+Do not conflate them. Story beats and facility layout live in `game-design/`; beat selection order, hex movement rules, and the SQLite authoring API live in `docs/contracts/`.
+
+### Game design — getting started
+
+Read in this order when onboarding to narrative or simulation design:
+
+1. [Game Design Overview](game-design/game-design-overview.md) — pillars, scope, core loop
+2. [Story Overview](game-design/content/story/story-overview.md) — three-part structure and Part I beats
+3. [Characters](game-design/content/story/characters.md) — protagonist and cast
+4. [Part I Unlocks](game-design/content/part-i-unlocks.md) — hydro progression and discovery chains
+5. [Progression Design](game-design/content/progression-design.md) — gates, difficulty curve, staged complexity
+6. [Learning Objectives](game-design/content/learning-objectives.md) — concepts mapped to story
+7. [Simulation Overview](game-design/content/subject-matter/simulation-overview.md) — per-technology sim specs ([hydro](game-design/content/subject-matter/hydro-simulation.md) is the Part I spine)
+8. [Reactor & Extension Catalog](game-design/content/reactor-catalog.md) — trilogy SMR, post-game extensions, future model list
+
+Story art and map references live under [`game-design/art/`](game-design/art/). Most design documents are marked `[DRAFT]`.
+
+### Technical documentation
+
+| Document | Purpose |
+| -------- | ------- |
+| [Technology Roadmap](docs/tech-roadmap.md) | Decisions made, Part I gaps, future Neon/player features |
+| [Story Beats](docs/contracts/story-beats.md) | Beat engine runtime and builder behavior (source of truth) |
+| [World Authoring](docs/contracts/world-authoring.md) | Outdoor world builder, SQLite, live updates |
+| [Hex Crawling](docs/contracts/hex-crawling.md) | Outdoor movement contract |
+| [Hex Viewport](docs/contracts/hex-viewport.md) | Map zoom, fog, and visibility |
+| [Deployment](docs/deployment.md) | Vercel production build and content promotion |
+
+Agent and contributor conventions: [AGENTS.md](AGENTS.md).
+
+## Technologies in Scope (Release Trilogy)
+
+| Part | Category | Technologies |
+| ---- | -------- | ------------ |
+| I | **Hydro** | Diversion / penstock, run-of-river |
+| II | **Photovoltaic** | Solar panels, inverters, grid integration |
+| III | **Nuclear (Gen IV SMR)** | One real-world SMR design at launch; alternates via extension packs |
+
+Deferred: AP-1000 Gen III+, fusion, wind, geothermal.
 
 ## Contributing
 

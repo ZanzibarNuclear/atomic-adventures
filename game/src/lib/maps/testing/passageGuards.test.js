@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import mapData from '../../../../content/world/map.yaml'
-import { buildGameplayWorld, GATE_FLAG_UNLOCKED } from './gameplayTravel.js'
+import { mapData } from '../../testing/content.js'
+import { buildGameplayWorld } from './gameplayTravel.js'
 
 describe('passage crossing guards', () => {
   it('does not cross a locked gate through a direct call', () => {
-    const { outdoor, gameState } = buildGameplayWorld(mapData, {
+    const { outdoor } = buildGameplayWorld(mapData, {
       startHex: 'gate-woods',
     })
     outdoor.state.stand = { x: -81, y: -76 }
@@ -13,7 +13,7 @@ describe('passage crossing guards', () => {
 
     expect(outdoor.state.currentId).toBe('gate-woods')
     expect(outdoor.state.stand).toEqual({ x: -81, y: -76 })
-    expect(gameState.flags.has(GATE_FLAG_UNLOCKED)).toBe(false)
+    expect(outdoor.state.passageStates['compound-gate']).toBeUndefined()
   })
 
   it('does not cross a hidden passage before discovery', () => {
@@ -42,8 +42,8 @@ describe('passage crossing guards', () => {
   it('does not trust stale atBarrier state when the avatar is not near the passage barrier', () => {
     const { outdoor } = buildGameplayWorld(mapData, {
       startHex: 'gate-woods',
-      flags: [GATE_FLAG_UNLOCKED],
     })
+    outdoor.state.passageStates['compound-gate'] = true
     outdoor.state.stand = { x: -81, y: -20 }
     outdoor.state.atBarrier = 'fence'
 

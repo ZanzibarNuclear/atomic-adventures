@@ -10,8 +10,29 @@ import {
   isDestinationNamed,
   movesFrom,
   moveKey,
+  defaultRoomStandId,
+  doorThresholdForRoom,
+  roomStandModels,
 } from "../useGrid.js";
 import { canBargeThroughDoor, canPassDoor } from "../useDoors.js";
+import { advanceGameTime } from "../../../character/gameTime.js";
+import { resolveStandPoint } from "../useAvatarStand.js";
+
+export const INDOOR_MOVE_MS = 550;
+export const FLOOR_MOVE_MS = 520;
+export const EXTERIOR_WALK_SPEED = 5;
+const UTILITY_STATION_BUILDING_ID = "utility-station";
+
+export function prefersReducedMapMotion() {
+  return typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+export function exteriorWalkDurationMs(distance, reducedMotion = false) {
+  if (reducedMotion || !Number.isFinite(distance) || distance <= 0) return 0;
+  return (distance / EXTERIOR_WALK_SPEED) * 1000;
+}
 
 export function createIndoorMovement(deps) {
   const {
@@ -25,7 +46,14 @@ export function createIndoorMovement(deps) {
     outdoor,
     builderView,
     tryOpenDoor,
+    gameState,
   } = deps;
+
+  function advanceMovementTime(minutes) {
+    if (gameState?.clock && gameState?.character) {
+      advanceGameTime(gameState, minutes, "light");
+    }
+  }
 
   const indoorMoves = computed(() => {
     if (indoor.exteriorNode) {
@@ -49,13 +77,14 @@ export function createIndoorMovement(deps) {
         moves.push({
           kind: "door",
           toRoomId: node.room,
+          doorId: node.door,
           label: "through the door",
           toName: roomLabel(room),
         });
       }
       return moves;
     }
-    return [
+    const roomMoves = [
       ...movesFrom(
         building.value,
         indoor.currentRoom,
@@ -70,6 +99,19 @@ export function createIndoorMovement(deps) {
         building.value.areaId,
       ),
     ];
+    const localStandMoves = roomStandModels(
+      building.value,
+      indoor.currentRoom,
+    )
+      .filter((stand) => stand.id !== indoor.currentStand)
+      .map((stand) => ({
+        kind: "stand",
+        toRoomId: indoor.currentRoom,
+        toStandId: stand.id,
+        label: `to ${stand.label ?? stand.id}`,
+        toName: stand.label ?? stand.id,
+      }));
+    return [...localStandMoves, ...roomMoves];
   });
 
   const bargeMoves = computed(() => {
@@ -133,7 +175,7 @@ export function createIndoorMovement(deps) {
     return [
       ...indoorMoves.value.filter((m) => !m.onSpiral).map((m) => m.toRoomId),
       ...bargeMoves.value.map((m) => m.toRoomId),
-    ];
+    ].filter((id) => id && id !== indoor.currentRoom);
   });
 
   const reachableExteriorNodes = computed(() => {
@@ -153,16 +195,37 @@ export function createIndoorMovement(deps) {
 
   const levelsTopDown = computed(() => building.value.levels);
 
-  function resetOutdoorStand(hexId) {
-    outdoor.state.stand = outdoor.defaultStandForHex(hexId);
+  function resetOutdoorStand(hexId, standAt = null) {
+    const hex = outdoor.hexById[hexId];
+    outdoor.state.stand =
+      resolveStandPoint(hex, standAt, outdoor.size) ??
+      outdoor.defaultStandForHex(hexId);
     outdoor.state.lastBlocked = null;
     outdoor.state.atBarrier = null;
   }
 
-  function goIndoors() {
-    resetOutdoorStand(outdoor.state.currentId);
-    indoor.exteriorNode = building.value.exterior?.entry ?? null;
+  function transitionMatchesEntryFrom(transition, previousHexId) {
+    return !!previousHexId && (transition.entryFrom ?? []).includes(previousHexId);
+  }
+
+  function selectEntryTransition(hexId) {
+    const transitions = (building.value.exits ?? []).filter(
+      (exit) => (exit.hex ?? building.value.outdoorHex) === hexId,
+    );
+    if (!transitions.length) return null;
+    return (
+      transitions.find((transition) =>
+        transitionMatchesEntryFrom(transition, outdoor.state.previousId),
+      ) ??
+      transitions.find((transition) => transition.exteriorNode === building.value.exterior?.entry) ??
+      transitions[0]
+    );
+  }
+
+  function goIndoors(entryTransition = null) {
+    indoor.exteriorNode = entryTransition?.exteriorNode ?? building.value.exterior?.entry ?? null;
     indoor.currentRoom = null;
+    indoor.currentStand = null;
     indoor.discovered = new Set();
     indoor.revealed = new Set();
     indoor.level = building.value.exterior?.level ?? "first";
@@ -173,17 +236,17 @@ export function createIndoorMovement(deps) {
   function enterBuilding(hexId) {
     const id = hexId ?? outdoor.state.currentId;
     const hex = outdoor.hexById[id];
-    if (!hex || hex.area !== "utility") return;
-    goIndoors();
+    if (hex?.landmark?.building !== UTILITY_STATION_BUILDING_ID) return;
+    goIndoors(selectEntryTransition(id));
   }
 
   function visitStation() {
     const hexId =
       building.value.outdoorHex ??
-      outdoor.editableHexes.find((h) => h.area === "utility")?.id;
+      outdoor.editableHexes.find((h) => h.landmark?.building === UTILITY_STATION_BUILDING_ID)?.id;
     if (!hexId) return;
     outdoor.state.currentId = hexId;
-    goIndoors();
+    goIndoors(selectEntryTransition(hexId));
   }
 
   function exitViaDoor(doorId) {
@@ -213,19 +276,26 @@ export function createIndoorMovement(deps) {
     exitTravelHint.value = "";
     const hexId = exit.hex ?? building.value.outdoorHex;
     if (!hexId) return;
+    const previousId = outdoor.state.currentId;
     outdoor.state.currentId = hexId;
-    resetOutdoorStand(hexId);
+    outdoor.state.previousId = previousId !== hexId ? previousId : null;
+    outdoor.state.localExit = exit.id ?? doorId;
+    resetOutdoorStand(hexId, exit.standAt);
     indoor.exteriorNode = null;
     indoor.currentRoom = null;
+    indoor.currentStand = null;
     place.value = "outdoors";
   }
 
   function exitBuilding() {
     const hexId = building.value.outdoorHex ?? outdoor.state.currentId;
     outdoor.state.currentId = hexId;
+    outdoor.state.previousId = null;
+    outdoor.state.localExit = null;
     resetOutdoorStand(hexId);
     indoor.exteriorNode = null;
     indoor.currentRoom = null;
+    indoor.currentStand = null;
     place.value = "outdoors";
   }
 
@@ -234,6 +304,16 @@ export function createIndoorMovement(deps) {
     if (!indoorMoves.value.some((m) => moveKey(m) === moveKey(move))) return;
 
     indoor.moving = true;
+    const finishAfter = (duration) => {
+      const wait = prefersReducedMapMotion() ? 0 : duration;
+      if (wait === 0) {
+        indoor.moving = false;
+        return;
+      }
+      setTimeout(() => {
+        indoor.moving = false;
+      }, wait);
+    };
 
     if (indoor.exteriorNode) {
       if (move.toExteriorNode) {
@@ -243,15 +323,18 @@ export function createIndoorMovement(deps) {
         return;
       }
       if (move.kind === "door" && move.toRoomId) {
+        const room = building.value.roomById[move.toRoomId];
         indoor.currentRoom = move.toRoomId;
+        indoor.currentStand = move.doorId
+          ? `door:${move.doorId}`
+          : defaultRoomStandId(room);
         indoor.exteriorNode = null;
         discoverIndoorRoom(move.toRoomId);
         indoor.level =
           building.value.roomById[move.toRoomId]?.level ?? indoor.level;
         indoor.viewLevel = indoor.level;
-        setTimeout(() => {
-          indoor.moving = false;
-        }, 400);
+        advanceMovementTime(2);
+        finishAfter(INDOOR_MOVE_MS);
         return;
       }
       indoor.moving = false;
@@ -261,18 +344,24 @@ export function createIndoorMovement(deps) {
     if (move.toExteriorNode) {
       indoor.exteriorNode = move.toExteriorNode;
       indoor.currentRoom = null;
-      setTimeout(() => {
-        indoor.moving = false;
-      }, 400);
+      indoor.currentStand = null;
+      advanceMovementTime(2);
+      finishAfter(INDOOR_MOVE_MS);
       return;
     }
 
     if (move.onSpiral) {
       indoor.level = move.toLevel;
       indoor.viewLevel = move.toLevel;
-      setTimeout(() => {
-        indoor.moving = false;
-      }, 500);
+      advanceMovementTime(2);
+      finishAfter(FLOOR_MOVE_MS);
+      return;
+    }
+
+    if (move.toStandId && move.toRoomId === indoor.currentRoom) {
+      indoor.currentStand = move.toStandId;
+      advanceMovementTime(1);
+      finishAfter(INDOOR_MOVE_MS);
       return;
     }
 
@@ -284,6 +373,9 @@ export function createIndoorMovement(deps) {
     }
 
     indoor.currentRoom = move.toRoomId;
+    indoor.currentStand = move.doorId
+      ? doorThresholdForRoom(building.value, move.toRoomId, move.doorId)?.id
+      : defaultRoomStandId(to);
     discoverIndoorRoom(move.toRoomId);
 
     if (to.feature) {
@@ -293,9 +385,8 @@ export function createIndoorMovement(deps) {
     }
     indoor.viewLevel = indoor.level;
 
-    setTimeout(() => {
-      indoor.moving = false;
-    }, 500);
+    advanceMovementTime(2);
+    finishAfter(INDOOR_MOVE_MS);
   }
 
   function moveToRoom(roomId) {
@@ -310,6 +401,13 @@ export function createIndoorMovement(deps) {
         (m) => !m.onSpiral && m.toRoomId === roomId,
       );
     }
+    if (move) applyIndoorMove(move);
+  }
+
+  function moveToStand(standId) {
+    const move = indoorMoves.value.find((item) =>
+      item.toRoomId === indoor.currentRoom && item.toStandId === standId
+    );
     if (move) applyIndoorMove(move);
   }
 
@@ -330,8 +428,6 @@ export function createIndoorMovement(deps) {
     const move = indoorMoves.value.find((m) => m.toExteriorNode === nodeId);
     if (move) applyIndoorMove(move);
   }
-
-  const WALK_SPEED = 5 // layout units per second
 
   function walkExteriorPath(nodeIds) {
     if (indoor.moving || !nodeIds.length) return
@@ -365,8 +461,15 @@ export function createIndoorMovement(deps) {
     }
     const totalDist = dists[dists.length - 1]
     if (!totalDist) { indoor.moving = false; return }
+    advanceMovementTime(Math.max(1, Math.round(totalDist / 2)))
 
-    const totalMs = (totalDist / WALK_SPEED) * 1000
+    const totalMs = exteriorWalkDurationMs(totalDist, prefersReducedMapMotion())
+    if (totalMs === 0) {
+      indoor.exteriorNode = nodeIds.at(-1)
+      indoor.avatarWaypoint = null
+      indoor.moving = false
+      return
+    }
     const startTime = performance.now()
 
     // Real nodes queued to be committed as the avatar passes their distance.
@@ -421,6 +524,7 @@ export function createIndoorMovement(deps) {
     exitBuilding,
     applyIndoorMove,
     moveToRoom,
+    moveToStand,
     moveToExteriorNode,
     moveKey,
     isDestinationNamed,

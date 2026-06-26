@@ -73,7 +73,7 @@ export function searchBarrierKind({ openings = [], atBarrier = null, lastBlocked
 
 export function searchActionLabel(opts) {
   const kind = searchBarrierKind(opts)
-  if (kind === 'fence') return 'Search along the fence'
+  if (kind === 'fence') return 'Inspect the fence'
   if (kind === 'river') return 'Search the riverbank'
   return 'Search carefully'
 }
@@ -137,7 +137,13 @@ export function hiddenOpeningsInHex(mapFeatures, hexId, discoveredOpenings = [])
 }
 
 /** Build passage marker models for map rendering. */
-export function buildPassageMarkers(mapFeatures, hexById, size, { flags, barriers } = {}) {
+export function buildPassageMarkers(
+  mapFeatures,
+  hexById,
+  size,
+  { flags, barriers, passageStates } = {},
+) {
+  const hasPassageStates = passageStates != null
   return (mapFeatures ?? [])
     .filter((f) => f.at && BARRIER_OPENING_KINDS.has(f.kind))
     .map((f) => {
@@ -159,7 +165,12 @@ export function buildPassageMarkers(mapFeatures, hexById, size, { flags, barrier
         labelX: labelAt?.x ?? at.x,
         labelY: labelAt?.y ?? at.y + 12,
         label: f.label ?? '',
-        open: f.kind === 'gate' ? passageRequirementSatisfied(f, flags) : undefined,
+        open:
+          f.kind === 'gate'
+            ? hasPassageStates
+              ? passageStates[f.id] === true
+              : passageRequirementSatisfied(f, flags)
+            : undefined,
         angle: f.kind === 'gate' ? openingFenceAngleDeg(at, barriers) : undefined,
         boothX: boothAt?.x,
         boothY: boothAt?.y,

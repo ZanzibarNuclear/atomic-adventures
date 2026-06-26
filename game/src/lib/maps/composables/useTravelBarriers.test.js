@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import mapData from '../../../../content/world/map.yaml'
+import { mapData } from '../../testing/content.js'
 import { buildTravelWorld, evaluateNeighborMove } from '../testing/travelWorld.js'
 import { axialToPixel, NEIGHBOR_DIRS, pixelToHex } from './useHexGeometry.js'
 import { hexCenterStand } from './useAvatarStand.js'
@@ -32,6 +32,9 @@ function hexAtPoint(pt, fallback) {
   const key = `${q},${r}`
   if (fallback === 'from' || fallback === 'to') {
     return { '0,0': 'from', '1,0': 'to' }[key] ?? fallback
+  }
+  if (fallback === 'lower-stand' || fallback === 'south-pines') {
+    return { '2,0': 'lower-stand', '1,0': 'south-pines' }[key] ?? fallback
   }
   return {
     '0,0': 'west',
@@ -218,12 +221,12 @@ describe('resolveMove', () => {
   })
 
   it('enters the destination hex on the accessible side of an in-hex fence', () => {
-    const fromHex = { id: 'lower-stand', q: 0, r: 1 }
-    const toHex = { id: 'south-pines', q: -1, r: 1 }
-    const fromPos = { x: 38.1, y: 66 }
-    const toPos = { x: -38.1, y: 66 }
+    const fromHex = { id: 'lower-stand', q: 2, r: 0 }
+    const toHex = { id: 'south-pines', q: 1, r: 0 }
+    const fromPos = { x: 152.4, y: 0 }
+    const toPos = { x: 76.2, y: 0 }
     const eastFence = {
-      barriers: [{ a: { x: -30, y: -50 }, b: { x: -30, y: 140 }, kind: 'fence' }],
+      barriers: [{ a: { x: 84.32, y: -128 }, b: { x: 84.32, y: 74 }, kind: 'fence' }],
       openings: [],
     }
 
@@ -240,14 +243,14 @@ describe('resolveMove', () => {
 
     expect(result.blockedKind).toBeNull()
     expect(result.activeHexId).toBe('south-pines')
-    expect(result.stand.x).toBeGreaterThan(-30)
+    expect(result.stand.x).toBeGreaterThan(84.32)
   })
 })
 
 describe('reachable arrival stand selection', () => {
   const size = 44
   const fromHex = { id: 'from', q: 0, r: 0 }
-  const toHex = { id: 'to', q: 1, r: 0, standAt: { x: 120, y: 0 } }
+  const toHex = { id: 'to', q: 1, r: 0, stands: [{ id: 'east', at: { x: 120, y: 0 } }] }
   const fromPos = { x: 0, y: 0 }
   const authoredStand = { x: 120, y: 0 }
   const centerStand = hexCenterStand(toHex, size)
@@ -255,10 +258,32 @@ describe('reachable arrival stand selection', () => {
   it('uses an authored stand when it is reachable', () => {
     const result = resolveMove({
       fromHex,
-      toHex: { ...toHex, standAt: { x: 70, y: 20 } },
+      toHex: { ...toHex, stands: [{ id: 'west', at: { x: 70, y: 20 } }] },
       fromPos,
       toPos: { x: 70, y: 20 },
       path: [fromPos, { x: 70, y: 20 }],
+      ctx: verticalFence,
+      hexAtPoint,
+      size,
+    })
+
+    expect(result.blockedKind).toBeNull()
+    expect(result.stand).toEqual({ x: 70, y: 20 })
+  })
+
+  it('chooses the authored stand reachable from the entered side of a barrier', () => {
+    const result = resolveMove({
+      fromHex,
+      toHex: {
+        ...toHex,
+        stands: [
+          { id: 'east', at: { x: 120, y: 0 } },
+          { id: 'west', at: { x: 70, y: 20 } },
+        ],
+      },
+      fromPos,
+      toPos: { x: 120, y: 0 },
+      path: [fromPos, { x: 120, y: 0 }],
       ctx: verticalFence,
       hexAtPoint,
       size,
@@ -340,15 +365,15 @@ describe('single adjacent-move authority', () => {
 
     expect(m.enters).toBe(true)
     expect(m.result.activeHexId).toBe('south-pines')
-    expect(m.result.stand.x).toBeGreaterThan(-30)
-    expect(m.result.stand.x).toBeLessThan(0)
+    expect(m.result.stand.x).toBeGreaterThan(84.32)
+    expect(m.result.stand.x).toBeLessThan(115)
   })
 })
 
 describe('parallel barrier walks', () => {
   it('does not block when both path endpoints stay on the same side of a river segment', () => {
     const world = buildTravelWorld(mapData)
-    const from = world.hexById['mid-west']
+    const from = world.hexById['the-flats']
     const to = world.hexById['utility-yard']
     const fromPos = world.resolveStand(from)
     const m = evaluateNeighborMove(world, from, to, fromPos)

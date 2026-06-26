@@ -1,9 +1,43 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { levelCliffWall, levelMapLayoutBounds } from './useGrid.js'
+import {
+  levelCliffWall,
+  levelMapLayoutBounds,
+  roomStandPosition,
+} from './useGrid.js'
 import { northOrientationBase } from './grid/useGridCompass.js'
 import { bbox } from './useGridFixtureLayout.js'
 
-function expandFrameToAspect(frame, aspect) {
+export function resolveGridCameraFocus({
+  building,
+  level,
+  cell,
+  currentRoom = null,
+  exteriorNode = null,
+  avatarWaypoint = null,
+}) {
+  if (currentRoom) {
+    const room = building?.roomById?.[currentRoom]
+    if (room && (room.level === level || room.levels?.includes(level))) {
+      if (!Number.isFinite(room.x) || !Number.isFinite(room.y)) {
+        return roomStandPosition(building, room)
+      }
+      return {
+        x: (room.x + (room.w ?? 1) / 2) * cell,
+        y: (room.y + (room.h ?? 1) / 2) * cell,
+      }
+    }
+  }
+  if (avatarWaypoint && building?.exterior?.level === level) {
+    return { x: avatarWaypoint.x * cell, y: avatarWaypoint.y * cell }
+  }
+  if (exteriorNode && building?.exterior?.level === level) {
+    const node = building.exterior?.nodeById?.[exteriorNode]
+    if (node?.at) return { x: node.at.x * cell, y: node.at.y * cell }
+  }
+  return null
+}
+
+export function expandFrameToAspect(frame, aspect, zoom = 1) {
   const { minX, maxX, minY, maxY, bcx, bcy } = frame
   const corners = [
     { x: minX, y: minY },
@@ -20,6 +54,9 @@ function expandFrameToAspect(frame, aspect) {
   if (halfH <= 0) halfH = 1
   if (halfW / halfH < aspect) halfW = halfH * aspect
   else halfH = halfW / aspect
+  const safeZoom = Number.isFinite(zoom) && zoom > 0 ? zoom : 1
+  halfW /= safeZoom
+  halfH /= safeZoom
   return {
     minX: bcx - halfW,
     maxX: bcx + halfW,
@@ -29,6 +66,57 @@ function expandFrameToAspect(frame, aspect) {
     h: halfH * 2,
     bcx,
     bcy,
+  }
+}
+
+export function focusedViewBox(focus, aspect, cell, spanCells = 5.2) {
+  const safeAspect = Number.isFinite(aspect) && aspect > 0 ? aspect : 1
+  const height = cell * spanCells
+  const width = height * safeAspect
+  return {
+    x: focus.x - width / 2,
+    y: focus.y - height / 2,
+    w: width,
+    h: height,
+  }
+}
+
+export function zoomViewBoxAt(viewBox, factor, anchorX = 0.5, anchorY = 0.5, limits = {}) {
+  const safeFactor = Number.isFinite(factor) && factor > 0 ? factor : 1
+  const fx = Math.max(0, Math.min(1, anchorX))
+  const fy = Math.max(0, Math.min(1, anchorY))
+  const minWidth = Number.isFinite(limits.minWidth) ? limits.minWidth : 1
+  const maxWidth = Number.isFinite(limits.maxWidth) ? limits.maxWidth : Infinity
+  const width = Math.max(minWidth, Math.min(maxWidth, viewBox.w * safeFactor))
+  const height = width * (viewBox.h / viewBox.w)
+  const x = viewBox.x + viewBox.w * fx
+  const y = viewBox.y + viewBox.h * fy
+  return {
+    x: x - width * fx,
+    y: y - height * fy,
+    w: width,
+    h: height,
+  }
+}
+
+export function panViewBoxByPixels(viewBox, dx, dy, viewportWidth, viewportHeight) {
+  if (!(viewportWidth > 0) || !(viewportHeight > 0)) return { ...viewBox }
+  return {
+    ...viewBox,
+    x: viewBox.x - (dx * viewBox.w) / viewportWidth,
+    y: viewBox.y - (dy * viewBox.h) / viewportHeight,
+  }
+}
+
+export function rotatePointAround(point, pivot, degrees) {
+  const rad = (degrees * Math.PI) / 180
+  const dx = point.x - pivot.x
+  const dy = point.y - pivot.y
+  const c = Math.cos(rad)
+  const s = Math.sin(rad)
+  return {
+    x: pivot.x + dx * c - dy * s,
+    y: pivot.y + dx * s + dy * c,
   }
 }
 
@@ -50,7 +138,17 @@ function cliffWallPolygonPath(points) {
 /**
  * Viewport rotation, layout bounds, and coordinate transforms for GridMap.
  */
-export function useGridMapTransform({ gridmapRef, building, level, visibility, cell, expanded }) {
+export function useGridMapTransform({
+  gridmapRef,
+  building,
+  level,
+  visibility,
+  cell,
+  expanded,
+  viewportMode,
+  focusPoint,
+  wheelZoomEnabled,
+}) {
   const rotation = ref(0)
   function rotate() {
     rotation.value = (rotation.value + 90) % 360
@@ -61,8 +159,13 @@ export function useGridMapTransform({ gridmapRef, building, level, visibility, c
 
   const swapAxes = computed(() => mapRotation.value % 180 !== 0)
 
+  const layoutVisibility = computed(() => ({
+    ...visibility.value,
+    builderView: false,
+  }))
+
   const mapLayout = computed(() =>
-    levelMapLayoutBounds(building.value, level.value, visibility.value),
+    levelMapLayoutBounds(building.value, level.value, layoutVisibility.value),
   )
 
   const containerAspect = ref(220 / 200)
@@ -102,34 +205,31 @@ export function useGridMapTransform({ gridmapRef, building, level, visibility, c
     expandFrameToAspect(minFramePx.value, containerAspect.value),
   )
 
+  const gameplayFocus = computed(() => focusPoint.value ?? ({
+    x: layoutViewFrame.value.bcx,
+    y: layoutViewFrame.value.bcy,
+  }))
+
+  // Rotation belongs to the authored floor plan, so its pivot must remain
+  // stable while the camera follows the player.
   const center = computed(() => ({
     x: layoutViewFrame.value.bcx,
     y: layoutViewFrame.value.bcy,
   }))
 
   function tp(x, y) {
-    const rad = (mapRotation.value * Math.PI) / 180
-    const cx = center.value.x
-    const cy = center.value.y
-    const dx = x - cx
-    const dy = y - cy
-    const c = Math.cos(rad)
-    const s = Math.sin(rad)
-    return { x: cx + dx * c - dy * s, y: cy + dx * s + dy * c }
+    return rotatePointAround({ x, y }, center.value, mapRotation.value)
   }
 
   function unTp(x, y) {
-    const rad = (mapRotation.value * Math.PI) / 180
-    const cx = center.value.x
-    const cy = center.value.y
-    const dx = x - cx
-    const dy = y - cy
-    const c = Math.cos(rad)
-    const s = Math.sin(rad)
-    return { x: cx + dx * c + dy * s, y: cy - dx * s + dy * c }
+    return rotatePointAround({ x, y }, center.value, -mapRotation.value)
   }
 
-  const viewBoxRect = computed(() => {
+  const fittedViewBoxRect = computed(() => {
+    if (viewportMode.value === 'gameplay') {
+      const focus = tp(gameplayFocus.value.x, gameplayFocus.value.y)
+      return focusedViewBox(focus, containerAspect.value, cell.value)
+    }
     const f = layoutViewFrame.value
     const corners = [
       tp(f.minX, f.minY),
@@ -146,6 +246,32 @@ export function useGridMapTransform({ gridmapRef, building, level, visibility, c
     if (!Number.isFinite(minX)) return { x: 0, y: 0, w: 100, h: 100 }
     return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
   })
+
+  const wheelViewBox = ref(null)
+  watch([level, viewportMode], () => {
+    wheelViewBox.value = null
+  })
+
+  const viewBoxRect = computed(() => wheelViewBox.value ?? fittedViewBoxRect.value)
+
+  function zoomByWheel(factor, anchorX = 0.5, anchorY = 0.5) {
+    if (!wheelZoomEnabled?.value) return
+    const fitted = fittedViewBoxRect.value
+    wheelViewBox.value = zoomViewBoxAt(
+      viewBoxRect.value,
+      factor,
+      anchorX,
+      anchorY,
+      {
+        minWidth: fitted.w * 0.12,
+        maxWidth: fitted.w * 3,
+      },
+    )
+  }
+
+  function setViewBox(nextViewBox) {
+    wheelViewBox.value = { ...nextViewBox }
+  }
 
   const viewBox = computed(() => {
     const vb = viewBoxRect.value
@@ -268,5 +394,7 @@ export function useGridMapTransform({ gridmapRef, building, level, visibility, c
     placedRiver,
     placedCliffWall,
     placedGridLines,
+    zoomByWheel,
+    setViewBox,
   }
 }

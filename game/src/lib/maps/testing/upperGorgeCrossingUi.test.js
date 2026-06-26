@@ -1,11 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import mapData from '../../../../content/world/map.yaml'
+import { mapData } from '../../testing/content.js'
 import {
   availablePassageCrossings,
   standAcrossOpening,
 } from '../composables/usePassageCrossing.js'
 import { buildTravelWorld, offeredMoves } from './travelWorld.js'
-import { getMovementOptions } from '../../../composables/usePlayPanel.js'
 
 describe('in-hex passage crossing', () => {
   const world = buildTravelWorld(mapData)
@@ -56,28 +55,17 @@ describe('in-hex passage crossing', () => {
 
     const eastDirect = offeredMoves(world, ug, east).directMoves.map((m) => m.toHexId)
     const westDirect = offeredMoves(world, ug, west).directMoves.map((m) => m.toHexId)
-    expect(eastDirect).toContain('north-west')
-    expect(westDirect).toContain('north-west')
+    expect(eastDirect).toContain('lower-gorge')
+    expect(westDirect).toContain('lower-gorge')
 
-    const options = getMovementOptions(
-      {
-        moves: offeredMoves(world, ug, west).routeMoves,
-        directMoves: offeredMoves(world, ug, west).directMoves,
-        passageCrossings: availablePassageCrossings({
-          hexId: ug.id,
-          fromPos: west,
-          mapFeatures: mapData.features,
-          ctx: world.ctx,
-          hexById: world.hexById,
-          size: world.size,
-        }),
-        state: { atBarrier: null, lastBlocked: null },
-        isAdjacentHex: () => true,
-        canSearchHere: () => false,
-      },
-      null,
-    )
-
-    expect(options.some((o) => o.id?.startsWith('passage:'))).toBe(true)
+    const crossings = availablePassageCrossings({
+      hexId: ug.id,
+      fromPos: west,
+      mapFeatures: mapData.features,
+      ctx: world.ctx,
+      hexById: world.hexById,
+      size: world.size,
+    })
+    expect(crossings.some((crossing) => crossing.openingId === 'upper-gorge-bridge')).toBe(true)
   })
 })

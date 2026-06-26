@@ -13,6 +13,12 @@ export {
   stairExitRooms,
   spiralExitRooms,
   roomStandPosition,
+  authoredRoomStands,
+  defaultRoomStandId,
+  derivedDoorStands,
+  doorThresholdForRoom,
+  roomStandModels,
+  roomStandById,
   ROOM_ICON_HALF_HEIGHT,
   FEET_GAP_ABOVE_ROOM_ICON,
   linkedRoomIdsForDoor,
@@ -74,6 +80,7 @@ export {
 
 export {
   canUseExteriorExit,
+  exteriorStepDirection,
   exteriorMovesFrom,
   exteriorReachableNodes,
   exteriorPathBetween,

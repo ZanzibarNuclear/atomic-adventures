@@ -10,6 +10,7 @@ const props = defineProps({
   addPointMode: { type: Boolean, default: false },
   north: { type: String, default: 'up' },
   rotation: { type: Number, default: 0 },
+  orientationControls: { type: Boolean, default: true },
   pathBuilderLegend: { type: Boolean, default: false },
   addPointHint: { type: Boolean, default: false },
   addNodeHint: { type: Boolean, default: false },
@@ -55,7 +56,7 @@ defineExpose({ rootRef })
       'add-point': addPointMode,
     }"
   >
-    <div class="map-controls">
+    <div v-if="orientationControls" class="map-controls">
       <button class="rotate-btn" title="Rotate 90°" @click="$emit('rotate')">⟳</button>
       <svg class="compass" viewBox="0 0 46 46">
         <circle cx="23" cy="23" r="20" class="compass-ring" />

@@ -19,6 +19,11 @@ if (import.meta.env.DEV) {
           name: "world-builder",
           component: () => import("./views/WorldBuilderView.vue"),
         },
+        {
+          path: "content",
+          name: "content-builder",
+          component: () => import("./views/CharacterBuilderView.vue"),
+        },
       ],
     });
 } else {

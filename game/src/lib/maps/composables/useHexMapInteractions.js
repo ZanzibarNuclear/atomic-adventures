@@ -23,7 +23,7 @@ export function useHexMapInteractions({ props, emit, clientToSvg }) {
     if (props.builderEdit || props.addPointMode) return
     if (props.currentHex !== hex.id) return
     if (!props.buildingEnterable) return
-    if (hex.landmark?.building !== 'utility-station' && hex.area !== 'utility') return
+    if (hex.landmark?.building !== 'utility-station') return
     emit('building-enter', hex.id)
   }
 

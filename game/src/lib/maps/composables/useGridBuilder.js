@@ -108,6 +108,44 @@ export function listEditableExits(data, levelId) {
     })
 }
 
+export function listEditableFixtures(data, levelId) {
+  return (data.fixtures ?? [])
+    .filter((fixture) => (fixture.onLevels ?? []).includes(levelId))
+    .map((fixture) => ({
+      source: 'fixtures',
+      id: fixture.id,
+      label: `${fixture.id} (${fixture.kind ?? 'fixture'})`,
+    }))
+}
+
+export function listEditableLinks(data, levelId) {
+  const roomById = Object.fromEntries((data.rooms ?? []).map((room) => [room.id, room]))
+  return (data.links ?? [])
+    .filter((link) => {
+      const from = roomById[link.from]
+      const to = roomById[link.to]
+      return roomOnLevel(from ?? {}, levelId) || roomOnLevel(to ?? {}, levelId)
+    })
+    .map((link, index) => ({
+      source: 'links',
+      id: link.id ?? `${link.from}-${link.to}-${index}`,
+      index,
+      label: `${link.from} → ${link.to} (${link.kind})`,
+    }))
+}
+
+export function listEditableRoomStands(data, levelId) {
+  return (data.rooms ?? [])
+    .filter((room) => !room.feature && roomOnLevel(room, levelId))
+    .flatMap((room) =>
+      (room.stands ?? []).map((stand) => ({
+        source: 'stands',
+        id: `${room.id}/${stand.id}`,
+        label: `${stand.label ?? stand.id} (${room.id})`,
+      })),
+    )
+}
+
 export function listAllGridEditable(data, levelId) {
   return [
     ...listEditablePaths(data, levelId),
@@ -115,6 +153,9 @@ export function listAllGridEditable(data, levelId) {
     ...listEditableDoors(data, levelId),
     ...listEditableNodes(data, levelId),
     ...listEditableExits(data, levelId),
+    ...listEditableFixtures(data, levelId),
+    ...listEditableLinks(data, levelId),
+    ...listEditableRoomStands(data, levelId),
   ]
 }
 
@@ -135,6 +176,18 @@ export function findGridEditable(data, source, id) {
     const arr = data.transitions ?? data.exits ?? []
     return arr.find((e) => (e.id ?? e.door) === id) ?? null
   }
+  if (source === 'fixtures') {
+    return data.fixtures?.find((fixture) => fixture.id === id) ?? null
+  }
+  if (source === 'links') {
+    const index = Number(id.split('-').at(-1))
+    return Number.isInteger(index) ? data.links?.[index] ?? null : null
+  }
+  if (source === 'stands') {
+    const [roomId, standId] = id.split('/')
+    return data.rooms?.find((room) => room.id === roomId)
+      ?.stands?.find((stand) => stand.id === standId) ?? null
+  }
   return null
 }
 
@@ -144,6 +197,9 @@ export function gridEditModeForSource(source) {
   if (source === 'doors') return 'door'
   if (source === 'nodes') return 'node'
   if (source === 'exits') return 'exit'
+  if (source === 'fixtures') return 'fixture'
+  if (source === 'links') return 'link'
+  if (source === 'stands') return 'stand'
   return null
 }
 
@@ -306,6 +362,16 @@ export function resolvedNodeHandle(node, cell) {
       handleKey: 'node-at',
     },
   ]
+}
+
+export function resolvedRoomStandHandle(stand, cell) {
+  if (!stand?.at) return []
+  return [{
+    role: 'room-stand',
+    x: stand.at.x * cell,
+    y: stand.at.y * cell,
+    handleKey: 'room-stand',
+  }]
 }
 
 export function setPathPoint(data, pathId, pointIndex, xUnits, yUnits) {
@@ -542,6 +608,14 @@ export function setNodeLabel(data, nodeId, label) {
   node.label = label
 }
 
+export function setRoomStandAt(data, compositeId, xUnits, yUnits) {
+  const [roomId, standId] = compositeId.split('/')
+  const stand = data.rooms?.find((room) => room.id === roomId)
+    ?.stands?.find((item) => item.id === standId)
+  if (!stand) return
+  stand.at = { x: round2(xUnits), y: round2(yUnits) }
+}
+
 function fmtPoint(p) {
   return `{ x: ${round2(p.x)}, y: ${round2(p.y)} }`
 }
@@ -573,6 +647,17 @@ function serializeRoom(room, indent) {
   if (room.feature) lines.push(`${inner}feature: ${room.feature}`)
   if (room.rollDoor) lines.push(`${inner}rollDoor: ${room.rollDoor}`)
   if (room.rollSpan != null) lines.push(`${inner}rollSpan: ${round2(room.rollSpan)}`)
+  if (room.defaultStand) lines.push(`${inner}defaultStand: ${room.defaultStand}`)
+  if (room.stands?.length) {
+    lines.push(`${inner}stands:`)
+    for (const stand of room.stands) {
+      lines.push(`${inner}  - id: ${stand.id}`)
+      lines.push(`${inner}    at: ${fmtPoint(stand.at)}`)
+      if (stand.label) lines.push(`${inner}    label: ${JSON.stringify(stand.label)}`)
+      if (stand.pose) lines.push(`${inner}    pose: ${stand.pose}`)
+      if (stand.interaction) lines.push(`${inner}    interaction: ${stand.interaction}`)
+    }
+  }
   return lines.join('\n')
 }
 
@@ -637,6 +722,8 @@ function serializeExit(exit, indent) {
     if (exit.exteriorNode) lines.push(`${inner}exteriorNode: ${exit.exteriorNode}`)
     if (exit.at) lines.push(`${inner}at: ${fmtPoint(exit.at)}`)
     if (exit.hex) lines.push(`${inner}hex: ${exit.hex}`)
+    if (exit.entryFrom?.length) lines.push(`${inner}entryFrom: [${exit.entryFrom.join(', ')}]`)
+    if (exit.standAt) lines.push(`${inner}standAt: ${fmtStandAt(exit.standAt)}`)
     return lines.join('\n')
   }
   // Legacy door-based exit
@@ -647,17 +734,26 @@ function serializeExit(exit, indent) {
   if (exit.mapAt) lines.push(`${inner}mapAt: ${fmtPoint(exit.mapAt)}`)
   if (exit.hex) lines.push(`${inner}hex: ${exit.hex}`)
   if (exit.standAt) {
-    const st = exit.standAt
-    if (st.from === 'landmark') {
-      const parts = ['from: landmark']
-      if (st.dx !== undefined && st.dx !== 0) parts.push(`dx: ${round2(st.dx)}`)
-      if (st.dy !== undefined && st.dy !== 0) parts.push(`dy: ${round2(st.dy)}`)
-      lines.push(`${inner}standAt: { ${parts.join(', ')} }`)
-    } else if (st.x != null && st.y != null) {
-      lines.push(`${inner}standAt: { x: ${round2(st.x)}, y: ${round2(st.y)} }`)
-    }
+    lines.push(`${inner}standAt: ${fmtStandAt(exit.standAt)}`)
   }
   return lines.join('\n')
+}
+
+function fmtStandAt(st) {
+  if (st.stand) return `{ stand: ${st.stand} }`
+  if (st.from === 'landmark') {
+    const parts = ['from: landmark']
+    if (st.dx !== undefined && st.dx !== 0) parts.push(`dx: ${round2(st.dx)}`)
+    if (st.dy !== undefined && st.dy !== 0) parts.push(`dy: ${round2(st.dy)}`)
+    return `{ ${parts.join(', ')} }`
+  }
+  if (st.x != null && st.y != null) {
+    return `{ x: ${round2(st.x)}, y: ${round2(st.y)} }`
+  }
+  const parts = []
+  if (st.dx !== undefined && st.dx !== 0) parts.push(`dx: ${round2(st.dx)}`)
+  if (st.dy !== undefined && st.dy !== 0) parts.push(`dy: ${round2(st.dy)}`)
+  return `{ ${parts.join(', ')} }`
 }
 
 function serializeExterior(exterior, indent = 0) {
@@ -682,7 +778,7 @@ function serializeExterior(exterior, indent = 0) {
   return lines.join('\n')
 }
 
-/** YAML snippets ready to paste into utility-station.yaml. */
+/** YAML snippets for building snapshot export. */
 export function exportBuildingYaml(data) {
   const roomBlocks = (data.rooms ?? []).map((r) => serializeRoom(r, 2))
   const doorBlocks = (data.doors ?? []).map((d) => serializeDoor(d, 2))

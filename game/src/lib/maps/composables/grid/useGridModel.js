@@ -37,6 +37,11 @@ function buildExteriorModel(exterior) {
       adj[b]?.add(a)
     }
   }
+  for (const node of nodes) {
+    if (!node.joinNode || !nodeById[node.joinNode]) continue
+    adj[node.id]?.add(node.joinNode)
+    adj[node.joinNode]?.add(node.id)
+  }
   const entryByDoorId = Object.fromEntries(
     nodes.filter((n) => n.door).map((n) => [n.door, n]),
   )
@@ -60,6 +65,7 @@ export function buildBuilding(data) {
     ...r,
     windows: r.windows?.map((w) => normalizeCompassEdge(w)),
     rollDoor: r.rollDoor ? normalizeCompassEdge(r.rollDoor) : r.rollDoor,
+    stands: (r.stands ?? []).map((stand) => ({ ...stand })),
   }))
   const roomById = Object.fromEntries(rooms.map((r) => [r.id, r]))
   const levels = [...(data.levels ?? [])].sort((a, b) => b.order - a.order)
@@ -117,6 +123,97 @@ export function buildBuilding(data) {
     hydroSystem: data.hydroSystem ?? false,
     start: data.start ?? rooms[0]?.id,
   }
+}
+
+export const DOOR_STAND_INSET = 0.22
+
+export function authoredRoomStands(room) {
+  return (room?.stands ?? []).map((stand) => ({
+    ...stand,
+    kind: 'authored',
+  }))
+}
+
+export function defaultRoomStandId(room) {
+  if (!room) return null
+  if (room.defaultStand && room.stands?.some((stand) => stand.id === room.defaultStand)) {
+    return room.defaultStand
+  }
+  return room.stands?.[0]?.id ?? null
+}
+
+function thresholdPointForRoom(room, point, inset = DOOR_STAND_INSET) {
+  if (!room || !point) return null
+  const left = room.x
+  const right = room.x + (room.w ?? 1)
+  const top = room.y
+  const bottom = room.y + (room.h ?? 1)
+  const distances = [
+    { edge: 'left', value: Math.abs(point.x - left) },
+    { edge: 'right', value: Math.abs(point.x - right) },
+    { edge: 'top', value: Math.abs(point.y - top) },
+    { edge: 'bottom', value: Math.abs(point.y - bottom) },
+  ].sort((a, b) => a.value - b.value)
+  const edge = distances[0].edge
+  const at = {
+    x: Math.max(left + inset, Math.min(right - inset, point.x)),
+    y: Math.max(top + inset, Math.min(bottom - inset, point.y)),
+  }
+  if (edge === 'left') at.x = left + inset
+  if (edge === 'right') at.x = right - inset
+  if (edge === 'top') at.y = top + inset
+  if (edge === 'bottom') at.y = bottom - inset
+  return at
+}
+
+export function doorThresholdForRoom(building, roomId, doorId) {
+  const room = building?.roomById?.[roomId]
+  const door = building?.doorById?.[doorId]
+  if (!room || !door) return null
+  let point = door.at
+  if (door.kind === 'roll') {
+    const edge = layoutSideFromEdge(room.rollDoor)
+    if (edge === 'top') point = { x: room.x + room.w / 2, y: room.y }
+    if (edge === 'bottom') point = { x: room.x + room.w / 2, y: room.y + room.h }
+    if (edge === 'left') point = { x: room.x, y: room.y + room.h / 2 }
+    if (edge === 'right') point = { x: room.x + room.w, y: room.y + room.h / 2 }
+  }
+  const at = thresholdPointForRoom(room, point)
+  if (!at) return null
+  return {
+    id: `door:${doorId}`,
+    room: roomId,
+    door: doorId,
+    at,
+    label: door.label ?? `Door — ${doorId}`,
+    kind: 'door',
+  }
+}
+
+export function derivedDoorStands(building, roomId) {
+  const room = building?.roomById?.[roomId]
+  if (!room || room.feature) return []
+  const out = []
+  for (const door of building.doors ?? []) {
+    if (!linkedRoomIdsForDoor(building, door).includes(roomId)) continue
+    const stand = doorThresholdForRoom(building, roomId, door.id)
+    if (stand) out.push(stand)
+  }
+  return out
+}
+
+export function roomStandModels(building, roomId) {
+  const room = building?.roomById?.[roomId]
+  if (!room) return []
+  return [
+    ...authoredRoomStands(room).map((stand) => ({ ...stand, room: roomId })),
+    ...derivedDoorStands(building, roomId),
+  ]
+}
+
+export function roomStandById(building, roomId, standId) {
+  if (!standId) return null
+  return roomStandModels(building, roomId).find((stand) => stand.id === standId) ?? null
 }
 
 export function roomsOnLevel(building, levelId) {
@@ -237,8 +334,20 @@ export function spiralExitRooms(building) {
   return stairExitRooms(building, 'spiral-stair')
 }
 
-export function roomStandPosition(building, room) {
+export function roomStandPosition(building, room, standId = null) {
   if (!room) return null
+  const selected = roomStandById(building, room.id, standId)
+  if (selected?.at) {
+    return { x: selected.at.x * building.cell, y: selected.at.y * building.cell }
+  }
+  const defaultId = defaultRoomStandId(room)
+  const authoredDefault = roomStandById(building, room.id, defaultId)
+  if (authoredDefault?.at) {
+    return {
+      x: authoredDefault.at.x * building.cell,
+      y: authoredDefault.at.y * building.cell,
+    }
+  }
   if (room.feature) {
     const fixture = (building.fixtures ?? []).find((f) => f.id === room.feature)
     if (fixture?.kind === 'spiral-stairs' && fixture.at) {

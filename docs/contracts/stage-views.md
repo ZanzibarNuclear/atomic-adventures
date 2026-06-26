@@ -1,0 +1,105 @@
+# Stage Views
+
+**Scope:** `game/` playable scene, story choices, focused inspection panels, and
+future close-up/video/console surfaces.
+
+The stage view is the large viewing area above the narrative card and play
+panel. It normally shows the outdoor or indoor map, but story choices and
+gameplay actions may temporarily replace it with a focused inspection surface.
+
+## Goals
+
+- Keep the active beat, prose, and choices in place while the player inspects
+  inventory, health, objects, videos, monitors, or other close-up content.
+- Treat view changes as interface actions, not as persistent story-world
+  effects.
+- Reuse focused components in both the stage and the full character view where
+  practical.
+- Keep map movement, story state, character state, and authoring state separate.
+
+## Stage View State
+
+The stage view has this runtime shape:
+
+```js
+{
+  kind: "map" | "inventory" | "character-stats" | "closeup" |
+    "lesson" | "document" | "console" | "simulation",
+  payload: {}
+}
+```
+
+`map` means the normal outdoor or indoor map for the current player location.
+Other kinds replace only the stage area. The narrative card and play panel
+remain mounted below the stage.
+
+The initial stage view is always `map`. Returning to the map clears the stage
+payload.
+
+## Story Choice View Actions
+
+Story choices may request a stage view:
+
+```yaml
+choices:
+  - text: Check your inventory
+    view:
+      kind: inventory
+
+  - text: Check your health
+    view:
+      kind: character-stats
+      focus: health
+```
+
+A view choice:
+
+- may also set flags and spend authored time;
+- must not also move the player with `go_hex`, `go_room`, or `enter`;
+- does not clear the active beat by default;
+- marks the beat seen, like other presented or selected story choices;
+- changes only the stage area.
+
+Movement choices keep their existing behavior: flags and time are applied first,
+then the player moves and the current beat clears.
+
+## Focused Inventory
+
+Inventory browsing is a focused component, not owned by the full character
+sheet. It should support:
+
+- holder groups for carried and nearby items;
+- item selection;
+- item details;
+- authored item actions;
+- item transfers where valid.
+
+The full `CharacterView` may embed the same focused inventory component inside
+its Inventory tab. The stage inventory view uses that same component as the
+primary inspection surface.
+
+## Character Stats
+
+Character stats may appear in two contexts:
+
+- the full character overview;
+- the `character-stats` stage view.
+
+The `character-stats` stage view accepts an optional `focus` payload. For now
+`focus: "health"` highlights health if that stat exists; unknown focus values
+fall back to the ordinary stat list.
+
+## Future Stage Kinds
+
+The same contract should support future focused surfaces:
+
+- `closeup` for room details, eBuggy inspection, equipment panels, and other
+  static or interactive object views;
+- `lesson` or `video`-backed lesson surfaces;
+- `console` for control-room monitors;
+- `document` for authored documents;
+- `simulation` for embedded simulations.
+
+Only add payload validation for a kind when the game has a concrete use case
+for that kind.
+

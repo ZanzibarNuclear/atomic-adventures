@@ -11,12 +11,30 @@ import {
 import {
   expectedArrivalState,
   fenceSideAt,
-  MAP_MOVEMENT_CASES,
+  movementCasesForMap,
   movementCaseById,
   riverSideAt,
 } from '../testing/mapMovementCases.js'
 
 const BARRIER_KINDS = ['fence', 'river', 'cliff', 'ravine']
+
+function staleAuditEntry(movementCase, destination, reason) {
+  return {
+    id: `${movementCase.id}->${destination}`,
+    stateId: movementCase.id,
+    fromHexId: movementCase.hexId,
+    toHexId: destination,
+    from: movementCase.auditStand,
+    stand: null,
+    path: null,
+    expected: movementCase.expectedMoves.includes(destination),
+    valid: false,
+    status: 'invalid',
+    label: `${movementCase.id} → ${destination}`,
+    expectedStateId: null,
+    reason,
+  }
+}
 
 function regionMatches(expectedCase, stand, barriers) {
   if (
@@ -49,14 +67,35 @@ function hasSafeClearance(stand, barriers) {
 export function buildMapMovementAudit(mapData) {
   const world = buildTravelWorld(mapData)
   const entries = []
+  const movementCases = movementCasesForMap(mapData, world)
 
-  for (const movementCase of MAP_MOVEMENT_CASES) {
+  for (const movementCase of movementCases) {
     const fromHex = world.hexById[movementCase.hexId]
     for (const destination of [
       ...movementCase.expectedMoves,
       ...movementCase.forbiddenMoves,
     ]) {
       const toHex = world.hexById[destination]
+      if (!fromHex) {
+        entries.push(
+          staleAuditEntry(
+            movementCase,
+            destination,
+            `stale audit case references missing source hex "${movementCase.hexId}"`,
+          ),
+        )
+        continue
+      }
+      if (!toHex) {
+        entries.push(
+          staleAuditEntry(
+            movementCase,
+            destination,
+            `stale audit case references missing destination hex "${destination}"`,
+          ),
+        )
+        continue
+      }
       const evaluated = evaluateNeighborMove(
         world,
         fromHex,
@@ -68,7 +107,7 @@ export function buildMapMovementAudit(mapData) {
         ? expectedArrivalState(movementCase, destination)
         : null
       const expectedCase = expectedStateId
-        ? movementCaseById(expectedStateId)
+        ? movementCaseById(expectedStateId, movementCases)
         : null
       const path = evaluated.result.path ?? evaluated.path
       const stand = evaluated.result.stand

@@ -31,6 +31,7 @@ export function createIndoorDoors(deps) {
     bargeMoves,
     moveToRoom,
     exitTravelHint,
+    character,
   } = deps;
 
   const nearbyDoors = computed(() => {
@@ -119,7 +120,7 @@ export function createIndoorDoors(deps) {
       building.value.areaId,
       doorId,
       playerRoomId.value,
-      indoor.inventory,
+      character ?? indoor.inventory,
       indoor.facility,
     );
   }
@@ -133,9 +134,11 @@ export function createIndoorDoors(deps) {
     return lockHintForDoor(
       door,
       playerRoomId.value,
-      indoor.inventory,
+      character ?? indoor.inventory,
       indoor.facility,
-      building.value.itemById,
+      Object.fromEntries(
+        (character?.definitions?.items ?? []).map((item) => [item.id, item]),
+      ),
     );
   }
 
@@ -222,7 +225,7 @@ export function createIndoorDoors(deps) {
         doorId,
         building.value,
         playerRoomId.value,
-        indoor.inventory,
+        character ?? indoor.inventory,
         indoor.facility,
       )
     )

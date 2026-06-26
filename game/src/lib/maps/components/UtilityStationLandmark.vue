@@ -1,7 +1,7 @@
 <script setup>
 /**
  * Map landmark: utility station beside the river.
- * Footprint from utility-station.yaml first-floor perimeter (L-shape + control wing).
+ * Footprint from the utility-station first-floor perimeter (L-shape + control wing).
  * Layout +x = north, +y = east; icon shows north face (driveway) + west river side.
  */
 const S = 5.0;

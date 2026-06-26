@@ -1,6 +1,6 @@
 import { axialToPixel } from './useHexGeometry.js'
 
-/** Default offset from a landmark icon when standAt is omitted (hex-size units). */
+/** Default offset from a landmark icon when no authored stand is present (hex-size units). */
 export const DEFAULT_BESIDE_LANDMARK = { dx: 0.34, dy: 0.42 }
 
 /** Hex carries a visible landmark (emoji icon or authored building graphic). */
@@ -19,10 +19,49 @@ export function landmarkAnchor(hex, size) {
   }
 }
 
+export function normalizeStandEntries(hex) {
+  return Array.isArray(hex?.stands)
+    ? hex.stands
+        .filter((stand) => stand && typeof stand === 'object' && stand.at)
+        .map((stand, index) => ({
+          id: stand.id ?? `stand-${index + 1}`,
+          label: stand.label ?? stand.id ?? `Stand ${index + 1}`,
+          at: stand.at,
+          entryFrom: Array.isArray(stand.entryFrom) ? stand.entryFrom : [],
+          source: 'stands',
+          index,
+        }))
+    : []
+}
+
+export function resolveStandPoint(hex, at, size) {
+  if (!hex || !at) return null
+  if (at.stand) {
+    const stand = normalizeStandEntries(hex).find((item) => item.id === at.stand)
+    if (!stand || stand.at?.stand === at.stand) return null
+    return resolveStandPoint(hex, stand.at, size)
+  }
+  const c = axialToPixel(hex.q, hex.r, size)
+  if (at.from !== 'landmark' && at.x != null && at.y != null) {
+    return { x: at.x, y: at.y }
+  }
+  const anchor = at.from === 'landmark' ? landmarkAnchor(hex, size) : c
+  return {
+    x: anchor.x + size * (at.dx ?? 0),
+    y: anchor.y + size * (at.dy ?? 0),
+  }
+}
+
+export function authoredStandPositions(hex, size) {
+  return normalizeStandEntries(hex)
+    .map((stand) => resolveStandPoint(hex, stand.at, size))
+    .filter(Boolean)
+}
+
 /**
  * Where the player stands on a hex (YAML / landmark / center).
  *
- * standAt forms (see map.yaml header):
+ * stand `at` forms:
  *   { x, y }                    — fixed world coords (e.g. gate approach)
  *   { from: landmark, dx, dy }  — beside the building; moves when landmark moves
  *   { dx, dy }                  — offset from hex center (e.g. river bank)
@@ -30,18 +69,8 @@ export function landmarkAnchor(hex, size) {
 export function resolveAvatarPosition(hex, size) {
   if (!hex) return { x: 0, y: 0 }
   const c = axialToPixel(hex.q, hex.r, size)
-  const stand = hex.standAt
-
-  if (stand) {
-    if (stand.from !== 'landmark' && stand.x != null && stand.y != null) {
-      return { x: stand.x, y: stand.y }
-    }
-    const anchor = stand.from === 'landmark' ? landmarkAnchor(hex, size) : c
-    return {
-      x: anchor.x + size * (stand.dx ?? 0),
-      y: anchor.y + size * (stand.dy ?? 0),
-    }
-  }
+  const authored = authoredStandPositions(hex, size)
+  if (authored.length) return authored[0]
 
   if (hasLandmarkMarker(hex)) {
     const base = landmarkAnchor(hex, size)
@@ -60,14 +89,15 @@ export function hexCenterStand(hex, size) {
 }
 
 /**
- * Preferred stand when stepping to an adjacent hex: authored `standAt`, else center.
+ * Preferred stand when stepping to an adjacent hex: first authored stand, else center.
  * For barrier-aware arrival (accessible side of in-hex barriers), use
  * `resolveMove` from useTravelBarriers.js.
  */
 export function resolveNeighborStand(fromHex, toHex, fromPos, size, barrierCtx) {
-  const stand = toHex?.standAt
-  if (stand) {
-    return resolveAvatarPosition(toHex, size)
+  const stands = normalizeStandEntries(toHex)
+  if (stands.length) {
+    const entryStand = stands.find((stand) => stand.entryFrom.includes(fromHex?.id))
+    return resolveStandPoint(toHex, entryStand?.at ?? stands[0].at, size)
   }
   return hexCenterStand(toHex, size)
 }

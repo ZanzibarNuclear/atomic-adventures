@@ -2,6 +2,7 @@
 export const TERRAIN_COLORS = {
   forest: '#4f7e57',
   clearing: '#8fae6e',
+  gorge: '#9f947b',
   rock: '#9a9d94',
   water: '#5f93c4',
 }
@@ -11,11 +12,12 @@ export const FOG_COLOR = '#222a25'
 export const TERRAIN_LABELS = {
   forest: 'Forest',
   clearing: 'Clearing',
+  gorge: 'Rocky Gorge',
   rock: 'Rocks',
   water: 'Water',
 }
 
-export const TERRAIN_ORDER = ['forest', 'clearing', 'rock', 'water']
+export const TERRAIN_ORDER = ['forest', 'clearing', 'gorge', 'rock', 'water']
 
 export const LINE_STYLE = {
   river: { label: 'River', stroke: '#4a90d9', width: 4, dash: '' },
