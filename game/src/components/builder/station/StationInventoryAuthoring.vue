@@ -1,14 +1,35 @@
 <script setup>
+import { computed } from "vue";
 import CharacterEffectsEditor from "../CharacterEffectsEditor.vue";
 
 const props = defineProps({
   draft: { type: Object, required: true },
   characterCatalog: { type: Object, required: true },
+  selection: { type: Object, default: null },
 });
+
+const selectedRoomId = computed(() => {
+  if (props.selection?.source === "rooms") return props.selection.id;
+  return props.selection?.entity?.room ?? null;
+});
+
+const selectedRoom = computed(() =>
+  props.draft.rooms.find((room) => room.id === selectedRoomId.value),
+);
+
+const roomPickups = computed(() =>
+  (props.draft.pickups ?? [])
+    .map((pickup, index) => ({ pickup, index }))
+    .filter(({ pickup }) => pickup.room === selectedRoomId.value),
+);
+
+const roomActions = computed(() =>
+  (props.draft.actions ?? []).filter((action) => action.room === selectedRoomId.value),
+);
 
 function addPickup() {
   const item = props.characterCatalog.items[0];
-  const room = props.draft.rooms[0];
+  const room = selectedRoom.value;
   if (!item || !room) return;
   const used = new Set((props.draft.pickups ?? []).map((pickup) => pickup.id));
   let id = `${item.id}-pickup`;
@@ -47,7 +68,9 @@ function ensureActionEffects(action) {
 <template>
   <details class="inventory-authoring">
     <summary>Item placements</summary>
-    <article v-for="(pickup, index) in draft.pickups ?? []" :key="pickup.id" class="reference-card">
+    <p v-if="!selectedRoomId" class="empty-note">Select a room to edit its item placements.</p>
+    <p v-else-if="!roomPickups.length" class="empty-note">No item placements in {{ selectedRoom?.label ?? selectedRoomId }}.</p>
+    <article v-for="{ pickup, index } in roomPickups" :key="pickup.id" class="reference-card">
       <label>Placement ID<input v-model="pickup.id"></label>
       <label>Label<input v-model="pickup.label"></label>
       <label>Room
@@ -66,12 +89,14 @@ function ensureActionEffects(action) {
       </label>
       <button class="sm danger-outline" @click="removePickup(index)">Remove placement</button>
     </article>
-    <button class="sm" @click="addPickup">Add item placement</button>
+    <button class="sm" :disabled="!selectedRoom" @click="addPickup">Add item placement</button>
   </details>
 
   <details class="inventory-authoring">
     <summary>Interaction character rules</summary>
-    <article v-for="action in draft.actions ?? []" :key="action.id" class="reference-card">
+    <p v-if="!selectedRoomId" class="empty-note">Select a room to edit its interaction character rules.</p>
+    <p v-else-if="!roomActions.length" class="empty-note">No interaction character rules in {{ selectedRoom?.label ?? selectedRoomId }}.</p>
+    <article v-for="action in roomActions" :key="action.id" class="reference-card">
       <strong>{{ action.label }} <small>{{ action.id }}</small></strong>
       <label>Required items
         <select
@@ -122,6 +147,11 @@ function ensureActionEffects(action) {
 .reference-card small {
   color: #8f98a6;
   font-weight: 400;
+}
+
+.empty-note {
+  color: #939ba7;
+  font-size: 0.82rem;
 }
 
 label {

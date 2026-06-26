@@ -334,7 +334,6 @@ button.active { background: #49624f; border-color: #6f9b79; }
 .check-field { display: flex !important; align-items: center; }
 .check-field input { width: auto; }
 .danger-outline { border-color: #9b5050; color: #ffb5b5; background: #3d2729; }
-.yaml-preview { max-height: 22rem; overflow: auto; padding: .65rem; border-radius: 7px; background: #11151b; white-space: pre-wrap; font-size: .72rem; }
 .empty-note { color: #939ba7; }
 .read-only-note, .audit-panel p { color: #aeb5c0; font-size: .78rem; line-height: 1.45; }
 .audit-panel { display: grid; gap: .4rem; padding-top: .65rem; border-top: 1px solid #343d4d; }

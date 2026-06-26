@@ -1,6 +1,5 @@
 <script setup>
 import { computed } from "vue";
-import yaml from "js-yaml";
 import RevisionHistoryPanel from "../RevisionHistoryPanel.vue";
 import DoorInspector from "./DoorInspector.vue";
 import ExteriorNodeInspector from "./ExteriorNodeInspector.vue";
@@ -37,10 +36,6 @@ const emit = defineEmits([
   "run-indoor-audit",
   "restore-revision",
 ]);
-
-const generatedYaml = computed(() =>
-  yaml.dump(props.draft, { noRefs: true, lineWidth: 100, noCompatMode: true, sortKeys: false }),
-);
 
 const errorMessages = computed(() =>
   Object.entries(props.errors).flatMap(([path, messages]) =>
@@ -124,12 +119,9 @@ const errorMessages = computed(() =>
     <StationInventoryAuthoring
       :draft="draft"
       :character-catalog="characterCatalog"
+      :selection="selection"
     />
 
-    <details>
-      <summary>Draft YAML</summary>
-      <pre class="yaml-preview">{{ generatedYaml }}</pre>
-    </details>
     <p v-for="message in errorMessages.slice(0, 12)" :key="message" class="field-error">
       {{ message }}
     </p>
@@ -181,7 +173,6 @@ button.active { background: #49624f; border-color: #6f9b79; }
 .check-field { display: flex !important; align-items: center; }
 .check-field input { width: auto; }
 .danger-outline { border-color: #9b5050; color: #ffb5b5; background: #3d2729; }
-.yaml-preview { max-height: 22rem; overflow: auto; padding: .65rem; border-radius: 7px; background: #11151b; white-space: pre-wrap; font-size: .72rem; }
 .empty-note { color: #939ba7; }
 .read-only-note, .audit-panel p { color: #aeb5c0; font-size: .78rem; line-height: 1.45; }
 .audit-panel { display: grid; gap: .4rem; padding-top: .65rem; border-top: 1px solid #343d4d; }
