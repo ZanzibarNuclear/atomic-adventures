@@ -1,4 +1,5 @@
 <script setup>
+import { ref, watch } from "vue";
 import RevisionHistoryPanel from "../RevisionHistoryPanel.vue";
 import StoryChoiceEditor from "./StoryChoiceEditor.vue";
 
@@ -14,6 +15,7 @@ const props = defineProps({
   showRevisions: { type: Boolean, default: false },
   revisions: { type: Array, default: () => [] },
   destinationType: { type: Function, required: true },
+  selectedLocation: { type: String, default: "" },
 });
 
 defineEmits([
@@ -30,6 +32,15 @@ defineEmits([
   "set-view-kind",
   "restore-revision",
 ]);
+
+const activeTab = ref("story");
+
+watch(
+  () => props.selectedLocation,
+  () => {
+    activeTab.value = "story";
+  },
+);
 
 function fieldError(path) {
   return props.errors[path]?.join(" ");
@@ -58,56 +69,83 @@ function fieldError(path) {
       <p v-if="status" class="builder-status">{{ status }}</p>
       <p v-for="message in errors.trigger ?? []" :key="message" class="field-error">{{ message }}</p>
 
-      <div class="field-grid">
-        <label>Beat ID
-          <input v-model="draft.id" />
-          <span v-if="fieldError('id')" class="field-error">{{ fieldError("id") }}</span>
-        </label>
-        <label v-if="draftIsOutdoorHexBeat">Origin hex
-          <select v-model="draft.match.originHex">
-            <option :value="null">Default</option>
-            <option v-for="hex in catalog.world.hexes" :key="hex.id" :value="hex.id">{{ hex.label }} ({{ hex.id }})</option>
-          </select>
-          <span v-if="fieldError('match.originHex')" class="field-error">{{ fieldError("match.originHex") }}</span>
-        </label>
-        <label v-if="draftIsOutdoorHexBeat">Local exit
-          <select v-model="draft.match.localExit">
-            <option :value="null">Default</option>
-            <option v-for="exit in catalog.world.localExits" :key="exit.id" :value="exit.id">{{ exit.label }} ({{ exit.id }})</option>
-          </select>
-          <span v-if="fieldError('match.localExit')" class="field-error">{{ fieldError("match.localExit") }}</span>
-        </label>
+      <div class="editor-tabs" role="tablist" aria-label="Beat editor sections">
+        <button
+          type="button"
+          class="sm"
+          :class="{ active: activeTab === 'story' }"
+          role="tab"
+          :aria-selected="activeTab === 'story'"
+          @click="activeTab = 'story'"
+        >
+          Story
+        </button>
+        <button
+          type="button"
+          class="sm"
+          :class="{ active: activeTab === 'choices' }"
+          role="tab"
+          :aria-selected="activeTab === 'choices'"
+          @click="activeTab = 'choices'"
+        >
+          Choices
+        </button>
       </div>
 
-      <div class="field-grid">
-        <label>Eyebrow<input v-model="draft.eyebrow" /></label>
-        <label>Heading<input v-model="draft.heading" /></label>
+      <div v-show="activeTab === 'story'" class="tab-panel" role="tabpanel">
+        <div class="field-grid">
+          <label>Beat ID
+            <input v-model="draft.id" />
+            <span v-if="fieldError('id')" class="field-error">{{ fieldError("id") }}</span>
+          </label>
+          <label v-if="draftIsOutdoorHexBeat">Origin hex
+            <select v-model="draft.match.originHex">
+              <option :value="null">Default</option>
+              <option v-for="hex in catalog.world.hexes" :key="hex.id" :value="hex.id">{{ hex.label }} ({{ hex.id }})</option>
+            </select>
+            <span v-if="fieldError('match.originHex')" class="field-error">{{ fieldError("match.originHex") }}</span>
+          </label>
+          <label v-if="draftIsOutdoorHexBeat">Local exit
+            <select v-model="draft.match.localExit">
+              <option :value="null">Default</option>
+              <option v-for="exit in catalog.world.localExits" :key="exit.id" :value="exit.id">{{ exit.label }} ({{ exit.id }})</option>
+            </select>
+            <span v-if="fieldError('match.localExit')" class="field-error">{{ fieldError("match.localExit") }}</span>
+          </label>
+        </div>
+
+        <div class="field-grid">
+          <label>Eyebrow<input v-model="draft.eyebrow" /></label>
+          <label>Heading<input v-model="draft.heading" /></label>
+        </div>
+
+        <label>Story text
+          <textarea v-model="draft.text" rows="10" />
+          <span v-if="fieldError('text')" class="field-error">{{ fieldError("text") }}</span>
+        </label>
+        <label>Revisit text<textarea v-model="draft.revisit" rows="5" /></label>
       </div>
 
-      <label>Story text
-        <textarea v-model="draft.text" rows="10" />
-        <span v-if="fieldError('text')" class="field-error">{{ fieldError("text") }}</span>
-      </label>
-      <label>Revisit text<textarea v-model="draft.revisit" rows="5" /></label>
-
-      <fieldset>
-        <legend>Choices</legend>
-        <StoryChoiceEditor
-          v-for="(choice, index) in draft.choices"
-          :key="choice.id"
-          :choice="choice"
-          :index="index"
-          :catalog="catalog"
-          :errors="errors"
-          :destination-type="destinationType"
-          @move="$emit('move-choice', { index, delta: $event })"
-          @remove="$emit('remove-choice', index)"
-          @set-csv="$emit('set-csv', $event)"
-          @set-destination-type="$emit('set-destination-type', $event)"
-          @set-view-kind="$emit('set-view-kind', $event)"
-        />
-        <button type="button" class="sm" @click="$emit('add-choice')">Add choice</button>
-      </fieldset>
+      <div v-show="activeTab === 'choices'" class="tab-panel" role="tabpanel">
+        <fieldset>
+          <legend>Choices</legend>
+          <StoryChoiceEditor
+            v-for="(choice, index) in draft.choices"
+            :key="choice.id"
+            :choice="choice"
+            :index="index"
+            :catalog="catalog"
+            :errors="errors"
+            :destination-type="destinationType"
+            @move="$emit('move-choice', { index, delta: $event })"
+            @remove="$emit('remove-choice', index)"
+            @set-csv="$emit('set-csv', $event)"
+            @set-destination-type="$emit('set-destination-type', $event)"
+            @set-view-kind="$emit('set-view-kind', $event)"
+          />
+          <button type="button" class="sm" @click="$emit('add-choice')">Add choice</button>
+        </fieldset>
+      </div>
 
       <details>
         <summary>Generated YAML</summary>
@@ -137,18 +175,41 @@ function fieldError(path) {
 }
 
 .builder-form-column form,
+.tab-panel,
 fieldset {
   display: grid;
   gap: 0.8rem;
 }
 
 .form-toolbar,
-.toolbar-actions {
+.toolbar-actions,
+.editor-tabs {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.65rem;
   flex-wrap: wrap;
+}
+
+.editor-tabs {
+  justify-content: flex-start;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  border: 1px solid #343d4d;
+  border-radius: 9px;
+  background: #171b22;
+}
+
+.editor-tabs button {
+  border-color: transparent;
+  background: transparent;
+  color: #b8c0cc;
+}
+
+.editor-tabs button.active {
+  border-color: #6f9b79;
+  background: #49624f;
+  color: #eef7ef;
 }
 
 label {

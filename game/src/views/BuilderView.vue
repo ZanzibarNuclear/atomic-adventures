@@ -328,39 +328,41 @@ function requestContextChange(action) {
 <template>
   <main class="builder-page">
     <div class="builder-workspace">
-      <StoryLocationPicker
-        v-model:indoor-level="indoorLevel"
-        v-model:indoor-viewport-mode="indoorViewportMode"
-        v-model:preview-exterior-fog="previewExteriorFog"
-        v-model:event-location-input="eventLocationInput"
-        :location-mode="locationMode"
-        :selected-location="selectedLocation"
-        :outdoor="outdoor"
-        :building="building"
-        :building-data="buildingData"
-        :all-hex-ids="allHexIds"
-        :all-hex-set="allHexSet"
-        :all-room-ids="allRoomIds"
-        :all-exterior-ids="allExteriorIds"
-        :builder-flags="builderFlags"
-        :selected-room="selectedRoom"
-        :selected-exterior="selectedExterior"
-        @switch-mode="switchMode"
-        @select-hex="selectHex"
-        @select-room="selectRoom"
-        @select-exterior="selectExterior"
-        @select-indoor-item="selectIndoorMapItem"
-        @select-event="selectEventLocation"
-      />
+      <div class="builder-nav-column">
+        <StoryLocationPicker
+          v-model:indoor-level="indoorLevel"
+          v-model:indoor-viewport-mode="indoorViewportMode"
+          v-model:preview-exterior-fog="previewExteriorFog"
+          v-model:event-location-input="eventLocationInput"
+          :location-mode="locationMode"
+          :selected-location="selectedLocation"
+          :outdoor="outdoor"
+          :building="building"
+          :building-data="buildingData"
+          :all-hex-ids="allHexIds"
+          :all-hex-set="allHexSet"
+          :all-room-ids="allRoomIds"
+          :all-exterior-ids="allExteriorIds"
+          :builder-flags="builderFlags"
+          :selected-room="selectedRoom"
+          :selected-exterior="selectedExterior"
+          @switch-mode="switchMode"
+          @select-hex="selectHex"
+          @select-room="selectRoom"
+          @select-exterior="selectExterior"
+          @select-indoor-item="selectIndoorMapItem"
+          @select-event="selectEventLocation"
+        />
 
-      <StoryBeatList
-        :selected-location="selectedLocation"
-        :beats="locationBeats"
-        :selected-beat-id="selectedBeatId"
-        :warnings="matchWarnings"
-        @new="newBeat()"
-        @select="selectBeat"
-      />
+        <StoryBeatList
+          :selected-location="selectedLocation"
+          :beats="locationBeats"
+          :selected-beat-id="selectedBeatId"
+          :warnings="matchWarnings"
+          @new="newBeat()"
+          @select="selectBeat"
+        />
+      </div>
 
       <StoryBeatEditor
         :draft="draft"
@@ -374,6 +376,7 @@ function requestContextChange(action) {
         :show-revisions="showRevisions"
         :revisions="revisions"
         :destination-type="destinationType"
+        :selected-location="selectedLocation"
         @save="saveBeat"
         @revert="revertDraft"
         @duplicate="newBeat"
@@ -403,7 +406,13 @@ function requestContextChange(action) {
 </template>
 
 <style scoped>
-.builder-page { max-width: 1500px; margin: 0 auto; padding: 1rem; }
+.builder-page {
+  max-width: 1500px;
+  height: calc(100vh - 4.25rem);
+  margin: 0 auto;
+  overflow: hidden;
+  padding: .75rem 1rem;
+}
 .builder-header,
 .builder-header-actions {
   display: flex; align-items: center; justify-content: space-between; gap: .65rem; flex-wrap: wrap;
@@ -445,14 +454,31 @@ function requestContextChange(action) {
   white-space: nowrap;
 }
 .open-menu-item:hover:not(:disabled) { background: #344158; }
-.builder-workspace { display: grid; grid-template-columns: minmax(320px, 1fr) 260px minmax(420px, 1.35fr); gap: 1rem; margin-top: 1rem; align-items: start; }
-@media (max-width: 1100px) {
-  .builder-workspace { grid-template-columns: 1fr 1fr; }
-  .builder-form-column { grid-column: 1 / -1; }
-  .builder-map-column { position: static; }
+.builder-workspace {
+  display: grid;
+  grid-template-columns: minmax(360px, .9fr) minmax(520px, 1.45fr);
+  gap: 1rem;
+  height: calc(100% - .75rem);
+  min-height: 0;
+  margin-top: .75rem;
+  align-items: stretch;
 }
-@media (max-width: 720px) {
+.builder-nav-column {
+  display: grid;
+  gap: .75rem;
+  align-content: start;
+  min-height: 0;
+  max-height: 100%;
+  overflow: auto;
+}
+.builder-form-column {
+  max-height: 100%;
+  overflow: auto;
+}
+@media (max-width: 1100px) {
+  .builder-workspace { grid-template-columns: minmax(320px, .85fr) minmax(420px, 1.15fr); }
+}
+@media (max-width: 820px) {
   .builder-workspace { grid-template-columns: 1fr; }
-  .builder-form-column { grid-column: auto; }
 }
 </style>

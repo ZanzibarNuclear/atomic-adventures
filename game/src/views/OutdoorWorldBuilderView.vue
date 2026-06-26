@@ -392,8 +392,8 @@ function setMapHost(element) {
   display: grid;
   grid-template-columns: minmax(220px, 270px) minmax(440px, 1fr) minmax(290px, 350px);
   gap: .75rem;
-  height: calc(100vh - 10.5rem);
-  min-height: 560px;
+  height: calc(100vh - 12rem);
+  min-height: 528px;
   margin-top: .75rem;
 }
 .world-workspace.left-collapsed { grid-template-columns: minmax(440px, 1fr) minmax(290px, 350px); }

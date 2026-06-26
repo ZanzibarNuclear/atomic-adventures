@@ -45,7 +45,19 @@ function selectWorkspace(next) {
 </template>
 
 <style scoped>
-.world-builder-shell { min-height: 0; }
+.world-builder-shell {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 4.25rem);
+  min-height: 0;
+  overflow: hidden;
+}
+.world-builder-shell :deep(.world-builder),
+.world-builder-shell :deep(.station-builder) {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
 .world-map-tabs {
   display: flex;
   gap: .35rem;
