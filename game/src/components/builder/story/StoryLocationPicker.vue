@@ -19,7 +19,6 @@ defineProps({
   indoorLevel: { type: String, default: "" },
   indoorViewportMode: { type: String, default: "gameplay" },
   previewExteriorFog: { type: Boolean, default: false },
-  eventLocationInput: { type: String, default: "" },
 });
 
 defineEmits([
@@ -31,8 +30,6 @@ defineEmits([
   "update:indoorLevel",
   "update:indoorViewportMode",
   "update:previewExteriorFog",
-  "update:eventLocationInput",
-  "select-event",
 ]);
 </script>
 
@@ -41,7 +38,6 @@ defineEmits([
     <div class="mode-tabs">
       <button :class="{ active: locationMode === 'outdoors' }" @click="$emit('switch-mode', 'outdoors')">Outdoor</button>
       <button :class="{ active: ['rooms', 'exterior'].includes(locationMode) }" @click="$emit('switch-mode', 'rooms')">Indoor</button>
-      <button :class="{ active: locationMode === 'events' }" @click="$emit('switch-mode', 'events')">Events</button>
     </div>
 
     <HexMap
@@ -58,7 +54,7 @@ defineEmits([
       :avatar-instant="true"
       @hex-click="$emit('select-hex', $event)" />
 
-    <template v-else-if="locationMode !== 'events'">
+    <template v-else>
       <div class="indoor-preview-controls">
         <label>Floor
           <select :value="indoorLevel" @change="$emit('update:indoorLevel', $event.target.value)">
@@ -101,14 +97,6 @@ defineEmits([
         @exterior-node-click="$emit('select-exterior', $event)"
         @select-item="$emit('select-indoor-item', $event)" />
     </template>
-
-    <label v-else>Event name
-      <input
-        :value="eventLocationInput"
-        placeholder="custom-event"
-        @input="$emit('update:eventLocationInput', $event.target.value)"
-        @change="$emit('select-event', $event)" />
-    </label>
   </section>
 </template>
 

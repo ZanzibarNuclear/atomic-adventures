@@ -22,25 +22,46 @@ function selectWorkspace(next) {
 
 <template>
   <section class="world-builder-shell">
-    <nav class="world-map-tabs" aria-label="World map workspace">
-      <button
-        type="button"
-        :class="{ active: workspace === 'outdoors' }"
-        @click="selectWorkspace('outdoors')"
-      >
-        Outdoor
-      </button>
-      <button
-        type="button"
-        :class="{ active: workspace === 'utility-station' }"
-        @click="selectWorkspace('utility-station')"
-      >
-        Utility Station
-      </button>
-    </nav>
-
-    <OutdoorWorldBuilderView v-if="workspace === 'outdoors'" />
-    <UtilityStationBuilderView v-else />
+    <OutdoorWorldBuilderView v-if="workspace === 'outdoors'">
+      <template #workspace-switcher>
+        <nav class="world-map-tabs" aria-label="World map workspace">
+          <button
+            type="button"
+            :class="{ active: workspace === 'outdoors' }"
+            @click="selectWorkspace('outdoors')"
+          >
+            Outdoor
+          </button>
+          <button
+            type="button"
+            :class="{ active: workspace === 'utility-station' }"
+            @click="selectWorkspace('utility-station')"
+          >
+            Utility Station
+          </button>
+        </nav>
+      </template>
+    </OutdoorWorldBuilderView>
+    <UtilityStationBuilderView v-else>
+      <template #workspace-switcher>
+        <nav class="world-map-tabs" aria-label="World map workspace">
+          <button
+            type="button"
+            :class="{ active: workspace === 'outdoors' }"
+            @click="selectWorkspace('outdoors')"
+          >
+            Outdoor
+          </button>
+          <button
+            type="button"
+            :class="{ active: workspace === 'utility-station' }"
+            @click="selectWorkspace('utility-station')"
+          >
+            Utility Station
+          </button>
+        </nav>
+      </template>
+    </UtilityStationBuilderView>
   </section>
 </template>
 
@@ -61,7 +82,8 @@ function selectWorkspace(next) {
 .world-map-tabs {
   display: flex;
   gap: .35rem;
-  padding: .65rem .85rem 0;
+  align-items: center;
+  flex-wrap: wrap;
 }
 .world-map-tabs button {
   padding: .45rem .9rem;

@@ -242,9 +242,12 @@ function setMapHost(element) {
 <template>
   <main class="world-builder">
     <header class="world-toolbar">
-      <div>
+      <div class="toolbar-title">
         <p class="label">Outdoor world</p>
-        <h2>World Builder</h2>
+        <div class="title-row">
+          <h2>World Builder</h2>
+          <slot name="workspace-switcher" />
+        </div>
       </div>
       <div class="toolbar-group">
         <button class="sm muted" @click="leftCollapsed = !leftCollapsed">{{ leftCollapsed ? "Show objects" : "Hide objects" }}</button>
@@ -386,6 +389,18 @@ function setMapHost(element) {
   justify-content: space-between;
   gap: .5rem;
   flex-wrap: wrap;
+}
+.toolbar-title,
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.toolbar-title {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: .2rem;
 }
 .world-toolbar h2, .world-toolbar p { margin: 0; }
 .world-workspace {

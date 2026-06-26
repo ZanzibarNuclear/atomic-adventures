@@ -1,6 +1,5 @@
 import { computed, ref, toRaw } from "vue";
 import { storyApi } from "../lib/storyApi.js";
-import { storyBeatYaml } from "../lib/storyYamlPreview.js";
 
 function clonePlain(value) {
   return JSON.parse(JSON.stringify(toRaw(value)));
@@ -34,7 +33,6 @@ export function useStoryBeatDocument({
   let beatLoadRequest = 0;
 
   const dirty = computed(() => draft.value && JSON.stringify(draft.value) !== baseline.value);
-  const yamlPreview = computed(() => storyBeatYaml(draft.value));
 
   function uniqueId(base) {
     const used = new Set(beats.value.map((beat) => beat.id));
@@ -233,7 +231,6 @@ export function useStoryBeatDocument({
     revisions,
     showRevisions,
     dirty,
-    yamlPreview,
     clearBeatSelection,
     refreshBeatList,
     loadBeat,

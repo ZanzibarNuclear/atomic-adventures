@@ -42,7 +42,6 @@ const indoorLevel = ref(
 );
 const indoorViewportMode = ref("fit-all");
 const previewExteriorFog = ref(false);
-const eventLocationInput = ref("custom-event");
 const {
   beats,
   selectedBeatId,
@@ -53,7 +52,6 @@ const {
   revisions,
   showRevisions,
   dirty,
-  yamlPreview,
   clearBeatSelection,
   loadBeat,
   loadBeats,
@@ -80,9 +78,6 @@ const navigation = useDirtyDocumentNavigation({
   router,
   save: () => saveBeat(),
   discard: () => clearBeatSelection(),
-  keep: () => {
-    eventLocationInput.value = selectedLocation.value;
-  },
   onError: (error) => {
     status.value = error.message ?? "Could not finish changing context.";
   },
@@ -92,7 +87,7 @@ function beatsForLocation(mode, location) {
     if (mode === "outdoors") return beat.trigger.hex === location;
     if (mode === "rooms") return beat.trigger.room === location;
     if (mode === "exterior") return beat.trigger.exteriorNode === location;
-    return Boolean(beat.trigger.event);
+    return false;
   });
 }
 const locationBeats = computed(() =>
@@ -230,8 +225,7 @@ async function applyExteriorSelection(id) {
 function switchMode(mode) {
   if (
     (mode === "outdoors" && locationMode.value === "outdoors") ||
-    (mode === "rooms" && ["rooms", "exterior"].includes(locationMode.value)) ||
-    (mode === "events" && locationMode.value === "events")
+    (mode === "rooms" && ["rooms", "exterior"].includes(locationMode.value))
   ) {
     return;
   }
@@ -245,23 +239,7 @@ async function applyModeSelection(mode) {
     await applyRoomSelection(buildingData.value.rooms[0]?.id);
   } else if (mode === "exterior") {
     await applyExteriorSelection(buildingData.value.exterior?.entry);
-  } else {
-    locationMode.value = "events";
-    selectedLocation.value = "custom-event";
-    eventLocationInput.value = selectedLocation.value;
-    clearBeatSelection();
   }
-}
-
-function selectEventLocation(event) {
-  const next = event.target.value.trim() || "custom-event";
-  if (next === selectedLocation.value) return;
-  void requestContextChange(() => {
-    locationMode.value = "events";
-    selectedLocation.value = next;
-    eventLocationInput.value = next;
-    clearBeatSelection();
-  });
 }
 
 function newBeat(copy = null) {
@@ -273,7 +251,6 @@ function emptyBeat() {
   if (locationMode.value === "outdoors") Object.assign(trigger, { place: "outdoors", hex: selectedLocation.value });
   if (locationMode.value === "rooms") Object.assign(trigger, { place: "indoors", room: selectedLocation.value });
   if (locationMode.value === "exterior") Object.assign(trigger, { place: "indoors", exteriorNode: selectedLocation.value });
-  if (locationMode.value === "events") trigger.event = selectedLocation.value || "custom-event";
   return {
     id: "",
     eyebrow: "",
@@ -333,7 +310,6 @@ function requestContextChange(action) {
           v-model:indoor-level="indoorLevel"
           v-model:indoor-viewport-mode="indoorViewportMode"
           v-model:preview-exterior-fog="previewExteriorFog"
-          v-model:event-location-input="eventLocationInput"
           :location-mode="locationMode"
           :selected-location="selectedLocation"
           :outdoor="outdoor"
@@ -351,7 +327,6 @@ function requestContextChange(action) {
           @select-room="selectRoom"
           @select-exterior="selectExterior"
           @select-indoor-item="selectIndoorMapItem"
-          @select-event="selectEventLocation"
         />
 
         <StoryBeatList
@@ -371,7 +346,6 @@ function requestContextChange(action) {
         :status="status"
         :errors="errors"
         :catalog="catalog"
-        :yaml-preview="yamlPreview"
         :draft-is-outdoor-hex-beat="draftIsOutdoorHexBeat"
         :show-revisions="showRevisions"
         :revisions="revisions"

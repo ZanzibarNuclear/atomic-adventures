@@ -10,7 +10,6 @@ const props = defineProps({
   status: { type: String, default: "" },
   errors: { type: Object, default: () => ({}) },
   catalog: { type: Object, required: true },
-  yamlPreview: { type: String, default: "" },
   draftIsOutdoorHexBeat: { type: Boolean, default: false },
   showRevisions: { type: Boolean, default: false },
   revisions: { type: Array, default: () => [] },
@@ -147,11 +146,6 @@ function fieldError(path) {
         </fieldset>
       </div>
 
-      <details>
-        <summary>Generated YAML</summary>
-        <pre class="yaml-preview">{{ yamlPreview }}</pre>
-      </details>
-
       <RevisionHistoryPanel
         class="revision-panel"
         :visible="showRevisions"
@@ -279,15 +273,6 @@ legend {
   color: #ff9e9e;
   font-size: 0.78rem;
   margin: 0.2rem 0 0;
-}
-
-.yaml-preview {
-  max-height: 28rem;
-  overflow: auto;
-  padding: 0.8rem;
-  background: #11151b;
-  border-radius: 8px;
-  white-space: pre-wrap;
 }
 
 .revision-panel {

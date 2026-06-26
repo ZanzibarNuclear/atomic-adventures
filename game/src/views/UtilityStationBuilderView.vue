@@ -183,9 +183,12 @@ function runIndoorAudit() {
 <template>
   <main class="station-builder">
     <header class="station-toolbar">
-      <div>
+      <div class="toolbar-title">
         <p class="label">Indoor world</p>
-        <h2>Utility Station</h2>
+        <div class="title-row">
+          <h2>Utility Station</h2>
+          <slot name="workspace-switcher" />
+        </div>
       </div>
       <div class="toolbar-actions">
         <button class="sm muted" @click="leftCollapsed = !leftCollapsed">
@@ -289,6 +292,18 @@ function runIndoorAudit() {
   justify-content: space-between;
   gap: .5rem;
   flex-wrap: wrap;
+}
+.toolbar-title,
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.toolbar-title {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: .2rem;
 }
 .station-toolbar h2, .station-toolbar p, .inspector h3 { margin: 0; }
 .station-workspace {
