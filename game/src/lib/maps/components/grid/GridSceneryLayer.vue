@@ -1,16 +1,4 @@
 <template>
-  <g class="grid-layer">
-    <line
-      v-for="(ln, i) in gridLines"
-      :key="'grid-' + i"
-      :x1="ln.x1"
-      :y1="ln.y1"
-      :x2="ln.x2"
-      :y2="ln.y2"
-      class="grid-line"
-    />
-  </g>
-
   <g v-if="river" class="river-layer" pointer-events="none">
     <rect
       :x="river.rect.x"
@@ -66,6 +54,18 @@
       />
     </g>
   </g>
+
+  <g class="grid-layer">
+    <line
+      v-for="(ln, i) in gridLines"
+      :key="'grid-' + i"
+      :x1="ln.x1"
+      :y1="ln.y1"
+      :x2="ln.x2"
+      :y2="ln.y2"
+      class="grid-line"
+    />
+  </g>
 </template>
 
 <script setup>
@@ -91,7 +91,7 @@ function shellRingPath(ring) {
   pointer-events: none;
 }
 .grid-line {
-  stroke: rgba(255, 255, 255, 0.14);
+  stroke: rgba(255, 255, 255, 0.16);
   stroke-width: 1;
 }
 .building-shell-layer {

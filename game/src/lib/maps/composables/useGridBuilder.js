@@ -714,10 +714,11 @@ export function setFixtureFromHandle(data, fixtureId, role, xUnits, yUnits) {
 
 export function setWallPoint(data, wallId, pointIndex, xUnits, yUnits) {
   if (wallId !== 'cliff-wall') return
-  const point = data.cliffWall?.points?.[pointIndex]
-  if (!point) return
-  point.x = round2(xUnits)
-  point.y = round2(yUnits)
+  if (!data.cliffWall?.points?.[pointIndex]) return
+  data.cliffWall.points[pointIndex] = {
+    x: round2(xUnits),
+    y: round2(yUnits),
+  }
 }
 
 export function setDoorAt(data, doorId, xUnits, yUnits) {

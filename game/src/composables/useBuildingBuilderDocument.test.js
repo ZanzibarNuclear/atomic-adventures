@@ -55,4 +55,27 @@ describe("useBuildingBuilderDocument", () => {
 
     expect(level.value).toBe("yard");
   });
+
+  it("tracks dirty state when visual wall points are replaced", () => {
+    const document = useBuildingBuilderDocument({ emptyBuilding });
+
+    document.applyLoaded({
+      version: 1,
+      building: {
+        ...emptyBuilding,
+        cliffWall: {
+          onLevels: ["yard"],
+          points: [
+            { x: 7.26, y: 0.1 },
+            { x: 4.4, y: 0.1 },
+          ],
+        },
+      },
+      warnings: [],
+    });
+
+    document.draft.value.cliffWall.points[1] = { x: 4.2, y: 0.3 };
+
+    expect(document.dirty.value).toBe(true);
+  });
 });
