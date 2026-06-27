@@ -327,6 +327,8 @@ const {
         :cliff-wall="placedCliffWall"
         :building-shell="placedBuildingShell"
         :beams="placedBeams"
+        :builder-view="builderView"
+        @select-item="emit('select-item', $event)"
       />
 
       <GridExteriorLayer
@@ -370,6 +372,8 @@ const {
         :current-room="currentRoom"
         :reachable-rooms="reachableRooms"
         :is-fixture-revealed="isFixtureRevealed"
+        :builder-view="builderView"
+        @select-item="emit('select-item', $event)"
         @stair-fixture-click="onStairFixtureClick"
         @stair-exit-click="onStairExitClick"
       />

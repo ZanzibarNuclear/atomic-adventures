@@ -47,7 +47,9 @@ export function useGridMapInteractions({
       h.role === 'node-at' ||
       h.role === 'door-at' ||
       h.role === 'room-stand' ||
-      h.role === 'exit-map'
+      h.role === 'exit-map' ||
+      h.role === 'wall-point' ||
+      h.role.startsWith('stair-')
     ) {
       return pathNodeHandleColor()
     }
@@ -63,7 +65,9 @@ export function useGridMapInteractions({
       h.role === 'node-at' ||
       h.role === 'door-at' ||
       h.role === 'room-stand' ||
-      h.role === 'exit-map'
+      h.role === 'exit-map' ||
+      h.role === 'wall-point' ||
+      h.role.startsWith('stair-')
     ) {
       return '#d4f5e2'
     }

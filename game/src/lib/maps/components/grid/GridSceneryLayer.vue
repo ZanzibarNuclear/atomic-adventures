@@ -27,12 +27,18 @@
     />
   </g>
 
-  <g v-if="cliffWall" class="cliff-wall-layer" pointer-events="none">
+  <g
+    v-if="cliffWall"
+    class="cliff-wall-layer"
+    :class="{ selectable: builderView }"
+    :pointer-events="builderView ? 'auto' : 'none'"
+  >
     <path
       v-for="seg in cliffWall.segments"
       :key="'cliff-' + seg.key"
       :d="seg.d"
       class="cliff-wall-fill"
+      @click.stop="builderView && $emit('select-item', { source: 'walls', id: 'cliff-wall' })"
     />
   </g>
 
@@ -69,7 +75,10 @@ defineProps({
   cliffWall: { type: Object, default: null },
   buildingShell: { type: Array, default: () => [] },
   beams: { type: Array, default: () => [] },
+  builderView: { type: Boolean, default: false },
 })
+
+defineEmits(['select-item'])
 
 function shellRingPath(ring) {
   if (ring.length === 0) return ''
@@ -105,11 +114,16 @@ function shellRingPath(ring) {
 .cliff-wall-layer {
   pointer-events: none;
 }
+.cliff-wall-layer.selectable {
+  pointer-events: auto;
+  cursor: pointer;
+}
 .cliff-wall-fill {
   fill: url(#cliff-wall-stone);
   stroke: #5c5854;
   stroke-width: 2;
   stroke-linejoin: bevel;
+  pointer-events: visiblePainted;
 }
 .building-shell {
   fill: #14181f;

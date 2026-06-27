@@ -43,6 +43,8 @@ const errorMessages = computed(() =>
   ),
 );
 
+const fixedSelectionSources = new Set(["fixtures", "walls", "links"]);
+
 </script>
 
 <template>
@@ -55,9 +57,9 @@ const errorMessages = computed(() =>
       <div class="row-actions">
         <button class="sm muted" @click="emit('move-selected', -1)">↑</button>
         <button class="sm muted" @click="emit('move-selected', 1)">↓</button>
-        <button class="sm muted" :disabled="['fixtures', 'links'].includes(selection.source)" @click="emit('rename-selected')">Rename</button>
-        <button class="sm muted" :disabled="['fixtures', 'links'].includes(selection.source)" @click="emit('duplicate-selected')">Duplicate</button>
-        <button class="sm danger-outline" :disabled="selection.source === 'fixtures'" @click="emit('delete-selected')">Delete</button>
+        <button class="sm muted" :disabled="fixedSelectionSources.has(selection.source)" @click="emit('rename-selected')">Rename</button>
+        <button class="sm muted" :disabled="fixedSelectionSources.has(selection.source)" @click="emit('duplicate-selected')">Duplicate</button>
+        <button class="sm danger-outline" :disabled="['fixtures', 'walls'].includes(selection.source)" @click="emit('delete-selected')">Delete</button>
       </div>
 
       <RoomInspector
@@ -98,7 +100,7 @@ const errorMessages = computed(() =>
       />
 
       <FixtureInspector
-        v-else-if="selection.source === 'fixtures'"
+        v-else-if="['fixtures', 'walls'].includes(selection.source)"
         :selection="selection"
       />
 

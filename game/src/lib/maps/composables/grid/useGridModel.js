@@ -614,6 +614,7 @@ export function fixturesOnLevel(building, levelId) {
         rect: { x: r.x * cell, y: r.y * cell, w: r.w * cell, h: r.h * cell },
         run: f.run ?? 'horizontal',
         ascend: f.ascend ?? 'end',
+        angleDegrees: f.angleDegrees ?? 0,
       })
     }
   }
