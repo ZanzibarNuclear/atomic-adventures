@@ -12,9 +12,9 @@
     @close="$emit('hide-movement-audit')"
   />
 
-  <PlayPanel>
-    <StatusLines :lines="statusLines" />
+  <StatusLines :lines="statusLines" />
 
+  <PlayPanel v-if="actions.length">
     <TravelOptions v-if="actions.length" label="Choose an Action">
       <button
         v-for="item in actions"

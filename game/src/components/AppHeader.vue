@@ -2,8 +2,7 @@
   <header>
     <div class="header-row">
       <div class="title-block">
-        <h1>Atomic Adventures</h1>
-        <p class="sub">Part I — Zanzibar's World of Energy</p>
+        <h1>Zanzibar's World of Energy</h1>
       </div>
       <div class="controls-column">
         <div class="game-controls">
@@ -92,6 +91,9 @@ function closeDevMenu() {
 </script>
 
 <style scoped>
+header {
+  margin-bottom: 0.75rem;
+}
 .header-row {
   display: flex;
   justify-content: space-between;
