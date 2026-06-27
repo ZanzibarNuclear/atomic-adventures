@@ -180,6 +180,8 @@ So far so good. This is almost too good to be true. He has one more step to see 
 
 The main terminal on the console flickers on. Within seconds, a prompt appears.
 
+---
+
 (Would be fun to vary the boot expressions so that everyone gets a unique experience.)
 
 - "This is the first moment of the rest of your life..."
