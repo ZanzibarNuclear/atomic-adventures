@@ -239,7 +239,7 @@ Deferred: AP-1000, fusion chapters.
 ### Longer horizon
 
 - Passage graph features beyond beats (`go_to`, cross-area travel, fuller `require` schema).  
-- Indoor world authoring (today: YAML-only).  
+- Further Utility Station authoring polish, including richer visual editing and validation helpers.  
 - Localization, modding, or community content — explicitly out of scope until Part I ships.
 
 ---

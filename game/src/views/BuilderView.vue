@@ -4,6 +4,8 @@ import { useRouter } from "vue-router";
 import StoryBeatEditor from "../components/builder/story/StoryBeatEditor.vue";
 import StoryBeatList from "../components/builder/story/StoryBeatList.vue";
 import StoryLocationPicker from "../components/builder/story/StoryLocationPicker.vue";
+import BuilderPageHeader from "../components/builder/BuilderPageHeader.vue";
+import BuilderWorkspaceTabs from "../components/builder/BuilderWorkspaceTabs.vue";
 import UnsavedChangesDialog from "../components/builder/UnsavedChangesDialog.vue";
 import { useOutdoorWorld } from "../lib/maps/composables/useOutdoorWorld.js";
 import { buildBuilding } from "../lib/maps/composables/useGrid.js";
@@ -41,6 +43,13 @@ const indoorLevel = ref(
   buildingData.value.exterior?.level ?? buildingData.value.levels.at(-1)?.id,
 );
 const indoorViewportMode = ref("fit-all");
+const storyWorkspaceTabs = [
+  { id: "outdoors", label: "Area" },
+  { id: "rooms", label: "Utility Station" },
+];
+const storyWorkspace = computed(() =>
+  locationMode.value === "outdoors" ? "outdoors" : "rooms",
+);
 const {
   beats,
   selectedBeatId,
@@ -303,27 +312,16 @@ function requestContextChange(action) {
 
 <template>
   <main class="builder-page">
-    <header class="story-toolbar">
-      <div class="toolbar-title">
-        <h2>Story Builder</h2>
-        <nav class="story-map-tabs" aria-label="Story builder map">
-          <button
-            type="button"
-            :class="{ active: locationMode === 'outdoors' }"
-            @click="switchMode('outdoors')"
-          >
-            Area
-          </button>
-          <button
-            type="button"
-            :class="{ active: ['rooms', 'exterior'].includes(locationMode) }"
-            @click="switchMode('rooms')"
-          >
-            Utility Station
-          </button>
-        </nav>
-      </div>
-    </header>
+    <BuilderPageHeader title="Story Builder">
+      <template #tabs>
+        <BuilderWorkspaceTabs
+          aria-label="Story builder map"
+          :items="storyWorkspaceTabs"
+          :active-id="storyWorkspace"
+          @select="switchMode"
+        />
+      </template>
+    </BuilderPageHeader>
 
     <div class="builder-workspace">
       <div class="builder-nav-column">
@@ -405,27 +403,6 @@ function requestContextChange(action) {
   margin: 0 auto;
   overflow: hidden;
   padding: .75rem 1rem;
-}
-.story-toolbar,
-.toolbar-title,
-.story-map-tabs {
-  display: flex;
-  align-items: center;
-  gap: .75rem;
-  flex-wrap: wrap;
-}
-.story-toolbar {
-  justify-content: space-between;
-}
-.story-toolbar h2 {
-  margin: 0;
-}
-.story-map-tabs {
-  gap: .35rem;
-}
-.story-map-tabs button.active {
-  background: #49624f;
-  border-color: #6f9b79;
 }
 .open-menu { position: relative; }
 .open-menu summary {

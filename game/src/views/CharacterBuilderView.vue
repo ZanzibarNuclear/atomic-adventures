@@ -3,6 +3,8 @@ import CharacterCatalogBrowser from "../components/character-builder/CharacterCa
 import CharacterEntryEditor from "../components/character-builder/CharacterEntryEditor.vue";
 import CharacterOptionsEditor from "../components/character-builder/CharacterOptionsEditor.vue";
 import CharacterView from "../components/game-views/CharacterView.vue";
+import BuilderPageHeader from "../components/builder/BuilderPageHeader.vue";
+import BuilderWorkspaceTabs from "../components/builder/BuilderWorkspaceTabs.vue";
 import {
   useCharacterBuilderDraft,
   visibilityOptions,
@@ -48,47 +50,33 @@ const {
   workspaceMode,
   selectWorkspace,
 } = useCharacterBuilderDraft();
+
+const contentWorkspaceTabs = [
+  { id: "character", label: "Character" },
+  { id: "artifacts", label: "Artifacts" },
+  { id: "options", label: "Options" },
+  { id: "preview", label: "Preview" },
+];
 </script>
 
 <template>
   <main v-if="draft" class="character-builder">
-    <header class="builder-toolbar">
-      <div class="toolbar-title">
-        <h2>Content Builder</h2>
-        <nav class="workspace-toggle" aria-label="Content builder workspace">
-          <button
-            type="button"
-            :class="{ active: workspaceMode === 'character' }"
-            @click="selectWorkspace('character')">
-            Character
-          </button>
-          <button
-            type="button"
-            :class="{ active: workspaceMode === 'artifacts' }"
-            @click="selectWorkspace('artifacts')">
-            Artifacts
-          </button>
-          <button
-            type="button"
-            :class="{ active: workspaceMode === 'options' }"
-            @click="selectWorkspace('options')">
-            Options
-          </button>
-          <button
-            type="button"
-            :class="{ active: workspaceMode === 'preview' }"
-            @click="selectWorkspace('preview')">
-            Preview
-          </button>
-        </nav>
-      </div>
-      <div class="toolbar-actions">
+    <BuilderPageHeader title="Content Builder">
+      <template #tabs>
+        <BuilderWorkspaceTabs
+          aria-label="Content builder workspace"
+          :items="contentWorkspaceTabs"
+          :active-id="workspaceMode"
+          @select="selectWorkspace"
+        />
+      </template>
+      <template #actions>
         <span v-if="dirty" class="dirty-pill">Unsaved</span>
         <button class="sm muted" :disabled="!dirty" @click="revertDraft">Revert</button>
         <button class="sm muted" @click="loadHistory">History</button>
         <button class="sm" :disabled="!dirty" @click="saveDraft">Save content</button>
-      </div>
-    </header>
+      </template>
+    </BuilderPageHeader>
 
     <p v-if="status" class="status">{{ status }}</p>
 
@@ -171,33 +159,12 @@ const {
 
 <style scoped>
 .character-builder { padding: .85rem; }
-.builder-toolbar,
-.toolbar-actions,
-.toolbar-title,
 .preview-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: .5rem;
   flex-wrap: wrap;
-}
-.builder-toolbar h2,
-.builder-toolbar p { margin: 0; }
-.toolbar-title {
-  justify-content: flex-start;
-  gap: .75rem;
-}
-.workspace-toggle {
-  display: inline-flex;
-  gap: .35rem;
-}
-.workspace-toggle button {
-  border-radius: 8px;
-}
-.workspace-toggle button.active {
-  border-color: #6f9b79;
-  background: #49624f;
-  color: #eef7ef;
 }
 .builder-grid {
   display: grid;

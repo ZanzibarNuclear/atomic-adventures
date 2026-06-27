@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { storyApi } from "../lib/storyApi.js";
+import BuilderPageHeader from "../components/builder/BuilderPageHeader.vue";
 import BuilderStatusBanner from "../components/builder/BuilderStatusBanner.vue";
 import UnsavedChangesDialog from "../components/builder/UnsavedChangesDialog.vue";
 import StationCanvasPanel from "../components/builder/station/StationCanvasPanel.vue";
@@ -10,7 +11,6 @@ import StationObjectBrowser from "../components/builder/station/StationObjectBro
 import { useBuildingBuilderDocument } from "../composables/useBuildingBuilderDocument.js";
 import { useDirtyDocumentNavigation } from "../composables/useDirtyDocumentNavigation.js";
 import { useGridBuilderSelection } from "../composables/useGridBuilderSelection.js";
-import { useStationCanvasView } from "../composables/useStationCanvasView.js";
 import { buildBuilding } from "../lib/maps/composables/useGrid.js";
 import { buildInitialDoorState } from "../lib/maps/composables/useDoors.js";
 import {
@@ -32,6 +32,7 @@ const emptyUtilityStation = {
 };
 const level = ref(emptyUtilityStation.exterior?.level ?? emptyUtilityStation.levels?.at(-1)?.id ?? "");
 const search = ref("");
+const viewportMode = ref("fit-all");
 const leftCollapsed = ref(false);
 const rightCollapsed = ref(false);
 const characterCatalog = ref({
@@ -70,9 +71,6 @@ const {
 });
 
 const building = computed(() => buildBuilding(draft.value));
-const {
-  viewportMode,
-} = useStationCanvasView();
 const {
   selectedKey,
   selectedHandleId,
@@ -181,14 +179,11 @@ function runIndoorAudit() {
 
 <template>
   <main class="station-builder">
-    <header class="station-toolbar">
-      <div class="toolbar-title">
-        <div class="title-row">
-          <h2>World Builder</h2>
-          <slot name="workspace-switcher" />
-        </div>
-      </div>
-      <div class="toolbar-actions">
+    <BuilderPageHeader title="World Builder">
+      <template #tabs>
+        <slot name="workspace-switcher" />
+      </template>
+      <template #actions>
         <button class="sm muted" @click="leftCollapsed = !leftCollapsed">
           {{ leftCollapsed ? "Show objects" : "Hide objects" }}
         </button>
@@ -198,8 +193,8 @@ function runIndoorAudit() {
         <button class="sm muted" :disabled="!dirty" @click="revertDraft">Revert</button>
         <button class="sm muted" @click="loadHistory">History</button>
         <button class="sm" :disabled="!dirty" @click="saveDraft">Save building</button>
-      </div>
-    </header>
+      </template>
+    </BuilderPageHeader>
 
     <BuilderStatusBanner
       :status="status"
@@ -282,26 +277,14 @@ function runIndoorAudit() {
 
 <style scoped>
 .station-builder { padding: .85rem; }
-.station-toolbar, .toolbar-actions, .tool-group, .canvas-toolbar, .row-actions {
+.tool-group, .canvas-toolbar, .row-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: .5rem;
   flex-wrap: wrap;
 }
-.toolbar-title,
-.title-row {
-  display: flex;
-  align-items: center;
-  gap: .75rem;
-  flex-wrap: wrap;
-}
-.toolbar-title {
-  align-items: flex-start;
-  flex-direction: column;
-  gap: .2rem;
-}
-.station-toolbar h2, .inspector h3 { margin: 0; }
+.inspector h3 { margin: 0; }
 .station-workspace {
   display: grid;
   grid-template-columns: minmax(220px, 270px) minmax(440px, 1fr) minmax(290px, 350px);

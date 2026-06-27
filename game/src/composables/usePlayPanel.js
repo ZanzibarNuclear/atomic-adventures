@@ -96,9 +96,6 @@ export function buildOutdoorPassageToggleActions(outdoor) {
   }));
 }
 
-/** @deprecated Use buildOutdoorPassageActions */
-export const buildOutdoorCrossingActions = buildOutdoorPassageActions;
-
 function directionPhrase(direction, style = "to") {
   if (!direction) return style === "along" ? "onward" : "onward";
   return style === "along" ? direction : `to the ${direction}`;
