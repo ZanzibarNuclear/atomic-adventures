@@ -19,7 +19,7 @@ defineEmits(["select-holding", "transfer-item", "use-item", "return-to-map"]);
         <p class="label">Inventory</p>
         <h2 id="inventory-stage-title">Inspect carried items</h2>
       </div>
-      <button type="button" class="sm" @click="$emit('return-to-map')">Return to map</button>
+      <button type="button" class="sm" @click="$emit('return-to-map')">Return</button>
     </header>
     <InventoryBrowser
       :holders="holders"

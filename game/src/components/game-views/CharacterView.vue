@@ -178,7 +178,7 @@ function publicAssetPath(path) {
           <p v-if="clock" class="game-time">{{ formatGameClock(clock) }}</p>
         </div>
       </div>
-      <button type="button" @click="$emit('return-to-map')">Return to map</button>
+      <button type="button" @click="$emit('return-to-map')">Return</button>
     </header>
 
     <nav class="character-tabs" role="tablist" aria-label="Character information">

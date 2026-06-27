@@ -21,7 +21,7 @@ const focusedStat = computed(() =>
         <p class="label">Character</p>
         <h2 id="stats-stage-title">{{ focusedStat ? focusedStat.label : "Current condition" }}</h2>
       </div>
-      <button type="button" class="sm" @click="$emit('return-to-map')">Return to map</button>
+      <button type="button" class="sm" @click="$emit('return-to-map')">Return</button>
     </header>
 
     <article v-if="focusedStat" class="focus-stat">

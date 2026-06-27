@@ -6,15 +6,8 @@
       </div>
       <div class="controls-column">
         <div class="game-controls">
-          <button
-            type="button"
-            class="sm view-toggle"
-            :aria-pressed="activeGameView === 'character'"
-            @click="$emit(activeGameView === 'character' ? 'show-map' : 'show-character')">
-            {{ activeGameView === "character" ? "Map" : "Character" }}
-          </button>
           <details v-if="devMode" ref="devMenu" class="dev-menu">
-            <summary class="sm">Developer</summary>
+            <summary class="sm">Dev Tools</summary>
             <div class="dev-menu-popover">
               <a
                 href="/builder/story"
@@ -33,6 +26,13 @@
               </button>
             </div>
           </details>
+          <button
+            type="button"
+            class="sm view-toggle"
+            :aria-pressed="activeGameView === 'character'"
+            @click="$emit(activeGameView === 'character' ? 'show-map' : 'show-character')">
+            {{ activeGameView === "character" ? "Map" : "Character" }}
+          </button>
           <button class="sm" @click="$emit('save')">Save</button>
           <button v-if="hasSave" class="sm muted" @click="$emit('new-game')">
             New game
