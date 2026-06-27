@@ -56,6 +56,7 @@ defineEmits(["save", "discard", "keep"]);
   border: 1px solid #d7ded8;
   border-radius: 8px;
   background: #fff;
+  color: #1f2933;
   box-shadow: 0 18px 50px rgb(15 23 42 / 0.24);
 }
 
@@ -70,11 +71,13 @@ defineEmits(["save", "discard", "keep"]);
 
 h2 {
   margin: 0 0 0.5rem;
+  color: #102019;
   font-size: 1.2rem;
 }
 
 p {
   margin: 0 0 0.75rem;
+  color: #334155;
 }
 
 .builder-status {
@@ -88,5 +91,13 @@ p {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.unsaved-actions button {
+  color: #f8fafc;
+}
+
+.unsaved-actions button.muted {
+  color: #dbe2ea;
 }
 </style>
