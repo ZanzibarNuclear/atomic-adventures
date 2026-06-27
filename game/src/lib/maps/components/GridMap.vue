@@ -19,7 +19,6 @@ import GridRoomLayer from './grid/GridRoomLayer.vue'
 import GridDoorLayer from './grid/GridDoorLayer.vue'
 import GridFixtureLayer from './grid/GridFixtureLayer.vue'
 import GridRoomStandLayer from './grid/GridRoomStandLayer.vue'
-import GridExteriorFogLayer from './grid/GridExteriorFogLayer.vue'
 import { mapVisibilityCtx } from '../composables/useGrid.js'
 
 const props = defineProps({
@@ -48,7 +47,6 @@ const props = defineProps({
   mapClickMode: { type: String, default: null },
   expanded: { type: Boolean, default: false },
   viewportMode: { type: String, default: 'gameplay' },
-  exteriorFog: { type: Boolean, default: false },
   orientationControls: { type: Boolean, default: true },
   wheelZoom: { type: Boolean, default: false },
   dragPan: { type: Boolean, default: false },
@@ -194,7 +192,6 @@ function onClickCapture(event) {
 
 const {
   placedBuildingShell,
-  placedFogBuildingShell,
   placedRooms,
   placedDoors,
   placedBeams,
@@ -383,15 +380,6 @@ const {
         :builder-view="builderView"
         @stand-click="(roomId, standId) => emit('stand-click', { roomId, standId })"
         @stand-pointerdown="onStandPointerDown"
-      />
-
-      <GridExteriorFogLayer
-        :visible="exteriorFog && level === building.exterior?.level"
-        :view-box="viewBoxRect"
-        :building-shell="placedFogBuildingShell"
-        :paths="placedExteriorPaths"
-        :nodes="placedExteriorNodes"
-        :cell="cell"
       />
 
       <MapAvatar

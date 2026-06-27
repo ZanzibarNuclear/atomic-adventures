@@ -243,7 +243,6 @@ function setMapHost(element) {
   <main class="world-builder">
     <header class="world-toolbar">
       <div class="toolbar-title">
-        <p class="label">Outdoor world</p>
         <div class="title-row">
           <h2>World Builder</h2>
           <slot name="workspace-switcher" />
@@ -402,7 +401,7 @@ function setMapHost(element) {
   flex-direction: column;
   gap: .2rem;
 }
-.world-toolbar h2, .world-toolbar p { margin: 0; }
+.world-toolbar h2 { margin: 0; }
 .world-workspace {
   display: grid;
   grid-template-columns: minmax(220px, 270px) minmax(440px, 1fr) minmax(290px, 350px);

@@ -93,12 +93,6 @@ export function useGridMapPlacements({
     )
   })
 
-  const placedFogBuildingShell = computed(() =>
-    levelBuildingPerimeter(building.value, level.value).map((ring) =>
-      ring.map((p) => tp(p.x * cell.value, p.y * cell.value)),
-    ),
-  )
-
   const placedRooms = computed(() =>
     mappedRooms.value.map((room) => {
       const r = rect(room, cell.value)
@@ -496,7 +490,6 @@ export function useGridMapPlacements({
     levelRooms,
     mappedRooms,
     placedBuildingShell,
-    placedFogBuildingShell,
     placedRooms,
     placedDoors,
     placedBeams,

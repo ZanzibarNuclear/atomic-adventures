@@ -18,28 +18,20 @@ defineProps({
   selectedExterior: { type: String, default: "" },
   indoorLevel: { type: String, default: "" },
   indoorViewportMode: { type: String, default: "gameplay" },
-  previewExteriorFog: { type: Boolean, default: false },
 });
 
 defineEmits([
-  "switch-mode",
   "select-hex",
   "select-room",
   "select-exterior",
   "select-indoor-item",
   "update:indoorLevel",
   "update:indoorViewportMode",
-  "update:previewExteriorFog",
 ]);
 </script>
 
 <template>
   <section class="builder-map-column panel">
-    <div class="mode-tabs">
-      <button :class="{ active: locationMode === 'outdoors' }" @click="$emit('switch-mode', 'outdoors')">Outdoor</button>
-      <button :class="{ active: ['rooms', 'exterior'].includes(locationMode) }" @click="$emit('switch-mode', 'rooms')">Indoor</button>
-    </div>
-
     <HexMap
       v-if="locationMode === 'outdoors'"
       :map-data="outdoor.displayMapData"
@@ -67,13 +59,6 @@ defineEmits([
             <option value="fit-all">Fit all</option>
           </select>
         </label>
-        <label class="preview-check">
-          <input
-            :checked="previewExteriorFog"
-            type="checkbox"
-            @change="$emit('update:previewExteriorFog', $event.target.checked)">
-          Exterior fog
-        </label>
       </div>
       <GridMap
         :building="building"
@@ -89,7 +74,6 @@ defineEmits([
         :builder-view="true"
         :hydro-discovered="true"
         :viewport-mode="indoorViewportMode"
-        :exterior-fog="previewExteriorFog"
         :orientation-controls="false"
         :wheel-zoom="true"
         :drag-pan="true"
@@ -109,20 +93,9 @@ defineEmits([
   padding: 0.85rem;
 }
 
-.mode-tabs {
-  display: flex;
-  gap: 0.4rem;
-  margin-bottom: 0.75rem;
-}
-
-.mode-tabs button.active {
-  background: #49624f;
-  border-color: #6f9b79;
-}
-
 .indoor-preview-controls {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.6rem;
   margin-bottom: 0.6rem;
 }
@@ -140,16 +113,6 @@ select {
   background: #171b22;
   color: #dbe2ea;
   padding: 0.45rem;
-}
-
-.preview-check {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.preview-check input {
-  width: auto;
 }
 
 @media (max-width: 900px) {

@@ -30,7 +30,7 @@ function selectWorkspace(next) {
             :class="{ active: workspace === 'outdoors' }"
             @click="selectWorkspace('outdoors')"
           >
-            Outdoor
+            Area
           </button>
           <button
             type="button"
@@ -50,7 +50,7 @@ function selectWorkspace(next) {
             :class="{ active: workspace === 'outdoors' }"
             @click="selectWorkspace('outdoors')"
           >
-            Outdoor
+            Area
           </button>
           <button
             type="button"

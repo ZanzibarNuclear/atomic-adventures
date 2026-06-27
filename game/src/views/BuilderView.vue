@@ -41,7 +41,6 @@ const indoorLevel = ref(
   buildingData.value.exterior?.level ?? buildingData.value.levels.at(-1)?.id,
 );
 const indoorViewportMode = ref("fit-all");
-const previewExteriorFog = ref(false);
 const {
   beats,
   selectedBeatId,
@@ -304,12 +303,33 @@ function requestContextChange(action) {
 
 <template>
   <main class="builder-page">
+    <header class="story-toolbar">
+      <div class="toolbar-title">
+        <h2>Story Builder</h2>
+        <nav class="story-map-tabs" aria-label="Story builder map">
+          <button
+            type="button"
+            :class="{ active: locationMode === 'outdoors' }"
+            @click="switchMode('outdoors')"
+          >
+            Area
+          </button>
+          <button
+            type="button"
+            :class="{ active: ['rooms', 'exterior'].includes(locationMode) }"
+            @click="switchMode('rooms')"
+          >
+            Utility Station
+          </button>
+        </nav>
+      </div>
+    </header>
+
     <div class="builder-workspace">
       <div class="builder-nav-column">
         <StoryLocationPicker
           v-model:indoor-level="indoorLevel"
           v-model:indoor-viewport-mode="indoorViewportMode"
-          v-model:preview-exterior-fog="previewExteriorFog"
           :location-mode="locationMode"
           :selected-location="selectedLocation"
           :outdoor="outdoor"
@@ -322,7 +342,6 @@ function requestContextChange(action) {
           :builder-flags="builderFlags"
           :selected-room="selectedRoom"
           :selected-exterior="selectedExterior"
-          @switch-mode="switchMode"
           @select-hex="selectHex"
           @select-room="selectRoom"
           @select-exterior="selectExterior"
@@ -387,11 +406,27 @@ function requestContextChange(action) {
   overflow: hidden;
   padding: .75rem 1rem;
 }
-.builder-header,
-.builder-header-actions {
-  display: flex; align-items: center; justify-content: space-between; gap: .65rem; flex-wrap: wrap;
+.story-toolbar,
+.toolbar-title,
+.story-map-tabs {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-wrap: wrap;
 }
-.builder-header h1 { margin: 0; }
+.story-toolbar {
+  justify-content: space-between;
+}
+.story-toolbar h2 {
+  margin: 0;
+}
+.story-map-tabs {
+  gap: .35rem;
+}
+.story-map-tabs button.active {
+  background: #49624f;
+  border-color: #6f9b79;
+}
 .open-menu { position: relative; }
 .open-menu summary {
   list-style: none;
@@ -432,7 +467,7 @@ function requestContextChange(action) {
   display: grid;
   grid-template-columns: minmax(360px, .9fr) minmax(520px, 1.45fr);
   gap: 1rem;
-  height: calc(100% - .75rem);
+  height: calc(100% - 3rem);
   min-height: 0;
   margin-top: .75rem;
   align-items: stretch;

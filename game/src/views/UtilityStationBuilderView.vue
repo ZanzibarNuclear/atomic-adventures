@@ -72,9 +72,7 @@ const {
 const building = computed(() => buildBuilding(draft.value));
 const {
   viewportMode,
-  exteriorFog,
-  setDoorPreview,
-} = useStationCanvasView({ building, doorStates });
+} = useStationCanvasView();
 const {
   selectedKey,
   selectedHandleId,
@@ -185,9 +183,8 @@ function runIndoorAudit() {
   <main class="station-builder">
     <header class="station-toolbar">
       <div class="toolbar-title">
-        <p class="label">Indoor world</p>
         <div class="title-row">
-          <h2>Utility Station</h2>
+          <h2>World Builder</h2>
           <slot name="workspace-switcher" />
         </div>
       </div>
@@ -226,7 +223,6 @@ function runIndoorAudit() {
       <StationCanvasPanel
         v-model:level="level"
         v-model:viewport-mode="viewportMode"
-        v-model:exterior-fog="exteriorFog"
         v-model:selected-handle-id="selectedHandleId"
         :loaded="loaded"
         :building="building"
@@ -240,7 +236,6 @@ function runIndoorAudit() {
         :edit-handles="editHandles"
         :add-mode="addMode"
         @toggle-geometry-editing="toggleGeometryEditing"
-        @set-door-preview="setDoorPreview"
         @select-item="selectItem($event.source, $event.id)"
         @grid-handle-move="onHandleMove"
         @builder-map-click="onMapClick"
@@ -306,7 +301,7 @@ function runIndoorAudit() {
   flex-direction: column;
   gap: .2rem;
 }
-.station-toolbar h2, .station-toolbar p, .inspector h3 { margin: 0; }
+.station-toolbar h2, .inspector h3 { margin: 0; }
 .station-workspace {
   display: grid;
   grid-template-columns: minmax(220px, 270px) minmax(440px, 1fr) minmax(290px, 350px);

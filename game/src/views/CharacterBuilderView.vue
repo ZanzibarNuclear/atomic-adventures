@@ -53,11 +53,8 @@ const {
 <template>
   <main v-if="draft" class="character-builder">
     <header class="builder-toolbar">
-      <div>
-        <p class="label">Content</p>
-        <h2>Character and artifacts</h2>
-      </div>
-      <div class="toolbar-actions">
+      <div class="toolbar-title">
+        <h2>Content Builder</h2>
         <nav class="workspace-toggle" aria-label="Content builder workspace">
           <button
             type="button"
@@ -84,6 +81,8 @@ const {
             Preview
           </button>
         </nav>
+      </div>
+      <div class="toolbar-actions">
         <span v-if="dirty" class="dirty-pill">Unsaved</span>
         <button class="sm muted" :disabled="!dirty" @click="revertDraft">Revert</button>
         <button class="sm muted" @click="loadHistory">History</button>
@@ -174,6 +173,7 @@ const {
 .character-builder { padding: .85rem; }
 .builder-toolbar,
 .toolbar-actions,
+.toolbar-title,
 .preview-toolbar {
   display: flex;
   align-items: center;
@@ -183,19 +183,16 @@ const {
 }
 .builder-toolbar h2,
 .builder-toolbar p { margin: 0; }
+.toolbar-title {
+  justify-content: flex-start;
+  gap: .75rem;
+}
 .workspace-toggle {
   display: inline-flex;
   gap: .35rem;
-  padding: .25rem;
-  border: 1px solid #343d4d;
-  border-radius: 999px;
-  background: #161b22;
 }
 .workspace-toggle button {
-  border-radius: 999px;
-  border-color: transparent;
-  background: transparent;
-  color: #b8c0cc;
+  border-radius: 8px;
 }
 .workspace-toggle button.active {
   border-color: #6f9b79;

@@ -7,12 +7,12 @@ import { RouterLink, RouterView } from "vue-router";
     <header class="authoring-header">
       <div>
         <p class="label">Authoring</p>
-        <h1>Atomic Adventures Builder</h1>
+        <h1>Atomic Adventures Builder: Zanzibar's World of Energy</h1>
       </div>
       <div class="authoring-actions">
         <nav class="builder-tabs" aria-label="Builder workspace">
-          <RouterLink to="/builder/story">Story</RouterLink>
           <RouterLink to="/builder/world">World</RouterLink>
+          <RouterLink to="/builder/story">Story</RouterLink>
           <RouterLink to="/builder/content">Content</RouterLink>
         </nav>
         <details class="open-menu">
