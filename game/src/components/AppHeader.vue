@@ -31,13 +31,19 @@
             class="sm view-toggle"
             :aria-pressed="activeGameView === 'character'"
             @click="$emit(activeGameView === 'character' ? 'show-map' : 'show-character')">
-            {{ activeGameView === "character" ? "Map" : "Character" }}
+            {{ activeGameView === "character" ? "Map" : "Player Stats" }}
           </button>
-          <button class="sm" @click="$emit('save')">Save</button>
+          <details ref="gameMenu" class="game-menu">
+            <summary class="sm">Game</summary>
+            <div class="game-menu-popover">
+              <button type="button" class="menu-item" @click="handleSave">Save</button>
+              <button type="button" class="menu-item muted" @click="handleReset">Reset</button>
+              <button type="button" class="menu-item" @click="showCredits">Credits</button>
+            </div>
+          </details>
           <button v-if="hasSave" class="sm muted" @click="$emit('new-game')">
             New game
           </button>
-          <button class="sm muted" @click="$emit('reset')">Reset</button>
         </div>
         <p v-if="showSaveHint" class="save-hint">
           Last saved {{ formattedSavedAt }}
@@ -45,11 +51,15 @@
         <p v-if="loadError" class="error-hint">{{ loadError }}</p>
       </div>
     </div>
+    <CreditsDialog
+      v-if="creditsOpen"
+      @close="creditsOpen = false" />
   </header>
 </template>
 
 <script setup>
 import { computed, ref } from "vue";
+import CreditsDialog from "./CreditsDialog.vue";
 
 const props = defineProps({
   hasSave: { type: Boolean, default: false },
@@ -69,6 +79,8 @@ const emit = defineEmits([
 ]);
 const devMode = import.meta.env.DEV;
 const devMenu = ref(null);
+const gameMenu = ref(null);
+const creditsOpen = ref(false);
 
 const formattedSavedAt = computed(() => {
   const raw = props.lastSavedAt;
@@ -87,6 +99,25 @@ function showMovementAudit() {
 
 function closeDevMenu() {
   if (devMenu.value) devMenu.value.open = false;
+}
+
+function closeGameMenu() {
+  if (gameMenu.value) gameMenu.value.open = false;
+}
+
+function handleSave() {
+  emit("save");
+  closeGameMenu();
+}
+
+function handleReset() {
+  emit("reset");
+  closeGameMenu();
+}
+
+function showCredits() {
+  creditsOpen.value = true;
+  closeGameMenu();
 }
 </script>
 
@@ -127,10 +158,12 @@ header {
   background: #49624f;
   border-color: #6f9b79;
 }
-.dev-menu {
+.dev-menu,
+.game-menu {
   position: relative;
 }
-.dev-menu summary {
+.dev-menu summary,
+.game-menu summary {
   list-style: none;
   user-select: none;
   background: #303846;
@@ -141,19 +174,23 @@ header {
   font-size: 0.82rem;
   cursor: pointer;
 }
-.dev-menu summary::-webkit-details-marker {
+.dev-menu summary::-webkit-details-marker,
+.game-menu summary::-webkit-details-marker {
   display: none;
 }
-.dev-menu summary::after {
+.dev-menu summary::after,
+.game-menu summary::after {
   content: " ▾";
   color: #9fc7ff;
 }
-.dev-menu[open] summary {
+.dev-menu[open] summary,
+.game-menu[open] summary {
   background: #3a4555;
   border-color: #6c7b95;
   color: #eef3f8;
 }
-.dev-menu-popover {
+.dev-menu-popover,
+.game-menu-popover {
   position: absolute;
   z-index: 20;
   top: calc(100% + 0.35rem);
@@ -165,7 +202,8 @@ header {
   background: #202630;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
 }
-.dev-menu-item {
+.dev-menu-item,
+.menu-item {
   display: block;
   box-sizing: border-box;
   width: 100%;
@@ -179,7 +217,11 @@ header {
   font: inherit;
   cursor: pointer;
 }
-.dev-menu-item:hover:not(:disabled) {
+.menu-item.muted {
+  color: #aab0bc;
+}
+.dev-menu-item:hover:not(:disabled),
+.menu-item:hover:not(:disabled) {
   background: #344158;
 }
 .save-hint {
