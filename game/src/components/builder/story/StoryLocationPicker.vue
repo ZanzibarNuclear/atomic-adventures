@@ -72,6 +72,7 @@ defineEmits([
         :reachable-exterior-nodes="allExteriorIds"
         :door-states="buildInitialDoorState(building.areaId, building)"
         :builder-view="true"
+        builder-fixture-click-target="feature-room"
         :hydro-discovered="true"
         :viewport-mode="indoorViewportMode"
         :orientation-controls="false"

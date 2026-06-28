@@ -37,6 +37,7 @@ const props = defineProps({
   reachableExitDoors: { type: Array, default: () => [] },
   reachableExteriorNodes: { type: Array, default: () => [] },
   builderView: { type: Boolean, default: false },
+  builderFixtureClickTarget: { type: String, default: 'fixture' },
   builderEdit: { type: Boolean, default: false },
   hydroDiscovered: { type: Boolean, default: false },
   editMode: { type: String, default: null },
@@ -370,6 +371,7 @@ const {
         :reachable-rooms="reachableRooms"
         :is-fixture-revealed="isFixtureRevealed"
         :builder-view="builderView"
+        :builder-fixture-click-target="builderFixtureClickTarget"
         @select-item="emit('select-item', $event)"
         @stair-fixture-click="onStairFixtureClick"
         @stair-exit-click="onStairExitClick"

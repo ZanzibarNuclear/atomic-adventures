@@ -120,6 +120,7 @@ const props = defineProps({
   reachableRooms: { type: Array, default: () => [] },
   isFixtureRevealed: { type: Function, required: true },
   builderView: { type: Boolean, default: false },
+  builderFixtureClickTarget: { type: String, default: 'fixture' },
 })
 
 const emit = defineEmits(['stair-fixture-click', 'stair-exit-click', 'select-item'])
@@ -143,6 +144,10 @@ function stairExits(f) {
 
 function onFixtureClick(f) {
   if (props.builderView) {
+    if (props.builderFixtureClickTarget === 'feature-room' && f.featureRoomId) {
+      emit('select-item', { source: 'rooms', id: f.featureRoomId })
+      return
+    }
     emit('select-item', { source: 'fixtures', id: f.id })
     return
   }

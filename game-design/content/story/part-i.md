@@ -80,15 +80,27 @@ The wall at the end of the conference room featured a pair of wooden panels. Zan
 
 A second door stood at the back of the room. The door was unlocked. As Zanzibar opened it, adrenaline flooded his body with the instant recognition of what he had found.
 
-### The Conference Room
+### The Kitchen
 
-Zanzibar climbs the stairs to a bit of good luck. The door is unlocked, so he goes through into a stylish conference room, formal without being stuffy. The decor fits the surroundings, with a large, rustic wooden table circled by a number of sturdy wooden chairs.
+In a facility where people come and go with some regularity, proper labeling is essential to help people find what they need. Zanzibar finds the cabinet for rations in no time flat.
 
-The sides are lined with windows, those that overlook the garage, and on the opposite side, larger windows to what must be a spectacular view. They need cleaning, inside and out.
+Some decades prior, the technology for food preservation goes through an evolution. With a combination of a technique called nutrition packing, flavor loading, irradiation and impenetrable wrapping materials, energy bars gain a shelf life of decades. They have yet to discover the true "best by" date. Every bar is as tasty and nutritious as the last.
 
-The wall at the end of the conference room features a pair of wooden panels. Zanzibar slides the panels apart to reveal a large screen. Presentations, conference calls, movie night. From what Zanzibar has seen so far, he can tell that whoever stays here is doing more than camping. This is a serious facility. What happened?
+Tastee Tack, harkening back to hardtack, a stable of soldiers. It comes in a variety of meals. Zanzibar settles on a double helping of turkey-cranberry. After a couple of bites, he realizes how thirsty he is. Looking around some more, he finds a container and packets of water purifier. He tries the faucet at the sink. It sputters and spews a bit, and starts to clear after about 20 seconds. Another minute is enough to give him confidence. He fills the container, drops in some tablets. He finds a glass in a cabinet and rinses it out before pouring himself a tall one.
 
-A second door stands at the back of the room. The door is unlocked. As Zanzibar opens it, adrenaline floods his body with the instant recognition of what he has found.
+Zanzibar sits at a breakroom table to one side of the kitchen. This side of the room also has windows with a view of the flowing water outside. The sun is setting on this amazing day.
+
+Having satisfied his hunger and thirst, there is one more place Zanzibar wants to see. Another door leads from the dining area to a spiral staircase at the side of the building. The springloaded door hinge closes automatically behind him. There he is, with the cascade of water and view into the valley below where the setting sun turns the sky a deepening orange.
+
+The white noise from the falls is hypnotic, and fatigue starts to pour over Zanzibar. Looking down the stairs, he sees another door. Just enough light remains to check it out.
+
+He pull the door open and steps into a short hallway with three more doors. The door ahead is labeled with the universal symbol for a unisex restroom. Good to know.
+
+The door to the left is locked. He turns the lock, opens the door, and sees the covered vehicle. So that is the way to the garage.
+
+Closing the door, he moves across the hall. That door opens into a carpeted room with shelves full of books and manuals, a couple of study carols, and some soft, low seating. Zanzibar has found a library.
+
+He sinks into one of the overstuffed chairs, streteches his legs, and drifts off to sleep.
 
 ## Day 2
 
