@@ -37,17 +37,17 @@
             <summary class="sm">Game</summary>
             <div class="game-menu-popover">
               <button type="button" class="menu-item success" @click="handleSave">Save</button>
+              <p v-if="showSaveHint" class="menu-label">
+                Last saved {{ formattedSavedAt }}
+              </p>
               <button type="button" class="menu-item warning" @click="handleReset">Reset</button>
+              <button v-if="hasSave" type="button" class="menu-item muted" @click="handleNewGame">
+                New game
+              </button>
               <button type="button" class="menu-item" @click="showCredits">Credits</button>
             </div>
           </details>
-          <button v-if="hasSave" class="sm muted" @click="$emit('new-game')">
-            New game
-          </button>
         </div>
-        <p v-if="showSaveHint" class="save-hint">
-          Last saved {{ formattedSavedAt }}
-        </p>
         <p v-if="loadError" class="error-hint">{{ loadError }}</p>
       </div>
     </div>
@@ -112,6 +112,11 @@ function handleSave() {
 
 function handleReset() {
   emit("reset");
+  closeGameMenu();
+}
+
+function handleNewGame() {
+  emit("new-game");
   closeGameMenu();
 }
 
@@ -226,6 +231,15 @@ header {
 .menu-item.warning {
   color: #ffb38a;
 }
+.menu-label {
+  margin: -0.15rem 0 0.25rem;
+  padding: 0 0.55rem 0.35rem;
+  border-bottom: 1px solid #343e50;
+  color: #8f98a8;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  white-space: nowrap;
+}
 .dev-menu-item:hover:not(:disabled),
 .menu-item:hover:not(:disabled) {
   background: #344158;
@@ -235,12 +249,6 @@ header {
 }
 .menu-item.warning:hover:not(:disabled) {
   background: #4a3028;
-}
-.save-hint {
-  margin: 0;
-  font-size: 0.78rem;
-  color: #6f7787;
-  text-align: right;
 }
 .error-hint {
   margin: 0;

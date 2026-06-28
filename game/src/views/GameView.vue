@@ -210,7 +210,7 @@ function handleNewGame() {
 }
 
 function handleReset() {
-  resetGameState(saveCtx.value);
+  if (!hasSave() || !load(saveCtx.value)) resetGameState(saveCtx.value);
   refreshNarrative();
 }
 
