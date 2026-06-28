@@ -67,7 +67,7 @@ describe('getMovementOptions', () => {
 
     expect(south).toBeDefined()
     expect(south.label).toBe('Continue west on the trail')
-    expect(south.kind).toBe('story')
+    expect(south.kind).toBeUndefined()
   })
 
   it('lists story choices that move to exterior path nodes', () => {
@@ -82,7 +82,6 @@ describe('getMovementOptions', () => {
       {
         id: 'story:0',
         label: 'Look for a way in',
-        kind: 'story',
       },
     ])
   })
@@ -109,7 +108,7 @@ describe('getMovementOptions', () => {
     const eastPines = options.filter((o) => o.toHexId === 'east-pines')
 
     expect(eastPines).toHaveLength(1)
-    expect(eastPines[0].kind).toBe('story')
+    expect(eastPines[0].kind).toBeUndefined()
   })
 
   it('omits story choices to adjacent but unreachable hexes', () => {

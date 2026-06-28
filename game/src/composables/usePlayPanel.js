@@ -30,7 +30,6 @@ export function buildStoryChoices(pendingBeat, canReachHex = () => true) {
       id: `story:${index}`,
       toHexId: choice.go_hex ?? null,
       label: choice.text,
-      kind: "story",
       disabled: choice.disabled,
       hint: choice.disabled ? "Requirements not met" : null,
     }));

@@ -98,17 +98,36 @@ button.sm.muted {
   text-align: center;
   border-left-width: 4px;
 }
-.route-btn.k-story {
-  border-left-color: #8bc49a;
+/* Keep action edge colors aligned with the hex-map legend palette. */
+.route-btn.k-action,
+.route-btn.k-room,
+.route-btn.k-stand,
+.route-btn.k-search,
+.route-btn.k-puzzle {
+  border-left-color: #5a6270;
+}
+.route-btn.k-forest {
+  border-left-color: #4f7e57;
 }
 .route-btn.k-path {
-  border-left-color: #c39a6b;
+  border-left-color: #7a4f2a;
 }
 .route-btn.k-road {
-  border-left-color: #9aa0a6;
+  border-left-color: #8a8073;
+}
+.route-btn.k-drive {
+  border-left-color: #9b917f;
 }
 .route-btn.k-trail {
-  border-left-color: #d7c48f;
+  border-left-color: #c9b97e;
+}
+.route-btn.k-river {
+  border-left-color: #4a90d9;
+}
+.route-btn.k-fence,
+.route-btn.k-gate,
+.route-btn.k-door {
+  border-left-color: #c9b89a;
 }
 .route-btn.off {
   border-left-color: #5a6270;

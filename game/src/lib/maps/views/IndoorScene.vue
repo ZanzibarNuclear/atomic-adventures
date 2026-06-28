@@ -20,7 +20,7 @@
         v-for="item in actions"
         :key="item.id"
         class="route-btn"
-        :class="item.kind ? 'k-' + item.kind : 'k-story'"
+        :class="item.kind ? 'k-' + item.kind : null"
         :disabled="indoor.indoor.moving || item.disabled"
         :title="item.hint ?? ''"
         @click="onAction(item.id)">
