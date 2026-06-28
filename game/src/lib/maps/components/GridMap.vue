@@ -19,7 +19,6 @@ import GridRoomLayer from './grid/GridRoomLayer.vue'
 import GridDoorLayer from './grid/GridDoorLayer.vue'
 import GridFixtureLayer from './grid/GridFixtureLayer.vue'
 import GridRoomStandLayer from './grid/GridRoomStandLayer.vue'
-import GridExteriorFogLayer from './grid/GridExteriorFogLayer.vue'
 import { mapVisibilityCtx } from '../composables/useGrid.js'
 
 const props = defineProps({
@@ -38,6 +37,7 @@ const props = defineProps({
   reachableExitDoors: { type: Array, default: () => [] },
   reachableExteriorNodes: { type: Array, default: () => [] },
   builderView: { type: Boolean, default: false },
+  builderFixtureClickTarget: { type: String, default: 'fixture' },
   builderEdit: { type: Boolean, default: false },
   hydroDiscovered: { type: Boolean, default: false },
   editMode: { type: String, default: null },
@@ -48,7 +48,6 @@ const props = defineProps({
   mapClickMode: { type: String, default: null },
   expanded: { type: Boolean, default: false },
   viewportMode: { type: String, default: 'gameplay' },
-  exteriorFog: { type: Boolean, default: false },
   orientationControls: { type: Boolean, default: true },
   wheelZoom: { type: Boolean, default: false },
   dragPan: { type: Boolean, default: false },
@@ -194,7 +193,6 @@ function onClickCapture(event) {
 
 const {
   placedBuildingShell,
-  placedFogBuildingShell,
   placedRooms,
   placedDoors,
   placedBeams,
@@ -327,6 +325,8 @@ const {
         :cliff-wall="placedCliffWall"
         :building-shell="placedBuildingShell"
         :beams="placedBeams"
+        :builder-view="builderView"
+        @select-item="emit('select-item', $event)"
       />
 
       <GridExteriorLayer
@@ -370,6 +370,9 @@ const {
         :current-room="currentRoom"
         :reachable-rooms="reachableRooms"
         :is-fixture-revealed="isFixtureRevealed"
+        :builder-view="builderView"
+        :builder-fixture-click-target="builderFixtureClickTarget"
+        @select-item="emit('select-item', $event)"
         @stair-fixture-click="onStairFixtureClick"
         @stair-exit-click="onStairExitClick"
       />
@@ -379,15 +382,6 @@ const {
         :builder-view="builderView"
         @stand-click="(roomId, standId) => emit('stand-click', { roomId, standId })"
         @stand-pointerdown="onStandPointerDown"
-      />
-
-      <GridExteriorFogLayer
-        :visible="exteriorFog && level === building.exterior?.level"
-        :view-box="viewBoxRect"
-        :building-shell="placedFogBuildingShell"
-        :paths="placedExteriorPaths"
-        :nodes="placedExteriorNodes"
-        :cell="cell"
       />
 
       <MapAvatar

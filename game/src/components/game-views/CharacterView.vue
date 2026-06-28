@@ -2,10 +2,8 @@
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import {
   acquiredEntries,
-  activeQuestSummaries,
   characterTabs,
   questSections,
-  visibleCharacterStats,
 } from "../../lib/character/panel.js";
 import { formatGameClock } from "../../lib/character/gameTime.js";
 import {
@@ -38,9 +36,7 @@ const selectedTab = ref(
 const selectedHoldingId = ref(null);
 const tabButtons = ref([]);
 
-const stats = computed(() => visibleCharacterStats(props.character));
 const portraitSrc = computed(() => publicAssetPath(props.character.definitions.profile?.portrait));
-const activeQuests = computed(() => activeQuestSummaries(props.character));
 const inventoryHolders = computed(() => {
   const ids = [...accessibleHolderIds(
     props.character.holdings,
@@ -64,10 +60,13 @@ const inventoryHolders = computed(() => {
     })),
   }));
 });
-const transferTargets = computed(() => inventoryHolders.value.map((holder) => ({
-  id: holder.id,
-  label: holder.label ?? holder.id,
-})));
+const transferTargets = computed(() => inventoryHolders.value
+  .filter((holder) => holder.kind !== "container")
+  .map((holder) => ({
+    id: holder.id,
+    label: holder.label ?? holder.id,
+    kind: holder.kind,
+  })));
 const selectedHolding = computed(() =>
   inventoryHolders.value.flatMap((holder) =>
     holder.records.map((record) => ({ ...record, holder })))
@@ -175,7 +174,7 @@ function publicAssetPath(path) {
           <p v-if="clock" class="game-time">{{ formatGameClock(clock) }}</p>
         </div>
       </div>
-      <button type="button" @click="$emit('return-to-map')">Return to map</button>
+      <button type="button" @click="$emit('return-to-map')">Return</button>
     </header>
 
     <nav class="character-tabs" role="tablist" aria-label="Character information">
@@ -203,8 +202,7 @@ function publicAssetPath(path) {
       :aria-labelledby="`character-tab-${selectedTab}`">
       <CharacterOverviewTab
         v-if="selectedTab === 'overview'"
-        :stats="stats"
-        :active-quests="activeQuests" />
+        :character="character" />
 
       <CharacterInventoryTab
         v-else-if="selectedTab === 'inventory'"

@@ -6,17 +6,21 @@ import {
   removePathPoint,
   resolvedDoorHandle,
   resolvedExitHandle,
+  resolvedFixtureHandles,
   resolvedNodeHandle,
   resolvedPathHandles,
   resolvedPathNodeHandles,
   resolvedRoomHandles,
   resolvedRoomStandHandle,
+  resolvedWallHandles,
   setDoorAt,
   setExitMapAt,
+  setFixtureFromHandle,
   setNodeAt,
   setPathPoint,
   setRoomFromHandle,
   setRoomStandAt,
+  setWallPoint,
   addPathNode,
   addPathPoint,
 } from "../lib/maps/composables/useGridBuilder.js";
@@ -76,6 +80,8 @@ export function useGridBuilderSelection({
     }
     if (selected.source === "nodes") return resolvedNodeHandle(selected.entity, cell.value);
     if (selected.source === "exits") return resolvedExitHandle(selected.entity, cell.value);
+    if (selected.source === "fixtures") return resolvedFixtureHandles(selected.entity, cell.value);
+    if (selected.source === "walls") return resolvedWallHandles(selected.entity, cell.value);
     if (selected.source === "stands") return resolvedRoomStandHandle(selected.entity, cell.value);
     return [];
   });
@@ -137,6 +143,10 @@ export function useGridBuilderSelection({
       setNodeAt(draft.value, selected.id, x, y);
     } else if (selected.source === "exits") {
       setExitMapAt(draft.value, selected.id, x, y);
+    } else if (selected.source === "fixtures") {
+      setFixtureFromHandle(draft.value, selected.id, payload.role, x, y);
+    } else if (selected.source === "walls") {
+      setWallPoint(draft.value, selected.id, payload.index, x, y);
     } else if (selected.source === "stands") {
       setRoomStandAt(draft.value, selected.id, x, y);
     }
@@ -173,6 +183,7 @@ export function useGridBuilderSelection({
     if (sourceName === "nodes") return draft.value.exterior?.nodes;
     if (sourceName === "exits") return draft.value.transitions ?? draft.value.exits;
     if (sourceName === "fixtures") return draft.value.fixtures;
+    if (sourceName === "walls") return draft.value.cliffWall ? [draft.value.cliffWall] : null;
     if (sourceName === "links") return draft.value.links;
     if (sourceName === "stands") {
       const roomId = selection.value?.source === "stands"
@@ -275,7 +286,7 @@ export function useGridBuilderSelection({
   function duplicateSelected() {
     const selected = selection.value;
     const list = selected ? collectionFor(selected.source) : null;
-    if (!selected || !list || ["fixtures", "links"].includes(selected.source)) return;
+    if (!selected || !list || ["fixtures", "walls", "links"].includes(selected.source)) return;
     const copy = clonePlain(selected.entity);
     copy.id = uniqueId(`${copy.id}-copy`, list);
     if (selected.source === "rooms") {
@@ -306,7 +317,7 @@ export function useGridBuilderSelection({
   function deleteSelected() {
     const selected = selection.value;
     const list = selected ? collectionFor(selected.source) : null;
-    if (!selected || !list || selected.source === "fixtures") return;
+    if (!selected || !list || ["fixtures", "walls"].includes(selected.source)) return;
     if (!window.confirm(
       `Delete ${selected.source.slice(0, -1)} "${selected.id}"? References are checked when you save.`,
     )) return;
@@ -332,7 +343,7 @@ export function useGridBuilderSelection({
 
   async function renameSelected() {
     const selected = selection.value;
-    if (!selected || ["fixtures", "links"].includes(selected.source)) return;
+    if (!selected || ["fixtures", "walls", "links"].includes(selected.source)) return;
     const currentId = selected.source === "stands" ? selected.id.split("/")[1] : selected.id;
     const next = window.prompt(`Rename "${currentId}" to:`, currentId)?.trim();
     if (!next || next === currentId) return;

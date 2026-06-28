@@ -118,6 +118,18 @@ export function listEditableFixtures(data, levelId) {
     }))
 }
 
+export function listEditableWalls(data, levelId) {
+  const wall = data.cliffWall
+  if (!wall) return []
+  const onLevels = wall.onLevels ?? [data.exterior?.level ?? 'first']
+  if (!onLevels.includes(levelId)) return []
+  return [{
+    source: 'walls',
+    id: 'cliff-wall',
+    label: 'Stone wall (cliff-wall)',
+  }]
+}
+
 export function listEditableLinks(data, levelId) {
   const roomById = Object.fromEntries((data.rooms ?? []).map((room) => [room.id, room]))
   return (data.links ?? [])
@@ -154,6 +166,7 @@ export function listAllGridEditable(data, levelId) {
     ...listEditableNodes(data, levelId),
     ...listEditableExits(data, levelId),
     ...listEditableFixtures(data, levelId),
+    ...listEditableWalls(data, levelId),
     ...listEditableLinks(data, levelId),
     ...listEditableRoomStands(data, levelId),
   ]
@@ -179,6 +192,9 @@ export function findGridEditable(data, source, id) {
   if (source === 'fixtures') {
     return data.fixtures?.find((fixture) => fixture.id === id) ?? null
   }
+  if (source === 'walls') {
+    return id === 'cliff-wall' ? data.cliffWall ?? null : null
+  }
   if (source === 'links') {
     const index = Number(id.split('-').at(-1))
     return Number.isInteger(index) ? data.links?.[index] ?? null : null
@@ -198,6 +214,7 @@ export function gridEditModeForSource(source) {
   if (source === 'nodes') return 'node'
   if (source === 'exits') return 'exit'
   if (source === 'fixtures') return 'fixture'
+  if (source === 'walls') return 'wall'
   if (source === 'links') return 'link'
   if (source === 'stands') return 'stand'
   return null
@@ -372,6 +389,83 @@ export function resolvedRoomStandHandle(stand, cell) {
     y: stand.at.y * cell,
     handleKey: 'room-stand',
   }]
+}
+
+function fixtureAngleRad(fixture) {
+  return ((fixture?.angleDegrees ?? 0) * Math.PI) / 180
+}
+
+function fixtureRunVectors(fixture) {
+  const angle = fixtureAngleRad(fixture)
+  const cos = Math.cos(angle)
+  const sin = Math.sin(angle)
+  if (fixture?.run === 'horizontal') {
+    return {
+      along: { x: cos, y: sin },
+      cross: { x: -sin, y: cos },
+    }
+  }
+  return {
+    along: { x: -sin, y: cos },
+    cross: { x: cos, y: sin },
+  }
+}
+
+function straightFixtureGeometry(fixture) {
+  const r = fixture?.rect
+  if (!r) return null
+  const horizontal = fixture.run === 'horizontal'
+  const length = horizontal ? r.w : r.h
+  const width = horizontal ? r.h : r.w
+  const center = { x: r.x + r.w / 2, y: r.y + r.h / 2 }
+  const { along, cross } = fixtureRunVectors(fixture)
+  return {
+    horizontal,
+    length,
+    width,
+    center,
+    along,
+    cross,
+    start: {
+      x: center.x - along.x * length / 2,
+      y: center.y - along.y * length / 2,
+    },
+    end: {
+      x: center.x + along.x * length / 2,
+      y: center.y + along.y * length / 2,
+    },
+    sideA: {
+      x: center.x + cross.x * width / 2,
+      y: center.y + cross.y * width / 2,
+    },
+    sideB: {
+      x: center.x - cross.x * width / 2,
+      y: center.y - cross.y * width / 2,
+    },
+  }
+}
+
+export function resolvedFixtureHandles(fixture, cell) {
+  if (fixture?.kind !== 'straight-stairs' || !fixture.rect) return []
+  const g = straightFixtureGeometry(fixture)
+  if (!g) return []
+  return [
+    { role: 'stair-move', x: g.center.x * cell, y: g.center.y * cell, handleKey: 'stair-move' },
+    { role: 'stair-start', x: g.start.x * cell, y: g.start.y * cell, handleKey: 'stair-start' },
+    { role: 'stair-end', x: g.end.x * cell, y: g.end.y * cell, handleKey: 'stair-end' },
+    { role: 'stair-width-a', x: g.sideA.x * cell, y: g.sideA.y * cell, handleKey: 'stair-width-a' },
+    { role: 'stair-width-b', x: g.sideB.x * cell, y: g.sideB.y * cell, handleKey: 'stair-width-b' },
+  ]
+}
+
+export function resolvedWallHandles(wall, cell) {
+  return (wall?.points ?? []).map((point, index) => ({
+    index,
+    role: 'wall-point',
+    x: point.x * cell,
+    y: point.y * cell,
+    handleKey: `wall-point-${index}`,
+  }))
 }
 
 export function setPathPoint(data, pathId, pointIndex, xUnits, yUnits) {
@@ -562,6 +656,68 @@ export function setRoomFromHandle(data, roomId, role, xUnits, yUnits) {
     room.x = x
     room.w = Math.max(0.5, snapHalf(ox + ow - x))
     room.h = Math.max(0.5, snapHalf(y - oy))
+  }
+}
+
+function setStraightFixtureFromGeometry(fixture, start, end, width) {
+  const horizontal = fixture.run === 'horizontal'
+  const dx = end.x - start.x
+  const dy = end.y - start.y
+  const length = Math.max(0.2, Math.hypot(dx, dy))
+  const center = {
+    x: (start.x + end.x) / 2,
+    y: (start.y + end.y) / 2,
+  }
+  fixture.angleDegrees = round2(
+    horizontal
+      ? Math.atan2(dy, dx) * 180 / Math.PI
+      : Math.atan2(-dx, dy) * 180 / Math.PI,
+  )
+  fixture.rect ??= { x: 0, y: 0, w: 0.5, h: 1 }
+  if (horizontal) {
+    fixture.rect.w = round2(length)
+    fixture.rect.h = round2(width)
+  } else {
+    fixture.rect.w = round2(width)
+    fixture.rect.h = round2(length)
+  }
+  fixture.rect.x = round2(center.x - fixture.rect.w / 2)
+  fixture.rect.y = round2(center.y - fixture.rect.h / 2)
+}
+
+export function setFixtureFromHandle(data, fixtureId, role, xUnits, yUnits) {
+  const fixture = data.fixtures?.find((item) => item.id === fixtureId)
+  if (fixture?.kind !== 'straight-stairs' || !fixture.rect) return
+  const g = straightFixtureGeometry(fixture)
+  if (!g) return
+  const point = { x: xUnits, y: yUnits }
+  if (role === 'stair-move') {
+    fixture.rect.x = round2(point.x - fixture.rect.w / 2)
+    fixture.rect.y = round2(point.y - fixture.rect.h / 2)
+    return
+  }
+  if (role === 'stair-start') {
+    setStraightFixtureFromGeometry(fixture, point, g.end, g.width)
+    return
+  }
+  if (role === 'stair-end') {
+    setStraightFixtureFromGeometry(fixture, g.start, point, g.width)
+    return
+  }
+  if (role === 'stair-width-a' || role === 'stair-width-b') {
+    const dx = point.x - g.center.x
+    const dy = point.y - g.center.y
+    const width = Math.max(0.1, Math.abs(dx * g.cross.x + dy * g.cross.y) * 2)
+    setStraightFixtureFromGeometry(fixture, g.start, g.end, width)
+  }
+}
+
+export function setWallPoint(data, wallId, pointIndex, xUnits, yUnits) {
+  if (wallId !== 'cliff-wall') return
+  if (!data.cliffWall?.points?.[pointIndex]) return
+  data.cliffWall.points[pointIndex] = {
+    x: round2(xUnits),
+    y: round2(yUnits),
   }
 }
 

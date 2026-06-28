@@ -131,6 +131,15 @@ From the current hex, the play panel combines:
 
 Passage requirements affect whether the local crossing action is available. They do not add map-specific filters to route or adjacent movement. Ordinary barrier geometry remains responsible for preventing movement through the locked passage.
 
+Action button edge colors should reflect the same map feature kind and palette
+used by the map legend when the action corresponds to a visible terrain, route,
+barrier, or passage. For example, forest/open walking uses the forest green,
+roads use the road color, trails use the trail color, rivers use the river
+color, and fences/gates use the fence color. Story choices should not get a
+special "preferred path" color; story text can suggest a best path, but the UI
+must preserve player agency by not visually marking story choices as the
+correct route.
+
 ### Player state relevant to movement
 
 | Field                | Meaning                                                                                |

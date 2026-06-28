@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   expandFrameToAspect,
+  expandViewBoxRectToAspect,
   focusedViewBox,
   panViewBoxByPixels,
   resolveGridCameraFocus,
@@ -39,6 +40,16 @@ describe("grid map viewport contract", () => {
     expect(fitAll.bcy).toBe(frame.bcy);
     expect(fitAll.w).toBe(400);
     expect(fitAll.h).toBe(225);
+  });
+
+  it("expands a rotated fit-all box back to the panel aspect", () => {
+    const rotatedBox = { x: 50, y: -100, w: 225, h: 400 };
+    const expanded = expandViewBoxRectToAspect(rotatedBox, 16 / 9);
+
+    expect(expanded.x + expanded.w / 2).toBe(rotatedBox.x + rotatedBox.w / 2);
+    expect(expanded.y + expanded.h / 2).toBe(rotatedBox.y + rotatedBox.h / 2);
+    expect(expanded.h).toBe(rotatedBox.h);
+    expect(expanded.w / expanded.h).toBeCloseTo(16 / 9);
   });
 
   it("centers the gameplay camera on the avatar with a fixed close span", () => {

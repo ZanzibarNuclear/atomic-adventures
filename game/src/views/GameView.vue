@@ -28,13 +28,9 @@ import CharacterView from "../components/game-views/CharacterView.vue";
 import CharacterStatsStageView from "../components/game-views/CharacterStatsStageView.vue";
 import InventoryStageView from "../components/game-views/InventoryStageView.vue";
 import StoryOverlay from "../components/story/StoryOverlay.vue";
-import NarrativeCard from "../components/story/NarrativeCard.vue";
-import PlayPanel from "../components/hud/PlayPanel.vue";
-import TravelOptions from "../lib/maps/components/hud/TravelOptions.vue";
 import OutdoorScene from "../lib/maps/views/OutdoorScene.vue";
 import IndoorScene from "../lib/maps/views/IndoorScene.vue";
 import { visibleCharacterStats } from "../lib/character/panel.js";
-import { buildStoryChoices, handleStoryChoice } from "../composables/usePlayPanel.js";
 
 const place = ref("outdoors");
 const builderView = ref(false);
@@ -45,7 +41,6 @@ const {
   isCharacterView,
   openView,
   openCharacter,
-  openInventory,
   openCharacterStats,
   returnToMap,
 } = useGameView();
@@ -138,19 +133,19 @@ const inventoryHolders = computed(() => {
     })),
   }));
 });
-const transferTargets = computed(() => inventoryHolders.value.map((holder) => ({
-  id: holder.id,
-  label: holder.label ?? holder.id,
-})));
+const transferTargets = computed(() => inventoryHolders.value
+  .filter((holder) => holder.kind !== "container")
+  .map((holder) => ({
+    id: holder.id,
+    label: holder.label ?? holder.id,
+    kind: holder.kind,
+  })));
 const stageSelectedHolding = computed(() =>
   inventoryHolders.value.flatMap((holder) =>
     holder.records.map((record) => ({ ...record, holder })))
     .find((record) => `${record.type}:${record.id}` === stageSelectedHoldingId.value) ?? null,
 );
 const characterStats = computed(() => visibleCharacterStats(gameState.character));
-const focusedStoryChoices = computed(() =>
-  buildStoryChoices(pendingBeat.value, (id) => outdoor.canReachHex(id)),
-);
 let deferredWorld = null;
 let deferredBuilding = null;
 
@@ -252,15 +247,11 @@ function openStageView(view) {
   if (!kind) return false;
   if (kind === "inventory") {
     currentWorldHolderId();
-    return openInventory(view);
+    return openCharacter({ ...view, tab: "inventory" });
   }
   if (kind === "character-stats") return openCharacterStats(view);
   if (kind === "character") return openCharacter(view);
   return openView(kind, view);
-}
-
-function handleFocusedStoryChoice(id) {
-  handleStoryChoice(id.slice("story:".length), applyChoice);
 }
 
 function handleUseItem({ itemId, actionId }) {
@@ -365,25 +356,6 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       @use-item="handleUseItem"
       @transfer-item="handleTransferItem"
       @return-to-map="handleReturnToMap" />
-
-    <template v-if="!isMapView && !isCharacterView">
-      <NarrativeCard :beat="narrativeBeat" />
-
-      <PlayPanel>
-        <TravelOptions v-if="focusedStoryChoices.length" label="Choose an Action">
-          <button
-            v-for="item in focusedStoryChoices"
-            :key="item.id"
-            class="route-btn"
-            :class="item.kind ? 'k-' + item.kind : 'k-story'"
-            :disabled="item.disabled"
-            :title="item.hint ?? ''"
-            @click="handleFocusedStoryChoice(item.id)">
-            {{ item.label }}
-          </button>
-        </TravelOptions>
-      </PlayPanel>
-    </template>
 
     <StoryOverlay
       v-if="isMapView"

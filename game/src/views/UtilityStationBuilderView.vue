@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { storyApi } from "../lib/storyApi.js";
+import BuilderPageHeader from "../components/builder/BuilderPageHeader.vue";
 import BuilderStatusBanner from "../components/builder/BuilderStatusBanner.vue";
 import UnsavedChangesDialog from "../components/builder/UnsavedChangesDialog.vue";
 import StationCanvasPanel from "../components/builder/station/StationCanvasPanel.vue";
@@ -10,7 +11,6 @@ import StationObjectBrowser from "../components/builder/station/StationObjectBro
 import { useBuildingBuilderDocument } from "../composables/useBuildingBuilderDocument.js";
 import { useDirtyDocumentNavigation } from "../composables/useDirtyDocumentNavigation.js";
 import { useGridBuilderSelection } from "../composables/useGridBuilderSelection.js";
-import { useStationCanvasView } from "../composables/useStationCanvasView.js";
 import { buildBuilding } from "../lib/maps/composables/useGrid.js";
 import { buildInitialDoorState } from "../lib/maps/composables/useDoors.js";
 import {
@@ -32,6 +32,7 @@ const emptyUtilityStation = {
 };
 const level = ref(emptyUtilityStation.exterior?.level ?? emptyUtilityStation.levels?.at(-1)?.id ?? "");
 const search = ref("");
+const viewportMode = ref("fit-all");
 const leftCollapsed = ref(false);
 const rightCollapsed = ref(false);
 const characterCatalog = ref({
@@ -70,11 +71,6 @@ const {
 });
 
 const building = computed(() => buildBuilding(draft.value));
-const {
-  viewportMode,
-  exteriorFog,
-  setDoorPreview,
-} = useStationCanvasView({ building, doorStates });
 const {
   selectedKey,
   selectedHandleId,
@@ -143,7 +139,8 @@ const groupedItems = computed(() => [
   { source: "paths", label: "Exterior paths" },
   { source: "nodes", label: "Exterior nodes" },
   { source: "exits", label: "World transitions" },
-  { source: "fixtures", label: "Fixtures (read-only geometry)" },
+  { source: "fixtures", label: "Fixtures" },
+  { source: "walls", label: "Visual walls" },
   { source: "links", label: "Room connections" },
   { source: "stands", label: "Room stands" },
 ].map((group) => ({
@@ -182,12 +179,11 @@ function runIndoorAudit() {
 
 <template>
   <main class="station-builder">
-    <header class="station-toolbar">
-      <div>
-        <p class="label">Indoor world</p>
-        <h2>Utility Station</h2>
-      </div>
-      <div class="toolbar-actions">
+    <BuilderPageHeader title="World Builder">
+      <template #tabs>
+        <slot name="workspace-switcher" />
+      </template>
+      <template #actions>
         <button class="sm muted" @click="leftCollapsed = !leftCollapsed">
           {{ leftCollapsed ? "Show objects" : "Hide objects" }}
         </button>
@@ -197,8 +193,8 @@ function runIndoorAudit() {
         <button class="sm muted" :disabled="!dirty" @click="revertDraft">Revert</button>
         <button class="sm muted" @click="loadHistory">History</button>
         <button class="sm" :disabled="!dirty" @click="saveDraft">Save building</button>
-      </div>
-    </header>
+      </template>
+    </BuilderPageHeader>
 
     <BuilderStatusBanner
       :status="status"
@@ -222,7 +218,6 @@ function runIndoorAudit() {
       <StationCanvasPanel
         v-model:level="level"
         v-model:viewport-mode="viewportMode"
-        v-model:exterior-fog="exteriorFog"
         v-model:selected-handle-id="selectedHandleId"
         :loaded="loaded"
         :building="building"
@@ -236,7 +231,6 @@ function runIndoorAudit() {
         :edit-handles="editHandles"
         :add-mode="addMode"
         @toggle-geometry-editing="toggleGeometryEditing"
-        @set-door-preview="setDoorPreview"
         @select-item="selectItem($event.source, $event.id)"
         @grid-handle-move="onHandleMove"
         @builder-map-click="onMapClick"
@@ -283,14 +277,14 @@ function runIndoorAudit() {
 
 <style scoped>
 .station-builder { padding: .85rem; }
-.station-toolbar, .toolbar-actions, .tool-group, .canvas-toolbar, .row-actions {
+.tool-group, .canvas-toolbar, .row-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: .5rem;
   flex-wrap: wrap;
 }
-.station-toolbar h2, .station-toolbar p, .inspector h3 { margin: 0; }
+.inspector h3 { margin: 0; }
 .station-workspace {
   display: grid;
   grid-template-columns: minmax(220px, 270px) minmax(440px, 1fr) minmax(290px, 350px);
@@ -319,7 +313,6 @@ button.active { background: #49624f; border-color: #6f9b79; }
 .check-field { display: flex !important; align-items: center; }
 .check-field input { width: auto; }
 .danger-outline { border-color: #9b5050; color: #ffb5b5; background: #3d2729; }
-.yaml-preview { max-height: 22rem; overflow: auto; padding: .65rem; border-radius: 7px; background: #11151b; white-space: pre-wrap; font-size: .72rem; }
 .empty-note { color: #939ba7; }
 .read-only-note, .audit-panel p { color: #aeb5c0; font-size: .78rem; line-height: 1.45; }
 .audit-panel { display: grid; gap: .4rem; padding-top: .65rem; border-top: 1px solid #343d4d; }

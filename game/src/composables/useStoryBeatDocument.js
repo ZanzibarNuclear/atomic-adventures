@@ -1,6 +1,5 @@
 import { computed, ref, toRaw } from "vue";
 import { storyApi } from "../lib/storyApi.js";
-import { storyBeatYaml } from "../lib/storyYamlPreview.js";
 
 function clonePlain(value) {
   return JSON.parse(JSON.stringify(toRaw(value)));
@@ -12,6 +11,78 @@ function ensureEditableBeat(value) {
   next.match.originHex ??= null;
   next.match.localExit ??= null;
   return next;
+}
+
+function nullableText(value) {
+  const text = value == null ? "" : String(value).trim();
+  return text || null;
+}
+
+function stringList(value) {
+  if (Array.isArray(value)) return value.map(String).map((item) => item.trim()).filter(Boolean);
+  if (typeof value === "string") return value.split(",").map((item) => item.trim()).filter(Boolean);
+  return [];
+}
+
+function finiteNumber(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function normalizeStageView(value) {
+  if (!value || typeof value !== "object") return null;
+  const kind = nullableText(value.kind);
+  if (!kind) return null;
+  return {
+    kind,
+    focus: nullableText(value.focus),
+    id: nullableText(value.id),
+    tab: nullableText(value.tab),
+  };
+}
+
+function normalizeForDirty(value) {
+  if (!value) return null;
+  const beat = value;
+  const trigger = beat.trigger ?? {};
+  return {
+    id: String(beat.id ?? "").trim(),
+    once: beat.once !== false,
+    eyebrow: nullableText(beat.eyebrow),
+    heading: nullableText(beat.heading),
+    text: String(beat.text ?? ""),
+    revisit: nullableText(beat.revisit),
+    trigger: {
+      place: nullableText(trigger.place),
+      hex: nullableText(trigger.hex),
+      room: nullableText(trigger.room),
+      exteriorNode: nullableText(trigger.exteriorNode),
+      event: nullableText(trigger.event),
+      flag: nullableText(trigger.flag),
+    },
+    match: {
+      originHex: nullableText(beat.match?.originHex),
+      localExit: nullableText(beat.match?.localExit),
+    },
+    choices: (beat.choices ?? []).map((choice, index) => ({
+      id: choice.id ?? "",
+      order: Number.isFinite(Number(choice.order)) ? Number(choice.order) : index,
+      text: String(choice.text ?? ""),
+      timeMinutes: finiteNumber(choice.timeMinutes, 0),
+      activity: nullableText(choice.activity) ?? "light",
+      sets: stringList(choice.sets),
+      set_flags: stringList(choice.set_flags),
+      go_hex: nullableText(choice.go_hex),
+      go_room: nullableText(choice.go_room),
+      go_exterior_node: nullableText(choice.go_exterior_node),
+      enter: nullableText(choice.enter),
+      view: normalizeStageView(choice.view),
+    })),
+  };
+}
+
+function dirtySnapshot(value) {
+  return JSON.stringify(normalizeForDirty(value));
 }
 
 export function useStoryBeatDocument({
@@ -26,6 +97,7 @@ export function useStoryBeatDocument({
   const selectedBeatId = ref("");
   const draft = ref(null);
   const baseline = ref("");
+  const dirtyBaseline = ref("");
   const isNew = ref(false);
   const errors = ref({});
   const status = ref("");
@@ -33,8 +105,9 @@ export function useStoryBeatDocument({
   const showRevisions = ref(false);
   let beatLoadRequest = 0;
 
-  const dirty = computed(() => draft.value && JSON.stringify(draft.value) !== baseline.value);
-  const yamlPreview = computed(() => storyBeatYaml(draft.value));
+  const dirty = computed(() =>
+    Boolean(draft.value) && (isNew.value || dirtySnapshot(draft.value) !== dirtyBaseline.value),
+  );
 
   function uniqueId(base) {
     const used = new Set(beats.value.map((beat) => beat.id));
@@ -47,6 +120,7 @@ export function useStoryBeatDocument({
   function setDraft(value) {
     draft.value = ensureEditableBeat(value);
     baseline.value = JSON.stringify(draft.value);
+    dirtyBaseline.value = dirtySnapshot(draft.value);
     errors.value = {};
     status.value = "";
     revisions.value = [];
@@ -58,6 +132,7 @@ export function useStoryBeatDocument({
     selectedBeatId.value = "";
     draft.value = null;
     baseline.value = "";
+    dirtyBaseline.value = "";
     isNew.value = false;
     errors.value = {};
     status.value = "";
@@ -82,10 +157,16 @@ export function useStoryBeatDocument({
     const current = getCurrentLocation?.() ?? {};
     mode ??= current.mode;
     location ??= current.location;
-    if (!mode || !location) return;
+    if (!mode || !location) {
+      clearBeatSelection();
+      return;
+    }
     const selectionKey = `${mode}:${location}`;
     const firstBeat = getBeatsForLocation(mode, location)[0];
-    if (!firstBeat) return;
+    if (!firstBeat) {
+      clearBeatSelection();
+      return;
+    }
     const request = ++beatLoadRequest;
 
     try {
@@ -169,6 +250,7 @@ export function useStoryBeatDocument({
         };
         draft.value = editable;
         baseline.value = JSON.stringify(saved);
+        dirtyBaseline.value = dirtySnapshot(saved);
         await refreshBeatList();
         status.value = "The content API did not preserve the match criteria. Restart the game dev server, then save again.";
         return false;
@@ -199,6 +281,7 @@ export function useStoryBeatDocument({
     draft.value = null;
     selectedBeatId.value = "";
     baseline.value = "";
+    dirtyBaseline.value = "";
     await loadBeats();
   }
 
@@ -233,7 +316,6 @@ export function useStoryBeatDocument({
     revisions,
     showRevisions,
     dirty,
-    yamlPreview,
     clearBeatSelection,
     refreshBeatList,
     loadBeat,

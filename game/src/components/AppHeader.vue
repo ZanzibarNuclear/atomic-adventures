@@ -2,20 +2,12 @@
   <header>
     <div class="header-row">
       <div class="title-block">
-        <h1>Atomic Adventures</h1>
-        <p class="sub">Part I — Zanzibar's World of Energy</p>
+        <h1>Zanzibar's World of Energy</h1>
       </div>
       <div class="controls-column">
         <div class="game-controls">
-          <button
-            type="button"
-            class="sm view-toggle"
-            :aria-pressed="activeGameView === 'character'"
-            @click="$emit(activeGameView === 'character' ? 'show-map' : 'show-character')">
-            {{ activeGameView === "character" ? "Map" : "Character" }}
-          </button>
           <details v-if="devMode" ref="devMenu" class="dev-menu">
-            <summary class="sm">Developer</summary>
+            <summary class="sm">Dev Tools</summary>
             <div class="dev-menu-popover">
               <a
                 href="/builder/story"
@@ -34,11 +26,24 @@
               </button>
             </div>
           </details>
-          <button class="sm" @click="$emit('save')">Save</button>
+          <button
+            type="button"
+            class="sm view-toggle"
+            :aria-pressed="activeGameView === 'character'"
+            @click="$emit(activeGameView === 'character' ? 'show-map' : 'show-character')">
+            {{ activeGameView === "character" ? "Map" : "Player Stats" }}
+          </button>
+          <details ref="gameMenu" class="game-menu">
+            <summary class="sm">Game</summary>
+            <div class="game-menu-popover">
+              <button type="button" class="menu-item success" @click="handleSave">Save</button>
+              <button type="button" class="menu-item warning" @click="handleReset">Reset</button>
+              <button type="button" class="menu-item" @click="showCredits">Credits</button>
+            </div>
+          </details>
           <button v-if="hasSave" class="sm muted" @click="$emit('new-game')">
             New game
           </button>
-          <button class="sm muted" @click="$emit('reset')">Reset</button>
         </div>
         <p v-if="showSaveHint" class="save-hint">
           Last saved {{ formattedSavedAt }}
@@ -46,11 +51,15 @@
         <p v-if="loadError" class="error-hint">{{ loadError }}</p>
       </div>
     </div>
+    <CreditsDialog
+      v-if="creditsOpen"
+      @close="creditsOpen = false" />
   </header>
 </template>
 
 <script setup>
 import { computed, ref } from "vue";
+import CreditsDialog from "./CreditsDialog.vue";
 
 const props = defineProps({
   hasSave: { type: Boolean, default: false },
@@ -70,6 +79,8 @@ const emit = defineEmits([
 ]);
 const devMode = import.meta.env.DEV;
 const devMenu = ref(null);
+const gameMenu = ref(null);
+const creditsOpen = ref(false);
 
 const formattedSavedAt = computed(() => {
   const raw = props.lastSavedAt;
@@ -89,9 +100,31 @@ function showMovementAudit() {
 function closeDevMenu() {
   if (devMenu.value) devMenu.value.open = false;
 }
+
+function closeGameMenu() {
+  if (gameMenu.value) gameMenu.value.open = false;
+}
+
+function handleSave() {
+  emit("save");
+  closeGameMenu();
+}
+
+function handleReset() {
+  emit("reset");
+  closeGameMenu();
+}
+
+function showCredits() {
+  creditsOpen.value = true;
+  closeGameMenu();
+}
 </script>
 
 <style scoped>
+header {
+  margin-bottom: 0.75rem;
+}
 .header-row {
   display: flex;
   justify-content: space-between;
@@ -125,10 +158,12 @@ function closeDevMenu() {
   background: #49624f;
   border-color: #6f9b79;
 }
-.dev-menu {
+.dev-menu,
+.game-menu {
   position: relative;
 }
-.dev-menu summary {
+.dev-menu summary,
+.game-menu summary {
   list-style: none;
   user-select: none;
   background: #303846;
@@ -139,19 +174,23 @@ function closeDevMenu() {
   font-size: 0.82rem;
   cursor: pointer;
 }
-.dev-menu summary::-webkit-details-marker {
+.dev-menu summary::-webkit-details-marker,
+.game-menu summary::-webkit-details-marker {
   display: none;
 }
-.dev-menu summary::after {
+.dev-menu summary::after,
+.game-menu summary::after {
   content: " ▾";
   color: #9fc7ff;
 }
-.dev-menu[open] summary {
+.dev-menu[open] summary,
+.game-menu[open] summary {
   background: #3a4555;
   border-color: #6c7b95;
   color: #eef3f8;
 }
-.dev-menu-popover {
+.dev-menu-popover,
+.game-menu-popover {
   position: absolute;
   z-index: 20;
   top: calc(100% + 0.35rem);
@@ -163,7 +202,8 @@ function closeDevMenu() {
   background: #202630;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
 }
-.dev-menu-item {
+.dev-menu-item,
+.menu-item {
   display: block;
   box-sizing: border-box;
   width: 100%;
@@ -177,8 +217,24 @@ function closeDevMenu() {
   font: inherit;
   cursor: pointer;
 }
-.dev-menu-item:hover:not(:disabled) {
+.menu-item.muted {
+  color: #aab0bc;
+}
+.menu-item.success {
+  color: #9fdbad;
+}
+.menu-item.warning {
+  color: #ffb38a;
+}
+.dev-menu-item:hover:not(:disabled),
+.menu-item:hover:not(:disabled) {
   background: #344158;
+}
+.menu-item.success:hover:not(:disabled) {
+  background: #294333;
+}
+.menu-item.warning:hover:not(:disabled) {
+  background: #4a3028;
 }
 .save-hint {
   margin: 0;

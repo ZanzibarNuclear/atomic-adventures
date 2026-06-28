@@ -17,7 +17,7 @@ atomic-adventures/
 ├── web/                 ← PROTOTYPE — independent app for exploring map concepts and demos
 ├── game/                ← ACTIVE — vertical slice and full game (all gameplay work here)
 ├── game-design/         — Narrative, simulation specs, learning objectives
-└── docs/                — Technical contracts, deployment, roadmap
+└── docs/                — Technical contracts, quality checklists, deployment, roadmap
 ```
 
 | App     | Purpose                                                                              | Modify when…                                                                           |
@@ -99,7 +99,7 @@ npm run dev:game        # game + builder + local content API
 - World builder: `http://127.0.0.1:5173/builder/world`
 - Content builder: `http://127.0.0.1:5173/builder/content`
 
-### Tests
+### Tests and quality checklists
 
 Gameplay and map changes live in `game/`. **Before finishing work** on travel, barriers, story integration, composables, or world YAML, run the test suite and fix failures:
 
@@ -110,6 +110,11 @@ npm run test            # from repo root (runs game/ vitest)
 Run tests again after each meaningful code change in those areas — not only at the end of a large task. A pre-push hook also runs tests locally; do not rely on it as the first time you learn something broke.
 
 When adding or changing movement, barrier, or arrival behavior, add or update a test in `game/src/lib/maps/testing/` or `game/src/composables/`. See [docs/contracts/hex-crawling.md](docs/contracts/hex-crawling.md) for the movement contract (two-step border-then-stand, in-hex `crossPassage` vs inter-hex travel).
+
+For character, inventory, save/load, builder, close-up-view, and simulation
+integration changes, also consult
+[docs/quality/character-inventory-regression-checklist.md](docs/quality/character-inventory-regression-checklist.md)
+for the cross-cutting checks that should stay green.
 
 ### Production deployment
 
@@ -159,6 +164,8 @@ lib/maps (outdoor + indoor)
 Future layers (not all built yet):
 
 - Passage graph interpreter (full `go_to`, simulation gates)
+- Close-up views for room detail, holo-reader lessons and videos, buggy rides,
+  and simulations; see [docs/plans/close-up-views-implementation.md](docs/plans/close-up-views-implementation.md).
 - Built-in sims (hydro, PV, nuclear, fusion as Vue components)
 - Mini-game embeds (isotope-explorer, crazy-converter)
 

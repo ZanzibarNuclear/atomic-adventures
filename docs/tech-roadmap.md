@@ -147,12 +147,14 @@ Remaining Part I work includes:
 - broader authored learning progression and quest content beyond the wired
   Restore Station Power objective chain;
 - final badge artwork and simulation-owned evidence outcomes;
+- close-up views for room detail, holo-reader lessons and videos, buggy rides,
+  and simulations;
 - simulation outcome integration through the shared effect boundary.
 
 Server-side item state waits on Neon (below); local save must serialize the expanded model first.
 Contract: [character-inventory.md](contracts/character-inventory.md).
 Implementation plan:
-[character-inventory-implementation.md](plans/character-inventory-implementation.md).
+[close-up-views-implementation.md](plans/close-up-views-implementation.md).
 
 ### 8. Time, days, and operations pacing
 
@@ -239,7 +241,7 @@ Deferred: AP-1000, fusion chapters.
 ### Longer horizon
 
 - Passage graph features beyond beats (`go_to`, cross-area travel, fuller `require` schema).  
-- Indoor world authoring (today: YAML-only).  
+- Further Utility Station authoring polish, including richer visual editing and validation helpers.  
 - Localization, modding, or community content — explicitly out of scope until Part I ships.
 
 ---
@@ -250,9 +252,11 @@ Deferred: AP-1000, fusion chapters.
 | ----- | -------- |
 | Agent / repo overview | [AGENTS.md](../AGENTS.md) |
 | Beat runtime & authoring | [contracts/story-beats.md](contracts/story-beats.md) |
+| Game time, durations, milestones & simulation time | [contracts/time.md](contracts/time.md) |
 | Outdoor world authoring | [contracts/world-authoring.md](contracts/world-authoring.md) |
 | Character, inventory, stats, skills & quests | [contracts/character-inventory.md](contracts/character-inventory.md) |
-| Character/inventory implementation plan | [plans/character-inventory-implementation.md](plans/character-inventory-implementation.md) |
+| Close-up views implementation plan | [plans/close-up-views-implementation.md](plans/close-up-views-implementation.md) |
+| Character/inventory regression checklist | [quality/character-inventory-regression-checklist.md](quality/character-inventory-regression-checklist.md) |
 | Hex movement contract | [contracts/hex-crawling.md](contracts/hex-crawling.md) |
 | Production & Neon | [deployment.md](deployment.md) |
 | Part I unlock chains | [game-design/content/part-i-unlocks.md](../game-design/content/part-i-unlocks.md) |

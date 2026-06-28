@@ -1,16 +1,4 @@
 <template>
-  <g class="grid-layer">
-    <line
-      v-for="(ln, i) in gridLines"
-      :key="'grid-' + i"
-      :x1="ln.x1"
-      :y1="ln.y1"
-      :x2="ln.x2"
-      :y2="ln.y2"
-      class="grid-line"
-    />
-  </g>
-
   <g v-if="river" class="river-layer" pointer-events="none">
     <rect
       :x="river.rect.x"
@@ -27,12 +15,18 @@
     />
   </g>
 
-  <g v-if="cliffWall" class="cliff-wall-layer" pointer-events="none">
+  <g
+    v-if="cliffWall"
+    class="cliff-wall-layer"
+    :class="{ selectable: builderView }"
+    :pointer-events="builderView ? 'auto' : 'none'"
+  >
     <path
       v-for="seg in cliffWall.segments"
       :key="'cliff-' + seg.key"
       :d="seg.d"
       class="cliff-wall-fill"
+      @click.stop="builderView && $emit('select-item', { source: 'walls', id: 'cliff-wall' })"
     />
   </g>
 
@@ -60,6 +54,18 @@
       />
     </g>
   </g>
+
+  <g class="grid-layer">
+    <line
+      v-for="(ln, i) in gridLines"
+      :key="'grid-' + i"
+      :x1="ln.x1"
+      :y1="ln.y1"
+      :x2="ln.x2"
+      :y2="ln.y2"
+      class="grid-line"
+    />
+  </g>
 </template>
 
 <script setup>
@@ -69,7 +75,10 @@ defineProps({
   cliffWall: { type: Object, default: null },
   buildingShell: { type: Array, default: () => [] },
   beams: { type: Array, default: () => [] },
+  builderView: { type: Boolean, default: false },
 })
+
+defineEmits(['select-item'])
 
 function shellRingPath(ring) {
   if (ring.length === 0) return ''
@@ -82,7 +91,7 @@ function shellRingPath(ring) {
   pointer-events: none;
 }
 .grid-line {
-  stroke: rgba(255, 255, 255, 0.14);
+  stroke: rgba(255, 255, 255, 0.16);
   stroke-width: 1;
 }
 .building-shell-layer {
@@ -105,11 +114,16 @@ function shellRingPath(ring) {
 .cliff-wall-layer {
   pointer-events: none;
 }
+.cliff-wall-layer.selectable {
+  pointer-events: auto;
+  cursor: pointer;
+}
 .cliff-wall-fill {
   fill: url(#cliff-wall-stone);
   stroke: #5c5854;
   stroke-width: 2;
   stroke-linejoin: bevel;
+  pointer-events: visiblePainted;
 }
 .building-shell {
   fill: #14181f;

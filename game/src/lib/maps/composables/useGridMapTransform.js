@@ -81,6 +81,23 @@ export function focusedViewBox(focus, aspect, cell, spanCells = 5.2) {
   }
 }
 
+export function expandViewBoxRectToAspect(rect, aspect) {
+  const safeAspect = Number.isFinite(aspect) && aspect > 0 ? aspect : 1
+  let width = rect.w
+  let height = rect.h
+  if (height <= 0 || width <= 0) return { ...rect }
+  if (width / height < safeAspect) width = height * safeAspect
+  else height = width / safeAspect
+  const cx = rect.x + rect.w / 2
+  const cy = rect.y + rect.h / 2
+  return {
+    x: cx - width / 2,
+    y: cy - height / 2,
+    w: width,
+    h: height,
+  }
+}
+
 export function zoomViewBoxAt(viewBox, factor, anchorX = 0.5, anchorY = 0.5, limits = {}) {
   const safeFactor = Number.isFinite(factor) && factor > 0 ? factor : 1
   const fx = Math.max(0, Math.min(1, anchorX))
@@ -244,7 +261,10 @@ export function useGridMapTransform({
     const maxX = Math.max(...xs)
     const maxY = Math.max(...ys)
     if (!Number.isFinite(minX)) return { x: 0, y: 0, w: 100, h: 100 }
-    return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
+    return expandViewBoxRectToAspect(
+      { x: minX, y: minY, w: maxX - minX, h: maxY - minY },
+      containerAspect.value,
+    )
   })
 
   const wheelViewBox = ref(null)

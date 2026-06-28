@@ -35,7 +35,7 @@ describe("character state", () => {
         "character:player": {
           id: "character:player",
           kind: "character",
-          label: "Carried directly",
+          label: "Holding",
         },
       },
       stacks: {},
@@ -53,7 +53,7 @@ describe("character state", () => {
       profile: { id: "zanzibar" },
       holdings: {
         holders: {
-          "character:zanzibar": { id: "character:zanzibar", kind: "character", label: "Carried directly" },
+          "character:zanzibar": { id: "character:zanzibar", kind: "character", label: "Holding" },
           "container:pack-1": { id: "container:pack-1", kind: "container", label: "Pack", instance: "pack-1" },
         },
         instances: {

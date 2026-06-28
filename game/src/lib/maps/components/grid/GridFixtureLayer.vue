@@ -12,6 +12,7 @@
           isFixtureRevealed(f) &&
           reachableRooms.includes(f.featureRoomId),
         'visual-only': f.visualOnly,
+        'builder-selectable': builderView,
         'stair-clickable':
           f.featureRoomId &&
           isFixtureRevealed(f) &&
@@ -61,6 +62,14 @@
       </template>
       <template v-else>
         <rect
+          v-if="f.visualOnly && builderView"
+          :x="f.box.x - cell * 0.08"
+          :y="f.box.y - cell * 0.08"
+          :width="f.box.w + cell * 0.16"
+          :height="f.box.h + cell * 0.16"
+          class="fixture-hit"
+        />
+        <rect
           v-if="!f.visualOnly"
           :x="f.box.x"
           :y="f.box.y"
@@ -94,7 +103,7 @@
           <circle :cx="f.cx" :cy="f.cy" :r="cell * 0.15" class="stair-pad" />
           <text :x="f.cx" :y="f.cy" class="stair-icon">{{ dirIcon(f.dir) }}</text>
         </template>
-        <template v-else>
+        <template v-else-if="!f.visualOnly">
           <circle :cx="f.cx" :cy="f.cy" :r="cell * 0.15" class="stair-pad" />
           <text :x="f.cx" :y="f.cy" class="stair-icon">{{ dirIcon(f.dir) }}</text>
         </template>
@@ -110,9 +119,11 @@ const props = defineProps({
   currentRoom: { type: String, default: '' },
   reachableRooms: { type: Array, default: () => [] },
   isFixtureRevealed: { type: Function, required: true },
+  builderView: { type: Boolean, default: false },
+  builderFixtureClickTarget: { type: String, default: 'fixture' },
 })
 
-const emit = defineEmits(['stair-fixture-click', 'stair-exit-click'])
+const emit = defineEmits(['stair-fixture-click', 'stair-exit-click', 'select-item'])
 
 function dirIcon(dir) {
   if (dir === 'up') return '▲'
@@ -132,6 +143,14 @@ function stairExits(f) {
 }
 
 function onFixtureClick(f) {
+  if (props.builderView) {
+    if (props.builderFixtureClickTarget === 'feature-room' && f.featureRoomId) {
+      emit('select-item', { source: 'rooms', id: f.featureRoomId })
+      return
+    }
+    emit('select-item', { source: 'fixtures', id: f.id })
+    return
+  }
   if (f.visualOnly) return
   if (!f.featureRoomId || props.currentRoom === f.featureRoomId) return
   emit('stair-fixture-click', f)
@@ -143,11 +162,9 @@ function onFixtureClick(f) {
   cursor: default;
 }
 .fixture.reachable,
-.fixture.stair-clickable {
+.fixture.stair-clickable,
+.fixture.builder-selectable {
   cursor: pointer;
-}
-.fixture.visual-only {
-  pointer-events: none;
 }
 .fixture.fog {
   cursor: default;
@@ -168,6 +185,10 @@ function onFixtureClick(f) {
   stroke: none;
 }
 .stair-hit {
+  fill: transparent;
+  stroke: none;
+}
+.fixture-hit {
   fill: transparent;
   stroke: none;
 }

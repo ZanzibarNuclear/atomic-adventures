@@ -43,22 +43,21 @@
 
   <NarrativeCard :beat="narrativeBeat" />
 
-  <PlayPanel>
-    <StatusLines :lines="statusLines" />
+  <StatusLines :lines="statusLines" />
 
-    <TravelOptions v-if="actions.length" label="Choose an Action">
+  <PlayPanel v-if="actions.length">
+    <ActionOptions v-if="actions.length" label="Choose an Action">
       <button
         v-for="item in actions"
         :key="item.id"
         class="route-btn"
-        :class="item.kind ? 'k-' + item.kind : 'k-story'"
+        :class="item.kind ? 'k-' + item.kind : null"
         :disabled="outdoor.traveling || item.disabled"
         :title="item.hint ?? ''"
         @click="onAction(item.id)">
         {{ item.label }}
       </button>
-    </TravelOptions>
-
+    </ActionOptions>
   </PlayPanel>
 </template>
 
@@ -68,7 +67,7 @@ import { hexLabel } from "../../displayLabel.js";
 import HexMap from "../components/HexMap.vue";
 import PlayPanel from "../../../components/hud/PlayPanel.vue";
 import MapCaption from "../components/hud/MapCaption.vue";
-import TravelOptions from "../components/hud/TravelOptions.vue";
+import ActionOptions from "../components/hud/ActionOptions.vue";
 import StatusLines from "../../../components/hud/StatusLines.vue";
 import NarrativeCard from "../../../components/story/NarrativeCard.vue";
 import {

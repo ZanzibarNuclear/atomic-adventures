@@ -27,7 +27,7 @@ defineEmits(["select"]);
 
 <style scoped>
 .play-actions {
-  margin-top: 0.25rem;
+  margin-top: 0;
 }
 .action-grid {
   display: flex;

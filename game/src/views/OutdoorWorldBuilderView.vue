@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
+import BuilderPageHeader from "../components/builder/BuilderPageHeader.vue";
 import BuilderStatusBanner from "../components/builder/BuilderStatusBanner.vue";
 import UnsavedChangesDialog from "../components/builder/UnsavedChangesDialog.vue";
 import OutdoorCanvasPanel from "../components/builder/outdoor/OutdoorCanvasPanel.vue";
@@ -241,19 +242,18 @@ function setMapHost(element) {
 
 <template>
   <main class="world-builder">
-    <header class="world-toolbar">
-      <div>
-        <p class="label">Outdoor world</p>
-        <h2>World Builder</h2>
-      </div>
-      <div class="toolbar-group">
+    <BuilderPageHeader title="World Builder">
+      <template #tabs>
+        <slot name="workspace-switcher" />
+      </template>
+      <template #actions>
         <button class="sm muted" @click="leftCollapsed = !leftCollapsed">{{ leftCollapsed ? "Show objects" : "Hide objects" }}</button>
         <button class="sm muted" @click="rightCollapsed = !rightCollapsed">{{ rightCollapsed ? "Show inspector" : "Hide inspector" }}</button>
         <button class="sm muted" :disabled="!dirty" @click="revertWorld">Revert</button>
         <button class="sm muted" @click="loadHistory">History</button>
         <button class="sm" :disabled="!dirty" @click="saveWorld">Save world</button>
-      </div>
-    </header>
+      </template>
+    </BuilderPageHeader>
 
     <BuilderStatusBanner
       :status="status"
@@ -380,20 +380,12 @@ function setMapHost(element) {
 
 <style scoped>
 .world-builder { padding: .85rem; }
-.world-toolbar, .toolbar-group {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: .5rem;
-  flex-wrap: wrap;
-}
-.world-toolbar h2, .world-toolbar p { margin: 0; }
 .world-workspace {
   display: grid;
   grid-template-columns: minmax(220px, 270px) minmax(440px, 1fr) minmax(290px, 350px);
   gap: .75rem;
-  height: calc(100vh - 10.5rem);
-  min-height: 560px;
+  height: calc(100vh - 12rem);
+  min-height: 528px;
   margin-top: .75rem;
 }
 .world-workspace.left-collapsed { grid-template-columns: minmax(440px, 1fr) minmax(290px, 350px); }

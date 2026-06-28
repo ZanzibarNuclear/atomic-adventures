@@ -5,17 +5,56 @@ and future tuning for player survival pressure.
 
 Atomic Adventures currently has early wellbeing mechanics: health, hunger, and
 thirst are authored stats; game time can drift those stats; consumable item
-actions can change them; thresholds can apply health effects over time. This
-contract captures the intended direction and open design questions without
-requiring final survival-balance rules yet.
+actions can change them; thresholds can apply health effects over time. The
+player-facing model is now broader than those legacy stats: the character
+overview should present positive vitals, named condition states, and health as
+the result of sustained or severe problems rather than as a duplicate of every
+need meter.
 
-## Current Model
+## Player-Facing Model
 
-Zanzibar has three visible wellbeing stats:
+Character overview vitals follow one rule:
 
-- `health` is a meter where higher is better. `100` is healthy.
-- `hunger` is a meter where higher is worse.
-- `thirst` is a meter where higher is worse.
+**Higher bar = better condition.**
+
+The preferred visible vitals are:
+
+- `Health` — current physical condition. Higher is better.
+- `Satiety` — food reserve / how fed Zanzibar is. Higher is better.
+- `Hydration` — water reserve / how hydrated Zanzibar is. Higher is better.
+- `Rested` — fatigue and sleep reserve. Higher is better.
+- `Composure` — emotional steadiness. Higher is better.
+
+Use words alongside or instead of numbers where words are clearer. Examples:
+
+- Health: healthy, stable, weak, critical, collapsed.
+- Satiety: sated, fed, hungry, very hungry, starving.
+- Hydration: hydrated, okay, thirsty, dehydrated, severely dehydrated.
+- Rested: rested, tired, exhausted, spent.
+- Composure: calm, alert, nervous, scared, panicked.
+
+Avoid showing a large badness meter such as `Hunger 90 / 100` in the overview.
+If the underlying stat is negative-pressure, translate it into a positive
+reserve before rendering it.
+
+## Legacy Stat Compatibility
+
+The current authored content still stores:
+
+- `health` as a positive meter where `100` is healthy.
+- `hunger` as a negative-pressure meter where higher is worse.
+- `thirst` as a negative-pressure meter where higher is worse.
+
+Until content migrates, the overview derives:
+
+```text
+Satiety = hunger.max - hunger.value + hunger.min
+Hydration = thirst.max - thirst.value + thirst.min
+```
+
+Effects and drift may continue to modify `hunger` and `thirst` directly. The
+display layer is responsible for translating them into `Satiety` and
+`Hydration`.
 
 Consumables can apply character effects:
 
@@ -48,26 +87,65 @@ thresholds:
       - { op: stat.add, id: health, value: -2 }
 ```
 
-## Meter Semantics
+## Health, Max Health, And Penalties
 
-The current UI shows health, hunger, and thirst as comparable meters, but their
-directions differ. This is potentially confusing:
+Health should not drop at the first sign of hunger, thirst, fear, or fatigue.
+Needs should have forgiving ranges, then warning states, then sustained harm.
 
-- Health at `100` is good.
-- Hunger at `100` is bad.
-- Thirst at `100` is bad.
+Use thresholds and time:
 
-Future UI should make meter direction explicit. Possible approaches:
+- Mild hunger or thirst should change labels and possibly story affordances, not
+  immediately damage health.
+- Severe dehydration should affect health sooner and faster than starvation.
+- Starvation should develop slowly over days, first reducing energy and recovery
+  before causing serious health loss.
+- Exhaustion should reduce action quality and recovery before directly harming
+  health.
+- Extreme panic or stress should mostly affect choices, precision, learning,
+  perception, or simulation performance; direct health effects should be rare.
 
-- Add stat metadata such as `direction: higher-is-better` or
-  `direction: lower-is-better` and render colors/labels accordingly.
-- Rename or reframe badness meters into positive reserves, such as `satiety` or
-  `hydration`, where higher is better.
-- Keep hunger/thirst as negative-pressure meters but label them clearly as
-  needs or hazards rather than presenting them like health.
+The preferred future health model has both current and maximum health:
 
-The existing character content already uses `direction` in places; future UI
-should honor it consistently.
+```text
+Current Health: 72 / 86
+```
+
+Maximum health can be lowered by sustained or serious problems:
+
+- dehydration;
+- starvation;
+- exhaustion;
+- injury;
+- poison or sickness;
+- extreme environmental exposure.
+
+Current health should recover only up to the current max. Eating, drinking,
+resting, treatment, or calmer circumstances can raise the max again.
+
+The current implementation only has a single `health` meter. Until max health is
+implemented, threshold effects may apply direct health drift for severe states,
+but the player-facing language should still explain why health is changing.
+
+## Conditions
+
+Conditions are named states, not ordinary percentage bars. The overview should
+use words such as:
+
+- injured: no injuries, bruised, minor injury, moderate injury, severe injury;
+- poisoned: no poison, mild poison, poisoned, dangerously poisoned;
+- sick: no sickness, under the weather, sick, severely sick.
+
+Conditions may influence:
+
+- maximum health;
+- current health drift;
+- recovery rate;
+- action difficulty;
+- travel or interaction restrictions;
+- fatigue or composure drift.
+
+Do not show ambiguous labels such as `Poison 37` unless a future simulation
+gives that number direct player meaning.
 
 ## Daily Needs
 
@@ -111,8 +189,7 @@ reduced focus, or health impact in extreme cases.
 
 ## Health Sources
 
-Health is affected by more than hunger and thirst. Future health influences may
-include:
+Health is affected by more than food and water. Health influences may include:
 
 - injury from falls, electrical hazards, sharp tools, or failed equipment work;
 - cold, heat, wet clothing, and exposure;
@@ -127,7 +204,9 @@ from systems the player has not had a fair chance to understand.
 
 ## Activity And Time
 
-Current time advancement accepts an activity profile:
+Current time advancement accepts an activity profile. The broader game-time
+contract, including clock state, action durations, milestones, and simulation
+time, lives in [time.md](time.md).
 
 - `resting`
 - `light`
@@ -155,6 +234,8 @@ simulation precision.
 - Consumable numbers should be easy to author and easy to explain.
 - Thresholds should use clear player-facing states: thirsty, dehydrated,
   hungry, starving, exhausted, injured.
+- Vitals should render in one direction: higher means better.
+- Conditions should use named severity states rather than unexplained amounts.
 - Death or irreversible failure should be rare and intentionally designed.
 
 ## Areas To Explore
@@ -168,4 +249,3 @@ simulation precision.
 - Environmental modifiers such as heat, cold, rain, and exertion.
 - Clear feedback when an item action affects multiple stats.
 - Save compatibility when wellbeing formulas change.
-

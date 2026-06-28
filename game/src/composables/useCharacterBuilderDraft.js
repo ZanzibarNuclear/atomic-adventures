@@ -99,7 +99,7 @@ export function useCharacterBuilderDraft() {
 
   function selectWorkspace(mode) {
     workspaceMode.value = mode;
-    if (mode === "preview") return;
+    if (mode === "preview" || mode === "options") return;
     const catalogs = mode === "artifacts" ? artifactCatalogs : characterCatalogs;
     if (!catalogs.some((catalog) => catalog.id === selectedCatalog.value)) {
       selectCatalog(catalogs[0].id);

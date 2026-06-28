@@ -12,11 +12,20 @@ defineProps({
 
 <style scoped>
 .status-lines {
-  margin-top: 0.25rem;
+  margin-bottom: 1rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid #5a5d60;
+  border-radius: 12px;
+  background: #454749;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
 }
 .status-line {
-  margin: 0.25rem 0 0;
-  font-size: 0.85rem;
-  color: #8bc49a;
+  margin: 0;
+  line-height: 1.6;
+  color: #c8cdd6;
+  font-size: 0.94rem;
+}
+.status-line + .status-line {
+  margin-top: 0.85rem;
 }
 </style>

@@ -81,6 +81,12 @@ describe("story API", () => {
     expect(references.some((reference) => reference.path.includes("lock.key"))).toBe(true);
     expect(references.some((reference) => reference.path.includes("pickups"))).toBe(true);
 
+    const imagesRes = responseCapture();
+    await api.handle(request("GET", "/api/character/public-images?folder=items"), imagesRes);
+    const images = JSON.parse(imagesRes.chunks.join(""));
+    expect(imagesRes.status).toBe(200);
+    expect(images.images).toContain("items/field-backpack.png");
+
     const current = characterRepository.getDocument();
     const removeRes = responseCapture();
     await api.handle(request("PUT", "/api/character", {

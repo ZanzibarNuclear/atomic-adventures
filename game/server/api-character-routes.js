@@ -1,4 +1,5 @@
 import { json, readJson } from "./api-utils.js";
+import { listPublicImages } from "./public-asset-catalog.js";
 
 export async function handleCharacterRoutes(req, res, url, {
   repository,
@@ -7,6 +8,15 @@ export async function handleCharacterRoutes(req, res, url, {
   broadcast,
   syncRuntimeContent,
 }) {
+  if (req.method === "GET" && url.pathname === "/api/character/public-images") {
+    const folder = url.searchParams.get("folder") ?? "items";
+    try {
+      return json(res, 200, { folder, images: listPublicImages(folder) });
+    } catch (error) {
+      return json(res, 400, { message: error.message });
+    }
+  }
+
   if (req.method === "GET" && url.pathname === "/api/character") {
     const result = characterRepository?.getDocument();
     if (!result) return json(res, 404, { message: "Character content not found." });

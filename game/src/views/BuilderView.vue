@@ -4,6 +4,8 @@ import { useRouter } from "vue-router";
 import StoryBeatEditor from "../components/builder/story/StoryBeatEditor.vue";
 import StoryBeatList from "../components/builder/story/StoryBeatList.vue";
 import StoryLocationPicker from "../components/builder/story/StoryLocationPicker.vue";
+import BuilderPageHeader from "../components/builder/BuilderPageHeader.vue";
+import BuilderWorkspaceTabs from "../components/builder/BuilderWorkspaceTabs.vue";
 import UnsavedChangesDialog from "../components/builder/UnsavedChangesDialog.vue";
 import { useOutdoorWorld } from "../lib/maps/composables/useOutdoorWorld.js";
 import { buildBuilding } from "../lib/maps/composables/useGrid.js";
@@ -41,8 +43,13 @@ const indoorLevel = ref(
   buildingData.value.exterior?.level ?? buildingData.value.levels.at(-1)?.id,
 );
 const indoorViewportMode = ref("fit-all");
-const previewExteriorFog = ref(false);
-const eventLocationInput = ref("custom-event");
+const storyWorkspaceTabs = [
+  { id: "outdoors", label: "Area" },
+  { id: "rooms", label: "Utility Station" },
+];
+const storyWorkspace = computed(() =>
+  locationMode.value === "outdoors" ? "outdoors" : "rooms",
+);
 const {
   beats,
   selectedBeatId,
@@ -53,7 +60,6 @@ const {
   revisions,
   showRevisions,
   dirty,
-  yamlPreview,
   clearBeatSelection,
   loadBeat,
   loadBeats,
@@ -80,9 +86,6 @@ const navigation = useDirtyDocumentNavigation({
   router,
   save: () => saveBeat(),
   discard: () => clearBeatSelection(),
-  keep: () => {
-    eventLocationInput.value = selectedLocation.value;
-  },
   onError: (error) => {
     status.value = error.message ?? "Could not finish changing context.";
   },
@@ -92,7 +95,7 @@ function beatsForLocation(mode, location) {
     if (mode === "outdoors") return beat.trigger.hex === location;
     if (mode === "rooms") return beat.trigger.room === location;
     if (mode === "exterior") return beat.trigger.exteriorNode === location;
-    return Boolean(beat.trigger.event);
+    return false;
   });
 }
 const locationBeats = computed(() =>
@@ -230,8 +233,7 @@ async function applyExteriorSelection(id) {
 function switchMode(mode) {
   if (
     (mode === "outdoors" && locationMode.value === "outdoors") ||
-    (mode === "rooms" && ["rooms", "exterior"].includes(locationMode.value)) ||
-    (mode === "events" && locationMode.value === "events")
+    (mode === "rooms" && ["rooms", "exterior"].includes(locationMode.value))
   ) {
     return;
   }
@@ -245,23 +247,7 @@ async function applyModeSelection(mode) {
     await applyRoomSelection(buildingData.value.rooms[0]?.id);
   } else if (mode === "exterior") {
     await applyExteriorSelection(buildingData.value.exterior?.entry);
-  } else {
-    locationMode.value = "events";
-    selectedLocation.value = "custom-event";
-    eventLocationInput.value = selectedLocation.value;
-    clearBeatSelection();
   }
-}
-
-function selectEventLocation(event) {
-  const next = event.target.value.trim() || "custom-event";
-  if (next === selectedLocation.value) return;
-  void requestContextChange(() => {
-    locationMode.value = "events";
-    selectedLocation.value = next;
-    eventLocationInput.value = next;
-    clearBeatSelection();
-  });
 }
 
 function newBeat(copy = null) {
@@ -273,7 +259,6 @@ function emptyBeat() {
   if (locationMode.value === "outdoors") Object.assign(trigger, { place: "outdoors", hex: selectedLocation.value });
   if (locationMode.value === "rooms") Object.assign(trigger, { place: "indoors", room: selectedLocation.value });
   if (locationMode.value === "exterior") Object.assign(trigger, { place: "indoors", exteriorNode: selectedLocation.value });
-  if (locationMode.value === "events") trigger.event = selectedLocation.value || "custom-event";
   return {
     id: "",
     eyebrow: "",
@@ -327,40 +312,49 @@ function requestContextChange(action) {
 
 <template>
   <main class="builder-page">
-    <div class="builder-workspace">
-      <StoryLocationPicker
-        v-model:indoor-level="indoorLevel"
-        v-model:indoor-viewport-mode="indoorViewportMode"
-        v-model:preview-exterior-fog="previewExteriorFog"
-        v-model:event-location-input="eventLocationInput"
-        :location-mode="locationMode"
-        :selected-location="selectedLocation"
-        :outdoor="outdoor"
-        :building="building"
-        :building-data="buildingData"
-        :all-hex-ids="allHexIds"
-        :all-hex-set="allHexSet"
-        :all-room-ids="allRoomIds"
-        :all-exterior-ids="allExteriorIds"
-        :builder-flags="builderFlags"
-        :selected-room="selectedRoom"
-        :selected-exterior="selectedExterior"
-        @switch-mode="switchMode"
-        @select-hex="selectHex"
-        @select-room="selectRoom"
-        @select-exterior="selectExterior"
-        @select-indoor-item="selectIndoorMapItem"
-        @select-event="selectEventLocation"
-      />
+    <BuilderPageHeader title="Story Builder">
+      <template #tabs>
+        <BuilderWorkspaceTabs
+          aria-label="Story builder map"
+          :items="storyWorkspaceTabs"
+          :active-id="storyWorkspace"
+          @select="switchMode"
+        />
+      </template>
+    </BuilderPageHeader>
 
-      <StoryBeatList
-        :selected-location="selectedLocation"
-        :beats="locationBeats"
-        :selected-beat-id="selectedBeatId"
-        :warnings="matchWarnings"
-        @new="newBeat()"
-        @select="selectBeat"
-      />
+    <div class="builder-workspace">
+      <div class="builder-nav-column">
+        <StoryLocationPicker
+          v-model:indoor-level="indoorLevel"
+          v-model:indoor-viewport-mode="indoorViewportMode"
+          :location-mode="locationMode"
+          :selected-location="selectedLocation"
+          :outdoor="outdoor"
+          :building="building"
+          :building-data="buildingData"
+          :all-hex-ids="allHexIds"
+          :all-hex-set="allHexSet"
+          :all-room-ids="allRoomIds"
+          :all-exterior-ids="allExteriorIds"
+          :builder-flags="builderFlags"
+          :selected-room="selectedRoom"
+          :selected-exterior="selectedExterior"
+          @select-hex="selectHex"
+          @select-room="selectRoom"
+          @select-exterior="selectExterior"
+          @select-indoor-item="selectIndoorMapItem"
+        />
+
+        <StoryBeatList
+          :selected-location="selectedLocation"
+          :beats="locationBeats"
+          :selected-beat-id="selectedBeatId"
+          :warnings="matchWarnings"
+          @new="newBeat()"
+          @select="selectBeat"
+        />
+      </div>
 
       <StoryBeatEditor
         :draft="draft"
@@ -369,11 +363,11 @@ function requestContextChange(action) {
         :status="status"
         :errors="errors"
         :catalog="catalog"
-        :yaml-preview="yamlPreview"
         :draft-is-outdoor-hex-beat="draftIsOutdoorHexBeat"
         :show-revisions="showRevisions"
         :revisions="revisions"
         :destination-type="destinationType"
+        :selected-location="selectedLocation"
         @save="saveBeat"
         @revert="revertDraft"
         @duplicate="newBeat"
@@ -403,12 +397,13 @@ function requestContextChange(action) {
 </template>
 
 <style scoped>
-.builder-page { max-width: 1500px; margin: 0 auto; padding: 1rem; }
-.builder-header,
-.builder-header-actions {
-  display: flex; align-items: center; justify-content: space-between; gap: .65rem; flex-wrap: wrap;
+.builder-page {
+  max-width: 1500px;
+  height: calc(100vh - 4.25rem);
+  margin: 0 auto;
+  overflow: hidden;
+  padding: .75rem 1rem;
 }
-.builder-header h1 { margin: 0; }
 .open-menu { position: relative; }
 .open-menu summary {
   list-style: none;
@@ -445,14 +440,31 @@ function requestContextChange(action) {
   white-space: nowrap;
 }
 .open-menu-item:hover:not(:disabled) { background: #344158; }
-.builder-workspace { display: grid; grid-template-columns: minmax(320px, 1fr) 260px minmax(420px, 1.35fr); gap: 1rem; margin-top: 1rem; align-items: start; }
-@media (max-width: 1100px) {
-  .builder-workspace { grid-template-columns: 1fr 1fr; }
-  .builder-form-column { grid-column: 1 / -1; }
-  .builder-map-column { position: static; }
+.builder-workspace {
+  display: grid;
+  grid-template-columns: minmax(360px, .9fr) minmax(520px, 1.45fr);
+  gap: 1rem;
+  height: calc(100% - 3rem);
+  min-height: 0;
+  margin-top: .75rem;
+  align-items: stretch;
 }
-@media (max-width: 720px) {
+.builder-nav-column {
+  display: grid;
+  gap: .75rem;
+  align-content: start;
+  min-height: 0;
+  max-height: 100%;
+  overflow: auto;
+}
+.builder-form-column {
+  max-height: 100%;
+  overflow: auto;
+}
+@media (max-width: 1100px) {
+  .builder-workspace { grid-template-columns: minmax(320px, .85fr) minmax(420px, 1.15fr); }
+}
+@media (max-width: 820px) {
   .builder-workspace { grid-template-columns: 1fr; }
-  .builder-form-column { grid-column: auto; }
 }
 </style>

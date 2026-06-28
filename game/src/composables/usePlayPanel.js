@@ -30,7 +30,6 @@ export function buildStoryChoices(pendingBeat, canReachHex = () => true) {
       id: `story:${index}`,
       toHexId: choice.go_hex ?? null,
       label: choice.text,
-      kind: "story",
       disabled: choice.disabled,
       hint: choice.disabled ? "Requirements not met" : null,
     }));
@@ -95,9 +94,6 @@ export function buildOutdoorPassageToggleActions(outdoor) {
     kind: "fence",
   }));
 }
-
-/** @deprecated Use buildOutdoorPassageActions */
-export const buildOutdoorCrossingActions = buildOutdoorPassageActions;
 
 function directionPhrase(direction, style = "to") {
   if (!direction) return style === "along" ? "onward" : "onward";

@@ -1,7 +1,10 @@
 <script setup>
 import CharacterCatalogBrowser from "../components/character-builder/CharacterCatalogBrowser.vue";
 import CharacterEntryEditor from "../components/character-builder/CharacterEntryEditor.vue";
+import CharacterOptionsEditor from "../components/character-builder/CharacterOptionsEditor.vue";
 import CharacterView from "../components/game-views/CharacterView.vue";
+import BuilderPageHeader from "../components/builder/BuilderPageHeader.vue";
+import BuilderWorkspaceTabs from "../components/builder/BuilderWorkspaceTabs.vue";
 import {
   useCharacterBuilderDraft,
   visibilityOptions,
@@ -47,46 +50,37 @@ const {
   workspaceMode,
   selectWorkspace,
 } = useCharacterBuilderDraft();
+
+const contentWorkspaceTabs = [
+  { id: "character", label: "Character" },
+  { id: "artifacts", label: "Artifacts" },
+  { id: "options", label: "Options" },
+  { id: "preview", label: "Preview" },
+];
 </script>
 
 <template>
   <main v-if="draft" class="character-builder">
-    <header class="builder-toolbar">
-      <div>
-        <p class="label">Content</p>
-        <h2>Character and artifacts</h2>
-      </div>
-      <div class="toolbar-actions">
-        <nav class="workspace-toggle" aria-label="Content builder workspace">
-          <button
-            type="button"
-            :class="{ active: workspaceMode === 'character' }"
-            @click="selectWorkspace('character')">
-            Character
-          </button>
-          <button
-            type="button"
-            :class="{ active: workspaceMode === 'artifacts' }"
-            @click="selectWorkspace('artifacts')">
-            Artifacts
-          </button>
-          <button
-            type="button"
-            :class="{ active: workspaceMode === 'preview' }"
-            @click="selectWorkspace('preview')">
-            Preview
-          </button>
-        </nav>
+    <BuilderPageHeader title="Content Builder">
+      <template #tabs>
+        <BuilderWorkspaceTabs
+          aria-label="Content builder workspace"
+          :items="contentWorkspaceTabs"
+          :active-id="workspaceMode"
+          @select="selectWorkspace"
+        />
+      </template>
+      <template #actions>
         <span v-if="dirty" class="dirty-pill">Unsaved</span>
         <button class="sm muted" :disabled="!dirty" @click="revertDraft">Revert</button>
         <button class="sm muted" @click="loadHistory">History</button>
         <button class="sm" :disabled="!dirty" @click="saveDraft">Save content</button>
-      </div>
-    </header>
+      </template>
+    </BuilderPageHeader>
 
     <p v-if="status" class="status">{{ status }}</p>
 
-    <div v-if="workspaceMode !== 'preview'" class="builder-grid edit-grid">
+    <div v-if="workspaceMode === 'character' || workspaceMode === 'artifacts'" class="builder-grid edit-grid">
       <CharacterCatalogBrowser
         :draft="draft"
         :workspace-mode="workspaceMode"
@@ -112,14 +106,19 @@ const {
         :set-csv="setCsv"
         :set-optional-number="setOptionalNumber"
         :set-json="setJson"
-        @add-group="addGroup"
         @delete-entry="deleteEntry"
         @duplicate-entry="duplicateEntry"
         @move-entry="moveEntry"
-        @remove-group="removeGroup"
         @rename-entry="renameEntry"
         @restore-revision="restoreRevision" />
     </div>
+
+    <section v-else-if="workspaceMode === 'options'" class="options-workspace panel">
+      <CharacterOptionsEditor
+        :draft="draft"
+        @add-group="addGroup"
+        @remove-group="removeGroup" />
+    </section>
 
     <section v-else class="preview-workspace panel">
       <div class="preview-toolbar">
@@ -160,35 +159,12 @@ const {
 
 <style scoped>
 .character-builder { padding: .85rem; }
-.builder-toolbar,
-.toolbar-actions,
 .preview-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: .5rem;
   flex-wrap: wrap;
-}
-.builder-toolbar h2,
-.builder-toolbar p { margin: 0; }
-.workspace-toggle {
-  display: inline-flex;
-  gap: .35rem;
-  padding: .25rem;
-  border: 1px solid #343d4d;
-  border-radius: 999px;
-  background: #161b22;
-}
-.workspace-toggle button {
-  border-radius: 999px;
-  border-color: transparent;
-  background: transparent;
-  color: #b8c0cc;
-}
-.workspace-toggle button.active {
-  border-color: #6f9b79;
-  background: #49624f;
-  color: #eef7ef;
 }
 .builder-grid {
   display: grid;
@@ -201,6 +177,10 @@ const {
   display: grid;
   gap: .75rem;
   max-width: 72rem;
+  margin-top: .75rem;
+}
+.options-workspace {
+  max-width: 48rem;
   margin-top: .75rem;
 }
 .panel { padding: .85rem; border: 1px solid #343d4d; border-radius: 10px; background: #1d222b; }

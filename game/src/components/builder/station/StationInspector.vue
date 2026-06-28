@@ -1,6 +1,5 @@
 <script setup>
 import { computed } from "vue";
-import yaml from "js-yaml";
 import RevisionHistoryPanel from "../RevisionHistoryPanel.vue";
 import DoorInspector from "./DoorInspector.vue";
 import ExteriorNodeInspector from "./ExteriorNodeInspector.vue";
@@ -38,15 +37,13 @@ const emit = defineEmits([
   "restore-revision",
 ]);
 
-const generatedYaml = computed(() =>
-  yaml.dump(props.draft, { noRefs: true, lineWidth: 100, noCompatMode: true, sortKeys: false }),
-);
-
 const errorMessages = computed(() =>
   Object.entries(props.errors).flatMap(([path, messages]) =>
     messages.map((message) => `${path}: ${message}`),
   ),
 );
+
+const fixedSelectionSources = new Set(["fixtures", "walls", "links"]);
 
 </script>
 
@@ -60,9 +57,9 @@ const errorMessages = computed(() =>
       <div class="row-actions">
         <button class="sm muted" @click="emit('move-selected', -1)">↑</button>
         <button class="sm muted" @click="emit('move-selected', 1)">↓</button>
-        <button class="sm muted" :disabled="['fixtures', 'links'].includes(selection.source)" @click="emit('rename-selected')">Rename</button>
-        <button class="sm muted" :disabled="['fixtures', 'links'].includes(selection.source)" @click="emit('duplicate-selected')">Duplicate</button>
-        <button class="sm danger-outline" :disabled="selection.source === 'fixtures'" @click="emit('delete-selected')">Delete</button>
+        <button class="sm muted" :disabled="fixedSelectionSources.has(selection.source)" @click="emit('rename-selected')">Rename</button>
+        <button class="sm muted" :disabled="fixedSelectionSources.has(selection.source)" @click="emit('duplicate-selected')">Duplicate</button>
+        <button class="sm danger-outline" :disabled="['fixtures', 'walls'].includes(selection.source)" @click="emit('delete-selected')">Delete</button>
       </div>
 
       <RoomInspector
@@ -103,7 +100,7 @@ const errorMessages = computed(() =>
       />
 
       <FixtureInspector
-        v-else-if="selection.source === 'fixtures'"
+        v-else-if="['fixtures', 'walls'].includes(selection.source)"
         :selection="selection"
       />
 
@@ -124,12 +121,9 @@ const errorMessages = computed(() =>
     <StationInventoryAuthoring
       :draft="draft"
       :character-catalog="characterCatalog"
+      :selection="selection"
     />
 
-    <details>
-      <summary>Draft YAML</summary>
-      <pre class="yaml-preview">{{ generatedYaml }}</pre>
-    </details>
     <p v-for="message in errorMessages.slice(0, 12)" :key="message" class="field-error">
       {{ message }}
     </p>
@@ -181,7 +175,6 @@ button.active { background: #49624f; border-color: #6f9b79; }
 .check-field { display: flex !important; align-items: center; }
 .check-field input { width: auto; }
 .danger-outline { border-color: #9b5050; color: #ffb5b5; background: #3d2729; }
-.yaml-preview { max-height: 22rem; overflow: auto; padding: .65rem; border-radius: 7px; background: #11151b; white-space: pre-wrap; font-size: .72rem; }
 .empty-note { color: #939ba7; }
 .read-only-note, .audit-panel p { color: #aeb5c0; font-size: .78rem; line-height: 1.45; }
 .audit-panel { display: grid; gap: .4rem; padding-top: .65rem; border-top: 1px solid #343d4d; }

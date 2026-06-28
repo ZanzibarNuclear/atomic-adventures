@@ -18,32 +18,20 @@ defineProps({
   selectedExterior: { type: String, default: "" },
   indoorLevel: { type: String, default: "" },
   indoorViewportMode: { type: String, default: "gameplay" },
-  previewExteriorFog: { type: Boolean, default: false },
-  eventLocationInput: { type: String, default: "" },
 });
 
 defineEmits([
-  "switch-mode",
   "select-hex",
   "select-room",
   "select-exterior",
   "select-indoor-item",
   "update:indoorLevel",
   "update:indoorViewportMode",
-  "update:previewExteriorFog",
-  "update:eventLocationInput",
-  "select-event",
 ]);
 </script>
 
 <template>
   <section class="builder-map-column panel">
-    <div class="mode-tabs">
-      <button :class="{ active: locationMode === 'outdoors' }" @click="$emit('switch-mode', 'outdoors')">Outdoor</button>
-      <button :class="{ active: ['rooms', 'exterior'].includes(locationMode) }" @click="$emit('switch-mode', 'rooms')">Indoor</button>
-      <button :class="{ active: locationMode === 'events' }" @click="$emit('switch-mode', 'events')">Events</button>
-    </div>
-
     <HexMap
       v-if="locationMode === 'outdoors'"
       :map-data="outdoor.displayMapData"
@@ -58,7 +46,7 @@ defineEmits([
       :avatar-instant="true"
       @hex-click="$emit('select-hex', $event)" />
 
-    <template v-else-if="locationMode !== 'events'">
+    <template v-else>
       <div class="indoor-preview-controls">
         <label>Floor
           <select :value="indoorLevel" @change="$emit('update:indoorLevel', $event.target.value)">
@@ -70,13 +58,6 @@ defineEmits([
             <option value="gameplay">Gameplay preview</option>
             <option value="fit-all">Fit all</option>
           </select>
-        </label>
-        <label class="preview-check">
-          <input
-            :checked="previewExteriorFog"
-            type="checkbox"
-            @change="$emit('update:previewExteriorFog', $event.target.checked)">
-          Exterior fog
         </label>
       </div>
       <GridMap
@@ -91,9 +72,9 @@ defineEmits([
         :reachable-exterior-nodes="allExteriorIds"
         :door-states="buildInitialDoorState(building.areaId, building)"
         :builder-view="true"
+        builder-fixture-click-target="feature-room"
         :hydro-discovered="true"
         :viewport-mode="indoorViewportMode"
-        :exterior-fog="previewExteriorFog"
         :orientation-controls="false"
         :wheel-zoom="true"
         :drag-pan="true"
@@ -101,14 +82,6 @@ defineEmits([
         @exterior-node-click="$emit('select-exterior', $event)"
         @select-item="$emit('select-indoor-item', $event)" />
     </template>
-
-    <label v-else>Event name
-      <input
-        :value="eventLocationInput"
-        placeholder="custom-event"
-        @input="$emit('update:eventLocationInput', $event.target.value)"
-        @change="$emit('select-event', $event)" />
-    </label>
   </section>
 </template>
 
@@ -121,20 +94,9 @@ defineEmits([
   padding: 0.85rem;
 }
 
-.mode-tabs {
-  display: flex;
-  gap: 0.4rem;
-  margin-bottom: 0.75rem;
-}
-
-.mode-tabs button.active {
-  background: #49624f;
-  border-color: #6f9b79;
-}
-
 .indoor-preview-controls {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.6rem;
   margin-bottom: 0.6rem;
 }
@@ -152,16 +114,6 @@ select {
   background: #171b22;
   color: #dbe2ea;
   padding: 0.45rem;
-}
-
-.preview-check {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.preview-check input {
-  width: auto;
 }
 
 @media (max-width: 900px) {

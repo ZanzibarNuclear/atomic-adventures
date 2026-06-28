@@ -1,16 +1,20 @@
 <script setup>
-defineProps({
+import { computed } from "vue";
+
+const props = defineProps({
   selection: { type: Object, required: true },
 });
+
+const isWall = computed(() => props.selection.source === "walls");
 </script>
 
 <template>
   <p class="read-only-note">
-    Fixture geometry is currently read-only. Its room connections and level placement
-    are validated on save.
+    This visual-only object can be selected and edited on the map, but does not affect traversal.
   </p>
-  <label>Kind<input :value="selection.entity.kind" disabled /></label>
-  <label>Connects<input :value="(selection.entity.connects ?? []).join(', ')" disabled /></label>
+  <label>Kind<input :value="isWall ? 'stone wall' : selection.entity.kind" disabled /></label>
+  <label v-if="selection.entity.visualOnly">Role<input value="Visual only" disabled /></label>
+  <label v-if="!isWall">Connects<input :value="(selection.entity.connects ?? []).join(', ')" disabled /></label>
   <label>Levels<input :value="(selection.entity.onLevels ?? []).join(', ')" disabled /></label>
 </template>
 

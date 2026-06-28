@@ -10,7 +10,6 @@ const props = defineProps({
   allExteriorIds: { type: Array, default: () => [] },
   level: { type: String, default: "" },
   viewportMode: { type: String, default: "fit-all" },
-  exteriorFog: { type: Boolean, default: false },
   geometryEditing: { type: Boolean, default: false },
   canEditGeometry: { type: Boolean, default: false },
   doorStates: { type: Object, required: true },
@@ -23,10 +22,8 @@ const props = defineProps({
 defineEmits([
   "update:level",
   "update:viewportMode",
-  "update:exteriorFog",
   "update:selectedHandleId",
   "toggle-geometry-editing",
-  "set-door-preview",
   "select-item",
   "grid-handle-move",
   "builder-map-click",
@@ -61,14 +58,6 @@ const currentStand = computed(() =>
             <option value="gameplay">Gameplay preview</option>
           </select>
         </label>
-        <label class="check-field">
-          <input
-            :checked="exteriorFog"
-            type="checkbox"
-            @change="$emit('update:exteriorFog', $event.target.checked)"
-          />
-          Exterior fog
-        </label>
       </div>
       <div class="tool-group">
         <button
@@ -79,11 +68,10 @@ const currentStand = computed(() =>
         >
           {{ geometryEditing ? "Done editing" : "Edit geometry" }}
         </button>
-        <span v-if="geometryEditing" class="mode-indicator">Geometry editing</span>
-        <button class="sm muted" @click="$emit('set-door-preview', true)">Open all doors</button>
-        <button class="sm muted" @click="$emit('set-door-preview', false)">Close all doors</button>
       </div>
     </div>
+
+    <p class="canvas-hint">Drag empty map to pan · Drag a selected stand or colored handle to move it · Wheel to zoom</p>
 
     <div class="station-canvas">
       <GridMap
@@ -108,7 +96,6 @@ const currentStand = computed(() =>
         :map-click-mode="addMode"
         :hydro-discovered="true"
         :viewport-mode="viewportMode"
-        :exterior-fog="exteriorFog"
         :wheel-zoom="true"
         :drag-pan="true"
         @select-item="$emit('select-item', $event)"
@@ -120,7 +107,6 @@ const currentStand = computed(() =>
         @stand-click="$emit('stand-click', $event)"
       />
     </div>
-    <p class="canvas-hint">Drag empty map to pan · Drag a selected stand or colored handle to move it · Wheel to zoom</p>
   </section>
 </template>
 
@@ -128,8 +114,8 @@ const currentStand = computed(() =>
 .canvas-column {
   min-width: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 0.65rem;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 0.5rem;
 }
 
 .panel {
@@ -155,21 +141,11 @@ const currentStand = computed(() =>
   min-width: 9rem;
 }
 
-.canvas-toolbar label,
-.check-field {
+.canvas-toolbar label {
   display: grid;
   gap: 0.25rem;
   font-size: 0.78rem;
   color: #bdc4ce;
-}
-
-.check-field {
-  display: flex;
-  align-items: center;
-}
-
-.check-field input {
-  width: auto;
 }
 
 .station-canvas {
@@ -181,7 +157,7 @@ const currentStand = computed(() =>
 
 .station-canvas :deep(.gridmap),
 .station-canvas :deep(.gridmap.builder-view:not(.expanded)) {
-  height: clamp(34rem, calc(100vh - 15rem), 54rem);
+  height: clamp(33rem, calc(100vh - 15.5rem), 54rem);
   max-height: none;
 }
 
@@ -189,11 +165,6 @@ const currentStand = computed(() =>
   margin: 0;
   color: #93a0af;
   font-size: 0.78rem;
-}
-
-.mode-indicator {
-  color: #ffcf80;
-  font-size: 0.8rem;
 }
 
 @media (max-width: 920px) {
