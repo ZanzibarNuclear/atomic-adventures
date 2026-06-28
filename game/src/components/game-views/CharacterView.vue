@@ -2,10 +2,8 @@
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import {
   acquiredEntries,
-  activeQuestSummaries,
   characterTabs,
   questSections,
-  visibleCharacterStats,
 } from "../../lib/character/panel.js";
 import { formatGameClock } from "../../lib/character/gameTime.js";
 import {
@@ -38,9 +36,7 @@ const selectedTab = ref(
 const selectedHoldingId = ref(null);
 const tabButtons = ref([]);
 
-const stats = computed(() => visibleCharacterStats(props.character));
 const portraitSrc = computed(() => publicAssetPath(props.character.definitions.profile?.portrait));
-const activeQuests = computed(() => activeQuestSummaries(props.character));
 const inventoryHolders = computed(() => {
   const ids = [...accessibleHolderIds(
     props.character.holdings,
@@ -206,8 +202,7 @@ function publicAssetPath(path) {
       :aria-labelledby="`character-tab-${selectedTab}`">
       <CharacterOverviewTab
         v-if="selectedTab === 'overview'"
-        :stats="stats"
-        :active-quests="activeQuests" />
+        :character="character" />
 
       <CharacterInventoryTab
         v-else-if="selectedTab === 'inventory'"

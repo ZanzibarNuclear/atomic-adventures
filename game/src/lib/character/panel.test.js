@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   activeQuestSummaries,
+  characterWellbeingOverview,
   characterTabs,
   formatStatValue,
+  formatVitalValue,
   questSections,
   visibleCharacterStats,
   visibleInventoryGroups,
@@ -100,5 +102,36 @@ describe("character panel presentation", () => {
       value: 100,
       max: 100,
     })).toBe("100 / 100");
+  });
+
+  it("presents wellbeing meters with higher values as better condition", () => {
+    const state = character();
+    state.definitions.stats.push(
+      { id: "hunger", label: "Hunger", type: "meter", min: 0, max: 100, visible: "always" },
+      { id: "thirst", label: "Thirst", type: "meter", min: 0, max: 100, visible: "always" },
+    );
+    state.stats.hunger = 35;
+    state.stats.thirst = 70;
+
+    const overview = characterWellbeingOverview(state);
+
+    expect(overview.vitals).toEqual([
+      expect.objectContaining({ id: "health", value: 85, state: "Healthy" }),
+      expect.objectContaining({ id: "satiety", value: 65, state: "Fed" }),
+      expect.objectContaining({ id: "hydration", value: 30, state: "Thirsty" }),
+      expect.objectContaining({ id: "rested", value: 100, state: "Rested" }),
+      expect.objectContaining({ id: "composure", value: 100, state: "Calm" }),
+    ]);
+    expect(formatVitalValue(overview.vitals[1])).toBe("Fed · 65 / 100");
+  });
+
+  it("uses words for clear condition states", () => {
+    const overview = characterWellbeingOverview(character());
+
+    expect(overview.conditions).toEqual([
+      expect.objectContaining({ id: "injured", state: "No injuries", active: false }),
+      expect.objectContaining({ id: "poisoned", state: "No poison", active: false }),
+      expect.objectContaining({ id: "sick", state: "No sickness", active: false }),
+    ]);
   });
 });

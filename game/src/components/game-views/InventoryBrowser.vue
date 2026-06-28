@@ -90,7 +90,7 @@ const availableTransferTargets = computed(() => {
       .filter((holder) => holder.kind === "container" && holder.instance !== selectedId)
       .map((holder) => ({
         id: holder.id,
-        label: holder.label ?? holder.id,
+        label: containerItemLabel(holder) ?? holder.label ?? holder.id,
         kind: "container",
         putIn: true,
       }));
@@ -106,6 +106,14 @@ function transferLabel(target) {
   if (target.putIn) return `Put in ${target.label}`;
   if (target.putDown) return "Put down";
   return `Move to ${target.label}`;
+}
+
+function containerItemLabel(holder) {
+  if (!holder.instance) return null;
+  return props.holders
+    .flatMap((entry) => entry.records ?? [])
+    .find((record) => record.type === "instance" && record.id === holder.instance)
+    ?.label ?? null;
 }
 
 function holdingKey(record) {

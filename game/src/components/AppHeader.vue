@@ -36,8 +36,8 @@
           <details ref="gameMenu" class="game-menu">
             <summary class="sm">Game</summary>
             <div class="game-menu-popover">
-              <button type="button" class="menu-item" @click="handleSave">Save</button>
-              <button type="button" class="menu-item muted" @click="handleReset">Reset</button>
+              <button type="button" class="menu-item success" @click="handleSave">Save</button>
+              <button type="button" class="menu-item warning" @click="handleReset">Reset</button>
               <button type="button" class="menu-item" @click="showCredits">Credits</button>
             </div>
           </details>
@@ -220,9 +220,21 @@ header {
 .menu-item.muted {
   color: #aab0bc;
 }
+.menu-item.success {
+  color: #9fdbad;
+}
+.menu-item.warning {
+  color: #ffb38a;
+}
 .dev-menu-item:hover:not(:disabled),
 .menu-item:hover:not(:disabled) {
   background: #344158;
+}
+.menu-item.success:hover:not(:disabled) {
+  background: #294333;
+}
+.menu-item.warning:hover:not(:disabled) {
+  background: #4a3028;
 }
 .save-hint {
   margin: 0;
