@@ -46,7 +46,7 @@
   <StatusLines :lines="statusLines" />
 
   <PlayPanel v-if="actions.length">
-    <TravelOptions v-if="actions.length" label="Choose an Action">
+    <ActionOptions v-if="actions.length" label="Choose an Action">
       <button
         v-for="item in actions"
         :key="item.id"
@@ -57,7 +57,7 @@
         @click="onAction(item.id)">
         {{ item.label }}
       </button>
-    </TravelOptions>
+    </ActionOptions>
   </PlayPanel>
 </template>
 
@@ -67,7 +67,7 @@ import { hexLabel } from "../../displayLabel.js";
 import HexMap from "../components/HexMap.vue";
 import PlayPanel from "../../../components/hud/PlayPanel.vue";
 import MapCaption from "../components/hud/MapCaption.vue";
-import TravelOptions from "../components/hud/TravelOptions.vue";
+import ActionOptions from "../components/hud/ActionOptions.vue";
 import StatusLines from "../../../components/hud/StatusLines.vue";
 import NarrativeCard from "../../../components/story/NarrativeCard.vue";
 import {

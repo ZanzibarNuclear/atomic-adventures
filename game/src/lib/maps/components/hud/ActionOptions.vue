@@ -1,5 +1,5 @@
 <template>
-  <div class="travel">
+  <div class="actions">
     <span class="label">{{ label }}</span>
     <div class="options">
       <slot />
@@ -14,7 +14,13 @@ defineProps({
 </script>
 
 <style scoped>
-.travel .options {
+.actions {
+  margin-top: -0.35rem;
+}
+.actions .label {
+  color: #8bc49a;
+}
+.actions .options {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
