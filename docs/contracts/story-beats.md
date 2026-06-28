@@ -74,8 +74,9 @@ day-2-pines:
   trigger: { place: outdoors, hex: far-pines, flag: day.2 }
 ```
 
-The engine has no built-in calendar yet. Days and phases are represented by
-flags established by gameplay.
+The game now has an authored clock, but beat-level time criteria are not yet
+implemented. Until they are, days and phases can still be represented by flags
+established by gameplay. See [time.md](time.md) for the target contract.
 
 ## Triggers
 
@@ -182,7 +183,8 @@ match how an author thinks about the scene. Likely examples:
 
 - Story arc or phase, such as Part I, Part II, Part III, hydro restored, or
   post-storm.
-- Time of day, such as morning, afternoon, evening, or night.
+- Time of day, story day, elapsed time, and milestone windows, as defined in
+  [time.md](time.md).
 - Season or weather, if the story needs those distinctions.
 - One simple story-state flag for bespoke cases that do not deserve their own
   first-class field.
@@ -347,7 +349,7 @@ remote installation.
 The current beat engine does not yet implement the full planned passage schema.
 Notable omissions include:
 
-- A built-in day/calendar model
+- Beat-level time criteria
 - Clearing flags
 - Beat-level and choice-specific requirements
 - Choice-specific character effects

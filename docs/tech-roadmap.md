@@ -252,6 +252,7 @@ Deferred: AP-1000, fusion chapters.
 | ----- | -------- |
 | Agent / repo overview | [AGENTS.md](../AGENTS.md) |
 | Beat runtime & authoring | [contracts/story-beats.md](contracts/story-beats.md) |
+| Game time, durations, milestones & simulation time | [contracts/time.md](contracts/time.md) |
 | Outdoor world authoring | [contracts/world-authoring.md](contracts/world-authoring.md) |
 | Character, inventory, stats, skills & quests | [contracts/character-inventory.md](contracts/character-inventory.md) |
 | Close-up views implementation plan | [plans/close-up-views-implementation.md](plans/close-up-views-implementation.md) |

@@ -204,7 +204,9 @@ from systems the player has not had a fair chance to understand.
 
 ## Activity And Time
 
-Current time advancement accepts an activity profile:
+Current time advancement accepts an activity profile. The broader game-time
+contract, including clock state, action durations, milestones, and simulation
+time, lives in [time.md](time.md).
 
 - `resting`
 - `light`

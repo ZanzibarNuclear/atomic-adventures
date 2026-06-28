@@ -1,0 +1,385 @@
+# Game Time
+
+**Status:** Contract for authored game time, time-gated beats, duration costs,
+resource drift, and simulation-time integration  
+**Scope:** `game/` runtime, story builder, world builder, content API, save/load,
+character wellbeing, movement, and simulations
+
+---
+
+## Purpose
+
+Atomic Adventures uses **authored game time**. The clock belongs to the saved
+game state and advances because the player takes actions, travels, rests,
+watches or runs a simulation, or reaches a designed transition. It is not tied
+to real wall-clock time, and it does not advance while the game is closed.
+
+Time supports four related design needs:
+
+1. **Story pacing** - beats can appear only during the right day, time window,
+   story phase, or milestone.
+2. **Action cost** - movement, search, repair, reading, eating, rest, and
+   simulation work can spend game minutes.
+3. **State drift** - character vitals and world resources can accumulate or
+   deplete over elapsed game time.
+4. **Operations play** - restored energy systems can run over minutes, days,
+   and weeks without requiring the player to watch every second.
+
+## Clock Model
+
+The player save owns a serializable clock:
+
+| Field | Meaning |
+| --- | --- |
+| `elapsedMinutes` | Total game minutes since the start of the saved playthrough |
+| `day` | One-based story day, derived from midnight crossings |
+| `minuteOfDay` | Minutes since local midnight, `0` through `1439` |
+
+`elapsedMinutes` is the canonical monotonic counter. `day` and `minuteOfDay`
+are the author-facing calendar projection. The current implementation stores
+all three fields and normalizes midnight rollover when time advances.
+
+The start clock should be authored in a scenario or game settings document:
+
+```yaml
+clock:
+  startDay: 1
+  startMinuteOfDay: 600 # 10:00 AM
+```
+
+Part I should treat 10:00 AM as the desired design default unless a specific
+opening sequence chooses another value. The current implementation default is
+8:00 AM in `createGameClock`; that is an implementation detail to migrate once
+the builder exposes a start-time setting.
+
+## Advancing Time
+
+All ordinary time changes must pass through one runtime boundary:
+`advanceGameTime(gameState, minutes, activity)`.
+
+`minutes` is a positive game-minute duration. Fractional minutes are allowed
+internally, but authored content should prefer whole minutes unless a simulation
+has a clear reason for finer resolution.
+
+`activity` describes the character exertion profile used for stat drift:
+
+| Activity | Use for |
+| --- | --- |
+| `resting` | Sleep, quiet waiting, sitting through a video |
+| `light` | Reading, indoor walking, eating, normal interaction |
+| `moderate` | Outdoor walking, carrying small gear, routine field work |
+| `strenuous` | Climbing, heavy repair, emergency work, running |
+
+Time advancement must be deterministic. Advancing 180 minutes once and advancing
+1 minute 180 times must produce the same clock, character, and resource state,
+apart from intentionally rounded display values.
+
+If a time advance fails because a required effect cannot be applied, the action
+that requested it must fail atomically: do not move the player, do not set
+flags, and do not partially apply resource changes.
+
+## Action Durations
+
+Every player action that changes the world should have either an authored
+duration or a documented default. "Free" actions should be deliberate: opening a
+panel, inspecting character stats, or changing a stage view does not spend time.
+
+Recommended defaults:
+
+| Action | Default duration | Activity |
+| --- | ---: | --- |
+| Outdoor adjacent hex travel | 15 minutes | `moderate` |
+| Indoor room or stand movement | 1 minute | `light` |
+| Exterior building-node movement | 3 minutes | `light` |
+| Open or close an obvious gate/door | 1 minute | `light` |
+| Cross an obvious passage | 2 minutes | `light` or `moderate` |
+| Search a small area | 10 minutes | `light` |
+| Find and pass through a hidden opening | Search time + 2 minutes | `moderate` |
+| Read a short document | 5 minutes | `resting` or `light` |
+| Eat or drink | 5 to 20 minutes | `resting` |
+| Watch lesson video | Video length in game minutes | `resting` |
+| Sleep | Authored duration to target wake time | `resting` |
+
+Outdoor travel uses the current map scale: one center-to-center hex step is
+about 0.5 miles, and the default walking cost is 15 minutes. Four adjacent hex
+steps therefore cost about one hour before any story, search, passage, or
+barrier-specific time is added.
+
+Barrier interactions add time because they are real actions, not just geometry:
+finding the hole in the fence, opening a stuck gate, crossing a bridge, or
+working around a blocked route should each spend authored minutes. The movement
+resolver decides whether a move is possible; the time system accounts for how
+long the chosen path and associated interaction took.
+
+## Time-Gated Beats
+
+Time is a first-class beat eligibility criterion, separate from the action
+context `match` fields such as `originHex` and `localExit`.
+
+Recommended beat shape:
+
+```yaml
+library-morning-day-2:
+  trigger: { place: indoors, room: library }
+  time:
+    days: [2]
+    phase: morning
+  text: Morning light pools across the soft chairs where Zanzi slept.
+```
+
+Supported time criteria should grow in small, author-facing pieces:
+
+| Criterion | Meaning |
+| --- | --- |
+| `days` | Explicit list of story days, such as `[1]` or `[2, 3]` |
+| `dayFrom` / `dayTo` | Inclusive day range |
+| `minuteOfDayFrom` / `minuteOfDayTo` | Local clock window; may wrap midnight |
+| `phase` | Named time-of-day bucket, such as `morning`, `afternoon`, `evening`, `night` |
+| `elapsedFrom` / `elapsedTo` | Inclusive elapsed-minute window from playthrough start |
+| `afterMilestone` | Named milestone that must have occurred |
+| `beforeMilestone` | Named milestone that must not have occurred yet |
+
+Time criteria are eligibility filters. They do not replace the primary trigger:
+a beat still needs a location or event trigger. Time-specific beats should win
+over less specific beats at the same location when all other specificity is
+equal. If multiple time-specific beats overlap at the same location, the builder
+should warn and authors should make the windows or milestone criteria distinct.
+
+Example:
+
+```yaml
+utility-yard-first-day:
+  trigger: { place: outdoors, hex: utility-yard }
+  time: { days: [1], minuteOfDayFrom: 600, minuteOfDayTo: 720 }
+  text: The utility yard is still reachable before noon if Zanzi keeps moving.
+
+utility-yard-after-dark:
+  trigger: { place: outdoors, hex: utility-yard }
+  time: { phase: night }
+  text: The yard is a dark grid of fences and silent equipment.
+```
+
+## Time Phases
+
+Named phases keep authors from hard-coding minute math in every beat. The
+default phase table should be configurable by the world/scenario settings:
+
+| Phase | Default window |
+| --- | --- |
+| `morning` | 6:00 AM - 11:59 AM |
+| `afternoon` | 12:00 PM - 4:59 PM |
+| `evening` | 5:00 PM - 8:59 PM |
+| `night` | 9:00 PM - 5:59 AM |
+
+Phase criteria are semantic story tools, not lighting physics. A future visual
+lighting system may use the same clock, but story eligibility should not depend
+on the renderer.
+
+## Milestones
+
+A **milestone** is a named story or operations event recorded in player state.
+Milestones are not the same as clock time, but they often act as time anchors.
+
+Examples:
+
+| Milestone | Required? | Notes |
+| --- | --- | --- |
+| `gate.found` | Optional | Useful because there are alternate routes to the utility yard |
+| `first-meal.eaten` | Required survival beat | Missing it can trigger exhaustion/collapse content |
+| `day-1.sleep` | Required transition | Moves the game from Day 1 to Day 2 |
+| `hydro.online` | Required Part I progression | Starts energy storage and operations pacing |
+| `solar-field.seen` | Optional discovery | Can unlock Part II foreshadowing |
+
+Milestones may be implemented as structured progression state or as namespaced
+flags. The authoring model should present them as milestones when they represent
+story pacing, required discoveries, or operations achievements, rather than
+making authors remember arbitrary flag names.
+
+Milestones should record at least:
+
+```yaml
+id: first-meal.eaten
+elapsedMinutes: 390
+day: 1
+minuteOfDay: 990
+required: true
+```
+
+Recording the clock at milestone time lets later content ask not only "did this
+happen?" but "how long has it been since this happened?"
+
+## Day Transitions And Rest
+
+Days advance mechanically at midnight, but story days should transition through
+authored rest or end-of-day beats when the narrative needs a clear break.
+
+Part I design goals:
+
+- Zanzi should be able to reach the utility station within the first two game
+  hours from the start, including plausible barrier/search overhead.
+- Food and water discoveries should be paced so Zanzi can avert the first
+  personal crisis on Day 1.
+- If he reaches the library/conference area by evening, sleeping in a chair,
+  on a table, or in soft seating can become an authored rest choice.
+- Waking should advance the clock, record a Day 2 transition milestone, and
+  make Day 2 beats eligible without losing location, inventory, or player state.
+
+Rest choices should prefer "sleep until" semantics over fixed durations when
+that is what the story means:
+
+```yaml
+choices:
+  - text: Sleep in the library chair
+    time:
+      until:
+        dayOffset: 1
+        minuteOfDay: 420 # 7:00 AM
+      activity: resting
+    sets: [day-1.sleep, day-2.started]
+```
+
+The current choice schema supports `timeMinutes` and `activity`; `sleep until`
+is a proposed extension.
+
+## Resource Drift And Accumulation
+
+Time advancement is the shared tick for character stats and world resources.
+
+Character examples:
+
+- hunger/thirst or their future positive reserves;
+- fatigue/rested level;
+- composure recovery or stress decay;
+- health damage from sustained severe conditions.
+
+World and facility examples:
+
+- hydro generation charging batteries;
+- campus electronics drawing battery power;
+- water reservoir changes;
+- alarms escalating after unattended operation;
+- food spoilage or water purification progress.
+
+Resources should define rates in game-time units, not wall-clock units:
+
+```yaml
+resource:
+  id: battery-main
+  capacityKWh: 500
+  rates:
+    hydroOnlineKw: 85
+    campusLoadKw: 12
+```
+
+When advancing time, the runtime should integrate resources in deterministic
+steps or with a mathematically equivalent aggregate. The player should be able
+to leave the control room, travel, sleep, and return to see batteries changed by
+the elapsed game time.
+
+## Simulation Time
+
+Simulations may use several time modes. Each must explicitly report how it
+connects back to game time.
+
+| Mode | Meaning | Game-time behavior |
+| --- | --- | --- |
+| Observed real time | Player watches something unfold at normal speed, such as a video or waterfall | Spend matching game minutes if the activity matters |
+| Interactive real time | Player drives, steers, or adjusts controls live | Spend game minutes according to the activity or scenario |
+| Accelerated run | Simulation computes minutes/hours/days quickly | Advance game time by the simulated duration when accepted |
+| Playback | Player reviews an already generated run | Usually no game-time cost, unless authored as a lesson |
+| Background aggregate | Facility state advances while player is elsewhere | Applied during normal `advanceGameTime` resource drift |
+
+A simulation must not secretly advance the shared clock just because browser
+frames elapsed. It should commit time through the same effect boundary used by
+story choices and item actions. If a sim has its own internal clock, that clock
+is local until the sim commits a result.
+
+## Player-Facing Display
+
+The game may show a subtle timestamp, such as:
+
+```text
+Day 1 · 11:15 AM
+```
+
+This should feel like a quiet watermark or HUD detail, not a constant pressure
+meter. The display should update immediately after actions that spend time.
+
+Useful display contexts:
+
+- game header or corner watermark;
+- character overview;
+- story card eyebrow, such as `Day 2 · Morning`;
+- save slot metadata;
+- simulation summary, such as `3 hours simulated`.
+
+Avoid exposing implementation counters like `elapsedMinutes: 372` in ordinary
+player UI.
+
+## Authoring And Validation
+
+The builder should eventually expose:
+
+- scenario start day and time;
+- named phase windows;
+- action durations and activity profiles;
+- beat time criteria;
+- milestone creation and milestone gating;
+- warnings for overlapping time-gated beats at the same trigger;
+- estimated route timing for authored paths and common discoveries;
+- preview controls to evaluate content at a chosen day/time/milestone state.
+
+Validation should reject:
+
+- negative durations;
+- unknown activity profiles;
+- invalid clock minutes outside `0..1439`;
+- empty or inverted windows that do not intentionally wrap midnight;
+- unknown phase names;
+- unknown milestone IDs when milestone catalogs exist.
+
+## Persistence
+
+Player saves must serialize:
+
+- clock fields;
+- milestone state and milestone timestamps;
+- character/resource values affected by elapsed time;
+- seen beats, flags, inventory, map position, and simulation/facility state.
+
+The clock must not be recomputed from real save/load timestamps. Loading a saved
+game resumes at the saved game time.
+
+Content remains separate from player state. Time criteria, phase settings,
+action durations, and simulation rate definitions live in authored content.
+Clock values and milestone completion live in the player save.
+
+## Current Implementation Map
+
+| Concern | Location |
+| --- | --- |
+| Clock creation, formatting, and deterministic advancement | `game/src/lib/character/gameTime.js` |
+| Character stat drift during time advancement | `game/src/lib/character/gameTime.js` |
+| Shared action time helper | `game/src/lib/character/gameActivity.js` |
+| Player clock persistence | `game/src/composables/useGameState.js` |
+| Story choice `timeMinutes` and `activity` | `game/server/story-model.js`, `game/src/components/builder/story/StoryChoiceEditor.vue` |
+| Story choice time commit | `game/src/composables/useStory.js` |
+| Item action time commit | `game/src/lib/character/itemActions.js` |
+| Outdoor movement default time | `game/src/lib/maps/composables/useOutdoorWorld.js` |
+| Indoor movement and interaction time | `game/src/lib/maps/composables/indoor/` |
+
+## Open Decisions
+
+- Should the Part I start time be 10:00 AM exactly, or should the opening beat
+  choose a scenario-specific value?
+- Should milestones become a structured save field immediately, or remain
+  namespaced flags until authoring pressure proves the need?
+- Should beat time criteria live under `time`, under a broader `when`, or as
+  dedicated trigger fields in the database UI?
+- What is the correct default duration for exterior-node movement around a
+  building: 1, 3, or 5 minutes?
+- Should food/water daily targets be evaluated at midnight, waking, or rolling
+  24-hour windows?
+- How visible should the timestamp be during high-tension survival beats?
+- Which simulations commit clock time immediately, and which preview results
+  before the player accepts the outcome?
