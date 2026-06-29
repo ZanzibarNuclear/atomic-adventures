@@ -233,6 +233,7 @@ describe("useStory reactive content", () => {
 
   it("advances choice time before movement", () => {
     let minutesDuringMove = 0;
+    let moveOptions = null;
     const effectBeat = {
       ...beat,
       choices: [{
@@ -244,8 +245,9 @@ describe("useStory reactive content", () => {
     const setup = harness({ beats: { effect: effectBeat } }, {
       withClock: true,
       withCharacter: true,
-      moveTo: () => {
+      moveTo: (_hexId, options) => {
         minutesDuringMove = setup.gameState.clock.elapsedMinutes;
+        moveOptions = options;
       },
     });
 
@@ -253,7 +255,32 @@ describe("useStory reactive content", () => {
     setup.api.applyChoice(0);
 
     expect(minutesDuringMove).toBe(5);
+    expect(moveOptions).toEqual({ suppressDefaultTime: true });
     expect(setup.gameState.storySeen.has("effect")).toBe(true);
+  });
+
+  it("does not suppress default outdoor movement time when a story move has no authored time", () => {
+    let moveOptions = null;
+    const effectBeat = {
+      ...beat,
+      choices: [{
+        text: "Go now",
+        go_hex: "east-pines",
+      }],
+    };
+    const setup = harness({ beats: { effect: effectBeat } }, {
+      withClock: true,
+      withCharacter: true,
+      moveTo: (_hexId, options) => {
+        moveOptions = options;
+      },
+    });
+
+    setup.api.refreshNarrative();
+    setup.api.applyChoice(0);
+
+    expect(setup.gameState.clock.elapsedMinutes).toBe(0);
+    expect(moveOptions).toEqual({ suppressDefaultTime: false });
   });
 
   it("uses beat time criteria to select the matching room beat", () => {

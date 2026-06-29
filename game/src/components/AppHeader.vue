@@ -48,6 +48,7 @@
             </div>
           </details>
         </div>
+        <p v-if="clock" class="game-timestamp">{{ formatGameTimestamp(clock) }}</p>
         <p v-if="loadError" class="error-hint">{{ loadError }}</p>
       </div>
     </div>
@@ -60,6 +61,7 @@
 <script setup>
 import { computed, ref } from "vue";
 import CreditsDialog from "./CreditsDialog.vue";
+import { formatGameTimestamp } from "../lib/character/gameTime.js";
 
 const props = defineProps({
   hasSave: { type: Boolean, default: false },
@@ -67,6 +69,7 @@ const props = defineProps({
   loadError: { type: String, default: null },
   movementAuditVisible: { type: Boolean, default: false },
   activeGameView: { type: String, default: "map" },
+  clock: { type: Object, default: null },
 });
 
 const emit = defineEmits([
@@ -151,6 +154,13 @@ header {
   flex-direction: column;
   align-items: flex-end;
   gap: 0.35rem;
+}
+.game-timestamp {
+  margin: 0;
+  color: #9fb0c2;
+  font-size: 0.78rem;
+  letter-spacing: 0;
+  opacity: 0.82;
 }
 .game-controls {
   display: flex;

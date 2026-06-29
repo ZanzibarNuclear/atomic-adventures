@@ -249,7 +249,7 @@ export function useStory(storyData, ctx) {
       (choice.go_exterior_node && place.value === "indoors");
 
     if (choice.go_hex && place.value === "outdoors") {
-      outdoor.moveTo(choice.go_hex);
+      outdoor.moveTo(choice.go_hex, { suppressDefaultTime: duration > 0 });
     } else if (choice.enter && place.value === "outdoors") {
       indoor.enterBuilding();
     } else if (choice.go_room && place.value === "indoors") {

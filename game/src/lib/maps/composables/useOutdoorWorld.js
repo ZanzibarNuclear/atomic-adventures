@@ -111,7 +111,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
   const {
     markOpeningDiscovered,
     canSearchHere,
-    searchBarrier,
+    searchBarrier: searchBarrierWithoutTime,
     searchableOpenings,
     barrierCutsCurrentHex,
   } = useOutdoorBarrierSearch({
@@ -121,6 +121,14 @@ export function useOutdoorWorld(mapData, gameState = null) {
     size,
     hexAtPoint,
   });
+
+  function searchBarrier() {
+    const result = searchBarrierWithoutTime();
+    if (gameState?.clock && gameState?.character) {
+      advanceGameTime(gameState, 20, "moderate");
+    }
+    return result;
+  }
 
   function markDiscovered(hexId) {
     if (!hexId || state.discovered.includes(hexId)) return;

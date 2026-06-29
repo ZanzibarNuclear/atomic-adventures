@@ -284,6 +284,7 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       :load-error="loadError"
       :movement-audit-visible="movementAuditVisible"
       :active-game-view="activeView.kind"
+      :clock="gameState.clock"
       @save="saveGame(saveCtx)"
       @new-game="handleNewGame"
       @reset="handleReset"

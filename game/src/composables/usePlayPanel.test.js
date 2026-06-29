@@ -19,6 +19,8 @@ import {
 } from './usePlayPanel.js'
 import { hiddenOpeningsInHex } from '../lib/maps/composables/useBarrierOpenings.js'
 import { useOutdoorWorld } from '../lib/maps/composables/useOutdoorWorld.js'
+import { createCharacterState } from './useCharacterState.js'
+import { createGameClock } from '../lib/character/gameTime.js'
 
 const world = buildTravelWorld(mapData)
 
@@ -162,6 +164,35 @@ describe('getMovementOptions', () => {
     expect(buildOutdoorPlayActions(outdoor).map((action) => action.id)).toContain(
       'search:barrier',
     )
+  })
+
+  it('spends 20 minutes when inspecting the fence', () => {
+    const gameState = {
+      flags: new Set(),
+      clock: createGameClock(),
+      character: createCharacterState({
+        items: [],
+      stats: [{
+        id: 'effort',
+        label: 'Effort',
+        type: 'meter',
+        default: 0,
+        drift: { perGameHour: { light: 3, moderate: 6 } },
+      }],
+        knowledge: [],
+        skills: [],
+        quests: [],
+        documents: [],
+      }),
+    }
+    const outdoor = useOutdoorWorld(mapData, gameState)
+    outdoor.state.currentId = 'south-pines'
+    outdoor.state.stand = outdoor.defaultStandForHex('south-pines')
+
+    handleOutdoorPlayAction(outdoor, 'search:barrier')
+
+    expect(gameState.clock.elapsedMinutes).toBe(20)
+    expect(gameState.character.stats.effort).toBeCloseTo(2)
   })
 
   it('hides fence inspection after the hidden opening is found', () => {

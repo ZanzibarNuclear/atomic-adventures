@@ -1,5 +1,13 @@
 import { applyEffectsAtomically } from "./effects.js";
 
+export const GAME_START_DATE = Object.freeze({
+  year: 2126,
+  month: 7,
+  day: 2,
+});
+
+export const GAME_START_MINUTE_OF_DAY = 12 * 60;
+
 export const ACTIVITY_PROFILES = Object.freeze([
   "resting",
   "light",
@@ -10,7 +18,7 @@ export const ACTIVITY_PROFILES = Object.freeze([
 export function createGameClock(value = {}) {
   return {
     elapsedMinutes: finite(value.elapsedMinutes, 0),
-    minuteOfDay: finite(value.minuteOfDay, 8 * 60),
+    minuteOfDay: finite(value.minuteOfDay, GAME_START_MINUTE_OF_DAY),
     day: Math.max(1, Math.floor(finite(value.day, 1))),
   };
 }
@@ -38,11 +46,55 @@ export function advanceGameTime(gameState, minutes, activity = "light") {
 }
 
 export function formatGameClock(clock) {
-  const hours = Math.floor(clock.minuteOfDay / 60) % 24;
-  const minutes = Math.floor(clock.minuteOfDay % 60);
+  return `Day ${clock.day} · ${formatClockTime(clock.minuteOfDay)}`;
+}
+
+export function formatGameTimestamp(clock) {
+  return `${formatGameDate(clock)} · ${formatClockTime(clock.minuteOfDay)}`;
+}
+
+export function formatGameDate(clock) {
+  const date = gameDate(clock);
+  return `${weekdayName(date)}, ${monthName(date)} ${date.getUTCDate()}, ${date.getUTCFullYear()}`;
+}
+
+export function gameDate(clock) {
+  const date = new Date(Date.UTC(
+    GAME_START_DATE.year,
+    GAME_START_DATE.month - 1,
+    GAME_START_DATE.day,
+  ));
+  date.setUTCDate(date.getUTCDate() + Math.max(0, Math.floor(finite(clock.day, 1)) - 1));
+  return date;
+}
+
+function formatClockTime(minuteOfDay) {
+  const hours = Math.floor(minuteOfDay / 60) % 24;
+  const minutes = Math.floor(minuteOfDay % 60);
   const suffix = hours >= 12 ? "PM" : "AM";
   const displayHour = hours % 12 || 12;
-  return `Day ${clock.day} · ${displayHour}:${String(minutes).padStart(2, "0")} ${suffix}`;
+  return `${displayHour}:${String(minutes).padStart(2, "0")} ${suffix}`;
+}
+
+function weekdayName(date) {
+  return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][date.getUTCDay()];
+}
+
+function monthName(date) {
+  return [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ][date.getUTCMonth()];
 }
 
 function driftEffects(character, minutes, activity) {

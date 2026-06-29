@@ -44,13 +44,13 @@ The start clock should be authored in a scenario or game settings document:
 ```yaml
 clock:
   startDay: 1
-  startMinuteOfDay: 600 # 10:00 AM
+  startDate: 2126-07-02
+  startMinuteOfDay: 720 # 12:00 PM
 ```
 
-Part I should treat 10:00 AM as the desired design default unless a specific
-opening sequence chooses another value. The current implementation default is
-8:00 AM in `createGameClock`; that is an implementation detail to migrate once
-the builder exposes a start-time setting.
+Part I currently starts on Tuesday, July 2, 2126 at noon. The builder should
+eventually expose these scenario settings instead of hard-coding them in the
+runtime.
 
 ## Advancing Time
 
@@ -348,7 +348,7 @@ is local until the sim commits a result.
 The game may show a subtle timestamp, such as:
 
 ```text
-Day 1 · 11:15 AM
+Tuesday, July 2, 2126 · 12:15 PM
 ```
 
 This should feel like a quiet watermark or HUD detail, not a constant pressure

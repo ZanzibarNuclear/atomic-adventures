@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { createCharacterState } from "../../composables/useCharacterState.js";
-import { advanceGameTime, createGameClock, formatGameClock } from "./gameTime.js";
+import {
+  advanceGameTime,
+  createGameClock,
+  formatGameClock,
+  formatGameDate,
+  formatGameTimestamp,
+} from "./gameTime.js";
 
 function state() {
   return {
@@ -31,8 +37,15 @@ describe("authored game time", () => {
     const gameState = state();
     expect(advanceGameTime(gameState, 60, "moderate").ok).toBe(true);
     expect(gameState.character.stats.hunger).toBeCloseTo(40);
-    expect(gameState.clock).toMatchObject({ elapsedMinutes: 60, minuteOfDay: 540, day: 1 });
-    expect(formatGameClock(gameState.clock)).toBe("Day 1 · 9:00 AM");
+    expect(gameState.clock).toMatchObject({ elapsedMinutes: 60, minuteOfDay: 780, day: 1 });
+    expect(formatGameClock(gameState.clock)).toBe("Day 1 · 1:00 PM");
+    expect(formatGameDate(gameState.clock)).toBe("Tuesday, July 2, 2126");
+    expect(formatGameTimestamp(gameState.clock)).toBe("Tuesday, July 2, 2126 · 1:00 PM");
+  });
+
+  it("projects story days onto the future calendar", () => {
+    expect(formatGameTimestamp(createGameClock())).toBe("Tuesday, July 2, 2126 · 12:00 PM");
+    expect(formatGameDate(createGameClock({ day: 2 }))).toBe("Wednesday, July 3, 2126");
   });
 
   it("produces the same result for equivalent large and small advances", () => {

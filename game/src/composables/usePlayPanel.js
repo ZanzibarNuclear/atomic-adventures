@@ -450,7 +450,7 @@ export function buildOutdoorStatusLines(outdoor, indoor) {
     }
   }
   if (outdoor.atBuildingEntrance) {
-    lines.push(`The ${indoor.building.label} is here — enter from the map or below.`);
+    lines.push(`You are at the ${indoor.building.label}.`);
   }
   return lines;
 }
