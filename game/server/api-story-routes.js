@@ -6,6 +6,21 @@ export async function handleStoryRoutes(req, res, url, {
   broadcast,
   syncRuntimeContent,
 }) {
+  const milestonesMatch = url.pathname.match(/^\/api\/story\/areas\/([^/]+)\/milestones$/);
+  if (milestonesMatch) {
+    const areaId = decodePathPart(milestonesMatch[1]);
+    if (req.method === "GET") {
+      return json(res, 200, repository.listMilestones(areaId));
+    }
+    if (req.method === "PUT") {
+      const body = await readJson(req);
+      const result = repository.saveMilestones(areaId, body.milestones ?? body);
+      syncRuntimeContent?.();
+      broadcast("story.updated", { revision: result.revision, areaId, milestones: true });
+      return json(res, 200, result);
+    }
+  }
+
   const listMatch = url.pathname.match(/^\/api\/story\/areas\/([^/]+)\/beats$/);
   if (listMatch && req.method === "GET") {
     return json(res, 200, repository.listBeats(decodePathPart(listMatch[1])));

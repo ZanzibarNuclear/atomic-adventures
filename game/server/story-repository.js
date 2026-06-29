@@ -3,6 +3,17 @@ import { transaction } from "./db.js";
 import { beatToRuntime, normalizeBeat, validateBeat } from "./story-model.js";
 import { RevisionStore } from "./revision-store.js";
 
+const MILESTONE_ID_PATTERN = /^[a-z0-9]+(?:[.-][a-z0-9]+)*$/;
+const MILESTONE_KINDS = new Set([
+  "story",
+  "discovery",
+  "knowledge",
+  "application",
+  "operations",
+  "survival",
+  "world",
+]);
+
 export class StoryRepository {
   constructor(db, world, character = null) {
     this.db = db;
@@ -29,13 +40,14 @@ export class StoryRepository {
 
   getRuntimeStory() {
     const areas = this.db.prepare(
-      "SELECT id, name FROM story_areas ORDER BY sort_order, id",
+      "SELECT id, name, milestones_json FROM story_areas ORDER BY sort_order, id",
     ).all();
     const result = {};
     for (const area of areas) {
       result[area.id] = {
         area: area.id,
         name: area.name,
+        milestones: normalizeMilestones(JSON.parse(area.milestones_json || "[]")),
         beats: Object.fromEntries(
           this.listBeats(area.id, { full: true }).map((beat) => [beat.id, beatToRuntime(beat)]),
         ),
@@ -45,9 +57,39 @@ export class StoryRepository {
   }
 
   listAreas() {
-    return this.db.prepare(
-      "SELECT id, name, sort_order AS sortOrder FROM story_areas ORDER BY sort_order, id",
-    ).all();
+    return this.db.prepare(`
+      SELECT id, name, sort_order AS sortOrder, milestones_json
+      FROM story_areas
+      ORDER BY sort_order, id
+    `).all().map((area) => ({
+      id: area.id,
+      name: area.name,
+      sortOrder: area.sortOrder,
+      milestones: normalizeMilestones(JSON.parse(area.milestones_json || "[]")),
+    }));
+  }
+
+  listMilestones(areaId) {
+    const row = this.db.prepare(
+      "SELECT milestones_json FROM story_areas WHERE id = ?",
+    ).get(areaId);
+    return normalizeMilestones(JSON.parse(row?.milestones_json || "[]"));
+  }
+
+  saveMilestones(areaId, input = []) {
+    const validation = validateMilestones(input);
+    if (!validation.valid) throw new ValidationError(validation.errors);
+    return transaction(this.db, () => {
+      this.#ensureArea(areaId);
+      const now = new Date().toISOString();
+      this.db.prepare(`
+        UPDATE story_areas
+        SET milestones_json = ?, updated_at = ?
+        WHERE id = ?
+      `).run(JSON.stringify(validation.milestones), now, areaId);
+      const revision = this.revisions.incrementGlobalRevision();
+      return { milestones: validation.milestones, revision };
+    });
   }
 
   listBeats(areaId, { full = false } = {}) {
@@ -182,6 +224,10 @@ export class StoryRepository {
         Object.entries(result.errors).map(([path, messages]) => [`beats.${entries[index][0]}.${path}`, messages]),
       ),
     );
+    const milestoneValidation = validateMilestones(data.milestones ?? []);
+    for (const [path, messages] of Object.entries(milestoneValidation.errors)) {
+      errors[`milestones.${path}`] = messages;
+    }
     if (Object.keys(errors).length) throw new ValidationError(errors);
 
     transaction(this.db, () => {
@@ -195,9 +241,16 @@ export class StoryRepository {
       }
       const now = new Date().toISOString();
       this.db.prepare(`
-        INSERT INTO story_areas(id, name, sort_order, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(areaId, data.name ?? areaId, this.listAreas().length, now, now);
+        INSERT INTO story_areas(id, name, sort_order, created_at, updated_at, milestones_json)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(
+        areaId,
+        data.name ?? areaId,
+        this.listAreas().length,
+        now,
+        now,
+        JSON.stringify(milestoneValidation.milestones),
+      );
       normalized.forEach((result) => {
         this.#insertBeat(areaId, result.beat, 1);
         this.revisions.record([areaId, result.beat.id], "create", this.getBeat(areaId, result.beat.id));
@@ -442,9 +495,9 @@ export class StoryRepository {
     if (existing) return;
     const now = new Date().toISOString();
     this.db.prepare(`
-      INSERT INTO story_areas(id, name, sort_order, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(areaId, areaId, this.listAreas().length, now, now);
+      INSERT INTO story_areas(id, name, sort_order, created_at, updated_at, milestones_json)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(areaId, areaId, this.listAreas().length, now, now, JSON.stringify([]));
   }
 
   #insertBeat(areaId, beat, version, createdAt = new Date().toISOString()) {
@@ -617,6 +670,36 @@ function compactObject(value) {
 function nullableText(value) {
   const text = value == null ? "" : String(value).trim();
   return text || null;
+}
+
+function normalizeMilestones(value = []) {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => ({
+    id: nullableText(item?.id) ?? "",
+    label: nullableText(item?.label) ?? nullableText(item?.id) ?? "",
+    kind: nullableText(item?.kind) ?? "story",
+    description: nullableText(item?.description),
+  }));
+}
+
+function validateMilestones(input = []) {
+  const milestones = normalizeMilestones(input);
+  const errors = {};
+  const add = (path, message) => {
+    (errors[path] ??= []).push(message);
+  };
+  const seen = new Set();
+  milestones.forEach((milestone, index) => {
+    const base = `${index}`;
+    if (!MILESTONE_ID_PATTERN.test(milestone.id)) {
+      add(`${base}.id`, "Use lowercase letters, numbers, dots, and hyphens.");
+    }
+    if (seen.has(milestone.id)) add(`${base}.id`, "Milestone IDs must be unique.");
+    seen.add(milestone.id);
+    if (!milestone.label.trim()) add(`${base}.label`, "Milestone label is required.");
+    if (!MILESTONE_KINDS.has(milestone.kind)) add(`${base}.kind`, "Choose a supported milestone kind.");
+  });
+  return { milestones, errors, valid: Object.keys(errors).length === 0 };
 }
 
 export class ValidationError extends Error {

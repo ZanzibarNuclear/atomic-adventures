@@ -59,8 +59,41 @@ describe("StoryRepository", () => {
     expect(repository.getRuntimeStory().areas["part-i"].beats.intro.heading).toBe("Lost in the woods");
     db.close();
     const reopened = openDatabase(path);
-    expect(reopened.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get().count).toBe(9);
+    expect(reopened.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get().count).toBe(10);
     reopened.close();
+  });
+
+  it("stores story-area milestone catalogs", () => {
+    const { db, repository } = createRepository();
+    const saved = repository.saveMilestones("test-area", [{
+      id: "hydro.online",
+      label: "Hydro online",
+      kind: "operations",
+      description: "The hydro system is producing power.",
+    }]);
+
+    expect(saved.milestones).toEqual([{
+      id: "hydro.online",
+      label: "Hydro online",
+      kind: "operations",
+      description: "The hydro system is producing power.",
+    }]);
+    expect(repository.listMilestones("test-area")[0].id).toBe("hydro.online");
+    expect(repository.getRuntimeStory().areas["test-area"].milestones[0].kind).toBe("operations");
+    db.close();
+  });
+
+  it("rejects malformed and duplicate milestone IDs", () => {
+    const { db, repository } = createRepository();
+
+    expect(() => repository.saveMilestones("test-area", [
+      { id: "Bad ID", label: "Bad", kind: "story" },
+    ])).toThrow(ValidationError);
+    expect(() => repository.saveMilestones("test-area", [
+      { id: "hydro.online", label: "Hydro", kind: "operations" },
+      { id: "hydro.online", label: "Hydro again", kind: "operations" },
+    ])).toThrow(ValidationError);
+    db.close();
   });
 
   it("creates, updates, conflicts, restores, and deletes transactionally", () => {

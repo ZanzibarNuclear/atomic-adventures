@@ -9,6 +9,7 @@ export function exportAreaYaml(area, beats) {
   const data = {
     area: area.id,
     name: area.name,
+    milestones: area.milestones ?? [],
     beats: Object.fromEntries(beats.map((beat) => [beat.id, beatToRuntime(beat)])),
   };
   return yaml.dump(data, {

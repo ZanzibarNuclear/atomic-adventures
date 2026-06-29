@@ -16,6 +16,7 @@ const props = defineProps({
   destinationType: { type: Function, required: true },
   selectedLocation: { type: String, default: "" },
   originHexOptions: { type: Array, default: () => [] },
+  milestones: { type: Array, default: () => [] },
 });
 
 defineEmits([
@@ -31,6 +32,8 @@ defineEmits([
   "set-destination-type",
   "set-view-kind",
   "restore-revision",
+  "new-milestone",
+  "set-milestone",
 ]);
 
 const activeTab = ref("story");
@@ -71,12 +74,10 @@ const timeCriteriaSummary = computed(() => {
   if (!props.draft) return [];
   const time = props.draft.time ?? {};
   const summary = [];
-  if (Array.isArray(time.days) && time.days.length) summary.push(`Days: ${time.days.join(", ")}`);
+  if (Array.isArray(time.days) && time.days.length) summary.push(`Day #: ${time.days.join(", ")}`);
   if (time.dayFrom != null) summary.push(`Day from: ${time.dayFrom}`);
   if (time.dayTo != null) summary.push(`Day to: ${time.dayTo}`);
-  if (time.phase) summary.push(`Phase: ${time.phase}`);
-  if (time.minuteOfDayFrom != null) summary.push(`Minute from: ${time.minuteOfDayFrom}`);
-  if (time.minuteOfDayTo != null) summary.push(`Minute to: ${time.minuteOfDayTo}`);
+  if (time.phase) summary.push(`Time of day: ${time.phase}`);
   if (time.elapsedFrom != null) summary.push(`Elapsed from: ${time.elapsedFrom}`);
   if (time.elapsedTo != null) summary.push(`Elapsed to: ${time.elapsedTo}`);
   if (time.afterMilestone) summary.push(`After: ${time.afterMilestone}`);
@@ -112,6 +113,11 @@ function setDayList(event) {
     .split(",")
     .map((item) => Number(item.trim()))
     .filter((item) => Number.isFinite(item));
+}
+
+function milestoneLabel(id) {
+  const milestone = props.milestones.find((item) => item.id === id);
+  return milestone ? `${milestone.label} (${milestone.id})` : id;
 }
 
 function ensureOriginHexList() {
@@ -317,7 +323,7 @@ function directionLabel(value) {
           </div>
 
           <div v-else class="field-grid">
-            <label>Days
+            <label>Day #
               <input
                 :value="draft.time.days.join(', ')"
                 placeholder="1, 2"
@@ -325,7 +331,7 @@ function directionLabel(value) {
               />
               <span v-if="fieldError('time.days')" class="field-error">{{ fieldError("time.days") }}</span>
             </label>
-            <label>Phase
+            <label>Time of day
               <select v-model="draft.time.phase">
                 <option :value="null">Any</option>
                 <option value="morning">morning</option>
@@ -335,17 +341,35 @@ function directionLabel(value) {
               </select>
               <span v-if="fieldError('time.phase')" class="field-error">{{ fieldError("time.phase") }}</span>
             </label>
-            <label>Minute from
-              <input v-model.number="draft.time.minuteOfDayFrom" type="number" min="0" max="1439" placeholder="1020" />
-            </label>
-            <label>Minute to
-              <input v-model.number="draft.time.minuteOfDayTo" type="number" min="0" max="1439" placeholder="1259" />
-            </label>
             <label>After milestone
-              <input v-model="draft.time.afterMilestone" placeholder="library.sleep-1" />
+              <select
+                :value="draft.time.afterMilestone ?? ''"
+                @change="$event.target.value === '__new__' ? $emit('new-milestone', { field: 'afterMilestone' }) : $emit('set-milestone', { field: 'afterMilestone', value: $event.target.value || null })"
+              >
+                <option value="">Any</option>
+                <option v-for="milestone in milestones" :key="milestone.id" :value="milestone.id">
+                  {{ milestone.label }} ({{ milestone.id }})
+                </option>
+                <option value="__new__">New milestone...</option>
+              </select>
+              <span v-if="draft.time.afterMilestone && !milestones.some((item) => item.id === draft.time.afterMilestone)" class="field-hint">
+                {{ milestoneLabel(draft.time.afterMilestone) }}
+              </span>
             </label>
             <label>Before milestone
-              <input v-model="draft.time.beforeMilestone" placeholder="library.sleep-1" />
+              <select
+                :value="draft.time.beforeMilestone ?? ''"
+                @change="$event.target.value === '__new__' ? $emit('new-milestone', { field: 'beforeMilestone' }) : $emit('set-milestone', { field: 'beforeMilestone', value: $event.target.value || null })"
+              >
+                <option value="">Any</option>
+                <option v-for="milestone in milestones" :key="milestone.id" :value="milestone.id">
+                  {{ milestone.label }} ({{ milestone.id }})
+                </option>
+                <option value="__new__">New milestone...</option>
+              </select>
+              <span v-if="draft.time.beforeMilestone && !milestones.some((item) => item.id === draft.time.beforeMilestone)" class="field-hint">
+                {{ milestoneLabel(draft.time.beforeMilestone) }}
+              </span>
             </label>
           </div>
         </section>
@@ -587,6 +611,12 @@ legend {
 
 .field-error {
   color: #ff9e9e;
+  font-size: 0.78rem;
+  margin: 0.2rem 0 0;
+}
+
+.field-hint {
+  color: #aeb5c0;
   font-size: 0.78rem;
   margin: 0.2rem 0 0;
 }

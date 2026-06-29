@@ -37,6 +37,8 @@ A beat is eligible when:
 1. Its trigger matches the current location or event.
 2. Every authored `match` criterion relevant to the current action context
    matches that context.
+3. Every authored time and milestone criterion matches the current clock and
+   player progression state.
 
 If multiple beats match the same location, the runtime prefers the eligible beat
 with the most matching criteria relevant to the current action context. A beat
@@ -45,6 +47,9 @@ during inter-hex travel, so it wins when the player entered from that origin. A
 beat with `match.mapTransition` is more specific than a default beat with no
 `match` when switching between the regional and local maps. A default beat
 remains eligible as fallback when no action-specific beat matches.
+Time criteria also add specificity among beats at the same trigger. A Day 2
+morning room beat should win over a generic room beat when the clock and
+milestone state make both eligible.
 
 Authored `match` criteria from other action contexts are ignored for the current
 selection pass. This means one beat may include both `originHex` and
@@ -53,30 +58,33 @@ a neighboring hex and when switching through a matching map transition. A beat
 with authored `match` criteria is not treated as a default beat for action
 contexts where none of its criteria are relevant.
 
-If two eligible beats have the same trigger and the same match specificity, the
-first beat by story sort order and ID wins. This tie-breaker is deterministic,
-but it is an authoring warning rather than a narrative design tool. The story
-builder should warn when multiple beats at the selected location use the same
-match criteria.
+If two eligible beats have the same trigger, match specificity, and time or
+milestone specificity, the first beat by story sort order and ID wins. This
+tie-breaker is deterministic, but it is an authoring warning rather than a
+narrative design tool. The story builder should warn when multiple beats at the
+selected location use the same match and time criteria.
 
 If no beat has matching criteria and no default beat exists for the location,
 the runtime shows no new beat.
 
 Multiple beats on one hex or room are expected, but they should represent
-distinct story states. Use trigger flags and seen state to represent different
-discoveries, facility states, or story phases:
+distinct story states. Use time criteria, milestone criteria, trigger flags,
+and seen state to represent different discoveries, facility states, or story
+phases:
 
 ```yaml
 day-1-pines:
-  trigger: { place: outdoors, hex: far-pines, flag: day.1 }
+  trigger: { place: outdoors, hex: far-pines }
+  time: { days: [1] }
 
 day-2-pines:
-  trigger: { place: outdoors, hex: far-pines, flag: day.2 }
+  trigger: { place: outdoors, hex: far-pines }
+  time: { days: [2] }
 ```
 
-The game now has an authored clock, but beat-level time criteria are not yet
-implemented. Until they are, days and phases can still be represented by flags
-established by gameplay. See [time.md](time.md) for the target contract.
+Temporal predicates are derived from the authored clock; authored milestones
+are sparse recorded facts. See [time.md](time.md) for clock criteria and
+[milestones.md](milestones.md) for milestone semantics.
 
 ## Triggers
 
@@ -208,7 +216,7 @@ match how an author thinks about the scene. Likely examples:
 - Story arc or phase, such as Part I, Part II, Part III, hydro restored, or
   post-storm.
 - Time of day, story day, elapsed time, and milestone windows, as defined in
-  [time.md](time.md).
+  [time.md](time.md) and [milestones.md](milestones.md).
 - Season or weather, if the story needs those distinctions.
 - One simple story-state flag for bespoke cases that do not deserve their own
   first-class field.
@@ -289,14 +297,14 @@ shown only once.
 
 For multiple beats at one location:
 
-- Use mutually exclusive flags where possible.
+- Use mutually exclusive time or milestone criteria where possible.
 - Avoid overlapping triggers that can match at the same time.
 - The matching beat supplies either story text or revisit text depending on
   whether it has been seen.
 
 Example progression at one hex:
 
-1. Arrival beat triggered by `day.1`.
+1. Arrival beat triggered by `time: { days: [1] }`.
 2. Storm beat triggered by `storm.active`.
 3. Post-power beat triggered by `hydro.online`.
 4. Revisit prose from the earliest matching seen beat.
