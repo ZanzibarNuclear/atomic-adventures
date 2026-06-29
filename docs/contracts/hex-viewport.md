@@ -20,8 +20,6 @@ Goals:
 
 **Canonical code location:** `game/src/lib/maps/composables/useHexMapViewport.js` (`evaluateMapViewport` is the pure evaluator used by tests).
 
-**Ignore the prototype:** `web/` still uses older `slice` / `explored` mode names. Treat `game/` as authoritative.
-
 ---
 
 ## Concepts

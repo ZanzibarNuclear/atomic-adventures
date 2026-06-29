@@ -5,13 +5,10 @@
     "node": "22.x"
   },
   "workspaces": [
-    "web",
     "game"
   ],
   "scripts": {
-    "dev:prototype": "npm run dev -w web",
     "dev:game": "npm run dev -w game",
-    "build:prototype": "npm run build -w web",
     "build:game": "npm run build -w game",
     "deploy:check": "npm run test && npm run build:game",
     "test": "npm run test -w game",

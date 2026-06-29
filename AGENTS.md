@@ -6,38 +6,29 @@ Project instructions for AI coding agents working in this repository.
 
 Atomic Adventures is an educational adventure game where players explore electricity production technologies through story-driven discovery and simulation. Players restore dormant energy facilities in a Myst-inspired world, learning real physics and engineering to progress.
 
-**Current phase:** Early implementation — Part I vertical slice in progress. The repo contains game-design docs, a map prototype (`web/`), and the playable game app (`game/`).
+**Current phase:** Early implementation — Part I vertical slice in progress. The repo contains game-design docs and the playable game app (`game/`).
 
-## Repository layout: prototype vs. game
+## Repository layout
 
-Two Vue 3 + Vite apps live in this monorepo. **Do not conflate them.**
+The playable Vue 3 + Vite app lives in `game/`.
 
 ```
 atomic-adventures/
-├── web/                 ← PROTOTYPE — independent app for exploring map concepts and demos
 ├── game/                ← ACTIVE — vertical slice and full game (all gameplay work here)
 ├── game-design/         — Narrative, simulation specs, learning objectives
 └── docs/                — Technical contracts, quality checklists, deployment, roadmap
 ```
 
-| App     | Purpose                                                                              | Modify when…                                                                      |
-| ------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
-| `web/`  | Standalone map tech demo — hex travel, grid interior, builder tools, hydro mechanics | Prototype experiments, stakeholder demos. No story, save/load, or game features.  |
-| `game/` | Playable game, story builder, content API, save/load, and player-facing UI           | Always, for anything that affects gameplay, narrative, authoring, or persistence. |
+### Map code
 
-### Map code: two apps, one canonical game copy
-
-Map rendering and interaction logic was **copied** (not moved) from `web/src` into **`game/src/lib/maps/`**. That location is intentional — it is the game’s map layer, separate from game-only composables in `game/src/composables/`.
+Map rendering and interaction logic lives in **`game/src/lib/maps/`**. That location is intentional — it is the game’s map layer, separate from game-only composables in `game/src/composables/`.
 
 - **`game/src/lib/maps/`** — hex outdoor, grid indoor, HUD, builder components. Edit here for anything the playable game needs.
-- **`web/`** — parallel prototype copy. May diverge over time. Use as a reference or sandbox; re-port into `game/` when a prototype change should land in the game.
 - **`game/content/atomic-adventures.sqlite`** — canonical authored story, world, building, and character content.
-
-**Rule:** Never add game features (story, save/load, narrative overlay) to `web/`. Fix gameplay in `game/`, not by patching `web/`.
 
 ### Authoring and builder tools
 
-There are distinct story, world, and prototype builder concerns. Do not conflate them.
+There are distinct story, world, and content builder concerns. Do not conflate them.
 
 #### Story, world, and content builders — active
 
@@ -82,16 +73,14 @@ For example, if an authored ID is renamed in the database and a test still uses 
 
 Remove or replace all "legacy" values as soon as possible. Use current values when the data changes.
 
-#### Prototype map geometry tools — separate
+#### Map geometry tools
 
-The production World Builder uses map-layer edit handles. The older prototype builder remains separate.
+The production World Builder uses map-layer edit handles.
 
 - `game/src/lib/maps/` contains the canonical game map components and reusable geometry-builder utilities.
-- `web/` remains a useful prototype and sandbox for map editing ideas.
 - Indoor utility-station geometry is database-backed and edited in the World
   Builder; YAML is only an explicit snapshot import/export format.
 - Players must never see geometry-editing controls. Keep edit layers separate from player-facing scene wiring.
-- Port useful prototype work into `game/`; do not implement game story or persistence features in `web/`.
 
 ### Movement audit
 
@@ -107,7 +96,6 @@ The outdoor movement audit is a **development-only diagnostic**, not player UI.
 From the repo root:
 
 ```bash
-npm run dev:prototype   # web/ — map prototype demo
 npm run dev:game        # game + builder + local content API
 ```
 
