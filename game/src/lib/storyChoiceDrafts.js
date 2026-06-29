@@ -4,6 +4,7 @@ export function createEmptyChoice({ id = crypto.randomUUID(), order = 0 } = {}) 
     order,
     text: "",
     timeMinutes: 0,
+    timeUntil: null,
     activity: "light",
     sets: [],
     set_flags: [],

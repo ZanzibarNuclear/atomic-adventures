@@ -54,7 +54,7 @@ export class StoryRepository {
     const rows = this.db.prepare(`
       SELECT area_id, id, sort_order, trigger_place, trigger_hex, trigger_room,
         trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
-        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json, match_json,
+        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json, match_json, time_json,
         version, created_at, updated_at
       FROM story_beats
       WHERE area_id = ?
@@ -71,7 +71,7 @@ export class StoryRepository {
     const row = this.db.prepare(`
       SELECT area_id, id, sort_order, trigger_place, trigger_hex, trigger_room,
         trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
-        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json, match_json,
+        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json, match_json, time_json,
         version, created_at, updated_at
       FROM story_beats
       WHERE area_id = ? AND id = ?
@@ -453,9 +453,9 @@ export class StoryRepository {
       INSERT INTO story_beats(
         area_id, id, sort_order, trigger_place, trigger_hex, trigger_room,
         trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
-        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json, match_json,
+        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json, match_json, time_json,
         version, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       areaId, beat.id, 0, beat.trigger.place, beat.trigger.hex, beat.trigger.room,
       beat.trigger.exteriorNode, beat.trigger.event, beat.trigger.flag,
@@ -466,6 +466,7 @@ export class StoryRepository {
       JSON.stringify([]),
       JSON.stringify({}),
       JSON.stringify(compactObject(beat.match ?? {})),
+      JSON.stringify(compactObject(beat.time ?? {})),
       version, createdAt, now,
     );
     this.#insertChoices(areaId, beat.id, beat.choices);
@@ -481,15 +482,15 @@ export class StoryRepository {
     const statement = this.db.prepare(`
       INSERT INTO story_choices(
         id, area_id, beat_id, sort_order, text, require_json, effects_json,
-        time_minutes, activity,
+        time_minutes, time_until_json, activity,
         sets_json, set_flags_json, go_hex, go_room, go_exterior_node,
         enter_building, view_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     choices.forEach((choice, index) => statement.run(
       choice.id || randomUUID(), areaId, beatId, choice.order ?? index, choice.text,
       JSON.stringify({}), JSON.stringify([]),
-      choice.timeMinutes, choice.activity,
+      choice.timeMinutes, JSON.stringify(compactObject(choice.timeUntil ?? {})), choice.activity,
       JSON.stringify(choice.sets), JSON.stringify(choice.set_flags),
       choice.go_hex, choice.go_room, choice.go_exterior_node,
       choice.enter, JSON.stringify(choice.view ?? {}),
@@ -514,13 +515,14 @@ export class StoryRepository {
         flag: row.trigger_flag,
       },
       match: parseMatchJson(row.match_json),
+      time: parseNullableJson(row.time_json) ?? {},
       version: row.version,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
     if (includeChoices) {
       beat.choices = this.db.prepare(`
-        SELECT id, sort_order, text, require_json, effects_json, time_minutes, activity,
+        SELECT id, sort_order, text, require_json, effects_json, time_minutes, time_until_json, activity,
           sets_json, set_flags_json, go_hex, go_room, go_exterior_node,
           enter_building, view_json
         FROM story_choices
@@ -531,6 +533,7 @@ export class StoryRepository {
         order: choice.sort_order,
         text: choice.text,
         timeMinutes: choice.time_minutes,
+        timeUntil: parseNullableJson(choice.time_until_json),
         activity: choice.activity,
         sets: JSON.parse(choice.sets_json),
         set_flags: JSON.parse(choice.set_flags_json),

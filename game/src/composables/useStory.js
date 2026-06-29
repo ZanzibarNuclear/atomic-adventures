@@ -71,6 +71,44 @@ export function useStory(storyData, ctx) {
     return true;
   }
 
+  function timeMatches(beat) {
+    const time = beat.time ?? {};
+    const hasTime = hasTimeCriteria(time);
+    if (!hasTime) return true;
+    const clock = gameState.clock;
+    if (!clock) return false;
+
+    const day = Number(clock.day);
+    const minuteOfDay = Math.floor(Number(clock.minuteOfDay));
+    const elapsedMinutes = Number(clock.elapsedMinutes);
+
+    if (Array.isArray(time.days) && time.days.length && !time.days.includes(day)) return false;
+    if (time.dayFrom != null && day < Number(time.dayFrom)) return false;
+    if (time.dayTo != null && day > Number(time.dayTo)) return false;
+    if (time.elapsedFrom != null && elapsedMinutes < Number(time.elapsedFrom)) return false;
+    if (time.elapsedTo != null && elapsedMinutes > Number(time.elapsedTo)) return false;
+    if (!minuteWindowMatches(time, minuteOfDay)) return false;
+    if (time.phase && phaseForMinute(minuteOfDay) !== time.phase) return false;
+    if (time.afterMilestone && !hasFlag(gameState.flags, time.afterMilestone)) return false;
+    if (time.beforeMilestone && hasFlag(gameState.flags, time.beforeMilestone)) return false;
+
+    return true;
+  }
+
+  function timeScore(beat) {
+    const time = beat.time ?? {};
+    if (!hasTimeCriteria(time)) return 0;
+    let score = 0;
+    if (Array.isArray(time.days) && time.days.length) score += 1;
+    if (time.dayFrom != null || time.dayTo != null) score += 1;
+    if (time.minuteOfDayFrom != null || time.minuteOfDayTo != null) score += 1;
+    if (time.phase) score += 1;
+    if (time.elapsedFrom != null || time.elapsedTo != null) score += 1;
+    if (time.afterMilestone) score += 1;
+    if (time.beforeMilestone) score += 1;
+    return score;
+  }
+
   function matchScore(beat, loc, action = storyActionContext(loc)) {
     const match = beat.match ?? {};
     const hasMatch = Boolean(match.originHex || match.localExit);
@@ -116,7 +154,8 @@ export function useStory(storyData, ctx) {
     const action = storyActionContext(loc, event);
     for (const [id, beat] of Object.entries(beats.value)) {
       if (!triggerMatches(beat, loc, event)) continue;
-      const score = matchScore(beat, loc, action);
+      if (!timeMatches(beat)) continue;
+      const score = matchScore(beat, loc, action) + timeScore(beat);
       if (score < 0 || score <= selectedScore) continue;
       selected = { id, beat };
       selectedScore = score;
@@ -161,6 +200,7 @@ export function useStory(storyData, ctx) {
     if (trigger.event) return true;
     if (trigger.place && trigger.place !== loc.place) return false;
     if (matchScore(beat, loc) < 0) return false;
+    if (!timeMatches(beat)) return false;
     if (trigger.hex) return loc.place === "outdoors" && trigger.hex === loc.hex;
     if (trigger.room) return loc.place === "indoors" && trigger.room === loc.room;
     if (trigger.exteriorNode) {
@@ -184,16 +224,14 @@ export function useStory(storyData, ctx) {
       if (!outdoor.atBuildingEntrance) return;
     }
 
-    if (choice.sets) setFlags(gameState.flags, choice.sets);
-    if (choice.set_flags) setFlags(gameState.flags, choice.set_flags);
-    if (Number(choice.timeMinutes) > 0 && gameState.clock) {
-      const timeResult = advanceGameTime(
-        gameState,
-        Number(choice.timeMinutes),
-        choice.activity ?? "light",
-      );
+    const duration = choiceDurationMinutes(choice, gameState.clock);
+    if (choice.timeUntil && duration <= 0) return;
+    if (duration > 0 && gameState.clock) {
+      const timeResult = advanceGameTime(gameState, duration, choice.activity ?? "light");
       if (!timeResult.ok) return;
     }
+    if (choice.sets) setFlags(gameState.flags, choice.sets);
+    if (choice.set_flags) setFlags(gameState.flags, choice.set_flags);
 
     markSeen(beat.id);
 
@@ -274,6 +312,9 @@ export function useStory(storyData, ctx) {
       indoor.indoor.currentRoom,
       indoor.indoor.exteriorNode,
       [...gameState.flags].join("\0"),
+      gameState.clock?.day,
+      gameState.clock?.minuteOfDay,
+      gameState.clock?.elapsedMinutes,
       gameState.character?.revision ?? 0,
     ],
     () => {
@@ -320,4 +361,58 @@ export function useStory(storyData, ctx) {
     dismissEndCard,
     refreshNarrative,
   };
+}
+
+function hasTimeCriteria(time = {}) {
+  return Boolean(
+    (Array.isArray(time.days) && time.days.length) ||
+    time.dayFrom != null ||
+    time.dayTo != null ||
+    time.minuteOfDayFrom != null ||
+    time.minuteOfDayTo != null ||
+    time.phase ||
+    time.elapsedFrom != null ||
+    time.elapsedTo != null ||
+    time.afterMilestone ||
+    time.beforeMilestone,
+  );
+}
+
+function minuteWindowMatches(time, minuteOfDay) {
+  const from = time.minuteOfDayFrom;
+  const to = time.minuteOfDayTo;
+  if (from == null && to == null) return true;
+  const start = from == null ? 0 : Number(from);
+  const end = to == null ? 1439 : Number(to);
+  if (start <= end) return minuteOfDay >= start && minuteOfDay <= end;
+  return minuteOfDay >= start || minuteOfDay <= end;
+}
+
+function phaseForMinute(minuteOfDay) {
+  if (minuteOfDay >= 6 * 60 && minuteOfDay < 12 * 60) return "morning";
+  if (minuteOfDay >= 12 * 60 && minuteOfDay < 17 * 60) return "afternoon";
+  if (minuteOfDay >= 17 * 60 && minuteOfDay < 21 * 60) return "evening";
+  return "night";
+}
+
+function choiceDurationMinutes(choice, clock) {
+  if (choice.timeUntil) return minutesUntil(choice.timeUntil, clock);
+  return Number(choice.timeMinutes) > 0 ? Number(choice.timeMinutes) : 0;
+}
+
+function minutesUntil(timeUntil, explicitClock) {
+  const clock = explicitClock;
+  if (!clock) return 0;
+  return targetMinutesFromClock(clock, timeUntil) - currentAbsoluteMinutes(clock);
+}
+
+function targetMinutesFromClock(clock, timeUntil) {
+  const targetDay = Number.isFinite(Number(timeUntil.day))
+    ? Number(timeUntil.day)
+    : Number(clock.day) + Number(timeUntil.dayOffset ?? 0);
+  return (targetDay - 1) * 24 * 60 + Number(timeUntil.minuteOfDay);
+}
+
+function currentAbsoluteMinutes(clock) {
+  return (Number(clock.day) - 1) * 24 * 60 + Number(clock.minuteOfDay);
 }

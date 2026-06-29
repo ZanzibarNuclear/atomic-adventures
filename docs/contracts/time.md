@@ -241,6 +241,55 @@ choices:
 The current choice schema supports `timeMinutes` and `activity`; `sleep until`
 is a proposed extension.
 
+### Library Day 1 To Day 2 Example
+
+The first concrete time-gated story case is the library overnight transition.
+It should work without moving the player to another room or requiring an event
+beat.
+
+Author two room-triggered beats:
+
+```yaml
+library-arrival:
+  trigger: { place: indoors, room: library }
+  time:
+    days: [1]
+    phase: evening
+    beforeMilestone: library.sleep-1
+  text: Zanzi reaches the library as the last light fades.
+  choices:
+    - text: Sleep in the soft seating
+      timeUntil:
+        dayOffset: 1
+        minuteOfDay: 420 # 7:00 AM
+      activity: resting
+      sets: [library.sleep-1, day-2.started]
+
+library-wakeup:
+  trigger: { place: indoors, room: library }
+  time:
+    days: [2]
+    phase: morning
+    afterMilestone: library.sleep-1
+  text: Morning light spills across the library.
+```
+
+Runtime flow:
+
+1. Entering the library evaluates normal room beats.
+2. `library-arrival` is eligible only when the clock is Day 1 evening and the
+   `library.sleep-1` milestone has not happened.
+3. Choosing sleep advances time to the next day at 7:00 AM with `resting`
+   activity and applies overnight character/resource drift.
+4. The same choice records the sleep milestone.
+5. Story re-evaluates the current room because time and milestones changed.
+6. The player is still in the library, but `library-arrival` is no longer
+   eligible and `library-wakeup` is now eligible.
+
+For the first implementation, `beforeMilestone` and `afterMilestone` may be
+backed by namespaced flags. If milestones later become structured save data,
+the author-facing fields should remain stable.
+
 ## Resource Drift And Accumulation
 
 Time advancement is the shared tick for character stats and world resources.

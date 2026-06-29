@@ -30,11 +30,13 @@ export function normalizeBeat(input = {}) {
       flag: nullableText(trigger.flag),
     },
     match: normalizeMatch(input.match),
+    time: normalizeBeatTime(input.time),
     choices: (input.choices ?? []).map((choice, index) => ({
       id: choice.id || randomUUID(),
       order: Number.isFinite(Number(choice.order)) ? Number(choice.order) : index,
       text: String(choice.text ?? ""),
       timeMinutes: finiteNumber(choice.timeMinutes, 0),
+      timeUntil: normalizeTimeUntil(choice.timeUntil),
       activity: nullableText(choice.activity) ?? "light",
       sets: stringList(choice.sets),
       set_flags: stringList(choice.set_flags),
@@ -92,6 +94,7 @@ export function validateBeat(input, world, character = null) {
     if (!beat.trigger.hex) add("match.localExit", "Local exit matching is only supported for outdoor hex beats.");
     if (!world.localExitIds?.has(beat.match.localExit)) add("match.localExit", "Choose an existing local map exit.");
   }
+  validateBeatTime(beat.time, add);
 
   beat.choices.forEach((choice, index) => {
     const base = `choices.${index}`;
@@ -114,6 +117,10 @@ export function validateBeat(input, world, character = null) {
       add(`${base}.view.kind`, "Choose a supported stage view.");
     }
     if (choice.timeMinutes < 0) add(`${base}.timeMinutes`, "Time cannot be negative.");
+    if (choice.timeMinutes > 0 && choice.timeUntil) {
+      add(`${base}.timeMinutes`, "Choose fixed minutes or sleep until, not both.");
+    }
+    validateTimeUntil(choice.timeUntil, add, `${base}.timeUntil`);
     if (!["resting", "light", "moderate", "strenuous"].includes(choice.activity)) {
       add(`${base}.activity`, "Choose a supported activity profile.");
     }
@@ -123,17 +130,20 @@ export function validateBeat(input, world, character = null) {
 
 export function beatToRuntime(beat) {
   const match = compactObject(beat.match ?? {});
+  const time = compactTime(beat.time ?? {});
   return compactObject({
     eyebrow: beat.eyebrow ?? undefined,
     heading: beat.heading ?? undefined,
     trigger: compactObject(beat.trigger),
     match: Object.keys(match).length ? match : undefined,
+    time: Object.keys(time).length ? time : undefined,
     text: beat.text,
     revisit: beat.revisit ?? undefined,
     choices: beat.choices.map((choice) => compactObject({
       text: choice.text,
       timeMinutes: choice.timeMinutes || undefined,
-      activity: choice.timeMinutes ? choice.activity : undefined,
+      timeUntil: compactTimeUntil(choice.timeUntil),
+      activity: choice.timeMinutes || choice.timeUntil ? choice.activity : undefined,
       sets: choice.sets.length ? choice.sets : undefined,
       set_flags: choice.set_flags.length ? choice.set_flags : undefined,
       go_hex: choice.go_hex ?? undefined,
@@ -173,6 +183,82 @@ function normalizeMatch(value = {}) {
   };
 }
 
+function normalizeBeatTime(value = {}) {
+  return {
+    days: numberList(value.days),
+    dayFrom: nullableInteger(value.dayFrom),
+    dayTo: nullableInteger(value.dayTo),
+    minuteOfDayFrom: nullableMinute(value.minuteOfDayFrom),
+    minuteOfDayTo: nullableMinute(value.minuteOfDayTo),
+    phase: nullableText(value.phase),
+    elapsedFrom: nullableNumber(value.elapsedFrom),
+    elapsedTo: nullableNumber(value.elapsedTo),
+    afterMilestone: nullableText(value.afterMilestone),
+    beforeMilestone: nullableText(value.beforeMilestone),
+  };
+}
+
+function validateBeatTime(time, add) {
+  if (!time) return;
+  if (time.days.some((day) => day < 1)) add("time.days", "Days must be one or greater.");
+  if (time.dayFrom != null && time.dayFrom < 1) add("time.dayFrom", "Start day must be one or greater.");
+  if (time.dayTo != null && time.dayTo < 1) add("time.dayTo", "End day must be one or greater.");
+  if (time.dayFrom != null && time.dayTo != null && time.dayTo < time.dayFrom) {
+    add("time.dayTo", "End day must be after start day.");
+  }
+  if (time.elapsedFrom != null && time.elapsedFrom < 0) add("time.elapsedFrom", "Elapsed start cannot be negative.");
+  if (time.elapsedTo != null && time.elapsedTo < 0) add("time.elapsedTo", "Elapsed end cannot be negative.");
+  if (time.elapsedFrom != null && time.elapsedTo != null && time.elapsedTo < time.elapsedFrom) {
+    add("time.elapsedTo", "Elapsed end must be after elapsed start.");
+  }
+  if (time.phase && !["morning", "afternoon", "evening", "night"].includes(time.phase)) {
+    add("time.phase", "Choose a supported time phase.");
+  }
+}
+
+function normalizeTimeUntil(value = null) {
+  if (!value || typeof value !== "object") return null;
+  const day = nullableInteger(value.day);
+  const dayOffset = nullableInteger(value.dayOffset);
+  const minuteOfDay = nullableMinute(value.minuteOfDay);
+  if (day == null && dayOffset == null && minuteOfDay == null) return null;
+  return { day, dayOffset, minuteOfDay };
+}
+
+function validateTimeUntil(value, add, base) {
+  if (!value) return;
+  if (value.day != null && value.day < 1) add(`${base}.day`, "Wake day must be one or greater.");
+  if (value.dayOffset != null && value.dayOffset < 0) add(`${base}.dayOffset`, "Wake day offset cannot be negative.");
+  if (value.day != null && value.dayOffset != null) {
+    add(`${base}.day`, "Choose an absolute day or day offset, not both.");
+  }
+  if (value.minuteOfDay == null) add(`${base}.minuteOfDay`, "Wake time is required.");
+}
+
+function compactTime(value = {}) {
+  return compactObject({
+    days: value.days?.length ? value.days : undefined,
+    dayFrom: value.dayFrom ?? undefined,
+    dayTo: value.dayTo ?? undefined,
+    minuteOfDayFrom: value.minuteOfDayFrom ?? undefined,
+    minuteOfDayTo: value.minuteOfDayTo ?? undefined,
+    phase: value.phase ?? undefined,
+    elapsedFrom: value.elapsedFrom ?? undefined,
+    elapsedTo: value.elapsedTo ?? undefined,
+    afterMilestone: value.afterMilestone ?? undefined,
+    beforeMilestone: value.beforeMilestone ?? undefined,
+  });
+}
+
+function compactTimeUntil(value) {
+  if (!value) return undefined;
+  return compactObject({
+    day: value.day ?? undefined,
+    dayOffset: value.dayOffset ?? undefined,
+    minuteOfDay: value.minuteOfDay ?? undefined,
+  });
+}
+
 function stringList(value) {
   if (Array.isArray(value)) return value.map(String).map((item) => item.trim()).filter(Boolean);
   if (typeof value === "string") return value.split(",").map((item) => item.trim()).filter(Boolean);
@@ -182,4 +268,30 @@ function stringList(value) {
 function finiteNumber(value, fallback) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
+}
+
+function nullableNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function nullableInteger(value) {
+  const number = nullableNumber(value);
+  return number == null ? null : Math.floor(number);
+}
+
+function nullableMinute(value) {
+  const number = nullableInteger(value);
+  if (number == null) return null;
+  if (number < 0 || number > 1439) return null;
+  return number;
+}
+
+function numberList(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => Number(item))
+    .filter((item) => Number.isFinite(item))
+    .map((item) => Math.floor(item));
 }

@@ -22,6 +22,7 @@ describe("story choice drafts", () => {
       order: 3,
       text: "",
       timeMinutes: 0,
+      timeUntil: null,
       activity: "light",
       sets: [],
       set_flags: [],

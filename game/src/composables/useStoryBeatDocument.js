@@ -10,6 +10,20 @@ function ensureEditableBeat(value) {
   next.match ??= { originHex: null, localExit: null };
   next.match.originHex ??= null;
   next.match.localExit ??= null;
+  next.time ??= {};
+  next.time.days ??= [];
+  next.time.dayFrom ??= null;
+  next.time.dayTo ??= null;
+  next.time.minuteOfDayFrom ??= null;
+  next.time.minuteOfDayTo ??= null;
+  next.time.phase ??= null;
+  next.time.elapsedFrom ??= null;
+  next.time.elapsedTo ??= null;
+  next.time.afterMilestone ??= null;
+  next.time.beforeMilestone ??= null;
+  for (const choice of next.choices ?? []) {
+    choice.timeUntil ??= null;
+  }
   return next;
 }
 
@@ -64,11 +78,13 @@ function normalizeForDirty(value) {
       originHex: nullableText(beat.match?.originHex),
       localExit: nullableText(beat.match?.localExit),
     },
+    time: normalizeBeatTime(beat.time),
     choices: (beat.choices ?? []).map((choice, index) => ({
       id: choice.id ?? "",
       order: Number.isFinite(Number(choice.order)) ? Number(choice.order) : index,
       text: String(choice.text ?? ""),
       timeMinutes: finiteNumber(choice.timeMinutes, 0),
+      timeUntil: normalizeTimeUntil(choice.timeUntil),
       activity: nullableText(choice.activity) ?? "light",
       sets: stringList(choice.sets),
       set_flags: stringList(choice.set_flags),
@@ -79,6 +95,36 @@ function normalizeForDirty(value) {
       view: normalizeStageView(choice.view),
     })),
   };
+}
+
+function normalizeBeatTime(value = {}) {
+  return {
+    days: Array.isArray(value.days) ? value.days.map(Number).filter(Number.isFinite) : [],
+    dayFrom: nullableNumber(value.dayFrom),
+    dayTo: nullableNumber(value.dayTo),
+    minuteOfDayFrom: nullableNumber(value.minuteOfDayFrom),
+    minuteOfDayTo: nullableNumber(value.minuteOfDayTo),
+    phase: nullableText(value.phase),
+    elapsedFrom: nullableNumber(value.elapsedFrom),
+    elapsedTo: nullableNumber(value.elapsedTo),
+    afterMilestone: nullableText(value.afterMilestone),
+    beforeMilestone: nullableText(value.beforeMilestone),
+  };
+}
+
+function normalizeTimeUntil(value) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    day: nullableNumber(value.day),
+    dayOffset: nullableNumber(value.dayOffset),
+    minuteOfDay: nullableNumber(value.minuteOfDay),
+  };
+}
+
+function nullableNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function dirtySnapshot(value) {

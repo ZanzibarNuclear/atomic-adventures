@@ -267,6 +267,18 @@ function emptyBeat() {
     revisit: "",
     trigger,
     match: { originHex: null, localExit: null },
+    time: {
+      days: [],
+      dayFrom: null,
+      dayTo: null,
+      minuteOfDayFrom: null,
+      minuteOfDayTo: null,
+      phase: null,
+      elapsedFrom: null,
+      elapsedTo: null,
+      afterMilestone: null,
+      beforeMilestone: null,
+    },
     choices: [],
   };
 }

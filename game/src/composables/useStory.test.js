@@ -10,9 +10,11 @@ function harness(initialStory, {
   moveTo = () => {},
   moveToExteriorNode = () => {},
   initialPlace = "outdoors",
+  initialRoom = null,
   initialExteriorNode = null,
   initialOriginHex = null,
   initialLocalExit = null,
+  initialClock = { elapsedMinutes: 0, minuteOfDay: 8 * 60, day: 1 },
   openStageView = () => {},
 } = {}) {
   const story = ref(initialStory);
@@ -22,7 +24,7 @@ function harness(initialStory, {
     storySeen: new Set(),
     endCardDismissed: false,
     ...(withClock ? {
-      clock: { elapsedMinutes: 0, minuteOfDay: 8 * 60, day: 1 },
+      clock: { ...initialClock },
     } : {}),
     ...(withCharacter ? {
       character: createCharacterState({
@@ -49,7 +51,7 @@ function harness(initialStory, {
     atBuildingEntrance: false,
   };
   const indoor = {
-    indoor: reactive({ currentRoom: null, exteriorNode: initialExteriorNode }),
+    indoor: reactive({ currentRoom: initialRoom, exteriorNode: initialExteriorNode }),
     enterBuilding: () => {},
     moveToRoom: () => {},
     moveToExteriorNode,
@@ -252,6 +254,77 @@ describe("useStory reactive content", () => {
 
     expect(minutesDuringMove).toBe(5);
     expect(setup.gameState.storySeen.has("effect")).toBe(true);
+  });
+
+  it("uses beat time criteria to select the matching room beat", () => {
+    const setup = harness({
+      beats: {
+        "library-default": {
+          text: "The library is quiet.",
+          trigger: { place: "indoors", room: "library" },
+          choices: [],
+        },
+        "library-evening": {
+          text: "The sun is setting through the library windows.",
+          trigger: { place: "indoors", room: "library" },
+          time: { days: [1], phase: "evening" },
+          choices: [],
+        },
+      },
+    }, {
+      withClock: true,
+      initialPlace: "indoors",
+      initialRoom: "library",
+      initialClock: { day: 1, minuteOfDay: 18 * 60, elapsedMinutes: 10 * 60 },
+    });
+
+    setup.api.refreshNarrative();
+
+    expect(setup.api.pendingBeat.value.id).toBe("library-evening");
+  });
+
+  it("advances sleep-until choice time and refreshes to the Day 2 library beat", () => {
+    const setup = harness({
+      beats: {
+        "library-arrival": {
+          text: "Zanzi reaches the library as the last light fades.",
+          trigger: { place: "indoors", room: "library" },
+          time: { days: [1], phase: "evening", beforeMilestone: "library.sleep-1" },
+          choices: [{
+            text: "Sleep in the soft seating",
+            timeUntil: { dayOffset: 1, minuteOfDay: 7 * 60 },
+            activity: "resting",
+            sets: ["library.sleep-1", "day-2.started"],
+          }],
+        },
+        "library-wakeup": {
+          text: "Morning light spills across the library.",
+          trigger: { place: "indoors", room: "library" },
+          time: { days: [2], phase: "morning", afterMilestone: "library.sleep-1" },
+          choices: [],
+        },
+      },
+    }, {
+      withClock: true,
+      withCharacter: true,
+      initialPlace: "indoors",
+      initialRoom: "library",
+      initialClock: { day: 1, minuteOfDay: 19 * 60, elapsedMinutes: 11 * 60 },
+    });
+
+    setup.api.refreshNarrative();
+    expect(setup.api.pendingBeat.value.id).toBe("library-arrival");
+
+    setup.api.applyChoice(0);
+
+    expect(setup.gameState.clock).toMatchObject({
+      day: 2,
+      minuteOfDay: 7 * 60,
+      elapsedMinutes: 23 * 60,
+    });
+    expect(setup.gameState.flags.has("library.sleep-1")).toBe(true);
+    expect(setup.api.pendingBeat.value.id).toBe("library-wakeup");
+    expect(setup.api.pendingBeat.value.text).toBe("Morning light spills across the library.");
   });
 
   it("opens a stage view from a story choice without dismissing the beat", () => {

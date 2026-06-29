@@ -44,6 +44,13 @@ watch(
 function fieldError(path) {
   return props.errors[path]?.join(" ");
 }
+
+function setDayList(event) {
+  props.draft.time.days = event.target.value
+    .split(",")
+    .map((item) => Number(item.trim()))
+    .filter((item) => Number.isFinite(item));
+}
 </script>
 
 <template>
@@ -117,6 +124,42 @@ function fieldError(path) {
           <label>Eyebrow<input v-model="draft.eyebrow" /></label>
           <label>Heading<input v-model="draft.heading" /></label>
         </div>
+
+        <details>
+          <summary>Time criteria</summary>
+          <div class="field-grid">
+            <label>Days
+              <input
+                :value="draft.time.days.join(', ')"
+                placeholder="1, 2"
+                @input="setDayList"
+              />
+              <span v-if="fieldError('time.days')" class="field-error">{{ fieldError("time.days") }}</span>
+            </label>
+            <label>Phase
+              <select v-model="draft.time.phase">
+                <option :value="null">Any</option>
+                <option value="morning">morning</option>
+                <option value="afternoon">afternoon</option>
+                <option value="evening">evening</option>
+                <option value="night">night</option>
+              </select>
+              <span v-if="fieldError('time.phase')" class="field-error">{{ fieldError("time.phase") }}</span>
+            </label>
+            <label>Minute from
+              <input v-model.number="draft.time.minuteOfDayFrom" type="number" min="0" max="1439" placeholder="1020" />
+            </label>
+            <label>Minute to
+              <input v-model.number="draft.time.minuteOfDayTo" type="number" min="0" max="1439" placeholder="1259" />
+            </label>
+            <label>After milestone
+              <input v-model="draft.time.afterMilestone" placeholder="library.sleep-1" />
+            </label>
+            <label>Before milestone
+              <input v-model="draft.time.beforeMilestone" placeholder="library.sleep-1" />
+            </label>
+          </div>
+        </details>
 
         <label>Story text
           <textarea v-model="draft.text" rows="10" />

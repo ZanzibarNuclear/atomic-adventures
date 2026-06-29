@@ -8,12 +8,14 @@ export function storyBeatYaml(beat) {
     heading: optional(beat.heading),
     trigger: compact(beat.trigger),
     match: Object.keys(match).length ? match : undefined,
+    time: Object.keys(compactTime(beat.time)).length ? compactTime(beat.time) : undefined,
     text: beat.text ?? "",
     revisit: optional(beat.revisit),
     choices: (beat.choices ?? []).map((choice) => compact({
       text: choice.text,
       timeMinutes: choice.timeMinutes || undefined,
-      activity: choice.timeMinutes ? choice.activity : undefined,
+      timeUntil: choice.timeUntil || undefined,
+      activity: choice.timeMinutes || choice.timeUntil ? choice.activity : undefined,
       sets: list(choice.sets),
       set_flags: list(choice.set_flags),
       go_hex: optional(choice.go_hex),
@@ -28,6 +30,12 @@ export function storyBeatYaml(beat) {
     lineWidth: 100,
     sortKeys: false,
   });
+}
+
+function compactTime(value = {}) {
+  const output = compact(value);
+  if (!output.days?.length) delete output.days;
+  return output;
 }
 
 function compact(value = {}) {
