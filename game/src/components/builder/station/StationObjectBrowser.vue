@@ -20,7 +20,7 @@ defineEmits(["update:search", "add", "select"]);
       <button class="sm" @click="$emit('add', 'doors')">+ Door</button>
       <button class="sm" @click="$emit('add', 'paths')">+ Path</button>
       <button class="sm" @click="$emit('add', 'nodes')">+ Node</button>
-      <button class="sm" @click="$emit('add', 'exits')">+ Transition</button>
+      <button class="sm" @click="$emit('add', 'exits')">+ Map transition</button>
       <button class="sm" @click="$emit('add', 'links')">+ Connection</button>
       <button class="sm" @click="$emit('add', 'stands')">+ Stand</button>
     </div>

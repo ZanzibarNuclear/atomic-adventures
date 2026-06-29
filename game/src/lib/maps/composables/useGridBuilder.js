@@ -80,7 +80,7 @@ export function listEditableNodes(data, levelId) {
   }))
 }
 
-/** World-map exit icons on a floor. */
+/** World/local map transition icons on a floor. */
 export function listEditableExits(data, levelId) {
   const roomById = Object.fromEntries((data.rooms ?? []).map((r) => [r.id, r]))
   const exteriorLevel = data.exterior?.level
@@ -212,7 +212,7 @@ export function gridEditModeForSource(source) {
   if (source === 'rooms') return 'room'
   if (source === 'doors') return 'door'
   if (source === 'nodes') return 'node'
-  if (source === 'exits') return 'exit'
+  if (source === 'exits') return 'map transition'
   if (source === 'fixtures') return 'fixture'
   if (source === 'walls') return 'wall'
   if (source === 'links') return 'link'
@@ -882,7 +882,7 @@ function serializeExit(exit, indent) {
     if (exit.standAt) lines.push(`${inner}standAt: ${fmtStandAt(exit.standAt)}`)
     return lines.join('\n')
   }
-  // Legacy door-based exit
+  // Legacy door-based map transition
   const lines = [`${pad}- door: ${exit.door}`]
   if (exit.room) lines.push(`${inner}room: ${exit.room}`)
   if (exit.exteriorNode) lines.push(`${inner}exteriorNode: ${exit.exteriorNode}`)

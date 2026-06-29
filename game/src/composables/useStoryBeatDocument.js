@@ -10,6 +10,8 @@ function ensureEditableBeat(value) {
   next.match ??= { originHex: null, localExit: null };
   next.match.originHex ??= null;
   next.match.localExit ??= null;
+  next.match.mapTransition ??= next.match.localExit ?? null;
+  next.match.transitionDirection ??= null;
   next.time ??= {};
   next.time.days ??= [];
   next.time.dayFrom ??= null;
@@ -77,6 +79,8 @@ function normalizeForDirty(value) {
     match: {
       originHex: nullableText(beat.match?.originHex),
       localExit: nullableText(beat.match?.localExit),
+      mapTransition: nullableText(beat.match?.mapTransition),
+      transitionDirection: nullableText(beat.match?.transitionDirection),
     },
     time: normalizeBeatTime(beat.time),
     choices: (beat.choices ?? []).map((choice, index) => ({
@@ -286,13 +290,24 @@ export function useStoryBeatDocument({
       const savedOrigin = result.beat.match?.originHex ?? null;
       const submittedLocalExit = submitted.match?.localExit ?? null;
       const savedLocalExit = result.beat.match?.localExit ?? null;
-      if (submittedOrigin !== savedOrigin || submittedLocalExit !== savedLocalExit) {
+      const submittedMapTransition = submitted.match?.mapTransition ?? null;
+      const savedMapTransition = result.beat.match?.mapTransition ?? null;
+      const submittedDirection = submitted.match?.transitionDirection ?? null;
+      const savedDirection = result.beat.match?.transitionDirection ?? null;
+      if (
+        submittedOrigin !== savedOrigin ||
+        submittedLocalExit !== savedLocalExit ||
+        submittedMapTransition !== savedMapTransition ||
+        submittedDirection !== savedDirection
+      ) {
         const saved = clonePlain(result.beat);
         const editable = clonePlain(result.beat);
         editable.match = {
           ...(editable.match ?? {}),
           originHex: submittedOrigin,
           localExit: submittedLocalExit,
+          mapTransition: submittedMapTransition,
+          transitionDirection: submittedDirection,
         };
         draft.value = editable;
         baseline.value = JSON.stringify(saved);

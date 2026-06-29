@@ -138,7 +138,7 @@ const groupedItems = computed(() => [
   { source: "doors", label: "Doors" },
   { source: "paths", label: "Exterior paths" },
   { source: "nodes", label: "Exterior nodes" },
-  { source: "exits", label: "World transitions" },
+  { source: "exits", label: "Map transitions" },
   { source: "fixtures", label: "Fixtures" },
   { source: "walls", label: "Visual walls" },
   { source: "links", label: "Room connections" },

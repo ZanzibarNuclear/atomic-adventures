@@ -36,6 +36,8 @@ export function useStory(storyData, ctx) {
       hex: outdoor.state.currentId,
       originHex: outdoor.state.previousId,
       localExit: outdoor.state.localExit,
+      mapTransition: outdoor.state.mapTransition ?? outdoor.state.localExit,
+      transitionDirection: outdoor.state.transitionDirection ?? (outdoor.state.localExit ? "toRegional" : null),
       room: indoor.indoor.currentRoom,
       exteriorNode: indoor.indoor.exteriorNode,
     };
@@ -111,7 +113,8 @@ export function useStory(storyData, ctx) {
 
   function matchScore(beat, loc, action = storyActionContext(loc)) {
     const match = beat.match ?? {};
-    const hasMatch = Boolean(match.originHex || match.localExit);
+    const hasMapTransition = Boolean(match.mapTransition || match.localExit);
+    const hasMatch = Boolean(match.originHex || hasMapTransition || match.transitionDirection);
     let relevant = 0;
     let score = 0;
     if (action === "enterOutdoorHex" && match.originHex) {
@@ -122,6 +125,26 @@ export function useStory(storyData, ctx) {
     if (action === "exitLocalMap" && match.localExit) {
       relevant += 1;
       if (loc.place !== "outdoors" || match.localExit !== loc.localExit) return -1;
+      score += 1;
+    }
+    if (
+      hasMapTransition &&
+      (action === "exitLocalMap" || action === "enterIndoorLocation") &&
+      (!match.transitionDirection ||
+        (match.transitionDirection === "toRegional" && action === "exitLocalMap") ||
+        (match.transitionDirection === "toLocal" && action === "enterIndoorLocation"))
+    ) {
+      const expected = match.mapTransition ?? match.localExit;
+      relevant += 1;
+      if (!loc.mapTransition || expected !== loc.mapTransition) return -1;
+      score += 1;
+    }
+    if (
+      match.transitionDirection &&
+      (action === "exitLocalMap" || action === "enterIndoorLocation")
+    ) {
+      relevant += 1;
+      if (match.transitionDirection !== loc.transitionDirection) return -1;
       score += 1;
     }
     if (hasMatch && relevant === 0) return -1;
@@ -309,6 +332,8 @@ export function useStory(storyData, ctx) {
       outdoor.state.currentId,
       outdoor.state.previousId,
       outdoor.state.localExit,
+      outdoor.state.mapTransition,
+      outdoor.state.transitionDirection,
       indoor.indoor.currentRoom,
       indoor.indoor.exteriorNode,
       [...gameState.flags].join("\0"),

@@ -1,4 +1,5 @@
 <script setup>
+import { computed, ref, watch } from "vue";
 import FeatureInspector from "./FeatureInspector.vue";
 import HexInspector from "./HexInspector.vue";
 import LandmarkInspector from "./LandmarkInspector.vue";
@@ -8,7 +9,7 @@ import RouteInspector from "./RouteInspector.vue";
 import StandInspector from "./StandInspector.vue";
 import RevisionHistoryPanel from "../RevisionHistoryPanel.vue";
 
-defineProps({
+const props = defineProps({
   selected: { type: Object, default: null },
   selectedType: { type: String, default: "" },
   selectedIsLine: { type: Boolean, default: false },
@@ -59,6 +60,73 @@ defineProps({
   removePoint: { type: Function, required: true },
   restoreRevision: { type: Function, required: true },
 });
+
+const editing = ref(false);
+
+watch(
+  () => `${props.selectedType}:${props.selected?.id ?? ""}`,
+  () => {
+    editing.value = false;
+  },
+);
+
+const selectedTitle = computed(() => {
+  if (!props.selected) return "";
+  if (props.selectedType === "landmark") {
+    return props.selected.landmark?.label || props.selected.landmark?.building || props.selected.id;
+  }
+  if (props.selectedType === "stand") {
+    return props.standEditDraft?.label || props.selected.id;
+  }
+  return props.selected.label || props.selected.id;
+});
+
+const summaryRows = computed(() => {
+  const item = props.selected;
+  if (!item) return [];
+  if (props.selectedType === "hex") {
+    return [
+      ["Terrain", item.terrain],
+      ["Coordinates", `q ${item.q}, r ${item.r}`],
+      ["Landmark", item.landmark?.label || item.landmark?.building || "None"],
+      ["Stand points", String((item.stands ?? []).length)],
+    ];
+  }
+  if (props.selectedType === "landmark") {
+    return [
+      ["Cell", item.id],
+      ["Building", item.landmark?.building || "None"],
+      ["Icon", item.landmark?.icon || "None"],
+      ["Offset", `${item.landmark?.dx ?? 0}, ${item.landmark?.dy ?? 0}`],
+    ];
+  }
+  if (props.selectedType === "stand") {
+    return [
+      ["Cell", item.id],
+      ["Stand", props.standEditDraft?.id || ""],
+      ["Anchor", props.standEditDraft?.anchor || "hex"],
+      ["Position", props.standEditDraft?.anchor === "world"
+        ? `${props.standEditDraft?.x ?? ""}, ${props.standEditDraft?.y ?? ""}`
+        : `${props.standEditDraft?.dx ?? 0}, ${props.standEditDraft?.dy ?? 0}`],
+    ];
+  }
+  if (props.selectedType === "route") {
+    return [
+      ["Kind", item.kind],
+      ["Points", String((item.points ?? []).length)],
+      ["Smooth", item.smooth ? "Yes" : "No"],
+    ];
+  }
+  if (props.selectedType === "feature" || props.selectedType === "passage") {
+    return [
+      ["Kind", item.kind],
+      ["Points", String((item.points ?? []).length)],
+      ["Flow", item.flow || "None"],
+      ["Smooth", item.smooth ? "Yes" : "No"],
+    ];
+  }
+  return [["ID", item.id]];
+});
 </script>
 
 <template>
@@ -67,15 +135,26 @@ defineProps({
       <div class="inspector-heading">
         <div>
           <p class="label">{{ selectedType }}</p>
-          <h3>{{ selected.id }}</h3>
+          <h3>{{ selectedTitle }}</h3>
         </div>
         <div class="row-actions">
-          <button class="sm muted" @click="moveSelected(-1)">↑</button>
-          <button class="sm muted" @click="moveSelected(1)">↓</button>
+          <button v-if="!editing" class="sm" @click="editing = true">Edit</button>
+          <button v-else class="sm muted" @click="editing = false">Done</button>
         </div>
       </div>
 
-      <div class="row-actions">
+      <section v-if="!editing" class="detail-card">
+        <div v-for="[label, value] in summaryRows" :key="label" class="detail-row">
+          <span>{{ label }}</span>
+          <strong>{{ value || "None" }}</strong>
+        </div>
+      </section>
+
+      <div v-if="editing" class="edit-toolbar">
+        <div class="row-actions">
+          <button class="sm muted" @click="moveSelected(-1)">Move up</button>
+          <button class="sm muted" @click="moveSelected(1)">Move down</button>
+        </div>
         <template v-if="selectedType === 'landmark'">
           <button class="sm" :disabled="!landmarkEditDirty" @click="saveLandmarkEdit">Save changes</button>
           <button class="sm muted" @click="backToHexFromLandmark">Back to cell</button>
@@ -92,7 +171,7 @@ defineProps({
       </div>
 
       <HexInspector
-        v-if="selectedType === 'hex'"
+        v-if="editing && selectedType === 'hex'"
         :selected="selected"
         :terrain-kinds="terrainKinds"
         :landmark-draft="landmarkDraft"
@@ -106,28 +185,28 @@ defineProps({
         :cancel-stand-draft="cancelStandDraft"
       />
       <LandmarkInspector
-        v-else-if="selectedType === 'landmark' && landmarkEditDraft"
+        v-else-if="editing && selectedType === 'landmark' && landmarkEditDraft"
         :landmark-edit-draft="landmarkEditDraft"
       />
       <StandInspector
-        v-else-if="selectedType === 'stand' && standEditDraft"
+        v-else-if="editing && selectedType === 'stand' && standEditDraft"
         :selected="selected"
         :stand-edit-draft="standEditDraft"
       />
       <RouteInspector
-        v-else-if="selectedType === 'route'"
+        v-else-if="editing && selectedType === 'route'"
         :selected="selected"
         :route-kinds="routeKinds"
       />
       <FeatureInspector
-        v-else-if="selectedType === 'feature'"
+        v-else-if="editing && selectedType === 'feature'"
         :selected="selected"
         :feature-line-kinds="featureLineKinds"
         :add-cascade="addCascade"
         :remove-cascade="removeCascade"
       />
       <PassageInspector
-        v-else-if="selectedType === 'passage'"
+        v-else-if="editing && selectedType === 'passage'"
         :selected="selected"
         :passage-kinds="passageKinds"
         :all-hex-ids="allHexIds"
@@ -140,7 +219,7 @@ defineProps({
       />
 
       <LinePointsEditor
-        v-if="selectedIsLine"
+        v-if="editing && selectedIsLine"
         :selected="selected"
         :tool="tool"
         :all-hex-ids="allHexIds"
@@ -194,6 +273,22 @@ defineProps({
   flex-wrap: wrap;
 }
 .inspector h3 { margin: 0; }
+.detail-card, .edit-toolbar {
+  display: grid;
+  gap: .55rem;
+  padding: .65rem;
+  border: 1px solid #343d4d;
+  border-radius: 8px;
+  background: #1b2028;
+}
+.detail-row {
+  display: grid;
+  grid-template-columns: minmax(6rem, .75fr) minmax(0, 1fr);
+  gap: .75rem;
+  align-items: baseline;
+}
+.detail-row span { color: #8e96a3; font-size: .75rem; }
+.detail-row strong { min-width: 0; overflow-wrap: anywhere; color: #eef1f5; font-size: .85rem; font-weight: 600; }
 .inspector input, .inspector textarea, .inspector select,
 .inspector :deep(input), .inspector :deep(textarea), .inspector :deep(select) {
   width: 100%;

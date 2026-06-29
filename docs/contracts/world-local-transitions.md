@@ -20,7 +20,8 @@ local grid map such as the Utility Station exterior/interior map.
 | --- | --- |
 | World map | The outdoor hex map. |
 | Local map | The grid map for a building/local area. |
-| Transition | A bidirectional connection between one world hex and one local-map exit marker. |
+| Map transition | A bidirectional connection between one regional hex and one local-map marker. |
+| Transition | Legacy short name for a map transition. |
 | Local stand | The exterior node where the avatar appears on the local map. |
 | Arrival stand | A local stand used as the first position after switching maps. It may be off the walkable path graph. |
 | Join node | A walkable exterior node that an off-path arrival stand connects to when the player first steps onto the path network. |
@@ -104,7 +105,7 @@ For Utility Station:
 | --- | --- | --- |
 | Driveway/building approach | `garage-exit` | `garage-front-entrance` |
 | `the-flats` approach | `river-walk` | `intake-entrance` |
-| `south-pines` approach | `man-door-path` | `side-entrance` |
+| `south-pines` approach | `man-door-path` | `large-bay-man-front` |
 | Future southern approach | `southeast-corner` | `south-east-corner-entrance` |
 
 ## Exiting Local To World
@@ -126,7 +127,7 @@ If `transition.standAt` is omitted, use the existing fallback:
 The Utility Station authors distinct world stands in `utility-yard` for return
 points and matching world-map approaches. A stand may include `entryFrom` so
 inter-hex movement into `utility-yard` lands at the same authored point that a
-local-map exit uses.
+map transition uses.
 
 ```js
 {

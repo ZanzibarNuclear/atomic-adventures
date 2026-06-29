@@ -230,6 +230,9 @@ export function createIndoorMovement(deps) {
     indoor.revealed = new Set();
     indoor.level = building.value.exterior?.level ?? "first";
     indoor.viewLevel = indoor.level;
+    outdoor.state.mapTransition = entryTransition?.id ?? entryTransition?.door ?? null;
+    outdoor.state.transitionDirection = outdoor.state.mapTransition ? "toLocal" : null;
+    outdoor.state.localExit = null;
     place.value = "indoors";
   }
 
@@ -280,6 +283,8 @@ export function createIndoorMovement(deps) {
     outdoor.state.currentId = hexId;
     outdoor.state.previousId = previousId !== hexId ? previousId : null;
     outdoor.state.localExit = exit.id ?? doorId;
+    outdoor.state.mapTransition = exit.id ?? doorId;
+    outdoor.state.transitionDirection = "toRegional";
     resetOutdoorStand(hexId, exit.standAt);
     indoor.exteriorNode = null;
     indoor.currentRoom = null;
@@ -292,6 +297,8 @@ export function createIndoorMovement(deps) {
     outdoor.state.currentId = hexId;
     outdoor.state.previousId = null;
     outdoor.state.localExit = null;
+    outdoor.state.mapTransition = null;
+    outdoor.state.transitionDirection = null;
     resetOutdoorStand(hexId);
     indoor.exteriorNode = null;
     indoor.currentRoom = null;
@@ -303,6 +310,8 @@ export function createIndoorMovement(deps) {
     if (indoor.moving) return;
     if (!indoorMoves.value.some((m) => moveKey(m) === moveKey(move))) return;
 
+    outdoor.state.mapTransition = null;
+    outdoor.state.transitionDirection = null;
     indoor.moving = true;
     const finishAfter = (duration) => {
       const wait = prefersReducedMapMotion() ? 0 : duration;
@@ -431,6 +440,8 @@ export function createIndoorMovement(deps) {
 
   function walkExteriorPath(nodeIds) {
     if (indoor.moving || !nodeIds.length) return
+    outdoor.state.mapTransition = null
+    outdoor.state.transitionDirection = null
     indoor.moving = true
 
     const startNode = building.value.exterior?.nodeById?.[indoor.exteriorNode]

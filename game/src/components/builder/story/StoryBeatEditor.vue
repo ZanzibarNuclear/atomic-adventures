@@ -111,12 +111,26 @@ function setDayList(event) {
             </select>
             <span v-if="fieldError('match.originHex')" class="field-error">{{ fieldError("match.originHex") }}</span>
           </label>
-          <label v-if="draftIsOutdoorHexBeat">Local exit
-            <select v-model="draft.match.localExit">
+          <label>Map transition
+            <select v-model="draft.match.mapTransition">
               <option :value="null">Default</option>
-              <option v-for="exit in catalog.world.localExits" :key="exit.id" :value="exit.id">{{ exit.label }} ({{ exit.id }})</option>
+              <option
+                v-for="transition in catalog.world.mapTransitions ?? catalog.world.localExits"
+                :key="transition.id"
+                :value="transition.id"
+              >
+                {{ transition.label }} ({{ transition.id }})
+              </option>
             </select>
-            <span v-if="fieldError('match.localExit')" class="field-error">{{ fieldError("match.localExit") }}</span>
+            <span v-if="fieldError('match.mapTransition')" class="field-error">{{ fieldError("match.mapTransition") }}</span>
+          </label>
+          <label>Transition direction
+            <select v-model="draft.match.transitionDirection">
+              <option :value="null">Any direction</option>
+              <option value="toLocal">To local map</option>
+              <option value="toRegional">To regional map</option>
+            </select>
+            <span v-if="fieldError('match.transitionDirection')" class="field-error">{{ fieldError("match.transitionDirection") }}</span>
           </label>
         </div>
 

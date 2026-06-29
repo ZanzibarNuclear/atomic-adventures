@@ -32,15 +32,15 @@ function setTransitionStand(target, value) {
 
 <template>
   <label>Label<input v-model="selection.entity.label" /></label>
-  <label>Outdoor hex<input v-model="selection.entity.hex" /></label>
-  <label>World stand ID
+  <label>Regional hex<input v-model="selection.entity.hex" /></label>
+  <label>Regional stand ID
     <input
       :value="selection.entity.standAt?.stand ?? ''"
       placeholder="driveway"
       @input="setTransitionStand(selection.entity, $event.target.value)"
     />
   </label>
-  <label>Local stand
+  <label>Local arrival stand
     <select v-model="selection.entity.exteriorNode">
       <option value="">Default entry</option>
       <option
@@ -52,7 +52,7 @@ function setTransitionStand(target, value) {
       </option>
     </select>
   </label>
-  <label>Entry from hex IDs
+  <label>Regional entry from hex IDs
     <input
       :value="csvList(selection.entity.entryFrom)"
       placeholder="south-pines, west-slope"

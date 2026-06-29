@@ -582,9 +582,12 @@ function parseNullableJson(value) {
 
 function parseMatchJson(value) {
   const parsed = JSON.parse(value || "{}");
+  const mapTransition = nullableText(parsed.mapTransition);
   return {
     originHex: nullableText(parsed.originHex),
     localExit: nullableText(parsed.localExit),
+    mapTransition,
+    transitionDirection: nullableText(parsed.transitionDirection),
   };
 }
 

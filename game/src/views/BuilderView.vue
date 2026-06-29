@@ -36,7 +36,7 @@ const builderFlags = new Set();
 const STORY_AREA_ID = "part-i";
 const router = useRouter();
 
-const catalog = ref({ world: { hexes: [], rooms: [], exteriorNodes: [], localExits: [], buildings: [] } });
+const catalog = ref({ world: { hexes: [], rooms: [], exteriorNodes: [], localExits: [], mapTransitions: [], buildings: [] } });
 const locationMode = ref("outdoors");
 const selectedLocation = ref(mapData.start);
 const indoorLevel = ref(
@@ -105,8 +105,9 @@ const matchWarnings = computed(() => {
   const groups = new Map();
   for (const beat of locationBeats.value) {
     const origin = beat.match?.originHex ?? "";
-    const localExit = beat.match?.localExit ?? "";
-    const key = `${locationMode.value}:${selectedLocation.value}:origin=${origin}:localExit=${localExit}`;
+    const mapTransition = beat.match?.mapTransition ?? beat.match?.localExit ?? "";
+    const direction = beat.match?.transitionDirection ?? "";
+    const key = `${locationMode.value}:${selectedLocation.value}:origin=${origin}:mapTransition=${mapTransition}:direction=${direction}`;
     const group = groups.get(key) ?? [];
     group.push(beat);
     groups.set(key, group);
@@ -115,11 +116,13 @@ const matchWarnings = computed(() => {
     .filter((group) => group.length > 1)
     .map((group) => {
       const origin = group[0].match?.originHex;
-      const localExit = group[0].match?.localExit;
+      const mapTransition = group[0].match?.mapTransition ?? group[0].match?.localExit;
+      const direction = group[0].match?.transitionDirection;
       const label = [
         origin ? `origin ${origin}` : "",
-        localExit ? `local exit ${localExit}` : "",
-      ].filter(Boolean).join(", ") || "default/no origin or local exit";
+        mapTransition ? `map transition ${mapTransition}` : "",
+        direction ? (direction === "toLocal" ? "to local map" : "to regional map") : "",
+      ].filter(Boolean).join(", ") || "default/no origin or map transition";
       return `Multiple beats use ${label}: ${group.map((beat) => beat.id).join(", ")}. The first sorted beat wins.`;
     });
 });
@@ -266,7 +269,7 @@ function emptyBeat() {
     text: "",
     revisit: "",
     trigger,
-    match: { originHex: null, localExit: null },
+    match: { originHex: null, localExit: null, mapTransition: null, transitionDirection: null },
     time: {
       days: [],
       dayFrom: null,

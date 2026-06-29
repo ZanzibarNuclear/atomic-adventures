@@ -132,7 +132,7 @@ describe("indoor room stands", () => {
     indoor.enterBuilding("utility-yard");
 
     expect(place.value).toBe("indoors");
-    expect(indoor.indoor.exteriorNode).toBe("side-entrance");
+    expect(indoor.indoor.exteriorNode).toBe("large-bay-man-front");
   });
 
   it("enters through the garage transition after approaching from west-slope", () => {

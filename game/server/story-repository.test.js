@@ -223,9 +223,32 @@ describe("StoryRepository", () => {
     }));
 
     const beat = repository.getBeat("test-area", "test-beat");
-    expect(beat.match).toEqual({ originHex: "the-flats", localExit: "garage-exit" });
+    expect(beat.match).toEqual({
+      originHex: "the-flats",
+      localExit: "garage-exit",
+      mapTransition: null,
+      transitionDirection: null,
+    });
     expect(repository.getRuntimeStory().areas["test-area"].beats["test-beat"].match)
       .toEqual({ originHex: "the-flats", localExit: "garage-exit" });
+    db.close();
+  });
+
+  it("round-trips map-transition beat matching", () => {
+    const { db, repository } = createRepository();
+    repository.createBeat("test-area", sampleBeat({
+      match: { mapTransition: "garage-exit", transitionDirection: "toRegional" },
+    }));
+
+    const beat = repository.getBeat("test-area", "test-beat");
+    expect(beat.match).toEqual({
+      originHex: null,
+      localExit: null,
+      mapTransition: "garage-exit",
+      transitionDirection: "toRegional",
+    });
+    expect(repository.getRuntimeStory().areas["test-area"].beats["test-beat"].match)
+      .toEqual({ mapTransition: "garage-exit", transitionDirection: "toRegional" });
     db.close();
   });
 

@@ -53,6 +53,8 @@ export function captureSnapshot({ gameState, place, outdoor, indoor }) {
       currentId: outdoor.state.currentId,
       previousId: outdoor.state.previousId ?? null,
       localExit: outdoor.state.localExit ?? null,
+      mapTransition: outdoor.state.mapTransition ?? null,
+      transitionDirection: outdoor.state.transitionDirection ?? null,
       discovered: [...outdoor.state.discovered],
       stand: { ...outdoor.state.stand },
       lastBlocked: outdoor.state.lastBlocked,
@@ -84,6 +86,8 @@ function applyOutdoorSnapshot(o, outdoor) {
   outdoor.state.currentId = o.currentId ?? outdoor.START;
   outdoor.state.previousId = o.previousId ?? null;
   outdoor.state.localExit = o.localExit ?? null;
+  outdoor.state.mapTransition = o.mapTransition ?? o.localExit ?? null;
+  outdoor.state.transitionDirection = o.transitionDirection ?? (o.localExit ? "toRegional" : null);
   outdoor.state.discovered = [...(o.discovered ?? [outdoor.state.currentId])];
 
   if (o.stand) {

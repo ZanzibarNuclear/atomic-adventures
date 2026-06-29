@@ -11,6 +11,7 @@ const STAGE_VIEW_KINDS = new Set([
   "console",
   "simulation",
 ]);
+const TRANSITION_DIRECTIONS = new Set(["toLocal", "toRegional"]);
 
 export function normalizeBeat(input = {}) {
   const trigger = input.trigger ?? {};
@@ -91,8 +92,20 @@ export function validateBeat(input, world, character = null) {
     if (!world.hexIds.has(beat.match.originHex)) add("match.originHex", "Choose an existing origin hex.");
   }
   if (beat.match.localExit) {
-    if (!beat.trigger.hex) add("match.localExit", "Local exit matching is only supported for outdoor hex beats.");
-    if (!world.localExitIds?.has(beat.match.localExit)) add("match.localExit", "Choose an existing local map exit.");
+    if (!beat.trigger.hex) add("match.localExit", "Map transition return matching is only supported for outdoor hex beats.");
+    if (!world.localExitIds?.has(beat.match.localExit)) add("match.localExit", "Choose an existing map transition.");
+  }
+  if (beat.match.mapTransition) {
+    if (!world.localExitIds?.has(beat.match.mapTransition)) add("match.mapTransition", "Choose an existing map transition.");
+    if (beat.match.transitionDirection === "toRegional" && !beat.trigger.hex) {
+      add("match.mapTransition", "Regional map transition beats must use an outdoor hex trigger.");
+    }
+    if (beat.match.transitionDirection === "toLocal" && beat.trigger.place !== "indoors") {
+      add("match.mapTransition", "Local map transition beats must use an indoor trigger.");
+    }
+  }
+  if (beat.match.transitionDirection && !TRANSITION_DIRECTIONS.has(beat.match.transitionDirection)) {
+    add("match.transitionDirection", "Choose to local or to regional.");
   }
   validateBeatTime(beat.time, add);
 
@@ -177,9 +190,13 @@ function normalizeStageView(value) {
 }
 
 function normalizeMatch(value = {}) {
+  const mapTransition = nullableText(value.mapTransition);
+  const localExit = nullableText(value.localExit);
   return {
     originHex: nullableText(value.originHex),
-    localExit: nullableText(value.localExit),
+    localExit,
+    mapTransition: mapTransition ?? null,
+    transitionDirection: nullableText(value.transitionDirection),
   };
 }
 

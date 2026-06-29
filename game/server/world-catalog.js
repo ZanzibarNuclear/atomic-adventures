@@ -2,11 +2,13 @@ export function buildWorldCatalog(map, building) {
   map ??= {};
   building ??= {};
   const localExits = building.exits ?? building.transitions ?? [];
+  const mapTransitions = localExits.map(({ id, label }) => ({ id, label: label ?? id }));
   return {
     hexes: (map.hexes ?? []).map(({ id, label }) => ({ id, label: label ?? id })),
     rooms: (building.rooms ?? []).map(({ id, label, level }) => ({ id, label: label ?? id, level })),
     exteriorNodes: (building.exterior?.nodes ?? []).map(({ id, label }) => ({ id, label: label ?? id })),
-    localExits: localExits.map(({ id, label }) => ({ id, label: label ?? id })),
+    localExits: mapTransitions,
+    mapTransitions,
     buildings: [
       { id: "building", label: building.label ?? building.id },
       { id: building.id, label: building.label ?? building.id },
@@ -25,6 +27,7 @@ export function publicWorldCatalog(catalog) {
     rooms: catalog.rooms,
     exteriorNodes: catalog.exteriorNodes,
     localExits: catalog.localExits,
+    mapTransitions: catalog.mapTransitions,
     buildings: catalog.buildings,
   };
 }

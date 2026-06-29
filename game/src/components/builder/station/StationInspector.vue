@@ -45,13 +45,17 @@ const errorMessages = computed(() =>
 
 const fixedSelectionSources = new Set(["fixtures", "walls", "links"]);
 
+function selectionEyebrow(source) {
+  return source === "exits" ? "map transition" : source;
+}
+
 </script>
 
 <template>
   <aside class="inspector panel">
     <template v-if="selection">
       <div>
-        <p class="label">{{ selection.source }}</p>
+        <p class="label">{{ selectionEyebrow(selection.source) }}</p>
         <h3>{{ selection.id }}</h3>
       </div>
       <div class="row-actions">

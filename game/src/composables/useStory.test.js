@@ -14,6 +14,8 @@ function harness(initialStory, {
   initialExteriorNode = null,
   initialOriginHex = null,
   initialLocalExit = null,
+  initialMapTransition = null,
+  initialTransitionDirection = null,
   initialClock = { elapsedMinutes: 0, minuteOfDay: 8 * 60, day: 1 },
   openStageView = () => {},
 } = {}) {
@@ -45,6 +47,8 @@ function harness(initialStory, {
       currentId: "origin",
       previousId: initialOriginHex,
       localExit: initialLocalExit,
+      mapTransition: initialMapTransition,
+      transitionDirection: initialTransitionDirection,
     }),
     canReachHex: () => true,
     moveTo,
@@ -524,7 +528,7 @@ describe("useStory reactive content", () => {
     expect(setup.api.pendingBeat.value.revisit).toBe(true);
   });
 
-  it("uses a local-exit beat after returning from a local map", () => {
+  it("uses a map-transition beat after returning from a local map", () => {
     const setup = harness({
       beats: {
         "utility-yard-default": {
@@ -553,6 +557,33 @@ describe("useStory reactive content", () => {
     setup.api.refreshNarrative();
 
     expect(setup.api.pendingBeat.value.id).toBe("utility-yard-from-garage");
+  });
+
+  it("uses a map-transition beat after entering a local map", () => {
+    const setup = harness({
+      beats: {
+        "large-bay-default": {
+          text: "You are near the side of the large bay.",
+          trigger: { place: "indoors", exteriorNode: "large-bay-man-front" },
+          choices: [],
+        },
+        "large-bay-from-transition": {
+          text: "The path from the pines ends at the large bay door.",
+          trigger: { place: "indoors", exteriorNode: "large-bay-man-front" },
+          match: { mapTransition: "man-door-path", transitionDirection: "toLocal" },
+          choices: [],
+        },
+      },
+    }, {
+      initialPlace: "indoors",
+      initialExteriorNode: "large-bay-man-front",
+      initialMapTransition: "man-door-path",
+      initialTransitionDirection: "toLocal",
+    });
+
+    setup.api.refreshNarrative();
+
+    expect(setup.api.pendingBeat.value.id).toBe("large-bay-from-transition");
   });
 
   it("lets one beat match origin entry or local exit depending on the action", () => {
