@@ -159,6 +159,13 @@ toRegional` applies after returning to the regional map and evaluating the
 destination outdoor hex trigger. `localExit` remains readable for old content
 and behaves like a regional-return map transition.
 
+The Utility Station workspace in `/builder/world?map=utility-station` shows
+associated `toLocal` and `toRegional` beats on each selected map transition.
+Its add/open beat actions route into Story Builder with `mapTransition` and
+`transitionDirection` already filled in. Story Builder also supports selecting
+a MAP icon on the local map; that selects the transition's local arrival node
+so the corresponding exterior-node beat can be edited in context.
+
 `originHex` and `mapTransition` are different action-context criteria. They may
 be authored on the same beat, but they are never evaluated in the same
 beat-selection pass. During `enterOutdoorHex`, only `originHex` participates in
@@ -171,12 +178,12 @@ Selection examples for `utility-yard`:
   `utility-yard` beat when the player moves from `the-flats` into
   `utility-yard`. Beats with only `match.mapTransition` are not eligible for this
   inter-hex selection pass.
-- A beat with `match: { mapTransition: garage-exit, transitionDirection: toRegional }` wins over the default
-  `utility-yard` beat when the player returns to the world through the garage
-  map transition. Beats with only `match.originHex` are not eligible for this
-  map-transition selection pass.
-- A beat with `match: { originHex: the-flats, mapTransition: garage-exit }` can be
-  selected by either action. The runtime considers only `originHex` during
+- A beat with `match: { mapTransition: garage-exit, transitionDirection: toRegional }`
+  wins over the default `utility-yard` beat when the player returns to the
+  world through the garage map transition. Beats with only `match.originHex`
+  are not eligible for this map-transition selection pass.
+- A beat with `match: { originHex: the-flats, mapTransition: garage-exit }` can
+  be selected by either action. The runtime considers only `originHex` during
   inter-hex movement and only `mapTransition` during map switching.
 - The default `utility-yard` beat wins when the current action has no matching
   specific beat.

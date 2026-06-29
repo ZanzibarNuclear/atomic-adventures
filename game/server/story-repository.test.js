@@ -219,18 +219,36 @@ describe("StoryRepository", () => {
   it("round-trips origin-hex beat matching", () => {
     const { db, repository } = createRepository();
     repository.createBeat("test-area", sampleBeat({
-      match: { originHex: "the-flats", localExit: "garage-exit" },
+      match: { originHex: "the-flats" },
     }));
 
     const beat = repository.getBeat("test-area", "test-beat");
     expect(beat.match).toEqual({
       originHex: "the-flats",
+      localExit: null,
+      mapTransition: null,
+      transitionDirection: null,
+    });
+    expect(repository.getRuntimeStory().areas["test-area"].beats["test-beat"].match)
+      .toEqual({ originHex: "the-flats" });
+    db.close();
+  });
+
+  it("round-trips legacy localExit beat matching", () => {
+    const { db, repository } = createRepository();
+    repository.createBeat("test-area", sampleBeat({
+      match: { localExit: "garage-exit" },
+    }));
+
+    const beat = repository.getBeat("test-area", "test-beat");
+    expect(beat.match).toEqual({
+      originHex: null,
       localExit: "garage-exit",
       mapTransition: null,
       transitionDirection: null,
     });
     expect(repository.getRuntimeStory().areas["test-area"].beats["test-beat"].match)
-      .toEqual({ originHex: "the-flats", localExit: "garage-exit" });
+      .toEqual({ localExit: "garage-exit" });
     db.close();
   });
 

@@ -38,6 +38,7 @@ const rightCollapsed = ref(false);
 const characterCatalog = ref({
   items: [], stats: [], knowledge: [], skills: [], quests: [], documents: [],
 });
+const storyBeats = ref([]);
 
 function resetDocumentUi() {
   resetSelectionMode();
@@ -149,12 +150,14 @@ const groupedItems = computed(() => [
 })));
 onMounted(async () => {
   try {
-    const [buildingResult, catalogResult] = await Promise.all([
+    const [buildingResult, catalogResult, beatsResult] = await Promise.all([
       storyApi("/api/world/buildings/utility-station"),
       storyApi("/api/catalog"),
+      storyApi("/api/story/areas/part-i/beats"),
     ]);
     applyLoaded(buildingResult);
     characterCatalog.value = catalogResult.character ?? characterCatalog.value;
+    storyBeats.value = beatsResult;
   } catch (error) {
     status.value = error.message;
   }
@@ -173,6 +176,28 @@ function runIndoorAudit() {
   status.value = auditResult.value.valid
     ? `Indoor audit passed: ${auditResult.value.roomCount} rooms and ${auditResult.value.exteriorNodeCount} exterior nodes are connected.`
     : `Indoor audit found ${auditResult.value.unreachableRooms.length} unreachable room(s) and ${auditResult.value.unreachableExteriorNodes.length} unreachable exterior node(s).`;
+}
+
+function openTransitionBeat({
+  transitionId,
+  direction,
+  locationMode,
+  location,
+  beatId = "",
+  create = false,
+}) {
+  if (!transitionId || !direction || !locationMode || !location) return;
+  void router.push({
+    path: "/builder/story",
+    query: {
+      mode: locationMode,
+      location,
+      mapTransition: transitionId,
+      transitionDirection: direction,
+      ...(beatId ? { beat: beatId } : {}),
+      ...(create ? { create: "1" } : {}),
+    },
+  });
 }
 
 </script>
@@ -249,6 +274,7 @@ function runIndoorAudit() {
         :errors="errors"
         :warnings="warnings"
         :audit-result="auditResult"
+        :story-beats="storyBeats"
         :show-history="showHistory"
         :revisions="revisions"
         @move-selected="moveSelected"
@@ -258,6 +284,7 @@ function runIndoorAudit() {
         @toggle-path-add-mode="togglePathAddMode"
         @remove-selected-path-handle="removeSelectedPathHandle"
         @run-indoor-audit="runIndoorAudit"
+        @open-transition-beat="openTransitionBeat"
         @restore-revision="restoreRevision"
       />
     </div>

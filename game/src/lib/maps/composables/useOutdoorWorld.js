@@ -54,7 +54,7 @@ export function useOutdoorWorld(mapData, gameState = null) {
     stand: initialStand(mapData, size.value),
     /** Previous outdoor hex entered by inter-hex movement. */
     previousId: null,
-    /** Local-map transition used to return to the current outdoor hex. */
+    /** Legacy regional-return transition id, kept for saved content compatibility. */
     localExit: null,
     /** Last world/local map transition used in either direction. */
     mapTransition: null,

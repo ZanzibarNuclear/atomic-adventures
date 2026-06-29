@@ -114,7 +114,8 @@ long the chosen path and associated interaction took.
 ## Time-Gated Beats
 
 Time is a first-class beat eligibility criterion, separate from the action
-context `match` fields such as `originHex` and `localExit`.
+context `match` fields such as `originHex`, `mapTransition`, and
+`transitionDirection`.
 
 Recommended beat shape:
 

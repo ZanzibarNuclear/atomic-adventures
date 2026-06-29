@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import RevisionHistoryPanel from "../RevisionHistoryPanel.vue";
 import DoorInspector from "./DoorInspector.vue";
 import ExteriorNodeInspector from "./ExteriorNodeInspector.vue";
@@ -22,11 +22,13 @@ const props = defineProps({
   errors: { type: Object, required: true },
   warnings: { type: Array, required: true },
   auditResult: { type: Object, default: null },
+  storyBeats: { type: Array, default: () => [] },
   showHistory: { type: Boolean, default: false },
   revisions: { type: Array, required: true },
 });
 
 const emit = defineEmits([
+  "open-transition-beat",
   "move-selected",
   "rename-selected",
   "duplicate-selected",
@@ -44,36 +46,215 @@ const errorMessages = computed(() =>
 );
 
 const fixedSelectionSources = new Set(["fixtures", "walls", "links"]);
+const editing = ref(false);
+
+watch(
+  () => `${props.selection?.source ?? ""}:${props.selection?.id ?? ""}`,
+  () => {
+    editing.value = false;
+  },
+);
 
 function selectionEyebrow(source) {
   return source === "exits" ? "map transition" : source;
 }
+
+function selectionTitle(selection) {
+  if (!selection) return "";
+  return selection.entity?.label || selection.id;
+}
+
+function transitionBeatMatches(beat, transitionId, direction) {
+  const match = beat.match ?? {};
+  const beatTransition = match.mapTransition ?? match.localExit;
+  if (beatTransition !== transitionId) return false;
+  if (!match.transitionDirection) {
+    return direction === "toRegional" && Boolean(match.localExit);
+  }
+  return match.transitionDirection === direction;
+}
+
+const associatedTransitionBeats = computed(() => {
+  const selection = props.selection;
+  if (selection?.source !== "exits") return { toLocal: [], toRegional: [] };
+  const transitionId = selection.id;
+  return {
+    toLocal: props.storyBeats.filter((beat) =>
+      transitionBeatMatches(beat, transitionId, "toLocal"),
+    ),
+    toRegional: props.storyBeats.filter((beat) =>
+      transitionBeatMatches(beat, transitionId, "toRegional"),
+    ),
+  };
+});
+
+const summaryRows = computed(() => {
+  const selection = props.selection;
+  const entity = selection?.entity;
+  if (!selection || !entity) return [];
+  if (selection.source === "rooms") {
+    return [
+      ["Level", entity.level],
+      ["Size", `${entity.w ?? 0} x ${entity.h ?? 0}`],
+      ["Default stand", entity.defaultStand || "None"],
+    ];
+  }
+  if (selection.source === "doors") {
+    return [
+      ["Rooms", [entity.a, entity.b].filter(Boolean).join(" <-> ")],
+      ["Kind", entity.kind || "door"],
+      ["Initially open", entity.initiallyOpen ? "Yes" : "No"],
+    ];
+  }
+  if (selection.source === "paths") {
+    return [
+      ["Kind", entity.kind || "path"],
+      ["Nodes", String((entity.nodes ?? entity.points ?? []).length)],
+    ];
+  }
+  if (selection.source === "nodes") {
+    return [
+      ["Level", entity.level],
+      ["Door", entity.door || "None"],
+      ["Room", entity.room || "None"],
+      ["Join node", entity.joinNode || "None"],
+    ];
+  }
+  if (selection.source === "exits") {
+    return [
+      ["Regional hex", entity.hex || props.draft.outdoorHex || "Default"],
+      ["Regional stand", entity.standAt?.stand || "Default"],
+      ["Local arrival stand", entity.exteriorNode || props.draft.exterior?.entry || "Default"],
+      ["Regional entry from", (entity.entryFrom ?? []).join(", ") || "Any"],
+    ];
+  }
+  if (selection.source === "stands") {
+    return [
+      ["Room", selection.id.split("/")[0]],
+      ["Kind", entity.kind || "authored"],
+      ["Position", entity.at ? `${entity.at.x}, ${entity.at.y}` : "Default"],
+    ];
+  }
+  return [["ID", selection.id]];
+});
 
 </script>
 
 <template>
   <aside class="inspector panel">
     <template v-if="selection">
-      <div>
-        <p class="label">{{ selectionEyebrow(selection.source) }}</p>
-        <h3>{{ selection.id }}</h3>
+      <div class="inspector-heading">
+        <div>
+          <p class="label">{{ selectionEyebrow(selection.source) }}</p>
+          <h3>{{ selectionTitle(selection) }}</h3>
+        </div>
+        <div class="row-actions">
+          <button v-if="!editing" class="sm" @click="editing = true">Edit</button>
+          <button v-else class="sm muted" @click="editing = false">Done</button>
+        </div>
       </div>
-      <div class="row-actions">
-        <button class="sm muted" @click="emit('move-selected', -1)">↑</button>
-        <button class="sm muted" @click="emit('move-selected', 1)">↓</button>
-        <button class="sm muted" :disabled="fixedSelectionSources.has(selection.source)" @click="emit('rename-selected')">Rename</button>
-        <button class="sm muted" :disabled="fixedSelectionSources.has(selection.source)" @click="emit('duplicate-selected')">Duplicate</button>
-        <button class="sm danger-outline" :disabled="['fixtures', 'walls'].includes(selection.source)" @click="emit('delete-selected')">Delete</button>
+
+      <section v-if="!editing" class="detail-card">
+        <div v-for="[label, value] in summaryRows" :key="label" class="detail-row">
+          <span>{{ label }}</span>
+          <strong>{{ value || "None" }}</strong>
+        </div>
+        <template v-if="selection.source === 'exits'">
+          <div class="beat-associations">
+            <div>
+              <p class="label">To local beats</p>
+              <p v-if="!associatedTransitionBeats.toLocal.length" class="empty-note">None yet.</p>
+              <ul v-else>
+                <li v-for="beat in associatedTransitionBeats.toLocal" :key="beat.id">
+                  <button
+                    type="button"
+                    class="beat-link"
+                    @click="emit('open-transition-beat', {
+                      transitionId: selection.id,
+                      direction: 'toLocal',
+                      locationMode: beat.trigger?.exteriorNode ? 'exterior' : 'rooms',
+                      location: beat.trigger?.exteriorNode || beat.trigger?.room,
+                      beatId: beat.id,
+                    })"
+                  >
+                    <strong>{{ beat.heading || beat.id }}</strong>
+                    <span>{{ beat.trigger?.exteriorNode || beat.trigger?.room || beat.id }}</span>
+                  </button>
+                </li>
+              </ul>
+              <button
+                type="button"
+                class="sm muted add-beat"
+                @click="emit('open-transition-beat', {
+                  transitionId: selection.id,
+                  direction: 'toLocal',
+                  locationMode: 'exterior',
+                  location: selection.entity.exteriorNode || draft.exterior?.entry,
+                  create: true,
+                })"
+              >
+                Add to local beat
+              </button>
+            </div>
+            <div>
+              <p class="label">To regional beats</p>
+              <p v-if="!associatedTransitionBeats.toRegional.length" class="empty-note">None yet.</p>
+              <ul v-else>
+                <li v-for="beat in associatedTransitionBeats.toRegional" :key="beat.id">
+                  <button
+                    type="button"
+                    class="beat-link"
+                    @click="emit('open-transition-beat', {
+                      transitionId: selection.id,
+                      direction: 'toRegional',
+                      locationMode: 'outdoors',
+                      location: beat.trigger?.hex,
+                      beatId: beat.id,
+                    })"
+                  >
+                    <strong>{{ beat.heading || beat.id }}</strong>
+                    <span>{{ beat.trigger?.hex || beat.id }}</span>
+                  </button>
+                </li>
+              </ul>
+              <button
+                type="button"
+                class="sm muted add-beat"
+                @click="emit('open-transition-beat', {
+                  transitionId: selection.id,
+                  direction: 'toRegional',
+                  locationMode: 'outdoors',
+                  location: selection.entity.hex || draft.outdoorHex,
+                  create: true,
+                })"
+              >
+                Add to regional beat
+              </button>
+            </div>
+          </div>
+        </template>
+      </section>
+
+      <div v-if="editing" class="edit-toolbar">
+        <div class="row-actions">
+          <button class="sm muted" @click="emit('move-selected', -1)">Move up</button>
+          <button class="sm muted" @click="emit('move-selected', 1)">Move down</button>
+        </div>
+        <div class="row-actions">
+          <button class="sm muted" :disabled="fixedSelectionSources.has(selection.source)" @click="emit('rename-selected')">Rename</button>
+          <button class="sm muted" :disabled="fixedSelectionSources.has(selection.source)" @click="emit('duplicate-selected')">Duplicate</button>
+          <button class="sm danger-outline" :disabled="['fixtures', 'walls'].includes(selection.source)" @click="emit('delete-selected')">Delete</button>
+        </div>
       </div>
 
       <RoomInspector
-        v-if="selection.source === 'rooms'"
+        v-if="editing && selection.source === 'rooms'"
         :draft="draft"
         :selection="selection"
       />
 
       <DoorInspector
-        v-else-if="selection.source === 'doors'"
+        v-else-if="editing && selection.source === 'doors'"
         :draft="draft"
         :selection="selection"
         :character-catalog="characterCatalog"
@@ -81,7 +262,7 @@ function selectionEyebrow(source) {
       />
 
       <PathInspector
-        v-else-if="selection.source === 'paths'"
+        v-else-if="editing && selection.source === 'paths'"
         :draft="draft"
         :selection="selection"
         :selected-handle-id="selectedHandleId"
@@ -92,30 +273,30 @@ function selectionEyebrow(source) {
       />
 
       <ExteriorNodeInspector
-        v-else-if="selection.source === 'nodes'"
+        v-else-if="editing && selection.source === 'nodes'"
         :draft="draft"
         :selection="selection"
       />
 
       <TransitionInspector
-        v-else-if="selection.source === 'exits'"
+        v-else-if="editing && selection.source === 'exits'"
         :draft="draft"
         :selection="selection"
       />
 
       <FixtureInspector
-        v-else-if="['fixtures', 'walls'].includes(selection.source)"
+        v-else-if="editing && ['fixtures', 'walls'].includes(selection.source)"
         :selection="selection"
       />
 
       <LinkInspector
-        v-else-if="selection.source === 'links'"
+        v-else-if="editing && selection.source === 'links'"
         :draft="draft"
         :selection="selection"
       />
 
       <RoomStandInspector
-        v-else-if="selection.source === 'stands'"
+        v-else-if="editing && selection.source === 'stands'"
         :draft="draft"
         :selection="selection"
       />
@@ -123,6 +304,7 @@ function selectionEyebrow(source) {
     <p v-else class="empty-note">Select a room, door, path, node, or transition.</p>
 
     <StationInventoryAuthoring
+      v-if="editing"
       :draft="draft"
       :character-catalog="characterCatalog"
       :selection="selection"
@@ -157,7 +339,8 @@ function selectionEyebrow(source) {
 <style scoped>
 .panel { min-width: 0; border: 1px solid #343d4d; border-radius: 10px; background: #20252f; padding: .75rem; }
 .inspector { overflow: auto; display: grid; align-content: start; gap: .7rem; }
-.inspector h3 { margin: 0; }
+.inspector-heading { display: flex; justify-content: space-between; gap: .65rem; align-items: start; }
+.inspector h3 { margin: 0; overflow-wrap: anywhere; }
 .inspector input, .inspector textarea, .inspector select {
   width: 100%;
   border: 1px solid #485267;
@@ -174,6 +357,51 @@ function selectionEyebrow(source) {
   gap: .5rem;
   flex-wrap: wrap;
 }
+.detail-card, .edit-toolbar {
+  display: grid;
+  gap: .55rem;
+  padding: .65rem;
+  border: 1px solid #343d4d;
+  border-radius: 8px;
+  background: #1b2028;
+}
+.detail-row {
+  display: grid;
+  grid-template-columns: minmax(6rem, .75fr) minmax(0, 1fr);
+  gap: .75rem;
+  align-items: baseline;
+}
+.detail-row span { color: #8e96a3; font-size: .75rem; }
+.detail-row strong { min-width: 0; overflow-wrap: anywhere; color: #eef1f5; font-size: .85rem; font-weight: 600; }
+.beat-associations {
+  display: grid;
+  gap: .65rem;
+  padding-top: .65rem;
+  border-top: 1px solid #343d4d;
+}
+.beat-associations p { margin: 0; }
+.beat-associations ul {
+  display: grid;
+  gap: .35rem;
+  margin: .35rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.beat-associations li { display: block; }
+.beat-link {
+  display: grid;
+  gap: .1rem;
+  width: 100%;
+  padding: .45rem .55rem;
+  border: 1px solid #394457;
+  border-radius: 7px;
+  background: #202733;
+  text-align: left;
+}
+.beat-link:hover { border-color: #5f718f; background: #273142; }
+.beat-link strong { color: #eef1f5; font-size: .8rem; }
+.beat-link span { color: #9da7b5; font-size: .74rem; }
+.add-beat { width: 100%; margin-top: .4rem; justify-content: center; }
 button.active { background: #49624f; border-color: #6f9b79; }
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; }
 .check-field { display: flex !important; align-items: center; }

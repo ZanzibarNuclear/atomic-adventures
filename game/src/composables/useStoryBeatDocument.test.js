@@ -12,7 +12,7 @@ const beat = {
   heading: "Origin",
   text: "Story text",
   trigger: { place: "outdoors", hex: "origin" },
-  match: { originHex: null, localExit: null },
+  match: { originHex: null, localExit: null, mapTransition: null, transitionDirection: null },
   choices: [],
 };
 
@@ -28,7 +28,7 @@ function createDocument(getBeatsForLocation = () => [beat]) {
       heading: "",
       text: "",
       trigger: { place: "outdoors", hex: location.location },
-      match: { originHex: null, localExit: null },
+      match: { originHex: null, localExit: null, mapTransition: null, transitionDirection: null },
       choices: [],
     }),
     suggestedId: () => location.location,

@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import StoryBeatEditor from "../components/builder/story/StoryBeatEditor.vue";
 import StoryBeatList from "../components/builder/story/StoryBeatList.vue";
 import StoryLocationPicker from "../components/builder/story/StoryLocationPicker.vue";
@@ -34,6 +34,7 @@ const allExteriorIds = computed(() =>
 const allHexSet = computed(() => new Set(allHexIds.value));
 const builderFlags = new Set();
 const STORY_AREA_ID = "part-i";
+const route = useRoute();
 const router = useRouter();
 
 const catalog = ref({ world: { hexes: [], rooms: [], exteriorNodes: [], localExits: [], mapTransitions: [], buildings: [] } });
@@ -135,6 +136,7 @@ onMounted(async () => {
   try {
     catalog.value = await storyApi("/api/catalog");
     await loadBeats();
+    await applyStoryRouteQuery();
   } catch (error) {
     status.value = error.message;
   }
@@ -222,6 +224,11 @@ function selectIndoorMapItem({ source, id }) {
     selectRoom(id);
   } else if (source === "nodes") {
     selectExterior(id);
+  } else if (source === "exits") {
+    const transition = building.value.exitById?.[id] ?? building.value.exitByDoorId?.[id];
+    if (transition?.exteriorNode) {
+      selectExterior(transition.exteriorNode);
+    }
   }
 }
 
@@ -321,6 +328,44 @@ function setChoiceViewKind(choice, kind) {
 
 function requestContextChange(action) {
   return navigation.requestChange(action);
+}
+
+function queryText(value) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+async function applyStoryRouteQuery() {
+  const mode = queryText(route.query.mode);
+  const location = queryText(route.query.location);
+  if (!mode || !location) return;
+
+  if (mode === "outdoors") {
+    await applyHexSelection(location);
+  } else if (mode === "rooms") {
+    await applyRoomSelection(location);
+  } else if (mode === "exterior") {
+    await applyExteriorSelection(location);
+  } else {
+    return;
+  }
+
+  const beatId = queryText(route.query.beat);
+  if (beatId) {
+    await loadBeat(beatId);
+    return;
+  }
+
+  if (queryText(route.query.create) !== "1") return;
+  const mapTransition = queryText(route.query.mapTransition);
+  const transitionDirection = queryText(route.query.transitionDirection);
+  if (!mapTransition || !transitionDirection) return;
+
+  beginNewBeat();
+  if (draft.value) {
+    draft.value.match.mapTransition = mapTransition;
+    draft.value.match.transitionDirection = transitionDirection;
+    draft.value.match.localExit = null;
+  }
 }
 
 </script>

@@ -528,7 +528,7 @@ describe("useStory reactive content", () => {
     expect(setup.api.pendingBeat.value.revisit).toBe(true);
   });
 
-  it("uses a map-transition beat after returning from a local map", () => {
+  it("uses a to-regional map-transition beat after returning from a local map", () => {
     const setup = harness({
       beats: {
         "utility-yard-default": {
@@ -540,6 +540,33 @@ describe("useStory reactive content", () => {
           text: "The riverbank path brings you in by the intake.",
           trigger: { place: "outdoors", hex: "origin" },
           match: { originHex: "the-flats" },
+          choices: [],
+        },
+        "utility-yard-from-garage": {
+          text: "You are standing in front of the garage doors.",
+          trigger: { place: "outdoors", hex: "origin" },
+          match: { mapTransition: "garage-exit", transitionDirection: "toRegional" },
+          choices: [],
+        },
+      },
+    }, {
+      initialOriginHex: null,
+      initialLocalExit: "garage-exit",
+      initialMapTransition: "garage-exit",
+      initialTransitionDirection: "toRegional",
+    });
+
+    setup.api.refreshNarrative();
+
+    expect(setup.api.pendingBeat.value.id).toBe("utility-yard-from-garage");
+  });
+
+  it("keeps legacy localExit beats working after returning from a local map", () => {
+    const setup = harness({
+      beats: {
+        "utility-yard-default": {
+          text: "The utility station is just ahead.",
+          trigger: { place: "outdoors", hex: "origin" },
           choices: [],
         },
         "utility-yard-from-garage": {
@@ -586,7 +613,7 @@ describe("useStory reactive content", () => {
     expect(setup.api.pendingBeat.value.id).toBe("large-bay-from-transition");
   });
 
-  it("lets one beat match origin entry or local exit depending on the action", () => {
+  it("lets one beat match origin entry or map transition depending on the action", () => {
     const setup = harness({
       beats: {
         "utility-yard-default": {
@@ -597,7 +624,7 @@ describe("useStory reactive content", () => {
         "utility-yard-action-specific": {
           text: "You arrive at the utility yard from a familiar approach.",
           trigger: { place: "outdoors", hex: "origin" },
-          match: { originHex: "the-flats", localExit: "garage-exit" },
+          match: { originHex: "the-flats", mapTransition: "garage-exit" },
           choices: [],
         },
       },
@@ -613,12 +640,14 @@ describe("useStory reactive content", () => {
     setup.api.pendingBeat.value = null;
     setup.outdoor.state.previousId = "west-slope";
     setup.outdoor.state.localExit = "garage-exit";
+    setup.outdoor.state.mapTransition = "garage-exit";
+    setup.outdoor.state.transitionDirection = "toRegional";
     setup.api.refreshNarrative();
 
     expect(setup.api.pendingBeat.value.id).toBe("utility-yard-action-specific");
   });
 
-  it("ignores origin-specific criteria during local-exit selection", () => {
+  it("ignores origin-specific criteria during map-transition selection", () => {
     const setup = harness({
       beats: {
         "utility-yard-default": {
@@ -629,13 +658,15 @@ describe("useStory reactive content", () => {
         "utility-yard-from-flats-and-garage": {
           text: "You are standing in front of the garage doors.",
           trigger: { place: "outdoors", hex: "origin" },
-          match: { originHex: "the-flats", localExit: "garage-exit" },
+          match: { originHex: "the-flats", mapTransition: "garage-exit" },
           choices: [],
         },
       },
     }, {
       initialOriginHex: "west-slope",
       initialLocalExit: "garage-exit",
+      initialMapTransition: "garage-exit",
+      initialTransitionDirection: "toRegional",
     });
 
     setup.api.refreshNarrative();
@@ -643,7 +674,7 @@ describe("useStory reactive content", () => {
     expect(setup.api.pendingBeat.value.id).toBe("utility-yard-from-flats-and-garage");
   });
 
-  it("does not treat local-exit-only beats as defaults during inter-hex entry", () => {
+  it("does not treat map-transition-only beats as defaults during inter-hex entry", () => {
     const setup = harness({
       beats: {
         "utility-yard-default": {
@@ -654,7 +685,7 @@ describe("useStory reactive content", () => {
         "utility-yard-from-garage": {
           text: "You are standing in front of the garage doors.",
           trigger: { place: "outdoors", hex: "origin" },
-          match: { localExit: "garage-exit" },
+          match: { mapTransition: "garage-exit", transitionDirection: "toRegional" },
           choices: [],
         },
       },
@@ -668,7 +699,7 @@ describe("useStory reactive content", () => {
     expect(setup.api.pendingBeat.value.id).toBe("utility-yard-default");
   });
 
-  it("does not keep using an origin-specific beat after a local exit clears origin", () => {
+  it("does not keep using an origin-specific beat after a map transition clears origin", () => {
     const setup = harness({
       beats: {
         "utility-yard-default": {
@@ -686,6 +717,8 @@ describe("useStory reactive content", () => {
     }, {
       initialOriginHex: null,
       initialLocalExit: "garage-exit",
+      initialMapTransition: "garage-exit",
+      initialTransitionDirection: "toRegional",
     });
 
     setup.api.refreshNarrative();

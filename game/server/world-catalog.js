@@ -1,6 +1,7 @@
 export function buildWorldCatalog(map, building) {
   map ??= {};
   building ??= {};
+  // localExits is retained as a public alias for older story-builder clients.
   const localExits = building.exits ?? building.transitions ?? [];
   const mapTransitions = localExits.map(({ id, label }) => ({ id, label: label ?? id }));
   return {

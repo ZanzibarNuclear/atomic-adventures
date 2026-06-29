@@ -95,8 +95,10 @@ When the player chooses to enter a building/local map from a world hex:
    - then the building's default entry transition;
    - finally `building.exterior.entry`.
 4. Set `indoor.exteriorNode` to the selected transition's `exteriorNode`.
-5. Set `place = "indoors"` without changing the outdoor current hex.
-6. Let normal story-beat selection show the beat for that exterior node. Do not
+5. Set `outdoor.state.mapTransition` to the selected transition ID and
+   `outdoor.state.transitionDirection` to `toLocal`.
+6. Set `place = "indoors"` without changing the outdoor current hex.
+7. Let normal story-beat selection show the beat for that exterior node. Do not
    fire a generic map-switch or enter-building event.
 
 For Utility Station:
@@ -117,10 +119,15 @@ When the player activates a local MAP marker:
 3. Set `outdoor.state.currentId` to `transition.hex`.
 4. Set `outdoor.state.stand` to `transition.standAt` resolved in world
    coordinates.
-5. Clear indoor room/exterior-node state and set `place = "outdoors"`.
+5. Set `outdoor.state.mapTransition` to the selected transition ID and
+   `outdoor.state.transitionDirection` to `toRegional`.
+6. Clear indoor room/exterior-node state and set `place = "outdoors"`.
 
 If `transition.standAt` is omitted, use the existing fallback:
 `outdoor.defaultStandForHex(transition.hex)`.
+
+Story beats associated with a map transition use `match.mapTransition` plus
+`match.transitionDirection`; see [story-beats.md](story-beats.md).
 
 ## Utility Yard Initial Stands
 
