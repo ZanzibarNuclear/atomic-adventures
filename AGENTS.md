@@ -20,10 +20,10 @@ atomic-adventures/
 └── docs/                — Technical contracts, quality checklists, deployment, roadmap
 ```
 
-| App     | Purpose                                                                              | Modify when…                                                                           |
-| ------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| `web/`  | Standalone map tech demo — hex travel, grid interior, builder tools, hydro mechanics | Prototype experiments, stakeholder demos. No story, save/load, or game features.       |
-| `game/` | Playable game, story builder, content API, save/load, and player-facing UI           | Always, for anything that affects gameplay, narrative, authoring, or persistence.      |
+| App     | Purpose                                                                              | Modify when…                                                                      |
+| ------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| `web/`  | Standalone map tech demo — hex travel, grid interior, builder tools, hydro mechanics | Prototype experiments, stakeholder demos. No story, save/load, or game features.  |
+| `game/` | Playable game, story builder, content API, save/load, and player-facing UI           | Always, for anything that affects gameplay, narrative, authoring, or persistence. |
 
 ### Map code: two apps, one canonical game copy
 
@@ -43,12 +43,12 @@ There are distinct story, world, and prototype builder concerns. Do not conflate
 
 Authoring uses separate routes in the `game/` app, not modes layered onto the playable scene:
 
-| Route      | Purpose                                                                 |
-| ---------- | ----------------------------------------------------------------------- |
-| `/`        | Playable game                                                           |
-| `/builder/story` | Map-first story authoring for hexes, rooms, exterior nodes, and events |
-| `/builder/world` | Canvas-first outdoor geometry and movement authoring |
-| `/builder/content` | Character development and artifact catalog authoring |
+| Route              | Purpose                                                                |
+| ------------------ | ---------------------------------------------------------------------- |
+| `/`                | Playable game                                                          |
+| `/builder/story`   | Map-first story authoring for hexes, rooms, exterior nodes, and events |
+| `/builder/world`   | Canvas-first outdoor geometry and movement authoring                   |
+| `/builder/content` | Character development and artifact catalog authoring                   |
 
 - `game/src/views/BuilderView.vue` owns the authoring workspace.
 - `game/src/views/WorldBuilderView.vue` owns outdoor world authoring.
@@ -62,6 +62,25 @@ Authoring uses separate routes in the `game/` app, not modes layered onto the pl
 - Outdoor world content is stored as one ordered JSON document; do not normalize individual hexes, routes, or points without a demonstrated need.
 - YAML is an explicit import/export snapshot format only. Do not add canonical content YAML under `game/content/`.
 - See [docs/contracts/world-authoring.md](docs/contracts/world-authoring.md) for the persistence, reference, and live-update contract.
+
+### Default authority hierarchy
+
+When project artifacts disagree, use this default order of authority:
+
+1. `game/content/atomic-adventures.sqlite`
+2. Recent code changes
+3. Written contracts in `docs/contracts/`
+4. Tests and fixtures
+
+Treat database content and recent code changes as intentional improvements unless the user says otherwise. Update contracts, tests, fixtures, movement cases, and hardcoded references to match current content and code.
+
+A changed contract often requires code changes to match the contract.
+
+Tests are meant to reveal unexpected regressions due to code changes, where a change in one area of code impacts the behavior in another. Tests are not the source of truth for authored content: IDs, story beats, map nodes, room names, or other evolving content. They are free to use such references to demonstrate correct behavior, but then these values change, the tests that use them need to adapt.
+
+For example, if an authored ID is renamed in the database and a test still uses the old ID, update the test/reference to the new ID.
+
+Remove or replace all "legacy" values as soon as possible. Use current values when the data changes.
 
 #### Prototype map geometry tools — separate
 
