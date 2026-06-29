@@ -356,11 +356,12 @@ async function applyStoryRouteQuery() {
   }
 
   if (queryText(route.query.create) !== "1") return;
+  beginNewBeat();
+
   const mapTransition = queryText(route.query.mapTransition);
   const transitionDirection = queryText(route.query.transitionDirection);
   if (!mapTransition || !transitionDirection) return;
 
-  beginNewBeat();
   if (draft.value) {
     draft.value.match.mapTransition = mapTransition;
     draft.value.match.transitionDirection = transitionDirection;

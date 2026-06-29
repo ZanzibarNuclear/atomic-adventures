@@ -28,6 +28,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits([
+  "open-location-beat",
   "open-transition-beat",
   "move-selected",
   "rename-selected",
@@ -73,6 +74,44 @@ function transitionBeatMatches(beat, transitionId, direction) {
   }
   return match.transitionDirection === direction;
 }
+
+function locationBeatMatches(beat, selection) {
+  if (selection?.source === "rooms") {
+    return beat.trigger?.place === "indoors" && beat.trigger?.room === selection.id;
+  }
+  if (selection?.source === "nodes") {
+    return beat.trigger?.place === "indoors" && beat.trigger?.exteriorNode === selection.id;
+  }
+  return false;
+}
+
+function beatContextLabel(beat) {
+  const match = beat.match ?? {};
+  const details = [
+    match.originHex ? `from ${match.originHex}` : "",
+    match.mapTransition ? `via ${match.mapTransition}` : "",
+    match.localExit ? `via ${match.localExit}` : "",
+    match.transitionDirection || "",
+  ].filter(Boolean);
+  return details.join(" / ") || "Default location beat";
+}
+
+const locationBeatTarget = computed(() => {
+  const selection = props.selection;
+  if (selection?.source === "rooms") {
+    return { locationMode: "rooms", location: selection.id, label: "Room beats" };
+  }
+  if (selection?.source === "nodes") {
+    return { locationMode: "exterior", location: selection.id, label: "Exterior node beats" };
+  }
+  return null;
+});
+
+const associatedLocationBeats = computed(() => {
+  const selection = props.selection;
+  if (!locationBeatTarget.value) return [];
+  return props.storyBeats.filter((beat) => locationBeatMatches(beat, selection));
+});
 
 const associatedTransitionBeats = computed(() => {
   const selection = props.selection;
@@ -239,6 +278,39 @@ const summaryRows = computed(() => {
             </div>
           </div>
         </template>
+        <div v-else-if="locationBeatTarget" class="beat-associations">
+          <div>
+            <p class="label">{{ locationBeatTarget.label }}</p>
+            <p v-if="!associatedLocationBeats.length" class="empty-note">None yet.</p>
+            <ul v-else>
+              <li v-for="beat in associatedLocationBeats" :key="beat.id">
+                <button
+                  type="button"
+                  class="beat-link"
+                  @click="emit('open-location-beat', {
+                    locationMode: locationBeatTarget.locationMode,
+                    location: locationBeatTarget.location,
+                    beatId: beat.id,
+                  })"
+                >
+                  <strong>{{ beat.heading || beat.id }}</strong>
+                  <span>{{ beatContextLabel(beat) }}</span>
+                </button>
+              </li>
+            </ul>
+            <button
+              type="button"
+              class="sm muted add-beat"
+              @click="emit('open-location-beat', {
+                locationMode: locationBeatTarget.locationMode,
+                location: locationBeatTarget.location,
+                create: true,
+              })"
+            >
+              Add beat
+            </button>
+          </div>
+        </div>
       </section>
 
       <div v-if="editing" class="edit-toolbar">

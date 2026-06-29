@@ -200,6 +200,24 @@ function openTransitionBeat({
   });
 }
 
+function openLocationBeat({
+  locationMode,
+  location,
+  beatId = "",
+  create = false,
+}) {
+  if (!locationMode || !location) return;
+  void router.push({
+    path: "/builder/story",
+    query: {
+      mode: locationMode,
+      location,
+      ...(beatId ? { beat: beatId } : {}),
+      ...(create ? { create: "1" } : {}),
+    },
+  });
+}
+
 </script>
 
 <template>
@@ -281,6 +299,7 @@ function openTransitionBeat({
         @rename-selected="renameSelected"
         @duplicate-selected="duplicateSelected"
         @delete-selected="deleteSelected"
+        @open-location-beat="openLocationBeat"
         @toggle-path-add-mode="togglePathAddMode"
         @remove-selected-path-handle="removeSelectedPathHandle"
         @run-indoor-audit="runIndoorAudit"

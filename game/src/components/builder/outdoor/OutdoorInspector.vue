@@ -30,6 +30,7 @@ const props = defineProps({
   auditSummary: { type: Object, default: null },
   invalidAuditEntries: { type: Array, required: true },
   warnings: { type: Array, required: true },
+  storyBeats: { type: Array, default: () => [] },
   showHistory: { type: Boolean, default: false },
   revisions: { type: Array, required: true },
   select: { type: Function, required: true },
@@ -61,6 +62,7 @@ const props = defineProps({
   restoreRevision: { type: Function, required: true },
 });
 
+const emit = defineEmits(["open-location-beat"]);
 const editing = ref(false);
 
 watch(
@@ -79,6 +81,33 @@ const selectedTitle = computed(() => {
     return props.standEditDraft?.label || props.selected.id;
   }
   return props.selected.label || props.selected.id;
+});
+
+function beatContextLabel(beat) {
+  const match = beat.match ?? {};
+  const details = [
+    match.originHex ? `from ${match.originHex}` : "",
+    match.mapTransition ? `via ${match.mapTransition}` : "",
+    match.localExit ? `via ${match.localExit}` : "",
+    match.transitionDirection || "",
+  ].filter(Boolean);
+  return details.join(" / ") || "Default hex beat";
+}
+
+const locationBeatTarget = computed(() => {
+  if (!props.selected || props.selectedType !== "hex") return null;
+  return {
+    locationMode: "outdoors",
+    location: props.selected.id,
+    label: "Hex beats",
+  };
+});
+
+const associatedLocationBeats = computed(() => {
+  if (!locationBeatTarget.value) return [];
+  return props.storyBeats.filter((beat) =>
+    beat.trigger?.place === "outdoors" && beat.trigger?.hex === locationBeatTarget.value.location,
+  );
 });
 
 const summaryRows = computed(() => {
@@ -152,6 +181,39 @@ const summaryRows = computed(() => {
         <div v-for="[label, value] in summaryRows" :key="label" class="detail-row">
           <span>{{ label }}</span>
           <strong>{{ value || "None" }}</strong>
+        </div>
+        <div v-if="locationBeatTarget" class="beat-associations">
+          <div>
+            <p class="label">{{ locationBeatTarget.label }}</p>
+            <p v-if="!associatedLocationBeats.length" class="empty-note">None yet.</p>
+            <ul v-else>
+              <li v-for="beat in associatedLocationBeats" :key="beat.id">
+                <button
+                  type="button"
+                  class="beat-link"
+                  @click="emit('open-location-beat', {
+                    locationMode: locationBeatTarget.locationMode,
+                    location: locationBeatTarget.location,
+                    beatId: beat.id,
+                  })"
+                >
+                  <strong>{{ beat.heading || beat.id }}</strong>
+                  <span>{{ beatContextLabel(beat) }}</span>
+                </button>
+              </li>
+            </ul>
+            <button
+              type="button"
+              class="sm muted add-beat"
+              @click="emit('open-location-beat', {
+                locationMode: locationBeatTarget.locationMode,
+                location: locationBeatTarget.location,
+                create: true,
+              })"
+            >
+              Add beat
+            </button>
+          </div>
         </div>
       </section>
 
@@ -294,6 +356,35 @@ const summaryRows = computed(() => {
 }
 .detail-row span { color: #8e96a3; font-size: .75rem; }
 .detail-row strong { min-width: 0; overflow-wrap: anywhere; color: #eef1f5; font-size: .85rem; font-weight: 600; }
+.beat-associations {
+  display: grid;
+  gap: .65rem;
+  padding-top: .65rem;
+  border-top: 1px solid #343d4d;
+}
+.beat-associations p { margin: 0; }
+.beat-associations ul {
+  display: grid;
+  gap: .35rem;
+  margin: .35rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.beat-associations li { display: block; }
+.beat-link {
+  display: grid;
+  gap: .1rem;
+  width: 100%;
+  padding: .45rem .55rem;
+  border: 1px solid #394457;
+  border-radius: 7px;
+  background: #202733;
+  text-align: left;
+}
+.beat-link:hover { border-color: #5f718f; background: #273142; }
+.beat-link strong { color: #eef1f5; font-size: .8rem; }
+.beat-link span { color: #9da7b5; font-size: .74rem; }
+.add-beat { width: 100%; margin-top: .4rem; justify-content: center; }
 .inspector input, .inspector textarea, .inspector select,
 .inspector :deep(input), .inspector :deep(textarea), .inspector :deep(select) {
   width: 100%;

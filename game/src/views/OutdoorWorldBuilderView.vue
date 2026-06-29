@@ -7,6 +7,7 @@ import UnsavedChangesDialog from "../components/builder/UnsavedChangesDialog.vue
 import OutdoorCanvasPanel from "../components/builder/outdoor/OutdoorCanvasPanel.vue";
 import OutdoorInspector from "../components/builder/outdoor/OutdoorInspector.vue";
 import OutdoorObjectBrowser from "../components/builder/outdoor/OutdoorObjectBrowser.vue";
+import { storyApi } from "../lib/storyApi.js";
 import { useOutdoorWorld } from "../lib/maps/composables/useOutdoorWorld.js";
 import {
   buildMapMovementAudit,
@@ -37,6 +38,7 @@ const landmarkDraft = ref(null);
 const landmarkEditDraft = ref(null);
 const standDraft = ref(null);
 const standEditDraft = ref(null);
+const storyBeats = ref([]);
 let resizeObserver = null;
 
 const emptyWorld = {
@@ -175,7 +177,11 @@ const {
 
 onMounted(async () => {
   try {
-    await loadWorld();
+    const [, beatsResult] = await Promise.all([
+      loadWorld(),
+      storyApi("/api/story/areas/part-i/beats"),
+    ]);
+    storyBeats.value = beatsResult;
     await nextTick();
     fitMap();
     resizeObserver = new ResizeObserver(() => fitMap(false));
@@ -236,6 +242,24 @@ function applyZoomAction(event) {
 function setMapHost(element) {
   mapHost.value = element;
   if (resizeObserver && element) resizeObserver.observe(element);
+}
+
+function openLocationBeat({
+  locationMode,
+  location,
+  beatId = "",
+  create = false,
+}) {
+  if (!locationMode || !location) return;
+  void router.push({
+    path: "/builder/story",
+    query: {
+      mode: locationMode,
+      location,
+      ...(beatId ? { beat: beatId } : {}),
+      ...(create ? { create: "1" } : {}),
+    },
+  });
 }
 
 </script>
@@ -333,6 +357,7 @@ function setMapHost(element) {
         :audit-summary="auditSummary"
         :invalid-audit-entries="invalidAuditEntries"
         :warnings="warnings"
+        :story-beats="storyBeats"
         :show-history="showHistory"
         :revisions="revisions"
         :select="select"
@@ -362,6 +387,7 @@ function setMapHost(element) {
         :move-point="movePoint"
         :remove-point="removePoint"
         :restore-revision="restoreRevision"
+        @open-location-beat="openLocationBeat"
       />
     </div>
 
