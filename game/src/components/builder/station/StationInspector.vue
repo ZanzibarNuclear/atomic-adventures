@@ -367,10 +367,6 @@ function doorInitialSummary(door) {
       </section>
 
       <div v-if="editing" class="edit-toolbar">
-        <div class="row-actions">
-          <button class="sm muted" @click="emit('move-selected', -1)">Move up</button>
-          <button class="sm muted" @click="emit('move-selected', 1)">Move down</button>
-        </div>
         <div class="row-actions object-actions">
           <button class="sm muted" :disabled="fixedSelectionSources.has(selection.source)" @click="emit('rename-selected')">Rename</button>
           <button class="sm muted" :disabled="fixedSelectionSources.has(selection.source)" @click="emit('duplicate-selected')">Duplicate</button>
