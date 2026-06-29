@@ -234,6 +234,24 @@ describe("StoryRepository", () => {
     db.close();
   });
 
+  it("round-trips multiple origin-hex beat matching", () => {
+    const { db, repository } = createRepository();
+    repository.createBeat("test-area", sampleBeat({
+      match: { originHex: ["the-flats", "west-slope"] },
+    }));
+
+    const beat = repository.getBeat("test-area", "test-beat");
+    expect(beat.match).toEqual({
+      originHex: ["the-flats", "west-slope"],
+      localExit: null,
+      mapTransition: null,
+      transitionDirection: null,
+    });
+    expect(repository.getRuntimeStory().areas["test-area"].beats["test-beat"].match)
+      .toEqual({ originHex: ["the-flats", "west-slope"] });
+    db.close();
+  });
+
   it("round-trips legacy localExit beat matching", () => {
     const { db, repository } = createRepository();
     repository.createBeat("test-area", sampleBeat({

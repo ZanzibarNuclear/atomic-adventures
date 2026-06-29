@@ -221,7 +221,7 @@ export class StoryRepository {
       for (const original of this.listBeats(area.id, { full: true })) {
         const beat = structuredClone(original);
         if (beat.trigger.hex) beat.trigger.hex = rename(beat.trigger.hex);
-        if (beat.match?.originHex) beat.match.originHex = rename(beat.match.originHex);
+        if (beat.match?.originHex) beat.match.originHex = mapOriginHexes(beat.match.originHex, rename);
         if (beat.trigger.room) beat.trigger.room = resolveRename(roomRenameMap, beat.trigger.room);
         if (beat.trigger.exteriorNode) {
           beat.trigger.exteriorNode = resolveRename(exteriorRenameMap, beat.trigger.exteriorNode);
@@ -282,7 +282,7 @@ export class StoryRepository {
             path: "trigger.hex",
           });
         }
-        if (beat.match?.originHex === hexId) {
+        if (originHexList(beat.match?.originHex).includes(hexId)) {
           references.push({
             kind: "story",
             areaId: area.id,
@@ -369,8 +369,8 @@ export class StoryRepository {
           beat.trigger.hex = rename(beat.trigger.hex);
           changed = true;
         }
-        if (beat.match?.originHex && renameMap.has(beat.match.originHex)) {
-          beat.match.originHex = rename(beat.match.originHex);
+        if (originHexList(beat.match?.originHex).some((originHex) => renameMap.has(originHex))) {
+          beat.match.originHex = mapOriginHexes(beat.match.originHex, rename);
           changed = true;
         }
         for (const choice of beat.choices) {
@@ -584,11 +584,28 @@ function parseMatchJson(value) {
   const parsed = JSON.parse(value || "{}");
   const mapTransition = nullableText(parsed.mapTransition);
   return {
-    originHex: nullableText(parsed.originHex),
+    originHex: originHexValue(parsed.originHex),
     localExit: nullableText(parsed.localExit),
     mapTransition,
     transitionDirection: nullableText(parsed.transitionDirection),
   };
+}
+
+function originHexList(value) {
+  if (Array.isArray(value)) return value.map(String).map((item) => item.trim()).filter(Boolean);
+  if (typeof value === "string") return value.split(",").map((item) => item.trim()).filter(Boolean);
+  return [];
+}
+
+function originHexValue(value) {
+  const origins = originHexList(value);
+  if (!origins.length) return null;
+  return origins.length === 1 ? origins[0] : origins;
+}
+
+function mapOriginHexes(value, mapper) {
+  const origins = originHexList(value).map(mapper);
+  return origins.length === 1 ? origins[0] : origins;
 }
 
 function compactObject(value) {

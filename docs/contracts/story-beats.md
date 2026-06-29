@@ -136,7 +136,9 @@ utility-yard-from-flats:
 
 `originHex` means the neighboring outdoor hex the avatar entered from. The
 runtime reads it from `outdoor.state.previousId`, the same movement hint used to
-choose destination stands. It is valid only on outdoor hex beats.
+choose destination stands. It is valid only on outdoor hex beats. `originHex`
+may be one neighboring hex ID or a list of neighboring hex IDs when the same
+beat should match multiple approaches.
 
 `mapTransition` examples:
 
@@ -178,6 +180,9 @@ Selection examples for `utility-yard`:
   `utility-yard` beat when the player moves from `the-flats` into
   `utility-yard`. Beats with only `match.mapTransition` are not eligible for this
   inter-hex selection pass.
+- A beat with `match: { originHex: [north-bend, east-pines] }` wins over the
+  default `utility-yard` beat when the player moves from either listed adjacent
+  hex into `utility-yard`.
 - A beat with `match: { mapTransition: garage-exit, transitionDirection: toRegional }`
   wins over the default `utility-yard` beat when the player returns to the
   world through the garage map transition. Beats with only `match.originHex`

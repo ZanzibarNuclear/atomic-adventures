@@ -457,6 +457,32 @@ describe("useStory reactive content", () => {
     expect(setup.api.pendingBeat.value.id).toBe("utility-yard-from-flats");
   });
 
+  it("matches an outdoor beat with multiple origin hexes", () => {
+    const setup = harness({
+      beats: {
+        "utility-yard-default": {
+          heading: "Default yard",
+          text: "The utility station is just ahead.",
+          trigger: { place: "outdoors", hex: "origin" },
+          choices: [],
+        },
+        "utility-yard-from-east-arc": {
+          heading: "Eastern approach",
+          text: "The eastern paths bring you in by the intake.",
+          trigger: { place: "outdoors", hex: "origin" },
+          match: { originHex: ["northeast", "east", "southeast"] },
+          choices: [],
+        },
+      },
+    }, {
+      initialOriginHex: "east",
+    });
+
+    setup.api.refreshNarrative();
+
+    expect(setup.api.pendingBeat.value.id).toBe("utility-yard-from-east-arc");
+  });
+
   it("falls back to the default outdoor beat when origin-specific beats do not match", () => {
     const setup = harness({
       beats: {

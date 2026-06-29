@@ -141,4 +141,24 @@ describe("useStoryBeatDocument", () => {
 
     expect(document.dirty.value).toBe(false);
   });
+
+  it("normalizes a single origin hex into an editable list", async () => {
+    storyApi.mockImplementation(async (url) => {
+      if (url === "/api/story/areas/part-i/beats/origin") {
+        return {
+          beat: {
+            ...beat,
+            match: { originHex: "the-flats", localExit: null, mapTransition: null, transitionDirection: null },
+          },
+        };
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    const { document } = createDocument();
+
+    await document.openFirstBeatForSelectedLocation();
+
+    expect(document.draft.value.match.originHex).toEqual(["the-flats"]);
+    expect(document.dirty.value).toBe(false);
+  });
 });

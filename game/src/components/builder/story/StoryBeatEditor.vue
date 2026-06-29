@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import RevisionHistoryPanel from "../RevisionHistoryPanel.vue";
 import StoryChoiceEditor from "./StoryChoiceEditor.vue";
 
@@ -15,6 +15,7 @@ const props = defineProps({
   revisions: { type: Array, default: () => [] },
   destinationType: { type: Function, required: true },
   selectedLocation: { type: String, default: "" },
+  originHexOptions: { type: Array, default: () => [] },
 });
 
 defineEmits([
@@ -33,11 +34,72 @@ defineEmits([
 ]);
 
 const activeTab = ref("story");
+const selectedOriginHex = ref("");
+const editingLocationCriteria = ref(false);
+const editingTimeCriteria = ref(false);
+
+const selectedOriginHexes = computed(() =>
+  Array.isArray(props.draft?.match?.originHex)
+    ? props.draft.match.originHex
+    : props.draft?.match?.originHex
+      ? [props.draft.match.originHex]
+      : [],
+);
+
+const availableOriginHexOptions = computed(() => {
+  const selected = new Set(selectedOriginHexes.value);
+  return props.originHexOptions.filter((hex) => !selected.has(hex.id));
+});
+
+const locationCriteriaSummary = computed(() => {
+  if (!props.draft) return [];
+  const match = props.draft.match ?? {};
+  const summary = [];
+  if (selectedOriginHexes.value.length) {
+    summary.push(`Origin: ${selectedOriginHexes.value.map(hexLabel).join(", ")}`);
+  }
+  if (match.mapTransition) {
+    summary.push(`Map transition: ${transitionLabel(match.mapTransition)}`);
+  }
+  if (match.transitionDirection) {
+    summary.push(`Direction: ${directionLabel(match.transitionDirection)}`);
+  }
+  return summary;
+});
+
+const timeCriteriaSummary = computed(() => {
+  if (!props.draft) return [];
+  const time = props.draft.time ?? {};
+  const summary = [];
+  if (Array.isArray(time.days) && time.days.length) summary.push(`Days: ${time.days.join(", ")}`);
+  if (time.dayFrom != null) summary.push(`Day from: ${time.dayFrom}`);
+  if (time.dayTo != null) summary.push(`Day to: ${time.dayTo}`);
+  if (time.phase) summary.push(`Phase: ${time.phase}`);
+  if (time.minuteOfDayFrom != null) summary.push(`Minute from: ${time.minuteOfDayFrom}`);
+  if (time.minuteOfDayTo != null) summary.push(`Minute to: ${time.minuteOfDayTo}`);
+  if (time.elapsedFrom != null) summary.push(`Elapsed from: ${time.elapsedFrom}`);
+  if (time.elapsedTo != null) summary.push(`Elapsed to: ${time.elapsedTo}`);
+  if (time.afterMilestone) summary.push(`After: ${time.afterMilestone}`);
+  if (time.beforeMilestone) summary.push(`Before: ${time.beforeMilestone}`);
+  return summary;
+});
 
 watch(
   () => props.selectedLocation,
   () => {
     activeTab.value = "story";
+    selectedOriginHex.value = "";
+    editingLocationCriteria.value = false;
+    editingTimeCriteria.value = false;
+  },
+);
+
+watch(
+  () => props.draft,
+  () => {
+    selectedOriginHex.value = "";
+    editingLocationCriteria.value = false;
+    editingTimeCriteria.value = false;
   },
 );
 
@@ -50,6 +112,44 @@ function setDayList(event) {
     .split(",")
     .map((item) => Number(item.trim()))
     .filter((item) => Number.isFinite(item));
+}
+
+function ensureOriginHexList() {
+  props.draft.match.originHex = selectedOriginHexes.value;
+}
+
+function addOriginHex() {
+  const id = selectedOriginHex.value;
+  if (!id) return;
+  ensureOriginHexList();
+  if (!props.draft.match.originHex.includes(id)) {
+    props.draft.match.originHex = [...props.draft.match.originHex, id];
+  }
+  selectedOriginHex.value = "";
+}
+
+function removeOriginHex(id) {
+  ensureOriginHexList();
+  props.draft.match.originHex = props.draft.match.originHex.filter((originId) => originId !== id);
+}
+
+function hexLabel(id) {
+  const hex = props.catalog.world.hexes.find((item) => item.id === id);
+  return hex ? `${hex.label} (${hex.id})` : id;
+}
+
+function transitionLabel(id) {
+  const transition = [
+    ...(props.catalog.world.mapTransitions ?? []),
+    ...(props.catalog.world.localExits ?? []),
+  ].find((item) => item.id === id);
+  return transition ? `${transition.label} (${transition.id})` : id;
+}
+
+function directionLabel(value) {
+  if (value === "toLocal") return "To local map";
+  if (value === "toRegional") return "To regional map";
+  return value;
 }
 </script>
 
@@ -89,6 +189,16 @@ function setDayList(event) {
         <button
           type="button"
           class="sm"
+          :class="{ active: activeTab === 'criteria' }"
+          role="tab"
+          :aria-selected="activeTab === 'criteria'"
+          @click="activeTab = 'criteria'"
+        >
+          Criteria
+        </button>
+        <button
+          type="button"
+          class="sm"
           :class="{ active: activeTab === 'choices' }"
           role="tab"
           :aria-selected="activeTab === 'choices'"
@@ -104,44 +214,109 @@ function setDayList(event) {
             <input v-model="draft.id" />
             <span v-if="fieldError('id')" class="field-error">{{ fieldError("id") }}</span>
           </label>
-          <label v-if="draftIsOutdoorHexBeat">Origin hex
-            <select v-model="draft.match.originHex">
-              <option :value="null">Default</option>
-              <option v-for="hex in catalog.world.hexes" :key="hex.id" :value="hex.id">{{ hex.label }} ({{ hex.id }})</option>
-            </select>
-            <span v-if="fieldError('match.originHex')" class="field-error">{{ fieldError("match.originHex") }}</span>
-          </label>
-          <label>Map transition
-            <select v-model="draft.match.mapTransition">
-              <option :value="null">Default</option>
-              <option
-                v-for="transition in catalog.world.mapTransitions ?? catalog.world.localExits"
-                :key="transition.id"
-                :value="transition.id"
-              >
-                {{ transition.label }} ({{ transition.id }})
-              </option>
-            </select>
-            <span v-if="fieldError('match.mapTransition')" class="field-error">{{ fieldError("match.mapTransition") }}</span>
-          </label>
-          <label>Transition direction
-            <select v-model="draft.match.transitionDirection">
-              <option :value="null">Any direction</option>
-              <option value="toLocal">To local map</option>
-              <option value="toRegional">To regional map</option>
-            </select>
-            <span v-if="fieldError('match.transitionDirection')" class="field-error">{{ fieldError("match.transitionDirection") }}</span>
-          </label>
-        </div>
-
-        <div class="field-grid">
           <label>Eyebrow<input v-model="draft.eyebrow" /></label>
           <label>Heading<input v-model="draft.heading" /></label>
         </div>
 
-        <details>
-          <summary>Time criteria</summary>
-          <div class="field-grid">
+        <label>Story text
+          <textarea v-model="draft.text" rows="10" />
+          <span v-if="fieldError('text')" class="field-error">{{ fieldError("text") }}</span>
+        </label>
+        <label>Revisit text<textarea v-model="draft.revisit" rows="5" /></label>
+      </div>
+
+      <div v-show="activeTab === 'criteria'" class="tab-panel" role="tabpanel">
+        <section class="criteria-card">
+          <div class="criteria-card-header">
+            <h3>Location based</h3>
+            <button
+              type="button"
+              class="sm muted"
+              @click="editingLocationCriteria = !editingLocationCriteria"
+            >
+              {{ editingLocationCriteria ? "Done" : "Edit" }}
+            </button>
+          </div>
+
+          <div v-if="!editingLocationCriteria" class="criteria-readonly">
+            <span
+              v-for="item in locationCriteriaSummary"
+              :key="item"
+              class="summary-chip"
+            >
+              {{ item }}
+            </span>
+            <p v-if="!locationCriteriaSummary.length" class="empty-origin-list">No location criteria.</p>
+          </div>
+
+          <div v-else class="field-grid">
+            <label v-if="draftIsOutdoorHexBeat" class="span-all">Origin hexes
+              <div class="origin-picker">
+                <div v-if="selectedOriginHexes.length" class="selected-origin-list">
+                  <span v-for="hexId in selectedOriginHexes" :key="hexId" class="origin-chip">
+                    {{ hexLabel(hexId) }}
+                    <button type="button" class="chip-remove" :aria-label="`Remove origin hex ${hexId}`" @click="removeOriginHex(hexId)">x</button>
+                  </span>
+                </div>
+                <p v-else class="empty-origin-list">Default: any adjacent origin.</p>
+                <div class="origin-add-row">
+                  <select v-model="selectedOriginHex">
+                    <option value="">Specify an origin...</option>
+                    <option v-for="hex in availableOriginHexOptions" :key="hex.id" :value="hex.id">{{ hex.label }} ({{ hex.id }})</option>
+                  </select>
+                  <button type="button" class="sm" :disabled="!selectedOriginHex" @click="addOriginHex">Add</button>
+                </div>
+              </div>
+              <span v-if="fieldError('match.originHex')" class="field-error">{{ fieldError("match.originHex") }}</span>
+            </label>
+            <label>Map transition
+              <select v-model="draft.match.mapTransition">
+                <option :value="null">Default</option>
+                <option
+                  v-for="transition in catalog.world.mapTransitions ?? catalog.world.localExits"
+                  :key="transition.id"
+                  :value="transition.id"
+                >
+                  {{ transition.label }} ({{ transition.id }})
+                </option>
+              </select>
+              <span v-if="fieldError('match.mapTransition')" class="field-error">{{ fieldError("match.mapTransition") }}</span>
+            </label>
+            <label>Transition direction
+              <select v-model="draft.match.transitionDirection">
+                <option :value="null">Any direction</option>
+                <option value="toLocal">To local map</option>
+                <option value="toRegional">To regional map</option>
+              </select>
+              <span v-if="fieldError('match.transitionDirection')" class="field-error">{{ fieldError("match.transitionDirection") }}</span>
+            </label>
+          </div>
+        </section>
+
+        <section class="criteria-card">
+          <div class="criteria-card-header">
+            <h3>Time based</h3>
+            <button
+              type="button"
+              class="sm muted"
+              @click="editingTimeCriteria = !editingTimeCriteria"
+            >
+              {{ editingTimeCriteria ? "Done" : "Edit" }}
+            </button>
+          </div>
+
+          <div v-if="!editingTimeCriteria" class="criteria-readonly">
+            <span
+              v-for="item in timeCriteriaSummary"
+              :key="item"
+              class="summary-chip"
+            >
+              {{ item }}
+            </span>
+            <p v-if="!timeCriteriaSummary.length" class="empty-origin-list">No time criteria.</p>
+          </div>
+
+          <div v-else class="field-grid">
             <label>Days
               <input
                 :value="draft.time.days.join(', ')"
@@ -173,13 +348,7 @@ function setDayList(event) {
               <input v-model="draft.time.beforeMilestone" placeholder="library.sleep-1" />
             </label>
           </div>
-        </details>
-
-        <label>Story text
-          <textarea v-model="draft.text" rows="10" />
-          <span v-if="fieldError('text')" class="field-error">{{ fieldError("text") }}</span>
-        </label>
-        <label>Revisit text<textarea v-model="draft.revisit" rows="5" /></label>
+        </section>
       </div>
 
       <div v-show="activeTab === 'choices'" class="tab-panel" role="tabpanel">
@@ -287,10 +456,100 @@ textarea {
   line-height: 1.5;
 }
 
+.criteria-card {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid #3b4557;
+  border-radius: 8px;
+  background: #1b2029;
+  padding: 0.85rem;
+}
+
+.criteria-card-header,
+.criteria-readonly {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.criteria-card-header {
+  justify-content: space-between;
+}
+
+.criteria-card-header h3 {
+  margin: 0;
+  color: #e5ecf5;
+  font-size: 0.98rem;
+}
+
+.criteria-readonly {
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.summary-chip {
+  border: 1px solid #465268;
+  border-radius: 999px;
+  background: #171b22;
+  color: #c9d1dc;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
 .field-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.7rem;
+}
+
+.span-all {
+  grid-column: 1 / -1;
+}
+
+.origin-picker {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.selected-origin-list,
+.origin-add-row {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.origin-add-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.origin-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid #526072;
+  border-radius: 999px;
+  background: #242c38;
+  color: #eef1f5;
+  padding: 0.25rem 0.3rem 0.25rem 0.6rem;
+}
+
+.chip-remove {
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  line-height: 1;
+}
+
+.empty-origin-list {
+  margin: 0;
+  color: #9aa4b5;
+  font-size: 0.8rem;
 }
 
 fieldset {
@@ -351,6 +610,10 @@ legend {
 
 @media (max-width: 720px) {
   .field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .origin-add-row {
     grid-template-columns: 1fr;
   }
 }

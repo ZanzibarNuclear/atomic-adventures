@@ -87,9 +87,12 @@ export function validateBeat(input, world, character = null) {
   if (beat.trigger.exteriorNode && !world.exteriorNodeIds.has(beat.trigger.exteriorNode)) {
     add("trigger.exteriorNode", "Choose an existing exterior node.");
   }
-  if (beat.match.originHex) {
+  const originHexes = stringList(beat.match.originHex);
+  if (originHexes.length) {
     if (!beat.trigger.hex) add("match.originHex", "Origin hex matching is only supported for outdoor hex beats.");
-    if (!world.hexIds.has(beat.match.originHex)) add("match.originHex", "Choose an existing origin hex.");
+    for (const originHex of originHexes) {
+      if (!world.hexIds.has(originHex)) add("match.originHex", "Choose existing origin hexes.");
+    }
   }
   if (beat.match.localExit) {
     if (!beat.trigger.hex) add("match.localExit", "Map transition return matching is only supported for outdoor hex beats.");
@@ -193,11 +196,17 @@ function normalizeMatch(value = {}) {
   const mapTransition = nullableText(value.mapTransition);
   const localExit = nullableText(value.localExit);
   return {
-    originHex: nullableText(value.originHex),
+    originHex: originHexValue(value.originHex),
     localExit,
     mapTransition: mapTransition ?? null,
     transitionDirection: nullableText(value.transitionDirection),
   };
+}
+
+function originHexValue(value) {
+  const origins = stringList(value);
+  if (!origins.length) return null;
+  return origins.length === 1 ? origins[0] : origins;
 }
 
 function normalizeBeatTime(value = {}) {

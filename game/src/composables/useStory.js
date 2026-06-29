@@ -113,13 +113,15 @@ export function useStory(storyData, ctx) {
 
   function matchScore(beat, loc, action = storyActionContext(loc)) {
     const match = beat.match ?? {};
+    const originHexes = originHexList(match.originHex);
+    const hasOriginHex = originHexes.length > 0;
     const hasMapTransition = Boolean(match.mapTransition || match.localExit);
-    const hasMatch = Boolean(match.originHex || hasMapTransition || match.transitionDirection);
+    const hasMatch = Boolean(hasOriginHex || hasMapTransition || match.transitionDirection);
     let relevant = 0;
     let score = 0;
-    if (action === "enterOutdoorHex" && match.originHex) {
+    if (action === "enterOutdoorHex" && hasOriginHex) {
       relevant += 1;
-      if (loc.place !== "outdoors" || match.originHex !== loc.originHex) return -1;
+      if (loc.place !== "outdoors" || !originHexes.includes(loc.originHex)) return -1;
       score += 1;
     }
     if (action === "exitLocalMap" && match.localExit) {
@@ -386,6 +388,11 @@ export function useStory(storyData, ctx) {
     dismissEndCard,
     refreshNarrative,
   };
+}
+
+function originHexList(value) {
+  if (Array.isArray(value)) return value.map(String).filter(Boolean);
+  return value ? [String(value)] : [];
 }
 
 function hasTimeCriteria(time = {}) {

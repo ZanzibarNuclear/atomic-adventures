@@ -8,7 +8,7 @@ function clonePlain(value) {
 function ensureEditableBeat(value) {
   const next = clonePlain(value);
   next.match ??= { originHex: null, localExit: null };
-  next.match.originHex ??= null;
+  next.match.originHex = stringList(next.match.originHex);
   next.match.localExit ??= null;
   next.match.mapTransition ??= next.match.localExit ?? null;
   next.match.transitionDirection ??= null;
@@ -77,7 +77,7 @@ function normalizeForDirty(value) {
       flag: nullableText(trigger.flag),
     },
     match: {
-      originHex: nullableText(beat.match?.originHex),
+      originHex: stringList(beat.match?.originHex),
       localExit: nullableText(beat.match?.localExit),
       mapTransition: nullableText(beat.match?.mapTransition),
       transitionDirection: nullableText(beat.match?.transitionDirection),
@@ -286,8 +286,8 @@ export function useStoryBeatDocument({
       }
       selectedBeatId.value = result.beat.id;
       isNew.value = false;
-      const submittedOrigin = submitted.match?.originHex ?? null;
-      const savedOrigin = result.beat.match?.originHex ?? null;
+      const submittedOrigin = stringList(submitted.match?.originHex);
+      const savedOrigin = stringList(result.beat.match?.originHex);
       const submittedLocalExit = submitted.match?.localExit ?? null;
       const savedLocalExit = result.beat.match?.localExit ?? null;
       const submittedMapTransition = submitted.match?.mapTransition ?? null;
@@ -295,7 +295,7 @@ export function useStoryBeatDocument({
       const submittedDirection = submitted.match?.transitionDirection ?? null;
       const savedDirection = result.beat.match?.transitionDirection ?? null;
       if (
-        submittedOrigin !== savedOrigin ||
+        JSON.stringify(submittedOrigin) !== JSON.stringify(savedOrigin) ||
         submittedLocalExit !== savedLocalExit ||
         submittedMapTransition !== savedMapTransition ||
         submittedDirection !== savedDirection

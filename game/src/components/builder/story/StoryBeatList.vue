@@ -7,6 +7,22 @@ defineProps({
 });
 
 defineEmits(["new", "select"]);
+
+function originHexLabel(value) {
+  const origins = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(",").map((item) => item.trim()).filter(Boolean)
+      : value
+        ? [value]
+        : [];
+  return origins.join(", ");
+}
+
+function originHexPrefix(value) {
+  const label = originHexLabel(value);
+  return label ? `from ${label}` : "";
+}
 </script>
 
 <template>
@@ -27,7 +43,7 @@ defineEmits(["new", "select"]);
     >
       <strong>{{ beat.heading || beat.id }}</strong>
       <span>{{ beat.id }}</span>
-      <small v-if="beat.match?.originHex">from {{ beat.match.originHex }}</small>
+      <small v-if="originHexPrefix(beat.match?.originHex)">{{ originHexPrefix(beat.match.originHex) }}</small>
       <small v-if="beat.match?.mapTransition || beat.match?.localExit">
         map transition {{ beat.match.mapTransition || beat.match.localExit }}
       </small>

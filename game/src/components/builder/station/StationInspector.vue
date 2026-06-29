@@ -88,12 +88,28 @@ function locationBeatMatches(beat, selection) {
 function beatContextLabel(beat) {
   const match = beat.match ?? {};
   const details = [
-    match.originHex ? `from ${match.originHex}` : "",
+    originHexPrefix(match.originHex),
     match.mapTransition ? `via ${match.mapTransition}` : "",
     match.localExit ? `via ${match.localExit}` : "",
     match.transitionDirection || "",
   ].filter(Boolean);
   return details.join(" / ") || "Default location beat";
+}
+
+function originHexLabel(value) {
+  const origins = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(",").map((item) => item.trim()).filter(Boolean)
+      : value
+        ? [value]
+        : [];
+  return origins.join(", ");
+}
+
+function originHexPrefix(value) {
+  const label = originHexLabel(value);
+  return label ? `from ${label}` : "";
 }
 
 const locationBeatTarget = computed(() => {

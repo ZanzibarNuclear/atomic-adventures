@@ -20,6 +20,7 @@ import { useDirtyDocumentNavigation } from "../composables/useDirtyDocumentNavig
 import { useStoryBeatDocument } from "../composables/useStoryBeatDocument.js";
 import { useWorldContent } from "../composables/useWorldContent.js";
 import { useBuildingContent } from "../composables/useBuildingContent.js";
+import { hexDistance } from "../lib/maps/composables/useHexGeometry.js";
 
 const { worldData, revision: worldRevision } = useWorldContent();
 const { buildingData, revision: buildingRevision } = useBuildingContent();
@@ -102,10 +103,27 @@ function beatsForLocation(mode, location) {
 const locationBeats = computed(() =>
   beatsForLocation(locationMode.value, selectedLocation.value),
 );
+const displayedLocationBeats = computed(() => {
+  const currentDraft = draft.value;
+  if (!currentDraft || !selectedBeatId.value) return locationBeats.value;
+  return locationBeats.value.map((beat) =>
+    beat.id === selectedBeatId.value ? currentDraft : beat,
+  );
+});
+function originHexLabel(value) {
+  const origins = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(",").map((item) => item.trim()).filter(Boolean)
+      : value
+        ? [value]
+        : [];
+  return origins.join("|");
+}
 const matchWarnings = computed(() => {
   const groups = new Map();
-  for (const beat of locationBeats.value) {
-    const origin = beat.match?.originHex ?? "";
+  for (const beat of displayedLocationBeats.value) {
+    const origin = originHexLabel(beat.match?.originHex);
     const mapTransition = beat.match?.mapTransition ?? beat.match?.localExit ?? "";
     const direction = beat.match?.transitionDirection ?? "";
     const key = `${locationMode.value}:${selectedLocation.value}:origin=${origin}:mapTransition=${mapTransition}:direction=${direction}`;
@@ -116,7 +134,7 @@ const matchWarnings = computed(() => {
   return [...groups.values()]
     .filter((group) => group.length > 1)
     .map((group) => {
-      const origin = group[0].match?.originHex;
+      const origin = originHexLabel(group[0].match?.originHex);
       const mapTransition = group[0].match?.mapTransition ?? group[0].match?.localExit;
       const direction = group[0].match?.transitionDirection;
       const label = [
@@ -130,6 +148,16 @@ const matchWarnings = computed(() => {
 const draftIsOutdoorHexBeat = computed(() =>
   draft.value?.trigger?.place === "outdoors" && Boolean(draft.value?.trigger?.hex),
 );
+const originHexOptions = computed(() => {
+  if (!draftIsOutdoorHexBeat.value) return [];
+  const triggerHex = draft.value?.trigger?.hex;
+  const destination = outdoor.hexById[triggerHex];
+  if (!destination) return [];
+  const options = catalog.value.world.hexes.filter((hex) =>
+    hex.id !== triggerHex && hexDistance(destination, outdoor.hexById[hex.id] ?? hex) === 1,
+  );
+  return options;
+});
 const selectedRoom = computed(() => locationMode.value === "rooms" ? selectedLocation.value : "");
 const selectedExterior = computed(() => locationMode.value === "exterior" ? selectedLocation.value : null);
 onMounted(async () => {
@@ -409,7 +437,7 @@ async function applyStoryRouteQuery() {
 
         <StoryBeatList
           :selected-location="selectedLocation"
-          :beats="locationBeats"
+          :beats="displayedLocationBeats"
           :selected-beat-id="selectedBeatId"
           :warnings="matchWarnings"
           @new="newBeat()"
@@ -429,6 +457,7 @@ async function applyStoryRouteQuery() {
         :revisions="revisions"
         :destination-type="destinationType"
         :selected-location="selectedLocation"
+        :origin-hex-options="originHexOptions"
         @save="saveBeat"
         @revert="revertDraft"
         @duplicate="newBeat"
