@@ -44,6 +44,7 @@ defineEmits([
       :builder-view="true"
       :clickable-hex-ids="allHexSet"
       :avatar-instant="true"
+      :show-legend="false"
       @hex-click="$emit('select-hex', $event)" />
 
     <template v-else>
