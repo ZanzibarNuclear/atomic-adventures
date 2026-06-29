@@ -101,6 +101,19 @@ describe('getMovementOptions', () => {
     expect(options.map((option) => option.label)).toContain('Try the trail again')
   })
 
+  it('omits disabled story choices from play actions', () => {
+    const pendingBeat = {
+      choices: [
+        { text: 'Study the sealed controls', disabled: true },
+        { text: 'Step back from the console' },
+      ],
+    }
+
+    expect(buildStoryChoices(pendingBeat).map((option) => option.label)).toEqual([
+      'Step back from the console',
+    ])
+  })
+
   it('does not add movement options beside a story destination', () => {
     const pendingBeat = {
       choices: [{ text: 'Keep walking west', go_hex: 'east-pines' }],
@@ -322,6 +335,46 @@ describe('getMovementOptions', () => {
       'move-stand:stairs-bottom',
       'pickup:wrench',
     ])
+  })
+
+  it('omits locked door actions when the player cannot unlock them', () => {
+    const indoor = {
+      indoorMoves: [],
+      roomPickups: [],
+      availableActions: [],
+      nearbyDoors: [{ doorId: 'side-door', toName: 'Side Door' }],
+      roomSwitches: [],
+      building: {
+        areaId: 'utility-station',
+        doorById: {
+          'side-door': {
+            id: 'side-door',
+            label: 'Side Door',
+            lock: { key: 'side-door-key' },
+          },
+        },
+      },
+      indoor: {
+        doorState: {
+          'utility-station:side-door': {
+            open: false,
+            locked: true,
+            lockBroken: false,
+          },
+        },
+        facility: {},
+      },
+      character: new Set(),
+      playerRoomId: 'yard',
+      doorStateFor: (doorId) => indoor.indoor.doorState[`utility-station:${doorId}`],
+      doorLockHint: () => 'Needs a key.',
+      canToggleDoorLock: () => false,
+    }
+
+    const actions = buildIndoorPlayActions(indoor)
+
+    expect(actions.map((action) => action.id)).not.toContain('door-lock:side-door')
+    expect(actions.some((action) => action.disabled)).toBe(false)
   })
 
   it('lets indoor story choices replace matching generic movement actions', () => {

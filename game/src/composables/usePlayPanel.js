@@ -17,6 +17,10 @@ function actionButtonLabel(action) {
   return action.label;
 }
 
+export function isVisibleAction(action) {
+  return !action.disabled;
+}
+
 /**
  * Story choice buttons for the play panel (prose stays in NarrativeCard).
  * Story choices with go_hex use the same enterability predicate as movement options.
@@ -25,13 +29,12 @@ export function buildStoryChoices(pendingBeat, canReachHex = () => true) {
   if (!pendingBeat?.choices?.length) return [];
   return pendingBeat.choices
     .map((choice, index) => ({ choice, index }))
+    .filter(({ choice }) => !choice.disabled)
     .filter(({ choice }) => !choice.go_hex || canReachHex(choice.go_hex))
     .map(({ choice, index }) => ({
       id: `story:${index}`,
       toHexId: choice.go_hex ?? null,
       label: choice.text,
-      disabled: choice.disabled,
-      hint: choice.disabled ? "Requirements not met" : null,
     }));
 }
 
@@ -163,7 +166,7 @@ export function buildOutdoorPlayActions(outdoor, pendingBeat = null) {
     ...buildOutdoorPassageUnlockActions(outdoor),
     ...buildOutdoorPassageToggleActions(outdoor),
     ...buildOutdoorPassageActions(outdoor),
-  ];
+  ].filter(isVisibleAction);
 }
 
 export function getMovementOptions(outdoor, pendingBeat) {
@@ -319,7 +322,7 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
     });
   }
 
-  return items;
+  return items.filter(isVisibleAction);
 }
 
 function movementLabel(move) {
