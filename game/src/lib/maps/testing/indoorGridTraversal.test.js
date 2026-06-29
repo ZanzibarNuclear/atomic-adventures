@@ -5,6 +5,8 @@ import {
   exteriorMovesFrom,
   exteriorPathBetween,
   exteriorReachableNodes,
+  isFixtureFogged,
+  isFixtureMapped,
   mapVisibilityCtx,
   movesFrom,
 } from "../composables/useGrid.js";
@@ -89,6 +91,24 @@ describe("utility station grid traversal contract", () => {
       "upstream-bank",
       "midstream-bank",
     ]);
+  });
+
+  it("keeps visual-only stone stairs mapped and unfogged before room discovery", () => {
+    const fixture = building.fixtures.find((item) => item.id === "stone-riverbank-stair");
+    const visibility = mapVisibilityCtx(
+      [],
+      [],
+      building,
+      buildInitialDoorState(building.areaId, building),
+      building.areaId,
+    );
+
+    expect(fixture).toMatchObject({
+      kind: "straight-stairs",
+      visualOnly: true,
+    });
+    expect(isFixtureMapped(fixture, visibility)).toBe(true);
+    expect(isFixtureFogged(fixture, visibility)).toBe(false);
   });
 
   it("reaches every standable room when authored doors are open", () => {

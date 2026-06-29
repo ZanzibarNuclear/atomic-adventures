@@ -399,8 +399,12 @@ export function handleIndoorPlayAction(indoor, actionId) {
     indoor.tryToggleLock(actionId.slice("door-lock:".length));
     return;
   }
-  if (actionId.startsWith("door-open:") || actionId.startsWith("door-close:")) {
-    indoor.tryToggleDoor(actionId.split(":").slice(1).join(":"));
+  if (actionId.startsWith("door-open:")) {
+    indoor.tryOpenDoor(actionId.slice("door-open:".length));
+    return;
+  }
+  if (actionId.startsWith("door-close:")) {
+    indoor.tryCloseDoor(actionId.slice("door-close:".length));
     return;
   }
   if (actionId.startsWith("switch:")) {

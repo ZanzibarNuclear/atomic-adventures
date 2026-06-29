@@ -158,9 +158,10 @@ const summaryRows = computed(() => {
   if (selection.source === "doors") {
     return [
       ["ID", selection.id],
-      ["Rooms", [entity.a, entity.b].filter(Boolean).join(" <-> ")],
+      ["Rooms", doorRoomSummary(selection.id, entity)],
       ["Kind", entity.kind || "door"],
-      ["Initially open", entity.initiallyOpen ? "Yes" : "No"],
+      ["State", doorInitialSummary(entity)],
+      ["Key", entity.lock?.key || entity.key || "None"],
     ];
   }
   if (selection.source === "paths") {
@@ -196,8 +197,44 @@ const summaryRows = computed(() => {
       ["Position", entity.at ? `${entity.at.x}, ${entity.at.y}` : "Default"],
     ];
   }
+  if (selection.source === "links") {
+    return [
+      ["ID", selection.id],
+      ["From", entity.from],
+      ["To", entity.to],
+      ["Kind", entity.kind || "open"],
+      ["Door", entity.door || "None"],
+    ];
+  }
+  if (selection.source === "fixtures" || selection.source === "walls") {
+    return [
+      ["ID", selection.id],
+      ["Kind", selection.source === "walls" ? "stone wall" : entity.kind || "fixture"],
+      ["Role", entity.visualOnly ? "Visual only" : "Traversal"],
+      ["Levels", (entity.onLevels ?? []).join(", ") || "Default"],
+    ];
+  }
   return [["ID", selection.id]];
 });
+
+function doorRoomSummary(doorId, door) {
+  const rooms = new Set();
+  if (door.room) rooms.add(door.room);
+  for (const link of props.draft.links ?? []) {
+    if (link.kind === "door" && link.door === doorId) {
+      if (link.from) rooms.add(link.from);
+      if (link.to) rooms.add(link.to);
+    }
+  }
+  return [...rooms].join(" <-> ") || "None";
+}
+
+function doorInitialSummary(door) {
+  const initial = door.initial ?? {};
+  const open = initial.open ?? (initial.closed != null ? !initial.closed : false);
+  const locked = initial.locked === true;
+  return `${open ? "Open" : "Closed"}${locked ? ", locked" : ""}`;
+}
 
 </script>
 
@@ -334,7 +371,7 @@ const summaryRows = computed(() => {
           <button class="sm muted" @click="emit('move-selected', -1)">Move up</button>
           <button class="sm muted" @click="emit('move-selected', 1)">Move down</button>
         </div>
-        <div class="row-actions">
+        <div class="row-actions object-actions">
           <button class="sm muted" :disabled="fixedSelectionSources.has(selection.source)" @click="emit('rename-selected')">Rename</button>
           <button class="sm muted" :disabled="fixedSelectionSources.has(selection.source)" @click="emit('duplicate-selected')">Duplicate</button>
           <button class="sm danger-outline" :disabled="['fixtures', 'walls'].includes(selection.source)" @click="emit('delete-selected')">Delete</button>
@@ -433,9 +470,17 @@ const summaryRows = computed(() => {
 <style scoped>
 .panel { min-width: 0; border: 1px solid #343d4d; border-radius: 10px; background: #20252f; padding: .75rem; }
 .inspector { overflow: auto; display: grid; align-content: start; gap: .7rem; }
-.inspector-heading { display: flex; justify-content: space-between; gap: .65rem; align-items: start; }
+.inspector-heading, .row-actions, .inspector :deep(.row-actions), .inspector :deep(.point-heading) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+.inspector-heading { align-items: start; }
 .inspector h3 { margin: 0; overflow-wrap: anywhere; }
-.inspector input, .inspector textarea, .inspector select {
+.inspector input, .inspector textarea, .inspector select,
+.inspector :deep(input), .inspector :deep(textarea), .inspector :deep(select) {
   width: 100%;
   border: 1px solid #485267;
   border-radius: 7px;
@@ -443,7 +488,7 @@ const summaryRows = computed(() => {
   color: #eef1f5;
   padding: .45rem .55rem;
 }
-.inspector label { display: grid; gap: .3rem; color: #bdc4ce; font-size: .8rem; }
+.inspector label, .inspector :deep(label) { display: grid; gap: .3rem; color: #bdc4ce; font-size: .8rem; }
 .inspector :deep(.form-section) {
   display: grid;
   gap: .55rem;
@@ -470,13 +515,11 @@ const summaryRows = computed(() => {
   color: #9da7b5;
   font-size: .74rem;
 }
-.row-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: .5rem;
-  flex-wrap: wrap;
-}
+.inspector :deep(.field-grid) { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; }
+.inspector :deep(.check-field) { display: flex !important; align-items: center; }
+.inspector :deep(.check-field input) { width: auto; }
+.inspector :deep(fieldset) { display: grid; gap: .55rem; margin: 0; padding: .65rem; border: 1px solid #3b4557; border-radius: 8px; }
+.inspector :deep(legend) { color: #8bc49a; }
 .detail-card, .edit-toolbar {
   display: grid;
   gap: .55rem;
@@ -522,13 +565,11 @@ const summaryRows = computed(() => {
 .beat-link strong { color: #eef1f5; font-size: .8rem; }
 .beat-link span { color: #9da7b5; font-size: .74rem; }
 .add-beat { width: 100%; margin-top: .4rem; justify-content: center; }
-button.active { background: #49624f; border-color: #6f9b79; }
-.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; }
-.check-field { display: flex !important; align-items: center; }
-.check-field input { width: auto; }
-.danger-outline { border-color: #9b5050; color: #ffb5b5; background: #3d2729; }
+button.active, .inspector :deep(button.active) { background: #49624f; border-color: #6f9b79; }
+.object-actions { justify-content: flex-start; }
+.danger-outline, .inspector :deep(.danger-outline) { border-color: #9b5050; color: #ffb5b5; background: #3d2729; }
 .empty-note { color: #939ba7; }
-.read-only-note, .audit-panel p { color: #aeb5c0; font-size: .78rem; line-height: 1.45; }
+.read-only-note, .inspector :deep(.read-only-note), .audit-panel p { color: #aeb5c0; font-size: .78rem; line-height: 1.45; }
 .audit-panel { display: grid; gap: .4rem; padding-top: .65rem; border-top: 1px solid #343d4d; }
 .field-error { color: #ff9e9e; font-size: .78rem; }
 .warning { color: #efcb83; font-size: .78rem; }

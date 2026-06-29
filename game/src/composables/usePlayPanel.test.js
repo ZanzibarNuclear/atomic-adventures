@@ -421,4 +421,22 @@ describe('getMovementOptions', () => {
       'room:large-bay',
     ])
   })
+
+  it('dispatches explicit indoor door actions without entering through open exterior doors', () => {
+    const calls = []
+    const indoor = {
+      tryOpenDoor: (id) => calls.push(`open:${id}`),
+      tryCloseDoor: (id) => calls.push(`close:${id}`),
+      tryToggleDoor: (id) => calls.push(`toggle:${id}`),
+      moveToRoom: (id) => calls.push(`room:${id}`),
+    }
+
+    handleIndoorPlayAction(indoor, 'door-open:garage-man')
+    handleIndoorPlayAction(indoor, 'door-close:garage-man')
+
+    expect(calls).toEqual([
+      'open:garage-man',
+      'close:garage-man',
+    ])
+  })
 })

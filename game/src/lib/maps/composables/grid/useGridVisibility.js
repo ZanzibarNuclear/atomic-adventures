@@ -202,6 +202,7 @@ export function isFixtureMapped(fixture, ctx) {
 
 export function isFixtureFogged(fixture, ctx) {
   if (ctx?.builderView) return false
+  if (fixture.visualOnly) return false
   if (!isFixtureMapped(fixture, ctx)) return false
   if (!fixture.revealWhenDoor) {
     const ids = fixture.connects ?? []

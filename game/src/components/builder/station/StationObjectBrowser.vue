@@ -33,6 +33,17 @@ function toggleGroup(group) {
   }
   expandedGroups.value = next;
 }
+
+function itemTitle(item) {
+  return item.label || item.id;
+}
+
+function itemMeta(item) {
+  return [
+    item.id,
+    item.kind,
+  ].filter(Boolean).join(" · ");
+}
 </script>
 
 <template>
@@ -73,8 +84,8 @@ function toggleGroup(group) {
           :class="{ active: selectedKey === `${item.source}:${item.id}` }"
           @click="$emit('select', { source: item.source, id: item.id })"
         >
-          <strong>{{ item.label }}</strong>
-          <span>{{ item.id }}</span>
+          <strong>{{ itemTitle(item) }}</strong>
+          <span>{{ itemMeta(item) }}</span>
         </button>
       </div>
     </section>
