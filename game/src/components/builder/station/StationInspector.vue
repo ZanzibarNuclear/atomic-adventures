@@ -94,6 +94,7 @@ const summaryRows = computed(() => {
   if (!selection || !entity) return [];
   if (selection.source === "rooms") {
     return [
+      ["ID", selection.id],
       ["Level", entity.level],
       ["Size", `${entity.w ?? 0} x ${entity.h ?? 0}`],
       ["Default stand", entity.defaultStand || "None"],
@@ -101,6 +102,7 @@ const summaryRows = computed(() => {
   }
   if (selection.source === "doors") {
     return [
+      ["ID", selection.id],
       ["Rooms", [entity.a, entity.b].filter(Boolean).join(" <-> ")],
       ["Kind", entity.kind || "door"],
       ["Initially open", entity.initiallyOpen ? "Yes" : "No"],
@@ -108,12 +110,14 @@ const summaryRows = computed(() => {
   }
   if (selection.source === "paths") {
     return [
+      ["ID", selection.id],
       ["Kind", entity.kind || "path"],
       ["Nodes", String((entity.nodes ?? entity.points ?? []).length)],
     ];
   }
   if (selection.source === "nodes") {
     return [
+      ["ID", selection.id],
       ["Level", entity.level],
       ["Door", entity.door || "None"],
       ["Room", entity.room || "None"],
@@ -122,6 +126,7 @@ const summaryRows = computed(() => {
   }
   if (selection.source === "exits") {
     return [
+      ["ID", selection.id],
       ["Regional hex", entity.hex || props.draft.outdoorHex || "Default"],
       ["Regional stand", entity.standAt?.stand || "Default"],
       ["Local arrival stand", entity.exteriorNode || props.draft.exterior?.entry || "Default"],
@@ -130,6 +135,7 @@ const summaryRows = computed(() => {
   }
   if (selection.source === "stands") {
     return [
+      ["ID", selection.id.split("/")[1]],
       ["Room", selection.id.split("/")[0]],
       ["Kind", entity.kind || "authored"],
       ["Position", entity.at ? `${entity.at.x}, ${entity.at.y}` : "Default"],
@@ -350,6 +356,32 @@ const summaryRows = computed(() => {
   padding: .45rem .55rem;
 }
 .inspector label { display: grid; gap: .3rem; color: #bdc4ce; font-size: .8rem; }
+.inspector :deep(.form-section) {
+  display: grid;
+  gap: .55rem;
+  padding: .65rem;
+  border: 1px solid #343d4d;
+  border-radius: 8px;
+  background: #1b2028;
+}
+.inspector :deep(.section-heading) {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .65rem;
+}
+.inspector :deep(.section-heading h4) {
+  margin: 0;
+  color: #d7dde6;
+  font-size: .78rem;
+  font-weight: 700;
+}
+.inspector :deep(.section-heading code) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #9da7b5;
+  font-size: .74rem;
+}
 .row-actions {
   display: flex;
   align-items: center;

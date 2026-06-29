@@ -86,6 +86,7 @@ const summaryRows = computed(() => {
   if (!item) return [];
   if (props.selectedType === "hex") {
     return [
+      ["ID", item.id],
       ["Terrain", item.terrain],
       ["Coordinates", `q ${item.q}, r ${item.r}`],
       ["Landmark", item.landmark?.label || item.landmark?.building || "None"],
@@ -94,6 +95,7 @@ const summaryRows = computed(() => {
   }
   if (props.selectedType === "landmark") {
     return [
+      ["ID", item.id],
       ["Cell", item.id],
       ["Building", item.landmark?.building || "None"],
       ["Icon", item.landmark?.icon || "None"],
@@ -102,6 +104,7 @@ const summaryRows = computed(() => {
   }
   if (props.selectedType === "stand") {
     return [
+      ["ID", props.standEditDraft?.id || item.id],
       ["Cell", item.id],
       ["Stand", props.standEditDraft?.id || ""],
       ["Anchor", props.standEditDraft?.anchor || "hex"],
@@ -112,6 +115,7 @@ const summaryRows = computed(() => {
   }
   if (props.selectedType === "route") {
     return [
+      ["ID", item.id],
       ["Kind", item.kind],
       ["Points", String((item.points ?? []).length)],
       ["Smooth", item.smooth ? "Yes" : "No"],
@@ -119,6 +123,7 @@ const summaryRows = computed(() => {
   }
   if (props.selectedType === "feature" || props.selectedType === "passage") {
     return [
+      ["ID", item.id],
       ["Kind", item.kind],
       ["Points", String((item.points ?? []).length)],
       ["Flow", item.flow || "None"],
@@ -300,6 +305,32 @@ const summaryRows = computed(() => {
 }
 .inspector :deep(.point-tools button.active) { background: #49624f; border-color: #6f9b79; }
 .inspector label, .inspector :deep(label) { display: grid; gap: .3rem; color: #bdc4ce; font-size: .8rem; }
+.inspector :deep(.form-section) {
+  display: grid;
+  gap: .55rem;
+  padding: .65rem;
+  border: 1px solid #343d4d;
+  border-radius: 8px;
+  background: #1b2028;
+}
+.inspector :deep(.section-heading) {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .65rem;
+}
+.inspector :deep(.section-heading h4) {
+  margin: 0;
+  color: #d7dde6;
+  font-size: .78rem;
+  font-weight: 700;
+}
+.inspector :deep(.section-heading code) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #9da7b5;
+  font-size: .74rem;
+}
 .inspector :deep(.field-grid) { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; }
 .inspector :deep(.hex-subitems) { display: grid; gap: .45rem; padding-top: .35rem; border-top: 1px solid #343d4d; }
 .subitem-heading, .inspector :deep(.subitem-heading) { display: flex; align-items: center; justify-content: space-between; gap: .5rem; color: #bdc4ce; font-size: .82rem; }

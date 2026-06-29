@@ -10,24 +10,40 @@ defineProps({
 </script>
 
 <template>
-  <label>Label<input v-model="selection.entity.label" /></label>
-  <label>Key item
-    <select
-      :value="selection.entity.lock?.key ?? ''"
-      @change="
-        selection.entity.lock ??= {};
-        selection.entity.lock.key = $event.target.value || null
-      ">
-      <option value="">No key</option>
-      <option
-        v-for="item in characterCatalog.items"
-        :key="item.id"
-        :value="item.id">
-        {{ item.label }} ({{ item.id }})
-      </option>
-    </select>
-  </label>
-  <template v-if="selection.entity.kind === 'man'">
+  <section class="form-section">
+    <div class="section-heading">
+      <h4>Identity</h4>
+      <code>{{ selection.id }}</code>
+    </div>
+    <label>Label<input v-model="selection.entity.label" /></label>
+  </section>
+
+  <section class="form-section">
+    <div class="section-heading">
+      <h4>Access</h4>
+    </div>
+    <label>Key item
+      <select
+        :value="selection.entity.lock?.key ?? ''"
+        @change="
+          selection.entity.lock ??= {};
+          selection.entity.lock.key = $event.target.value || null
+        ">
+        <option value="">No key</option>
+        <option
+          v-for="item in characterCatalog.items"
+          :key="item.id"
+          :value="item.id">
+          {{ item.label }} ({{ item.id }})
+        </option>
+      </select>
+    </label>
+  </section>
+
+  <section v-if="selection.entity.kind === 'man'" class="form-section">
+    <div class="section-heading">
+      <h4>Position</h4>
+    </div>
     <div class="field-grid">
       <label>X<input v-model.number="selection.entity.at.x" type="number" step=".01" /></label>
       <label>Y<input v-model.number="selection.entity.at.y" type="number" step=".01" /></label>
@@ -36,8 +52,12 @@ defineProps({
       <input v-model="selection.entity.vertical" type="checkbox" />
       Vertical
     </label>
-  </template>
-  <template v-else-if="rollDoorRoom">
+  </section>
+
+  <section v-else-if="rollDoorRoom" class="form-section">
+    <div class="section-heading">
+      <h4>Roll Door</h4>
+    </div>
     <label>Wall
       <select
         :value="rollDoorRoom.rollDoor"
@@ -56,7 +76,7 @@ defineProps({
         @input="setRollDoorProps(draft, selection.id, { rollSpan: Number($event.target.value) })"
       />
     </label>
-  </template>
+  </section>
 </template>
 
 <style scoped>

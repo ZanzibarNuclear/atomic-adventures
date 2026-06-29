@@ -13,21 +13,36 @@ defineProps({
 </script>
 
 <template>
-  <label>Kind
-    <select v-model="selected.kind">
-      <option v-for="kind in passageKinds" :key="kind">{{ kind }}</option>
-    </select>
-  </label>
-  <label>Hex
-    <select v-model="selected.hex"><option v-for="id in allHexIds" :key="id">{{ id }}</option></select>
-  </label>
-  <label>Visibility
-    <select v-model="selected.visibility"><option>obvious</option><option>hidden</option></select>
-  </label>
-  <label>Label<input v-model="selected.label" /></label>
-  <label>Radius<input v-model.number="selected.radius" type="number" /></label>
-  <fieldset>
-    <legend>Requirements</legend>
+  <section class="form-section">
+    <div class="section-heading">
+      <h4>Identity</h4>
+      <code>{{ selected.id }}</code>
+    </div>
+    <label>Label<input v-model="selected.label" /></label>
+    <label>Kind
+      <select v-model="selected.kind">
+        <option v-for="kind in passageKinds" :key="kind">{{ kind }}</option>
+      </select>
+    </label>
+    <label>Visibility
+      <select v-model="selected.visibility"><option>obvious</option><option>hidden</option></select>
+    </label>
+  </section>
+
+  <section class="form-section">
+    <div class="section-heading">
+      <h4>Location</h4>
+    </div>
+    <label>Hex
+      <select v-model="selected.hex"><option v-for="id in allHexIds" :key="id">{{ id }}</option></select>
+    </label>
+    <label>Radius<input v-model.number="selected.radius" type="number" /></label>
+  </section>
+
+  <section class="form-section">
+    <div class="section-heading">
+      <h4>Requirements</h4>
+    </div>
     <label>All flags
       <input
         :value="csv(selected.require?.all)"
@@ -46,9 +61,12 @@ defineProps({
         @input="selected.require ??= {}; setCsv(selected.require, 'not', $event)"
       />
     </label>
-  </fieldset>
-  <fieldset>
-    <legend>Unlock action</legend>
+  </section>
+
+  <section class="form-section">
+    <div class="section-heading">
+      <h4>Unlock action</h4>
+    </div>
     <label>Button label
       <input
         :value="selected.unlock?.label ?? ''"
@@ -67,18 +85,24 @@ defineProps({
         @input="selected.unlock ??= {}; setCsv(selected.unlock, 'set_flags', $event)"
       />
     </label>
-  </fieldset>
-  <fieldset>
-    <legend>On crossing</legend>
+  </section>
+
+  <section class="form-section">
+    <div class="section-heading">
+      <h4>On crossing</h4>
+    </div>
     <label>Set flags
       <input
         :value="csv(selected.on_cross?.set_flags)"
         @input="selected.on_cross ??= {}; setCsv(selected.on_cross, 'set_flags', $event)"
       />
     </label>
-  </fieldset>
-  <fieldset>
-    <legend>Passage point</legend>
+  </section>
+
+  <section class="form-section">
+    <div class="section-heading">
+      <h4>Passage point</h4>
+    </div>
     <label>Coordinate mode
       <select :value="pointMode(selected.at)" @change="setPointMode(selected.at, $event.target.value)">
         <option value="hex">Hex anchor</option><option value="raw">World coordinates</option>
@@ -95,9 +119,12 @@ defineProps({
       <label>X<input v-model.number="selected.at.x" type="number" /></label>
       <label>Y<input v-model.number="selected.at.y" type="number" /></label>
     </div>
-  </fieldset>
-  <fieldset v-if="selected.kind === 'gate'">
-    <legend>Guard booth point</legend>
+  </section>
+
+  <section v-if="selected.kind === 'gate'" class="form-section">
+    <div class="section-heading">
+      <h4>Guard booth point</h4>
+    </div>
     <div v-if="selected.boothAt">
       <label>Coordinate mode
         <select :value="pointMode(selected.boothAt)" @change="setPointMode(selected.boothAt, $event.target.value)">
@@ -118,5 +145,5 @@ defineProps({
       <button class="sm muted" @click="removeBoothAt">Remove booth</button>
     </div>
     <button v-else class="sm" @click="ensureBoothAt">Add guard booth</button>
-  </fieldset>
+  </section>
 </template>

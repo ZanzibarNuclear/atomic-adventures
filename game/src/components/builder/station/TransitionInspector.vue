@@ -31,13 +31,18 @@ function setTransitionStand(target, value) {
 </script>
 
 <template>
-  <section class="edit-card">
-    <h4>Identity</h4>
+  <section class="form-section">
+    <div class="section-heading">
+      <h4>Identity</h4>
+      <code>{{ selection.id }}</code>
+    </div>
     <label>Label<input v-model="selection.entity.label" /></label>
   </section>
 
-  <section class="edit-card">
-    <h4>Regional side</h4>
+  <section class="form-section">
+    <div class="section-heading">
+      <h4>Regional side</h4>
+    </div>
     <div class="field-grid">
       <label>Regional hex<input v-model="selection.entity.hex" /></label>
       <label>Regional stand ID
@@ -57,8 +62,10 @@ function setTransitionStand(target, value) {
     </label>
   </section>
 
-  <section class="edit-card">
-    <h4>Local side</h4>
+  <section class="form-section">
+    <div class="section-heading">
+      <h4>Local side</h4>
+    </div>
     <label>Local arrival stand
       <select v-model="selection.entity.exteriorNode">
         <option value="">Default entry</option>
@@ -73,8 +80,10 @@ function setTransitionStand(target, value) {
     </label>
   </section>
 
-  <section class="edit-card">
-    <h4>Marker</h4>
+  <section class="form-section">
+    <div class="section-heading">
+      <h4>Marker</h4>
+    </div>
     <div class="field-grid">
       <label>Map X
         <input
@@ -97,18 +106,5 @@ function setTransitionStand(target, value) {
 </template>
 
 <style scoped>
-.edit-card {
-  display: grid;
-  gap: .55rem;
-  padding: .65rem;
-  border: 1px solid #343d4d;
-  border-radius: 8px;
-  background: #1b2028;
-}
-.edit-card h4 {
-  margin: 0;
-  color: #eef1f5;
-  font-size: .82rem;
-}
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; }
 </style>
