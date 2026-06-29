@@ -21,7 +21,6 @@ const props = defineProps({
   characterCatalog: { type: Object, required: true },
   errors: { type: Object, required: true },
   warnings: { type: Array, required: true },
-  auditResult: { type: Object, default: null },
   storyBeats: { type: Array, default: () => [] },
   showHistory: { type: Boolean, default: false },
   revisions: { type: Array, required: true },
@@ -36,7 +35,6 @@ const emit = defineEmits([
   "delete-selected",
   "toggle-path-add-mode",
   "remove-selected-path-handle",
-  "run-indoor-audit",
   "restore-revision",
 ]);
 
@@ -431,7 +429,7 @@ function doorInitialSummary(door) {
     <p v-else class="empty-note">Select a room, door, path, node, or transition.</p>
 
     <StationInventoryAuthoring
-      v-if="editing"
+      v-if="editing && selection?.source === 'rooms'"
       :draft="draft"
       :character-catalog="characterCatalog"
       :selection="selection"
@@ -443,17 +441,6 @@ function doorInitialSummary(door) {
     <p v-for="warning in warnings" :key="`${warning.path}:${warning.message}`" class="warning">
       {{ warning.path }}: {{ warning.message }}
     </p>
-    <section class="audit-panel">
-      <button class="sm muted" @click="emit('run-indoor-audit')">Run traversal audit</button>
-      <template v-if="auditResult && !auditResult.valid">
-        <p v-if="auditResult.unreachableRooms.length">
-          Unreachable rooms: {{ auditResult.unreachableRooms.join(", ") }}
-        </p>
-        <p v-if="auditResult.unreachableExteriorNodes.length">
-          Unreachable exterior nodes: {{ auditResult.unreachableExteriorNodes.join(", ") }}
-        </p>
-      </template>
-    </section>
     <RevisionHistoryPanel
       :visible="showHistory"
       title="Building revisions"
@@ -565,8 +552,7 @@ button.active, .inspector :deep(button.active) { background: #49624f; border-col
 .object-actions { justify-content: flex-start; }
 .danger-outline, .inspector :deep(.danger-outline) { border-color: #9b5050; color: #ffb5b5; background: #3d2729; }
 .empty-note { color: #939ba7; }
-.read-only-note, .inspector :deep(.read-only-note), .audit-panel p { color: #aeb5c0; font-size: .78rem; line-height: 1.45; }
-.audit-panel { display: grid; gap: .4rem; padding-top: .65rem; border-top: 1px solid #343d4d; }
+.read-only-note, .inspector :deep(.read-only-note) { color: #aeb5c0; font-size: .78rem; line-height: 1.45; }
 .field-error { color: #ff9e9e; font-size: .78rem; }
 .warning { color: #efcb83; font-size: .78rem; }
 </style>

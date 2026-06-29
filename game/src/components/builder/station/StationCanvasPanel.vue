@@ -17,6 +17,7 @@ const props = defineProps({
   editHandles: { type: Array, default: () => [] },
   selectedHandleId: { type: String, default: null },
   addMode: { type: String, default: null },
+  auditResult: { type: Object, default: null },
 });
 
 defineEmits([
@@ -28,6 +29,7 @@ defineEmits([
   "grid-handle-move",
   "builder-map-click",
   "stand-click",
+  "run-traversal-audit",
 ]);
 
 const currentRoom = computed(() => {
@@ -68,8 +70,31 @@ const currentStand = computed(() =>
         >
           {{ geometryEditing ? "Done editing" : "Edit geometry" }}
         </button>
+        <button class="sm muted" @click="$emit('run-traversal-audit')">
+          Run traversal audit
+        </button>
       </div>
     </div>
+
+    <section v-if="auditResult" class="audit-summary" :class="{ warning: !auditResult.valid }">
+      <p v-if="auditResult.valid">
+        Traversal audit passed: {{ auditResult.roomCount }} rooms and
+        {{ auditResult.exteriorNodeCount }} exterior nodes are connected.
+      </p>
+      <template v-else>
+        <p>
+          Traversal audit found
+          {{ auditResult.unreachableRooms.length }} unreachable room(s) and
+          {{ auditResult.unreachableExteriorNodes.length }} unreachable exterior node(s).
+        </p>
+        <p v-if="auditResult.unreachableRooms.length">
+          Rooms: {{ auditResult.unreachableRooms.join(", ") }}
+        </p>
+        <p v-if="auditResult.unreachableExteriorNodes.length">
+          Exterior nodes: {{ auditResult.unreachableExteriorNodes.join(", ") }}
+        </p>
+      </template>
+    </section>
 
     <p class="canvas-hint">Drag empty map to pan · Drag a selected stand or colored handle to move it · Wheel to zoom</p>
 
@@ -135,6 +160,31 @@ const currentStand = computed(() =>
 
 .canvas-toolbar {
   justify-content: space-between;
+}
+
+.audit-summary {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(139, 196, 154, 0.35);
+  border-radius: 8px;
+  background: rgba(29, 45, 35, 0.78);
+}
+
+.audit-summary.warning {
+  border-color: rgba(239, 203, 131, 0.42);
+  background: rgba(52, 42, 27, 0.78);
+}
+
+.audit-summary p {
+  margin: 0;
+  color: #cfe6d3;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.audit-summary.warning p {
+  color: #efcb83;
 }
 
 .canvas-toolbar select {

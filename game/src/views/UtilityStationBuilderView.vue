@@ -273,11 +273,13 @@ function openLocationBeat({
         :edit-mode="editMode"
         :edit-handles="editHandles"
         :add-mode="addMode"
+        :audit-result="auditResult"
         @toggle-geometry-editing="toggleGeometryEditing"
         @select-item="selectItem($event.source, $event.id)"
         @grid-handle-move="onHandleMove"
         @builder-map-click="onMapClick"
         @stand-click="selectStand"
+        @run-traversal-audit="runIndoorAudit"
       />
 
       <StationInspector
@@ -291,7 +293,6 @@ function openLocationBeat({
         :character-catalog="characterCatalog"
         :errors="errors"
         :warnings="warnings"
-        :audit-result="auditResult"
         :story-beats="storyBeats"
         :show-history="showHistory"
         :revisions="revisions"
@@ -302,7 +303,6 @@ function openLocationBeat({
         @open-location-beat="openLocationBeat"
         @toggle-path-add-mode="togglePathAddMode"
         @remove-selected-path-handle="removeSelectedPathHandle"
-        @run-indoor-audit="runIndoorAudit"
         @open-transition-beat="openTransitionBeat"
         @restore-revision="restoreRevision"
       />
@@ -360,8 +360,7 @@ button.active { background: #49624f; border-color: #6f9b79; }
 .check-field input { width: auto; }
 .danger-outline { border-color: #9b5050; color: #ffb5b5; background: #3d2729; }
 .empty-note { color: #939ba7; }
-.read-only-note, .audit-panel p { color: #aeb5c0; font-size: .78rem; line-height: 1.45; }
-.audit-panel { display: grid; gap: .4rem; padding-top: .65rem; border-top: 1px solid #343d4d; }
+.read-only-note { color: #aeb5c0; font-size: .78rem; line-height: 1.45; }
 .field-error { color: #ff9e9e; font-size: .78rem; }
 .warning { color: #efcb83; font-size: .78rem; }
 .history { display: grid; gap: .4rem; }
