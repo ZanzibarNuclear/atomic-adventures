@@ -100,7 +100,7 @@ the available canvas:
   footprint.
 - The frame expands to the canvas aspect ratio so the SVG fills the available
   authoring area without distortion.
-- Empty or not-yet-loaded maps fall back to the stable default frame.
+- Empty or not-yet-loaded maps use the stable default frame.
 - Route and feature geometry do not currently expand the fitted frame; authors
   should keep authored line geometry near the outdoor hex footprint unless this
   contract is intentionally revised.

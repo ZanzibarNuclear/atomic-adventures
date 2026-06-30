@@ -50,18 +50,17 @@ Fields:
 - `label`: player-facing label for the local MAP action.
 - `hex`: world hex reached when exiting through this transition.
 - `exteriorNode`: local-map node where the avatar stands after entering from
-  the world. If omitted, fall back to `building.exterior.entry`.
+  the world. If omitted, `building.exterior.entry` is the local stand.
 - `at`: local-map position of the MAP marker. This is display/action geometry,
   not the avatar stand.
 - `standAt`: world-map stand where the avatar appears after exiting to the
   world. Prefer `{ stand: "stand-id" }` to reference a named stand on
-  `transition.hex`. If omitted, fall back to the destination hex's authored
-  stand/default stand.
+  `transition.hex`. If omitted, the destination hex's default stand is used.
 - `entryFrom`: optional list of previous world hex IDs that prefer this
   transition when entering the local map.
 
-The existing `building.exterior.entry` remains the fallback local stand for
-ambiguous entry.
+`building.exterior.entry` is the local stand when no transition supplies a more
+specific local stand.
 
 An exterior node may include `joinNode` when it is an arrival stand rather than
 part of an authored path:
@@ -121,7 +120,7 @@ When the player activates a local MAP marker:
    `outdoor.state.transitionDirection` to `toRegional`.
 6. Clear indoor room/exterior-node state and set `place = "outdoors"`.
 
-If `transition.standAt` is omitted, use the existing fallback:
+If `transition.standAt` is omitted, use
 `outdoor.defaultStandForHex(transition.hex)`.
 
 Story beats associated with a map transition use `match.mapTransition` plus

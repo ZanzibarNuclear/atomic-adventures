@@ -88,7 +88,7 @@ Character stats may appear in two contexts:
 
 The `character-stats` stage view accepts an optional `focus` payload. For now
 `focus: "health"` highlights health if that stat exists; unknown focus values
-fall back to the ordinary stat list.
+show the ordinary stat list.
 
 ## Close-Up Stage Kinds
 

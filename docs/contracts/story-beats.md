@@ -46,7 +46,7 @@ with `match.originHex` is more specific than a default beat with no `match`
 during inter-hex travel, so it wins when the player entered from that origin. A
 beat with `match.mapTransition` is more specific than a default beat with no
 `match` when switching between the regional and local maps. A default beat
-remains eligible as fallback when no action-specific beat matches.
+remains eligible when no action-specific beat matches.
 Time criteria also add specificity among beats at the same trigger. A Day 2
 morning room beat should win over a generic room beat when the clock and
 milestone state make both eligible.
@@ -240,7 +240,7 @@ When the player later returns:
 preserves whether a beat should show first-view or revisit prose.
 
 Beat IDs are the keys used in `storySeen`. Renaming a beat ID is treated as an
-authoring content change, not a player-save migration. Existing saves may
+authoring content change, not a player-save rewrite. Existing saves may
 therefore show the renamed beat as unseen.
 
 ## Choices
@@ -262,7 +262,7 @@ A choice contains:
 | --- | --- |
 | `text` | Player-facing action label |
 | `sets` | Sets global flags |
-| `set_flags` | Also sets global flags; retained for schema compatibility |
+| `set_flags` | Sets global flags for content that shares the passage/action vocabulary |
 | `timeMinutes` | Optional game-time cost for taking the choice |
 | `activity` | Activity profile used when applying the time cost |
 | `go_hex` | Moves to a reachable outdoor hex |
@@ -343,7 +343,7 @@ rejects IDs already used by active beats or existing revision history in the
 same area, and cascades the saved authoring data from the old ID to the new ID:
 the beat row, choices, revision history, runtime story export key, and live
 authoring update all use the new ID after the save. Player save state is not
-migrated.
+rewritten.
 
 ## Builder Editing Safety
 
@@ -386,7 +386,7 @@ Notable omissions include:
 - Variants
 - Simulation and mini-game gates
 - Images and ambient audio
-- Dedicated fallback/ambient beat semantics
+- Dedicated ambient beat semantics
 
 Add these deliberately to the runtime, database schema, builder, validation,
 tests, and this document together.

@@ -89,10 +89,9 @@ contract below.
 Character and artifact definitions are currently stored as one ordered JSON
 document named `character-main` in `game/content/atomic-adventures.sqlite`.
 This follows the existing coarse-document model used for outdoor world and
-building content. The persisted name is retained for compatibility even though
-the authoring UI now presents the broader concept as Content. YAML may be
-exported for review or interchange, but direct YAML edits are not live until
-imported:
+building content. The authoring UI presents the broader concept as Content.
+YAML may be exported for review or interchange, but direct YAML edits are not
+live until imported:
 
 ```bash
 npm run character:export -w game -- /tmp/character-main.yaml
@@ -724,9 +723,8 @@ hidden or disabled with a hint. The default is disabled with a generated,
 non-spoiling explanation when the relevant definition is already known to the
 player.
 
-The existing shorthand `require: { all, any, not }` remains a flag alias during
-migration. Existing `require.items: [id]` is normalized to item requirements
-with quantity `1`.
+Flag requirements use `require: { all, any, not }`. Item requirements use
+`require.items`; a bare item ID means quantity `1`.
 
 ## Effects
 
@@ -797,8 +795,8 @@ Door locks use ordinary item requirements. Pickups, storage interactions, item
 transfers, and fixture interactions apply effects through the shared character
 service.
 
-The current building-local `items` catalog is migrated into `character-main`.
-Building documents retain only placements and references.
+Item definitions live in `character-main`. Building documents retain only
+placements and references.
 
 ### Simulations
 
@@ -894,11 +892,12 @@ state:
 
 - changed labels, descriptions, grouping, and icons update immediately;
 - added definitions become available to content;
-- renamed IDs require an explicit reference-aware rename and save migration;
+- renamed IDs require an explicit reference-aware rename and player-save update
+  plan;
 - deletion is rejected while world, story, simulation, or authored content
   references the ID;
-- if a stale save contains an unknown ID, its state is retained as an orphan
-  but hidden from normal UI until the definition returns or a migration maps it.
+- if saved state contains an unknown ID, that state is preserved but hidden from
+  normal UI until the definition returns or an explicit update maps it.
 
 ## Scenario Checks
 
@@ -988,8 +987,8 @@ Blocking validation includes:
 - attempts to delete or rename referenced definitions without a cascade plan.
 
 Reference-aware rename updates character definitions, story requirements and
-effects, world placements and locks, simulation configuration, and known save
-migrations in one transaction. Restoring history creates a new revision.
+effects, world placements and locks, simulation configuration, and planned
+save updates in one transaction. Restoring history creates a new revision.
 
 Warnings should identify:
 

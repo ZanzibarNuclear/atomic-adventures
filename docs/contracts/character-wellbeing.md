@@ -256,5 +256,5 @@ simulation precision.
 - Fatigue/sleep as a separate axis from health.
 - Environmental modifiers such as heat, cold, rain, and exertion.
 - Clear feedback when an item action affects multiple stats.
-- Clear migration steps when wellbeing formulas change, followed by deleting the
-  replaced path.
+- Clear replacement steps when wellbeing formulas change, followed by deleting
+  the superseded path.
