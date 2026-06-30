@@ -66,7 +66,7 @@ export function captureSnapshot({ gameState, place, outdoor, indoor }) {
     indoor: {
       currentRoom: i.currentRoom,
       currentStand: i.currentStand,
-      exteriorNode: i.exteriorNode,
+      exteriorNode: i.currentRoom ? null : i.exteriorNode,
       discovered: [...i.discovered],
       revealed: [...i.revealed],
       level: i.level,
@@ -124,13 +124,17 @@ export function applySnapshot(snapshot, { gameState, place, outdoor, indoor }) {
   const building = indoor.building;
   const i = snapshot.indoor ?? {};
   const d = indoor.indoor;
-  d.currentRoom = i.currentRoom ?? null;
+  d.currentRoom = i.currentRoom && building.roomById[i.currentRoom] ? i.currentRoom : null;
   d.currentStand = d.currentRoom && roomStandById(building, d.currentRoom, i.currentStand)
     ? i.currentStand
     : d.currentRoom
       ? defaultRoomStandId(building.roomById[d.currentRoom])
       : null;
-  d.exteriorNode = i.exteriorNode ?? building.exterior?.entry ?? null;
+  d.exteriorNode = d.currentRoom
+    ? null
+    : i.exteriorNode && building.exterior?.nodeById?.[i.exteriorNode]
+      ? i.exteriorNode
+      : building.exterior?.entry ?? null;
   d.discovered = new Set(i.discovered ?? []);
   d.revealed = new Set(i.revealed ?? []);
   d.level = i.level ?? building.exterior?.level ?? "first";
