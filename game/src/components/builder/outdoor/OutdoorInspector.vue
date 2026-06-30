@@ -31,6 +31,8 @@ const props = defineProps({
   invalidAuditEntries: { type: Array, required: true },
   warnings: { type: Array, required: true },
   storyBeats: { type: Array, default: () => [] },
+  characterCatalog: { type: Object, required: true },
+  artifactPlacements: { type: Array, required: true },
   showHistory: { type: Boolean, default: false },
   revisions: { type: Array, required: true },
   select: { type: Function, required: true },
@@ -62,14 +64,38 @@ const props = defineProps({
   restoreRevision: { type: Function, required: true },
 });
 
-const emit = defineEmits(["open-location-beat"]);
+const emit = defineEmits([
+  "open-location-beat",
+  "open-artifact",
+  "place-artifact",
+  "remove-artifact-placement",
+]);
 const editing = ref(false);
+const selectedArtifactItemId = ref("");
+const placementFormOpen = ref(false);
+const editingPlacementId = ref("");
 
 watch(
   () => `${props.selectedType}:${props.selected?.id ?? ""}`,
   () => {
     editing.value = false;
+    placementFormOpen.value = false;
+    selectedArtifactItemId.value = "";
+    editingPlacementId.value = "";
   },
+);
+
+watch(
+  () => props.characterCatalog.items,
+  () => {
+    if (
+      selectedArtifactItemId.value &&
+      !props.characterCatalog.items.some((item) => item.id === selectedArtifactItemId.value)
+    ) {
+      selectedArtifactItemId.value = "";
+    }
+  },
+  { immediate: true },
 );
 
 const selectedTitle = computed(() => {
@@ -125,6 +151,53 @@ const associatedLocationBeats = computed(() => {
     beat.trigger?.place === "outdoors" && beat.trigger?.hex === locationBeatTarget.value.location,
   );
 });
+
+const placedArtifacts = computed(() => {
+  if (!props.selected || props.selectedType !== "hex") return [];
+  return props.artifactPlacements.filter((placement) => placement.hex === props.selected.id);
+});
+
+const currentStandOptions = computed(() =>
+  props.selectedType === "hex" ? props.selected?.stands ?? [] : [],
+);
+
+function artifactLabel(id) {
+  const item = props.characterCatalog.items.find((candidate) => candidate.id === id);
+  return item?.label || id;
+}
+
+function standLabel(id) {
+  const stand = currentStandOptions.value.find((candidate) => candidate.id === id);
+  return stand?.label || id || "None";
+}
+
+function openPlacementForm() {
+  selectedArtifactItemId.value = "";
+  placementFormOpen.value = true;
+}
+
+function placeSelectedArtifact() {
+  if (!props.selected || props.selectedType !== "hex" || !selectedArtifactItemId.value) return;
+  emit("place-artifact", {
+    hexId: props.selected.id,
+    itemId: selectedArtifactItemId.value,
+  });
+  selectedArtifactItemId.value = "";
+  placementFormOpen.value = false;
+}
+
+function editPlacement(placementId) {
+  editingPlacementId.value = placementId;
+}
+
+function stopEditingPlacement(placementId) {
+  if (editingPlacementId.value === placementId) editingPlacementId.value = "";
+}
+
+function removePlacement(placementId) {
+  if (editingPlacementId.value === placementId) editingPlacementId.value = "";
+  emit("remove-artifact-placement", { id: placementId });
+}
 
 const summaryRows = computed(() => {
   const item = props.selected;
@@ -230,6 +303,71 @@ const summaryRows = computed(() => {
               Add beat
             </button>
           </div>
+        </div>
+        <div v-if="selectedType === 'hex'" class="artifact-associations">
+          <p class="label">Artifact placements</p>
+          <p v-if="!placedArtifacts.length" class="empty-note">None yet.</p>
+          <ul v-else>
+            <li v-for="placement in placedArtifacts" :key="placement.id">
+              <div class="artifact-placement-card">
+                <button
+                  type="button"
+                  class="artifact-link"
+                  @click="emit('open-artifact', { catalog: 'items', id: placement.item })"
+                >
+                  <strong>{{ artifactLabel(placement.item) }}</strong>
+                  <span>{{ placement.item }} / {{ placement.id }}</span>
+                </button>
+                <template v-if="editingPlacementId === placement.id">
+                  <label>Placement text<input v-model="placement.label"></label>
+                  <label>Standpoint
+                    <select v-model="placement.stand">
+                      <option :value="null">None</option>
+                      <option v-for="stand in currentStandOptions" :key="stand.id" :value="stand.id">
+                        {{ stand.label || stand.id }} ({{ stand.id }})
+                      </option>
+                    </select>
+                  </label>
+                  <div class="row-actions placement-actions">
+                    <button type="button" class="sm muted" @click="stopEditingPlacement(placement.id)">Done</button>
+                    <button type="button" class="sm danger-outline" @click="removePlacement(placement.id)">Remove</button>
+                  </div>
+                </template>
+                <template v-else>
+                  <p class="placement-text">{{ placement.label || "No placement text." }}</p>
+                  <p v-if="placement.stand" class="placement-meta">Standpoint: {{ standLabel(placement.stand) }}</p>
+                  <div class="row-actions placement-actions">
+                    <button type="button" class="sm muted" @click="editPlacement(placement.id)">Edit</button>
+                    <button type="button" class="sm danger-outline" @click="removePlacement(placement.id)">Remove</button>
+                  </div>
+                </template>
+              </div>
+            </li>
+          </ul>
+          <div v-if="placementFormOpen" class="artifact-placement-form">
+            <label>Artifact
+              <select
+                v-model="selectedArtifactItemId"
+                :disabled="!characterCatalog.items.length"
+                @change="placeSelectedArtifact"
+              >
+                <option value="">Select artifact...</option>
+                <option v-for="item in characterCatalog.items" :key="item.id" :value="item.id">
+                  {{ item.label }} ({{ item.id }})
+                </option>
+              </select>
+            </label>
+            <button type="button" class="sm muted" @click="placementFormOpen = false">Cancel</button>
+          </div>
+          <button
+            v-else
+            type="button"
+            class="sm muted add-beat"
+            :disabled="!characterCatalog.items.length"
+            @click="openPlacementForm"
+          >
+            Place artifact
+          </button>
         </div>
       </section>
 
@@ -372,22 +510,27 @@ const summaryRows = computed(() => {
 }
 .detail-row span { color: #8e96a3; font-size: .75rem; }
 .detail-row strong { min-width: 0; overflow-wrap: anywhere; color: #eef1f5; font-size: .85rem; font-weight: 600; }
-.beat-associations {
+.beat-associations,
+.artifact-associations {
   display: grid;
   gap: .65rem;
   padding-top: .65rem;
   border-top: 1px solid #343d4d;
 }
-.beat-associations p { margin: 0; }
-.beat-associations ul {
+.beat-associations p,
+.artifact-associations p { margin: 0; }
+.beat-associations ul,
+.artifact-associations ul {
   display: grid;
   gap: .35rem;
   margin: .35rem 0 0;
   padding: 0;
   list-style: none;
 }
-.beat-associations li { display: block; }
-.beat-link {
+.beat-associations li,
+.artifact-associations li { display: block; }
+.beat-link,
+.artifact-link {
   display: grid;
   gap: .1rem;
   width: 100%;
@@ -398,9 +541,45 @@ const summaryRows = computed(() => {
   text-align: left;
 }
 .beat-link:hover { border-color: #5f718f; background: #273142; }
-.beat-link strong { color: #eef1f5; font-size: .8rem; }
-.beat-link span { color: #9da7b5; font-size: .74rem; }
+.artifact-link:hover { border-color: #5f718f; background: #273142; }
+.beat-link strong,
+.artifact-link strong { color: #eef1f5; font-size: .8rem; }
+.beat-link span,
+.artifact-link span { color: #9da7b5; font-size: .74rem; }
+.artifact-placement-card,
+.artifact-placement-form {
+  display: grid;
+  gap: .45rem;
+  padding: .5rem;
+  border: 1px solid #343d4d;
+  border-radius: 8px;
+  background: #1b2028;
+}
+.placement-text {
+  margin: 0;
+  color: #bdc4ce;
+  font-size: .8rem;
+  overflow-wrap: anywhere;
+}
+.placement-meta {
+  margin: 0;
+  color: #8e96a3;
+  font-size: .74rem;
+  overflow-wrap: anywhere;
+}
+.placement-actions { justify-content: flex-start; }
 .add-beat { width: 100%; margin-top: .4rem; justify-content: center; }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 .inspector input, .inspector textarea, .inspector select,
 .inspector :deep(input), .inspector :deep(textarea), .inspector :deep(select) {
   width: 100%;

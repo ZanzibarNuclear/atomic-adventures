@@ -218,6 +218,18 @@ function openLocationBeat({
   });
 }
 
+function openArtifact({ catalog = "items", id = "" } = {}) {
+  if (!id) return;
+  void router.push({
+    path: "/builder/content",
+    query: {
+      mode: "artifacts",
+      catalog,
+      id,
+    },
+  });
+}
+
 </script>
 
 <template>
@@ -304,6 +316,7 @@ function openLocationBeat({
         @toggle-path-add-mode="togglePathAddMode"
         @remove-selected-path-handle="removeSelectedPathHandle"
         @open-transition-beat="openTransitionBeat"
+        @open-artifact="openArtifact"
         @restore-revision="restoreRevision"
       />
     </div>

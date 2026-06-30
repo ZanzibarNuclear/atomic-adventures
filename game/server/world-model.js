@@ -13,6 +13,16 @@ export function normalizeWorld(input = {}) {
   world.hexes.forEach(normalizeHexStands);
   world.features = Array.isArray(world.features) ? world.features : [];
   world.routes = Array.isArray(world.routes) ? world.routes : [];
+  world.artifactPlacements = Array.isArray(world.artifactPlacements)
+    ? world.artifactPlacements.map((placement) => ({
+        ...placement,
+        id: text(placement.id),
+        hex: nullableText(placement.hex),
+        stand: nullableText(placement.stand),
+        item: text(placement.item),
+        label: nullableText(placement.label),
+      }))
+    : [];
   return world;
 }
 
@@ -41,6 +51,7 @@ export function validateWorld(input) {
 
   const hexIds = new Set();
   const coordinates = new Set();
+  const standIdsByHex = new Map();
   for (const hex of world.hexes) {
     const id = String(hex.id ?? "").trim();
     if (ID_PATTERN.test(id)) hexIds.add(id);
@@ -78,6 +89,7 @@ export function validateWorld(input) {
         }
       });
     });
+    standIdsByHex.set(hex.id, standIds);
     if (hex.landmark && typeof hex.landmark !== "object") {
       add(`${base}.landmark`, "Landmark must be an object.");
     }
@@ -86,6 +98,15 @@ export function validateWorld(input) {
   if (!world.start || !hexIds.has(world.start)) add("start", "Choose an existing start hex.");
   world.journey.forEach((id, index) => {
     if (!hexIds.has(id)) add(`journey.${index}`, "Journey entries must reference existing hexes.");
+  });
+  validateIds(world.artifactPlacements, "artifactPlacements", errors);
+  world.artifactPlacements.forEach((placement, index) => {
+    const base = `artifactPlacements.${index}`;
+    if (!placement.hex || !hexIds.has(placement.hex)) add(`${base}.hex`, "Artifact placement hex must exist.");
+    if (!ID_PATTERN.test(placement.item)) add(`${base}.item`, "Artifact placement item must reference a kebab-case item ID.");
+    if (placement.stand && !standIdsByHex.get(placement.hex)?.has(placement.stand)) {
+      add(`${base}.stand`, "Artifact placement stand must exist on the placement hex.");
+    }
   });
 
   validateCollection(world.routes, "routes", hexIds, errors, warnings, {
@@ -128,16 +149,25 @@ export function validateWorld(input) {
   };
 }
 
-function validateCollection(items, path, hexIds, errors, warnings, options = {}) {
+function validateIds(items, path, errors) {
   const ids = new Set();
   const add = (field, message) => ((errors[field] ??= []).push(message));
   items.forEach((item, index) => {
     const base = `${path}.${index}`;
-    item.id = String(item.id ?? "").trim();
-    item.kind = String(item.kind ?? "").trim();
+    item.id = text(item.id);
     if (!ID_PATTERN.test(item.id)) add(`${base}.id`, "Use a unique kebab-case ID.");
     if (ids.has(item.id)) add(`${base}.id`, "IDs must be unique within this group.");
     ids.add(item.id);
+  });
+  return ids;
+}
+
+function validateCollection(items, path, hexIds, errors, warnings, options = {}) {
+  const add = (field, message) => ((errors[field] ??= []).push(message));
+  validateIds(items, path, errors);
+  items.forEach((item, index) => {
+    const base = `${path}.${index}`;
+    item.kind = String(item.kind ?? "").trim();
     if (!item.kind) add(`${base}.kind`, "Choose an object kind.");
     if (options.requirePoints && (!Array.isArray(item.points) || item.points.length < 2)) {
       add(`${base}.points`, "Routes require at least two points.");
@@ -206,12 +236,15 @@ function finiteNumber(value, fallback) {
 }
 
 function nullableText(value) {
-  const text = value == null ? "" : String(value).trim();
-  return text || null;
+  return text(value) || null;
 }
 
 function stringList(value) {
   return Array.isArray(value) ? value.map(String).map((item) => item.trim()).filter(Boolean) : [];
+}
+
+function text(value) {
+  return value == null ? "" : String(value).trim();
 }
 
 export function applyHexRenames(world, renames = []) {
@@ -236,6 +269,9 @@ export function applyHexRenames(world, renames = []) {
     for (const stand of hex.stands ?? []) {
       if (stand.entryFrom) stand.entryFrom = stand.entryFrom.map(rename);
     }
+  }
+  for (const placement of world.artifactPlacements ?? []) {
+    if (placement.hex) placement.hex = rename(placement.hex);
   }
   for (const route of world.routes ?? []) {
     for (const point of route.points ?? []) if (point.hex) point.hex = rename(point.hex);

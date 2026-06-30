@@ -29,6 +29,7 @@ const props = defineProps({
 const emit = defineEmits([
   "open-location-beat",
   "open-transition-beat",
+  "open-artifact",
   "move-selected",
   "rename-selected",
   "duplicate-selected",
@@ -46,12 +47,31 @@ const errorMessages = computed(() =>
 
 const fixedSelectionSources = new Set(["fixtures", "walls", "links"]);
 const editing = ref(false);
+const selectedArtifactItemId = ref("");
+const placementFormOpen = ref(false);
+const editingPlacementId = ref("");
 
 watch(
   () => `${props.selection?.source ?? ""}:${props.selection?.id ?? ""}`,
   () => {
     editing.value = false;
+    placementFormOpen.value = false;
+    selectedArtifactItemId.value = "";
+    editingPlacementId.value = "";
   },
+);
+
+watch(
+  () => props.characterCatalog.items,
+  () => {
+    if (
+      selectedArtifactItemId.value &&
+      !props.characterCatalog.items.some((item) => item.id === selectedArtifactItemId.value)
+    ) {
+      selectedArtifactItemId.value = "";
+    }
+  },
+  { immediate: true },
 );
 
 function selectionEyebrow(source) {
@@ -126,6 +146,15 @@ const associatedLocationBeats = computed(() => {
   if (!locationBeatTarget.value) return [];
   return props.storyBeats.filter((beat) => locationBeatMatches(beat, selection));
 });
+
+const placedArtifacts = computed(() => {
+  if (props.selection?.source !== "rooms") return [];
+  return (props.draft.pickups ?? []).filter((pickup) => pickup.room === props.selection.id);
+});
+
+const currentStandOptions = computed(() =>
+  props.selection?.source === "rooms" ? props.selection.entity?.stands ?? [] : [],
+);
 
 const associatedTransitionBeats = computed(() => {
   const selection = props.selection;
@@ -232,6 +261,52 @@ function doorInitialSummary(door) {
   const open = initial.open ?? (initial.closed != null ? !initial.closed : false);
   const locked = initial.locked === true;
   return `${open ? "Open" : "Closed"}${locked ? ", locked" : ""}`;
+}
+
+function artifactLabel(id) {
+  const item = props.characterCatalog.items.find((candidate) => candidate.id === id);
+  return item?.label || id;
+}
+
+function standLabel(id) {
+  const stand = currentStandOptions.value.find((candidate) => candidate.id === id);
+  return stand?.label || id || "None";
+}
+
+function uniquePickupId(itemId, roomId) {
+  const used = new Set((props.draft.pickups ?? []).map((pickup) => pickup.id));
+  let id = `${roomId}-${itemId}`;
+  let suffix = 2;
+  while (used.has(id)) id = `${roomId}-${itemId}-${suffix++}`;
+  return id;
+}
+
+function placeArtifact() {
+  if (props.selection?.source !== "rooms" || !selectedArtifactItemId.value) return;
+  const item = props.characterCatalog.items.find((candidate) => candidate.id === selectedArtifactItemId.value);
+  if (!item) return;
+  props.draft.pickups ??= [];
+  props.draft.pickups.push({
+    id: uniquePickupId(item.id, props.selection.id),
+    room: props.selection.id,
+    item: item.id,
+    label: item.label,
+  });
+  selectedArtifactItemId.value = "";
+  placementFormOpen.value = false;
+}
+
+function editPlacement(placementId) {
+  editingPlacementId.value = placementId;
+}
+
+function stopEditingPlacement(placementId) {
+  if (editingPlacementId.value === placementId) editingPlacementId.value = "";
+}
+
+function removePlacement(placementId) {
+  if (editingPlacementId.value === placementId) editingPlacementId.value = "";
+  props.draft.pickups = (props.draft.pickups ?? []).filter((pickup) => pickup.id !== placementId);
 }
 
 </script>
@@ -361,6 +436,71 @@ function doorInitialSummary(door) {
               Add beat
             </button>
           </div>
+        </div>
+        <div v-if="selection.source === 'rooms'" class="artifact-associations">
+          <p class="label">Artifact placements</p>
+          <p v-if="!placedArtifacts.length" class="empty-note">None yet.</p>
+          <ul v-else>
+            <li v-for="placement in placedArtifacts" :key="placement.id">
+              <div class="artifact-placement-card">
+                <button
+                  type="button"
+                  class="artifact-link"
+                  @click="emit('open-artifact', { catalog: 'items', id: placement.item })"
+                >
+                  <strong>{{ artifactLabel(placement.item) }}</strong>
+                  <span>{{ placement.item }} / {{ placement.id }}</span>
+                </button>
+                <template v-if="editingPlacementId === placement.id">
+                  <label>Placement text<input v-model="placement.label"></label>
+                  <label>Standpoint
+                    <select v-model="placement.stand">
+                      <option :value="null">None</option>
+                      <option v-for="stand in currentStandOptions" :key="stand.id" :value="stand.id">
+                        {{ stand.label || stand.id }} ({{ stand.id }})
+                      </option>
+                    </select>
+                  </label>
+                  <div class="row-actions placement-actions">
+                    <button type="button" class="sm muted" @click="stopEditingPlacement(placement.id)">Done</button>
+                    <button type="button" class="sm danger-outline" @click="removePlacement(placement.id)">Remove</button>
+                  </div>
+                </template>
+                <template v-else>
+                  <p class="placement-text">{{ placement.label || "No placement text." }}</p>
+                  <p v-if="placement.stand" class="placement-meta">Standpoint: {{ standLabel(placement.stand) }}</p>
+                  <div class="row-actions placement-actions">
+                    <button type="button" class="sm muted" @click="editPlacement(placement.id)">Edit</button>
+                    <button type="button" class="sm danger-outline" @click="removePlacement(placement.id)">Remove</button>
+                  </div>
+                </template>
+              </div>
+            </li>
+          </ul>
+          <div v-if="placementFormOpen" class="artifact-placement-form">
+            <label>Artifact
+              <select
+                v-model="selectedArtifactItemId"
+                :disabled="!characterCatalog.items.length"
+                @change="placeArtifact"
+              >
+                <option value="">Select artifact...</option>
+                <option v-for="item in characterCatalog.items" :key="item.id" :value="item.id">
+                  {{ item.label }} ({{ item.id }})
+                </option>
+              </select>
+            </label>
+            <button type="button" class="sm muted" @click="placementFormOpen = false">Cancel</button>
+          </div>
+          <button
+            v-else
+            type="button"
+            class="sm muted add-beat"
+            :disabled="!characterCatalog.items.length"
+            @click="placementFormOpen = true"
+          >
+            Place artifact
+          </button>
         </div>
       </section>
 
@@ -519,22 +659,27 @@ function doorInitialSummary(door) {
 }
 .detail-row span { color: #8e96a3; font-size: .75rem; }
 .detail-row strong { min-width: 0; overflow-wrap: anywhere; color: #eef1f5; font-size: .85rem; font-weight: 600; }
-.beat-associations {
+.beat-associations,
+.artifact-associations {
   display: grid;
   gap: .65rem;
   padding-top: .65rem;
   border-top: 1px solid #343d4d;
 }
-.beat-associations p { margin: 0; }
-.beat-associations ul {
+.beat-associations p,
+.artifact-associations p { margin: 0; }
+.beat-associations ul,
+.artifact-associations ul {
   display: grid;
   gap: .35rem;
   margin: .35rem 0 0;
   padding: 0;
   list-style: none;
 }
-.beat-associations li { display: block; }
-.beat-link {
+.beat-associations li,
+.artifact-associations li { display: block; }
+.beat-link,
+.artifact-link {
   display: grid;
   gap: .1rem;
   width: 100%;
@@ -545,9 +690,45 @@ function doorInitialSummary(door) {
   text-align: left;
 }
 .beat-link:hover { border-color: #5f718f; background: #273142; }
-.beat-link strong { color: #eef1f5; font-size: .8rem; }
-.beat-link span { color: #9da7b5; font-size: .74rem; }
+.artifact-link:hover { border-color: #5f718f; background: #273142; }
+.beat-link strong,
+.artifact-link strong { color: #eef1f5; font-size: .8rem; }
+.beat-link span,
+.artifact-link span { color: #9da7b5; font-size: .74rem; }
+.artifact-placement-card,
+.artifact-placement-form {
+  display: grid;
+  gap: .45rem;
+  padding: .5rem;
+  border: 1px solid #343d4d;
+  border-radius: 8px;
+  background: #1b2028;
+}
+.placement-text {
+  margin: 0;
+  color: #bdc4ce;
+  font-size: .8rem;
+  overflow-wrap: anywhere;
+}
+.placement-meta {
+  margin: 0;
+  color: #8e96a3;
+  font-size: .74rem;
+  overflow-wrap: anywhere;
+}
+.placement-actions { justify-content: flex-start; }
 .add-beat { width: 100%; margin-top: .4rem; justify-content: center; }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 button.active, .inspector :deep(button.active) { background: #49624f; border-color: #6f9b79; }
 .object-actions { justify-content: flex-start; }
 .danger-outline, .inspector :deep(.danger-outline) { border-color: #9b5050; color: #ffb5b5; background: #3d2729; }

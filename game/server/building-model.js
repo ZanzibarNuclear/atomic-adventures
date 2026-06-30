@@ -61,6 +61,7 @@ export function validateBuilding(input, {
   });
 
   const roomIds = validateIds(building.rooms, "rooms", errors);
+  const standIdsByRoom = new Map();
   building.rooms.forEach((room, index) => {
     const base = `rooms.${index}`;
     const levels = room.levels ?? (room.level ? [room.level] : []);
@@ -99,6 +100,7 @@ export function validateBuilding(input, {
     if (room.defaultStand && !standIds.has(room.defaultStand)) {
       add(`${base}.defaultStand`, "Default stand must reference an authored stand in this room.");
     }
+    standIdsByRoom.set(room.id, standIds);
   });
 
   const holderIds = new Set();
@@ -176,6 +178,10 @@ export function validateBuilding(input, {
   building.pickups.forEach((pickup, index) => {
     if (!roomIds.has(pickup.room)) add(`pickups.${index}.room`, "Pickup room must exist.");
     if (!itemIds.has(pickup.item)) add(`pickups.${index}.item`, "Pickup item must exist.");
+    if (pickup.stand != null) pickup.stand = text(pickup.stand) || null;
+    if (pickup.stand && !standIdsByRoom.get(pickup.room)?.has(pickup.stand)) {
+      add(`pickups.${index}.stand`, "Pickup stand must exist in the pickup room.");
+    }
   });
 
   validateIds(building.switches, "switches", errors);

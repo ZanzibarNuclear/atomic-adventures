@@ -1,5 +1,5 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import { onBeforeRouteLeave, useRouter } from "vue-router";
+import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import { storyApi } from "../lib/storyApi.js";
 
 const characterCatalogs = [
@@ -18,6 +18,7 @@ export const visibilityOptions = ["always", "when-acquired", "when-started", "hi
 
 export function useCharacterBuilderDraft() {
   const router = useRouter();
+  const route = useRoute();
   const draft = ref(null);
   const baseline = ref("");
   const version = ref(0);
@@ -82,7 +83,7 @@ export function useCharacterBuilderDraft() {
     warnings.value = result.warnings ?? [];
     errors.value = {};
     status.value = "";
-    ensureSelection();
+    applyRouteSelection();
   }
 
   function ensureSelection() {
@@ -103,6 +104,27 @@ export function useCharacterBuilderDraft() {
     const catalogs = mode === "artifacts" ? artifactCatalogs : characterCatalogs;
     if (!catalogs.some((catalog) => catalog.id === selectedCatalog.value)) {
       selectCatalog(catalogs[0].id);
+    } else {
+      ensureSelection();
+    }
+  }
+
+  function applyRouteSelection() {
+    const mode = queryText(route.query.mode);
+    if (["character", "artifacts", "options", "preview"].includes(mode)) {
+      workspaceMode.value = mode;
+    }
+    if (workspaceMode.value === "preview" || workspaceMode.value === "options") return;
+    const catalogs = workspaceMode.value === "artifacts" ? artifactCatalogs : characterCatalogs;
+    const catalog = queryText(route.query.catalog);
+    if (catalogs.some((item) => item.id === catalog)) {
+      selectedCatalog.value = catalog;
+    } else if (!catalogs.some((item) => item.id === selectedCatalog.value)) {
+      selectedCatalog.value = catalogs[0].id;
+    }
+    const id = queryText(route.query.id);
+    if ((draft.value?.[selectedCatalog.value] ?? []).some((entry) => entry.id === id)) {
+      selectedId.value = id;
     } else {
       ensureSelection();
     }
@@ -402,4 +424,8 @@ function uniqueId(base, entries) {
 
 function labelize(id) {
   return id.split("-").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
+}
+
+function queryText(value) {
+  return Array.isArray(value) ? String(value[0] ?? "") : String(value ?? "");
 }
