@@ -73,6 +73,16 @@ For example, if an authored ID is renamed in the database and a test still uses 
 
 Remove or replace all "legacy" values as soon as possible. Use current values when the data changes.
 
+### No legacy monuments
+
+Do not preserve abandoned drafts as "legacy" systems, compatibility layers, or
+parallel concepts unless the user explicitly asks for a migration bridge. This
+project is iterating toward the best current design: once a better model is
+chosen, rename the data, code, tests, fixtures, and contracts to that model and
+delete the old path. Prior drafts are stepping stones, not monuments. Avoid
+enshrining old names in comments, contracts, UI labels, helper APIs, or tests;
+use current terminology and move forward.
+
 #### Map geometry tools
 
 The production World Builder uses map-layer edit handles.

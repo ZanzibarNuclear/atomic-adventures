@@ -17,7 +17,7 @@ describe("character model", () => {
       holder: "character:zanzibar-nuhero",
     });
     expect(result.character.stats.map((stat) => stat.id)).toEqual([
-      "health", "hunger", "thirst",
+      "health", "satiety", "hydration", "energy", "composure",
     ]);
     expect(result.character.knowledge.map((entry) => entry.id)).toEqual([
       "hydro-head-and-flow",

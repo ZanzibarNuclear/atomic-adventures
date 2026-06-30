@@ -6,6 +6,7 @@ import CharacterView from "../components/game-views/CharacterView.vue";
 import BuilderPageHeader from "../components/builder/BuilderPageHeader.vue";
 import BuilderWorkspaceTabs from "../components/builder/BuilderWorkspaceTabs.vue";
 import {
+  previewBarLevelOptions,
   useCharacterBuilderDraft,
   visibilityOptions,
 } from "../composables/useCharacterBuilderDraft.js";
@@ -27,6 +28,7 @@ const {
   moveEntry,
   navigationPromptVisible,
   previewCharacter,
+  previewBarLevel,
   previewMode,
   removeGroup,
   renameEntry,
@@ -126,14 +128,27 @@ const contentWorkspaceTabs = [
           <p class="label">Player-facing view</p>
           <h3>Panel preview</h3>
         </div>
-        <label>
-          Preview state
-          <select v-model="previewMode">
-            <option value="empty">Empty</option>
-            <option value="early">Early game</option>
-            <option value="populated">Populated</option>
-          </select>
-        </label>
+        <div class="preview-controls">
+          <label>
+            Content progress
+            <select v-model="previewMode">
+              <option value="empty">No acquired content</option>
+              <option value="early">First entries acquired</option>
+              <option value="populated">All content acquired</option>
+            </select>
+          </label>
+          <label>
+            Bar levels
+            <select v-model="previewBarLevel">
+              <option
+                v-for="option in previewBarLevelOptions"
+                :key="option.id"
+                :value="option.id">
+                {{ option.label }}
+              </option>
+            </select>
+          </label>
+        </div>
       </div>
       <CharacterView :character="previewCharacter" />
     </section>
@@ -169,6 +184,12 @@ const contentWorkspaceTabs = [
   justify-content: space-between;
   gap: .5rem;
   flex-wrap: wrap;
+}
+.preview-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(9rem, 1fr));
+  gap: .65rem;
+  align-items: end;
 }
 .builder-grid {
   display: grid;
@@ -248,5 +269,6 @@ select:focus {
 }
 @media (max-width: 720px) {
   .builder-grid { grid-template-columns: 1fr; }
+  .preview-controls { grid-template-columns: 1fr; width: 100%; }
 }
 </style>

@@ -4,6 +4,7 @@ const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const TABS = new Set(["overview", "inventory", "knowledge", "skills", "quests", "documents"]);
 const VISIBILITY = new Set(["always", "when-acquired", "when-started", "hidden"]);
 const STAT_TYPES = new Set(["integer", "decimal", "meter", "boolean", "enum"]);
+const STAT_DIRECTIONS = new Set(["higher-is-better"]);
 const SKILL_MODES = new Set(["acquired", "ranked"]);
 const ACTIVITIES = new Set(["resting", "light", "moderate", "strenuous"]);
 
@@ -187,6 +188,9 @@ export function validateCharacterDocument(input) {
     if (!STAT_TYPES.has(stat.type)) add(`${base}.type`, "Choose a supported stat type.");
     if (stat.group && !statGroups.has(stat.group)) add(`${base}.group`, `Unknown stat group "${stat.group}".`);
     if (!VISIBILITY.has(stat.visible)) add(`${base}.visible`, "Choose a supported visibility.");
+    if (stat.direction && !STAT_DIRECTIONS.has(stat.direction)) {
+      add(`${base}.direction`, "Choose a supported stat direction.");
+    }
     for (const [activity, rate] of Object.entries(stat.drift?.perGameHour ?? {})) {
       if (!ACTIVITIES.has(activity)) add(`${base}.drift.perGameHour.${activity}`, "Unknown activity profile.");
       if (!Number.isFinite(Number(rate))) add(`${base}.drift.perGameHour.${activity}`, "Drift rate must be numeric.");

@@ -15,6 +15,32 @@ const artifactCatalogs = [
 
 export const tabOptions = ["overview", "inventory", "knowledge", "skills", "quests", "documents"];
 export const visibilityOptions = ["always", "when-acquired", "when-started", "hidden"];
+export const previewBarLevelOptions = [
+  { id: "authored", label: "Authored defaults" },
+  { id: "full", label: "Full (100%)" },
+  { id: "high", label: "High (80%)" },
+  { id: "middle", label: "Middle (50%)" },
+  { id: "low", label: "Low (25%)" },
+  { id: "critical", label: "Critical (1%)" },
+  { id: "empty", label: "Empty (0%)" },
+];
+
+const previewBarLevelValues = {
+  full: 100,
+  high: 80,
+  middle: 50,
+  low: 25,
+  critical: 1,
+  empty: 0,
+};
+
+const previewWellbeingStats = [
+  { id: "health", label: "Health", default: 100 },
+  { id: "satiety", label: "Satiety", default: 100 },
+  { id: "hydration", label: "Hydration", default: 100 },
+  { id: "energy", label: "Energy", default: 100 },
+  { id: "composure", label: "Composure", default: 100 },
+];
 
 export function useCharacterBuilderDraft() {
   const router = useRouter();
@@ -29,6 +55,7 @@ export function useCharacterBuilderDraft() {
   const selectedId = ref("");
   const workspaceMode = ref("character");
   const previewMode = ref("early");
+  const previewBarLevel = ref("authored");
   const revisions = ref([]);
   const showHistory = ref(false);
   const pendingRoute = ref("");
@@ -47,7 +74,8 @@ export function useCharacterBuilderDraft() {
       messages.map((message) => `${path}: ${message}`),
     ),
   );
-  const previewCharacter = computed(() => buildPreviewCharacter(draft.value, previewMode.value));
+  const previewCharacter = computed(() =>
+    buildPreviewCharacter(draft.value, previewMode.value, previewBarLevel.value));
 
   const warnBeforeUnload = (event) => {
     if (!dirty.value) return;
@@ -296,6 +324,7 @@ export function useCharacterBuilderDraft() {
     selectedId,
     workspaceMode,
     previewMode,
+    previewBarLevel,
     revisions,
     showHistory,
     navigationPromptVisible,
@@ -336,8 +365,10 @@ async function loadReferences(domain, id) {
   );
 }
 
-export function buildPreviewCharacter(draft, previewMode) {
-  const definitions = draft ?? {
+export function buildPreviewCharacter(draft, previewMode, previewBarLevel = "authored") {
+  const definitions = draft
+    ? { ...draft, stats: [...(draft.stats ?? [])] }
+    : {
     profile: {},
     panel: {},
     items: [],
@@ -347,9 +378,13 @@ export function buildPreviewCharacter(draft, previewMode) {
     quests: [],
     documents: [],
   };
+  if (previewBarLevel in previewBarLevelValues) ensurePreviewWellbeingStats(definitions);
   const populated = previewMode === "populated";
   const early = previewMode === "early";
   const include = (index) => populated || (early && index === 0);
+  const stats = Object.fromEntries(
+    definitions.stats.map((stat) => [stat.id, previewStatValue(stat, previewBarLevel)]),
+  );
   return {
     definitions,
     holdings: {
@@ -359,7 +394,7 @@ export function buildPreviewCharacter(draft, previewMode) {
           : null).filter(Boolean),
       ),
     },
-    stats: Object.fromEntries(definitions.stats.map((stat) => [stat.id, stat.default ?? 0])),
+    stats,
     knowledge: Object.fromEntries(
       definitions.knowledge.map((entry, index) => include(index)
         ? [entry.id, { acquiredAt: "preview" }]
@@ -383,6 +418,37 @@ export function buildPreviewCharacter(draft, previewMode) {
   };
 }
 
+function ensurePreviewWellbeingStats(definitions) {
+  const stats = definitions.stats ??= [];
+  const existing = new Set(stats.map((stat) => stat.id));
+  for (const stat of previewWellbeingStats) {
+    if (existing.has(stat.id)) continue;
+    stats.push({
+      ...stat,
+      type: "meter",
+      min: 0,
+      max: 100,
+      direction: "higher-is-better",
+      visible: "always",
+      order: 1000 + stats.length,
+    });
+  }
+}
+
+function previewStatValue(stat, previewBarLevel) {
+  if (!(previewBarLevel in previewBarLevelValues) || !isPreviewWellbeingStat(stat)) {
+    return stat.default ?? 0;
+  }
+  const min = finiteNumber(stat.min, 0);
+  const max = finiteNumber(stat.max, 100);
+  const reserve = min + ((max - min) * previewBarLevelValues[previewBarLevel]) / 100;
+  return clamp(reserve, min, max);
+}
+
+function isPreviewWellbeingStat(stat) {
+  return stat.type === "meter" || previewWellbeingStats.some((previewStat) => previewStat.id === stat.id);
+}
+
 function entryDefaults(catalog, id, order) {
   return {
     items: {
@@ -392,7 +458,7 @@ function entryDefaults(catalog, id, order) {
     },
     stats: {
       id, label: labelize(id), type: "integer", group: null, order,
-      visible: "always", default: 0,
+      visible: "always", default: 0, direction: "higher-is-better",
     },
     knowledge: {
       id, label: labelize(id), description: null, order,
@@ -420,6 +486,15 @@ function uniqueId(base, entries) {
   let suffix = 2;
   while (used.has(id)) id = `${base}-${suffix++}`;
   return id;
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function finiteNumber(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
 }
 
 function labelize(id) {

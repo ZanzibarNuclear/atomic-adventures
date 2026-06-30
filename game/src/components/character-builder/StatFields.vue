@@ -28,6 +28,11 @@ defineProps({
           </option>
         </select>
       </label>
+      <label>Direction
+        <select v-model="entry.direction">
+          <option value="higher-is-better">Higher is better</option>
+        </select>
+      </label>
       <label>Default<input v-model.number="entry.default" type="number"></label>
       <label>Minimum
         <input :value="entry.min" type="number" @input="setOptionalNumber(entry, 'min', $event)">

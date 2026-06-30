@@ -17,17 +17,17 @@ function state() {
         consume: 1,
         timeMinutes: 20,
         activity: "resting",
-        effects: [{ op: "stat.add", id: "hunger", value: -55 }],
+        effects: [{ op: "stat.add", id: "satiety", value: 55 }],
       }],
     }],
     stats: [{
-      id: "hunger",
-      label: "Hunger",
+      id: "satiety",
+      label: "Satiety",
       type: "meter",
-      default: 80,
+      default: 25,
       min: 0,
       max: 100,
-      drift: { perGameHour: { resting: 3 } },
+      drift: { perGameHour: { resting: -3 } },
     }],
     knowledge: [], skills: [], quests: [], documents: [],
   });
@@ -40,7 +40,7 @@ describe("item actions", () => {
     const gameState = state();
     expect(performItemAction(gameState, "meal", "eat").ok).toBe(true);
     expect(itemQuantity(gameState.character.holdings, "meal")).toBe(1);
-    expect(gameState.character.stats.hunger).toBeCloseTo(26);
+    expect(gameState.character.stats.satiety).toBeCloseTo(79);
     expect(gameState.clock.elapsedMinutes).toBe(20);
   });
 

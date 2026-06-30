@@ -3,13 +3,12 @@
 **Scope:** Character stats, food, water, time drift, thresholds, health effects,
 and future tuning for player survival pressure.
 
-Atomic Adventures currently has early wellbeing mechanics: health, hunger, and
-thirst are authored stats; game time can drift those stats; consumable item
-actions can change them; thresholds can apply health effects over time. The
-player-facing model is now broader than those legacy stats: the character
-overview should present positive vitals, named condition states, and health as
-the result of sustained or severe problems rather than as a duplicate of every
-need meter.
+Atomic Adventures wellbeing is authored as positive reserve stats: health,
+satiety, hydration, energy, and composure. Game time can drift those stats,
+consumable item actions can change them, and thresholds can apply health effects
+or other consequences over time. The character overview presents positive
+vitals, named condition states, and health as the result of sustained or severe
+problems rather than as a duplicate of every need meter.
 
 ## Player-Facing Model
 
@@ -22,7 +21,7 @@ The preferred visible vitals are:
 - `Health` — current physical condition. Higher is better.
 - `Satiety` — food reserve / how fed Zanzibar is. Higher is better.
 - `Hydration` — water reserve / how hydrated Zanzibar is. Higher is better.
-- `Rested` — fatigue and sleep reserve. Higher is better.
+- `Energy` — fatigue and sleep reserve. Higher is better.
 - `Composure` — emotional steadiness. Higher is better.
 
 Use words alongside or instead of numbers where words are clearer. Examples:
@@ -30,31 +29,12 @@ Use words alongside or instead of numbers where words are clearer. Examples:
 - Health: healthy, stable, weak, critical, collapsed.
 - Satiety: sated, fed, hungry, very hungry, starving.
 - Hydration: hydrated, okay, thirsty, dehydrated, severely dehydrated.
-- Rested: rested, tired, exhausted, spent.
+- Energy: rested, tired, exhausted, spent.
 - Composure: calm, alert, nervous, scared, panicked.
 
 Avoid showing a large badness meter such as `Hunger 90 / 100` in the overview.
-If the underlying stat is negative-pressure, translate it into a positive
-reserve before rendering it.
-
-## Legacy Stat Compatibility
-
-The current authored content still stores:
-
-- `health` as a positive meter where `100` is healthy.
-- `hunger` as a negative-pressure meter where higher is worse.
-- `thirst` as a negative-pressure meter where higher is worse.
-
-Until content migrates, the overview derives:
-
-```text
-Satiety = hunger.max - hunger.value + hunger.min
-Hydration = thirst.max - thirst.value + thirst.min
-```
-
-Effects and drift may continue to modify `hunger` and `thirst` directly. The
-display layer is responsible for translating them into `Satiety` and
-`Hydration`.
+Author the positive reserve directly as `satiety` or `hydration`; do not keep an
+inverse internal meter and translate it in the display layer.
 
 Consumables can apply character effects:
 
@@ -63,39 +43,43 @@ actions:
   - id: eat
     label: Eat energy bar
     effects:
-      - { op: stat.add, id: hunger, value: -18 }
+      - { op: stat.add, id: satiety, value: 18 }
 ```
 
-Time can increase need meters by activity profile:
+Time can reduce reserve meters by activity profile:
 
 ```yaml
 drift:
   perGameHour:
-    resting: 1.5
-    light: 3
-    moderate: 5
-    strenuous: 8
+    resting: -1.5
+    light: -3
+    moderate: -5
+    strenuous: -8
 ```
 
 Thresholds can describe states and apply effects:
 
 ```yaml
 thresholds:
-  - at: 90
+  - at: 10
     state: starving
     effectsPerGameHour:
       - { op: stat.add, id: health, value: -2 }
 ```
 
+For positive reserve stats, thresholds are low-water marks: a threshold with
+`at: 10` applies when the reserve is `10` or lower. Crises happen as important
+reserves run out.
+
 ## Health, Max Health, And Penalties
 
-Health should not drop at the first sign of hunger, thirst, fear, or fatigue.
+Health should not drop at the first sign of low satiety, low hydration, fear, or fatigue.
 Needs should have forgiving ranges, then warning states, then sustained harm.
 
 Use thresholds and time:
 
-- Mild hunger or thirst should change labels and possibly story affordances, not
-  immediately damage health.
+- Mild satiety or hydration pressure should change labels and possibly story
+  affordances, not immediately damage health.
 - Severe dehydration should affect health sooner and faster than starvation.
 - Starvation should develop slowly over days, first reducing energy and recovery
   before causing serious health loss.
@@ -164,15 +148,15 @@ Open questions:
 
 - Should calories and water be tracked as daily intake totals, as reservoir
   meters, or both?
-- Should hunger/thirst drift be derived from calorie and water deficits instead
-  of authored directly per stat?
+- Should satiety/hydration drift be derived from calorie and water deficits
+  instead of authored directly per stat?
 - At what time boundary does the game evaluate daily targets?
 - How forgiving should the system be in an educational adventure, where survival
   pressure should create stakes but not dominate exploration?
 
 ## Intake And Overconsumption
 
-Food and water are not only “reduce hunger/thirst” buttons. Future mechanics
+Food and water are not only “fill the reserve” buttons. Future mechanics
 may include:
 
 - calorie values;
@@ -243,10 +227,10 @@ simulation precision.
 
 - A dedicated `wellbeing` block in the character document for daily targets and
   tuning constants.
-- UI treatments for meters with opposite directions.
-- Derived hunger/thirst from calorie and water balance.
+- Derived satiety/hydration from calorie and water balance.
 - Fullness and safe water-intake bounds.
 - Fatigue/sleep as a separate axis from health.
 - Environmental modifiers such as heat, cold, rain, and exertion.
 - Clear feedback when an item action affects multiple stats.
-- Save compatibility when wellbeing formulas change.
+- Clear migration steps when wellbeing formulas change, followed by deleting the
+  replaced path.

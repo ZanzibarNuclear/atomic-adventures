@@ -107,11 +107,11 @@ describe("character panel presentation", () => {
   it("presents wellbeing meters with higher values as better condition", () => {
     const state = character();
     state.definitions.stats.push(
-      { id: "hunger", label: "Hunger", type: "meter", min: 0, max: 100, visible: "always" },
-      { id: "thirst", label: "Thirst", type: "meter", min: 0, max: 100, visible: "always" },
+      { id: "satiety", label: "Satiety", type: "meter", min: 0, max: 100, visible: "always" },
+      { id: "hydration", label: "Hydration", type: "meter", min: 0, max: 100, visible: "always" },
     );
-    state.stats.hunger = 35;
-    state.stats.thirst = 70;
+    state.stats.satiety = 65;
+    state.stats.hydration = 30;
 
     const overview = characterWellbeingOverview(state);
 
@@ -119,7 +119,7 @@ describe("character panel presentation", () => {
       expect.objectContaining({ id: "health", value: 85, state: "Healthy" }),
       expect.objectContaining({ id: "satiety", value: 65, state: "Fed" }),
       expect.objectContaining({ id: "hydration", value: 30, state: "Thirsty" }),
-      expect.objectContaining({ id: "rested", value: 100, state: "Rested" }),
+      expect.objectContaining({ id: "energy", value: 100, state: "Rested" }),
       expect.objectContaining({ id: "composure", value: 100, state: "Calm" }),
     ]);
     expect(formatVitalValue(overview.vitals[1])).toBe("Fed · 65 / 100");

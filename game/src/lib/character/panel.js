@@ -41,7 +41,7 @@ export function characterWellbeingOverview(character) {
           [0, "Collapsed", "error"],
         ],
       }),
-      reserveFromInverseStat(byId.hunger, {
+      vitalFromStat(byId.satiety, {
         id: "satiety",
         label: "Satiety",
         fallback: 100,
@@ -53,7 +53,7 @@ export function characterWellbeingOverview(character) {
           [0, "Starving", "error"],
         ],
       }),
-      reserveFromInverseStat(byId.thirst, {
+      vitalFromStat(byId.hydration, {
         id: "hydration",
         label: "Hydration",
         fallback: 100,
@@ -65,8 +65,8 @@ export function characterWellbeingOverview(character) {
           [0, "Severely dehydrated", "error"],
         ],
       }),
-      vitalFromStat(byId.rested ?? byId.energy, {
-        id: "rested",
+      vitalFromStat(byId.energy, {
+        id: "energy",
         label: "Energy",
         fallback: 100,
         states: [
@@ -217,23 +217,6 @@ function vitalFromStat(stat, options) {
     max,
     ...stateForValue(value, options.states),
     description: stat?.description ?? null,
-  };
-}
-
-function reserveFromInverseStat(stat, options) {
-  if (!stat) return vitalFromStat(null, options);
-  const min = finiteNumber(stat.min, 0);
-  const max = finiteNumber(stat.max, 100);
-  const pressure = clamp(finiteNumber(stat.value, stat.default ?? min), min, max);
-  const value = clamp(max - pressure + min, min, max);
-  return {
-    id: options.id,
-    label: options.label,
-    value,
-    min,
-    max,
-    ...stateForValue(value, options.states),
-    description: stat.description ?? null,
   };
 }
 
