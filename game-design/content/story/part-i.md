@@ -114,7 +114,7 @@ The next priority is to find breakfast. Zanzibar goes back up the spiral stairca
 
 Back in the kitchen, Zanzibar rifles through boxes of Tasty Tack. He opens a box of Pioneer Breakfast, "a complete meal, with griddle cakes, eggs and bacon." Each pack has three bars with their distinctive flavors. Zanzibar takes small bites, trying each on its own, then in combination. He washes it down with a fresh batch of purified river water.
 
-After a satisfying meal, Zanzibar steps back into the spiral stairwell. The doors at the top and bottom are on springloaded hinges, and with both doors closed and steady the sound of the rushing water, the effect is hypnotic. Zanzibar feels a sense of deep calm that he has not experienced in quite somem time. Out of this calm rises an idea. Everything is going to work out.
+After a satisfying meal, Zanzibar steps back into the spiral stairwell. The doors at the top and bottom are on spring-loaded hinges, and with both doors closed and steady the sound of the rushing water, the effect is hypnotic. Zanzibar feels a sense of deep calm that he has not experienced in quite sometime. Out of this calm rises an idea. Everything is going to work out.
 
 Ready for the day, Zanzibar returns to the library to continue his self-guided tour.
 
@@ -180,7 +180,7 @@ In the other direction, the path turns along the outer wall of the control room 
 
 At the corner, a stone staircase is wedged between the building and the stone retaining wall that he saw at the edge of the driveway. Zanzibar's attention turns to the river. He sees a submerged concrete cube with a metal lid. He manipulates a lever at the bank that is attached to the cover, and it slides to the side. He hears water filling the pipe, and before long, water is pouring out of a pipe below at what must be the mid-section.
 
-Time for step 2. Zanzi returns along the path to the mid-section. There is a handwheel like you might find on a submarine for sealing a hatch. In this case, the wheel is connected to a valve with two positions. The position it is in diverts water back into the cascade. Step 2 is to turn the valve to direct the water down the pipe. Zanzibar flexes to overcome the relunctant valve. With a jerk it comes loose. It moves into place with a few turns of the wheel.
+Time for step 2. Zanzi returns along the path to the mid-section. There is a hand wheel like you might find on a submarine for sealing a hatch. In this case, the wheel is connected to a valve with two positions. The position it is in diverts water back into the cascade. Step 2 is to turn the valve to direct the water down the pipe. Zanzibar flexes to overcome the reluctant valve. With a jerk it comes loose. It moves into place with a few turns of the wheel.
 
 Step 3 is to check for leaks. He scans up and down. No spraying, no gushing, just a few slow drips.
 

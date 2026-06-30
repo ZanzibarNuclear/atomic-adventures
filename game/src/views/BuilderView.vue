@@ -380,6 +380,7 @@ function openMilestoneDialog({ field = null } = {}) {
     label: "",
     id: "",
     kind: "story",
+    description: "",
   };
 }
 
@@ -396,7 +397,7 @@ async function createMilestoneFromDialog() {
       id,
       label: label || id,
       kind: milestoneDialog.value.kind,
-      description: null,
+      description: milestoneDialog.value.description.trim() || null,
     },
   ];
   try {
@@ -646,27 +647,39 @@ async function applyStoryRouteQuery() {
 
     <div v-if="milestoneDialog.visible" class="modal-backdrop" role="presentation">
       <form class="milestone-dialog panel" @submit.prevent="createMilestoneFromDialog">
-        <h2>New milestone</h2>
-        <label>Name
-          <input v-model="milestoneDialog.label" autofocus>
-        </label>
-        <label>ID
-          <input
-            :value="milestoneDialog.id || milestoneIdFromLabel(milestoneDialog.label)"
-            @input="milestoneDialog.id = $event.target.value"
-          >
-        </label>
-        <label>Kind
-          <select v-model="milestoneDialog.kind">
-            <option value="story">story</option>
-            <option value="discovery">discovery</option>
-            <option value="knowledge">knowledge</option>
-            <option value="application">application</option>
-            <option value="operations">operations</option>
-            <option value="survival">survival</option>
-            <option value="world">world</option>
-          </select>
-        </label>
+        <div class="milestone-dialog-heading">
+          <div>
+            <p class="label">Story state</p>
+            <h2>New milestone</h2>
+          </div>
+        </div>
+        <section class="milestone-dialog-section">
+          <div class="field-grid">
+            <label>Name
+              <input v-model="milestoneDialog.label" autofocus>
+            </label>
+            <label>ID
+              <input
+                :value="milestoneDialog.id || milestoneIdFromLabel(milestoneDialog.label)"
+                @input="milestoneDialog.id = $event.target.value"
+              >
+            </label>
+            <label>Kind
+              <select v-model="milestoneDialog.kind">
+                <option value="story">story</option>
+                <option value="discovery">discovery</option>
+                <option value="knowledge">knowledge</option>
+                <option value="application">application</option>
+                <option value="operations">operations</option>
+                <option value="survival">survival</option>
+                <option value="world">world</option>
+              </select>
+            </label>
+            <label class="span-all">Description
+              <textarea v-model="milestoneDialog.description" rows="4"></textarea>
+            </label>
+          </div>
+        </section>
         <div class="dialog-actions">
           <button type="button" class="sm muted" @click="cancelMilestoneDialog">Cancel</button>
           <button type="submit" class="sm">Create</button>
@@ -757,21 +770,85 @@ async function applyStoryRouteQuery() {
 }
 .milestone-dialog {
   display: grid;
-  gap: .75rem;
-  width: min(28rem, 100%);
+  gap: .8rem;
+  width: min(34rem, 100%);
+  border-color: #343d4d;
+  border-radius: 10px;
+  background: #20252f;
+  padding: .85rem;
 }
-.milestone-dialog h2 {
+.milestone-dialog-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+.milestone-dialog h2,
+.milestone-dialog p {
   margin: 0;
+}
+.label {
+  color: #8e96a3;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.milestone-dialog-section {
+  display: grid;
+  gap: .55rem;
+  padding: .65rem;
+  border: 1px solid #343d4d;
+  border-radius: 8px;
+  background: #1b2028;
+}
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .7rem;
+}
+.span-all { grid-column: 1 / -1; }
+.milestone-dialog label {
+  display: grid;
+  gap: .35rem;
+  color: #bdc4ce;
+  font-size: .8rem;
+}
+.milestone-dialog input,
+.milestone-dialog textarea,
+.milestone-dialog select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #485267;
+  border-radius: 7px;
+  background: #171b22;
+  color: #eef1f5;
+  padding: .5rem .6rem;
+  font: inherit;
+}
+.milestone-dialog input:focus,
+.milestone-dialog textarea:focus,
+.milestone-dialog select:focus {
+  outline: 2px solid #6ea57b;
+  outline-offset: 1px;
+  border-color: #6ea57b;
+}
+.milestone-dialog textarea {
+  resize: vertical;
+  line-height: 1.5;
 }
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
   gap: .5rem;
+  flex-wrap: wrap;
 }
 @media (max-width: 1100px) {
   .builder-workspace { grid-template-columns: minmax(320px, .85fr) minmax(420px, 1.15fr); }
 }
 @media (max-width: 820px) {
   .builder-workspace { grid-template-columns: 1fr; }
+  .field-grid { grid-template-columns: 1fr; }
 }
 </style>
