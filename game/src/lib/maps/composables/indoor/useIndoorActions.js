@@ -21,6 +21,7 @@ export function createIndoorActions({
 
     return actions.filter((action) => {
       if (action.room && action.room !== roomId) return false;
+      if (action.stand && action.stand !== indoor.currentStand) return false;
       if (action.exteriorNode && action.exteriorNode !== nodeId) return false;
       if (!action.room && !action.exteriorNode) return false;
       if (action.once !== false && indoor.completedActions.has(action.id)) {

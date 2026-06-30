@@ -13,8 +13,27 @@ import { searchActionLabel } from "../lib/maps/composables/useBarrierOpenings.js
 import { barrierHintAtStand } from "../lib/maps/composables/useBarrierStand.js";
 
 function actionButtonLabel(action) {
-  if (action.verb) return `${action.verb} — ${action.label}`;
-  return action.label;
+  if (action.verb) return cleanActionLabel(`${action.verb} ${withArticle(action.label)}`);
+  return cleanActionLabel(action.label);
+}
+
+function withArticle(label) {
+  if (!label) return "";
+  return /^(the|a|an)\s/i.test(label) ? label : `the ${label}`;
+}
+
+function cleanActionLabel(label) {
+  return String(label ?? "").replace(/\s+[–—]\s+/g, " the ");
+}
+
+function switchActionLabel(sw, engaged) {
+  const normalized = cleanActionLabel(sw.label);
+  const manualRelease = normalized.match(/^Manual release (?:the )?(.+)$/i);
+  if (manualRelease) {
+    const target = withArticle(manualRelease[1]);
+    return engaged ? `Engage the motor for ${target}` : `Release ${target} manually`;
+  }
+  return engaged ? `Engage the motor for ${withArticle(normalized)}` : normalized;
 }
 
 export function isVisibleAction(action) {
@@ -243,7 +262,7 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
   for (const pickup of indoor.roomPickups ?? []) {
     items.push({
       id: `pickup:${pickup.id}`,
-      label: `Take — ${pickup.label}`,
+      label: `Take ${withArticle(pickup.label)}`,
     });
   }
 
@@ -271,7 +290,7 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
     if (canBreakLock(doorState, building.areaId, d.doorId, building)) {
       items.push({
         id: `door-break:${d.doorId}`,
-        label: `Break lock — ${name}`,
+        label: `Break the lock on ${withArticle(name)}`,
         hint,
       });
     }
@@ -291,7 +310,7 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
     ) {
       items.push({
         id: `door-lock:${d.doorId}`,
-        label: `${state.locked ? "Unlock" : "Lock"} — ${name}`,
+        label: `${state.locked ? "Unlock" : "Lock"} ${withArticle(name)}`,
         hint,
         disabled: !indoor.canToggleDoorLock(d.doorId),
       });
@@ -301,13 +320,13 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
       if (canOpenDoor(doorState, building.areaId, d.doorId)) {
         items.push({
           id: `door-open:${d.doorId}`,
-          label: `Open — ${name}`,
+          label: `Open ${withArticle(name)}`,
           hint,
         });
       } else if (canCloseDoor(doorState, building.areaId, d.doorId)) {
         items.push({
           id: `door-close:${d.doorId}`,
-          label: `Close — ${name}`,
+          label: `Close ${withArticle(name)}`,
           hint,
         });
       }
@@ -318,18 +337,39 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
     const engaged = isManualEnablerActive(sw.door, facility);
     items.push({
       id: `switch:${sw.door}`,
-      label: engaged ? `Engage motor — ${sw.label}` : sw.label,
+      label: switchActionLabel(sw, engaged),
     });
   }
 
   return items.filter(isVisibleAction);
 }
 
-function movementLabel(move) {
+function movementLabel(indoor, move) {
+  if (move.kind === "stairs" || move.kind === "winding-stairs" || move.onSpiral) {
+    return isDescendingStairs(indoor, move) ? "Descend the stairs" : "Climb the stairs";
+  }
+  if (indoor?.indoor && !indoor.indoor.exteriorNode && move.toExteriorNode) return "Go outside";
+  if (indoor?.indoor?.exteriorNode && move.toRoomId && move.kind === "door") return "Go inside";
   if (move.toExteriorNode) return `Go ${move.label ?? "along the footpath"}`;
   if (move.toStandId) return `Go ${move.label ?? "to another spot"}`;
   if (move.toRoomId) return `Go ${move.label ?? "to another room"}`;
   return `Go ${move.label ?? "onward"}`;
+}
+
+function isDescendingStairs(indoor, move) {
+  if (/\bdown\b/i.test(move.label ?? "")) return true;
+  if (/\bup\b/i.test(move.label ?? "")) return false;
+  const levels = indoor?.building?.levels ?? [];
+  const orderFor = (id) => {
+    const level = levels.find((item) => item.id === id);
+    return Number(level?.order ?? levels.findIndex((item) => item.id === id));
+  };
+  const fromOrder = orderFor(indoor?.indoor?.level);
+  const toOrder = orderFor(move.toLevel);
+  if (Number.isFinite(fromOrder) && Number.isFinite(toOrder) && fromOrder !== toOrder) {
+    return toOrder < fromOrder;
+  }
+  return false;
 }
 
 export function buildIndoorMovementActions(indoor, pendingBeat = null) {
@@ -351,20 +391,20 @@ export function buildIndoorMovementActions(indoor, pendingBeat = null) {
       if (move.toExteriorNode) {
         return {
           id: `move-exterior:${move.toExteriorNode}`,
-          label: movementLabel(move),
+          label: movementLabel(indoor, move),
           kind: move.kind ?? "path",
         };
       }
       if (move.toStandId) {
         return {
           id: `move-stand:${move.toStandId}`,
-          label: movementLabel(move),
+          label: movementLabel(indoor, move),
           kind: move.kind ?? "stand",
         };
       }
       return {
         id: `move-room:${move.toRoomId}`,
-        label: movementLabel(move),
+        label: movementLabel(indoor, move),
         kind: move.kind ?? "room",
       };
     });

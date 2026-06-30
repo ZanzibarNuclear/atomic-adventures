@@ -60,6 +60,7 @@ function itemMeta(item) {
       <button class="sm" @click="$emit('add', 'nodes')">+ Node</button>
       <button class="sm" @click="$emit('add', 'exits')">+ Map transition</button>
       <button class="sm" @click="$emit('add', 'links')">+ Connection</button>
+      <button class="sm" @click="$emit('add', 'switches')">+ Switch</button>
       <button class="sm" @click="$emit('add', 'stands')">+ Stand</button>
     </div>
     <p v-if="isSearching && !visibleGroups.length" class="empty-note">No matching objects.</p>

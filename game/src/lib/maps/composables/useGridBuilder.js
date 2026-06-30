@@ -146,6 +146,17 @@ export function listEditableLinks(data, levelId) {
     }))
 }
 
+export function listEditableSwitches(data, levelId) {
+  const roomById = Object.fromEntries((data.rooms ?? []).map((room) => [room.id, room]))
+  return (data.switches ?? [])
+    .filter((item) => roomOnLevel(roomById[item.room] ?? {}, levelId))
+    .map((item) => ({
+      source: 'switches',
+      id: item.id,
+      label: item.label ?? item.id,
+    }))
+}
+
 export function listEditableRoomStands(data, levelId) {
   return (data.rooms ?? [])
     .filter((room) => !room.feature && roomOnLevel(room, levelId))
@@ -168,6 +179,7 @@ export function listAllGridEditable(data, levelId) {
     ...listEditableFixtures(data, levelId),
     ...listEditableWalls(data, levelId),
     ...listEditableLinks(data, levelId),
+    ...listEditableSwitches(data, levelId),
     ...listEditableRoomStands(data, levelId),
   ]
 }
@@ -199,6 +211,9 @@ export function findGridEditable(data, source, id) {
     const index = Number(id.split('-').at(-1))
     return Number.isInteger(index) ? data.links?.[index] ?? null : null
   }
+  if (source === 'switches') {
+    return data.switches?.find((item) => item.id === id) ?? null
+  }
   if (source === 'stands') {
     const [roomId, standId] = id.split('/')
     return data.rooms?.find((room) => room.id === roomId)
@@ -216,6 +231,7 @@ export function gridEditModeForSource(source) {
   if (source === 'fixtures') return 'fixture'
   if (source === 'walls') return 'wall'
   if (source === 'links') return 'link'
+  if (source === 'switches') return 'switch'
   if (source === 'stands') return 'stand'
   return null
 }

@@ -185,6 +185,7 @@ export function useGridBuilderSelection({
     if (sourceName === "fixtures") return draft.value.fixtures;
     if (sourceName === "walls") return draft.value.cliffWall ? [draft.value.cliffWall] : null;
     if (sourceName === "links") return draft.value.links;
+    if (sourceName === "switches") return draft.value.switches;
     if (sourceName === "stands") {
       const roomId = selection.value?.source === "stands"
         ? selection.value.id.split("/")[0]
@@ -274,6 +275,21 @@ export function useGridBuilderSelection({
         to: rooms[1].id,
         kind: "open",
       };
+    } else if (sourceName === "switches") {
+      const rooms = draft.value.rooms.filter((room) =>
+        room.level === level.value || room.levels?.includes(level.value),
+      );
+      const door = draft.value.doors[0];
+      if (!rooms.length || !door) {
+        status.value = "Add a room and door before creating a switch.";
+        return;
+      }
+      item = {
+        id: uniqueId("new-switch", list),
+        room: rooms[0].id,
+        door: door.id,
+        label: "New switch",
+      };
     }
     if (!item) return;
     list.push(item);
@@ -362,6 +378,7 @@ export function useGridBuilderSelection({
       paths: "path",
       nodes: "exteriorNode",
       exits: "transition",
+      switches: "switch",
     }[selected.source];
     if (selected.source === "stands") {
       const roomId = selected.id.split("/")[0];

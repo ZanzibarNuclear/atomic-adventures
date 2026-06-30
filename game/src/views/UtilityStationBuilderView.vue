@@ -27,6 +27,7 @@ const emptyUtilityStation = {
   rooms: [],
   doors: [],
   links: [],
+  switches: [],
   fixtures: [],
   exterior: { nodes: [], paths: [] },
 };
@@ -143,6 +144,7 @@ const groupedItems = computed(() => [
   { source: "fixtures", label: "Fixtures" },
   { source: "walls", label: "Visual walls" },
   { source: "links", label: "Room connections" },
+  { source: "switches", label: "Switches" },
   { source: "stands", label: "Room stands" },
 ].map((group) => ({
   ...group,

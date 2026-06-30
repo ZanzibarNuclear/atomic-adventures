@@ -98,6 +98,63 @@ describe("indoor room stands", () => {
     expect(indoor.indoor.currentStand).toBe("stairs-bottom");
   });
 
+  it("only offers room-side door controls at that door threshold", () => {
+    const { indoor } = indoorHarness();
+    indoor.indoor.currentRoom = "large-bay";
+    indoor.indoor.exteriorNode = null;
+    indoor.indoor.currentStand = "stairs-bottom";
+    indoor.indoor.discovered = new Set(["large-bay"]);
+
+    expect(indoor.nearbyDoors.map((door) => door.doorId)).not.toContain("large-bay-man");
+
+    indoor.moveToStand("door:large-bay-man");
+
+    expect(indoor.nearbyDoors.map((door) => door.doorId)).toEqual(["large-bay-man"]);
+  });
+
+  it("only offers stand-associated pickups at their standpoint", () => {
+    const { indoor } = indoorHarness();
+    indoor.indoor.currentRoom = "large-bay";
+    indoor.indoor.exteriorNode = null;
+    indoor.indoor.currentStand = "midway";
+
+    expect(indoor.roomPickups.map((pickup) => pickup.id)).not.toContain("bolt-cutter");
+    indoor.tryPickup("bolt-cutter");
+    expect([...indoor.indoor.inventory]).not.toContain("bolt-cutter");
+
+    indoor.indoor.currentStand = "service-area";
+
+    expect(indoor.roomPickups.map((pickup) => pickup.id)).toContain("bolt-cutter");
+    indoor.tryPickup("bolt-cutter");
+    expect([...indoor.indoor.inventory]).toContain("bolt-cutter");
+  });
+
+  it("only offers stand-associated authored actions at their standpoint", () => {
+    const data = structuredClone(utilityData);
+    data.actions.push({
+      id: "inspect-service-bench",
+      room: "large-bay",
+      stand: "service-area",
+      label: "Inspect the service bench",
+      once: false,
+    });
+    const place = ref("indoors");
+    const indoor = useIndoorBuilding(data, useOutdoorWorld(mapData), {
+      place,
+      builderView: ref(false),
+      gameState: { flags: createFlags() },
+    });
+    indoor.indoor.currentRoom = "large-bay";
+    indoor.indoor.exteriorNode = null;
+    indoor.indoor.currentStand = "midway";
+
+    expect(indoor.availableActions.map((action) => action.id)).not.toContain("inspect-service-bench");
+
+    indoor.indoor.currentStand = "service-area";
+
+    expect(indoor.availableActions.map((action) => action.id)).toContain("inspect-service-bench");
+  });
+
   it("arrives at the destination-side threshold when crossing a door", () => {
     const { indoor } = indoorHarness();
     setAllDoorsOpen(

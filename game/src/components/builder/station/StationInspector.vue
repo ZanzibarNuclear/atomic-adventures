@@ -9,6 +9,7 @@ import PathInspector from "./PathInspector.vue";
 import RoomInspector from "./RoomInspector.vue";
 import RoomStandInspector from "./RoomStandInspector.vue";
 import StationInventoryAuthoring from "./StationInventoryAuthoring.vue";
+import SwitchInspector from "./SwitchInspector.vue";
 import TransitionInspector from "./TransitionInspector.vue";
 
 const props = defineProps({
@@ -231,6 +232,13 @@ const summaryRows = computed(() => {
       ["To", entity.to],
       ["Kind", entity.kind || "open"],
       ["Door", entity.door || "None"],
+    ];
+  }
+  if (selection.source === "switches") {
+    return [
+      ["ID", selection.id],
+      ["Room", entity.room],
+      ["Door", entity.door],
     ];
   }
   if (selection.source === "fixtures" || selection.source === "walls") {
@@ -562,6 +570,12 @@ function removePlacement(placementId) {
 
       <RoomStandInspector
         v-else-if="editing && selection.source === 'stands'"
+        :draft="draft"
+        :selection="selection"
+      />
+
+      <SwitchInspector
+        v-else-if="editing && selection.source === 'switches'"
         :draft="draft"
         :selection="selection"
       />

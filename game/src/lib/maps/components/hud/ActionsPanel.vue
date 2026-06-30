@@ -18,8 +18,13 @@ defineProps({
 defineEmits(["action"]);
 
 function actionButtonLabel(action) {
-  if (action.verb) return `${action.verb} — ${action.label}`;
+  if (action.verb) return `${action.verb} ${withArticle(action.label)}`;
   return action.label;
+}
+
+function withArticle(label) {
+  if (!label) return "";
+  return /^(the|a|an)\s/i.test(label) ? label : `the ${label}`;
 }
 </script>
 

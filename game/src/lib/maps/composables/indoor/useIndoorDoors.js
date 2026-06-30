@@ -49,9 +49,11 @@ export function createIndoorDoors(deps) {
         },
       ];
     }
-    return doorsFromRoom(building.value, indoor.currentRoom).filter((d) =>
-      isDoorMapped(building.value.doorById[d.doorId], indoorVisibility.value),
-    );
+    return doorsFromRoom(building.value, indoor.currentRoom)
+      .filter((d) => indoor.currentStand === `door:${d.doorId}`)
+      .filter((d) =>
+        isDoorMapped(building.value.doorById[d.doorId], indoorVisibility.value),
+      );
   });
 
   const interactableDoorIds = computed(() => {

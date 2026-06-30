@@ -142,6 +142,32 @@ describe("BuildingRepository", () => {
       .toThrow(ValidationError);
     db.close();
   });
+
+  it("validates action stands against the action room", () => {
+    const { db, building } = setup();
+    const before = building.getDocument();
+    const candidate = structuredClone(before.building);
+    const room = candidate.rooms.find((item) => item.id === "large-bay");
+    room.stands = [
+      ...(room.stands ?? []),
+      { id: "tool-rack", label: "Tool rack", at: { x: room.x + 0.5, y: room.y + 0.5 } },
+    ];
+    candidate.actions ??= [];
+    candidate.actions.push({
+      id: "inspect-tool-rack",
+      room: "large-bay",
+      stand: "tool-rack",
+      label: "Inspect the tool rack",
+    });
+    const saved = building.save("utility-station", candidate, before.version);
+    expect(saved.building.actions.at(-1).stand).toBe("tool-rack");
+
+    const invalid = structuredClone(saved.building);
+    invalid.actions.at(-1).stand = "missing-stand";
+    expect(() => building.save("utility-station", invalid, saved.version))
+      .toThrow(ValidationError);
+    db.close();
+  });
 });
 
 function moveRoom(building, roomId, dx, dy) {

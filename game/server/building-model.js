@@ -191,6 +191,16 @@ export function validateBuilding(input, {
   });
 
   validateIds(building.actions, "actions", errors);
+  building.actions.forEach((action, index) => {
+    if (action.stand != null) action.stand = text(action.stand) || null;
+    if (action.stand) {
+      if (!action.room) {
+        add(`actions.${index}.stand`, "Action stand requires an action room.");
+      } else if (!standIdsByRoom.get(action.room)?.has(action.stand)) {
+        add(`actions.${index}.stand`, "Action stand must exist in the action room.");
+      }
+    }
+  });
   const exteriorNodes = building.exterior?.nodes ?? [];
   const nodeIds = validateIds(exteriorNodes, "exterior.nodes", errors);
   exteriorNodes.forEach((node, index) => {

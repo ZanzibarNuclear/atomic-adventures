@@ -4,6 +4,7 @@ import { buildBuilding, fixturesOnLevel } from "./useGrid.js";
 import {
   findGridEditable,
   listAllGridEditable,
+  listEditableSwitches,
   resolvedFixtureHandles,
   resolvedWallHandles,
   listEditableRoomStands,
@@ -12,6 +13,21 @@ import {
   setRoomStandAt,
   setWallPoint,
 } from "./useGridBuilder.js";
+
+describe("grid builder switches", () => {
+  it("lists utility station switch labels for builder editing", () => {
+    const draft = structuredClone(utilityData);
+    const switches = listEditableSwitches(draft, "first");
+
+    expect(switches.map((item) => item.id)).toEqual(
+      expect.arrayContaining(["large-bay-manual", "small-bay-manual"]),
+    );
+    expect(findGridEditable(draft, "switches", "large-bay-manual")).toMatchObject({
+      room: "large-bay",
+      door: "large-bay-roll",
+    });
+  });
+});
 
 describe("grid builder room stands", () => {
   it("lists, resolves, and moves authored room stands", () => {
