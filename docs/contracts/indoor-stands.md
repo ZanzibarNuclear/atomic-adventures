@@ -70,6 +70,12 @@ authoring. They are shown differently from authored stands in the World
 Builder. A later extension may support authored threshold overrides if a real
 layout demonstrates the need.
 
+Artifacts and actions may reference a derived door threshold by using the
+room-local stand ID `door:<door-id>`. The `room` field chooses which side of
+the door owns that placement. For example, a pickup with `room: large-bay` and
+`stand: door:large-bay-man` appears on the large-bay side of the side garage
+door, not on the exterior path or any other connected side.
+
 ## Vertical Connectors
 
 Stairs, elevators, ladders, and similar fixtures are vertical connectors. They

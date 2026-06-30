@@ -154,7 +154,12 @@ const placedArtifacts = computed(() => {
 });
 
 const currentStandOptions = computed(() =>
-  props.selection?.source === "rooms" ? props.selection.entity?.stands ?? [] : [],
+  props.selection?.source === "rooms"
+    ? [
+        ...(props.selection.entity?.stands ?? []),
+        ...derivedDoorStandOptions(props.selection.id),
+      ]
+    : [],
 );
 
 const associatedTransitionBeats = computed(() => {
@@ -262,6 +267,26 @@ function doorRoomSummary(doorId, door) {
     }
   }
   return [...rooms].join(" <-> ") || "None";
+}
+
+function doorRoomIds(doorId, door) {
+  const rooms = new Set();
+  if (door.room) rooms.add(door.room);
+  for (const link of props.draft.links ?? []) {
+    if (link.kind !== "door" || link.door !== doorId) continue;
+    if (link.from) rooms.add(link.from);
+    if (link.to) rooms.add(link.to);
+  }
+  return rooms;
+}
+
+function derivedDoorStandOptions(roomId) {
+  return (props.draft.doors ?? [])
+    .filter((door) => door.id && doorRoomIds(door.id, door).has(roomId))
+    .map((door) => ({
+      id: `door:${door.id}`,
+      label: `${door.label || door.id} threshold`,
+    }));
 }
 
 function doorInitialSummary(door) {

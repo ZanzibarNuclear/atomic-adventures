@@ -262,7 +262,7 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
   for (const pickup of indoor.roomPickups ?? []) {
     items.push({
       id: `pickup:${pickup.id}`,
-      label: `Take ${withArticle(pickup.label)}`,
+      label: `Pick up ${withArticle(pickup.label)}`,
     });
   }
 

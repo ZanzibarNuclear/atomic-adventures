@@ -148,6 +148,23 @@ describe("indoor room stands", () => {
     expect([...indoor.indoor.inventory]).toContain("bolt-cutter");
   });
 
+  it("offers the garage side-door key only at the inside door threshold", () => {
+    const { indoor } = indoorHarness();
+    indoor.indoor.currentRoom = "large-bay";
+    indoor.indoor.exteriorNode = null;
+    indoor.indoor.currentStand = "midway";
+
+    expect(indoor.roomPickups.map((pickup) => pickup.id)).not.toContain("large-bay-key-peg");
+    indoor.tryPickup("large-bay-key-peg");
+    expect([...indoor.indoor.inventory]).not.toContain("large-bay-man-key");
+
+    indoor.indoor.currentStand = "door:large-bay-man";
+
+    expect(indoor.roomPickups.map((pickup) => pickup.id)).toContain("large-bay-key-peg");
+    indoor.tryPickup("large-bay-key-peg");
+    expect([...indoor.indoor.inventory]).toContain("large-bay-man-key");
+  });
+
   it("only offers stand-associated authored actions at their standpoint", () => {
     const data = structuredClone(utilityData);
     data.actions.push({

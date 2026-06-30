@@ -170,6 +170,8 @@ export function validateBuilding(input, {
     }
   });
 
+  addDerivedDoorStandIds(building, standIdsByRoom, roomIds, doorIds);
+
   const itemIds = new Set([
     ...validateIds(building.items, "items", errors),
     ...characterItemIds,
@@ -294,6 +296,22 @@ export function validateBuilding(input, {
     warnings,
     valid: Object.keys(errors).length === 0,
   };
+}
+
+function addDerivedDoorStandIds(building, standIdsByRoom, roomIds, doorIds) {
+  function addStand(roomId, doorId) {
+    if (!roomIds.has(roomId) || !doorIds.has(doorId)) return;
+    standIdsByRoom.get(roomId)?.add(`door:${doorId}`);
+  }
+
+  for (const door of building.doors ?? []) {
+    if (door.room) addStand(door.room, door.id);
+  }
+  for (const link of building.links ?? []) {
+    if (link.kind !== "door" || !link.door) continue;
+    addStand(link.from, link.door);
+    addStand(link.to, link.door);
+  }
 }
 
 function validateActionCharacterReferences(action, index, character, add) {

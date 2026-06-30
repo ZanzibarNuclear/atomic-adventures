@@ -361,7 +361,7 @@ describe('getMovementOptions', () => {
       'Climb the stairs',
       'Descend the stairs',
       'Go north along the footpath',
-      'Take the wrench',
+      'Pick up the wrench',
       'Read the service placard',
       'Close the side garage door',
     ]))
@@ -434,7 +434,7 @@ describe('getMovementOptions', () => {
     })
     indoor.indoor.currentRoom = 'large-bay'
     indoor.indoor.exteriorNode = null
-    indoor.indoor.currentStand = 'service-area'
+    indoor.indoor.currentStand = 'door:large-bay-man'
 
     indoor.tryPickup('large-bay-key-peg')
     expect(indoor.carriedItems.map((item) => item.id)).toContain('large-bay-man-key')
@@ -446,11 +446,40 @@ describe('getMovementOptions', () => {
     indoor.indoor.currentStand = 'midway'
     expect(indoor.roomPickups.map((pickup) => pickup.item)).not.toContain('large-bay-man-key')
 
-    indoor.indoor.currentStand = 'service-area'
+    indoor.indoor.currentStand = 'door:large-bay-man'
     const dropped = indoor.roomPickups.find((pickup) => pickup.item === 'large-bay-man-key')
     indoor.tryPickup(dropped.id)
 
     expect(indoor.carriedItems.map((item) => item.id)).toContain('large-bay-man-key')
+  })
+
+  it('only shows stand-specific pickup actions at the key and bolt cutter standpoints', () => {
+    const place = ref('indoors')
+    const indoor = useIndoorBuilding(utilityData, useOutdoorWorld(mapData), {
+      place,
+      builderView: ref(false),
+      gameState: { flags: createFlags() },
+    })
+    indoor.indoor.currentRoom = 'large-bay'
+    indoor.indoor.exteriorNode = null
+
+    indoor.indoor.currentStand = 'midway'
+    let actions = buildIndoorPlayActions(indoor)
+    expect(actions.map((action) => action.id)).not.toContain('pickup:large-bay-key-peg')
+    expect(actions.map((action) => action.id)).not.toContain('pickup:bolt-cutter')
+    expect(actions.map((action) => action.label).join(' ')).not.toContain('Take the')
+
+    indoor.indoor.currentStand = 'service-area'
+    actions = buildIndoorPlayActions(indoor)
+    expect(actions.map((action) => action.id)).toContain('pickup:bolt-cutter')
+    expect(actions.map((action) => action.label)).toContain('Pick up the Bolt cutter on the garage bench')
+    expect(actions.map((action) => action.id)).not.toContain('pickup:large-bay-key-peg')
+
+    indoor.indoor.currentStand = 'door:large-bay-man'
+    actions = buildIndoorPlayActions(indoor)
+    expect(actions.map((action) => action.id)).toContain('pickup:large-bay-key-peg')
+    expect(actions.map((action) => action.label)).toContain('Pick up the Key to the garage door')
+    expect(actions.map((action) => action.id)).not.toContain('pickup:bolt-cutter')
   })
 
   it('keeps indoor movement before contextual actions in the play action list', () => {

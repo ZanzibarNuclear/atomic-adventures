@@ -133,12 +133,25 @@ describe("BuildingRepository", () => {
       item: "lobby-exterior-key",
       label: "Cutter case",
     });
+    candidate.pickups.push({
+      id: "large-bay-door-hook",
+      room: "large-bay",
+      stand: "door:large-bay-man",
+      item: "large-bay-man-key",
+      label: "Garage door hook",
+    });
     const saved = building.save("utility-station", candidate, before.version);
-    expect(saved.building.pickups.at(-1).stand).toBe("tool-rack");
+    expect(saved.building.pickups.at(-2).stand).toBe("tool-rack");
+    expect(saved.building.pickups.at(-1).stand).toBe("door:large-bay-man");
 
     const invalid = structuredClone(saved.building);
     invalid.pickups.at(-1).stand = "missing-stand";
     expect(() => building.save("utility-station", invalid, saved.version))
+      .toThrow(ValidationError);
+
+    const wrongSide = structuredClone(saved.building);
+    wrongSide.pickups.at(-1).stand = "door:hallway-small-bay";
+    expect(() => building.save("utility-station", wrongSide, saved.version))
       .toThrow(ValidationError);
     db.close();
   });
@@ -159,12 +172,24 @@ describe("BuildingRepository", () => {
       stand: "tool-rack",
       label: "Inspect the tool rack",
     });
+    candidate.actions.push({
+      id: "inspect-garage-door-hook",
+      room: "large-bay",
+      stand: "door:large-bay-man",
+      label: "Inspect the garage door hook",
+    });
     const saved = building.save("utility-station", candidate, before.version);
-    expect(saved.building.actions.at(-1).stand).toBe("tool-rack");
+    expect(saved.building.actions.at(-2).stand).toBe("tool-rack");
+    expect(saved.building.actions.at(-1).stand).toBe("door:large-bay-man");
 
     const invalid = structuredClone(saved.building);
     invalid.actions.at(-1).stand = "missing-stand";
     expect(() => building.save("utility-station", invalid, saved.version))
+      .toThrow(ValidationError);
+
+    const wrongSide = structuredClone(saved.building);
+    wrongSide.actions.at(-1).stand = "door:hallway-small-bay";
+    expect(() => building.save("utility-station", wrongSide, saved.version))
       .toThrow(ValidationError);
     db.close();
   });
