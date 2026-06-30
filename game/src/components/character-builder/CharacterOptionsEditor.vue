@@ -18,20 +18,26 @@ defineEmits(["add-group", "remove-group"]);
     </header>
 
     <section class="group-section">
-      <h4>Stat groups</h4>
+      <div class="section-heading">
+        <h4>Stat groups</h4>
+        <code>{{ draft.panel.statGroups.length }} groups</code>
+      </div>
       <div v-for="group in draft.panel.statGroups" :key="group.id" class="group-row">
-        <input v-model="group.id" aria-label="Stat group id">
-        <input v-model="group.label" aria-label="Stat group label">
+        <label>ID<input v-model="group.id" aria-label="Stat group id"></label>
+        <label>Label<input v-model="group.label" aria-label="Stat group label"></label>
         <button class="sm muted" @click="$emit('remove-group', 'statGroups', group.id)">Remove</button>
       </div>
       <button class="sm" @click="$emit('add-group', 'statGroups')">Add stat group</button>
     </section>
 
     <section class="group-section">
-      <h4>Inventory groups</h4>
+      <div class="section-heading">
+        <h4>Inventory groups</h4>
+        <code>{{ draft.panel.inventoryGroups.length }} groups</code>
+      </div>
       <div v-for="group in draft.panel.inventoryGroups" :key="group.id" class="group-row">
-        <input v-model="group.id" aria-label="Inventory group id">
-        <input v-model="group.label" aria-label="Inventory group label">
+        <label>ID<input v-model="group.id" aria-label="Inventory group id"></label>
+        <label>Label<input v-model="group.label" aria-label="Inventory group label"></label>
         <button class="sm muted" @click="$emit('remove-group', 'inventoryGroups', group.id)">Remove</button>
       </div>
       <button class="sm" @click="$emit('add-group', 'inventoryGroups')">Add inventory group</button>
@@ -55,23 +61,65 @@ header p {
   font-size: 0.9rem;
   line-height: 1.45;
 }
+.group-section {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.75rem;
+  border: 1px solid #343d4d;
+  border-radius: 8px;
+  background: #1b2028;
+}
+.section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
 .group-section h4 {
-  margin: 0 0 0.5rem;
+  margin: 0;
   font-size: 0.82rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #9eb4d4;
+  color: #d7dde6;
+}
+.section-heading code {
+  color: #9da7b5;
+  font-size: 0.74rem;
 }
 .group-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0.35rem 0;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr) auto;
+  gap: 0.55rem;
+  align-items: end;
+  padding: 0.55rem;
+  border: 1px solid #343d4d;
+  border-radius: 7px;
+  background: #202733;
 }
-.group-row input {
+label {
+  display: grid;
+  gap: 0.35rem;
+  color: #bdc4ce;
+  font-size: 0.8rem;
+}
+input {
+  width: 100%;
   min-width: 0;
-  flex: 1;
+  border: 1px solid #485267;
+  border-radius: 7px;
+  background: #171b22;
+  color: #eef1f5;
+  padding: 0.5rem 0.6rem;
+  font: inherit;
+}
+input:focus {
+  outline: 2px solid #6ea57b;
+  outline-offset: 1px;
+  border-color: #6ea57b;
+}
+@media (max-width: 720px) {
+  .group-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
 }
 </style>

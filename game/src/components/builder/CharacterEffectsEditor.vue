@@ -101,68 +101,81 @@ function initializeEffectFields(effect) {
       v-for="(effect, effectIndex) in effects"
       :key="effectIndex"
       class="effect-row">
-      <select :value="effect.op" @change="setEffectOperation(effect, $event.target.value)">
-        <option v-for="op in EFFECT_OPERATIONS" :key="op" :value="op">{{ op }}</option>
-      </select>
+      <label>Operation
+        <select :value="effect.op" @change="setEffectOperation(effect, $event.target.value)">
+          <option v-for="op in EFFECT_OPERATIONS" :key="op" :value="op">{{ op }}</option>
+        </select>
+      </label>
 
-      <input
-        v-if="effectDomain(effect) === 'flag'"
-        v-model="effect.id"
-        placeholder="flag.id">
-      <select
-        v-else
-        :value="effect.id"
-        @change="setEffectId(effect, $event.target.value)">
-        <option v-for="entry in effectCatalog(effect)" :key="entry.id" :value="entry.id">
-          {{ entry.label ?? entry.title }} ({{ entry.id }})
-        </option>
-      </select>
+      <label>Target
+        <input
+          v-if="effectDomain(effect) === 'flag'"
+          v-model="effect.id"
+          placeholder="flag.id">
+        <select
+          v-else
+          :value="effect.id"
+          @change="setEffectId(effect, $event.target.value)">
+          <option v-for="entry in effectCatalog(effect)" :key="entry.id" :value="entry.id">
+            {{ entry.label ?? entry.title }} ({{ entry.id }})
+          </option>
+        </select>
+      </label>
 
-      <input
-        v-if="effectDomain(effect) === 'item'"
-        v-model.number="effect.quantity"
-        type="number"
-        min="1"
-        placeholder="quantity">
-      <input
-        v-if="effectDomain(effect) === 'stat'"
-        v-model.number="effect.value"
-        type="number"
-        placeholder="value">
-      <input
-        v-if="effectDomain(effect) === 'skill' && effect.op.includes('rank')"
-        v-model.number="effect.rank"
-        type="number"
-        placeholder="rank">
-      <select v-if="effect.op === 'skill.add-evidence'" v-model="effect.evidence">
-        <option v-for="entry in skillEvidence(effect)" :key="entry.id" :value="entry.id">
-          {{ entry.label ?? entry.id }} ({{ entry.id }})
-        </option>
-      </select>
-      <input
-        v-if="effect.op === 'skill.add-evidence'"
-        v-model.number="effect.value"
-        type="number"
-        min="1"
-        placeholder="evidence value">
-      <select v-if="effect.op === 'quest.set-status'" v-model="effect.status">
-        <option v-for="status in QUEST_STATUSES" :key="status" :value="status">{{ status }}</option>
-      </select>
-      <select
-        v-if="effect.op === 'quest.advance-objective' || effect.op === 'quest.complete-objective'"
-        v-model="effect.objective">
-        <option v-for="objective in questObjectives(effect)" :key="objective.id" :value="objective.id">
-          {{ objective.label ?? objective.id }} ({{ objective.id }})
-        </option>
-      </select>
-      <input
-        v-if="effect.op === 'quest.advance-objective'"
-        v-model.number="effect.value"
-        type="number"
-        min="1"
-        placeholder="progress">
+      <label v-if="effectDomain(effect) === 'item'">Quantity
+        <input
+          v-model.number="effect.quantity"
+          type="number"
+          min="1"
+          placeholder="quantity">
+      </label>
+      <label v-if="effectDomain(effect) === 'stat'">Value
+        <input
+          v-model.number="effect.value"
+          type="number"
+          placeholder="value">
+      </label>
+      <label v-if="effectDomain(effect) === 'skill' && effect.op.includes('rank')">Rank
+        <input
+          v-model.number="effect.rank"
+          type="number"
+          placeholder="rank">
+      </label>
+      <label v-if="effect.op === 'skill.add-evidence'">Evidence
+        <select v-model="effect.evidence">
+          <option v-for="entry in skillEvidence(effect)" :key="entry.id" :value="entry.id">
+            {{ entry.label ?? entry.id }} ({{ entry.id }})
+          </option>
+        </select>
+      </label>
+      <label v-if="effect.op === 'skill.add-evidence'">Evidence value
+        <input
+          v-model.number="effect.value"
+          type="number"
+          min="1"
+          placeholder="evidence value">
+      </label>
+      <label v-if="effect.op === 'quest.set-status'">Status
+        <select v-model="effect.status">
+          <option v-for="status in QUEST_STATUSES" :key="status" :value="status">{{ status }}</option>
+        </select>
+      </label>
+      <label v-if="effect.op === 'quest.advance-objective' || effect.op === 'quest.complete-objective'">Objective
+        <select v-model="effect.objective">
+          <option v-for="objective in questObjectives(effect)" :key="objective.id" :value="objective.id">
+            {{ objective.label ?? objective.id }} ({{ objective.id }})
+          </option>
+        </select>
+      </label>
+      <label v-if="effect.op === 'quest.advance-objective'">Progress
+        <input
+          v-model.number="effect.value"
+          type="number"
+          min="1"
+          placeholder="progress">
+      </label>
 
-      <button type="button" class="sm muted" @click="removeEffect(effectIndex)">
+      <button type="button" class="sm muted remove-effect" @click="removeEffect(effectIndex)">
         Remove
       </button>
     </article>
@@ -178,8 +191,27 @@ function initializeEffectFields(effect) {
 }
 .effect-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)) auto;
-  gap: 0.5rem;
-  align-items: center;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)) auto;
+  gap: 0.55rem;
+  align-items: end;
+  padding: 0.6rem;
+  border: 1px solid #343d4d;
+  border-radius: 8px;
+  background: #202733;
+}
+label {
+  display: grid;
+  gap: 0.35rem;
+  color: #bdc4ce;
+  font-size: 0.8rem;
+}
+.remove-effect {
+  align-self: end;
+}
+@media (max-width: 720px) {
+  .effect-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
 }
 </style>

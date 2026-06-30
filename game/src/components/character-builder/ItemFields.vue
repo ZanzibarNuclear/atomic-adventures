@@ -31,6 +31,10 @@ const activeTab = ref("details");
     </nav>
 
     <div v-if="activeTab === 'details'" class="tab-panel">
+      <div class="section-heading">
+        <h4>Item details</h4>
+        <code>{{ entry.id }}</code>
+      </div>
       <div class="field-grid">
         <label>Kind<input v-model="entry.kind"></label>
         <label>Group
@@ -80,6 +84,10 @@ const activeTab = ref("details");
     </div>
 
     <div v-else class="tab-panel">
+      <div class="section-heading">
+        <h4>Advanced fields</h4>
+        <code>JSON</code>
+      </div>
       <p class="custom-intro">
         Advanced JSON fields for containers, scripted actions, and extra properties.
       </p>
@@ -115,13 +123,13 @@ const activeTab = ref("details");
   gap: 0.35rem;
   padding: 0.25rem;
   border: 1px solid #343d4d;
-  border-radius: 999px;
-  background: #161b22;
+  border-radius: 9px;
+  background: #171b22;
   width: fit-content;
 }
 .item-tabs button {
-  border-radius: 999px;
   border-color: transparent;
+  border-radius: 7px;
   background: transparent;
   color: #b8c0cc;
 }
@@ -130,34 +138,10 @@ const activeTab = ref("details");
   background: #49624f;
   color: #eef7ef;
 }
-.tab-panel {
-  display: grid;
-  gap: 0.75rem;
-}
-.field-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.6rem;
-}
-label {
-  display: grid;
-  gap: 0.3rem;
-  color: #bdc4ce;
-  font-size: 0.82rem;
-}
-.check-field {
-  display: flex;
-  align-items: center;
-}
 .custom-intro {
   margin: 0;
   color: #8f98a6;
   font-size: 0.82rem;
   line-height: 1.45;
-}
-@media (max-width: 720px) {
-  .field-grid {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

@@ -45,11 +45,17 @@ defineEmits([
         </div>
       </div>
 
-      <label v-if="selectedCatalog !== 'documents'">Label<input v-model="selectedEntry.label"></label>
-      <label v-else>Title<input v-model="selectedEntry.title"></label>
-      <label v-if="'description' in selectedEntry">
-        Description<textarea v-model="selectedEntry.description" rows="4"></textarea>
-      </label>
+      <section class="form-section">
+        <div class="section-heading">
+          <h4>Core fields</h4>
+          <code>{{ selectedEntry.id }}</code>
+        </div>
+        <label v-if="selectedCatalog !== 'documents'">Label<input v-model="selectedEntry.label"></label>
+        <label v-else>Title<input v-model="selectedEntry.title"></label>
+        <label v-if="'description' in selectedEntry">
+          Description<textarea v-model="selectedEntry.description" rows="4"></textarea>
+        </label>
+      </section>
 
       <ItemFields
         v-if="selectedCatalog === 'items'"
@@ -110,7 +116,7 @@ defineEmits([
 </template>
 
 <style scoped>
-.panel { padding: .85rem; border: 1px solid #343d4d; border-radius: 10px; background: #1d222b; }
+.panel { padding: .85rem; border: 1px solid #343d4d; border-radius: 10px; background: #20252f; }
 .entry-editor { display: grid; gap: .75rem; max-height: calc(100vh - 10.7rem); overflow: auto; }
 .entry-heading,
 .toolbar-actions {
@@ -122,12 +128,109 @@ defineEmits([
 }
 .entry-heading h3,
 .entry-heading p { margin: 0; }
-label { display: grid; gap: .3rem; color: #bdc4ce; font-size: .82rem; }
+.entry-heading h3 {
+  color: #eef1f5;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+.form-section,
+:deep(.tab-panel),
+:deep(.field-panel) {
+  display: grid;
+  gap: .75rem;
+  padding: .75rem;
+  border: 1px solid #343d4d;
+  border-radius: 8px;
+  background: #1b2028;
+}
+.section-heading,
+:deep(.section-heading) {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .65rem;
+}
+.section-heading h4,
+:deep(.section-heading h4) {
+  margin: 0;
+  color: #d7dde6;
+  font-size: .78rem;
+  font-weight: 700;
+}
+.section-heading code,
+:deep(.section-heading code) {
+  min-width: 0;
+  color: #9da7b5;
+  font-size: .74rem;
+  overflow-wrap: anywhere;
+}
+label,
+:deep(label) { display: grid; gap: .35rem; color: #bdc4ce; font-size: .8rem; }
+input,
+textarea,
+select,
+:deep(input),
+:deep(textarea),
+:deep(select) {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #485267;
+  border-radius: 7px;
+  background: #171b22;
+  color: #eef1f5;
+  padding: .5rem .6rem;
+  font: inherit;
+}
+input:focus,
+textarea:focus,
+select:focus,
+:deep(input:focus),
+:deep(textarea:focus),
+:deep(select:focus) {
+  outline: 2px solid #6ea57b;
+  outline-offset: 1px;
+  border-color: #6ea57b;
+}
+textarea,
+:deep(textarea) {
+  resize: vertical;
+  line-height: 1.5;
+}
+.field-grid,
+:deep(.field-grid) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .7rem;
+}
+:deep(.check-field) {
+  display: flex !important;
+  align-items: center;
+  gap: .45rem;
+}
+:deep(.check-field input) { width: auto; }
 .field-error { color: #e88c8c; }
 .warning { color: #d7b66d; }
-.history { display: grid; gap: .35rem; margin-top: 1rem; }
-.revision-item { text-align: left; }
+.history {
+  display: grid;
+  gap: .45rem;
+  margin-top: 1rem;
+  padding: .75rem;
+  border: 1px solid #343d4d;
+  border-radius: 8px;
+  background: #1b2028;
+}
+.revision-item {
+  width: 100%;
+  padding: .45rem .55rem;
+  border-color: #394457;
+  border-radius: 7px;
+  background: #202733;
+  text-align: left;
+}
+.danger-outline { border-color: #9b5050; color: #ffb5b5; background: #3d2729; }
 @media (max-width: 720px) {
   .entry-editor { max-height: none; }
+  .field-grid,
+  :deep(.field-grid) { grid-template-columns: 1fr; }
 }
 </style>

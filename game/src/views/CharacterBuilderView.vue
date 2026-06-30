@@ -158,7 +158,11 @@ const contentWorkspaceTabs = [
 </template>
 
 <style scoped>
-.character-builder { padding: .85rem; }
+.character-builder {
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: .85rem 1rem;
+}
 .preview-toolbar {
   display: flex;
   align-items: center;
@@ -183,20 +187,62 @@ const contentWorkspaceTabs = [
   max-width: 48rem;
   margin-top: .75rem;
 }
-.panel { padding: .85rem; border: 1px solid #343d4d; border-radius: 10px; background: #1d222b; }
-label { display: grid; gap: .3rem; color: #bdc4ce; font-size: .82rem; }
+.panel { padding: .85rem; border: 1px solid #343d4d; border-radius: 10px; background: #20252f; }
+label { display: grid; gap: .35rem; color: #bdc4ce; font-size: .8rem; }
+select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #485267;
+  border-radius: 7px;
+  background: #171b22;
+  color: #eef1f5;
+  padding: .5rem .6rem;
+  font: inherit;
+}
+select:focus {
+  outline: 2px solid #6ea57b;
+  outline-offset: 1px;
+  border-color: #6ea57b;
+}
 .preview-workspace :deep(.character-view) { min-height: 0; }
 .preview-workspace :deep(.character-view-header > button) { display: none; }
 .status,
-.dirty-pill { padding: .45rem .65rem; border-radius: 6px; background: #303b32; }
+.dirty-pill {
+  width: fit-content;
+  margin-top: .75rem;
+  padding: .45rem .65rem;
+  border: 1px solid #3e5b45;
+  border-radius: 7px;
+  background: #24372a;
+  color: #bce8c7;
+}
+.dirty-pill {
+  margin-top: 0;
+}
 .unsaved-backdrop {
   position: fixed; inset: 0; z-index: 100; display: grid; place-items: center;
   padding: 1rem; background: rgba(7, 9, 12, .72);
 }
 .unsaved-dialog {
-  max-width: 34rem; padding: 1.2rem; border: 1px solid #465166;
-  border-radius: 10px; background: #202630;
+  display: grid;
+  gap: .75rem;
+  max-width: 34rem;
+  padding: 1rem;
+  border: 1px solid #465166;
+  border-radius: 10px;
+  background: #20252f;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .45);
 }
+.unsaved-dialog h2,
+.unsaved-dialog p { margin: 0; }
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+.danger-outline { border-color: #9b5050; color: #ffb5b5; background: #3d2729; }
 @media (max-width: 1100px) {
   .builder-grid { grid-template-columns: minmax(15rem, .8fr) minmax(20rem, 1.2fr); }
 }
