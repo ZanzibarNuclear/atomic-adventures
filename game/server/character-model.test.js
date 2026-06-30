@@ -11,7 +11,19 @@ describe("character model", () => {
     const result = validateCharacterDocument(loadCharacter());
     expect(result.valid).toBe(true);
     expect(result.character.profile.id).toBe("zanzibar-nuhero");
-    expect(result.character.items).toHaveLength(10);
+    expect(result.character.items.map((item) => item.id)).toEqual([
+      "hallway-small-bay-key",
+      "lobby-exterior-key",
+      "large-bay-man-key",
+      "field-backpack",
+      "bolt-cutter",
+      "tastee-tack-turkey-cranberry-meal",
+      "purified-water",
+      "half-eaten-energy-bar",
+      "half-full-water-bottle",
+      "tastee-tack-pioneer-breakfast",
+      "tastee-tack-nut-butter-and-preserves",
+    ]);
     expect(result.character.holdings.instances["field-backpack-1"]).toEqual({
       item: "field-backpack",
       holder: "character:zanzibar-nuhero",

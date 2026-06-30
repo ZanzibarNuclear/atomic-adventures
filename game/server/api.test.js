@@ -133,8 +133,8 @@ describe("story API", () => {
     const { db, api, characterRepository, buildingRepository } = setup();
     const current = characterRepository.getDocument();
     const character = structuredClone(current.character);
-    const item = character.items.find((entry) => entry.id === "turkey-cranberry-meal");
-    item.id = "tastee-tack-turkey-cranberry-meal";
+    const item = character.items.find((entry) => entry.id === "tastee-tack-turkey-cranberry-meal");
+    item.id = "tastee-tack-gala-turkey-cranberry-meal";
 
     const renameRes = responseCapture();
     await api.handle(request("PUT", "/api/character", {
@@ -142,8 +142,8 @@ describe("story API", () => {
       expectedVersion: current.version,
       renames: [{
         domain: "items",
-        from: "turkey-cranberry-meal",
-        to: "tastee-tack-turkey-cranberry-meal",
+        from: "tastee-tack-turkey-cranberry-meal",
+        to: "tastee-tack-gala-turkey-cranberry-meal",
       }],
     }), renameRes);
 
@@ -152,7 +152,7 @@ describe("story API", () => {
       .find((candidate) => candidate.id === "eat-rations");
     expect(action.effects[0]).toEqual(expect.objectContaining({
       op: "item.add",
-      id: "tastee-tack-turkey-cranberry-meal",
+      id: "tastee-tack-gala-turkey-cranberry-meal",
     }));
     db.close();
   });
@@ -161,8 +161,8 @@ describe("story API", () => {
     const { db, api, characterRepository, buildingRepository } = setup();
     const current = characterRepository.getDocument();
     const character = structuredClone(current.character);
-    const item = character.items.find((entry) => entry.id === "turkey-cranberry-meal");
-    item.id = "tastee-tack-turkey-cranberry-meal";
+    const item = character.items.find((entry) => entry.id === "tastee-tack-turkey-cranberry-meal");
+    item.id = "tastee-tack-gala-turkey-cranberry-meal";
 
     const renameRes = responseCapture();
     await api.handle(request("PUT", "/api/character", {
@@ -173,7 +173,7 @@ describe("story API", () => {
     expect(renameRes.status).toBe(200);
     const action = buildingRepository.getDocument().building.actions
       .find((candidate) => candidate.id === "eat-rations");
-    expect(action.effects[0].id).toBe("tastee-tack-turkey-cranberry-meal");
+    expect(action.effects[0].id).toBe("tastee-tack-gala-turkey-cranberry-meal");
     db.close();
   });
 
