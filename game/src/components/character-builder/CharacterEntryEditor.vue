@@ -37,11 +37,13 @@ defineEmits([
           <h3>{{ selectedEntry.id }}</h3>
         </div>
         <div class="toolbar-actions">
-          <button class="sm muted" @click="$emit('move-entry', -1)">&uarr;</button>
-          <button class="sm muted" @click="$emit('move-entry', 1)">&darr;</button>
-          <button class="sm muted" @click="$emit('rename-entry')">Rename</button>
-          <button class="sm muted" @click="$emit('duplicate-entry')">Duplicate</button>
-          <button class="sm danger-outline" @click="$emit('delete-entry')">Delete</button>
+          <button type="button" class="sm muted" @click="$emit('move-entry', -1)">&uarr;</button>
+          <button type="button" class="sm muted" @click="$emit('move-entry', 1)">&darr;</button>
+          <button type="button" class="sm muted" @click="$emit('rename-entry')">Rename</button>
+          <button type="button" class="sm muted" @click="$emit('duplicate-entry')">
+            {{ selectedCatalog === "items" ? "Duplicate item" : "Duplicate" }}
+          </button>
+          <button type="button" class="sm danger-outline" @click="$emit('delete-entry')">Delete</button>
         </div>
       </div>
 

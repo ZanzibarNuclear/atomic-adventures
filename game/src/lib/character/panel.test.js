@@ -125,6 +125,34 @@ describe("character panel presentation", () => {
     expect(formatVitalValue(overview.vitals[1])).toBe("Fed · 65 / 100");
   });
 
+  it("uses authored display states for wellbeing vitals", () => {
+    const state = character();
+    state.definitions.stats.push({
+      id: "energy",
+      label: "Energy",
+      type: "meter",
+      min: 0,
+      max: 100,
+      visible: "always",
+      displayStates: [
+        { at: 90, state: "Charged", tone: "positive" },
+        { at: 40, state: "Worn", tone: "warning" },
+        { at: 5, state: "On fumes", tone: "error" },
+        { at: 0, state: "Spent", tone: "error" },
+      ],
+    });
+    state.stats.energy = 5;
+
+    const overview = characterWellbeingOverview(state);
+
+    expect(overview.vitals).toContainEqual(expect.objectContaining({
+      id: "energy",
+      value: 5,
+      state: "On fumes",
+      tone: "error",
+    }));
+  });
+
   it("uses words for clear condition states", () => {
     const overview = characterWellbeingOverview(character());
 

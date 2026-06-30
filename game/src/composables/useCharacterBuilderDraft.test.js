@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildPreviewCharacter } from "./useCharacterBuilderDraft.js";
+import {
+  buildPreviewCharacter,
+  summarizePreviewContent,
+} from "./useCharacterBuilderDraft.js";
 import { characterWellbeingOverview } from "../lib/character/panel.js";
+import { itemQuantity } from "../lib/character/holdings.js";
 
 function draft() {
   return {
@@ -67,22 +71,48 @@ describe("content builder preview character", () => {
     }));
   });
 
+  it("sets the critical preview preset to five percent", () => {
+    const character = buildPreviewCharacter(draft(), "empty", "critical");
+
+    expect(character.stats).toEqual(expect.objectContaining({
+      health: 5,
+      satiety: 5,
+      hydration: 5,
+      energy: 5,
+      composure: 5,
+    }));
+  });
+
   it("uses preview progress to acquire none, first entries, or all entries", () => {
-    expect(buildPreviewCharacter(contentDraft(), "empty").holdings.items).toEqual({});
+    expect(itemQuantity(buildPreviewCharacter(contentDraft(), "empty").holdings, "key")).toBe(0);
     expect(Object.keys(buildPreviewCharacter(contentDraft(), "empty").knowledge)).toEqual([]);
 
     const early = buildPreviewCharacter(contentDraft(), "early");
-    expect(Object.keys(early.holdings.items)).toEqual(["key"]);
+    expect(itemQuantity(early.holdings, "key")).toBe(1);
+    expect(itemQuantity(early.holdings, "rope")).toBe(0);
     expect(Object.keys(early.knowledge)).toEqual(["hydro"]);
     expect(Object.keys(early.skills)).toEqual(["repair"]);
     expect(Object.keys(early.quests)).toEqual(["restore"]);
     expect(Object.keys(early.documents)).toEqual(["manual"]);
 
     const populated = buildPreviewCharacter(contentDraft(), "populated");
-    expect(Object.keys(populated.holdings.items)).toEqual(["key", "rope"]);
+    expect(itemQuantity(populated.holdings, "key")).toBe(1);
+    expect(itemQuantity(populated.holdings, "rope")).toBe(1);
     expect(Object.keys(populated.knowledge)).toEqual(["hydro", "solar"]);
     expect(Object.keys(populated.skills)).toEqual(["repair", "navigation"]);
     expect(Object.keys(populated.quests)).toEqual(["restore", "survey"]);
     expect(Object.keys(populated.documents)).toEqual(["manual", "map"]);
+  });
+
+  it("summarizes preview progress counts for the preview toolbar", () => {
+    const summary = summarizePreviewContent(buildPreviewCharacter(contentDraft(), "early"));
+
+    expect(summary).toEqual([
+      { id: "inventory", label: "Inventory", acquired: 1, total: 2 },
+      { id: "knowledge", label: "Knowledge", acquired: 1, total: 2 },
+      { id: "skills", label: "Skills", acquired: 1, total: 2 },
+      { id: "quests", label: "Quests", acquired: 1, total: 2 },
+      { id: "documents", label: "Documents", acquired: 1, total: 2 },
+    ]);
   });
 });

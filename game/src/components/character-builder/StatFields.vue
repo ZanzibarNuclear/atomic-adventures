@@ -59,6 +59,12 @@ defineProps({
         rows="9"
         @change="setJson(entry, 'thresholds', $event, [])"></textarea>
     </label>
+    <label>Display states (JSON)
+      <textarea
+        :value="JSON.stringify(entry.displayStates ?? [], null, 2)"
+        rows="9"
+        @change="setJson(entry, 'displayStates', $event, [])"></textarea>
+    </label>
   </section>
 </template>
 

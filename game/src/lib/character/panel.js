@@ -215,9 +215,21 @@ function vitalFromStat(stat, options) {
     value,
     min,
     max,
-    ...stateForValue(value, options.states),
+    ...stateForValue(value, displayStatesForStat(stat, options.states)),
     description: stat?.description ?? null,
   };
+}
+
+function displayStatesForStat(stat, fallback) {
+  const states = (stat?.displayStates ?? [])
+    .map((state) => [
+      Number(state.at),
+      String(state.state ?? "").trim(),
+      String(state.tone ?? "positive").trim() || "positive",
+    ])
+    .filter(([at, state]) => Number.isFinite(at) && state)
+    .sort((a, b) => b[0] - a[0]);
+  return states.length ? states : fallback;
 }
 
 function conditionFromStat(stat, options) {

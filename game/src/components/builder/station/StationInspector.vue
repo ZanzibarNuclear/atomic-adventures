@@ -31,6 +31,7 @@ const emit = defineEmits([
   "open-location-beat",
   "open-transition-beat",
   "open-artifact",
+  "duplicate-artifact",
   "move-selected",
   "rename-selected",
   "duplicate-selected",
@@ -504,6 +505,13 @@ function removePlacement(placementId) {
                   <p v-if="placement.stand" class="placement-meta">Standpoint: {{ standLabel(placement.stand) }}</p>
                   <div class="row-actions placement-actions">
                     <button type="button" class="sm muted" @click="editPlacement(placement.id)">Edit</button>
+                    <button
+                      type="button"
+                      class="sm muted"
+                      @click="emit('duplicate-artifact', { catalog: 'items', id: placement.item })"
+                    >
+                      Duplicate item
+                    </button>
                     <button type="button" class="sm danger-outline" @click="removePlacement(placement.id)">Remove</button>
                   </div>
                 </template>
@@ -540,7 +548,7 @@ function removePlacement(placementId) {
       <div v-if="editing" class="edit-toolbar">
         <div class="row-actions object-actions">
           <button class="sm muted" :disabled="fixedSelectionSources.has(selection.source)" @click="emit('rename-selected')">Rename</button>
-          <button class="sm muted" :disabled="fixedSelectionSources.has(selection.source)" @click="emit('duplicate-selected')">Duplicate</button>
+          <button class="sm muted" :disabled="fixedSelectionSources.has(selection.source)" @click="emit('duplicate-selected')">Duplicate object</button>
           <button class="sm danger-outline" :disabled="['fixtures', 'walls'].includes(selection.source)" @click="emit('delete-selected')">Delete</button>
         </div>
       </div>

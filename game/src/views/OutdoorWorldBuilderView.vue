@@ -268,7 +268,7 @@ function openLocationBeat({
   });
 }
 
-function openArtifact({ catalog = "items", id = "" } = {}) {
+function openArtifact({ catalog = "items", id = "", duplicate = false } = {}) {
   if (!id) return;
   void router.push({
     path: "/builder/content",
@@ -276,8 +276,13 @@ function openArtifact({ catalog = "items", id = "" } = {}) {
       mode: "artifacts",
       catalog,
       id,
+      ...(duplicate ? { duplicate: "1" } : {}),
     },
   });
+}
+
+function duplicateArtifact(payload) {
+  openArtifact({ ...payload, duplicate: true });
 }
 
 function placeArtifact({ hexId = "", itemId = "" } = {}) {
@@ -432,6 +437,7 @@ function removeArtifactPlacement({ id = "" } = {}) {
         :restore-revision="restoreRevision"
         @open-location-beat="openLocationBeat"
         @open-artifact="openArtifact"
+        @duplicate-artifact="duplicateArtifact"
         @place-artifact="placeArtifact"
         @remove-artifact-placement="removeArtifactPlacement"
       />

@@ -220,7 +220,7 @@ function openLocationBeat({
   });
 }
 
-function openArtifact({ catalog = "items", id = "" } = {}) {
+function openArtifact({ catalog = "items", id = "", duplicate = false } = {}) {
   if (!id) return;
   void router.push({
     path: "/builder/content",
@@ -228,8 +228,13 @@ function openArtifact({ catalog = "items", id = "" } = {}) {
       mode: "artifacts",
       catalog,
       id,
+      ...(duplicate ? { duplicate: "1" } : {}),
     },
   });
+}
+
+function duplicateArtifact(payload) {
+  openArtifact({ ...payload, duplicate: true });
 }
 
 </script>
@@ -319,6 +324,7 @@ function openArtifact({ catalog = "items", id = "" } = {}) {
         @remove-selected-path-handle="removeSelectedPathHandle"
         @open-transition-beat="openTransitionBeat"
         @open-artifact="openArtifact"
+        @duplicate-artifact="duplicateArtifact"
         @restore-revision="restoreRevision"
       />
     </div>

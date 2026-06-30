@@ -67,6 +67,7 @@ const props = defineProps({
 const emit = defineEmits([
   "open-location-beat",
   "open-artifact",
+  "duplicate-artifact",
   "place-artifact",
   "remove-artifact-placement",
 ]);
@@ -338,6 +339,13 @@ const summaryRows = computed(() => {
                   <p v-if="placement.stand" class="placement-meta">Standpoint: {{ standLabel(placement.stand) }}</p>
                   <div class="row-actions placement-actions">
                     <button type="button" class="sm muted" @click="editPlacement(placement.id)">Edit</button>
+                    <button
+                      type="button"
+                      class="sm muted"
+                      @click="emit('duplicate-artifact', { catalog: 'items', id: placement.item })"
+                    >
+                      Duplicate item
+                    </button>
                     <button type="button" class="sm danger-outline" @click="removePlacement(placement.id)">Remove</button>
                   </div>
                 </template>
@@ -386,7 +394,7 @@ const summaryRows = computed(() => {
         </template>
         <template v-else>
           <button class="sm muted" @click="renameSelected">Rename</button>
-          <button class="sm muted" @click="duplicateSelected">Duplicate</button>
+          <button class="sm muted" @click="duplicateSelected">Duplicate object</button>
         </template>
         <button class="sm danger-outline" @click="deleteSelected">Delete</button>
       </div>

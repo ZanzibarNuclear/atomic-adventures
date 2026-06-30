@@ -5,6 +5,7 @@ const TABS = new Set(["overview", "inventory", "knowledge", "skills", "quests", 
 const VISIBILITY = new Set(["always", "when-acquired", "when-started", "hidden"]);
 const STAT_TYPES = new Set(["integer", "decimal", "meter", "boolean", "enum"]);
 const STAT_DIRECTIONS = new Set(["higher-is-better"]);
+const STAT_TONES = new Set(["positive", "warning", "error"]);
 const SKILL_MODES = new Set(["acquired", "ranked"]);
 const ACTIVITIES = new Set(["resting", "light", "moderate", "strenuous"]);
 
@@ -201,6 +202,17 @@ export function validateCharacterDocument(input) {
       }
       if (!text(threshold.state)) {
         add(`${base}.thresholds.${thresholdIndex}.state`, "Threshold state is required.");
+      }
+    });
+    (stat.displayStates ?? []).forEach((state, stateIndex) => {
+      if (!Number.isFinite(Number(state.at))) {
+        add(`${base}.displayStates.${stateIndex}.at`, "Display state minimum must be numeric.");
+      }
+      if (!text(state.state)) {
+        add(`${base}.displayStates.${stateIndex}.state`, "Display state label is required.");
+      }
+      if (state.tone && !STAT_TONES.has(text(state.tone))) {
+        add(`${base}.displayStates.${stateIndex}.tone`, "Choose positive, warning, or error.");
       }
     });
   });

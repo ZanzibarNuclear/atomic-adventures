@@ -1,6 +1,11 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import { storyApi } from "../lib/storyApi.js";
+import {
+  addItem,
+  createHoldings,
+  itemQuantity,
+} from "../lib/character/holdings.js";
 
 const characterCatalogs = [
   { id: "stats", label: "Stats" },
@@ -21,7 +26,7 @@ export const previewBarLevelOptions = [
   { id: "high", label: "High (80%)" },
   { id: "middle", label: "Middle (50%)" },
   { id: "low", label: "Low (25%)" },
-  { id: "critical", label: "Critical (1%)" },
+  { id: "critical", label: "Critical (5%)" },
   { id: "empty", label: "Empty (0%)" },
 ];
 
@@ -30,7 +35,7 @@ const previewBarLevelValues = {
   high: 80,
   middle: 50,
   low: 25,
-  critical: 1,
+  critical: 5,
   empty: 0,
 };
 
@@ -76,6 +81,8 @@ export function useCharacterBuilderDraft() {
   );
   const previewCharacter = computed(() =>
     buildPreviewCharacter(draft.value, previewMode.value, previewBarLevel.value));
+  const previewContentSummary = computed(() =>
+    summarizePreviewContent(previewCharacter.value));
 
   const warnBeforeUnload = (event) => {
     if (!dirty.value) return;
@@ -156,6 +163,10 @@ export function useCharacterBuilderDraft() {
     } else {
       ensureSelection();
     }
+    if (route.query.duplicate === "1" && selectedEntry.value) {
+      const copy = duplicateEntry();
+      clearDuplicateRoute(copy?.id);
+    }
   }
 
   function toggleTab(tab) {
@@ -191,6 +202,13 @@ export function useCharacterBuilderDraft() {
     if (copy.title) copy.title += " copy";
     entries.push(copy);
     selectedId.value = copy.id;
+    return copy;
+  }
+
+  function clearDuplicateRoute(id = selectedId.value) {
+    const query = { ...route.query, id };
+    delete query.duplicate;
+    void router.replace({ query });
   }
 
   function moveEntry(delta) {
@@ -334,6 +352,7 @@ export function useCharacterBuilderDraft() {
     selectedEntry,
     errorMessages,
     previewCharacter,
+    previewContentSummary,
     loadCharacter,
     selectCatalog,
     selectWorkspace,
@@ -385,15 +404,10 @@ export function buildPreviewCharacter(draft, previewMode, previewBarLevel = "aut
   const stats = Object.fromEntries(
     definitions.stats.map((stat) => [stat.id, previewStatValue(stat, previewBarLevel)]),
   );
+  const holdings = createPreviewHoldings(definitions, include);
   return {
     definitions,
-    holdings: {
-      items: Object.fromEntries(
-        definitions.items.map((item, index) => include(index)
-          ? [item.id, { quantity: item.carrying === "stack" ? 3 : 1 }]
-          : null).filter(Boolean),
-      ),
-    },
+    holdings,
     stats,
     knowledge: Object.fromEntries(
       definitions.knowledge.map((entry, index) => include(index)
@@ -415,6 +429,49 @@ export function buildPreviewCharacter(draft, previewMode, previewBarLevel = "aut
         ? [entry.id, { discoveredAt: "preview" }]
         : null).filter(Boolean),
     ),
+  };
+}
+
+export function summarizePreviewContent(character) {
+  const definitions = character?.definitions ?? {};
+  return [
+    {
+      id: "inventory",
+      label: "Inventory",
+      acquired: (definitions.items ?? [])
+        .filter((item) => itemQuantity(character?.holdings, item.id) > 0).length,
+      total: definitions.items?.length ?? 0,
+    },
+    previewCount("knowledge", definitions.knowledge, character?.knowledge),
+    previewCount("skills", definitions.skills, character?.skills),
+    previewCount("quests", definitions.quests, character?.quests),
+    previewCount("documents", definitions.documents, character?.documents),
+  ];
+}
+
+function createPreviewHoldings(definitions, include) {
+  const holdings = createHoldings(definitions.profile?.id ?? "player");
+  for (const [index, item] of (definitions.items ?? []).entries()) {
+    if (!include(index)) continue;
+    addItem(holdings, definitions, item.id, previewItemQuantity(item), {
+      validateDefinition: false,
+    });
+  }
+  return holdings;
+}
+
+function previewItemQuantity(item) {
+  if (item.carrying !== "stack") return 1;
+  const maxQuantity = Number(item.maxQuantity);
+  return Number.isFinite(maxQuantity) ? Math.max(1, Math.min(3, maxQuantity)) : 3;
+}
+
+function previewCount(id, definitions = [], state = {}) {
+  return {
+    id,
+    label: labelize(id),
+    acquired: Object.keys(state ?? {}).length,
+    total: definitions.length,
   };
 }
 

@@ -32,6 +32,22 @@ Use words alongside or instead of numbers where words are clearer. Examples:
 - Energy: rested, tired, exhausted, spent.
 - Composure: calm, alert, nervous, scared, panicked.
 
+Those player-facing words are authored per stat with `displayStates`. Each
+entry is a minimum reserve value for that label and tone:
+
+```yaml
+displayStates:
+  - { at: 80, state: rested, tone: positive }
+  - { at: 50, state: tired, tone: warning }
+  - { at: 25, state: exhausted, tone: error }
+  - { at: 5, state: spent, tone: error }
+  - { at: 0, state: asleep on feet, tone: error }
+```
+
+Vitals do not need identical display bands. Health might enter `critical` at
+`5`, while satiety, hydration, energy, and composure can use their own authored
+labels and cutoffs.
+
 Avoid showing a large badness meter such as `Hunger 90 / 100` in the overview.
 Author the positive reserve directly as `satiety` or `hydration`; do not keep an
 inverse internal meter and translate it in the display layer.
@@ -70,6 +86,14 @@ thresholds:
 For positive reserve stats, thresholds are low-water marks: a threshold with
 `at: 10` applies when the reserve is `10` or lower. Crises happen as important
 reserves run out.
+
+`displayStates` and `thresholds` are related but separate:
+
+- `displayStates` names what the player sees at the current reserve value.
+- `thresholds` apply authored gameplay consequences over time.
+
+Do not assume every visible state must have a gameplay effect, or that every
+gameplay threshold must be a displayed state.
 
 ## Health, Max Health, And Penalties
 

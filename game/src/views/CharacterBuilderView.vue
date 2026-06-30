@@ -29,6 +29,7 @@ const {
   navigationPromptVisible,
   previewCharacter,
   previewBarLevel,
+  previewContentSummary,
   previewMode,
   removeGroup,
   renameEntry,
@@ -130,7 +131,7 @@ const contentWorkspaceTabs = [
         </div>
         <div class="preview-controls">
           <label>
-            Content progress
+            Acquired content
             <select v-model="previewMode">
               <option value="empty">No acquired content</option>
               <option value="early">First entries acquired</option>
@@ -150,6 +151,14 @@ const contentWorkspaceTabs = [
           </label>
         </div>
       </div>
+      <dl class="preview-state-summary" aria-label="Preview acquired content counts">
+        <div
+          v-for="item in previewContentSummary"
+          :key="item.id">
+          <dt>{{ item.label }}</dt>
+          <dd>{{ item.acquired }} / {{ item.total }}</dd>
+        </div>
+      </dl>
       <CharacterView :character="previewCharacter" />
     </section>
 
@@ -190,6 +199,32 @@ const contentWorkspaceTabs = [
   grid-template-columns: repeat(2, minmax(9rem, 1fr));
   gap: .65rem;
   align-items: end;
+}
+.preview-state-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem;
+  margin: 0;
+}
+.preview-state-summary div {
+  display: flex;
+  align-items: baseline;
+  gap: .4rem;
+  min-height: 2rem;
+  padding: .35rem .55rem;
+  border: 1px solid #3b4658;
+  border-radius: 7px;
+  background: #181d25;
+}
+.preview-state-summary dt {
+  color: #9fa8b6;
+  font-size: .76rem;
+}
+.preview-state-summary dd {
+  margin: 0;
+  color: #eef1f5;
+  font-weight: 650;
+  font-size: .84rem;
 }
 .builder-grid {
   display: grid;
