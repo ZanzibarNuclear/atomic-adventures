@@ -27,15 +27,15 @@ tests, implementation map, and this list in the same change.
 
 ## Holo-Reader Lessons
 
-- Decide whether lesson definitions initially extend `character-main` or live
-  in a separate learning content document owned by Content Builder.
-- Implement the first lesson stage view, lesson progress state, assessment
-  completion flow, and idempotent credit awards through the shared effects
-  service.
+- Add the `learning-main` content document, repository, validation, API,
+  revision history, import/export, production JSON export, and SSE updates.
+- Implement the first full-game holo-reader view, lesson progress state,
+  assessment completion flow, lesson time advancement, award/rejoin screen, and
+  idempotent credit awards through the shared effects service.
 - Add Content Builder lesson authoring for sections, assessments, completion
-  rules, effect payloads, validation, preview states, and cross-content
-  references.
-- Integrate one hydro lesson as a real progression gate before broadening the
+  rules, internal and external requirements, effect payloads, validation,
+  preview states, and cross-content references.
+- Integrate one hydro lesson with real completion credit before broadening the
   lesson library or embedding simulator-backed sections.
 
 ## Character, Inventory, And Content

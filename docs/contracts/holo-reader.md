@@ -33,10 +33,12 @@ formats and simulator adapters to concrete Part I lesson content.
 
 ## Relationship to Existing Contracts
 
-Holo-reader lessons use the `lesson` stage-view kind from
-[stage-views.md](stage-views.md). Opening a lesson replaces only the primary
-stage area and preserves the current map, room, stand, camera, story context,
-and available actions.
+Holo-reader lessons use the `lesson` game-view kind from
+[stage-views.md](stage-views.md). For the library holo-reader, opening a
+lesson replaces the whole game area below the persistent header: map, active
+story beat, narrative card, and play panel are hidden while the player is
+immersed in the lesson. Exiting the holo-reader restores the current map, room,
+stand, camera, story context, and available actions.
 
 Learning credit uses the shared character requirements and effects in
 [character-inventory.md](character-inventory.md). Lessons may grant
@@ -51,14 +53,14 @@ validates and commits effects atomically.
 
 ## Runtime Model
 
-A lesson is opened through a stage view:
+A lesson is opened through a game view:
 
 ```js
 {
   kind: "lesson",
   payload: {
-    lessonId: "hydro-head-and-flow",
-    source: "holo-reader",
+    lessonId: "hydro-power-intro",
+    source: "library-holo-reader",
     mode: "learn"
   }
 }
@@ -69,36 +71,39 @@ The initial implementation should support:
 - opening a lesson by stable ID;
 - returning to the map without changing logical location;
 - displaying lesson sections in authored order;
-- recording local in-progress view state during the current session;
+- keeping in-progress view state transient while the lesson is open;
+- discarding incomplete lesson progress when the player exits before passing
+  the required assessment;
 - committing player progress only when a defined completion or assessment
   outcome succeeds;
 - replaying completed lessons without duplicating one-time rewards.
 
 Lesson UI state such as the current section, expanded diagram, paused media
 time, and selected answer is view state. It is not player progress unless a
-validated lesson outcome commits it.
+validated lesson outcome commits it. If the player exits before completion,
+the next attempt starts from the beginning.
 
 ## Authored Lesson Content
 
-Lessons are authored catalog entries in `character-main` or a future sibling
-content document owned by `/builder/content`. The first implementation should
-prefer extending the current Content Builder rather than adding another builder
-route.
+Lessons are authored catalog entries in a `learning-main` content document
+owned by `/builder/content`. `learning-main` is separate from `character-main`:
+lessons may reference character knowledge, skills, documents, quests, and
+effects, but they are not character definitions themselves.
 
 Draft lesson shape:
 
 ```yaml
 lessons:
-  - id: hydro-head-and-flow
-    title: Head and Flow
+  - id: hydro-power-intro
+    title: Hydro Power, Water You Waiting For?
     summary: How elevation difference and flow rate determine hydro power.
     technology: hydro
     group: hydro-basics
-    estimatedMinutes: 8
+    durationMinutes: 30
     availability:
       require:
-        documents:
-          all: [hydro-operations-primer]
+        flags:
+          all: [library-power-on]
     teaches:
       knowledge: [hydro-head-and-flow]
     sections:
@@ -122,7 +127,6 @@ lessons:
       passThreshold: 1
       effects:
         - { op: knowledge.acquire, id: hydro-head-and-flow }
-        - { op: document.mark-read, id: hydro-operations-primer }
 ```
 
 Supported first-version section kinds should stay small:
@@ -205,20 +209,20 @@ Only `completed` lessons award knowledge by default. Viewing can mark a
 document read if the author explicitly wants that, but it should not silently
 grant conceptual knowledge.
 
-Assessment records should store enough state to avoid duplicate one-time
-rewards and to support future review:
+Assessment progress stores successful completion, not wrong attempts. Wrong
+answers are an important learning path during the lesson, but they are not
+persisted as a score or penalty. Completion records should store enough state
+to avoid duplicate one-time rewards and support future review:
 
 ```js
 {
   lessons: {
-    "hydro-head-and-flow": {
+    "hydro-power-intro": {
       discoveredAt: "2026-06-30T00:00:00.000Z",
       viewedAt: "2026-06-30T00:03:00.000Z",
       completedAt: "2026-06-30T00:08:00.000Z",
-      attempts: {
-        "hydro-head-flow-check": {
-          count: 2,
-          bestScore: 1,
+      passedAssessments: {
+        "hydro-power-intro-same-power": {
           passedAt: "2026-06-30T00:08:00.000Z"
         }
       }
@@ -236,13 +240,18 @@ Assessment authoring should support:
 - prediction tasks that ask the player to choose or estimate an outcome before
   revealing feedback;
 - simulator-backed outcomes, such as correctly reaching a target hydro output;
-- optional retries, feedback, and review after passing;
+- retries until passing, feedback, and review after passing;
 - one-time and repeatable rewards.
 
 Passing should be based on the player's interaction, not merely the avatar's
 fictional competence. Zanzibar can still narrate or react to the result, but
-the game gate should be tied to a real player answer or practice outcome when
-the lesson grants knowledge needed for progression.
+lesson completion credit should be tied to a real player answer or practice
+outcome.
+
+Completing a lesson advances game time by the lesson's authored duration.
+When no lesson-specific duration is authored, the default duration is 30
+in-game minutes. Replaying an already completed lesson does not duplicate
+one-time rewards or repeatedly spend completion time.
 
 ## Builder Contract
 
@@ -256,38 +265,52 @@ Artifacts, and Preview. It owns:
 - completion rules and authored effects;
 - references to knowledge, skills, documents, quests, flags, assets, and
   registered simulation outcomes;
+- external availability requirements, such as requiring library power to be on
+  before a holo-reader lesson can launch;
+- internal completion requirements, such as requiring a particular assessment
+  to be passed;
 - preview states for unavailable, discovered, in-progress, completed, and
   replayed lessons;
 - reference search for every story/world/content use of a lesson ID.
 
-Story Builder and World Builder may reference lessons as entry points:
+The player normally opens the library holo-reader from the `holo-reader` stand.
+When the player is seated there and the authored power requirement passes, the
+holo-reader presents a browser of available lesson titles from `learning-main`.
+Selecting a title opens that lesson.
+
+Story Builder and World Builder may also reference lessons as direct entry
+points when a scene needs to open a specific lesson:
 
 ```yaml
 choices:
-  - text: Start the hydro primer
+  - text: Load Hydro Power, Water You Waiting For?
     view:
       kind: lesson
       payload:
-        lessonId: hydro-head-and-flow
+        lessonId: hydro-power-intro
+        source: library-holo-reader
+        mode: learn
+    require:
+      flags:
+        all: [library-power-on]
 ```
 
-World fixtures, inventory items, and documents may also expose lesson-opening
-actions. The action opens the stage view; it does not grant completion effects
-unless the lesson outcome later commits them.
+The action opens the holo-reader view; it does not grant completion effects
+unless the lesson outcome later commits them. World fixtures, inventory items,
+and documents may later expose lesson-opening actions as well.
 
 ## Hydro Vertical Slice
 
-The first useful slice should include one hydro lesson tied to an actual Part I
-gate. A good candidate is `hydro-head-and-flow`:
+The first useful slice should include one hydro lesson that proves lesson
+loading, presentation, assessment, and completion credit. The first lesson is
+`hydro-power-intro`, titled **Hydro Power, Water You Waiting For?**:
 
 - teaches that available hydro power depends on head, flow rate, water density,
   gravity, and efficiency;
 - includes a diagram or simple visual model of reservoir/intake, penstock, and
   turbine;
 - asks the player to predict which site or setting produces more power;
-- awards `knowledge.acquire: hydro-head-and-flow` on a passing assessment;
-- unlocks a later story choice, world action, or hydro simulator stage that
-  requires that knowledge.
+- awards `knowledge.acquire: hydro-head-and-flow` on a passing assessment.
 
 This should be integrated before building a broad lesson library. The contract
 should evolve from the working slice rather than speculative section types.
@@ -312,7 +335,7 @@ The corresponding simulator components are:
 | `../welcome/app/components/simulators/PipeFlowSimulator.vue` | Water/sodium property comparison; Reynolds regime; Darcy friction factor; straight-pipe head loss; minor losses; equivalent length; Moody-style chart; pump/system operating point |
 | `../welcome/utils/fluidMechanics.ts` | `hydraulicPowerWatts`, fluid properties, Reynolds number, Hagen-Poiseuille pressure drop, Darcy-Weisbach head loss, minor losses, pump-head matching |
 
-The first progression lesson should adapt `hydro-power.md` rather than embed it
+The first hydro lesson should adapt `hydro-power.md` rather than embed it
 unchanged. It can become a short holo-reader sequence:
 
 1. Show the hydro path: intake, penstock, turbine, generator, tailrace.
@@ -340,7 +363,7 @@ Candidate hydro lesson IDs:
 
 | Lesson ID | Source | Teaches | Likely reward |
 | --- | --- | --- | --- |
-| `hydro-head-and-flow` | `hydro-power.md` | Power depends on flow and net head | `knowledge.acquire: hydro-head-and-flow` |
+| `hydro-power-intro` | `hydro-power.md` | Power depends on flow and net head | `knowledge.acquire: hydro-head-and-flow` |
 | `hydro-net-head-losses` | `hydro-power.md`, `pipe-flow-laminar.md` | Losses reduce usable head before the turbine | `knowledge.acquire: hydro-net-head-losses` |
 | `hydro-penstock-friction` | `pipe-flow-laminar.md`, later `pipe-flow.md` | Pipe length, diameter, viscosity, roughness, and fittings affect pressure/head loss | `knowledge.acquire: hydro-penstock-friction` |
 
@@ -393,34 +416,35 @@ an assessment.
 
 The lesson surface should feel focused and in-world, but it remains a game
 view: keyboard navigation, readable text sizing, clear progress, and an
-available Return to Map action are required unless a modal assessment explicitly
-blocks exit.
+available Exit Holo-Reader action are required. Exiting before completion
+returns the player to the surrounding map/story view without granting lesson
+completion.
 
-## Open Questions
+## Implementation Research
 
-- Should lesson definitions live inside `character-main`, or should Content
-  Builder introduce a separate `learning-main` document once lessons grow?
-- What minimum progress should be saved for an interrupted lesson: only
-  discovered/viewed/completed, or current section and partial answers too?
-- Which hydro lesson should be the first progression gate?
-- Should failed assessment attempts advance game time, and if so by how much?
-- How should imported content from the hydro simulator project be transformed:
-  static lesson sections, registered interactions, embedded simulations, or all
-  three?
-- Which rewards are one-time by lesson, which are one-time by assessment, and
-  which can be repeated for practice evidence?
+- Choose the exact power-on flag ID during implementation by checking current
+  story, world, and facility-state conventions. The examples above use
+  `library-power-on` as a placeholder until that audit is done.
+- Use `holo-reader` as the stand ID for the library holo-reader.
+- When extracting future lessons from simulator prototypes, decide per lesson
+  whether the best form is static sections, registered interactions, embedded
+  simulator-backed sections, or a mixture.
 
 ## Implementation Sequence
 
-1. Add lesson definitions and progress state to the content and character
-   contracts once the first slice chooses storage.
+1. Add `learning-main` persistence, validation, API, import/export, revisions,
+   production JSON export, and live-update support.
 2. Add Content Builder lesson catalog editing, section editing, assessment
-   editing, validation, preview, import, export, and revision history.
-3. Register a `lesson` stage-view renderer and open a placeholder lesson by ID.
-4. Implement one section renderer for narrative/diagram content and one
-   assessment renderer.
-5. Commit completion outcomes through the existing validated effects service.
-6. Add the first hydro lesson and use its awarded knowledge as a real gate.
+   editing, requirements, completion effects, validation, preview, and
+   cross-content reference search.
+3. Register a `lesson` game-view renderer that replaces the whole game area
+   below the persistent header.
+4. Add the power-gated `holo-reader` stand action that opens the lesson browser
+   and can launch `hydro-power-intro`.
+5. Implement one section renderer for narrative/formula/example content and
+   one retryable multiple-choice assessment renderer.
+6. Commit completion outcomes through the existing validated effects service,
+   advance authored lesson time once, and show an award/rejoin screen.
 7. Add simulator-backed lesson sections after the host outcome contract is
    exercised by a built-in assessment.
 
