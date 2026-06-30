@@ -147,15 +147,15 @@ describe('useGameState save roundtrip', () => {
   it('persists an indoor room stand and falls back when it no longer exists', () => {
     const { outdoor, indoor, gameState, place } = buildTestHarness()
     indoor.indoor.currentRoom = 'large-bay'
-    indoor.indoor.currentStand = 'stairs-bottom'
+    indoor.indoor.currentStand = 'stair:garage-stair:bottom'
     place.value = 'indoors'
 
     const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
-    expect(snapshot.indoor.currentStand).toBe('stairs-bottom')
+    expect(snapshot.indoor.currentStand).toBe('stair:garage-stair:bottom')
 
     indoor.indoor.currentStand = null
     expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
-    expect(indoor.indoor.currentStand).toBe('stairs-bottom')
+    expect(indoor.indoor.currentStand).toBe('stair:garage-stair:bottom')
 
     snapshot.indoor.currentStand = 'missing-stand'
     expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)

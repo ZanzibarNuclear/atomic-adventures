@@ -6,14 +6,15 @@
       class="room-stand"
       :class="{
         current: stand.current,
-        derived: stand.kind === 'door',
+        derived: stand.kind === 'door' || stand.kind === 'stair',
+        stair: stand.kind === 'stair',
         reachable: stand.reachable,
         'builder-selected': stand.selected,
-        draggable: builderView && stand.selected && stand.kind !== 'door',
+        draggable: builderView && stand.selected && !['door', 'stair'].includes(stand.kind),
       }"
       @click.stop="$emit('stand-click', stand.roomId, stand.id)"
       @pointerdown="
-        builderView && stand.selected && stand.kind !== 'door'
+        builderView && stand.selected && !['door', 'stair'].includes(stand.kind)
           ? $emit('stand-pointerdown', $event, stand)
           : null
       "
@@ -21,7 +22,7 @@
       <circle :cx="stand.cx" :cy="stand.cy" :r="stand.r" class="stand-dot" />
       <circle v-if="stand.current" :cx="stand.cx" :cy="stand.cy" :r="stand.r + 3" class="stand-ring" />
       <text
-        v-if="stand.reachable || builderView"
+        v-if="(stand.reachable && !['door', 'stair'].includes(stand.kind)) || builderView"
         :x="stand.cx"
         :y="stand.cy + stand.r + 5"
         class="stand-label"
@@ -48,6 +49,10 @@ defineEmits(['stand-click', 'stand-pointerdown'])
   fill: #806e55;
   stroke: #e4c88f;
   stroke-dasharray: 2 2;
+}
+.room-stand.stair .stand-dot {
+  fill: #243447;
+  stroke: #d7c48f;
 }
 .room-stand.builder-selected .stand-dot { stroke: #d7a8ff; stroke-width: 3; }
 .stand-ring { fill: none; stroke: rgba(220, 235, 255, .72); stroke-width: 1.5; }

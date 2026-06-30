@@ -5,6 +5,7 @@ import {
   buildBuilding,
   defaultRoomStandId,
   derivedDoorStands,
+  derivedStairStands,
   roomStandById,
   roomStandPosition,
 } from "../composables/useGrid.js";
@@ -13,6 +14,7 @@ import { useIndoorBuilding } from "../composables/useIndoorBuilding.js";
 import { useOutdoorWorld } from "../composables/useOutdoorWorld.js";
 import { resolveStandPoint } from "../composables/useAvatarStand.js";
 import { createFlags } from "../composables/useFlags.js";
+import { buildIndoorMovementActions } from "../../../composables/usePlayPanel.js";
 
 function indoorHarness() {
   const place = ref("indoors");
@@ -60,9 +62,9 @@ describe("indoor room stands", () => {
     const building = buildBuilding(utilityData);
     const room = building.roomById["large-bay"];
     expect(defaultRoomStandId(room)).toBe("midway");
-    expect(roomStandById(building, "large-bay", "stairs-bottom")).toMatchObject({
-      label: "Bottom of the stairs",
-      kind: "authored",
+    expect(roomStandById(building, "large-bay", "stair:garage-stair:bottom")).toMatchObject({
+      label: "bottom of the stairs",
+      kind: "stair",
     });
 
     const thresholds = derivedDoorStands(building, "large-bay");
@@ -75,9 +77,19 @@ describe("indoor room stands", () => {
       expect(stand.at.y).toBeGreaterThan(room.y);
       expect(stand.at.y).toBeLessThan(room.y + room.h);
     }
+    expect(derivedStairStands(building, "garage-stair").map((stand) => stand.id)).toEqual(
+      expect.arrayContaining(["stair:garage-stair:bottom", "stair:garage-stair:top"]),
+    );
+    const topStand = roomStandById(building, "garage-stair", "stair:garage-stair:top");
+    expect(topStand).toMatchObject({
+      label: "top of the stairs",
+      kind: "stair",
+      door: "conference-garage-stair",
+    });
+    expect(topStand.at).not.toEqual(building.doorById["conference-garage-stair"].at);
   });
 
-  it("moves between authored and derived stands without changing rooms", () => {
+  it("moves to the bottom stair stand without leaving the large bay", () => {
     const { indoor } = indoorHarness();
     indoor.indoor.currentRoom = "large-bay";
     indoor.indoor.exteriorNode = null;
@@ -86,23 +98,30 @@ describe("indoor room stands", () => {
 
     expect(indoor.indoorMoves.map((move) => move.toStandId)).toEqual(
       expect.arrayContaining([
-        "stairs-bottom",
+        "stair:garage-stair:bottom",
         "service-area",
         "door:large-bay-man",
         "door:large-bay-roll",
       ]),
     );
 
-    indoor.moveToStand("stairs-bottom");
+    indoor.moveToStand("stair:garage-stair:bottom");
     expect(indoor.indoor.currentRoom).toBe("large-bay");
-    expect(indoor.indoor.currentStand).toBe("stairs-bottom");
+    expect(indoor.indoor.currentStand).toBe("stair:garage-stair:bottom");
+    expect(indoor.indoor.level).toBe("first");
+
+    const labels = buildIndoorMovementActions(indoor).map((action) => action.label);
+    expect(labels).toContain("Climb the stairs");
+    expect(labels).not.toContain("Descend the stairs");
+    expect(labels).not.toContain("Go into the large bay");
+    expect(indoor.indoorMoves.map((move) => move.toStandId)).toContain("service-area");
   });
 
   it("only offers room-side door controls at that door threshold", () => {
     const { indoor } = indoorHarness();
     indoor.indoor.currentRoom = "large-bay";
     indoor.indoor.exteriorNode = null;
-    indoor.indoor.currentStand = "stairs-bottom";
+    indoor.indoor.currentStand = "stair:garage-stair:bottom";
     indoor.indoor.discovered = new Set(["large-bay"]);
 
     expect(indoor.nearbyDoors.map((door) => door.doorId)).not.toContain("large-bay-man");
@@ -153,6 +172,70 @@ describe("indoor room stands", () => {
     indoor.indoor.currentStand = "service-area";
 
     expect(indoor.availableActions.map((action) => action.id)).toContain("inspect-service-bench");
+  });
+
+  it("climbs to the top stair door stand and does not barge into the conference room", () => {
+    const { indoor } = indoorHarness();
+    indoor.indoor.currentRoom = "large-bay";
+    indoor.indoor.exteriorNode = null;
+    indoor.indoor.currentStand = "midway";
+    indoor.indoor.discovered = new Set(["large-bay", "garage-stair", "conference"]);
+    indoor.indoor.revealed = new Set(["large-bay", "garage-stair", "conference"]);
+
+    indoor.moveToRoom("garage-stair");
+
+    expect(indoor.indoor.currentRoom).toBe("garage-stair");
+    expect(indoor.indoor.level).toBe("second");
+    expect(indoor.indoor.currentStand).toBe("stair:garage-stair:top");
+    expect(indoor.nearbyDoors.map((door) => door.doorId)).toContain("conference-garage-stair");
+    let labels = buildIndoorMovementActions(indoor).map((action) => action.label);
+    expect(labels.filter((label) => label === "Descend the stairs")).toHaveLength(1);
+    expect(labels).not.toContain("Climb the stairs");
+    indoor.indoor.moving = false;
+
+    indoor.moveToRoom("conference");
+    expect(indoor.indoor.currentRoom).toBe("garage-stair");
+
+    indoor.tryOpenDoor("conference-garage-stair");
+    indoor.indoor.moving = false;
+    indoor.moveToRoom("conference");
+
+    expect(indoor.indoor.currentRoom).toBe("conference");
+    expect(indoor.indoor.currentStand).toBe("door:conference-garage-stair");
+  });
+
+  it("descends from the top stair stand to the generated bottom stand", () => {
+    const { indoor } = indoorHarness();
+    indoor.indoor.currentRoom = "garage-stair";
+    indoor.indoor.exteriorNode = null;
+    indoor.indoor.currentStand = "stair:garage-stair:top";
+    indoor.indoor.level = "second";
+    indoor.indoor.discovered = new Set(["large-bay", "garage-stair"]);
+    indoor.indoor.revealed = new Set(["large-bay", "garage-stair"]);
+
+    indoor.moveToStand("stair:garage-stair:bottom");
+
+    expect(indoor.indoor.currentRoom).toBe("large-bay");
+    expect(indoor.indoor.level).toBe("first");
+    expect(indoor.indoor.currentStand).toBe("stair:garage-stair:bottom");
+  });
+
+  it("leaves the conference room onto the top stair stand", () => {
+    const { indoor } = indoorHarness();
+    indoor.tryOpenDoor("conference-garage-stair");
+    indoor.indoor.moving = false;
+    indoor.indoor.currentRoom = "conference";
+    indoor.indoor.exteriorNode = null;
+    indoor.indoor.currentStand = "door:conference-garage-stair";
+    indoor.indoor.level = "second";
+    indoor.indoor.discovered = new Set(["conference", "garage-stair"]);
+    indoor.indoor.revealed = new Set(["conference", "garage-stair"]);
+
+    indoor.moveToRoom("garage-stair");
+
+    expect(indoor.indoor.currentRoom).toBe("garage-stair");
+    expect(indoor.indoor.level).toBe("second");
+    expect(indoor.indoor.currentStand).toBe("stair:garage-stair:top");
   });
 
   it("arrives at the destination-side threshold when crossing a door", () => {

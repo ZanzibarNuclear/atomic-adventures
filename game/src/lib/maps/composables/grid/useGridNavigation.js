@@ -21,10 +21,11 @@ function moveLabel(kind, dir, from, to) {
     return `onto the ${name}`
   }
   if (from?.feature) {
+    const short = roomLabel(to).split("/")[0].trim().toLowerCase();
+    if (dir === 'same') return short ? `into the ${short}` : 'into the next room'
     if (to.id === 'kitchen') return 'up to the kitchen'
     if (to.id === 'hallway') return 'down to the hallway'
     if (to.id === 'large-bay') return 'down to the large bay'
-    const short = roomLabel(to).split("/")[0].trim().toLowerCase();
     if (dir === 'up') return short ? `up to the ${short}` : 'up the stairs'
     if (dir === 'down') return short ? `down to the ${short}` : 'down the stairs'
     return short ? `into the ${short}` : 'into the next room'
@@ -82,13 +83,15 @@ export function movesFrom(
       if (!other || isStairLanding(other)) continue
       if (!targetReachable(other, link)) continue
       const otherLevel = roomLevel(other)
+      if (otherLevel !== fromLevel) continue
       const dir = dirBetween(building, { level: fromLevel }, { level: otherLevel })
+      const kind = link.kind === 'stairs' ? 'open' : link.kind
       out.push({
         toRoomId: otherId,
-        kind: link.kind,
+        kind,
         dir,
         doorId: link.door ?? null,
-        label: moveLabel(link.kind, dir, from, other),
+        label: moveLabel(kind, dir, from, other),
         toName: roomLabel(other),
         toLevel: otherLevel,
       })
@@ -105,7 +108,11 @@ export function movesFrom(
     const to = building.roomById[toId]
     if (!to) continue
     if (!targetReachable(to, link)) continue
-    const toLevel = roomLevel(to, isStairLanding(to) ? fromLevel : null)
+    let toLevel = roomLevel(to, isStairLanding(to) ? fromLevel : null)
+    if (link.kind === 'stairs' && isStairLanding(to)) {
+      const { low, high } = spiralLandingsFor(building, to)
+      toLevel = fromLevel === low ? high : low
+    }
     const dir = dirBetween(building, { level: fromLevel }, { level: toLevel })
     out.push({
       toRoomId: toId,
@@ -114,7 +121,7 @@ export function movesFrom(
       doorId: link.door ?? null,
       label: moveLabel(link.kind, dir, from, to),
       toName: roomLabel(to),
-      toLevel: isStairLanding(to) ? fromLevel : toLevel,
+      toLevel,
     })
   }
   return out

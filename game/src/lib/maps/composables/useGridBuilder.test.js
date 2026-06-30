@@ -36,17 +36,16 @@ describe("grid builder room stands", () => {
     expect(items.map((item) => item.id)).toEqual(
       expect.arrayContaining([
         "large-bay/midway",
-        "large-bay/stairs-bottom",
         "large-bay/service-area",
       ]),
     );
 
-    const stand = findGridEditable(draft, "stands", "large-bay/stairs-bottom");
+    const stand = findGridEditable(draft, "stands", "large-bay/service-area");
     expect(resolvedRoomStandHandle(stand, draft.cell)).toEqual([
       expect.objectContaining({ role: "room-stand", handleKey: "room-stand" }),
     ]);
 
-    setRoomStandAt(draft, "large-bay/stairs-bottom", 1.5, 2.8);
+    setRoomStandAt(draft, "large-bay/service-area", 1.5, 2.8);
     expect(stand.at).toEqual({ x: 1.5, y: 2.8 });
   });
 });

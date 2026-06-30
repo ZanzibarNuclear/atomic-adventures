@@ -295,7 +295,7 @@ export function useGridMapPlacements({
   const placedRoomStands = computed(() => {
     const rooms = builderView.value
       ? levelRooms.value.filter((room) => !room.feature && !room.open)
-      : current.value && !current.value.feature
+      : current.value
         ? [current.value]
         : []
     return rooms.flatMap((room) =>
@@ -309,7 +309,7 @@ export function useGridMapPlacements({
           kind: stand.kind,
           cx: point.x,
           cy: point.y,
-          r: cell.value * (stand.kind === 'door' ? 0.065 : 0.075),
+          r: cell.value * (stand.kind === 'door' || stand.kind === 'stair' ? 0.065 : 0.075),
           current: room.id === currentRoom.value && stand.id === currentStand.value,
           reachable:
             !builderView.value &&
@@ -347,6 +347,11 @@ export function useGridMapPlacements({
     const landing = standLevel.value ?? level.value
     if (isStairLanding(current.value)) {
       if (landing !== level.value) return null
+      const stand = roomStandPosition(building.value, current.value, currentStand.value)
+      if (stand) {
+        const pt = tp(stand.x, stand.y)
+        return { x: pt.x, y: pt.y - avatarFootOffset.value }
+      }
       const sf = stairLandingFixture.value
       if (!sf) return null
       if (sf.type === 'spiral') {

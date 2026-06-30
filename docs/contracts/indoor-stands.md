@@ -11,7 +11,7 @@ precise location beneath `currentRoom`:
 
 ```text
 currentRoom: large-bay
-currentStand: stairs-bottom
+currentStand: stair:garage-stair:bottom
 ```
 
 Room-level story triggers, discovery, inventory, and actions continue to use
@@ -70,15 +70,58 @@ authoring. They are shown differently from authored stands in the World
 Builder. A later extension may support authored threshold overrides if a real
 layout demonstrates the need.
 
+## Vertical Connectors
+
+Stairs, elevators, ladders, and similar fixtures are vertical connectors. They
+may have visible geometry, and an elevator car may even feel room-like, but
+their primary gameplay contract is connecting explicit standpoints on different
+floors.
+
+Vertical connectors must not be treated as ordinary rooms for player-facing
+movement. The player stands at a connector endpoint that belongs to a real
+room/floor context, and connector use moves the avatar from one endpoint to
+another while changing `level`. A connector may have internal rendering or
+transient movement state, but room-level story, inventory, local actions, and
+same-room stand movement should continue to use the endpoint's containing room
+unless the design explicitly requires a true room-like interior.
+
+Stair fixtures produce implicit endpoint stands:
+
+- lower endpoints use `stair:<stair-room-id>:bottom`;
+- upper endpoints use `stair:<stair-room-id>:top`;
+- endpoint stands are distinct from nearby door thresholds, even when a door is
+  adjacent to the landing;
+- climbing a stair moves the avatar from the lower endpoint to the upper
+  endpoint and changes `level`;
+- descending moves the avatar from the upper endpoint to the lower endpoint and
+  changes `level`;
+- connector travel must never place the avatar at the visual center of the
+  stair/elevator fixture as a fallback.
+
+Door actions near a connector endpoint are controlled by proximity metadata,
+not by reusing the door threshold as the connector stand. For example, the top
+of the large-bay stairs is a stair endpoint beside the conference-room door,
+not the conference-room door threshold itself.
+
+Future elevators should follow the same model: each served floor has an
+endpoint stand. Choosing the elevator moves between endpoint stands and changes
+`level`; only an intentionally explorable elevator car should introduce a
+separate room-like location.
+
 ## Movement
 
 Within the current room:
 
 1. Every authored stand other than `currentStand` is a local destination.
-2. Every derived door threshold other than `currentStand` is a local
-   destination.
+2. Every derived door threshold or connector endpoint other than
+   `currentStand` is a local destination.
 3. The player may click a visible stand marker or choose it in the action list.
 4. Local movement changes `currentStand` without changing `currentRoom`.
+
+Moving to a connector endpoint that belongs to the current room also preserves
+`currentRoom`. For example, moving to the bottom of the large-bay stairs keeps
+the player in `large-bay`; it should not require a later "go into the large
+bay" action before the player can choose another large-bay stand.
 
 The gameplay camera is room-centered while the player is indoors. Moving
 between stands does not pan the floor plan; the room remains fixed and the
@@ -92,14 +135,16 @@ Across rooms:
    remain authoritative.
 2. A door traversal arrives at the destination room's derived threshold for
    that door.
-3. A non-door connection arrives at the destination room's default stand.
-4. Entering from an exterior node arrives at the interior threshold of that
+3. A vertical connector traversal arrives at the opposite endpoint stand and
+   updates `level`.
+4. A non-door connection arrives at the destination room's default stand.
+5. Entering from an exterior node arrives at the interior threshold of that
    exterior door.
-5. Leaving a room clears the room stand while the avatar is outdoors.
+6. Leaving a room clears the room stand while the avatar is outdoors.
 
 The first increment permits direct movement between every stand in one room.
-It does not model furniture collision or require the player to walk to a door
-threshold before using that door.
+It does not model furniture collision. Door controls are offered only at the
+specific door threshold.
 
 ## Persistence and Live Updates
 
@@ -112,8 +157,8 @@ is preserved when it still exists; otherwise it falls back to the room default.
 The Utility Station workspace lists authored room stands separately from
 rooms. Authors can create, select, drag, label, duplicate, rename, reorder, and
 delete them. The inspector edits coordinates, pose, and interaction metadata.
-Derived door thresholds are visible on the canvas for orientation but are not
-stored or directly editable.
+Derived door and stair thresholds are visible on the canvas for orientation but
+are not stored or directly editable.
 
 Validation rejects malformed IDs, duplicate stand IDs in a room, out-of-room
 coordinates, and invalid `defaultStand` references.
@@ -132,4 +177,5 @@ Only add the following when a concrete room requires it:
 - reachability conditions or requirements on individual stands.
 
 That expansion should preserve this contract's authored stand IDs and derived
-`door:<door-id>` IDs so saves and content references remain stable.
+`door:<door-id>` / `stair:<stair-room-id>:<end>` IDs so saves and content
+references remain stable.
