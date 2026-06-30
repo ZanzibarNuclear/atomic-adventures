@@ -17,7 +17,7 @@ to real wall-clock time, and it does not advance while the game is closed.
 Time supports four related design needs:
 
 1. **Story pacing** - beats can appear only during the right day, time window,
-   story phase, or milestone.
+   story phase, or milestone state.
 2. **Action cost** - movement, search, repair, reading, eating, rest, and
    simulation work can spend game minutes.
 3. **State drift** - character vitals and world resources can accumulate or
@@ -44,13 +44,13 @@ The start clock should be authored in a scenario or game settings document:
 ```yaml
 clock:
   startDay: 1
-  startMinuteOfDay: 600 # 10:00 AM
+  startDate: 2126-07-02
+  startMinuteOfDay: 720 # 12:00 PM
 ```
 
-Part I should treat 10:00 AM as the desired design default unless a specific
-opening sequence chooses another value. The current implementation default is
-8:00 AM in `createGameClock`; that is an implementation detail to migrate once
-the builder exposes a start-time setting.
+Part I currently starts on Tuesday, July 2, 2126 at noon. The builder should
+eventually expose these scenario settings instead of hard-coding them in the
+runtime.
 
 ## Advancing Time
 
@@ -114,7 +114,8 @@ long the chosen path and associated interaction took.
 ## Time-Gated Beats
 
 Time is a first-class beat eligibility criterion, separate from the action
-context `match` fields such as `originHex` and `localExit`.
+context `match` fields such as `originHex`, `mapTransition`, and
+`transitionDirection`.
 
 Recommended beat shape:
 
@@ -144,6 +145,8 @@ a beat still needs a location or event trigger. Time-specific beats should win
 over less specific beats at the same location when all other specificity is
 equal. If multiple time-specific beats overlap at the same location, the builder
 should warn and authors should make the windows or milestone criteria distinct.
+Milestone semantics are defined in [milestones.md](milestones.md); this contract
+only defines how the clock makes time windows eligible.
 
 Example:
 
@@ -177,36 +180,17 @@ on the renderer.
 
 ## Milestones
 
-A **milestone** is a named story or operations event recorded in player state.
-Milestones are not the same as clock time, but they often act as time anchors.
+Milestones are covered by [milestones.md](milestones.md). In brief:
 
-Examples:
+- temporal predicates such as Day 55 or Day 1 afternoon are derived from the
+  clock and are not persisted by default;
+- authored milestones such as `library.sleep-1` or `hydro.online` are sparse
+  recorded facts with timestamps;
+- achievements and qualifications are derived awards, not the primary story
+  unlock primitive.
 
-| Milestone | Required? | Notes |
-| --- | --- | --- |
-| `gate.found` | Optional | Useful because there are alternate routes to the utility yard |
-| `first-meal.eaten` | Required survival beat | Missing it can trigger exhaustion/collapse content |
-| `day-1.sleep` | Required transition | Moves the game from Day 1 to Day 2 |
-| `hydro.online` | Required Part I progression | Starts energy storage and operations pacing |
-| `solar-field.seen` | Optional discovery | Can unlock Part II foreshadowing |
-
-Milestones may be implemented as structured progression state or as namespaced
-flags. The authoring model should present them as milestones when they represent
-story pacing, required discoveries, or operations achievements, rather than
-making authors remember arbitrary flag names.
-
-Milestones should record at least:
-
-```yaml
-id: first-meal.eaten
-elapsedMinutes: 390
-day: 1
-minuteOfDay: 990
-required: true
-```
-
-Recording the clock at milestone time lets later content ask not only "did this
-happen?" but "how long has it been since this happened?"
+Time-gated beats may use `afterMilestone` and `beforeMilestone` to combine
+clock windows with authored progression state.
 
 ## Day Transitions And Rest
 
@@ -221,7 +205,7 @@ Part I design goals:
   personal crisis on Day 1.
 - If he reaches the library/conference area by evening, sleeping in a chair,
   on a table, or in soft seating can become an authored rest choice.
-- Waking should advance the clock, record a Day 2 transition milestone, and
+- Waking should advance the clock, record a sparse Day 2 transition milestone, and
   make Day 2 beats eligible without losing location, inventory, or player state.
 
 Rest choices should prefer "sleep until" semantics over fixed durations when
@@ -240,6 +224,56 @@ choices:
 
 The current choice schema supports `timeMinutes` and `activity`; `sleep until`
 is a proposed extension.
+
+### Library Day 1 To Day 2 Example
+
+The first concrete time-gated story case is the library overnight transition.
+It should work without moving the player to another room or requiring an event
+beat.
+
+Author two room-triggered beats:
+
+```yaml
+library-arrival:
+  trigger: { place: indoors, room: library }
+  time:
+    days: [1]
+    phase: evening
+    beforeMilestone: library.sleep-1
+  text: Zanzi reaches the library as the last light fades.
+  choices:
+    - text: Sleep in the soft seating
+      timeUntil:
+        dayOffset: 1
+        minuteOfDay: 420 # 7:00 AM
+      activity: resting
+      sets: [library.sleep-1, day-2.started]
+
+library-wakeup:
+  trigger: { place: indoors, room: library }
+  time:
+    days: [2]
+    phase: morning
+    afterMilestone: library.sleep-1
+  text: Morning light spills across the library.
+```
+
+Runtime flow:
+
+1. Entering the library evaluates normal room beats.
+2. `library-arrival` is eligible only when the clock is Day 1 evening and the
+   `library.sleep-1` milestone has not happened.
+3. Choosing sleep advances time to the next day at 7:00 AM with `resting`
+   activity and applies overnight character/resource drift.
+4. The same choice records the sleep milestone.
+5. Story re-evaluates the current room because time and milestones changed.
+6. The player is still in the library, but `library-arrival` is no longer
+   eligible and `library-wakeup` is now eligible.
+
+For the first implementation, `beforeMilestone` and `afterMilestone` may be
+backed by namespaced flags. If milestones later become structured save data,
+the author-facing fields should remain stable; see
+[milestones.md](milestones.md).
 
 ## Resource Drift And Accumulation
 
@@ -299,7 +333,7 @@ is local until the sim commits a result.
 The game may show a subtle timestamp, such as:
 
 ```text
-Day 1 · 11:15 AM
+Tuesday, July 2, 2126 · 12:15 PM
 ```
 
 This should feel like a quiet watermark or HUD detail, not a constant pressure
@@ -324,7 +358,8 @@ The builder should eventually expose:
 - named phase windows;
 - action durations and activity profiles;
 - beat time criteria;
-- milestone creation and milestone gating;
+- milestone gating, with milestone creation defined in
+  [milestones.md](milestones.md);
 - warnings for overlapping time-gated beats at the same trigger;
 - estimated route timing for authored paths and common discoveries;
 - preview controls to evaluate content at a chosen day/time/milestone state.
@@ -343,7 +378,7 @@ Validation should reject:
 Player saves must serialize:
 
 - clock fields;
-- milestone state and milestone timestamps;
+- authored milestone state and milestone timestamps;
 - character/resource values affected by elapsed time;
 - seen beats, flags, inventory, map position, and simulation/facility state.
 
@@ -352,7 +387,8 @@ game resumes at the saved game time.
 
 Content remains separate from player state. Time criteria, phase settings,
 action durations, and simulation rate definitions live in authored content.
-Clock values and milestone completion live in the player save.
+Clock values and authored milestone completion live in the player save.
+Derived temporal predicates are recomputed from the clock rather than persisted.
 
 ## Current Implementation Map
 
@@ -364,6 +400,7 @@ Clock values and milestone completion live in the player save.
 | Player clock persistence | `game/src/composables/useGameState.js` |
 | Story choice `timeMinutes` and `activity` | `game/server/story-model.js`, `game/src/components/builder/story/StoryChoiceEditor.vue` |
 | Story choice time commit | `game/src/composables/useStory.js` |
+| Story milestone bridge | `afterMilestone` / `beforeMilestone` in `game/src/composables/useStory.js` |
 | Item action time commit | `game/src/lib/character/itemActions.js` |
 | Outdoor movement default time | `game/src/lib/maps/composables/useOutdoorWorld.js` |
 | Indoor movement and interaction time | `game/src/lib/maps/composables/indoor/` |
@@ -372,8 +409,6 @@ Clock values and milestone completion live in the player save.
 
 - Should the Part I start time be 10:00 AM exactly, or should the opening beat
   choose a scenario-specific value?
-- Should milestones become a structured save field immediately, or remain
-  namespaced flags until authoring pressure proves the need?
 - Should beat time criteria live under `time`, under a broader `when`, or as
   dedicated trigger fields in the database UI?
 - What is the correct default duration for exterior-node movement around a

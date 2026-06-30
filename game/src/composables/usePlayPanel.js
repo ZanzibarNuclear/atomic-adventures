@@ -13,8 +13,31 @@ import { searchActionLabel } from "../lib/maps/composables/useBarrierOpenings.js
 import { barrierHintAtStand } from "../lib/maps/composables/useBarrierStand.js";
 
 function actionButtonLabel(action) {
-  if (action.verb) return `${action.verb} — ${action.label}`;
-  return action.label;
+  if (action.verb) return cleanActionLabel(`${action.verb} ${withArticle(action.label)}`);
+  return cleanActionLabel(action.label);
+}
+
+function withArticle(label) {
+  if (!label) return "";
+  return /^(the|a|an)\s/i.test(label) ? label : `the ${label}`;
+}
+
+function cleanActionLabel(label) {
+  return String(label ?? "").replace(/\s+[–—]\s+/g, " the ");
+}
+
+function switchActionLabel(sw, engaged) {
+  const normalized = cleanActionLabel(sw.label);
+  const manualRelease = normalized.match(/^Manual release (?:the )?(.+)$/i);
+  if (manualRelease) {
+    const target = withArticle(manualRelease[1]);
+    return engaged ? `Engage the motor for ${target}` : `Release ${target} manually`;
+  }
+  return engaged ? `Engage the motor for ${withArticle(normalized)}` : normalized;
+}
+
+export function isVisibleAction(action) {
+  return !action.disabled;
 }
 
 /**
@@ -25,13 +48,12 @@ export function buildStoryChoices(pendingBeat, canReachHex = () => true) {
   if (!pendingBeat?.choices?.length) return [];
   return pendingBeat.choices
     .map((choice, index) => ({ choice, index }))
+    .filter(({ choice }) => !choice.disabled)
     .filter(({ choice }) => !choice.go_hex || canReachHex(choice.go_hex))
     .map(({ choice, index }) => ({
       id: `story:${index}`,
       toHexId: choice.go_hex ?? null,
       label: choice.text,
-      disabled: choice.disabled,
-      hint: choice.disabled ? "Requirements not met" : null,
     }));
 }
 
@@ -163,7 +185,7 @@ export function buildOutdoorPlayActions(outdoor, pendingBeat = null) {
     ...buildOutdoorPassageUnlockActions(outdoor),
     ...buildOutdoorPassageToggleActions(outdoor),
     ...buildOutdoorPassageActions(outdoor),
-  ];
+  ].filter(isVisibleAction);
 }
 
 export function getMovementOptions(outdoor, pendingBeat) {
@@ -240,7 +262,7 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
   for (const pickup of indoor.roomPickups ?? []) {
     items.push({
       id: `pickup:${pickup.id}`,
-      label: `Take — ${pickup.label}`,
+      label: `Pick up ${withArticle(pickup.label)}`,
     });
   }
 
@@ -261,21 +283,21 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
     const door = building.doorById[d.doorId];
     if (!door) continue;
     const state = indoor.doorStateFor(d.doorId);
-    const name = doorLabel(building, d.doorId, d.toName);
+    const name = contextualDoorLabel(indoor, d);
     const status = doorStatusText(state, door, facility);
     const hint = indoor.doorLockHint(d.doorId) || status;
 
     if (canBreakLock(doorState, building.areaId, d.doorId, building)) {
       items.push({
         id: `door-break:${d.doorId}`,
-        label: `Break lock — ${name}`,
+        label: `Break the lock on ${withArticle(name)}`,
         hint,
       });
     }
 
     if (
       !isEnablerLock(door) &&
-      (canToggleLock(
+      canToggleLock(
         doorState,
         building.areaId,
         d.doorId,
@@ -283,12 +305,11 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
         playerRoomId,
         inventory,
         facility,
-      ) ||
-        state.locked)
+      )
     ) {
       items.push({
         id: `door-lock:${d.doorId}`,
-        label: `${state.locked ? "Unlock" : "Lock"} — ${name}`,
+        label: `${state.locked ? "Unlock" : "Lock"} ${withArticle(name)}`,
         hint,
         disabled: !indoor.canToggleDoorLock(d.doorId),
       });
@@ -298,13 +319,13 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
       if (canOpenDoor(doorState, building.areaId, d.doorId)) {
         items.push({
           id: `door-open:${d.doorId}`,
-          label: `Open — ${name}`,
+          label: `Open ${withArticle(name)}`,
           hint,
         });
       } else if (canCloseDoor(doorState, building.areaId, d.doorId)) {
         items.push({
           id: `door-close:${d.doorId}`,
-          label: `Close — ${name}`,
+          label: `Close ${withArticle(name)}`,
           hint,
         });
       }
@@ -315,18 +336,108 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
     const engaged = isManualEnablerActive(sw.door, facility);
     items.push({
       id: `switch:${sw.door}`,
-      label: engaged ? `Engage motor — ${sw.label}` : sw.label,
+      label: switchActionLabel(sw, engaged),
     });
   }
 
-  return items;
+  return items.filter(isVisibleAction);
 }
 
-function movementLabel(move) {
+function contextualDoorLabel(indoor, nearbyDoor) {
+  const building = indoor.building;
+  const door = building.doorById?.[nearbyDoor.doorId];
+  const destinationRoomId = nearbyDoor.toRoomId;
+  const discovered = indoor.indoor?.discovered;
+  if (destinationRoomId && discovered?.has?.(destinationRoomId)) {
+    if (door?.label) return door.label;
+    const room = building.roomById?.[destinationRoomId];
+    const label = room ? doorRoomName(room) : nearbyDoor.toName;
+    return label ? `${label} door` : doorLabel(building, nearbyDoor.doorId, nearbyDoor.toName);
+  }
+  if (destinationRoomId && !discovered?.has?.(destinationRoomId)) {
+    const unknownDoors = (indoor.nearbyDoors ?? []).filter((item) =>
+      item.toRoomId && !discovered?.has?.(item.toRoomId)
+    );
+    return unknownDoors.length > 1
+      ? positionedDoorLabel(building, indoor.playerRoomId, door)
+      : "door";
+  }
+  return doorLabel(building, nearbyDoor.doorId, nearbyDoor.toName);
+}
+
+function doorRoomName(room) {
+  return String(room?.label ?? room?.id ?? "")
+    .replace(/\s+room$/i, "")
+    .toLowerCase();
+}
+
+function positionedDoorLabel(building, roomId, door) {
+  const room = building.roomById?.[roomId];
+  if (!room || !door?.at) return "door";
+  const left = room.x;
+  const right = room.x + (room.w ?? 1);
+  const top = room.y;
+  const bottom = room.y + (room.h ?? 1);
+  const sides = [
+    { label: "west", distance: Math.abs(door.at.x - left) },
+    { label: "east", distance: Math.abs(door.at.x - right) },
+    { label: "north", distance: Math.abs(door.at.y - top) },
+    { label: "south", distance: Math.abs(door.at.y - bottom) },
+  ].sort((a, b) => a.distance - b.distance);
+  return `${sides[0]?.label ?? "nearby"} door`;
+}
+
+function movementLabel(indoor, move) {
+  if (move.kind === "stairs" || move.kind === "winding-stairs" || move.onSpiral) {
+    return isDescendingStairs(indoor, move) ? "Descend the stairs" : "Climb the stairs";
+  }
+  if (indoor?.indoor && !indoor.indoor.exteriorNode && move.toExteriorNode) return "Go outside";
+  if (indoor?.indoor?.exteriorNode && move.toRoomId && move.kind === "door") return "Go inside";
+  if (
+    move.toRoomId &&
+    !isDestinationRoomDiscovered(indoor, move.toRoomId) &&
+    !isKnownGenericDestination(indoor, move.toRoomId)
+  ) {
+    return "Enter the room";
+  }
+  if (
+    move.toRoomId &&
+    move.kind === "door" &&
+    indoor?.indoor?.discovered?.has &&
+    !indoor.indoor.discovered.has(move.toRoomId)
+  ) {
+    return "Enter the room";
+  }
   if (move.toExteriorNode) return `Go ${move.label ?? "along the footpath"}`;
   if (move.toStandId) return `Go ${move.label ?? "to another spot"}`;
   if (move.toRoomId) return `Go ${move.label ?? "to another room"}`;
   return `Go ${move.label ?? "onward"}`;
+}
+
+function isDestinationRoomDiscovered(indoor, roomId) {
+  const discovered = indoor?.indoor?.discovered;
+  return !discovered?.has || discovered.has(roomId);
+}
+
+function isKnownGenericDestination(indoor, roomId) {
+  const room = indoor?.building?.roomById?.[roomId];
+  return !!room?.feature || !!room?.open;
+}
+
+function isDescendingStairs(indoor, move) {
+  if (/\bdown\b/i.test(move.label ?? "")) return true;
+  if (/\bup\b/i.test(move.label ?? "")) return false;
+  const levels = indoor?.building?.levels ?? [];
+  const orderFor = (id) => {
+    const level = levels.find((item) => item.id === id);
+    return Number(level?.order ?? levels.findIndex((item) => item.id === id));
+  };
+  const fromOrder = orderFor(indoor?.indoor?.level);
+  const toOrder = orderFor(move.toLevel);
+  if (Number.isFinite(fromOrder) && Number.isFinite(toOrder) && fromOrder !== toOrder) {
+    return toOrder < fromOrder;
+  }
+  return false;
 }
 
 export function buildIndoorMovementActions(indoor, pendingBeat = null) {
@@ -348,20 +459,20 @@ export function buildIndoorMovementActions(indoor, pendingBeat = null) {
       if (move.toExteriorNode) {
         return {
           id: `move-exterior:${move.toExteriorNode}`,
-          label: movementLabel(move),
+          label: movementLabel(indoor, move),
           kind: move.kind ?? "path",
         };
       }
       if (move.toStandId) {
         return {
           id: `move-stand:${move.toStandId}`,
-          label: movementLabel(move),
+          label: movementLabel(indoor, move),
           kind: move.kind ?? "stand",
         };
       }
       return {
         id: `move-room:${move.toRoomId}`,
-        label: movementLabel(move),
+        label: movementLabel(indoor, move),
         kind: move.kind ?? "room",
       };
     });
@@ -396,8 +507,12 @@ export function handleIndoorPlayAction(indoor, actionId) {
     indoor.tryToggleLock(actionId.slice("door-lock:".length));
     return;
   }
-  if (actionId.startsWith("door-open:") || actionId.startsWith("door-close:")) {
-    indoor.tryToggleDoor(actionId.split(":").slice(1).join(":"));
+  if (actionId.startsWith("door-open:")) {
+    indoor.tryOpenDoor(actionId.slice("door-open:".length));
+    return;
+  }
+  if (actionId.startsWith("door-close:")) {
+    indoor.tryCloseDoor(actionId.slice("door-close:".length));
     return;
   }
   if (actionId.startsWith("switch:")) {
@@ -450,7 +565,7 @@ export function buildOutdoorStatusLines(outdoor, indoor) {
     }
   }
   if (outdoor.atBuildingEntrance) {
-    lines.push(`The ${indoor.building.label} is here — enter from the map or below.`);
+    lines.push(`You are at the ${indoor.building.label}.`);
   }
   return lines;
 }

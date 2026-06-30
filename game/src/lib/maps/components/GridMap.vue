@@ -260,7 +260,6 @@ const {
   isFixtureRevealed,
   onRoomClick,
   onStairFixtureClick,
-  onStairExitClick,
   onDoorClick,
   onExitClick,
   onExteriorNodeClick,
@@ -374,7 +373,6 @@ const {
         :builder-fixture-click-target="builderFixtureClickTarget"
         @select-item="emit('select-item', $event)"
         @stair-fixture-click="onStairFixtureClick"
-        @stair-exit-click="onStairExitClick"
       />
 
       <GridRoomStandLayer

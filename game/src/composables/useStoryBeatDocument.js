@@ -8,8 +8,24 @@ function clonePlain(value) {
 function ensureEditableBeat(value) {
   const next = clonePlain(value);
   next.match ??= { originHex: null, localExit: null };
-  next.match.originHex ??= null;
+  next.match.originHex = stringList(next.match.originHex);
   next.match.localExit ??= null;
+  next.match.mapTransition ??= next.match.localExit ?? null;
+  next.match.transitionDirection ??= null;
+  next.time ??= {};
+  next.time.days ??= [];
+  next.time.dayFrom ??= null;
+  next.time.dayTo ??= null;
+  next.time.minuteOfDayFrom ??= null;
+  next.time.minuteOfDayTo ??= null;
+  next.time.phase ??= null;
+  next.time.elapsedFrom ??= null;
+  next.time.elapsedTo ??= null;
+  next.time.afterMilestone ??= null;
+  next.time.beforeMilestone ??= null;
+  for (const choice of next.choices ?? []) {
+    choice.timeUntil ??= null;
+  }
   return next;
 }
 
@@ -61,14 +77,18 @@ function normalizeForDirty(value) {
       flag: nullableText(trigger.flag),
     },
     match: {
-      originHex: nullableText(beat.match?.originHex),
+      originHex: stringList(beat.match?.originHex),
       localExit: nullableText(beat.match?.localExit),
+      mapTransition: nullableText(beat.match?.mapTransition),
+      transitionDirection: nullableText(beat.match?.transitionDirection),
     },
+    time: normalizeBeatTime(beat.time),
     choices: (beat.choices ?? []).map((choice, index) => ({
       id: choice.id ?? "",
       order: Number.isFinite(Number(choice.order)) ? Number(choice.order) : index,
       text: String(choice.text ?? ""),
       timeMinutes: finiteNumber(choice.timeMinutes, 0),
+      timeUntil: normalizeTimeUntil(choice.timeUntil),
       activity: nullableText(choice.activity) ?? "light",
       sets: stringList(choice.sets),
       set_flags: stringList(choice.set_flags),
@@ -79,6 +99,36 @@ function normalizeForDirty(value) {
       view: normalizeStageView(choice.view),
     })),
   };
+}
+
+function normalizeBeatTime(value = {}) {
+  return {
+    days: Array.isArray(value.days) ? value.days.map(Number).filter(Number.isFinite) : [],
+    dayFrom: nullableNumber(value.dayFrom),
+    dayTo: nullableNumber(value.dayTo),
+    minuteOfDayFrom: nullableNumber(value.minuteOfDayFrom),
+    minuteOfDayTo: nullableNumber(value.minuteOfDayTo),
+    phase: nullableText(value.phase),
+    elapsedFrom: nullableNumber(value.elapsedFrom),
+    elapsedTo: nullableNumber(value.elapsedTo),
+    afterMilestone: nullableText(value.afterMilestone),
+    beforeMilestone: nullableText(value.beforeMilestone),
+  };
+}
+
+function normalizeTimeUntil(value) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    day: nullableNumber(value.day),
+    dayOffset: nullableNumber(value.dayOffset),
+    minuteOfDay: nullableNumber(value.minuteOfDay),
+  };
+}
+
+function nullableNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function dirtySnapshot(value) {
@@ -236,17 +286,28 @@ export function useStoryBeatDocument({
       }
       selectedBeatId.value = result.beat.id;
       isNew.value = false;
-      const submittedOrigin = submitted.match?.originHex ?? null;
-      const savedOrigin = result.beat.match?.originHex ?? null;
+      const submittedOrigin = stringList(submitted.match?.originHex);
+      const savedOrigin = stringList(result.beat.match?.originHex);
       const submittedLocalExit = submitted.match?.localExit ?? null;
       const savedLocalExit = result.beat.match?.localExit ?? null;
-      if (submittedOrigin !== savedOrigin || submittedLocalExit !== savedLocalExit) {
+      const submittedMapTransition = submitted.match?.mapTransition ?? null;
+      const savedMapTransition = result.beat.match?.mapTransition ?? null;
+      const submittedDirection = submitted.match?.transitionDirection ?? null;
+      const savedDirection = result.beat.match?.transitionDirection ?? null;
+      if (
+        JSON.stringify(submittedOrigin) !== JSON.stringify(savedOrigin) ||
+        submittedLocalExit !== savedLocalExit ||
+        submittedMapTransition !== savedMapTransition ||
+        submittedDirection !== savedDirection
+      ) {
         const saved = clonePlain(result.beat);
         const editable = clonePlain(result.beat);
         editable.match = {
           ...(editable.match ?? {}),
           originHex: submittedOrigin,
           localExit: submittedLocalExit,
+          mapTransition: submittedMapTransition,
+          transitionDirection: submittedDirection,
         };
         draft.value = editable;
         baseline.value = JSON.stringify(saved);

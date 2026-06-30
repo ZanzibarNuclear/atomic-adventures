@@ -1,9 +1,10 @@
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import StoryBeatEditor from "../components/builder/story/StoryBeatEditor.vue";
 import StoryBeatList from "../components/builder/story/StoryBeatList.vue";
 import StoryLocationPicker from "../components/builder/story/StoryLocationPicker.vue";
+import StoryMilestonePanel from "../components/builder/story/StoryMilestonePanel.vue";
 import BuilderPageHeader from "../components/builder/BuilderPageHeader.vue";
 import BuilderWorkspaceTabs from "../components/builder/BuilderWorkspaceTabs.vue";
 import UnsavedChangesDialog from "../components/builder/UnsavedChangesDialog.vue";
@@ -20,6 +21,7 @@ import { useDirtyDocumentNavigation } from "../composables/useDirtyDocumentNavig
 import { useStoryBeatDocument } from "../composables/useStoryBeatDocument.js";
 import { useWorldContent } from "../composables/useWorldContent.js";
 import { useBuildingContent } from "../composables/useBuildingContent.js";
+import { hexDistance } from "../lib/maps/composables/useHexGeometry.js";
 
 const { worldData, revision: worldRevision } = useWorldContent();
 const { buildingData, revision: buildingRevision } = useBuildingContent();
@@ -34,9 +36,10 @@ const allExteriorIds = computed(() =>
 const allHexSet = computed(() => new Set(allHexIds.value));
 const builderFlags = new Set();
 const STORY_AREA_ID = "part-i";
+const route = useRoute();
 const router = useRouter();
 
-const catalog = ref({ world: { hexes: [], rooms: [], exteriorNodes: [], localExits: [], buildings: [] } });
+const catalog = ref({ world: { hexes: [], rooms: [], exteriorNodes: [], localExits: [], mapTransitions: [], buildings: [] } });
 const locationMode = ref("outdoors");
 const selectedLocation = ref(mapData.start);
 const indoorLevel = ref(
@@ -46,10 +49,22 @@ const indoorViewportMode = ref("fit-all");
 const storyWorkspaceTabs = [
   { id: "outdoors", label: "Area" },
   { id: "rooms", label: "Utility Station" },
+  { id: "milestones", label: "Milestones" },
 ];
+const activeWorkspace = ref("outdoors");
 const storyWorkspace = computed(() =>
-  locationMode.value === "outdoors" ? "outdoors" : "rooms",
+  activeWorkspace.value === "milestones"
+    ? "milestones"
+    : locationMode.value === "outdoors" ? "outdoors" : "rooms",
 );
+const milestones = ref([]);
+const milestoneDialog = ref({
+  visible: false,
+  field: null,
+  label: "",
+  id: "",
+  kind: "story",
+});
 const {
   beats,
   selectedBeatId,
@@ -101,12 +116,61 @@ function beatsForLocation(mode, location) {
 const locationBeats = computed(() =>
   beatsForLocation(locationMode.value, selectedLocation.value),
 );
+const displayedLocationBeats = computed(() => {
+  const currentDraft = draft.value;
+  if (!currentDraft || !selectedBeatId.value) return locationBeats.value;
+  return locationBeats.value.map((beat) =>
+    beat.id === selectedBeatId.value ? currentDraft : beat,
+  );
+});
+function originHexLabel(value) {
+  const origins = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(",").map((item) => item.trim()).filter(Boolean)
+      : value
+        ? [value]
+        : [];
+  return origins.join("|");
+}
+function timeCriteriaParts(time = {}) {
+  const parts = [];
+  if (Array.isArray(time.days) && time.days.length) {
+    parts.push(`day=${[...time.days].map(Number).filter(Number.isFinite).sort((a, b) => a - b).join("|")}`);
+  }
+  if (time.dayFrom != null) parts.push(`dayFrom=${time.dayFrom}`);
+  if (time.dayTo != null) parts.push(`dayTo=${time.dayTo}`);
+  if (time.phase) parts.push(`phase=${time.phase}`);
+  if (time.minuteOfDayFrom != null) parts.push(`minuteFrom=${time.minuteOfDayFrom}`);
+  if (time.minuteOfDayTo != null) parts.push(`minuteTo=${time.minuteOfDayTo}`);
+  if (time.elapsedFrom != null) parts.push(`elapsedFrom=${time.elapsedFrom}`);
+  if (time.elapsedTo != null) parts.push(`elapsedTo=${time.elapsedTo}`);
+  if (time.afterMilestone) parts.push(`after=${time.afterMilestone}`);
+  if (time.beforeMilestone) parts.push(`before=${time.beforeMilestone}`);
+  return parts;
+}
+function timeCriteriaLabel(time = {}) {
+  const labels = [];
+  if (Array.isArray(time.days) && time.days.length) labels.push(`Day #: ${time.days.join(", ")}`);
+  if (time.dayFrom != null) labels.push(`Day from: ${time.dayFrom}`);
+  if (time.dayTo != null) labels.push(`Day to: ${time.dayTo}`);
+  if (time.phase) labels.push(`Time of day: ${time.phase}`);
+  if (time.minuteOfDayFrom != null) labels.push(`minute from ${time.minuteOfDayFrom}`);
+  if (time.minuteOfDayTo != null) labels.push(`minute to ${time.minuteOfDayTo}`);
+  if (time.elapsedFrom != null) labels.push(`elapsed from ${time.elapsedFrom}`);
+  if (time.elapsedTo != null) labels.push(`elapsed to ${time.elapsedTo}`);
+  if (time.afterMilestone) labels.push(`after ${time.afterMilestone}`);
+  if (time.beforeMilestone) labels.push(`before ${time.beforeMilestone}`);
+  return labels.join(", ");
+}
 const matchWarnings = computed(() => {
   const groups = new Map();
-  for (const beat of locationBeats.value) {
-    const origin = beat.match?.originHex ?? "";
-    const localExit = beat.match?.localExit ?? "";
-    const key = `${locationMode.value}:${selectedLocation.value}:origin=${origin}:localExit=${localExit}`;
+  for (const beat of displayedLocationBeats.value) {
+    const origin = originHexLabel(beat.match?.originHex);
+    const mapTransition = beat.match?.mapTransition ?? beat.match?.localExit ?? "";
+    const direction = beat.match?.transitionDirection ?? "";
+    const time = timeCriteriaParts(beat.time).join(":");
+    const key = `${locationMode.value}:${selectedLocation.value}:origin=${origin}:mapTransition=${mapTransition}:direction=${direction}:time=${time}`;
     const group = groups.get(key) ?? [];
     group.push(beat);
     groups.set(key, group);
@@ -114,28 +178,56 @@ const matchWarnings = computed(() => {
   return [...groups.values()]
     .filter((group) => group.length > 1)
     .map((group) => {
-      const origin = group[0].match?.originHex;
-      const localExit = group[0].match?.localExit;
+      const origin = originHexLabel(group[0].match?.originHex);
+      const mapTransition = group[0].match?.mapTransition ?? group[0].match?.localExit;
+      const direction = group[0].match?.transitionDirection;
       const label = [
         origin ? `origin ${origin}` : "",
-        localExit ? `local exit ${localExit}` : "",
-      ].filter(Boolean).join(", ") || "default/no origin or local exit";
+        mapTransition ? `map transition ${mapTransition}` : "",
+        direction ? (direction === "toLocal" ? "to local map" : "to regional map") : "",
+        timeCriteriaLabel(group[0].time),
+      ].filter(Boolean).join(", ") || "default/no origin or map transition";
       return `Multiple beats use ${label}: ${group.map((beat) => beat.id).join(", ")}. The first sorted beat wins.`;
     });
 });
 const draftIsOutdoorHexBeat = computed(() =>
   draft.value?.trigger?.place === "outdoors" && Boolean(draft.value?.trigger?.hex),
 );
+const originHexOptions = computed(() => {
+  if (!draftIsOutdoorHexBeat.value) return [];
+  const triggerHex = draft.value?.trigger?.hex;
+  const destination = outdoor.hexById[triggerHex];
+  if (!destination) return [];
+  const options = catalog.value.world.hexes.filter((hex) =>
+    hex.id !== triggerHex && hexDistance(destination, outdoor.hexById[hex.id] ?? hex) === 1,
+  );
+  return options;
+});
 const selectedRoom = computed(() => locationMode.value === "rooms" ? selectedLocation.value : "");
 const selectedExterior = computed(() => locationMode.value === "exterior" ? selectedLocation.value : null);
 onMounted(async () => {
   try {
     catalog.value = await storyApi("/api/catalog");
+    await loadMilestones();
     await loadBeats();
+    await applyStoryRouteQuery();
   } catch (error) {
     status.value = error.message;
   }
 });
+
+async function loadMilestones() {
+  milestones.value = await storyApi(`/api/story/areas/${STORY_AREA_ID}/milestones`);
+}
+
+async function saveMilestones(nextMilestones = milestones.value) {
+  const result = await storyApi(`/api/story/areas/${STORY_AREA_ID}/milestones`, {
+    method: "PUT",
+    body: JSON.stringify({ milestones: nextMilestones }),
+  });
+  milestones.value = result.milestones;
+  return result.milestones;
+}
 
 watch(worldRevision, async () => {
   const next = worldData.value;
@@ -219,6 +311,11 @@ function selectIndoorMapItem({ source, id }) {
     selectRoom(id);
   } else if (source === "nodes") {
     selectExterior(id);
+  } else if (source === "exits") {
+    const transition = building.value.exitById?.[id] ?? building.value.exitByDoorId?.[id];
+    if (transition?.exteriorNode) {
+      selectExterior(transition.exteriorNode);
+    }
   }
 }
 
@@ -231,9 +328,16 @@ async function applyExteriorSelection(id) {
 }
 
 function switchMode(mode) {
+  if (mode === "milestones") {
+    if (activeWorkspace.value === "milestones") return;
+    void requestContextChange(() => {
+      activeWorkspace.value = "milestones";
+    });
+    return;
+  }
   if (
-    (mode === "outdoors" && locationMode.value === "outdoors") ||
-    (mode === "rooms" && ["rooms", "exterior"].includes(locationMode.value))
+    (mode === "outdoors" && locationMode.value === "outdoors" && activeWorkspace.value !== "milestones") ||
+    (mode === "rooms" && ["rooms", "exterior"].includes(locationMode.value) && activeWorkspace.value !== "milestones")
   ) {
     return;
   }
@@ -241,6 +345,7 @@ function switchMode(mode) {
 }
 
 async function applyModeSelection(mode) {
+  activeWorkspace.value = mode === "outdoors" ? "outdoors" : "rooms";
   if (mode === "outdoors") {
     await applyHexSelection(outdoor.mapData.start);
   } else if (mode === "rooms") {
@@ -248,6 +353,86 @@ async function applyModeSelection(mode) {
   } else if (mode === "exterior") {
     await applyExteriorSelection(buildingData.value.exterior?.entry);
   }
+}
+
+function milestoneIdFromLabel(label) {
+  return String(label || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9.-]+/g, "-")
+    .replace(/^[.-]+|[.-]+$/g, "")
+    .replace(/([.-]){2,}/g, "$1");
+}
+
+function uniqueMilestoneId(base) {
+  const used = new Set(milestones.value.map((item) => item.id));
+  const root = base || "new-milestone";
+  let candidate = root;
+  let suffix = 2;
+  while (used.has(candidate)) candidate = `${root}-${suffix++}`;
+  return candidate;
+}
+
+function openMilestoneDialog({ field = null } = {}) {
+  milestoneDialog.value = {
+    visible: true,
+    field,
+    label: "",
+    id: "",
+    kind: "story",
+  };
+}
+
+function cancelMilestoneDialog() {
+  milestoneDialog.value.visible = false;
+}
+
+async function createMilestoneFromDialog() {
+  const label = milestoneDialog.value.label.trim();
+  const id = uniqueMilestoneId(milestoneDialog.value.id.trim() || milestoneIdFromLabel(label));
+  const next = [
+    ...milestones.value,
+    {
+      id,
+      label: label || id,
+      kind: milestoneDialog.value.kind,
+      description: null,
+    },
+  ];
+  try {
+    await saveMilestones(next);
+    if (draft.value && milestoneDialog.value.field) {
+      draft.value.time[milestoneDialog.value.field] = id;
+    }
+    milestoneDialog.value.visible = false;
+  } catch (error) {
+    status.value = error.message;
+  }
+}
+
+async function updateMilestone({ index, milestone }) {
+  const next = milestones.value.map((item, itemIndex) =>
+    itemIndex === index ? milestone : item,
+  );
+  try {
+    await saveMilestones(next);
+  } catch (error) {
+    status.value = error.message;
+  }
+}
+
+async function removeMilestone(index) {
+  const next = milestones.value.filter((_, itemIndex) => itemIndex !== index);
+  try {
+    await saveMilestones(next);
+  } catch (error) {
+    status.value = error.message;
+  }
+}
+
+function setMilestoneCriterion({ field, value }) {
+  if (!draft.value) return;
+  draft.value.time[field] = value;
 }
 
 function newBeat(copy = null) {
@@ -266,7 +451,19 @@ function emptyBeat() {
     text: "",
     revisit: "",
     trigger,
-    match: { originHex: null, localExit: null },
+    match: { originHex: null, localExit: null, mapTransition: null, transitionDirection: null },
+    time: {
+      days: [],
+      dayFrom: null,
+      dayTo: null,
+      minuteOfDayFrom: null,
+      minuteOfDayTo: null,
+      phase: null,
+      elapsedFrom: null,
+      elapsedTo: null,
+      afterMilestone: null,
+      beforeMilestone: null,
+    },
     choices: [],
   };
 }
@@ -308,6 +505,45 @@ function requestContextChange(action) {
   return navigation.requestChange(action);
 }
 
+function queryText(value) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+async function applyStoryRouteQuery() {
+  const mode = queryText(route.query.mode);
+  const location = queryText(route.query.location);
+  if (!mode || !location) return;
+
+  if (mode === "outdoors") {
+    await applyHexSelection(location);
+  } else if (mode === "rooms") {
+    await applyRoomSelection(location);
+  } else if (mode === "exterior") {
+    await applyExteriorSelection(location);
+  } else {
+    return;
+  }
+
+  const beatId = queryText(route.query.beat);
+  if (beatId) {
+    await loadBeat(beatId);
+    return;
+  }
+
+  if (queryText(route.query.create) !== "1") return;
+  beginNewBeat();
+
+  const mapTransition = queryText(route.query.mapTransition);
+  const transitionDirection = queryText(route.query.transitionDirection);
+  if (!mapTransition || !transitionDirection) return;
+
+  if (draft.value) {
+    draft.value.match.mapTransition = mapTransition;
+    draft.value.match.transitionDirection = transitionDirection;
+    draft.value.match.localExit = null;
+  }
+}
+
 </script>
 
 <template>
@@ -323,7 +559,7 @@ function requestContextChange(action) {
       </template>
     </BuilderPageHeader>
 
-    <div class="builder-workspace">
+    <div v-if="storyWorkspace !== 'milestones'" class="builder-workspace">
       <div class="builder-nav-column">
         <StoryLocationPicker
           v-model:indoor-level="indoorLevel"
@@ -348,7 +584,7 @@ function requestContextChange(action) {
 
         <StoryBeatList
           :selected-location="selectedLocation"
-          :beats="locationBeats"
+          :beats="displayedLocationBeats"
           :selected-beat-id="selectedBeatId"
           :warnings="matchWarnings"
           @new="newBeat()"
@@ -363,11 +599,13 @@ function requestContextChange(action) {
         :status="status"
         :errors="errors"
         :catalog="catalog"
+        :milestones="milestones"
         :draft-is-outdoor-hex-beat="draftIsOutdoorHexBeat"
         :show-revisions="showRevisions"
         :revisions="revisions"
         :destination-type="destinationType"
         :selected-location="selectedLocation"
+        :origin-hex-options="originHexOptions"
         @save="saveBeat"
         @revert="revertDraft"
         @duplicate="newBeat"
@@ -379,7 +617,19 @@ function requestContextChange(action) {
         @set-csv="setCsv($event.choice, $event.key, $event.event)"
         @set-destination-type="setDestinationType($event.choice, $event.type)"
         @set-view-kind="setChoiceViewKind($event.choice, $event.kind)"
+        @new-milestone="openMilestoneDialog"
+        @set-milestone="setMilestoneCriterion"
         @restore-revision="restoreRevision"
+      />
+    </div>
+
+    <div v-else class="milestone-workspace">
+      <StoryMilestonePanel
+        :milestones="milestones"
+        :status="status"
+        @new="openMilestoneDialog({ field: null })"
+        @update="updateMilestone"
+        @remove="removeMilestone"
       />
     </div>
 
@@ -393,6 +643,36 @@ function requestContextChange(action) {
       @discard="navigation.discardAndContinue"
       @keep="navigation.keepEditing"
     />
+
+    <div v-if="milestoneDialog.visible" class="modal-backdrop" role="presentation">
+      <form class="milestone-dialog panel" @submit.prevent="createMilestoneFromDialog">
+        <h2>New milestone</h2>
+        <label>Name
+          <input v-model="milestoneDialog.label" autofocus>
+        </label>
+        <label>ID
+          <input
+            :value="milestoneDialog.id || milestoneIdFromLabel(milestoneDialog.label)"
+            @input="milestoneDialog.id = $event.target.value"
+          >
+        </label>
+        <label>Kind
+          <select v-model="milestoneDialog.kind">
+            <option value="story">story</option>
+            <option value="discovery">discovery</option>
+            <option value="knowledge">knowledge</option>
+            <option value="application">application</option>
+            <option value="operations">operations</option>
+            <option value="survival">survival</option>
+            <option value="world">world</option>
+          </select>
+        </label>
+        <div class="dialog-actions">
+          <button type="button" class="sm muted" @click="cancelMilestoneDialog">Cancel</button>
+          <button type="submit" class="sm">Create</button>
+        </div>
+      </form>
+    </div>
   </main>
 </template>
 
@@ -460,6 +740,33 @@ function requestContextChange(action) {
 .builder-form-column {
   max-height: 100%;
   overflow: auto;
+}
+.milestone-workspace {
+  height: calc(100% - 3rem);
+  min-height: 0;
+  margin-top: .75rem;
+}
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(7, 10, 14, .65);
+}
+.milestone-dialog {
+  display: grid;
+  gap: .75rem;
+  width: min(28rem, 100%);
+}
+.milestone-dialog h2 {
+  margin: 0;
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: .5rem;
 }
 @media (max-width: 1100px) {
   .builder-workspace { grid-template-columns: minmax(320px, .85fr) minmax(420px, 1.15fr); }

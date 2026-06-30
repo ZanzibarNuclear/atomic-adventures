@@ -37,46 +37,54 @@ A beat is eligible when:
 1. Its trigger matches the current location or event.
 2. Every authored `match` criterion relevant to the current action context
    matches that context.
+3. Every authored time and milestone criterion matches the current clock and
+   player progression state.
 
 If multiple beats match the same location, the runtime prefers the eligible beat
 with the most matching criteria relevant to the current action context. A beat
 with `match.originHex` is more specific than a default beat with no `match`
 during inter-hex travel, so it wins when the player entered from that origin. A
-beat with `match.localExit` is more specific than a default beat with no `match`
-when returning from a local map. A default beat remains eligible as fallback
-when no action-specific beat matches.
+beat with `match.mapTransition` is more specific than a default beat with no
+`match` when switching between the regional and local maps. A default beat
+remains eligible as fallback when no action-specific beat matches.
+Time criteria also add specificity among beats at the same trigger. A Day 2
+morning room beat should win over a generic room beat when the clock and
+milestone state make both eligible.
 
 Authored `match` criteria from other action contexts are ignored for the current
 selection pass. This means one beat may include both `originHex` and
-`localExit`: the same beat can be selected when entering an outdoor hex from a
-neighboring hex and when returning to that hex through a local-map exit. A beat
+`mapTransition`: the same beat can be selected when entering an outdoor hex from
+a neighboring hex and when switching through a matching map transition. A beat
 with authored `match` criteria is not treated as a default beat for action
 contexts where none of its criteria are relevant.
 
-If two eligible beats have the same trigger and the same match specificity, the
-first beat by story sort order and ID wins. This tie-breaker is deterministic,
-but it is an authoring warning rather than a narrative design tool. The story
-builder should warn when multiple beats at the selected location use the same
-match criteria.
+If two eligible beats have the same trigger, match specificity, and time or
+milestone specificity, the first beat by story sort order and ID wins. This
+tie-breaker is deterministic, but it is an authoring warning rather than a
+narrative design tool. The story builder should warn when multiple beats at the
+selected location use the same match and time criteria.
 
 If no beat has matching criteria and no default beat exists for the location,
 the runtime shows no new beat.
 
 Multiple beats on one hex or room are expected, but they should represent
-distinct story states. Use trigger flags and seen state to represent different
-discoveries, facility states, or story phases:
+distinct story states. Use time criteria, milestone criteria, trigger flags,
+and seen state to represent different discoveries, facility states, or story
+phases:
 
 ```yaml
 day-1-pines:
-  trigger: { place: outdoors, hex: far-pines, flag: day.1 }
+  trigger: { place: outdoors, hex: far-pines }
+  time: { days: [1] }
 
 day-2-pines:
-  trigger: { place: outdoors, hex: far-pines, flag: day.2 }
+  trigger: { place: outdoors, hex: far-pines }
+  time: { days: [2] }
 ```
 
-The game now has an authored clock, but beat-level time criteria are not yet
-implemented. Until they are, days and phases can still be represented by flags
-established by gameplay. See [time.md](time.md) for the target contract.
+Temporal predicates are derived from the authored clock; authored milestones
+are sparse recorded facts. See [time.md](time.md) for clock criteria and
+[milestones.md](milestones.md) for milestone semantics.
 
 ## Triggers
 
@@ -121,7 +129,9 @@ The supported criteria are:
 | Criterion | Applies during | Meaning |
 | --- | --- | --- |
 | `originHex` | `enterOutdoorHex` | Neighboring outdoor hex the avatar entered from during inter-hex movement |
-| `localExit` | `exitLocalMap` | Local-map transition ID the avatar used to return to the outdoor hex |
+| `mapTransition` | `enterIndoorLocation`, `exitLocalMap` | Map transition ID used to switch between regional and local maps |
+| `transitionDirection` | `enterIndoorLocation`, `exitLocalMap` | Optional direction filter: `toLocal` or `toRegional` |
+| `localExit` | `exitLocalMap` | Legacy alias for a `toRegional` map transition |
 
 `originHex` example:
 
@@ -134,38 +144,60 @@ utility-yard-from-flats:
 
 `originHex` means the neighboring outdoor hex the avatar entered from. The
 runtime reads it from `outdoor.state.previousId`, the same movement hint used to
-choose destination stands. It is valid only on outdoor hex beats.
+choose destination stands. It is valid only on outdoor hex beats. `originHex`
+may be one neighboring hex ID or a list of neighboring hex IDs when the same
+beat should match multiple approaches.
 
-`localExit` example:
+`mapTransition` examples:
 
 ```yaml
+large-bay-from-man-door-path:
+  trigger: { place: indoors, exteriorNode: large-bay-man-front }
+  match: { mapTransition: man-door-path, transitionDirection: toLocal }
+  text: The path from the pines ends at the large bay door.
+
 utility-yard-from-garage:
   trigger: { place: outdoors, hex: utility-yard }
-  match: { localExit: garage-exit }
+  match: { mapTransition: garage-exit, transitionDirection: toRegional }
   text: Zanzi stands back in the gravel apron before the garage doors.
 ```
 
-`localExit` is set when the player switches from a local map back to the world
-map through a MAP exit.
+`mapTransition` is set when the player switches between the regional world map
+and a local map. `transitionDirection: toLocal` applies after entering the local
+map and evaluating the destination indoor trigger. `transitionDirection:
+toRegional` applies after returning to the regional map and evaluating the
+destination outdoor hex trigger. `localExit` remains readable for old content
+and behaves like a regional-return map transition.
 
-`originHex` and `localExit` are different action-context criteria. They may be
-authored on the same beat, but they are never evaluated in the same
+The Utility Station workspace in `/builder/world?map=utility-station` shows
+associated `toLocal` and `toRegional` beats on each selected map transition.
+Its add/open beat actions route into Story Builder with `mapTransition` and
+`transitionDirection` already filled in. Story Builder also supports selecting
+a MAP icon on the local map; that selects the transition's local arrival node
+so the corresponding exterior-node beat can be edited in context.
+
+`originHex` and `mapTransition` are different action-context criteria. They may
+be authored on the same beat, but they are never evaluated in the same
 beat-selection pass. During `enterOutdoorHex`, only `originHex` participates in
-selection. During `exitLocalMap`, only `localExit` participates in selection.
+selection. During map switching, `mapTransition` participates when the optional
+`transitionDirection` matches the current direction.
 
 Selection examples for `utility-yard`:
 
 - A beat with `match: { originHex: the-flats }` wins over the default
   `utility-yard` beat when the player moves from `the-flats` into
-  `utility-yard`. Beats with only `match.localExit` are not eligible for this
+  `utility-yard`. Beats with only `match.mapTransition` are not eligible for this
   inter-hex selection pass.
-- A beat with `match: { localExit: garage-exit }` wins over the default
-  `utility-yard` beat when the player returns to the world through the garage
-  MAP exit. Beats with only `match.originHex` are not eligible for this
-  local-exit selection pass.
-- A beat with `match: { originHex: the-flats, localExit: garage-exit }` can be
-  selected by either action. The runtime considers only `originHex` during
-  inter-hex movement and only `localExit` during local-map exit.
+- A beat with `match: { originHex: [north-bend, east-pines] }` wins over the
+  default `utility-yard` beat when the player moves from either listed adjacent
+  hex into `utility-yard`.
+- A beat with `match: { mapTransition: garage-exit, transitionDirection: toRegional }`
+  wins over the default `utility-yard` beat when the player returns to the
+  world through the garage map transition. Beats with only `match.originHex`
+  are not eligible for this map-transition selection pass.
+- A beat with `match: { originHex: the-flats, mapTransition: garage-exit }` can
+  be selected by either action. The runtime considers only `originHex` during
+  inter-hex movement and only `mapTransition` during map switching.
 - The default `utility-yard` beat wins when the current action has no matching
   specific beat.
 - If all `utility-yard` beats define nonmatching criteria for the current
@@ -184,7 +216,7 @@ match how an author thinks about the scene. Likely examples:
 - Story arc or phase, such as Part I, Part II, Part III, hydro restored, or
   post-storm.
 - Time of day, story day, elapsed time, and milestone windows, as defined in
-  [time.md](time.md).
+  [time.md](time.md) and [milestones.md](milestones.md).
 - Season or weather, if the story needs those distinctions.
 - One simple story-state flag for bespoke cases that do not deserve their own
   first-class field.
@@ -265,14 +297,14 @@ shown only once.
 
 For multiple beats at one location:
 
-- Use mutually exclusive flags where possible.
+- Use mutually exclusive time or milestone criteria where possible.
 - Avoid overlapping triggers that can match at the same time.
 - The matching beat supplies either story text or revisit text depending on
   whether it has been seen.
 
 Example progression at one hex:
 
-1. Arrival beat triggered by `day.1`.
+1. Arrival beat triggered by `time: { days: [1] }`.
 2. Storm beat triggered by `storm.active`.
 3. Post-power beat triggered by `hydro.online`.
 4. Revisit prose from the earliest matching seen beat.

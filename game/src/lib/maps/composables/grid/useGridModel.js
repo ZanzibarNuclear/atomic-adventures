@@ -1,4 +1,4 @@
-import { buildingLabel } from "../../../displayLabel.js";
+import { buildingLabel, displayLabel } from "../../../displayLabel.js";
 import { normalizeDoorInitial } from '../useDoors.js'
 import { layoutSideFromEdge, normalizeCompassEdge } from './useGridCompass.js'
 
@@ -185,7 +185,7 @@ export function doorThresholdForRoom(building, roomId, doorId) {
     room: roomId,
     door: doorId,
     at,
-    label: door.label ?? `Door — ${doorId}`,
+    label: door.label ?? displayLabel({ id: doorId }),
     kind: 'door',
   }
 }
@@ -202,12 +202,138 @@ export function derivedDoorStands(building, roomId) {
   return out
 }
 
+function stairFixtureForRoom(building, stairRoom) {
+  if (!stairRoom?.feature) return null
+  return (building.fixtures ?? []).find((fixture) => fixture.id === stairRoom.feature) ?? null
+}
+
+function stairEndpointPoint(fixture, end) {
+  if (!fixture) return null
+  if (fixture.kind === 'straight-stairs' && fixture.rect) {
+    const { x, y, w, h } = fixture.rect
+    const horizontal = (fixture.run ?? 'horizontal') === 'horizontal'
+    const start = horizontal
+      ? { x, y: y + h / 2 }
+      : { x: x + w / 2, y }
+    const finish = horizontal
+      ? { x: x + w, y: y + h / 2 }
+      : { x: x + w / 2, y: y + h }
+    const high = fixture.ascend === 'start' ? start : finish
+    const low = fixture.ascend === 'start' ? finish : start
+    return end === 'high' ? high : low
+  }
+  if (fixture.kind === 'spiral-stairs' && fixture.at) {
+    const point = spiralExitPoint(
+      fixture.at.x,
+      fixture.at.y,
+      fixture.radius ?? 0.6,
+      fixture.protrude ?? 'west',
+      end === 'high' ? 'up' : 'down',
+    )
+    return point
+  }
+  return null
+}
+
+function stairEndForLevel(building, stairRoom, levelId) {
+  const { low, high } = spiralLandingsFor(building, stairRoom)
+  if (levelId === high) return 'high'
+  if (levelId === low) return 'low'
+  return levelOrder(building, levelId) >= levelOrder(building, high) ? 'high' : 'low'
+}
+
+function stairStandId(stairRoomId, end) {
+  return `stair:${stairRoomId}:${end === 'high' ? 'top' : 'bottom'}`
+}
+
+export function stairStandForRoom(building, roomId, stairRoomId, levelId = null) {
+  const room = building?.roomById?.[roomId]
+  const stairRoom = building?.roomById?.[stairRoomId]
+  const fixture = stairFixtureForRoom(building, stairRoom)
+  if (!room || !stairRoom || !fixture) return null
+  const end = stairEndForLevel(building, stairRoom, levelId ?? roomLevel(room))
+  const label = end === 'high' ? 'top of the stairs' : 'bottom of the stairs'
+
+  if (room.feature) {
+    const doorLink = (building.links ?? []).find((link) =>
+      link.kind === 'door' &&
+      link.door &&
+      (link.from === roomId || link.to === roomId) &&
+      roomLevel(building.roomById[link.from === roomId ? link.to : link.from]) === levelId
+    )
+    const door = doorLink ? building.doorById?.[doorLink.door] : null
+    const at = stairEndpointPoint(fixture, end)
+    return at ? {
+      id: stairStandId(stairRoomId, end),
+      room: roomId,
+      stair: stairRoomId,
+      at,
+      label,
+      kind: 'stair',
+      door: door?.id ?? null,
+    } : null
+  }
+
+  const at = thresholdPointForRoom(room, stairEndpointPoint(fixture, end))
+  return at ? {
+    id: stairStandId(stairRoomId, end),
+    room: roomId,
+    stair: stairRoomId,
+    at,
+    label,
+    kind: 'stair',
+  } : null
+}
+
+export function stairStandForMove(building, fromRoomId, move) {
+  if (!move) return null
+  const from = building?.roomById?.[fromRoomId]
+  const to = building?.roomById?.[move.toRoomId]
+  if (!from || !to) return null
+  if (from.feature && move.kind === 'open') {
+    return stairStandForRoom(building, move.toRoomId, fromRoomId, move.toLevel)
+  }
+  if (to.feature) {
+    return stairStandForRoom(building, to.id, to.id, move.toLevel ?? roomLevel(from))
+  }
+  if (move.kind !== 'stairs') return null
+  const stairRoomId = from.feature ? fromRoomId : to.feature ? move.toRoomId : null
+  const destinationRoomId = move.toRoomId
+  return stairRoomId
+    ? stairStandForRoom(building, destinationRoomId, stairRoomId, move.toLevel)
+    : null
+}
+
+export function derivedStairStands(building, roomId) {
+  const room = building?.roomById?.[roomId]
+  if (!room) return []
+  const out = []
+  if (room.feature) {
+    const { low, high } = spiralLandingsFor(building, room)
+    for (const levelId of [low, high].filter(Boolean)) {
+      const stand = stairStandForRoom(building, roomId, roomId, levelId)
+      if (stand && !out.some((item) => item.id === stand.id)) out.push(stand)
+    }
+    return out
+  }
+  for (const link of building.links ?? []) {
+    if (link.kind !== 'stairs') continue
+    const stairRoomId = link.from === roomId ? link.to : link.to === roomId ? link.from : null
+    const stairRoom = stairRoomId ? building.roomById?.[stairRoomId] : null
+    if (!stairRoom?.feature) continue
+    const stand = stairStandForRoom(building, roomId, stairRoomId, roomLevel(room))
+    if (stand) out.push(stand)
+  }
+  return out
+}
+
 export function roomStandModels(building, roomId) {
   const room = building?.roomById?.[roomId]
   if (!room) return []
   return [
     ...authoredRoomStands(room).map((stand) => ({ ...stand, room: roomId })),
     ...derivedDoorStands(building, roomId),
+    ...derivedStairStands(building, roomId),
   ]
 }
 

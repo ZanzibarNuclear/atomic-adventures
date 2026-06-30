@@ -7,6 +7,7 @@ import UnsavedChangesDialog from "../components/builder/UnsavedChangesDialog.vue
 import OutdoorCanvasPanel from "../components/builder/outdoor/OutdoorCanvasPanel.vue";
 import OutdoorInspector from "../components/builder/outdoor/OutdoorInspector.vue";
 import OutdoorObjectBrowser from "../components/builder/outdoor/OutdoorObjectBrowser.vue";
+import { storyApi } from "../lib/storyApi.js";
 import { useOutdoorWorld } from "../lib/maps/composables/useOutdoorWorld.js";
 import {
   buildMapMovementAudit,
@@ -37,6 +38,10 @@ const landmarkDraft = ref(null);
 const landmarkEditDraft = ref(null);
 const standDraft = ref(null);
 const standEditDraft = ref(null);
+const storyBeats = ref([]);
+const characterCatalog = ref({
+  items: [], stats: [], knowledge: [], skills: [], quests: [], documents: [],
+});
 let resizeObserver = null;
 
 const emptyWorld = {
@@ -108,6 +113,7 @@ const errorMessages = computed(() =>
 const invalidAuditEntries = computed(() =>
   auditEntries.value.filter((entry) => entry.status === "invalid"),
 );
+const artifactPlacements = computed(() => draftMeta.value.artifactPlacements ?? []);
 const allHexIds = computed(() => outdoor.editableHexes.map((hex) => hex.id));
 const allHexSet = computed(() => new Set(allHexIds.value));
 const {
@@ -175,7 +181,13 @@ const {
 
 onMounted(async () => {
   try {
-    await loadWorld();
+    const [, beatsResult, catalogResult] = await Promise.all([
+      loadWorld(),
+      storyApi("/api/story/areas/part-i/beats"),
+      storyApi("/api/catalog"),
+    ]);
+    storyBeats.value = beatsResult;
+    characterCatalog.value = catalogResult.character ?? characterCatalog.value;
     await nextTick();
     fitMap();
     resizeObserver = new ResizeObserver(() => fitMap(false));
@@ -236,6 +248,59 @@ function applyZoomAction(event) {
 function setMapHost(element) {
   mapHost.value = element;
   if (resizeObserver && element) resizeObserver.observe(element);
+}
+
+function openLocationBeat({
+  locationMode,
+  location,
+  beatId = "",
+  create = false,
+}) {
+  if (!locationMode || !location) return;
+  void router.push({
+    path: "/builder/story",
+    query: {
+      mode: locationMode,
+      location,
+      ...(beatId ? { beat: beatId } : {}),
+      ...(create ? { create: "1" } : {}),
+    },
+  });
+}
+
+function openArtifact({ catalog = "items", id = "" } = {}) {
+  if (!id) return;
+  void router.push({
+    path: "/builder/content",
+    query: {
+      mode: "artifacts",
+      catalog,
+      id,
+    },
+  });
+}
+
+function placeArtifact({ hexId = "", itemId = "" } = {}) {
+  if (!hexId || !itemId) return;
+  const item = characterCatalog.value.items.find((candidate) => candidate.id === itemId);
+  if (!item) return;
+  draftMeta.value.artifactPlacements ??= [];
+  const used = new Set(draftMeta.value.artifactPlacements.map((placement) => placement.id));
+  let id = `${hexId}-${item.id}`;
+  let suffix = 2;
+  while (used.has(id)) id = `${hexId}-${item.id}-${suffix++}`;
+  draftMeta.value.artifactPlacements.push({
+    id,
+    hex: hexId,
+    item: item.id,
+    label: item.label,
+  });
+}
+
+function removeArtifactPlacement({ id = "" } = {}) {
+  if (!id || !Array.isArray(draftMeta.value.artifactPlacements)) return;
+  draftMeta.value.artifactPlacements = draftMeta.value.artifactPlacements
+    .filter((placement) => placement.id !== id);
 }
 
 </script>
@@ -333,6 +398,9 @@ function setMapHost(element) {
         :audit-summary="auditSummary"
         :invalid-audit-entries="invalidAuditEntries"
         :warnings="warnings"
+        :story-beats="storyBeats"
+        :character-catalog="characterCatalog"
+        :artifact-placements="artifactPlacements"
         :show-history="showHistory"
         :revisions="revisions"
         :select="select"
@@ -362,6 +430,10 @@ function setMapHost(element) {
         :move-point="movePoint"
         :remove-point="removePoint"
         :restore-revision="restoreRevision"
+        @open-location-beat="openLocationBeat"
+        @open-artifact="openArtifact"
+        @place-artifact="placeArtifact"
+        @remove-artifact-placement="removeArtifactPlacement"
       />
     </div>
 

@@ -208,7 +208,11 @@ The workspace supports:
   for reference;
 - man-door placement and roll-up edge/span editing;
 - exterior path control points, stand nodes, and smoothing;
-- world-transition marker placement;
+- map-transition marker placement;
+- read-only detail panels by default, with explicit edit mode for geometry and
+  object fields;
+- map-transition beat associations, including existing `toLocal`/`toRegional`
+  beats and buttons that open Story Builder to add the matching beat;
 - object creation, duplication, ordering, reference-aware rename, and deletion;
 - read-only fixture inspection;
 - full-document validation, traversal audit, revisions, and restore.

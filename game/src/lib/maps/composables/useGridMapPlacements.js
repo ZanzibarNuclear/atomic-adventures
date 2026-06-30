@@ -7,6 +7,7 @@ import {
   roomRect,
   roomStandPosition,
   roomStandModels,
+  roomStandById,
   isStairLanding,
   levelBeams,
   doorsOnLevel,
@@ -295,21 +296,21 @@ export function useGridMapPlacements({
   const placedRoomStands = computed(() => {
     const rooms = builderView.value
       ? levelRooms.value.filter((room) => !room.feature && !room.open)
-      : current.value && !current.value.feature
+      : current.value
         ? [current.value]
         : []
     return rooms.flatMap((room) =>
-      roomStandModels(building.value, room.id).map((stand) => {
+      visibleRoomStands(room).map((stand) => {
         const point = tp(stand.at.x * cell.value, stand.at.y * cell.value)
         return {
-          key: `${room.id}/${stand.id}`,
+          key: `${room.id}/${stand.id}${stand.connectorOpposite ? '/opposite' : ''}`,
           id: stand.id,
           roomId: room.id,
           label: stand.label ?? stand.id,
           kind: stand.kind,
           cx: point.x,
           cy: point.y,
-          r: cell.value * (stand.kind === 'door' ? 0.065 : 0.075),
+          r: cell.value * (stand.kind === 'door' || stand.kind === 'stair' ? 0.065 : 0.075),
           current: room.id === currentRoom.value && stand.id === currentStand.value,
           reachable:
             !builderView.value &&
@@ -320,6 +321,31 @@ export function useGridMapPlacements({
       }),
     )
   })
+
+  function visibleRoomStands(room) {
+    const stands = roomStandModels(building.value, room.id)
+    if (builderView.value || room.feature) return stands
+    const currentStandModel = roomStandById(building.value, room.id, currentStand.value)
+    if (currentStandModel?.kind !== 'stair' || !currentStandModel.stair) return stands
+    const oppositeId = oppositeStairEndpointId(currentStandModel.id)
+    if (!oppositeId) return stands
+    const opposite = roomStandById(building.value, currentStandModel.stair, oppositeId)
+    if (!opposite) return stands
+    return [
+      ...stands,
+      {
+        ...opposite,
+        room: room.id,
+        connectorOpposite: true,
+      },
+    ]
+  }
+
+  function oppositeStairEndpointId(standId) {
+    if (standId?.endsWith(':bottom')) return standId.replace(/:bottom$/, ':top')
+    if (standId?.endsWith(':top')) return standId.replace(/:top$/, ':bottom')
+    return null
+  }
 
   const avatarScale = computed(() => (cell.value / 64) * 0.42)
   const avatarFootOffset = computed(() => 26 * avatarScale.value)
@@ -347,6 +373,11 @@ export function useGridMapPlacements({
     const landing = standLevel.value ?? level.value
     if (isStairLanding(current.value)) {
       if (landing !== level.value) return null
+      const stand = roomStandPosition(building.value, current.value, currentStand.value)
+      if (stand) {
+        const pt = tp(stand.x, stand.y)
+        return { x: pt.x, y: pt.y - avatarFootOffset.value }
+      }
       const sf = stairLandingFixture.value
       if (!sf) return null
       if (sf.type === 'spiral') {

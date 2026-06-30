@@ -19,8 +19,6 @@ Goals:
 
 **Canonical code location:** `game/src/lib/maps/`. Treat `game/` as authoritative. Our primary focus is on building the integrated game.
 
-**Ignore the prototype:** Everything under `web/` is part of an early mapping prototype (outdoor and indoor) that is quickly becoming outdated. We will delete or refresh it at some point.
-
 ---
 
 ## How Movement Works

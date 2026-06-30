@@ -11,6 +11,13 @@ import { createInventory } from "../useInventory.js";
 import { applyEffectsAtomically } from "../../../character/effects.js";
 import { characterItems } from "../../../../composables/useCharacterState.js";
 import { createFlags } from "../useFlags.js";
+import {
+  characterHolderId,
+  ensureWorldHolder,
+  holdingRecords,
+  transferHolding,
+} from "../../../character/holdings.js";
+import { removeItem } from "../useInventory.js";
 
 export function createIndoorPlayer(
   buildingData,
@@ -102,6 +109,7 @@ export function createIndoorPlayer(
     completedActions: new Set(),
     moving: false,
     avatarWaypoint: null, // { x, y } layout-unit override during path animation
+    droppedPickups: [],
   });
 
   const indoorVisibility = computed(() =>
@@ -139,12 +147,16 @@ export function createIndoorPlayer(
     const catalog = Object.fromEntries(
       (character?.definitions?.items ?? []).map((item) => [item.id, item]),
     );
-    return (building.value.pickups ?? [])
+    return [
+      ...(building.value.pickups ?? [])
       .filter((p) => p.room === roomId && !indoor.pickupsTaken.has(p.id))
+      .filter((p) => !p.stand || p.stand === indoor.currentStand)
       .map((pickup) => ({
         ...pickup,
         label: pickup.label ?? catalog[pickup.item]?.label ?? pickup.item,
-      }));
+      })),
+      ...droppedPickupsAtCurrentLocation(catalog),
+    ];
   });
 
   function discoverIndoorRoom(roomId) {
@@ -155,9 +167,26 @@ export function createIndoorPlayer(
   }
 
   function tryPickup(pickupId) {
+    const dropped = droppedPickupRecord(pickupId);
+    if (dropped && character) {
+      transferHolding(character.holdings, character.definitions, {
+        type: dropped.type,
+        id: dropped.id,
+        quantity: 1,
+        toHolder: characterHolderId(character.holdings),
+      });
+      return;
+    }
+    if (dropped && !character) {
+      indoor.inventory.add(dropped.item);
+      indoor.droppedPickups = indoor.droppedPickups.filter((pickup) => pickup.id !== pickupId);
+      return;
+    }
+
     const pickup = (building.value.pickups ?? []).find((p) => p.id === pickupId);
     if (!pickup || indoor.pickupsTaken.has(pickupId)) return;
     if (pickup.room !== indoor.currentRoom) return;
+    if (pickup.stand && pickup.stand !== indoor.currentStand) return;
     if (character) {
       const result = applyEffectsAtomically(
         [{ op: "item.add", id: pickup.item, quantity: 1 }],
@@ -168,6 +197,111 @@ export function createIndoorPlayer(
       indoor.inventory.add(pickup.item);
     }
     indoor.pickupsTaken = new Set([...indoor.pickupsTaken, pickupId]);
+  }
+
+  function dropItem(itemId) {
+    if (!itemId) return;
+    if (character) {
+      const record = carriedRecord(itemId);
+      if (!record) return;
+      const holderId = ensureWorldHolder(character.holdings, currentIndoorLocation());
+      transferHolding(character.holdings, character.definitions, {
+        type: record.type,
+        id: record.id,
+        quantity: 1,
+        toHolder: holderId,
+      });
+      return;
+    }
+    if (!indoor.inventory?.has(itemId)) return;
+    removeItem(indoor.inventory, itemId);
+    const id = `dropped:${itemId}:${Date.now()}`;
+    indoor.droppedPickups = [
+      ...indoor.droppedPickups,
+      {
+        id,
+        item: itemId,
+        label: itemId,
+        ...currentIndoorLocation(),
+      },
+    ];
+  }
+
+  function currentIndoorLocation() {
+    return {
+      place: "indoors",
+      room: indoor.currentRoom ?? null,
+      exteriorNode: indoor.exteriorNode ?? null,
+      stand: indoor.currentStand ?? null,
+    };
+  }
+
+  function sameIndoorLocation(a = {}, b = {}) {
+    return (
+      (a.place ?? "indoors") === (b.place ?? "indoors") &&
+      (a.room ?? null) === (b.room ?? null) &&
+      (a.exteriorNode ?? null) === (b.exteriorNode ?? null) &&
+      (a.stand ?? null) === (b.stand ?? null)
+    );
+  }
+
+  function nearbyWorldHolderIds() {
+    const here = currentIndoorLocation();
+    return Object.values(character?.holdings?.holders ?? {})
+      .filter((holder) => holder.kind === "world")
+      .filter((holder) => sameIndoorLocation(holder.location, here))
+      .map((holder) => holder.id);
+  }
+
+  function droppedPickupsAtCurrentLocation(catalog) {
+    if (!character) {
+      const here = currentIndoorLocation();
+      return (indoor.droppedPickups ?? [])
+        .filter((pickup) => sameIndoorLocation(pickup, here))
+        .map((pickup) => ({
+          ...pickup,
+          label: pickup.label ?? catalog[pickup.item]?.label ?? pickup.item,
+        }));
+    }
+    return holdingRecords(
+      character.holdings,
+      character.definitions,
+      nearbyWorldHolderIds(),
+    ).map((record) => ({
+      id: droppedPickupId(record),
+      item: record.item,
+      label: record.definition?.label ?? catalog[record.item]?.label ?? record.item,
+      dynamic: true,
+    }));
+  }
+
+  function droppedPickupRecord(pickupId) {
+    if (!character) {
+      const here = currentIndoorLocation();
+      return (indoor.droppedPickups ?? [])
+        .filter((pickup) => sameIndoorLocation(pickup, here))
+        .find((pickup) => pickup.id === pickupId) ?? null;
+    }
+    if (!String(pickupId).startsWith("holding:")) return null;
+    const [, type, ...idParts] = String(pickupId).split(":");
+    const id = idParts.join(":");
+    return holdingRecords(
+      character.holdings,
+      character.definitions,
+      nearbyWorldHolderIds(),
+    ).find((record) => record.type === type && record.id === id);
+  }
+
+  function droppedPickupId(record) {
+    return `holding:${record.type}:${record.id}`;
+  }
+
+  function carriedRecord(itemId) {
+    return holdingRecords(
+      character.holdings,
+      character.definitions,
+      [characterHolderId(character.holdings)],
+    ).find((record) => record.item === itemId);
   }
 
   function resetIndoor() {
@@ -192,6 +326,7 @@ export function createIndoorPlayer(
     indoor.completedActions = new Set();
     indoor.avatarWaypoint = null;
     indoor.moving = false;
+    indoor.droppedPickups = [];
   }
 
   return {
@@ -208,6 +343,7 @@ export function createIndoorPlayer(
     roomPickups,
     discoverIndoorRoom,
     tryPickup,
+    dropItem,
     resetIndoor,
     flagsAreShared,
     inventoryIsShared,

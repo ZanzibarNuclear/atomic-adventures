@@ -8,18 +8,30 @@ defineProps({
 </script>
 
 <template>
-  <label>Label
-    <input
-      :value="selection.entity.label"
-      @input="setRoomLabel(draft, selection.id, $event.target.value)"
-    />
-  </label>
-  <div class="field-grid">
-    <label>X<input v-model.number="selection.entity.x" type="number" step=".5" /></label>
-    <label>Y<input v-model.number="selection.entity.y" type="number" step=".5" /></label>
-    <label>Width<input v-model.number="selection.entity.w" type="number" min=".5" step=".5" /></label>
-    <label>Height<input v-model.number="selection.entity.h" type="number" min=".5" step=".5" /></label>
-  </div>
+  <section class="form-section">
+    <div class="section-heading">
+      <h4>Identity</h4>
+      <code>{{ selection.id }}</code>
+    </div>
+    <label>Label
+      <input
+        :value="selection.entity.label"
+        @input="setRoomLabel(draft, selection.id, $event.target.value)"
+      />
+    </label>
+  </section>
+
+  <section class="form-section">
+    <div class="section-heading">
+      <h4>Bounds</h4>
+    </div>
+    <div class="field-grid">
+      <label>X<input v-model.number="selection.entity.x" type="number" step=".5" /></label>
+      <label>Y<input v-model.number="selection.entity.y" type="number" step=".5" /></label>
+      <label>Width<input v-model.number="selection.entity.w" type="number" min=".5" step=".5" /></label>
+      <label>Height<input v-model.number="selection.entity.h" type="number" min=".5" step=".5" /></label>
+    </div>
+  </section>
 </template>
 
 <style scoped>

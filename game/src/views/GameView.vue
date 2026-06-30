@@ -210,7 +210,7 @@ function handleNewGame() {
 }
 
 function handleReset() {
-  resetGameState(saveCtx.value);
+  if (!hasSave() || !load(saveCtx.value)) resetGameState(saveCtx.value);
   refreshNarrative();
 }
 
@@ -284,6 +284,7 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       :load-error="loadError"
       :movement-audit-visible="movementAuditVisible"
       :active-game-view="activeView.kind"
+      :clock="gameState.clock"
       @save="saveGame(saveCtx)"
       @new-game="handleNewGame"
       @reset="handleReset"

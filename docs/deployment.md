@@ -75,9 +75,8 @@ Use these settings:
 | Output Directory | Use `vercel.json` (`game/dist`) |
 | Node.js | 22.x |
 
-Do not configure the project root as `web/`; that directory is the independent
-map prototype. Do not configure the root as `game/` unless the Vercel build and
-output settings are adjusted to their workspace-relative equivalents.
+Do not configure the root as `game/` unless the Vercel build and output settings
+are adjusted to their workspace-relative equivalents.
 
 The exact production branch is a Vercel project setting rather than repository
 configuration. Keep the branch already used for production unless deliberately

@@ -17,13 +17,20 @@ defineProps({
 </script>
 
 <template>
-  <label>Terrain
-    <select v-model="selected.terrain">
-      <option v-for="kind in terrainKinds" :key="kind">{{ kind }}</option>
-    </select>
-  </label>
-  <label>Display label<input v-model="selected.label" /></label>
-  <section class="hex-subitems">
+  <section class="form-section">
+    <div class="section-heading">
+      <h4>Identity</h4>
+      <code>{{ selected.id }}</code>
+    </div>
+    <label>Display label<input v-model="selected.label" /></label>
+    <label>Terrain
+      <select v-model="selected.terrain">
+        <option v-for="kind in terrainKinds" :key="kind">{{ kind }}</option>
+      </select>
+    </label>
+  </section>
+
+  <section class="form-section">
     <div class="subitem-heading">
       <strong>Landmark</strong>
       <button v-if="!selected.landmark && !landmarkDraft" class="sm" @click="beginAddLandmark">Add landmark</button>
@@ -37,6 +44,9 @@ defineProps({
       <span>{{ selected.landmark.building || selected.landmark.icon || "custom" }}</span>
     </button>
     <div v-if="landmarkDraft" class="draft-card">
+      <div class="section-heading">
+        <h4>New landmark</h4>
+      </div>
       <label>Label<input v-model="landmarkDraft.label" /></label>
       <label>Icon<input v-model="landmarkDraft.icon" /></label>
       <label>Building ID<input v-model="landmarkDraft.building" /></label>
@@ -51,7 +61,7 @@ defineProps({
       </div>
     </div>
   </section>
-  <section class="hex-subitems">
+  <section class="form-section">
     <div class="subitem-heading">
       <strong>Stand points</strong>
       <button v-if="!standDraft" class="sm" @click="beginAddStand">Add stand</button>
@@ -66,6 +76,9 @@ defineProps({
       <span>{{ stand.id }}</span>
     </button>
     <div v-if="standDraft" class="draft-card">
+      <div class="section-heading">
+        <h4>New stand</h4>
+      </div>
       <label>ID<input v-model="standDraft.id" /></label>
       <label>Label<input v-model="standDraft.label" /></label>
       <label>Anchor

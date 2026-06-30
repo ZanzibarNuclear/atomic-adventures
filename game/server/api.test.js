@@ -168,13 +168,23 @@ describe("story API", () => {
     expect(createRes.status).toBe(201);
     expect(eventRes.chunks.filter((chunk) => chunk.includes("story.updated"))).toHaveLength(1);
 
+    const milestonesRes = responseCapture();
+    await api.handle(
+      request("PUT", "/api/story/areas/test/milestones", {
+        milestones: [{ id: "hydro.online", label: "Hydro online", kind: "operations" }],
+      }),
+      milestonesRes,
+    );
+    expect(milestonesRes.status).toBe(200);
+    expect(eventRes.chunks.filter((chunk) => chunk.includes("story.updated"))).toHaveLength(2);
+
     const invalidRes = responseCapture();
     await api.handle(
       request("POST", "/api/story/areas/test/beats", { ...valid, id: "Bad ID" }),
       invalidRes,
     );
     expect(invalidRes.status).toBe(422);
-    expect(eventRes.chunks.filter((chunk) => chunk.includes("story.updated"))).toHaveLength(1);
+    expect(eventRes.chunks.filter((chunk) => chunk.includes("story.updated"))).toHaveLength(2);
 
     const currentWorld = worldRepository.getDocument();
     const worldRes = responseCapture();

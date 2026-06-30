@@ -27,6 +27,7 @@ const emptyUtilityStation = {
   rooms: [],
   doors: [],
   links: [],
+  switches: [],
   fixtures: [],
   exterior: { nodes: [], paths: [] },
 };
@@ -38,6 +39,7 @@ const rightCollapsed = ref(false);
 const characterCatalog = ref({
   items: [], stats: [], knowledge: [], skills: [], quests: [], documents: [],
 });
+const storyBeats = ref([]);
 
 function resetDocumentUi() {
   resetSelectionMode();
@@ -138,10 +140,11 @@ const groupedItems = computed(() => [
   { source: "doors", label: "Doors" },
   { source: "paths", label: "Exterior paths" },
   { source: "nodes", label: "Exterior nodes" },
-  { source: "exits", label: "World transitions" },
+  { source: "exits", label: "Map transitions" },
   { source: "fixtures", label: "Fixtures" },
   { source: "walls", label: "Visual walls" },
   { source: "links", label: "Room connections" },
+  { source: "switches", label: "Switches" },
   { source: "stands", label: "Room stands" },
 ].map((group) => ({
   ...group,
@@ -149,12 +152,14 @@ const groupedItems = computed(() => [
 })));
 onMounted(async () => {
   try {
-    const [buildingResult, catalogResult] = await Promise.all([
+    const [buildingResult, catalogResult, beatsResult] = await Promise.all([
       storyApi("/api/world/buildings/utility-station"),
       storyApi("/api/catalog"),
+      storyApi("/api/story/areas/part-i/beats"),
     ]);
     applyLoaded(buildingResult);
     characterCatalog.value = catalogResult.character ?? characterCatalog.value;
+    storyBeats.value = beatsResult;
   } catch (error) {
     status.value = error.message;
   }
@@ -173,6 +178,58 @@ function runIndoorAudit() {
   status.value = auditResult.value.valid
     ? `Indoor audit passed: ${auditResult.value.roomCount} rooms and ${auditResult.value.exteriorNodeCount} exterior nodes are connected.`
     : `Indoor audit found ${auditResult.value.unreachableRooms.length} unreachable room(s) and ${auditResult.value.unreachableExteriorNodes.length} unreachable exterior node(s).`;
+}
+
+function openTransitionBeat({
+  transitionId,
+  direction,
+  locationMode,
+  location,
+  beatId = "",
+  create = false,
+}) {
+  if (!transitionId || !direction || !locationMode || !location) return;
+  void router.push({
+    path: "/builder/story",
+    query: {
+      mode: locationMode,
+      location,
+      mapTransition: transitionId,
+      transitionDirection: direction,
+      ...(beatId ? { beat: beatId } : {}),
+      ...(create ? { create: "1" } : {}),
+    },
+  });
+}
+
+function openLocationBeat({
+  locationMode,
+  location,
+  beatId = "",
+  create = false,
+}) {
+  if (!locationMode || !location) return;
+  void router.push({
+    path: "/builder/story",
+    query: {
+      mode: locationMode,
+      location,
+      ...(beatId ? { beat: beatId } : {}),
+      ...(create ? { create: "1" } : {}),
+    },
+  });
+}
+
+function openArtifact({ catalog = "items", id = "" } = {}) {
+  if (!id) return;
+  void router.push({
+    path: "/builder/content",
+    query: {
+      mode: "artifacts",
+      catalog,
+      id,
+    },
+  });
 }
 
 </script>
@@ -230,11 +287,13 @@ function runIndoorAudit() {
         :edit-mode="editMode"
         :edit-handles="editHandles"
         :add-mode="addMode"
+        :audit-result="auditResult"
         @toggle-geometry-editing="toggleGeometryEditing"
         @select-item="selectItem($event.source, $event.id)"
         @grid-handle-move="onHandleMove"
         @builder-map-click="onMapClick"
         @stand-click="selectStand"
+        @run-traversal-audit="runIndoorAudit"
       />
 
       <StationInspector
@@ -248,16 +307,18 @@ function runIndoorAudit() {
         :character-catalog="characterCatalog"
         :errors="errors"
         :warnings="warnings"
-        :audit-result="auditResult"
+        :story-beats="storyBeats"
         :show-history="showHistory"
         :revisions="revisions"
         @move-selected="moveSelected"
         @rename-selected="renameSelected"
         @duplicate-selected="duplicateSelected"
         @delete-selected="deleteSelected"
+        @open-location-beat="openLocationBeat"
         @toggle-path-add-mode="togglePathAddMode"
         @remove-selected-path-handle="removeSelectedPathHandle"
-        @run-indoor-audit="runIndoorAudit"
+        @open-transition-beat="openTransitionBeat"
+        @open-artifact="openArtifact"
         @restore-revision="restoreRevision"
       />
     </div>
@@ -314,8 +375,7 @@ button.active { background: #49624f; border-color: #6f9b79; }
 .check-field input { width: auto; }
 .danger-outline { border-color: #9b5050; color: #ffb5b5; background: #3d2729; }
 .empty-note { color: #939ba7; }
-.read-only-note, .audit-panel p { color: #aeb5c0; font-size: .78rem; line-height: 1.45; }
-.audit-panel { display: grid; gap: .4rem; padding-top: .65rem; border-top: 1px solid #343d4d; }
+.read-only-note { color: #aeb5c0; font-size: .78rem; line-height: 1.45; }
 .field-error { color: #ff9e9e; font-size: .78rem; }
 .warning { color: #efcb83; font-size: .78rem; }
 .history { display: grid; gap: .4rem; }

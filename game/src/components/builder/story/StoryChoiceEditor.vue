@@ -14,6 +14,16 @@ defineEmits([
   "set-destination-type",
   "set-view-kind",
 ]);
+
+function enableTimeUntil(choice) {
+  choice.timeMinutes = 0;
+  choice.timeUntil = { day: null, dayOffset: 1, minuteOfDay: 420 };
+  choice.activity = "resting";
+}
+
+function disableTimeUntil(choice) {
+  choice.timeUntil = null;
+}
 </script>
 
 <template>
@@ -44,7 +54,7 @@ defineEmits([
     <details>
       <summary>Time cost</summary>
       <div class="field-grid">
-        <label>Game minutes<input v-model.number="choice.timeMinutes" type="number" min="0"></label>
+        <label>Game minutes<input v-model.number="choice.timeMinutes" type="number" min="0" :disabled="Boolean(choice.timeUntil)"></label>
         <label>Activity
           <select v-model="choice.activity">
             <option>resting</option><option>light</option>
@@ -52,6 +62,24 @@ defineEmits([
           </select>
         </label>
       </div>
+      <label class="inline-check">
+        <input
+          type="checkbox"
+          :checked="Boolean(choice.timeUntil)"
+          @change="$event.target.checked ? enableTimeUntil(choice) : disableTimeUntil(choice)"
+        >
+        Sleep until a clock time
+      </label>
+      <div v-if="choice.timeUntil" class="field-grid">
+        <label>Day offset
+          <input v-model.number="choice.timeUntil.dayOffset" type="number" min="0">
+        </label>
+        <label>Minute of day
+          <input v-model.number="choice.timeUntil.minuteOfDay" type="number" min="0" max="1439">
+        </label>
+      </div>
+      <p v-for="message in errors[`choices.${index}.timeMinutes`] ?? []" :key="message" class="field-error">{{ message }}</p>
+      <p v-for="message in errors[`choices.${index}.timeUntil.minuteOfDay`] ?? []" :key="message" class="field-error">{{ message }}</p>
     </details>
     <label>Action
       <select
@@ -124,6 +152,16 @@ defineEmits([
 label {
   display: grid;
   gap: 0.25rem;
+}
+
+.inline-check {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.inline-check input {
+  width: auto;
 }
 
 input,

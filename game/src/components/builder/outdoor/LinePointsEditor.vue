@@ -12,16 +12,18 @@ defineProps({
 </script>
 
 <template>
-  <fieldset>
-    <legend>Control points</legend>
-    <div class="point-tools">
-      <button
-        class="sm"
-        :class="{ active: tool === 'add-point' }"
-        @click="toggleAddPointMode"
-      >
-        {{ tool === "add-point" ? "Done adding points" : "Add point on map" }}
-      </button>
+  <section class="form-section">
+    <div class="section-heading">
+      <h4>Control points</h4>
+      <div class="point-tools">
+        <button
+          class="sm"
+          :class="{ active: tool === 'add-point' }"
+          @click="toggleAddPointMode"
+        >
+          {{ tool === "add-point" ? "Done adding points" : "Add point on map" }}
+        </button>
+      </div>
     </div>
     <article v-for="(point, index) in selected.points" :key="index" class="point-editor">
       <div class="point-heading">
@@ -47,5 +49,5 @@ defineProps({
         <input v-model.number="point.y" type="number" aria-label="Point y" />
       </div>
     </article>
-  </fieldset>
+  </section>
 </template>

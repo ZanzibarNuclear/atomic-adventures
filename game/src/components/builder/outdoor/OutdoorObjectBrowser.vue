@@ -1,5 +1,7 @@
 <script setup>
-defineProps({
+import { computed, ref } from "vue";
+
+const props = defineProps({
   search: { type: String, default: "" },
   groups: { type: Array, default: () => [] },
   selectedKey: { type: String, default: "" },
@@ -14,6 +16,31 @@ defineEmits([
   "add-landmark",
   "select",
 ]);
+
+const expandedGroups = ref(new Set());
+const isSearching = computed(() => props.search.trim().length > 0);
+const visibleGroups = computed(() =>
+  isSearching.value ? props.groups.filter((group) => group.items.length) : props.groups,
+);
+
+function groupKey(group) {
+  return group.type ?? group.label;
+}
+
+function isExpanded(group) {
+  return isSearching.value || expandedGroups.value.has(groupKey(group));
+}
+
+function toggleGroup(group) {
+  const next = new Set(expandedGroups.value);
+  const key = groupKey(group);
+  if (next.has(key)) {
+    next.delete(key);
+  } else {
+    next.add(key);
+  }
+  expandedGroups.value = next;
+}
 </script>
 
 <template>
@@ -30,18 +57,32 @@ defineEmits([
       <button class="sm" @click="$emit('add-passage')">+ Passage</button>
       <button class="sm" @click="$emit('add-landmark')">+ Landmark</button>
     </div>
-    <section v-for="group in groups" :key="group.label" class="object-group">
-      <h3>{{ group.label }} <span>{{ group.items.length }}</span></h3>
+    <p v-if="isSearching && !visibleGroups.length" class="empty-note">No matching objects.</p>
+    <section v-for="group in visibleGroups" :key="group.label" class="object-group">
       <button
-        v-for="item in group.items"
-        :key="`${group.type}:${item.id}`"
-        class="object-item"
-        :class="{ active: selectedKey === `${group.type}:${item.id}` }"
-        @click="$emit('select', { type: group.type, id: item.id })"
+        type="button"
+        class="group-toggle"
+        :aria-expanded="isExpanded(group)"
+        @click="toggleGroup(group)"
       >
-        <strong>{{ item.label || item.landmark?.label || item.id }}</strong>
-        <span>{{ item.id }}<template v-if="item.kind"> · {{ item.kind }}</template></span>
+        <span class="group-title">
+          <span class="arrow" aria-hidden="true">{{ isExpanded(group) ? "▾" : "▸" }}</span>
+          {{ group.label }}
+        </span>
+        <span class="count">{{ group.items.length }}</span>
       </button>
+      <div v-if="isExpanded(group)" class="object-list">
+        <button
+          v-for="item in group.items"
+          :key="`${group.type}:${item.id}`"
+          class="object-item"
+          :class="{ active: selectedKey === `${group.type}:${item.id}` }"
+          @click="$emit('select', { type: group.type, id: item.id })"
+        >
+          <strong>{{ item.label || item.landmark?.label || item.id }}</strong>
+          <span>{{ item.id }}<template v-if="item.kind"> · {{ item.kind }}</template></span>
+        </button>
+      </div>
     </section>
   </aside>
 </template>
@@ -75,22 +116,54 @@ defineEmits([
   margin-top: 0.6rem;
 }
 
+.empty-note {
+  margin: 0.8rem 0 0;
+  color: #939ba7;
+  font-size: 0.82rem;
+}
+
 .object-group {
   margin-top: 0.9rem;
 }
 
-.object-group h3 {
+.group-toggle {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  margin: 0 0 0.35rem;
+  width: 100%;
+  padding: 0.2rem 0;
+  border: 0;
+  background: transparent;
   color: #aeb5c0;
   font-size: 0.78rem;
   letter-spacing: 0.06em;
+  text-align: left;
   text-transform: uppercase;
 }
 
-.object-group h3 span {
+.group-toggle:hover {
+  color: #eef1f5;
+}
+
+.group-title {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 0.35rem;
+}
+
+.arrow {
+  width: 0.8rem;
+  color: #8bc49a;
+  letter-spacing: 0;
+}
+
+.count {
   color: #6f7787;
+}
+
+.object-list {
+  margin-top: 0.35rem;
 }
 
 .object-item {

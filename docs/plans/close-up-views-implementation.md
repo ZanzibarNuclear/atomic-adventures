@@ -28,7 +28,7 @@ to specific subject matter.
 
 ## Decisions
 
-- Implement in `game/`; do not add close-up navigation or story state to `web/`.
+- Implement close-up navigation and story state in `game/`.
 - The app shell owns the active game view and the shared Return to Map action.
 - Opening a close-up does not create a movement event.
 - Returning to the map restores the same outdoor hex, indoor room or stand,

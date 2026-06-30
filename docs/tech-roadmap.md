@@ -18,7 +18,7 @@ The project has moved past stack selection and scaffolding. The playable `game/`
 | Decision | Choice | Notes |
 | -------- | ------ | ----- |
 | Adventure frame | **Vue 3 + Vite** bespoke CYOA engine | Ren'Py, Twine, and Unity were rejected; sibling mini-games are web apps and embed cleanly. See [AGENTS.md](../AGENTS.md). |
-| Active app vs prototype | **`game/`** is canonical; **`web/`** is a map sandbox | Gameplay, story, persistence, and player maps live in `game/`. Do not add game features to `web/`. |
+| Game app | **`game/`** is canonical | Gameplay, story, persistence, authoring, and player maps live in `game/`. |
 | Authored content store | **SQLite** (`game/content/atomic-adventures.sqlite`) | Story beats, outdoor world, building geometry, and character content are canonical in SQLite. YAML is explicit import/export snapshot material only. |
 | Indoor geometry | **SQLite document** (`utility-station`) | Edited in the Utility Station workspace under `/builder/world`; YAML snapshots can be imported/exported explicitly. |
 | Story runtime unit | **Beats**, not a full passage graph | Location/event triggers, requirements, flags, choices, revisit prose. Planned passage features (`go_to`, simulation gates) are not implemented yet. See [story-beats.md](contracts/story-beats.md). |
@@ -252,7 +252,8 @@ Deferred: AP-1000, fusion chapters.
 | ----- | -------- |
 | Agent / repo overview | [AGENTS.md](../AGENTS.md) |
 | Beat runtime & authoring | [contracts/story-beats.md](contracts/story-beats.md) |
-| Game time, durations, milestones & simulation time | [contracts/time.md](contracts/time.md) |
+| Game time, durations & simulation time | [contracts/time.md](contracts/time.md) |
+| Milestones, temporal predicates & achievements | [contracts/milestones.md](contracts/milestones.md) |
 | Outdoor world authoring | [contracts/world-authoring.md](contracts/world-authoring.md) |
 | Character, inventory, stats, skills & quests | [contracts/character-inventory.md](contracts/character-inventory.md) |
 | Close-up views implementation plan | [plans/close-up-views-implementation.md](plans/close-up-views-implementation.md) |

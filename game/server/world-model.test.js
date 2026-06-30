@@ -21,11 +21,52 @@ describe("world model", () => {
   it("cascades hex renames through map-level references", () => {
     const world = loadWorld();
     const origin = world.hexes.find((hex) => hex.id === "origin");
+    world.artifactPlacements = [{
+      id: "origin-field-manual",
+      hex: "origin",
+      item: "field-manual",
+      label: "Field manual",
+    }];
     origin.id = "arrival-trail";
     applyHexRenames(world, [{ kind: "hex", from: "origin", to: "arrival-trail" }]);
     expect(world.start).toBe("arrival-trail");
     expect(world.journey).toContain("arrival-trail");
+    expect(world.artifactPlacements[0].hex).toBe("arrival-trail");
     expect(validateWorld(world).valid).toBe(true);
+  });
+
+  it("validates outdoor artifact placements against authored hexes", () => {
+    const world = loadWorld();
+    world.artifactPlacements = [{
+      id: "missing-field-manual",
+      hex: "missing",
+      item: "field manual",
+      label: "Field manual",
+    }];
+    const result = validateWorld(world);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors["artifactPlacements.0.hex"]).toBeDefined();
+    expect(result.errors["artifactPlacements.0.item"]).toBeDefined();
+  });
+
+  it("validates outdoor artifact placement stands against the placement hex", () => {
+    const world = loadWorld();
+    const yard = world.hexes.find((hex) => hex.id === "utility-yard");
+    expect(yard.stands.some((stand) => stand.id === "man-door")).toBe(true);
+    world.artifactPlacements = [{
+      id: "yard-field-manual",
+      hex: "utility-yard",
+      stand: "man-door",
+      item: "field-manual",
+      label: "Field manual",
+    }];
+    expect(validateWorld(world).valid).toBe(true);
+
+    world.artifactPlacements[0].stand = "missing-stand";
+    const result = validateWorld(world);
+    expect(result.valid).toBe(false);
+    expect(result.errors["artifactPlacements.0.stand"]).toBeDefined();
   });
 
   it("validates river cascade ranges", () => {

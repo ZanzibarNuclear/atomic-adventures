@@ -3,7 +3,7 @@
     <span class="label">Found here</span>
     <div v-for="p in pickups" :key="p.id" class="pickup-row">
       <button class="sm" @click="$emit('pickup', p.id)">
-        Take — {{ p.label }}
+        Pick up {{ withArticle(p.label) }}
       </button>
     </div>
   </div>
@@ -15,6 +15,11 @@ defineProps({
 });
 
 defineEmits(["pickup"]);
+
+function withArticle(label) {
+  if (!label) return "";
+  return /^(the|a|an)\s/i.test(label) ? label : `the ${label}`;
+}
 </script>
 
 <style scoped>

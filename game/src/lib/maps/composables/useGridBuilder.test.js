@@ -4,6 +4,7 @@ import { buildBuilding, fixturesOnLevel } from "./useGrid.js";
 import {
   findGridEditable,
   listAllGridEditable,
+  listEditableSwitches,
   resolvedFixtureHandles,
   resolvedWallHandles,
   listEditableRoomStands,
@@ -13,6 +14,21 @@ import {
   setWallPoint,
 } from "./useGridBuilder.js";
 
+describe("grid builder switches", () => {
+  it("lists utility station switch labels for builder editing", () => {
+    const draft = structuredClone(utilityData);
+    const switches = listEditableSwitches(draft, "first");
+
+    expect(switches.map((item) => item.id)).toEqual(
+      expect.arrayContaining(["large-bay-manual", "small-bay-manual"]),
+    );
+    expect(findGridEditable(draft, "switches", "large-bay-manual")).toMatchObject({
+      room: "large-bay",
+      door: "large-bay-roll",
+    });
+  });
+});
+
 describe("grid builder room stands", () => {
   it("lists, resolves, and moves authored room stands", () => {
     const draft = structuredClone(utilityData);
@@ -20,17 +36,16 @@ describe("grid builder room stands", () => {
     expect(items.map((item) => item.id)).toEqual(
       expect.arrayContaining([
         "large-bay/midway",
-        "large-bay/stairs-bottom",
         "large-bay/service-area",
       ]),
     );
 
-    const stand = findGridEditable(draft, "stands", "large-bay/stairs-bottom");
+    const stand = findGridEditable(draft, "stands", "large-bay/service-area");
     expect(resolvedRoomStandHandle(stand, draft.cell)).toEqual([
       expect.objectContaining({ role: "room-stand", handleKey: "room-stand" }),
     ]);
 
-    setRoomStandAt(draft, "large-bay/stairs-bottom", 1.5, 2.8);
+    setRoomStandAt(draft, "large-bay/service-area", 1.5, 2.8);
     expect(stand.at).toEqual({ x: 1.5, y: 2.8 });
   });
 });

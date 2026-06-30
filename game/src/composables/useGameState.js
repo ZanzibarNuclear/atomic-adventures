@@ -53,6 +53,8 @@ export function captureSnapshot({ gameState, place, outdoor, indoor }) {
       currentId: outdoor.state.currentId,
       previousId: outdoor.state.previousId ?? null,
       localExit: outdoor.state.localExit ?? null,
+      mapTransition: outdoor.state.mapTransition ?? null,
+      transitionDirection: outdoor.state.transitionDirection ?? null,
       discovered: [...outdoor.state.discovered],
       stand: { ...outdoor.state.stand },
       lastBlocked: outdoor.state.lastBlocked,
@@ -64,7 +66,7 @@ export function captureSnapshot({ gameState, place, outdoor, indoor }) {
     indoor: {
       currentRoom: i.currentRoom,
       currentStand: i.currentStand,
-      exteriorNode: i.exteriorNode,
+      exteriorNode: i.currentRoom ? null : i.exteriorNode,
       discovered: [...i.discovered],
       revealed: [...i.revealed],
       level: i.level,
@@ -84,6 +86,8 @@ function applyOutdoorSnapshot(o, outdoor) {
   outdoor.state.currentId = o.currentId ?? outdoor.START;
   outdoor.state.previousId = o.previousId ?? null;
   outdoor.state.localExit = o.localExit ?? null;
+  outdoor.state.mapTransition = o.mapTransition ?? o.localExit ?? null;
+  outdoor.state.transitionDirection = o.transitionDirection ?? (o.localExit ? "toRegional" : null);
   outdoor.state.discovered = [...(o.discovered ?? [outdoor.state.currentId])];
 
   if (o.stand) {
@@ -120,13 +124,17 @@ export function applySnapshot(snapshot, { gameState, place, outdoor, indoor }) {
   const building = indoor.building;
   const i = snapshot.indoor ?? {};
   const d = indoor.indoor;
-  d.currentRoom = i.currentRoom ?? null;
+  d.currentRoom = i.currentRoom && building.roomById[i.currentRoom] ? i.currentRoom : null;
   d.currentStand = d.currentRoom && roomStandById(building, d.currentRoom, i.currentStand)
     ? i.currentStand
     : d.currentRoom
       ? defaultRoomStandId(building.roomById[d.currentRoom])
       : null;
-  d.exteriorNode = i.exteriorNode ?? building.exterior?.entry ?? null;
+  d.exteriorNode = d.currentRoom
+    ? null
+    : i.exteriorNode && building.exterior?.nodeById?.[i.exteriorNode]
+      ? i.exteriorNode
+      : building.exterior?.entry ?? null;
   d.discovered = new Set(i.discovered ?? []);
   d.revealed = new Set(i.revealed ?? []);
   d.level = i.level ?? building.exterior?.level ?? "first";

@@ -82,7 +82,7 @@ export function useOutdoorMovement({
     return preview?.result.activeHexId === preview?.toHex.id;
   }
 
-  function moveTo(hexId) {
+  function moveTo(hexId, options = {}) {
     if (traveling.value || !hexById.value[hexId]) return;
     const preview = previewMove(hexId);
     if (!preview || preview.result.activeHexId !== preview.toHex.id) return;
@@ -113,7 +113,7 @@ export function useOutdoorMovement({
       atBarrier: blockedInPlace ? result.blockedKind : atBarrier,
       previousId: fromHex.id,
     });
-    if (enteredDest) advanceTime();
+    if (enteredDest && !options.suppressDefaultTime) advanceTime();
   }
 
   return {

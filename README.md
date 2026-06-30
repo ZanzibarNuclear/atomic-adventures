@@ -15,11 +15,11 @@ A highly immersive, detailed educational adventure that blends:
 
 **Phase:** Early implementation — Part I vertical slice
 
-This repository contains the playable game, a standalone map prototype, and the design and planning documents that guide their development.
+This repository contains the playable game and the design and planning documents that guide its development.
 
 ## Project Structure
 
-This monorepo contains two independent Vue 3 + Vite applications:
+This monorepo contains one Vue 3 + Vite game application:
 
 ```text
 atomic-adventures/
@@ -27,8 +27,7 @@ atomic-adventures/
 ├── docs/         # Technical docs — runtime contracts, deployment, roadmap
 ├── game/       # Playable vertical slice and full game
 ├── samples/    # Sample map data
-├── scripts/    # Repository development scripts
-└── web/        # Standalone map prototype and builder sandbox
+└── scripts/    # Repository development scripts
 ```
 
 Gameplay, narrative, persistence, and player-facing map changes belong in `game/`. Its main areas are:
@@ -39,13 +38,10 @@ Gameplay, narrative, persistence, and player-facing map changes belong in `game/
 - `game/src/composables/` — Game state, story, and save/load logic
 - `game/src/lib/maps/` — Outdoor and indoor map engine, HUD, and builder tools
 
-The `web/` app is an independent prototype for experimenting with map concepts and authoring tools. Map code may be prototyped there, but features intended for the playable game must be implemented or ported into `game/`.
-
-Run either app from the repository root:
+Run the app from the repository root:
 
 ```bash
 npm run dev:game       # Playable game
-npm run dev:prototype  # Map prototype
 npm run test           # Game test suite
 npm run test:movement  # Exercises comprehensive hex-crawling
 ```

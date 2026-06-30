@@ -70,7 +70,11 @@ function ensureActionEffects(action) {
     <summary>Item placements</summary>
     <p v-if="!selectedRoomId" class="empty-note">Select a room to edit its item placements.</p>
     <p v-else-if="!roomPickups.length" class="empty-note">No item placements in {{ selectedRoom?.label ?? selectedRoomId }}.</p>
-    <article v-for="{ pickup, index } in roomPickups" :key="pickup.id" class="reference-card">
+    <article v-for="{ pickup, index } in roomPickups" :key="pickup.id" class="reference-card form-section">
+      <div class="section-heading">
+        <h4>Placement</h4>
+        <code>{{ pickup.id }}</code>
+      </div>
       <label>Placement ID<input v-model="pickup.id"></label>
       <label>Label<input v-model="pickup.label"></label>
       <label>Room
@@ -96,8 +100,11 @@ function ensureActionEffects(action) {
     <summary>Interaction character rules</summary>
     <p v-if="!selectedRoomId" class="empty-note">Select a room to edit its interaction character rules.</p>
     <p v-else-if="!roomActions.length" class="empty-note">No interaction character rules in {{ selectedRoom?.label ?? selectedRoomId }}.</p>
-    <article v-for="action in roomActions" :key="action.id" class="reference-card">
-      <strong>{{ action.label }} <small>{{ action.id }}</small></strong>
+    <article v-for="action in roomActions" :key="action.id" class="reference-card form-section">
+      <div class="section-heading">
+        <h4>{{ action.label }}</h4>
+        <code>{{ action.id }}</code>
+      </div>
       <label>Required items
         <select
           multiple
@@ -135,18 +142,7 @@ function ensureActionEffects(action) {
 }
 
 .reference-card {
-  display: grid;
-  gap: 0.45rem;
   margin-top: 0.6rem;
-  padding: 0.65rem;
-  border: 1px solid #394454;
-  border-radius: 8px;
-  background: #181d25;
-}
-
-.reference-card small {
-  color: #8f98a6;
-  font-weight: 400;
 }
 
 .empty-note {

@@ -13,8 +13,6 @@ export function useIndoorBuilding(buildingData, outdoor, ctx) {
     character: gameState?.character,
   });
 
-  const openDoorRef = { fn: () => {} };
-
   const movement = createIndoorMovement({
     building: player.building,
     indoor: player.indoor,
@@ -25,7 +23,6 @@ export function useIndoorBuilding(buildingData, outdoor, ctx) {
     place,
     outdoor,
     builderView,
-    tryOpenDoor: (doorId) => openDoorRef.fn(doorId),
     gameState,
   });
 
@@ -42,8 +39,6 @@ export function useIndoorBuilding(buildingData, outdoor, ctx) {
     exitTravelHint: player.exitTravelHint,
     character: gameState?.character,
   });
-
-  openDoorRef.fn = doors.tryOpenDoor;
 
   const facility = createIndoorFacility({
     building: player.building,

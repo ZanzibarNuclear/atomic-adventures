@@ -13,6 +13,11 @@ import {
   defaultRoomStandId,
   doorThresholdForRoom,
   roomStandModels,
+  roomStandById,
+  roomLevel,
+  spiralLandingsFor,
+  stairStandForRoom,
+  stairStandForMove,
 } from "../useGrid.js";
 import { canBargeThroughDoor, canPassDoor } from "../useDoors.js";
 import { advanceGameTime } from "../../../character/gameTime.js";
@@ -34,6 +39,11 @@ export function exteriorWalkDurationMs(distance, reducedMotion = false) {
   return (distance / EXTERIOR_WALK_SPEED) * 1000;
 }
 
+function indoorMoveWaitMs(duration) {
+  if (typeof window === "undefined" || prefersReducedMapMotion()) return 0;
+  return duration;
+}
+
 export function createIndoorMovement(deps) {
   const {
     building,
@@ -45,7 +55,6 @@ export function createIndoorMovement(deps) {
     place,
     outdoor,
     builderView,
-    tryOpenDoor,
     gameState,
   } = deps;
 
@@ -99,15 +108,19 @@ export function createIndoorMovement(deps) {
         building.value.areaId,
       ),
     ];
+    const currentRoom = building.value.roomById[indoor.currentRoom];
     const localStandMoves = roomStandModels(
       building.value,
       indoor.currentRoom,
     )
       .filter((stand) => stand.id !== indoor.currentStand)
       .map((stand) => ({
-        kind: "stand",
+        kind: currentRoom?.feature && stand.kind === "stair" ? "stairs" : "stand",
         toRoomId: indoor.currentRoom,
         toStandId: stand.id,
+        toLevel: currentRoom?.feature && stand.kind === "stair"
+          ? stairEndpointLevel(building.value, currentRoom, stand.id)
+          : undefined,
         label: `to ${stand.label ?? stand.id}`,
         toName: stand.label ?? stand.id,
       }));
@@ -169,12 +182,10 @@ export function createIndoorMovement(deps) {
       const ids = indoorMoves.value
         .filter((m) => m.kind === "door")
         .map((m) => m.toRoomId);
-      for (const m of bargeMoves.value) ids.push(m.toRoomId);
       return ids;
     }
     return [
       ...indoorMoves.value.filter((m) => !m.onSpiral).map((m) => m.toRoomId),
-      ...bargeMoves.value.map((m) => m.toRoomId),
     ].filter((id) => id && id !== indoor.currentRoom);
   });
 
@@ -230,6 +241,9 @@ export function createIndoorMovement(deps) {
     indoor.revealed = new Set();
     indoor.level = building.value.exterior?.level ?? "first";
     indoor.viewLevel = indoor.level;
+    outdoor.state.mapTransition = entryTransition?.id ?? entryTransition?.door ?? null;
+    outdoor.state.transitionDirection = outdoor.state.mapTransition ? "toLocal" : null;
+    outdoor.state.localExit = null;
     place.value = "indoors";
   }
 
@@ -280,6 +294,8 @@ export function createIndoorMovement(deps) {
     outdoor.state.currentId = hexId;
     outdoor.state.previousId = previousId !== hexId ? previousId : null;
     outdoor.state.localExit = exit.id ?? doorId;
+    outdoor.state.mapTransition = exit.id ?? doorId;
+    outdoor.state.transitionDirection = "toRegional";
     resetOutdoorStand(hexId, exit.standAt);
     indoor.exteriorNode = null;
     indoor.currentRoom = null;
@@ -292,6 +308,8 @@ export function createIndoorMovement(deps) {
     outdoor.state.currentId = hexId;
     outdoor.state.previousId = null;
     outdoor.state.localExit = null;
+    outdoor.state.mapTransition = null;
+    outdoor.state.transitionDirection = null;
     resetOutdoorStand(hexId);
     indoor.exteriorNode = null;
     indoor.currentRoom = null;
@@ -303,14 +321,21 @@ export function createIndoorMovement(deps) {
     if (indoor.moving) return;
     if (!indoorMoves.value.some((m) => moveKey(m) === moveKey(move))) return;
 
+    outdoor.state.mapTransition = null;
+    outdoor.state.transitionDirection = null;
     indoor.moving = true;
     const finishAfter = (duration) => {
-      const wait = prefersReducedMapMotion() ? 0 : duration;
+      finishWith(duration);
+    };
+    const finishWith = (duration, complete = null) => {
+      const wait = indoorMoveWaitMs(duration);
       if (wait === 0) {
+        if (complete) complete();
         indoor.moving = false;
         return;
       }
       setTimeout(() => {
+        if (complete) complete();
         indoor.moving = false;
       }, wait);
     };
@@ -372,10 +397,38 @@ export function createIndoorMovement(deps) {
       return;
     }
 
+    if (move.kind === "stairs" && to.feature && !from.feature) {
+      const fromLevel = roomLevel(from);
+      const nearStand = stairStandForRoom(
+        building.value,
+        from.id,
+        to.id,
+        fromLevel,
+      );
+      const farStand = stairStandForRoom(
+        building.value,
+        to.id,
+        to.id,
+        move.toLevel,
+      );
+      indoor.currentStand = nearStand?.id ?? indoor.currentStand;
+      advanceMovementTime(2);
+      finishWith(INDOOR_MOVE_MS, () => {
+        indoor.currentRoom = move.toRoomId;
+        indoor.currentStand = farStand?.id ?? defaultRoomStandId(to);
+        discoverIndoorRoom(move.toRoomId);
+        indoor.level = move.toLevel ?? to.level ?? to.levels?.[0];
+        indoor.viewLevel = indoor.level;
+      });
+      return;
+    }
+
     indoor.currentRoom = move.toRoomId;
-    indoor.currentStand = move.doorId
-      ? doorThresholdForRoom(building.value, move.toRoomId, move.doorId)?.id
-      : defaultRoomStandId(to);
+    const stairStand = stairStandForMove(building.value, from.id, move);
+    indoor.currentStand = stairStand?.id ??
+      (move.doorId
+        ? doorThresholdForRoom(building.value, move.toRoomId, move.doorId)?.id
+        : defaultRoomStandId(to));
     discoverIndoorRoom(move.toRoomId);
 
     if (to.feature) {
@@ -393,18 +446,59 @@ export function createIndoorMovement(deps) {
     let move = indoorMoves.value.find(
       (m) => !m.onSpiral && m.toRoomId === roomId,
     );
-    if (!move) {
-      const barge = bargeMoves.value.find((m) => m.toRoomId === roomId);
-      if (!barge) return;
-      if (barge.doorId) tryOpenDoor(barge.doorId);
-      move = indoorMoves.value.find(
-        (m) => !m.onSpiral && m.toRoomId === roomId,
-      );
-    }
     if (move) applyIndoorMove(move);
   }
 
   function moveToStand(standId) {
+    if (indoor.moving) return;
+    const currentRoom = building.value.roomById[indoor.currentRoom];
+    const stand = roomStandById(building.value, indoor.currentRoom, standId);
+    const currentStandModel = roomStandById(
+      building.value,
+      indoor.currentRoom,
+      indoor.currentStand,
+    );
+    if (
+      !currentRoom?.feature &&
+      currentStandModel?.kind === "stair" &&
+      currentStandModel.stair &&
+      standId === oppositeStairEndpointId(currentStandModel.id)
+    ) {
+      moveToRoom(currentStandModel.stair);
+      return;
+    }
+    if (currentRoom?.feature && stand?.kind === "stair") {
+      const targetLevel = stairEndpointLevel(building.value, currentRoom, stand.id) ?? indoor.level;
+      const endpointRoom = stairEndpointRoom(building.value, currentRoom.id, targetLevel);
+      indoor.moving = true;
+      indoor.currentRoom = endpointRoom?.id ?? indoor.currentRoom;
+      indoor.currentStand = stand.id;
+      indoor.level = targetLevel;
+      indoor.viewLevel = indoor.level;
+      advanceMovementTime(1);
+      const wait = indoorMoveWaitMs(INDOOR_MOVE_MS);
+      if (wait === 0) {
+        indoor.moving = false;
+      } else {
+        setTimeout(() => { indoor.moving = false; }, wait);
+      }
+      return;
+    }
+    if (!currentRoom?.feature && stand?.kind === "stair" && stand.stair) {
+      indoor.moving = true;
+      indoor.currentStand = stand.id;
+      indoor.level = roomLevel(currentRoom);
+      indoor.viewLevel = indoor.level;
+      discoverIndoorRoom(stand.stair);
+      advanceMovementTime(1);
+      const wait = indoorMoveWaitMs(INDOOR_MOVE_MS);
+      if (wait === 0) {
+        indoor.moving = false;
+      } else {
+        setTimeout(() => { indoor.moving = false; }, wait);
+      }
+      return;
+    }
     const move = indoorMoves.value.find((item) =>
       item.toRoomId === indoor.currentRoom && item.toStandId === standId
     );
@@ -431,6 +525,8 @@ export function createIndoorMovement(deps) {
 
   function walkExteriorPath(nodeIds) {
     if (indoor.moving || !nodeIds.length) return
+    outdoor.state.mapTransition = null
+    outdoor.state.transitionDirection = null
     indoor.moving = true
 
     const startNode = building.value.exterior?.nodeById?.[indoor.exteriorNode]
@@ -529,4 +625,29 @@ export function createIndoorMovement(deps) {
     moveKey,
     isDestinationNamed,
   };
+}
+
+function stairEndpointLevel(building, stairRoom, standId) {
+  if (!stairRoom?.feature || !standId) return null;
+  const { low, high } = spiralLandingsFor(building, stairRoom);
+  if (standId.endsWith(":top")) return high;
+  if (standId.endsWith(":bottom")) return low;
+  return null;
+}
+
+function stairEndpointRoom(building, stairRoomId, levelId) {
+  for (const link of building.links ?? []) {
+    if (link.kind !== "stairs") continue;
+    const otherId = link.from === stairRoomId ? link.to : link.to === stairRoomId ? link.from : null;
+    if (!otherId) continue;
+    const room = building.roomById?.[otherId];
+    if (!room?.feature && roomLevel(room) === levelId) return room;
+  }
+  return null;
+}
+
+function oppositeStairEndpointId(standId) {
+  if (standId?.endsWith(":bottom")) return standId.replace(/:bottom$/, ":top");
+  if (standId?.endsWith(":top")) return standId.replace(/:top$/, ":bottom");
+  return null;
 }

@@ -4,6 +4,7 @@ import {
   applyRevealForDoor,
   canUseExteriorExit,
   isDoorMapped,
+  roomStandById,
 } from "../useGrid.js";
 import {
   breakLock,
@@ -49,9 +50,19 @@ export function createIndoorDoors(deps) {
         },
       ];
     }
-    return doorsFromRoom(building.value, indoor.currentRoom).filter((d) =>
-      isDoorMapped(building.value.doorById[d.doorId], indoorVisibility.value),
+    const currentStand = roomStandById(
+      building.value,
+      indoor.currentRoom,
+      indoor.currentStand,
     );
+    return doorsFromRoom(building.value, indoor.currentRoom)
+      .filter((d) =>
+        indoor.currentStand === `door:${d.doorId}` ||
+        currentStand?.door === d.doorId
+      )
+      .filter((d) =>
+        isDoorMapped(building.value.doorById[d.doorId], indoorVisibility.value),
+      );
   });
 
   const interactableDoorIds = computed(() => {

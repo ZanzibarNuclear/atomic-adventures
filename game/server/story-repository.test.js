@@ -59,8 +59,41 @@ describe("StoryRepository", () => {
     expect(repository.getRuntimeStory().areas["part-i"].beats.intro.heading).toBe("Lost in the woods");
     db.close();
     const reopened = openDatabase(path);
-    expect(reopened.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get().count).toBe(8);
+    expect(reopened.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get().count).toBe(10);
     reopened.close();
+  });
+
+  it("stores story-area milestone catalogs", () => {
+    const { db, repository } = createRepository();
+    const saved = repository.saveMilestones("test-area", [{
+      id: "hydro.online",
+      label: "Hydro online",
+      kind: "operations",
+      description: "The hydro system is producing power.",
+    }]);
+
+    expect(saved.milestones).toEqual([{
+      id: "hydro.online",
+      label: "Hydro online",
+      kind: "operations",
+      description: "The hydro system is producing power.",
+    }]);
+    expect(repository.listMilestones("test-area")[0].id).toBe("hydro.online");
+    expect(repository.getRuntimeStory().areas["test-area"].milestones[0].kind).toBe("operations");
+    db.close();
+  });
+
+  it("rejects malformed and duplicate milestone IDs", () => {
+    const { db, repository } = createRepository();
+
+    expect(() => repository.saveMilestones("test-area", [
+      { id: "Bad ID", label: "Bad", kind: "story" },
+    ])).toThrow(ValidationError);
+    expect(() => repository.saveMilestones("test-area", [
+      { id: "hydro.online", label: "Hydro", kind: "operations" },
+      { id: "hydro.online", label: "Hydro again", kind: "operations" },
+    ])).toThrow(ValidationError);
+    db.close();
   });
 
   it("creates, updates, conflicts, restores, and deletes transactionally", () => {
@@ -219,13 +252,72 @@ describe("StoryRepository", () => {
   it("round-trips origin-hex beat matching", () => {
     const { db, repository } = createRepository();
     repository.createBeat("test-area", sampleBeat({
-      match: { originHex: "the-flats", localExit: "garage-exit" },
+      match: { originHex: "the-flats" },
     }));
 
     const beat = repository.getBeat("test-area", "test-beat");
-    expect(beat.match).toEqual({ originHex: "the-flats", localExit: "garage-exit" });
+    expect(beat.match).toEqual({
+      originHex: "the-flats",
+      localExit: null,
+      mapTransition: null,
+      transitionDirection: null,
+    });
     expect(repository.getRuntimeStory().areas["test-area"].beats["test-beat"].match)
-      .toEqual({ originHex: "the-flats", localExit: "garage-exit" });
+      .toEqual({ originHex: "the-flats" });
+    db.close();
+  });
+
+  it("round-trips multiple origin-hex beat matching", () => {
+    const { db, repository } = createRepository();
+    repository.createBeat("test-area", sampleBeat({
+      match: { originHex: ["the-flats", "west-slope"] },
+    }));
+
+    const beat = repository.getBeat("test-area", "test-beat");
+    expect(beat.match).toEqual({
+      originHex: ["the-flats", "west-slope"],
+      localExit: null,
+      mapTransition: null,
+      transitionDirection: null,
+    });
+    expect(repository.getRuntimeStory().areas["test-area"].beats["test-beat"].match)
+      .toEqual({ originHex: ["the-flats", "west-slope"] });
+    db.close();
+  });
+
+  it("round-trips legacy localExit beat matching", () => {
+    const { db, repository } = createRepository();
+    repository.createBeat("test-area", sampleBeat({
+      match: { localExit: "garage-exit" },
+    }));
+
+    const beat = repository.getBeat("test-area", "test-beat");
+    expect(beat.match).toEqual({
+      originHex: null,
+      localExit: "garage-exit",
+      mapTransition: null,
+      transitionDirection: null,
+    });
+    expect(repository.getRuntimeStory().areas["test-area"].beats["test-beat"].match)
+      .toEqual({ localExit: "garage-exit" });
+    db.close();
+  });
+
+  it("round-trips map-transition beat matching", () => {
+    const { db, repository } = createRepository();
+    repository.createBeat("test-area", sampleBeat({
+      match: { mapTransition: "garage-exit", transitionDirection: "toRegional" },
+    }));
+
+    const beat = repository.getBeat("test-area", "test-beat");
+    expect(beat.match).toEqual({
+      originHex: null,
+      localExit: null,
+      mapTransition: "garage-exit",
+      transitionDirection: "toRegional",
+    });
+    expect(repository.getRuntimeStory().areas["test-area"].beats["test-beat"].match)
+      .toEqual({ mapTransition: "garage-exit", transitionDirection: "toRegional" });
     db.close();
   });
 

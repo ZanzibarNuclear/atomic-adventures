@@ -147,19 +147,42 @@ describe('useGameState save roundtrip', () => {
   it('persists an indoor room stand and falls back when it no longer exists', () => {
     const { outdoor, indoor, gameState, place } = buildTestHarness()
     indoor.indoor.currentRoom = 'large-bay'
-    indoor.indoor.currentStand = 'stairs-bottom'
+    indoor.indoor.currentStand = 'stair:garage-stair:bottom'
     place.value = 'indoors'
 
     const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
-    expect(snapshot.indoor.currentStand).toBe('stairs-bottom')
+    expect(snapshot.indoor.currentStand).toBe('stair:garage-stair:bottom')
 
     indoor.indoor.currentStand = null
     expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
-    expect(indoor.indoor.currentStand).toBe('stairs-bottom')
+    expect(indoor.indoor.currentStand).toBe('stair:garage-stair:bottom')
 
     snapshot.indoor.currentStand = 'missing-stand'
     expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
     expect(indoor.indoor.currentStand).toBe('midway')
+  })
+
+  it('treats a saved indoor room as authoritative over a stale exterior node', () => {
+    const { outdoor, indoor, gameState, place } = buildTestHarness()
+    indoor.indoor.currentRoom = 'large-bay'
+    indoor.indoor.currentStand = 'midway'
+    indoor.indoor.exteriorNode = 'large-bay-man-front'
+    place.value = 'indoors'
+
+    const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
+    expect(snapshot.indoor.currentRoom).toBe('large-bay')
+    expect(snapshot.indoor.exteriorNode).toBeNull()
+
+    snapshot.indoor.exteriorNode = 'large-bay-man-front'
+    indoor.indoor.currentRoom = null
+    indoor.indoor.currentStand = null
+    indoor.indoor.exteriorNode = 'large-bay-man-front'
+
+    expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
+    expect(place.value).toBe('indoors')
+    expect(indoor.indoor.currentRoom).toBe('large-bay')
+    expect(indoor.indoor.currentStand).toBe('midway')
+    expect(indoor.indoor.exteriorNode).toBeNull()
   })
 
   it('migrates v1 barrierStand saves to stand', () => {

@@ -604,6 +604,8 @@ rules and grants newly satisfied ranks in order. This is a constrained
 achievement/badge model: authors compose requirements from known knowledge,
 evidence counters, quests, stats, and flags without writing scripts.
 Each award may supply a badge image and player-facing earned text.
+Milestones may participate in these criteria, but they remain playthrough
+events rather than badges themselves; see [milestones.md](milestones.md).
 
 Evidence is awarded for meaningful outcomes, not button presses. For example,
 the hydro simulation awards an operating day only after the plant completes a

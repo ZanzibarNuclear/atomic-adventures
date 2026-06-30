@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mapData } from '../lib/testing/content.js'
+import { characterDefinitions, mapData, utilityData } from '../lib/testing/content.js'
 import {
   buildTravelWorld,
   offeredMoves,
@@ -19,6 +19,11 @@ import {
 } from './usePlayPanel.js'
 import { hiddenOpeningsInHex } from '../lib/maps/composables/useBarrierOpenings.js'
 import { useOutdoorWorld } from '../lib/maps/composables/useOutdoorWorld.js'
+import { useIndoorBuilding } from '../lib/maps/composables/useIndoorBuilding.js'
+import { createCharacterState } from './useCharacterState.js'
+import { createGameClock } from '../lib/character/gameTime.js'
+import { createFlags } from '../lib/maps/composables/useFlags.js'
+import { ref } from 'vue'
 
 const world = buildTravelWorld(mapData)
 
@@ -99,6 +104,19 @@ describe('getMovementOptions', () => {
     expect(options.map((option) => option.label)).toContain('Try the trail again')
   })
 
+  it('omits disabled story choices from play actions', () => {
+    const pendingBeat = {
+      choices: [
+        { text: 'Study the sealed controls', disabled: true },
+        { text: 'Step back from the console' },
+      ],
+    }
+
+    expect(buildStoryChoices(pendingBeat).map((option) => option.label)).toEqual([
+      'Step back from the console',
+    ])
+  })
+
   it('does not add movement options beside a story destination', () => {
     const pendingBeat = {
       choices: [{ text: 'Keep walking west', go_hex: 'east-pines' }],
@@ -162,6 +180,35 @@ describe('getMovementOptions', () => {
     expect(buildOutdoorPlayActions(outdoor).map((action) => action.id)).toContain(
       'search:barrier',
     )
+  })
+
+  it('spends 20 minutes when inspecting the fence', () => {
+    const gameState = {
+      flags: new Set(),
+      clock: createGameClock(),
+      character: createCharacterState({
+        items: [],
+      stats: [{
+        id: 'effort',
+        label: 'Effort',
+        type: 'meter',
+        default: 0,
+        drift: { perGameHour: { light: 3, moderate: 6 } },
+      }],
+        knowledge: [],
+        skills: [],
+        quests: [],
+        documents: [],
+      }),
+    }
+    const outdoor = useOutdoorWorld(mapData, gameState)
+    outdoor.state.currentId = 'south-pines'
+    outdoor.state.stand = outdoor.defaultStandForHex('south-pines')
+
+    handleOutdoorPlayAction(outdoor, 'search:barrier')
+
+    expect(gameState.clock.elapsedMinutes).toBe(20)
+    expect(gameState.character.stats.effort).toBeCloseTo(2)
   })
 
   it('hides fence inspection after the hidden opening is found', () => {
@@ -269,6 +316,235 @@ describe('getMovementOptions', () => {
     ])
   })
 
+  it('labels indoor entry, exit, stairs, pickups, and doors conversationally', () => {
+    const indoor = {
+      indoorMoves: [
+        { kind: 'door', toRoomId: 'large-bay', label: 'through the door' },
+        { kind: 'stairs', toRoomId: 'garage-stair', label: 'onto the garage stairs' },
+        { kind: 'stairs', toRoomId: 'large-bay', label: 'down to the large bay' },
+        { kind: 'path', toExteriorNode: 'large-bay-man-front', label: 'north along the footpath' },
+      ],
+      roomPickups: [{ id: 'wrench', label: 'wrench' }],
+      carriedItems: [{ id: 'key', label: 'side garage door key' }],
+      availableActions: [{ id: 'read-sign', verb: 'Read', label: 'service placard' }],
+      nearbyDoors: [{ doorId: 'side-garage-door', toName: 'Yard' }],
+      roomSwitches: [],
+      building: {
+        areaId: 'utility-station',
+        levels: [],
+        doorById: {
+          'side-garage-door': { id: 'side-garage-door', label: 'side garage door' },
+        },
+      },
+      indoor: {
+        exteriorNode: 'large-bay-man-front',
+        level: 'first',
+        doorState: {
+          'utility-station:side-garage-door': {
+            open: true,
+            locked: false,
+            lockBroken: false,
+          },
+        },
+        facility: {},
+      },
+      playerRoomId: 'large-bay',
+      doorStateFor: (doorId) => indoor.indoor.doorState[`utility-station:${doorId}`],
+      doorLockHint: () => '',
+      canToggleDoorLock: () => true,
+    }
+
+    const labels = buildIndoorPlayActions(indoor).map((action) => action.label)
+
+    expect(labels).toEqual(expect.arrayContaining([
+      'Go inside',
+      'Climb the stairs',
+      'Descend the stairs',
+      'Go north along the footpath',
+      'Pick up the wrench',
+      'Read the service placard',
+      'Close the side garage door',
+    ]))
+    expect(labels).not.toContain('Put down the side garage door key')
+    expect(labels.join(' ')).not.toMatch(/[–—]/)
+  })
+
+  it('labels room-to-exterior movement as going outside', () => {
+    const indoor = {
+      indoorMoves: [
+        {
+          kind: 'door',
+          toExteriorNode: 'large-bay-man-front',
+          label: 'out to the footpath',
+        },
+      ],
+      indoor: { exteriorNode: null },
+    }
+
+    expect(buildIndoorMovementActions(indoor)).toEqual([
+      {
+        id: 'move-exterior:large-bay-man-front',
+        label: 'Go outside',
+        kind: 'door',
+      },
+    ])
+  })
+
+  it('labels movement through a door to a fogged room without revealing the room name', () => {
+    const indoor = {
+      indoorMoves: [
+        {
+          kind: 'door',
+          toRoomId: 'conference',
+          label: 'into the conference room',
+        },
+      ],
+      indoor: {
+        exteriorNode: null,
+        discovered: new Set(['garage-stair']),
+      },
+    }
+
+    expect(buildIndoorMovementActions(indoor)).toEqual([
+      {
+        id: 'move-room:conference',
+        label: 'Enter the room',
+        kind: 'door',
+      },
+    ])
+  })
+
+  it('labels movement to any fogged room without revealing the room name', () => {
+    const indoor = {
+      building: {
+        roomById: {
+          kitchen: { id: 'kitchen', label: 'Conference Kitchen' },
+        },
+      },
+      indoorMoves: [
+        {
+          kind: 'open',
+          toRoomId: 'kitchen',
+          label: 'to Conference Kitchen',
+        },
+      ],
+      indoor: {
+        exteriorNode: null,
+        discovered: new Set(['conference']),
+      },
+    }
+
+    expect(buildIndoorMovementActions(indoor)).toEqual([
+      {
+        id: 'move-room:kitchen',
+        label: 'Enter the room',
+        kind: 'open',
+      },
+    ])
+
+    indoor.indoor.discovered = new Set(['conference', 'kitchen'])
+
+    expect(buildIndoorMovementActions(indoor)).toEqual([
+      {
+        id: 'move-room:kitchen',
+        label: 'Go to Conference Kitchen',
+        kind: 'open',
+      },
+    ])
+  })
+
+  it('normalizes manual release switch actions without em or en dashes', () => {
+    const indoor = {
+      indoorMoves: [],
+      roomPickups: [],
+      carriedItems: [],
+      availableActions: [],
+      nearbyDoors: [],
+      roomSwitches: [{
+        door: 'large-bay-roll',
+        label: 'Manual release — large roll-up',
+      }],
+      building: { doorById: {} },
+      indoor: {
+        doorState: {},
+        facility: { manualMode: {} },
+      },
+      playerRoomId: 'large-bay',
+    }
+
+    let actions = buildIndoorPlayActions(indoor)
+
+    expect(actions.map((action) => action.label)).toContain('Release the large roll-up manually')
+    expect(actions.map((action) => action.label).join(' ')).not.toMatch(/[–—]/)
+
+    indoor.indoor.facility.manualMode['large-bay-roll'] = true
+    actions = buildIndoorPlayActions(indoor)
+
+    expect(actions.map((action) => action.label)).toContain('Engage the motor for the large roll-up')
+    expect(actions.map((action) => action.label).join(' ')).not.toMatch(/[–—]/)
+  })
+
+  it('drops carried artifacts at the current stand and requires returning there to pick them up', () => {
+    const place = ref('indoors')
+    const gameState = {
+      flags: createFlags(),
+      character: createCharacterState(characterDefinitions, utilityData.holders ?? []),
+    }
+    const indoor = useIndoorBuilding(utilityData, useOutdoorWorld(mapData), {
+      place,
+      builderView: ref(false),
+      gameState,
+    })
+    indoor.indoor.currentRoom = 'large-bay'
+    indoor.indoor.exteriorNode = null
+    indoor.indoor.currentStand = 'door:large-bay-man'
+
+    indoor.tryPickup('large-bay-key-peg')
+    expect(indoor.carriedItems.map((item) => item.id)).toContain('large-bay-man-key')
+
+    indoor.dropItem('large-bay-man-key')
+    expect(indoor.carriedItems.map((item) => item.id)).not.toContain('large-bay-man-key')
+    expect(indoor.roomPickups.map((pickup) => pickup.item)).toContain('large-bay-man-key')
+
+    indoor.indoor.currentStand = 'midway'
+    expect(indoor.roomPickups.map((pickup) => pickup.item)).not.toContain('large-bay-man-key')
+
+    indoor.indoor.currentStand = 'door:large-bay-man'
+    const dropped = indoor.roomPickups.find((pickup) => pickup.item === 'large-bay-man-key')
+    indoor.tryPickup(dropped.id)
+
+    expect(indoor.carriedItems.map((item) => item.id)).toContain('large-bay-man-key')
+  })
+
+  it('only shows stand-specific pickup actions at the key and bolt cutter standpoints', () => {
+    const place = ref('indoors')
+    const indoor = useIndoorBuilding(utilityData, useOutdoorWorld(mapData), {
+      place,
+      builderView: ref(false),
+      gameState: { flags: createFlags() },
+    })
+    indoor.indoor.currentRoom = 'large-bay'
+    indoor.indoor.exteriorNode = null
+
+    indoor.indoor.currentStand = 'midway'
+    let actions = buildIndoorPlayActions(indoor)
+    expect(actions.map((action) => action.id)).not.toContain('pickup:large-bay-key-peg')
+    expect(actions.map((action) => action.id)).not.toContain('pickup:bolt-cutter')
+    expect(actions.map((action) => action.label).join(' ')).not.toContain('Take the')
+
+    indoor.indoor.currentStand = 'service-area'
+    actions = buildIndoorPlayActions(indoor)
+    expect(actions.map((action) => action.id)).toContain('pickup:bolt-cutter')
+    expect(actions.map((action) => action.label)).toContain('Pick up the Bolt cutter on the garage bench')
+    expect(actions.map((action) => action.id)).not.toContain('pickup:large-bay-key-peg')
+
+    indoor.indoor.currentStand = 'door:large-bay-man'
+    actions = buildIndoorPlayActions(indoor)
+    expect(actions.map((action) => action.id)).toContain('pickup:large-bay-key-peg')
+    expect(actions.map((action) => action.label)).toContain('Pick up the Key to the garage door')
+    expect(actions.map((action) => action.id)).not.toContain('pickup:bolt-cutter')
+  })
+
   it('keeps indoor movement before contextual actions in the play action list', () => {
     const indoor = {
       indoorMoves: [
@@ -291,6 +567,137 @@ describe('getMovementOptions', () => {
       'move-stand:stairs-bottom',
       'pickup:wrench',
     ])
+  })
+
+  it('omits locked door actions when the player cannot unlock them', () => {
+    const indoor = {
+      indoorMoves: [],
+      roomPickups: [],
+      availableActions: [],
+      nearbyDoors: [{ doorId: 'side-door', toName: 'Side Door' }],
+      roomSwitches: [],
+      building: {
+        areaId: 'utility-station',
+        doorById: {
+          'side-door': {
+            id: 'side-door',
+            label: 'Side Door',
+            lock: { key: 'side-door-key' },
+          },
+        },
+      },
+      indoor: {
+        doorState: {
+          'utility-station:side-door': {
+            open: false,
+            locked: true,
+            lockBroken: false,
+          },
+        },
+        facility: {},
+      },
+      character: new Set(),
+      playerRoomId: 'yard',
+      doorStateFor: (doorId) => indoor.indoor.doorState[`utility-station:${doorId}`],
+      doorLockHint: () => 'Needs a key.',
+      canToggleDoorLock: () => false,
+    }
+
+    const actions = buildIndoorPlayActions(indoor)
+
+    expect(actions.map((action) => action.id)).not.toContain('door-lock:side-door')
+    expect(actions.some((action) => action.disabled)).toBe(false)
+  })
+
+  it('does not reveal fogged room names in door action labels', () => {
+    const indoor = {
+      indoorMoves: [],
+      roomPickups: [],
+      availableActions: [],
+      nearbyDoors: [{ doorId: 'library-hallway', toRoomId: 'library', toName: 'Library' }],
+      roomSwitches: [],
+      building: {
+        areaId: 'utility-station',
+        roomById: {
+          hallway: { id: 'hallway', label: 'Hallway', x: 0, y: 0, w: 2, h: 2 },
+          library: { id: 'library', label: 'Library' },
+        },
+        doorById: {
+          'library-hallway': { id: 'library-hallway', kind: 'man', at: { x: 0, y: 1 } },
+        },
+      },
+      indoor: {
+        discovered: new Set(['hallway']),
+        doorState: {
+          'utility-station:library-hallway': {
+            open: false,
+            locked: false,
+            lockBroken: false,
+          },
+        },
+        facility: {},
+      },
+      playerRoomId: 'hallway',
+      doorStateFor: (doorId) => indoor.indoor.doorState[`utility-station:${doorId}`],
+      doorLockHint: () => '',
+      canToggleDoorLock: () => false,
+    }
+
+    let actions = buildIndoorPlayActions(indoor)
+
+    expect(actions.map((action) => action.label)).toContain('Open the door')
+    expect(actions.map((action) => action.label).join(' ')).not.toMatch(/library/i)
+    expect(actions.map((action) => action.id)).not.toContain('door-lock:library-hallway')
+
+    indoor.indoor.discovered = new Set(['hallway', 'library'])
+    actions = buildIndoorPlayActions(indoor)
+
+    expect(actions.map((action) => action.label)).toContain('Open the library door')
+  })
+
+  it('uses position labels to distinguish multiple fogged doors', () => {
+    const indoor = {
+      indoorMoves: [],
+      roomPickups: [],
+      availableActions: [],
+      nearbyDoors: [
+        { doorId: 'west-door', toRoomId: 'west-room', toName: 'West Room' },
+        { doorId: 'east-door', toRoomId: 'east-room', toName: 'East Room' },
+      ],
+      roomSwitches: [],
+      building: {
+        areaId: 'utility-station',
+        roomById: {
+          hall: { id: 'hall', label: 'Hall', x: 0, y: 0, w: 4, h: 2 },
+          'west-room': { id: 'west-room', label: 'West Room' },
+          'east-room': { id: 'east-room', label: 'East Room' },
+        },
+        doorById: {
+          'west-door': { id: 'west-door', kind: 'man', at: { x: 0, y: 1 } },
+          'east-door': { id: 'east-door', kind: 'man', at: { x: 4, y: 1 } },
+        },
+      },
+      indoor: {
+        discovered: new Set(['hall']),
+        doorState: {
+          'utility-station:west-door': { open: false, locked: false, lockBroken: false },
+          'utility-station:east-door': { open: false, locked: false, lockBroken: false },
+        },
+        facility: {},
+      },
+      playerRoomId: 'hall',
+      doorStateFor: (doorId) => indoor.indoor.doorState[`utility-station:${doorId}`],
+      doorLockHint: () => '',
+      canToggleDoorLock: () => false,
+    }
+
+    const labels = buildIndoorPlayActions(indoor).map((action) => action.label)
+
+    expect(labels).toEqual(expect.arrayContaining([
+      'Open the west door',
+      'Open the east door',
+    ]))
+    expect(labels.join(' ')).not.toMatch(/west room|east room/i)
   })
 
   it('lets indoor story choices replace matching generic movement actions', () => {
@@ -335,6 +742,24 @@ describe('getMovementOptions', () => {
       'exterior:north-east-corner',
       'stand:stairs-bottom',
       'room:large-bay',
+    ])
+  })
+
+  it('dispatches explicit indoor door actions without entering through open exterior doors', () => {
+    const calls = []
+    const indoor = {
+      tryOpenDoor: (id) => calls.push(`open:${id}`),
+      tryCloseDoor: (id) => calls.push(`close:${id}`),
+      tryToggleDoor: (id) => calls.push(`toggle:${id}`),
+      moveToRoom: (id) => calls.push(`room:${id}`),
+    }
+
+    handleIndoorPlayAction(indoor, 'door-open:garage-man')
+    handleIndoorPlayAction(indoor, 'door-close:garage-man')
+
+    expect(calls).toEqual([
+      'open:garage-man',
+      'close:garage-man',
     ])
   })
 })

@@ -31,52 +31,78 @@ function setTransitionStand(target, value) {
 </script>
 
 <template>
-  <label>Label<input v-model="selection.entity.label" /></label>
-  <label>Outdoor hex<input v-model="selection.entity.hex" /></label>
-  <label>World stand ID
-    <input
-      :value="selection.entity.standAt?.stand ?? ''"
-      placeholder="driveway"
-      @input="setTransitionStand(selection.entity, $event.target.value)"
-    />
-  </label>
-  <label>Local stand
-    <select v-model="selection.entity.exteriorNode">
-      <option value="">Default entry</option>
-      <option
-        v-for="node in draft.exterior?.nodes ?? []"
-        :key="node.id"
-        :value="node.id"
-      >
-        {{ node.label || node.id }}
-      </option>
-    </select>
-  </label>
-  <label>Entry from hex IDs
-    <input
-      :value="csvList(selection.entity.entryFrom)"
-      placeholder="south-pines, west-slope"
-      @input="setCsvList(selection.entity, 'entryFrom', $event.target.value)"
-    />
-  </label>
-  <div class="field-grid">
-    <label>Map X
+  <section class="form-section">
+    <div class="section-heading">
+      <h4>Identity</h4>
+      <code>{{ selection.id }}</code>
+    </div>
+    <label>Label<input v-model="selection.entity.label" /></label>
+  </section>
+
+  <section class="form-section">
+    <div class="section-heading">
+      <h4>Regional side</h4>
+    </div>
+    <div class="field-grid">
+      <label>Regional hex<input v-model="selection.entity.hex" /></label>
+      <label>Regional stand ID
+        <input
+          :value="selection.entity.standAt?.stand ?? ''"
+          placeholder="driveway"
+          @input="setTransitionStand(selection.entity, $event.target.value)"
+        />
+      </label>
+    </div>
+    <label>Regional entry from hex IDs
       <input
-        :value="getExitMapAt(selection.entity).x"
-        type="number"
-        step=".01"
-        @input="setExitMapAt(draft, selection.id, Number($event.target.value), getExitMapAt(selection.entity).y)"
+        :value="csvList(selection.entity.entryFrom)"
+        placeholder="south-pines, west-slope"
+        @input="setCsvList(selection.entity, 'entryFrom', $event.target.value)"
       />
     </label>
-    <label>Map Y
-      <input
-        :value="getExitMapAt(selection.entity).y"
-        type="number"
-        step=".01"
-        @input="setExitMapAt(draft, selection.id, getExitMapAt(selection.entity).x, Number($event.target.value))"
-      />
+  </section>
+
+  <section class="form-section">
+    <div class="section-heading">
+      <h4>Local side</h4>
+    </div>
+    <label>Local arrival stand
+      <select v-model="selection.entity.exteriorNode">
+        <option value="">Default entry</option>
+        <option
+          v-for="node in draft.exterior?.nodes ?? []"
+          :key="node.id"
+          :value="node.id"
+        >
+          {{ node.label || node.id }}
+        </option>
+      </select>
     </label>
-  </div>
+  </section>
+
+  <section class="form-section">
+    <div class="section-heading">
+      <h4>Marker</h4>
+    </div>
+    <div class="field-grid">
+      <label>Map X
+        <input
+          :value="getExitMapAt(selection.entity).x"
+          type="number"
+          step=".01"
+          @input="setExitMapAt(draft, selection.id, Number($event.target.value), getExitMapAt(selection.entity).y)"
+        />
+      </label>
+      <label>Map Y
+        <input
+          :value="getExitMapAt(selection.entity).y"
+          type="number"
+          step=".01"
+          @input="setExitMapAt(draft, selection.id, getExitMapAt(selection.entity).x, Number($event.target.value))"
+        />
+      </label>
+    </div>
+  </section>
 </template>
 
 <style scoped>

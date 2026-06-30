@@ -1,4 +1,5 @@
 import { computed } from "vue";
+import { doorThresholdForRoom } from "../useGrid.js";
 import {
   applyEnablerAutoUnlock,
   relockEnablerDoor,
@@ -8,12 +9,19 @@ export function createIndoorFacility({ building, indoor, syncDoorState }) {
   const roomSwitches = computed(() => {
     const roomId = indoor.currentRoom;
     if (!roomId) return [];
-    return (building.value.switches ?? []).filter((s) => s.room === roomId);
+    return (building.value.switches ?? []).filter((s) =>
+      s.room === roomId && isAtSwitchStand(s)
+    );
   });
+
+  function isAtSwitchStand(sw) {
+    const threshold = doorThresholdForRoom(building.value, sw.room, sw.door);
+    return !!threshold && indoor.currentStand === threshold.id;
+  }
 
   function toggleManualRelease(doorId) {
     const sw = (building.value.switches ?? []).find((s) => s.door === doorId);
-    if (!sw || sw.room !== indoor.currentRoom) return;
+    if (!sw || sw.room !== indoor.currentRoom || !isAtSwitchStand(sw)) return;
     const next = { ...indoor.facility.manualMode };
     const engaging = !next[doorId];
     next[doorId] = engaging;

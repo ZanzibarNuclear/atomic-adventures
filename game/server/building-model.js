@@ -61,6 +61,7 @@ export function validateBuilding(input, {
   });
 
   const roomIds = validateIds(building.rooms, "rooms", errors);
+  const standIdsByRoom = new Map();
   building.rooms.forEach((room, index) => {
     const base = `rooms.${index}`;
     const levels = room.levels ?? (room.level ? [room.level] : []);
@@ -99,6 +100,7 @@ export function validateBuilding(input, {
     if (room.defaultStand && !standIds.has(room.defaultStand)) {
       add(`${base}.defaultStand`, "Default stand must reference an authored stand in this room.");
     }
+    standIdsByRoom.set(room.id, standIds);
   });
 
   const holderIds = new Set();
@@ -168,6 +170,8 @@ export function validateBuilding(input, {
     }
   });
 
+  addDerivedDoorStandIds(building, standIdsByRoom, roomIds, doorIds);
+
   const itemIds = new Set([
     ...validateIds(building.items, "items", errors),
     ...characterItemIds,
@@ -176,6 +180,10 @@ export function validateBuilding(input, {
   building.pickups.forEach((pickup, index) => {
     if (!roomIds.has(pickup.room)) add(`pickups.${index}.room`, "Pickup room must exist.");
     if (!itemIds.has(pickup.item)) add(`pickups.${index}.item`, "Pickup item must exist.");
+    if (pickup.stand != null) pickup.stand = text(pickup.stand) || null;
+    if (pickup.stand && !standIdsByRoom.get(pickup.room)?.has(pickup.stand)) {
+      add(`pickups.${index}.stand`, "Pickup stand must exist in the pickup room.");
+    }
   });
 
   validateIds(building.switches, "switches", errors);
@@ -185,6 +193,16 @@ export function validateBuilding(input, {
   });
 
   validateIds(building.actions, "actions", errors);
+  building.actions.forEach((action, index) => {
+    if (action.stand != null) action.stand = text(action.stand) || null;
+    if (action.stand) {
+      if (!action.room) {
+        add(`actions.${index}.stand`, "Action stand requires an action room.");
+      } else if (!standIdsByRoom.get(action.room)?.has(action.stand)) {
+        add(`actions.${index}.stand`, "Action stand must exist in the action room.");
+      }
+    }
+  });
   const exteriorNodes = building.exterior?.nodes ?? [];
   const nodeIds = validateIds(exteriorNodes, "exterior.nodes", errors);
   exteriorNodes.forEach((node, index) => {
@@ -278,6 +296,22 @@ export function validateBuilding(input, {
     warnings,
     valid: Object.keys(errors).length === 0,
   };
+}
+
+function addDerivedDoorStandIds(building, standIdsByRoom, roomIds, doorIds) {
+  function addStand(roomId, doorId) {
+    if (!roomIds.has(roomId) || !doorIds.has(doorId)) return;
+    standIdsByRoom.get(roomId)?.add(`door:${doorId}`);
+  }
+
+  for (const door of building.doors ?? []) {
+    if (door.room) addStand(door.room, door.id);
+  }
+  for (const link of building.links ?? []) {
+    if (link.kind !== "door" || !link.door) continue;
+    addStand(link.from, link.door);
+    addStand(link.to, link.door);
+  }
 }
 
 function validateActionCharacterReferences(action, index, character, add) {

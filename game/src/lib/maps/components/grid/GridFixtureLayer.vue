@@ -47,18 +47,6 @@
           :stroke-width="t.width"
           :opacity="t.opacity"
         />
-        <g v-if="f.featureRoomId && currentRoom === f.featureRoomId" class="spiral-exits">
-          <g
-            v-for="exit in stairExits(f)"
-            :key="exit.roomId"
-            class="spiral-exit"
-            :class="{ reachable: reachableRooms.includes(exit.roomId) }"
-            @click.stop="$emit('stair-exit-click', f, exit.roomId)"
-          >
-            <circle :cx="exit.x" :cy="exit.y" :r="cell * 0.14" class="stair-pad" />
-            <text :x="exit.x" :y="exit.y" class="stair-icon">{{ exit.icon }}</text>
-          </g>
-        </g>
       </template>
       <template v-else>
         <rect
@@ -87,23 +75,7 @@
           class="stair-tread"
           :stroke-width="t.width"
         />
-        <g v-if="f.featureRoomId && currentRoom === f.featureRoomId" class="spiral-exits">
-          <g
-            v-for="exit in stairExits(f)"
-            :key="exit.roomId"
-            class="spiral-exit"
-            :class="{ reachable: reachableRooms.includes(exit.roomId) }"
-            @click.stop="$emit('stair-exit-click', f, exit.roomId)"
-          >
-            <circle :cx="exit.x" :cy="exit.y" :r="cell * 0.14" class="stair-pad" />
-            <text :x="exit.x" :y="exit.y" class="stair-icon">{{ exit.icon }}</text>
-          </g>
-        </g>
-        <template v-else-if="f.featureRoomId">
-          <circle :cx="f.cx" :cy="f.cy" :r="cell * 0.15" class="stair-pad" />
-          <text :x="f.cx" :y="f.cy" class="stair-icon">{{ dirIcon(f.dir) }}</text>
-        </template>
-        <template v-else-if="!f.visualOnly">
+        <template v-if="!f.featureRoomId && !f.visualOnly">
           <circle :cx="f.cx" :cy="f.cy" :r="cell * 0.15" class="stair-pad" />
           <text :x="f.cx" :y="f.cy" class="stair-icon">{{ dirIcon(f.dir) }}</text>
         </template>
@@ -123,23 +95,12 @@ const props = defineProps({
   builderFixtureClickTarget: { type: String, default: 'fixture' },
 })
 
-const emit = defineEmits(['stair-fixture-click', 'stair-exit-click', 'select-item'])
+const emit = defineEmits(['stair-fixture-click', 'select-item'])
 
 function dirIcon(dir) {
   if (dir === 'up') return '▲'
   if (dir === 'down') return '▼'
   return '↕'
-}
-
-function stairExits(f) {
-  const out = []
-  if (f.exitUpRoomId) {
-    out.push({ roomId: f.exitUpRoomId, x: f.exitUp.x, y: f.exitUp.y, icon: '▲' })
-  }
-  if (f.exitDownRoomId) {
-    out.push({ roomId: f.exitDownRoomId, x: f.exitDown.x, y: f.exitDown.y, icon: '▼' })
-  }
-  return out
 }
 
 function onFixtureClick(f) {
@@ -202,20 +163,6 @@ function onFixtureClick(f) {
   stroke: #d7c48f;
   stroke-width: 1.5;
   pointer-events: none;
-}
-.spiral-exit {
-  cursor: default;
-  opacity: 0.45;
-}
-.spiral-exit.reachable {
-  cursor: pointer;
-  opacity: 1;
-}
-.spiral-exit.reachable .stair-pad {
-  pointer-events: all;
-}
-.spiral-exit .stair-pad {
-  pointer-events: all;
 }
 .stair-icon {
   fill: #d7c48f;

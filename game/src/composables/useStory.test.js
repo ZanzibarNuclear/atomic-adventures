@@ -10,9 +10,13 @@ function harness(initialStory, {
   moveTo = () => {},
   moveToExteriorNode = () => {},
   initialPlace = "outdoors",
+  initialRoom = null,
   initialExteriorNode = null,
   initialOriginHex = null,
   initialLocalExit = null,
+  initialMapTransition = null,
+  initialTransitionDirection = null,
+  initialClock = { elapsedMinutes: 0, minuteOfDay: 8 * 60, day: 1 },
   openStageView = () => {},
 } = {}) {
   const story = ref(initialStory);
@@ -22,7 +26,7 @@ function harness(initialStory, {
     storySeen: new Set(),
     endCardDismissed: false,
     ...(withClock ? {
-      clock: { elapsedMinutes: 0, minuteOfDay: 8 * 60, day: 1 },
+      clock: { ...initialClock },
     } : {}),
     ...(withCharacter ? {
       character: createCharacterState({
@@ -43,13 +47,15 @@ function harness(initialStory, {
       currentId: "origin",
       previousId: initialOriginHex,
       localExit: initialLocalExit,
+      mapTransition: initialMapTransition,
+      transitionDirection: initialTransitionDirection,
     }),
     canReachHex: () => true,
     moveTo,
     atBuildingEntrance: false,
   };
   const indoor = {
-    indoor: reactive({ currentRoom: null, exteriorNode: initialExteriorNode }),
+    indoor: reactive({ currentRoom: initialRoom, exteriorNode: initialExteriorNode }),
     enterBuilding: () => {},
     moveToRoom: () => {},
     moveToExteriorNode,
@@ -231,6 +237,7 @@ describe("useStory reactive content", () => {
 
   it("advances choice time before movement", () => {
     let minutesDuringMove = 0;
+    let moveOptions = null;
     const effectBeat = {
       ...beat,
       choices: [{
@@ -242,8 +249,9 @@ describe("useStory reactive content", () => {
     const setup = harness({ beats: { effect: effectBeat } }, {
       withClock: true,
       withCharacter: true,
-      moveTo: () => {
+      moveTo: (_hexId, options) => {
         minutesDuringMove = setup.gameState.clock.elapsedMinutes;
+        moveOptions = options;
       },
     });
 
@@ -251,7 +259,103 @@ describe("useStory reactive content", () => {
     setup.api.applyChoice(0);
 
     expect(minutesDuringMove).toBe(5);
+    expect(moveOptions).toEqual({ suppressDefaultTime: true });
     expect(setup.gameState.storySeen.has("effect")).toBe(true);
+  });
+
+  it("does not suppress default outdoor movement time when a story move has no authored time", () => {
+    let moveOptions = null;
+    const effectBeat = {
+      ...beat,
+      choices: [{
+        text: "Go now",
+        go_hex: "east-pines",
+      }],
+    };
+    const setup = harness({ beats: { effect: effectBeat } }, {
+      withClock: true,
+      withCharacter: true,
+      moveTo: (_hexId, options) => {
+        moveOptions = options;
+      },
+    });
+
+    setup.api.refreshNarrative();
+    setup.api.applyChoice(0);
+
+    expect(setup.gameState.clock.elapsedMinutes).toBe(0);
+    expect(moveOptions).toEqual({ suppressDefaultTime: false });
+  });
+
+  it("uses beat time criteria to select the matching room beat", () => {
+    const setup = harness({
+      beats: {
+        "library-default": {
+          text: "The library is quiet.",
+          trigger: { place: "indoors", room: "library" },
+          choices: [],
+        },
+        "library-evening": {
+          text: "The sun is setting through the library windows.",
+          trigger: { place: "indoors", room: "library" },
+          time: { days: [1], phase: "evening" },
+          choices: [],
+        },
+      },
+    }, {
+      withClock: true,
+      initialPlace: "indoors",
+      initialRoom: "library",
+      initialClock: { day: 1, minuteOfDay: 18 * 60, elapsedMinutes: 10 * 60 },
+    });
+
+    setup.api.refreshNarrative();
+
+    expect(setup.api.pendingBeat.value.id).toBe("library-evening");
+  });
+
+  it("advances sleep-until choice time and refreshes to the Day 2 library beat", () => {
+    const setup = harness({
+      beats: {
+        "library-arrival": {
+          text: "Zanzi reaches the library as the last light fades.",
+          trigger: { place: "indoors", room: "library" },
+          time: { days: [1], phase: "evening", beforeMilestone: "library.sleep-1" },
+          choices: [{
+            text: "Sleep in the soft seating",
+            timeUntil: { dayOffset: 1, minuteOfDay: 7 * 60 },
+            activity: "resting",
+            sets: ["library.sleep-1", "day-2.started"],
+          }],
+        },
+        "library-wakeup": {
+          text: "Morning light spills across the library.",
+          trigger: { place: "indoors", room: "library" },
+          time: { days: [2], phase: "morning", afterMilestone: "library.sleep-1" },
+          choices: [],
+        },
+      },
+    }, {
+      withClock: true,
+      withCharacter: true,
+      initialPlace: "indoors",
+      initialRoom: "library",
+      initialClock: { day: 1, minuteOfDay: 19 * 60, elapsedMinutes: 11 * 60 },
+    });
+
+    setup.api.refreshNarrative();
+    expect(setup.api.pendingBeat.value.id).toBe("library-arrival");
+
+    setup.api.applyChoice(0);
+
+    expect(setup.gameState.clock).toMatchObject({
+      day: 2,
+      minuteOfDay: 7 * 60,
+      elapsedMinutes: 23 * 60,
+    });
+    expect(setup.gameState.flags.has("library.sleep-1")).toBe(true);
+    expect(setup.api.pendingBeat.value.id).toBe("library-wakeup");
+    expect(setup.api.pendingBeat.value.text).toBe("Morning light spills across the library.");
   });
 
   it("opens a stage view from a story choice without dismissing the beat", () => {
@@ -353,6 +457,32 @@ describe("useStory reactive content", () => {
     expect(setup.api.pendingBeat.value.id).toBe("utility-yard-from-flats");
   });
 
+  it("matches an outdoor beat with multiple origin hexes", () => {
+    const setup = harness({
+      beats: {
+        "utility-yard-default": {
+          heading: "Default yard",
+          text: "The utility station is just ahead.",
+          trigger: { place: "outdoors", hex: "origin" },
+          choices: [],
+        },
+        "utility-yard-from-east-arc": {
+          heading: "Eastern approach",
+          text: "The eastern paths bring you in by the intake.",
+          trigger: { place: "outdoors", hex: "origin" },
+          match: { originHex: ["northeast", "east", "southeast"] },
+          choices: [],
+        },
+      },
+    }, {
+      initialOriginHex: "east",
+    });
+
+    setup.api.refreshNarrative();
+
+    expect(setup.api.pendingBeat.value.id).toBe("utility-yard-from-east-arc");
+  });
+
   it("falls back to the default outdoor beat when origin-specific beats do not match", () => {
     const setup = harness({
       beats: {
@@ -424,7 +554,7 @@ describe("useStory reactive content", () => {
     expect(setup.api.pendingBeat.value.revisit).toBe(true);
   });
 
-  it("uses a local-exit beat after returning from a local map", () => {
+  it("uses a to-regional map-transition beat after returning from a local map", () => {
     const setup = harness({
       beats: {
         "utility-yard-default": {
@@ -436,6 +566,33 @@ describe("useStory reactive content", () => {
           text: "The riverbank path brings you in by the intake.",
           trigger: { place: "outdoors", hex: "origin" },
           match: { originHex: "the-flats" },
+          choices: [],
+        },
+        "utility-yard-from-garage": {
+          text: "You are standing in front of the garage doors.",
+          trigger: { place: "outdoors", hex: "origin" },
+          match: { mapTransition: "garage-exit", transitionDirection: "toRegional" },
+          choices: [],
+        },
+      },
+    }, {
+      initialOriginHex: null,
+      initialLocalExit: "garage-exit",
+      initialMapTransition: "garage-exit",
+      initialTransitionDirection: "toRegional",
+    });
+
+    setup.api.refreshNarrative();
+
+    expect(setup.api.pendingBeat.value.id).toBe("utility-yard-from-garage");
+  });
+
+  it("keeps legacy localExit beats working after returning from a local map", () => {
+    const setup = harness({
+      beats: {
+        "utility-yard-default": {
+          text: "The utility station is just ahead.",
+          trigger: { place: "outdoors", hex: "origin" },
           choices: [],
         },
         "utility-yard-from-garage": {
@@ -455,7 +612,34 @@ describe("useStory reactive content", () => {
     expect(setup.api.pendingBeat.value.id).toBe("utility-yard-from-garage");
   });
 
-  it("lets one beat match origin entry or local exit depending on the action", () => {
+  it("uses a map-transition beat after entering a local map", () => {
+    const setup = harness({
+      beats: {
+        "large-bay-default": {
+          text: "You are near the side of the large bay.",
+          trigger: { place: "indoors", exteriorNode: "large-bay-man-front" },
+          choices: [],
+        },
+        "large-bay-from-transition": {
+          text: "The path from the pines ends at the large bay door.",
+          trigger: { place: "indoors", exteriorNode: "large-bay-man-front" },
+          match: { mapTransition: "man-door-path", transitionDirection: "toLocal" },
+          choices: [],
+        },
+      },
+    }, {
+      initialPlace: "indoors",
+      initialExteriorNode: "large-bay-man-front",
+      initialMapTransition: "man-door-path",
+      initialTransitionDirection: "toLocal",
+    });
+
+    setup.api.refreshNarrative();
+
+    expect(setup.api.pendingBeat.value.id).toBe("large-bay-from-transition");
+  });
+
+  it("lets one beat match origin entry or map transition depending on the action", () => {
     const setup = harness({
       beats: {
         "utility-yard-default": {
@@ -466,7 +650,7 @@ describe("useStory reactive content", () => {
         "utility-yard-action-specific": {
           text: "You arrive at the utility yard from a familiar approach.",
           trigger: { place: "outdoors", hex: "origin" },
-          match: { originHex: "the-flats", localExit: "garage-exit" },
+          match: { originHex: "the-flats", mapTransition: "garage-exit" },
           choices: [],
         },
       },
@@ -482,12 +666,14 @@ describe("useStory reactive content", () => {
     setup.api.pendingBeat.value = null;
     setup.outdoor.state.previousId = "west-slope";
     setup.outdoor.state.localExit = "garage-exit";
+    setup.outdoor.state.mapTransition = "garage-exit";
+    setup.outdoor.state.transitionDirection = "toRegional";
     setup.api.refreshNarrative();
 
     expect(setup.api.pendingBeat.value.id).toBe("utility-yard-action-specific");
   });
 
-  it("ignores origin-specific criteria during local-exit selection", () => {
+  it("ignores origin-specific criteria during map-transition selection", () => {
     const setup = harness({
       beats: {
         "utility-yard-default": {
@@ -498,13 +684,15 @@ describe("useStory reactive content", () => {
         "utility-yard-from-flats-and-garage": {
           text: "You are standing in front of the garage doors.",
           trigger: { place: "outdoors", hex: "origin" },
-          match: { originHex: "the-flats", localExit: "garage-exit" },
+          match: { originHex: "the-flats", mapTransition: "garage-exit" },
           choices: [],
         },
       },
     }, {
       initialOriginHex: "west-slope",
       initialLocalExit: "garage-exit",
+      initialMapTransition: "garage-exit",
+      initialTransitionDirection: "toRegional",
     });
 
     setup.api.refreshNarrative();
@@ -512,7 +700,7 @@ describe("useStory reactive content", () => {
     expect(setup.api.pendingBeat.value.id).toBe("utility-yard-from-flats-and-garage");
   });
 
-  it("does not treat local-exit-only beats as defaults during inter-hex entry", () => {
+  it("does not treat map-transition-only beats as defaults during inter-hex entry", () => {
     const setup = harness({
       beats: {
         "utility-yard-default": {
@@ -523,7 +711,7 @@ describe("useStory reactive content", () => {
         "utility-yard-from-garage": {
           text: "You are standing in front of the garage doors.",
           trigger: { place: "outdoors", hex: "origin" },
-          match: { localExit: "garage-exit" },
+          match: { mapTransition: "garage-exit", transitionDirection: "toRegional" },
           choices: [],
         },
       },
@@ -537,7 +725,7 @@ describe("useStory reactive content", () => {
     expect(setup.api.pendingBeat.value.id).toBe("utility-yard-default");
   });
 
-  it("does not keep using an origin-specific beat after a local exit clears origin", () => {
+  it("does not keep using an origin-specific beat after a map transition clears origin", () => {
     const setup = harness({
       beats: {
         "utility-yard-default": {
@@ -555,6 +743,8 @@ describe("useStory reactive content", () => {
     }, {
       initialOriginHex: null,
       initialLocalExit: "garage-exit",
+      initialMapTransition: "garage-exit",
+      initialTransitionDirection: "toRegional",
     });
 
     setup.api.refreshNarrative();

@@ -20,7 +20,8 @@ local grid map such as the Utility Station exterior/interior map.
 | --- | --- |
 | World map | The outdoor hex map. |
 | Local map | The grid map for a building/local area. |
-| Transition | A bidirectional connection between one world hex and one local-map exit marker. |
+| Map transition | A bidirectional connection between one regional hex and one local-map marker. |
+| Transition | Legacy short name for a map transition. |
 | Local stand | The exterior node where the avatar appears on the local map. |
 | Arrival stand | A local stand used as the first position after switching maps. It may be off the walkable path graph. |
 | Join node | A walkable exterior node that an off-path arrival stand connects to when the player first steps onto the path network. |
@@ -94,8 +95,10 @@ When the player chooses to enter a building/local map from a world hex:
    - then the building's default entry transition;
    - finally `building.exterior.entry`.
 4. Set `indoor.exteriorNode` to the selected transition's `exteriorNode`.
-5. Set `place = "indoors"` without changing the outdoor current hex.
-6. Let normal story-beat selection show the beat for that exterior node. Do not
+5. Set `outdoor.state.mapTransition` to the selected transition ID and
+   `outdoor.state.transitionDirection` to `toLocal`.
+6. Set `place = "indoors"` without changing the outdoor current hex.
+7. Let normal story-beat selection show the beat for that exterior node. Do not
    fire a generic map-switch or enter-building event.
 
 For Utility Station:
@@ -104,7 +107,7 @@ For Utility Station:
 | --- | --- | --- |
 | Driveway/building approach | `garage-exit` | `garage-front-entrance` |
 | `the-flats` approach | `river-walk` | `intake-entrance` |
-| `south-pines` approach | `man-door-path` | `side-entrance` |
+| `south-pines` approach | `man-door-path` | `large-bay-man-front` |
 | Future southern approach | `southeast-corner` | `south-east-corner-entrance` |
 
 ## Exiting Local To World
@@ -116,17 +119,22 @@ When the player activates a local MAP marker:
 3. Set `outdoor.state.currentId` to `transition.hex`.
 4. Set `outdoor.state.stand` to `transition.standAt` resolved in world
    coordinates.
-5. Clear indoor room/exterior-node state and set `place = "outdoors"`.
+5. Set `outdoor.state.mapTransition` to the selected transition ID and
+   `outdoor.state.transitionDirection` to `toRegional`.
+6. Clear indoor room/exterior-node state and set `place = "outdoors"`.
 
 If `transition.standAt` is omitted, use the existing fallback:
 `outdoor.defaultStandForHex(transition.hex)`.
+
+Story beats associated with a map transition use `match.mapTransition` plus
+`match.transitionDirection`; see [story-beats.md](story-beats.md).
 
 ## Utility Yard Initial Stands
 
 The Utility Station authors distinct world stands in `utility-yard` for return
 points and matching world-map approaches. A stand may include `entryFrom` so
 inter-hex movement into `utility-yard` lands at the same authored point that a
-local-map exit uses.
+map transition uses.
 
 ```js
 {

@@ -47,6 +47,7 @@ const props = defineProps({
   viewBoxOverride: { type: String, default: "" },
   editHandleScale: { type: Number, default: 1 },
   selectableObjects: { type: Boolean, default: false },
+  showLegend: { type: Boolean, default: true },
 })
 
 const emit = defineEmits([
@@ -153,7 +154,7 @@ const {
     :expanded="expanded"
     :builder-edit="builderEdit"
     :add-point-mode="addPointMode"
-    :has-legend="hasLegend"
+    :has-legend="showLegend && hasLegend"
     :legend-terrains="legendTerrains"
     :legend-lines="legendLines"
     :legend-passages="legendPassages"

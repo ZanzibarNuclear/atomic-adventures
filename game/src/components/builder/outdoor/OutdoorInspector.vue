@@ -1,4 +1,5 @@
 <script setup>
+import { computed, ref, watch } from "vue";
 import FeatureInspector from "./FeatureInspector.vue";
 import HexInspector from "./HexInspector.vue";
 import LandmarkInspector from "./LandmarkInspector.vue";
@@ -8,7 +9,7 @@ import RouteInspector from "./RouteInspector.vue";
 import StandInspector from "./StandInspector.vue";
 import RevisionHistoryPanel from "../RevisionHistoryPanel.vue";
 
-defineProps({
+const props = defineProps({
   selected: { type: Object, default: null },
   selectedType: { type: String, default: "" },
   selectedIsLine: { type: Boolean, default: false },
@@ -29,6 +30,9 @@ defineProps({
   auditSummary: { type: Object, default: null },
   invalidAuditEntries: { type: Array, required: true },
   warnings: { type: Array, required: true },
+  storyBeats: { type: Array, default: () => [] },
+  characterCatalog: { type: Object, required: true },
+  artifactPlacements: { type: Array, required: true },
   showHistory: { type: Boolean, default: false },
   revisions: { type: Array, required: true },
   select: { type: Function, required: true },
@@ -59,6 +63,193 @@ defineProps({
   removePoint: { type: Function, required: true },
   restoreRevision: { type: Function, required: true },
 });
+
+const emit = defineEmits([
+  "open-location-beat",
+  "open-artifact",
+  "place-artifact",
+  "remove-artifact-placement",
+]);
+const editing = ref(false);
+const selectedArtifactItemId = ref("");
+const placementFormOpen = ref(false);
+const editingPlacementId = ref("");
+
+watch(
+  () => `${props.selectedType}:${props.selected?.id ?? ""}`,
+  () => {
+    editing.value = false;
+    placementFormOpen.value = false;
+    selectedArtifactItemId.value = "";
+    editingPlacementId.value = "";
+  },
+);
+
+watch(
+  () => props.characterCatalog.items,
+  () => {
+    if (
+      selectedArtifactItemId.value &&
+      !props.characterCatalog.items.some((item) => item.id === selectedArtifactItemId.value)
+    ) {
+      selectedArtifactItemId.value = "";
+    }
+  },
+  { immediate: true },
+);
+
+const selectedTitle = computed(() => {
+  if (!props.selected) return "";
+  if (props.selectedType === "landmark") {
+    return props.selected.landmark?.label || props.selected.landmark?.building || props.selected.id;
+  }
+  if (props.selectedType === "stand") {
+    return props.standEditDraft?.label || props.selected.id;
+  }
+  return props.selected.label || props.selected.id;
+});
+
+function beatContextLabel(beat) {
+  const match = beat.match ?? {};
+  const details = [
+    originHexPrefix(match.originHex),
+    match.mapTransition ? `via ${match.mapTransition}` : "",
+    match.localExit ? `via ${match.localExit}` : "",
+    match.transitionDirection || "",
+  ].filter(Boolean);
+  return details.join(" / ") || "Default hex beat";
+}
+
+function originHexLabel(value) {
+  const origins = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(",").map((item) => item.trim()).filter(Boolean)
+      : value
+        ? [value]
+        : [];
+  return origins.join(", ");
+}
+
+function originHexPrefix(value) {
+  const label = originHexLabel(value);
+  return label ? `from ${label}` : "";
+}
+
+const locationBeatTarget = computed(() => {
+  if (!props.selected || props.selectedType !== "hex") return null;
+  return {
+    locationMode: "outdoors",
+    location: props.selected.id,
+    label: "Hex beats",
+  };
+});
+
+const associatedLocationBeats = computed(() => {
+  if (!locationBeatTarget.value) return [];
+  return props.storyBeats.filter((beat) =>
+    beat.trigger?.place === "outdoors" && beat.trigger?.hex === locationBeatTarget.value.location,
+  );
+});
+
+const placedArtifacts = computed(() => {
+  if (!props.selected || props.selectedType !== "hex") return [];
+  return props.artifactPlacements.filter((placement) => placement.hex === props.selected.id);
+});
+
+const currentStandOptions = computed(() =>
+  props.selectedType === "hex" ? props.selected?.stands ?? [] : [],
+);
+
+function artifactLabel(id) {
+  const item = props.characterCatalog.items.find((candidate) => candidate.id === id);
+  return item?.label || id;
+}
+
+function standLabel(id) {
+  const stand = currentStandOptions.value.find((candidate) => candidate.id === id);
+  return stand?.label || id || "None";
+}
+
+function openPlacementForm() {
+  selectedArtifactItemId.value = "";
+  placementFormOpen.value = true;
+}
+
+function placeSelectedArtifact() {
+  if (!props.selected || props.selectedType !== "hex" || !selectedArtifactItemId.value) return;
+  emit("place-artifact", {
+    hexId: props.selected.id,
+    itemId: selectedArtifactItemId.value,
+  });
+  selectedArtifactItemId.value = "";
+  placementFormOpen.value = false;
+}
+
+function editPlacement(placementId) {
+  editingPlacementId.value = placementId;
+}
+
+function stopEditingPlacement(placementId) {
+  if (editingPlacementId.value === placementId) editingPlacementId.value = "";
+}
+
+function removePlacement(placementId) {
+  if (editingPlacementId.value === placementId) editingPlacementId.value = "";
+  emit("remove-artifact-placement", { id: placementId });
+}
+
+const summaryRows = computed(() => {
+  const item = props.selected;
+  if (!item) return [];
+  if (props.selectedType === "hex") {
+    return [
+      ["ID", item.id],
+      ["Terrain", item.terrain],
+      ["Coordinates", `q ${item.q}, r ${item.r}`],
+      ["Landmark", item.landmark?.label || item.landmark?.building || "None"],
+      ["Stand points", String((item.stands ?? []).length)],
+    ];
+  }
+  if (props.selectedType === "landmark") {
+    return [
+      ["ID", item.id],
+      ["Cell", item.id],
+      ["Building", item.landmark?.building || "None"],
+      ["Icon", item.landmark?.icon || "None"],
+      ["Offset", `${item.landmark?.dx ?? 0}, ${item.landmark?.dy ?? 0}`],
+    ];
+  }
+  if (props.selectedType === "stand") {
+    return [
+      ["ID", props.standEditDraft?.id || item.id],
+      ["Cell", item.id],
+      ["Stand", props.standEditDraft?.id || ""],
+      ["Anchor", props.standEditDraft?.anchor || "hex"],
+      ["Position", props.standEditDraft?.anchor === "world"
+        ? `${props.standEditDraft?.x ?? ""}, ${props.standEditDraft?.y ?? ""}`
+        : `${props.standEditDraft?.dx ?? 0}, ${props.standEditDraft?.dy ?? 0}`],
+    ];
+  }
+  if (props.selectedType === "route") {
+    return [
+      ["ID", item.id],
+      ["Kind", item.kind],
+      ["Points", String((item.points ?? []).length)],
+      ["Smooth", item.smooth ? "Yes" : "No"],
+    ];
+  }
+  if (props.selectedType === "feature" || props.selectedType === "passage") {
+    return [
+      ["ID", item.id],
+      ["Kind", item.kind],
+      ["Points", String((item.points ?? []).length)],
+      ["Flow", item.flow || "None"],
+      ["Smooth", item.smooth ? "Yes" : "No"],
+    ];
+  }
+  return [["ID", item.id]];
+});
 </script>
 
 <template>
@@ -67,15 +258,124 @@ defineProps({
       <div class="inspector-heading">
         <div>
           <p class="label">{{ selectedType }}</p>
-          <h3>{{ selected.id }}</h3>
+          <h3>{{ selectedTitle }}</h3>
         </div>
         <div class="row-actions">
-          <button class="sm muted" @click="moveSelected(-1)">↑</button>
-          <button class="sm muted" @click="moveSelected(1)">↓</button>
+          <button v-if="!editing" class="sm" @click="editing = true">Edit</button>
+          <button v-else class="sm muted" @click="editing = false">Done</button>
         </div>
       </div>
 
-      <div class="row-actions">
+      <section v-if="!editing" class="detail-card">
+        <div v-for="[label, value] in summaryRows" :key="label" class="detail-row">
+          <span>{{ label }}</span>
+          <strong>{{ value || "None" }}</strong>
+        </div>
+        <div v-if="locationBeatTarget" class="beat-associations">
+          <div>
+            <p class="label">{{ locationBeatTarget.label }}</p>
+            <p v-if="!associatedLocationBeats.length" class="empty-note">None yet.</p>
+            <ul v-else>
+              <li v-for="beat in associatedLocationBeats" :key="beat.id">
+                <button
+                  type="button"
+                  class="beat-link"
+                  @click="emit('open-location-beat', {
+                    locationMode: locationBeatTarget.locationMode,
+                    location: locationBeatTarget.location,
+                    beatId: beat.id,
+                  })"
+                >
+                  <strong>{{ beat.heading || beat.id }}</strong>
+                  <span>{{ beatContextLabel(beat) }}</span>
+                </button>
+              </li>
+            </ul>
+            <button
+              type="button"
+              class="sm muted add-beat"
+              @click="emit('open-location-beat', {
+                locationMode: locationBeatTarget.locationMode,
+                location: locationBeatTarget.location,
+                create: true,
+              })"
+            >
+              Add beat
+            </button>
+          </div>
+        </div>
+        <div v-if="selectedType === 'hex'" class="artifact-associations">
+          <p class="label">Artifact placements</p>
+          <p v-if="!placedArtifacts.length" class="empty-note">None yet.</p>
+          <ul v-else>
+            <li v-for="placement in placedArtifacts" :key="placement.id">
+              <div class="artifact-placement-card">
+                <button
+                  type="button"
+                  class="artifact-link"
+                  @click="emit('open-artifact', { catalog: 'items', id: placement.item })"
+                >
+                  <strong>{{ artifactLabel(placement.item) }}</strong>
+                  <span>{{ placement.item }} / {{ placement.id }}</span>
+                </button>
+                <template v-if="editingPlacementId === placement.id">
+                  <label>Placement text<input v-model="placement.label"></label>
+                  <label>Standpoint
+                    <select v-model="placement.stand">
+                      <option :value="null">None</option>
+                      <option v-for="stand in currentStandOptions" :key="stand.id" :value="stand.id">
+                        {{ stand.label || stand.id }} ({{ stand.id }})
+                      </option>
+                    </select>
+                  </label>
+                  <div class="row-actions placement-actions">
+                    <button type="button" class="sm muted" @click="stopEditingPlacement(placement.id)">Done</button>
+                    <button type="button" class="sm danger-outline" @click="removePlacement(placement.id)">Remove</button>
+                  </div>
+                </template>
+                <template v-else>
+                  <p class="placement-text">{{ placement.label || "No placement text." }}</p>
+                  <p v-if="placement.stand" class="placement-meta">Standpoint: {{ standLabel(placement.stand) }}</p>
+                  <div class="row-actions placement-actions">
+                    <button type="button" class="sm muted" @click="editPlacement(placement.id)">Edit</button>
+                    <button type="button" class="sm danger-outline" @click="removePlacement(placement.id)">Remove</button>
+                  </div>
+                </template>
+              </div>
+            </li>
+          </ul>
+          <div v-if="placementFormOpen" class="artifact-placement-form">
+            <label>Artifact
+              <select
+                v-model="selectedArtifactItemId"
+                :disabled="!characterCatalog.items.length"
+                @change="placeSelectedArtifact"
+              >
+                <option value="">Select artifact...</option>
+                <option v-for="item in characterCatalog.items" :key="item.id" :value="item.id">
+                  {{ item.label }} ({{ item.id }})
+                </option>
+              </select>
+            </label>
+            <button type="button" class="sm muted" @click="placementFormOpen = false">Cancel</button>
+          </div>
+          <button
+            v-else
+            type="button"
+            class="sm muted add-beat"
+            :disabled="!characterCatalog.items.length"
+            @click="openPlacementForm"
+          >
+            Place artifact
+          </button>
+        </div>
+      </section>
+
+      <div v-if="editing" class="edit-toolbar">
+        <div class="row-actions">
+          <button class="sm muted" @click="moveSelected(-1)">Move up</button>
+          <button class="sm muted" @click="moveSelected(1)">Move down</button>
+        </div>
         <template v-if="selectedType === 'landmark'">
           <button class="sm" :disabled="!landmarkEditDirty" @click="saveLandmarkEdit">Save changes</button>
           <button class="sm muted" @click="backToHexFromLandmark">Back to cell</button>
@@ -92,7 +392,7 @@ defineProps({
       </div>
 
       <HexInspector
-        v-if="selectedType === 'hex'"
+        v-if="editing && selectedType === 'hex'"
         :selected="selected"
         :terrain-kinds="terrainKinds"
         :landmark-draft="landmarkDraft"
@@ -106,28 +406,28 @@ defineProps({
         :cancel-stand-draft="cancelStandDraft"
       />
       <LandmarkInspector
-        v-else-if="selectedType === 'landmark' && landmarkEditDraft"
+        v-else-if="editing && selectedType === 'landmark' && landmarkEditDraft"
         :landmark-edit-draft="landmarkEditDraft"
       />
       <StandInspector
-        v-else-if="selectedType === 'stand' && standEditDraft"
+        v-else-if="editing && selectedType === 'stand' && standEditDraft"
         :selected="selected"
         :stand-edit-draft="standEditDraft"
       />
       <RouteInspector
-        v-else-if="selectedType === 'route'"
+        v-else-if="editing && selectedType === 'route'"
         :selected="selected"
         :route-kinds="routeKinds"
       />
       <FeatureInspector
-        v-else-if="selectedType === 'feature'"
+        v-else-if="editing && selectedType === 'feature'"
         :selected="selected"
         :feature-line-kinds="featureLineKinds"
         :add-cascade="addCascade"
         :remove-cascade="removeCascade"
       />
       <PassageInspector
-        v-else-if="selectedType === 'passage'"
+        v-else-if="editing && selectedType === 'passage'"
         :selected="selected"
         :passage-kinds="passageKinds"
         :all-hex-ids="allHexIds"
@@ -140,7 +440,7 @@ defineProps({
       />
 
       <LinePointsEditor
-        v-if="selectedIsLine"
+        v-if="editing && selectedIsLine"
         :selected="selected"
         :tool="tool"
         :all-hex-ids="allHexIds"
@@ -194,6 +494,92 @@ defineProps({
   flex-wrap: wrap;
 }
 .inspector h3 { margin: 0; }
+.detail-card, .edit-toolbar {
+  display: grid;
+  gap: .55rem;
+  padding: .65rem;
+  border: 1px solid #343d4d;
+  border-radius: 8px;
+  background: #1b2028;
+}
+.detail-row {
+  display: grid;
+  grid-template-columns: minmax(6rem, .75fr) minmax(0, 1fr);
+  gap: .75rem;
+  align-items: baseline;
+}
+.detail-row span { color: #8e96a3; font-size: .75rem; }
+.detail-row strong { min-width: 0; overflow-wrap: anywhere; color: #eef1f5; font-size: .85rem; font-weight: 600; }
+.beat-associations,
+.artifact-associations {
+  display: grid;
+  gap: .65rem;
+  padding-top: .65rem;
+  border-top: 1px solid #343d4d;
+}
+.beat-associations p,
+.artifact-associations p { margin: 0; }
+.beat-associations ul,
+.artifact-associations ul {
+  display: grid;
+  gap: .35rem;
+  margin: .35rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.beat-associations li,
+.artifact-associations li { display: block; }
+.beat-link,
+.artifact-link {
+  display: grid;
+  gap: .1rem;
+  width: 100%;
+  padding: .45rem .55rem;
+  border: 1px solid #394457;
+  border-radius: 7px;
+  background: #202733;
+  text-align: left;
+}
+.beat-link:hover { border-color: #5f718f; background: #273142; }
+.artifact-link:hover { border-color: #5f718f; background: #273142; }
+.beat-link strong,
+.artifact-link strong { color: #eef1f5; font-size: .8rem; }
+.beat-link span,
+.artifact-link span { color: #9da7b5; font-size: .74rem; }
+.artifact-placement-card,
+.artifact-placement-form {
+  display: grid;
+  gap: .45rem;
+  padding: .5rem;
+  border: 1px solid #343d4d;
+  border-radius: 8px;
+  background: #1b2028;
+}
+.placement-text {
+  margin: 0;
+  color: #bdc4ce;
+  font-size: .8rem;
+  overflow-wrap: anywhere;
+}
+.placement-meta {
+  margin: 0;
+  color: #8e96a3;
+  font-size: .74rem;
+  overflow-wrap: anywhere;
+}
+.placement-actions { justify-content: flex-start; }
+.add-beat { width: 100%; margin-top: .4rem; justify-content: center; }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 .inspector input, .inspector textarea, .inspector select,
 .inspector :deep(input), .inspector :deep(textarea), .inspector :deep(select) {
   width: 100%;
@@ -205,6 +591,32 @@ defineProps({
 }
 .inspector :deep(.point-tools button.active) { background: #49624f; border-color: #6f9b79; }
 .inspector label, .inspector :deep(label) { display: grid; gap: .3rem; color: #bdc4ce; font-size: .8rem; }
+.inspector :deep(.form-section) {
+  display: grid;
+  gap: .55rem;
+  padding: .65rem;
+  border: 1px solid #343d4d;
+  border-radius: 8px;
+  background: #1b2028;
+}
+.inspector :deep(.section-heading) {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .65rem;
+}
+.inspector :deep(.section-heading h4) {
+  margin: 0;
+  color: #d7dde6;
+  font-size: .78rem;
+  font-weight: 700;
+}
+.inspector :deep(.section-heading code) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #9da7b5;
+  font-size: .74rem;
+}
 .inspector :deep(.field-grid) { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; }
 .inspector :deep(.hex-subitems) { display: grid; gap: .45rem; padding-top: .35rem; border-top: 1px solid #343d4d; }
 .subitem-heading, .inspector :deep(.subitem-heading) { display: flex; align-items: center; justify-content: space-between; gap: .5rem; color: #bdc4ce; font-size: .82rem; }

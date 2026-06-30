@@ -3,6 +3,17 @@ import { transaction } from "./db.js";
 import { beatToRuntime, normalizeBeat, validateBeat } from "./story-model.js";
 import { RevisionStore } from "./revision-store.js";
 
+const MILESTONE_ID_PATTERN = /^[a-z0-9]+(?:[.-][a-z0-9]+)*$/;
+const MILESTONE_KINDS = new Set([
+  "story",
+  "discovery",
+  "knowledge",
+  "application",
+  "operations",
+  "survival",
+  "world",
+]);
+
 export class StoryRepository {
   constructor(db, world, character = null) {
     this.db = db;
@@ -29,13 +40,14 @@ export class StoryRepository {
 
   getRuntimeStory() {
     const areas = this.db.prepare(
-      "SELECT id, name FROM story_areas ORDER BY sort_order, id",
+      "SELECT id, name, milestones_json FROM story_areas ORDER BY sort_order, id",
     ).all();
     const result = {};
     for (const area of areas) {
       result[area.id] = {
         area: area.id,
         name: area.name,
+        milestones: normalizeMilestones(JSON.parse(area.milestones_json || "[]")),
         beats: Object.fromEntries(
           this.listBeats(area.id, { full: true }).map((beat) => [beat.id, beatToRuntime(beat)]),
         ),
@@ -45,16 +57,46 @@ export class StoryRepository {
   }
 
   listAreas() {
-    return this.db.prepare(
-      "SELECT id, name, sort_order AS sortOrder FROM story_areas ORDER BY sort_order, id",
-    ).all();
+    return this.db.prepare(`
+      SELECT id, name, sort_order AS sortOrder, milestones_json
+      FROM story_areas
+      ORDER BY sort_order, id
+    `).all().map((area) => ({
+      id: area.id,
+      name: area.name,
+      sortOrder: area.sortOrder,
+      milestones: normalizeMilestones(JSON.parse(area.milestones_json || "[]")),
+    }));
+  }
+
+  listMilestones(areaId) {
+    const row = this.db.prepare(
+      "SELECT milestones_json FROM story_areas WHERE id = ?",
+    ).get(areaId);
+    return normalizeMilestones(JSON.parse(row?.milestones_json || "[]"));
+  }
+
+  saveMilestones(areaId, input = []) {
+    const validation = validateMilestones(input);
+    if (!validation.valid) throw new ValidationError(validation.errors);
+    return transaction(this.db, () => {
+      this.#ensureArea(areaId);
+      const now = new Date().toISOString();
+      this.db.prepare(`
+        UPDATE story_areas
+        SET milestones_json = ?, updated_at = ?
+        WHERE id = ?
+      `).run(JSON.stringify(validation.milestones), now, areaId);
+      const revision = this.revisions.incrementGlobalRevision();
+      return { milestones: validation.milestones, revision };
+    });
   }
 
   listBeats(areaId, { full = false } = {}) {
     const rows = this.db.prepare(`
       SELECT area_id, id, sort_order, trigger_place, trigger_hex, trigger_room,
         trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
-        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json, match_json,
+        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json, match_json, time_json,
         version, created_at, updated_at
       FROM story_beats
       WHERE area_id = ?
@@ -71,7 +113,7 @@ export class StoryRepository {
     const row = this.db.prepare(`
       SELECT area_id, id, sort_order, trigger_place, trigger_hex, trigger_room,
         trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
-        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json, match_json,
+        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json, match_json, time_json,
         version, created_at, updated_at
       FROM story_beats
       WHERE area_id = ? AND id = ?
@@ -182,6 +224,10 @@ export class StoryRepository {
         Object.entries(result.errors).map(([path, messages]) => [`beats.${entries[index][0]}.${path}`, messages]),
       ),
     );
+    const milestoneValidation = validateMilestones(data.milestones ?? []);
+    for (const [path, messages] of Object.entries(milestoneValidation.errors)) {
+      errors[`milestones.${path}`] = messages;
+    }
     if (Object.keys(errors).length) throw new ValidationError(errors);
 
     transaction(this.db, () => {
@@ -195,9 +241,16 @@ export class StoryRepository {
       }
       const now = new Date().toISOString();
       this.db.prepare(`
-        INSERT INTO story_areas(id, name, sort_order, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(areaId, data.name ?? areaId, this.listAreas().length, now, now);
+        INSERT INTO story_areas(id, name, sort_order, created_at, updated_at, milestones_json)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(
+        areaId,
+        data.name ?? areaId,
+        this.listAreas().length,
+        now,
+        now,
+        JSON.stringify(milestoneValidation.milestones),
+      );
       normalized.forEach((result) => {
         this.#insertBeat(areaId, result.beat, 1);
         this.revisions.record([areaId, result.beat.id], "create", this.getBeat(areaId, result.beat.id));
@@ -221,7 +274,7 @@ export class StoryRepository {
       for (const original of this.listBeats(area.id, { full: true })) {
         const beat = structuredClone(original);
         if (beat.trigger.hex) beat.trigger.hex = rename(beat.trigger.hex);
-        if (beat.match?.originHex) beat.match.originHex = rename(beat.match.originHex);
+        if (beat.match?.originHex) beat.match.originHex = mapOriginHexes(beat.match.originHex, rename);
         if (beat.trigger.room) beat.trigger.room = resolveRename(roomRenameMap, beat.trigger.room);
         if (beat.trigger.exteriorNode) {
           beat.trigger.exteriorNode = resolveRename(exteriorRenameMap, beat.trigger.exteriorNode);
@@ -282,7 +335,7 @@ export class StoryRepository {
             path: "trigger.hex",
           });
         }
-        if (beat.match?.originHex === hexId) {
+        if (originHexList(beat.match?.originHex).includes(hexId)) {
           references.push({
             kind: "story",
             areaId: area.id,
@@ -369,8 +422,8 @@ export class StoryRepository {
           beat.trigger.hex = rename(beat.trigger.hex);
           changed = true;
         }
-        if (beat.match?.originHex && renameMap.has(beat.match.originHex)) {
-          beat.match.originHex = rename(beat.match.originHex);
+        if (originHexList(beat.match?.originHex).some((originHex) => renameMap.has(originHex))) {
+          beat.match.originHex = mapOriginHexes(beat.match.originHex, rename);
           changed = true;
         }
         for (const choice of beat.choices) {
@@ -442,9 +495,9 @@ export class StoryRepository {
     if (existing) return;
     const now = new Date().toISOString();
     this.db.prepare(`
-      INSERT INTO story_areas(id, name, sort_order, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(areaId, areaId, this.listAreas().length, now, now);
+      INSERT INTO story_areas(id, name, sort_order, created_at, updated_at, milestones_json)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(areaId, areaId, this.listAreas().length, now, now, JSON.stringify([]));
   }
 
   #insertBeat(areaId, beat, version, createdAt = new Date().toISOString()) {
@@ -453,9 +506,9 @@ export class StoryRepository {
       INSERT INTO story_beats(
         area_id, id, sort_order, trigger_place, trigger_hex, trigger_room,
         trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
-        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json, match_json,
+        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json, match_json, time_json,
         version, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       areaId, beat.id, 0, beat.trigger.place, beat.trigger.hex, beat.trigger.room,
       beat.trigger.exteriorNode, beat.trigger.event, beat.trigger.flag,
@@ -466,6 +519,7 @@ export class StoryRepository {
       JSON.stringify([]),
       JSON.stringify({}),
       JSON.stringify(compactObject(beat.match ?? {})),
+      JSON.stringify(compactObject(beat.time ?? {})),
       version, createdAt, now,
     );
     this.#insertChoices(areaId, beat.id, beat.choices);
@@ -481,15 +535,15 @@ export class StoryRepository {
     const statement = this.db.prepare(`
       INSERT INTO story_choices(
         id, area_id, beat_id, sort_order, text, require_json, effects_json,
-        time_minutes, activity,
+        time_minutes, time_until_json, activity,
         sets_json, set_flags_json, go_hex, go_room, go_exterior_node,
         enter_building, view_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     choices.forEach((choice, index) => statement.run(
       choice.id || randomUUID(), areaId, beatId, choice.order ?? index, choice.text,
       JSON.stringify({}), JSON.stringify([]),
-      choice.timeMinutes, choice.activity,
+      choice.timeMinutes, JSON.stringify(compactObject(choice.timeUntil ?? {})), choice.activity,
       JSON.stringify(choice.sets), JSON.stringify(choice.set_flags),
       choice.go_hex, choice.go_room, choice.go_exterior_node,
       choice.enter, JSON.stringify(choice.view ?? {}),
@@ -514,13 +568,14 @@ export class StoryRepository {
         flag: row.trigger_flag,
       },
       match: parseMatchJson(row.match_json),
+      time: parseNullableJson(row.time_json) ?? {},
       version: row.version,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
     if (includeChoices) {
       beat.choices = this.db.prepare(`
-        SELECT id, sort_order, text, require_json, effects_json, time_minutes, activity,
+        SELECT id, sort_order, text, require_json, effects_json, time_minutes, time_until_json, activity,
           sets_json, set_flags_json, go_hex, go_room, go_exterior_node,
           enter_building, view_json
         FROM story_choices
@@ -531,6 +586,7 @@ export class StoryRepository {
         order: choice.sort_order,
         text: choice.text,
         timeMinutes: choice.time_minutes,
+        timeUntil: parseNullableJson(choice.time_until_json),
         activity: choice.activity,
         sets: JSON.parse(choice.sets_json),
         set_flags: JSON.parse(choice.set_flags_json),
@@ -579,10 +635,30 @@ function parseNullableJson(value) {
 
 function parseMatchJson(value) {
   const parsed = JSON.parse(value || "{}");
+  const mapTransition = nullableText(parsed.mapTransition);
   return {
-    originHex: nullableText(parsed.originHex),
+    originHex: originHexValue(parsed.originHex),
     localExit: nullableText(parsed.localExit),
+    mapTransition,
+    transitionDirection: nullableText(parsed.transitionDirection),
   };
+}
+
+function originHexList(value) {
+  if (Array.isArray(value)) return value.map(String).map((item) => item.trim()).filter(Boolean);
+  if (typeof value === "string") return value.split(",").map((item) => item.trim()).filter(Boolean);
+  return [];
+}
+
+function originHexValue(value) {
+  const origins = originHexList(value);
+  if (!origins.length) return null;
+  return origins.length === 1 ? origins[0] : origins;
+}
+
+function mapOriginHexes(value, mapper) {
+  const origins = originHexList(value).map(mapper);
+  return origins.length === 1 ? origins[0] : origins;
 }
 
 function compactObject(value) {
@@ -594,6 +670,36 @@ function compactObject(value) {
 function nullableText(value) {
   const text = value == null ? "" : String(value).trim();
   return text || null;
+}
+
+function normalizeMilestones(value = []) {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => ({
+    id: nullableText(item?.id) ?? "",
+    label: nullableText(item?.label) ?? nullableText(item?.id) ?? "",
+    kind: nullableText(item?.kind) ?? "story",
+    description: nullableText(item?.description),
+  }));
+}
+
+function validateMilestones(input = []) {
+  const milestones = normalizeMilestones(input);
+  const errors = {};
+  const add = (path, message) => {
+    (errors[path] ??= []).push(message);
+  };
+  const seen = new Set();
+  milestones.forEach((milestone, index) => {
+    const base = `${index}`;
+    if (!MILESTONE_ID_PATTERN.test(milestone.id)) {
+      add(`${base}.id`, "Use lowercase letters, numbers, dots, and hyphens.");
+    }
+    if (seen.has(milestone.id)) add(`${base}.id`, "Milestone IDs must be unique.");
+    seen.add(milestone.id);
+    if (!milestone.label.trim()) add(`${base}.label`, "Milestone label is required.");
+    if (!MILESTONE_KINDS.has(milestone.kind)) add(`${base}.kind`, "Choose a supported milestone kind.");
+  });
+  return { milestones, errors, valid: Object.keys(errors).length === 0 };
 }
 
 export class ValidationError extends Error {
