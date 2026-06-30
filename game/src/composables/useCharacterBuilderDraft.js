@@ -1,4 +1,4 @@
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, toRaw } from "vue";
 import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import { storyApi } from "../lib/storyApi.js";
 import {
@@ -17,6 +17,7 @@ const artifactCatalogs = [
   { id: "items", label: "Items" },
   { id: "documents", label: "Documents" },
 ];
+const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export const tabOptions = ["overview", "inventory", "knowledge", "skills", "quests", "documents"];
 export const visibilityOptions = ["always", "when-acquired", "when-started", "hidden"];
@@ -54,6 +55,7 @@ export function useCharacterBuilderDraft() {
   const baseline = ref("");
   const version = ref(0);
   const status = ref("");
+  const statusTone = ref("info");
   const errors = ref({});
   const warnings = ref([]);
   const selectedCatalog = ref("stats");
@@ -63,6 +65,7 @@ export function useCharacterBuilderDraft() {
   const previewBarLevel = ref("authored");
   const revisions = ref([]);
   const showHistory = ref(false);
+  const pendingRenames = ref([]);
   const pendingRoute = ref("");
   const navigationPromptVisible = ref(false);
   const savingBeforeNavigation = ref(false);
@@ -108,6 +111,7 @@ export function useCharacterBuilderDraft() {
       applyLoaded(result);
     } catch (error) {
       status.value = error.message;
+      statusTone.value = "error";
     }
   }
 
@@ -118,6 +122,8 @@ export function useCharacterBuilderDraft() {
     warnings.value = result.warnings ?? [];
     errors.value = {};
     status.value = "";
+    statusTone.value = "info";
+    pendingRenames.value = [];
     applyRouteSelection();
   }
 
@@ -191,17 +197,22 @@ export function useCharacterBuilderDraft() {
     const id = uniqueId(`new-${selectedCatalog.value.replace(/s$/, "")}`, entries);
     entries.push(entryDefaults(selectedCatalog.value, id, entries.length));
     selectedId.value = id;
+    status.value = `Added ${id}.`;
+    statusTone.value = "info";
   }
 
   function duplicateEntry() {
-    if (!selectedEntry.value) return;
+    if (!selectedEntry.value) {
+      status.value = "Choose an entry before duplicating.";
+      statusTone.value = "error";
+      return null;
+    }
     const entries = draft.value[selectedCatalog.value];
-    const copy = structuredClone(selectedEntry.value);
-    copy.id = uniqueId(`${copy.id}-copy`, entries);
-    if (copy.label) copy.label += " copy";
-    if (copy.title) copy.title += " copy";
+    const copy = duplicateCatalogEntry(selectedEntry.value, entries);
     entries.push(copy);
     selectedId.value = copy.id;
+    status.value = `Duplicated ${copy.label ?? copy.title ?? copy.id}.`;
+    statusTone.value = "success";
     return copy;
   }
 
@@ -221,18 +232,31 @@ export function useCharacterBuilderDraft() {
     entries.forEach((item, order) => { item.order = order; });
   }
 
-  async function renameEntry() {
+  function renameEntry() {
     const entry = selectedEntry.value;
     if (!entry) return;
-    const next = window.prompt("New stable ID", entry.id)?.trim();
+    const next = window.prompt(`Rename "${entry.id}" to:`, entry.id)?.trim();
     if (!next || next === entry.id) return;
-    const references = await loadReferences(selectedCatalog.value, entry.id);
-    if (references.length) {
-      status.value = `Cannot rename ${entry.id}; it has ${references.length} authored reference(s).`;
+    if (!ID_PATTERN.test(next)) {
+      status.value = "IDs must use kebab-case.";
+      statusTone.value = "error";
       return;
     }
+    const entries = draft.value[selectedCatalog.value] ?? [];
+    if (entries.some((candidate) => candidate.id === next)) {
+      status.value = `Cannot rename ${entry.id}; ${next} already exists.`;
+      statusTone.value = "error";
+      return;
+    }
+    pendingRenames.value.push({
+      domain: selectedCatalog.value,
+      from: entry.id,
+      to: next,
+    });
     entry.id = next;
     selectedId.value = next;
+    status.value = `Renamed ${pendingRenames.value.at(-1).from} to ${next}. Save to cascade references.`;
+    statusTone.value = "info";
   }
 
   async function deleteEntry() {
@@ -242,6 +266,7 @@ export function useCharacterBuilderDraft() {
     if (references.length) {
       status.value = `Cannot delete ${entry.id}; referenced by ${references
         .map((reference) => reference.path).join(", ")}.`;
+      statusTone.value = "error";
       return;
     }
     if (!window.confirm(`Delete "${entry.label ?? entry.title ?? entry.id}"?`)) return;
@@ -253,22 +278,26 @@ export function useCharacterBuilderDraft() {
   async function saveDraft() {
     errors.value = {};
     status.value = "Saving...";
+    statusTone.value = "info";
     try {
       const result = await storyApi("/api/character", {
         method: "PUT",
         body: JSON.stringify({
           character: draft.value,
           expectedVersion: version.value,
+          renames: pendingRenames.value,
         }),
       });
       applyLoaded(result);
       status.value = `Saved character version ${result.version}.`;
+      statusTone.value = "success";
       return true;
     } catch (error) {
       errors.value = error.errors ?? {};
       status.value = error.status === 409
         ? "Content changed elsewhere. Reload before saving."
-        : error.message;
+        : formatSaveError(error, errors.value);
+      statusTone.value = "error";
       return false;
     }
   }
@@ -277,6 +306,8 @@ export function useCharacterBuilderDraft() {
     draft.value = JSON.parse(baseline.value);
     errors.value = {};
     status.value = "";
+    statusTone.value = "info";
+    pendingRenames.value = [];
     ensureSelection();
   }
 
@@ -306,8 +337,10 @@ export function useCharacterBuilderDraft() {
     try {
       target[key] = JSON.parse(event.target.value || JSON.stringify(fallback));
       status.value = "";
+      statusTone.value = "info";
     } catch (error) {
       status.value = `Invalid JSON for ${key}: ${error.message}`;
+      statusTone.value = "error";
     }
   }
 
@@ -336,6 +369,7 @@ export function useCharacterBuilderDraft() {
   return {
     draft,
     status,
+    statusTone,
     errors,
     warnings,
     selectedCatalog,
@@ -545,6 +579,14 @@ function uniqueId(base, entries) {
   return id;
 }
 
+export function duplicateCatalogEntry(entry, entries) {
+  const copy = structuredClone(toRaw(entry));
+  copy.id = uniqueId(`${copy.id}-copy`, entries);
+  if (copy.label) copy.label += " copy";
+  if (copy.title) copy.title += " copy";
+  return copy;
+}
+
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
@@ -560,4 +602,13 @@ function labelize(id) {
 
 function queryText(value) {
   return Array.isArray(value) ? String(value[0] ?? "") : String(value ?? "");
+}
+
+export function formatSaveError(error, errors = {}) {
+  const messages = Object.entries(errors)
+    .flatMap(([path, values]) => (values ?? []).map((message) => `${path}: ${message}`));
+  if (!messages.length) return error.message;
+  const summary = messages.slice(0, 3).join(" | ");
+  const remaining = messages.length - 3;
+  return `${error.message}: ${summary}${remaining > 0 ? ` (+${remaining} more)` : ""}`;
 }

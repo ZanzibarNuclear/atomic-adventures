@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { reactive } from "vue";
 import {
   buildPreviewCharacter,
+  duplicateCatalogEntry,
+  formatSaveError,
   summarizePreviewContent,
 } from "./useCharacterBuilderDraft.js";
 import { characterWellbeingOverview } from "../lib/character/panel.js";
@@ -40,6 +43,36 @@ function contentDraft() {
 }
 
 describe("content builder preview character", () => {
+  it("summarizes validation errors for failed saves", () => {
+    const error = new Error("Validation failed.");
+    const message = formatSaveError(error, {
+      "items.0.id": ["Use a unique kebab-case ID."],
+      "building.doors.0.lock.key": ["Door key must reference an existing item."],
+    });
+
+    expect(message).toBe(
+      "Validation failed.: items.0.id: Use a unique kebab-case ID. | building.doors.0.lock.key: Door key must reference an existing item.",
+    );
+  });
+
+  it("duplicates catalog entries with a unique copy ID and copied editable fields", () => {
+    const entries = reactive([
+      { id: "key", label: "Key", carrying: "unique", tags: ["hydro"] },
+      { id: "key-copy", label: "Key copy", carrying: "unique", tags: ["hydro"] },
+    ]);
+
+    const copy = duplicateCatalogEntry(entries[0], entries);
+
+    expect(copy).toEqual({
+      id: "key-copy-2",
+      label: "Key copy",
+      carrying: "unique",
+      tags: ["hydro"],
+    });
+    expect(copy).not.toBe(entries[0]);
+    expect(copy.tags).not.toBe(entries[0].tags);
+  });
+
   it("sets wellbeing bars to the selected preview level", () => {
     const character = buildPreviewCharacter(draft(), "empty", "low");
     const overview = characterWellbeingOverview(character);

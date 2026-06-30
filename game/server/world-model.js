@@ -243,6 +243,24 @@ function stringList(value) {
   return Array.isArray(value) ? value.map(String).map((item) => item.trim()).filter(Boolean) : [];
 }
 
+function renameMapFor(renames, domain) {
+  return new Map(
+    renames
+      .filter((rename) => rename?.domain === domain && rename.from && rename.to)
+      .map((rename) => [String(rename.from), String(rename.to)]),
+  );
+}
+
+function resolveRename(map, value) {
+  let current = value;
+  const seen = new Set();
+  while (map.has(current) && !seen.has(current)) {
+    seen.add(current);
+    current = map.get(current);
+  }
+  return current;
+}
+
 function text(value) {
   return value == null ? "" : String(value).trim();
 }
@@ -282,6 +300,16 @@ export function applyHexRenames(world, renames = []) {
       if (feature[key]?.hex) feature[key].hex = rename(feature[key].hex);
     }
     for (const point of feature.points ?? []) if (point.hex) point.hex = rename(point.hex);
+  }
+  return world;
+}
+
+export function applyWorldCharacterRenames(world, renames = []) {
+  const itemMap = renameMapFor(renames, "items");
+  if (!itemMap.size) return world;
+  const rename = (value) => resolveRename(itemMap, value);
+  for (const placement of world.artifactPlacements ?? []) {
+    if (placement.item) placement.item = rename(placement.item);
   }
   return world;
 }

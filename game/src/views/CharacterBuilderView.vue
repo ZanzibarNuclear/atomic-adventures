@@ -48,6 +48,7 @@ const {
   setOptionalNumber,
   showHistory,
   status,
+  statusTone,
   toggleTab,
   warnings,
   workspaceMode,
@@ -81,7 +82,7 @@ const contentWorkspaceTabs = [
       </template>
     </BuilderPageHeader>
 
-    <p v-if="status" class="status">{{ status }}</p>
+    <p v-if="status" class="status" :class="`status-${statusTone}`">{{ status }}</p>
 
     <div v-if="workspaceMode === 'character' || workspaceMode === 'artifacts'" class="builder-grid edit-grid">
       <CharacterCatalogBrowser
@@ -176,7 +177,7 @@ const contentWorkspaceTabs = [
     </div>
   </main>
   <section v-else class="character-builder">
-    <p class="status">{{ status || "Loading content…" }}</p>
+    <p class="status" :class="`status-${statusTone}`">{{ status || "Loading content…" }}</p>
     <button v-if="status" class="sm" @click="loadCharacter">Retry</button>
   </section>
 </template>
@@ -267,10 +268,23 @@ select:focus {
   width: fit-content;
   margin-top: .75rem;
   padding: .45rem .65rem;
-  border: 1px solid #3e5b45;
   border-radius: 7px;
+}
+.status {
+  border: 1px solid #4b5567;
+  background: #252c38;
+  color: #c8d1df;
+}
+.status-success,
+.dirty-pill {
+  border: 1px solid #3e5b45;
   background: #24372a;
   color: #bce8c7;
+}
+.status-error {
+  border: 1px solid #8c4b36;
+  background: #3b241f;
+  color: #ffb79f;
 }
 .dirty-pill {
   margin-top: 0;

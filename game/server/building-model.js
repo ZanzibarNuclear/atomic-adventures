@@ -479,6 +479,28 @@ export function applyBuildingRenames(building, renames = []) {
   return building;
 }
 
+export function applyBuildingCharacterRenames(building, renames = []) {
+  const maps = Object.fromEntries(
+    ["items", "stats", "knowledge", "skills", "quests", "documents"]
+      .map((domain) => [domain, renameMapFor(renames, domain)]),
+  );
+  if (!Object.values(maps).some((map) => map.size)) return building;
+  const rename = (domain, value) => resolveRename(maps[domain] ?? new Map(), value);
+
+  for (const door of building.doors ?? []) {
+    if (door.lock?.key) door.lock.key = rename("items", door.lock.key);
+  }
+  for (const item of building.items ?? []) item.id = rename("items", item.id);
+  for (const pickup of building.pickups ?? []) {
+    if (pickup.item) pickup.item = rename("items", pickup.item);
+  }
+  for (const action of building.actions ?? []) {
+    renameRequirements(action.require, rename);
+    renameEffects(action.effects, rename);
+  }
+  return building;
+}
+
 function validateIds(items, path, errors) {
   const ids = new Set();
   const add = (field, message) => ((errors[field] ??= []).push(message));
@@ -489,6 +511,68 @@ function validateIds(items, path, errors) {
     ids.add(item.id);
   });
   return ids;
+}
+
+function renameRequirements(require, rename) {
+  if (!require || typeof require !== "object") return;
+  for (const domain of ["items", "knowledge", "documents"]) {
+    renameGroup(require[domain], domain, rename);
+  }
+  for (const domain of ["stats", "skills", "quests"]) {
+    for (const condition of require[domain] ?? []) {
+      if (condition?.id) condition.id = rename(domain, condition.id);
+    }
+  }
+  for (const condition of require.evidence ?? []) {
+    if (condition?.skill) condition.skill = rename("skills", condition.skill);
+  }
+}
+
+function renameGroup(value, domain, rename) {
+  const groups = Array.isArray(value) ? { all: value } : value ?? {};
+  for (const key of ["all", "any", "not"]) {
+    for (const [index, entry] of (groups[key] ?? []).entries()) {
+      if (typeof entry === "string") groups[key][index] = rename(domain, entry);
+      else if (entry?.id) entry.id = rename(domain, entry.id);
+    }
+  }
+}
+
+function renameEffects(effects = [], rename) {
+  for (const effect of effects) {
+    const domain = effectDomain(effect.op);
+    if (domain && effect.id) effect.id = rename(domain, effect.id);
+  }
+}
+
+function effectDomain(op) {
+  const raw = String(op ?? "").split(".")[0];
+  return {
+    item: "items",
+    stat: "stats",
+    knowledge: "knowledge",
+    skill: "skills",
+    quest: "quests",
+    document: "documents",
+  }[raw] ?? (["items", "stats", "knowledge", "skills", "quests", "documents"].includes(raw) ? raw : null);
+}
+
+function renameMapFor(renames, domain) {
+  return new Map(
+    renames
+      .filter((rename) => rename?.domain === domain && rename.from && rename.to)
+      .map((rename) => [String(rename.from), String(rename.to)]),
+  );
+}
+
+function resolveRename(map, value) {
+  let current = value;
+  const seen = new Set();
+  while (map.has(current) && !seen.has(current)) {
+    seen.add(current);
+    current = map.get(current);
+  }
+  return current;
 }
 
 function validPoint(point) {

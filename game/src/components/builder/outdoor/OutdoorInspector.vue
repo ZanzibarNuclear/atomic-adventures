@@ -344,7 +344,7 @@ const summaryRows = computed(() => {
                       class="sm muted"
                       @click="emit('duplicate-artifact', { catalog: 'items', id: placement.item })"
                     >
-                      Duplicate item
+                      Duplicate
                     </button>
                     <button type="button" class="sm danger-outline" @click="removePlacement(placement.id)">Remove</button>
                   </div>
