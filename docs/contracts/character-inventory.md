@@ -761,10 +761,9 @@ atomic: validate all requirements, references, bounds, quantities, and state
 transitions first; then commit all effects and emit one player-state update.
 This prevents receiving a reward while failing to consume its required item.
 
-Legacy choice fields such as `sets` and `set_flags` normalize into flag
-effects. Existing building pickups normalize into an `item.add` effect.
-`item.add` places new items with the character unless the effect names another
-accessible holder.
+Choice effects use the operation list above. Existing building pickups
+normalize into an `item.add` effect. `item.add` places new items with the
+character unless the effect names another accessible holder.
 
 Item transfer is a state operation with source and destination holders:
 
@@ -833,8 +832,7 @@ result of the completed activity.
 Flags remain useful for hidden narrative facts and world state. A value that
 the player should understand and inspect belongs in a stat, knowledge entry,
 skill, quest, item, or document instead. Content should not maintain duplicate
-flag and character state unless integration with a legacy system requires it
-temporarily.
+flag and character state.
 
 ### Save/load
 
@@ -882,11 +880,8 @@ Player character state is global, not nested beneath the indoor map:
 }
 ```
 
-The save version must increase when this state replaces
-`indoor.inventory`. Migration converts each legacy inventory ID to a unique
-instance or quantity-one stack held by the character, according to its current
-definition. Invalid or unknown saved values load conservatively and produce a
-development warning rather than discarding the whole save.
+Invalid or unknown saved values load conservatively and produce a development
+warning rather than discarding the whole save.
 
 World save state also stores the contents and locations of vehicle holders,
 fixed containers, and runtime item placements. A save is internally invalid if
@@ -1027,8 +1022,7 @@ Authored definitions remain separate from player/account rows.
 
 1. Add the `character-main` repository, validation, API, export, revisions,
    and builder route.
-2. Introduce a global character store and migrate legacy indoor inventory/save
-   data into holder-based state.
+2. Introduce a global character store backed by holder-based state.
 3. Move utility-station item definitions to the character catalog while
    retaining world pickup references.
 4. Implement shared requirement evaluation and atomic effects.

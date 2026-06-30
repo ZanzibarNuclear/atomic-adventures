@@ -57,6 +57,20 @@ export function validateBeat(input, world, character = null) {
     (errors[path] ??= []).push(message);
   };
 
+  if (Object.hasOwn(input ?? {}, "require")) {
+    add("require", "Story beat requirements are not part of the current schema.");
+  }
+  if (Array.isArray(input?.choices)) {
+    input.choices.forEach((choice, index) => {
+      if (Object.hasOwn(choice ?? {}, "require")) {
+        add(`choices.${index}.require`, "Story choice requirements are not part of the current schema.");
+      }
+      if (Object.hasOwn(choice ?? {}, "effects")) {
+        add(`choices.${index}.effects`, "Story choice effects are not part of the current schema.");
+      }
+    });
+  }
+
   if (!ID_PATTERN.test(beat.id)) add("id", "Use a kebab-case beat ID.");
   if (!beat.text.trim()) add("text", "Story text is required.");
 
@@ -94,12 +108,8 @@ export function validateBeat(input, world, character = null) {
       if (!world.hexIds.has(originHex)) add("match.originHex", "Choose existing origin hexes.");
     }
   }
-  if (beat.match.localExit) {
-    if (!beat.trigger.hex) add("match.localExit", "Map transition return matching is only supported for outdoor hex beats.");
-    if (!world.localExitIds?.has(beat.match.localExit)) add("match.localExit", "Choose an existing map transition.");
-  }
   if (beat.match.mapTransition) {
-    if (!world.localExitIds?.has(beat.match.mapTransition)) add("match.mapTransition", "Choose an existing map transition.");
+    if (!world.mapTransitionIds?.has(beat.match.mapTransition)) add("match.mapTransition", "Choose an existing map transition.");
     if (beat.match.transitionDirection === "toRegional" && !beat.trigger.hex) {
       add("match.mapTransition", "Regional map transition beats must use an outdoor hex trigger.");
     }
@@ -194,10 +204,8 @@ function normalizeStageView(value) {
 
 function normalizeMatch(value = {}) {
   const mapTransition = nullableText(value.mapTransition);
-  const localExit = nullableText(value.localExit);
   return {
     originHex: originHexValue(value.originHex),
-    localExit,
     mapTransition: mapTransition ?? null,
     transitionDirection: nullableText(value.transitionDirection),
   };

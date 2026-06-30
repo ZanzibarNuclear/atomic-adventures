@@ -129,12 +129,22 @@ describe("story API", () => {
     db.close();
   });
 
-  it("cascades a real item rename through checked-in building action effects", async () => {
+  it("cascades item renames through building action effects", async () => {
     const { db, api, characterRepository, buildingRepository } = setup();
+    const buildingDocument = buildingRepository.getDocument();
+    const building = structuredClone(buildingDocument.building);
+    building.actions.push({
+      id: "grant-test-key",
+      room: "library",
+      label: "Grant test key",
+      effects: [{ op: "item.add", id: "lobby-exterior-key", quantity: 1 }],
+    });
+    buildingRepository.save(building.id, building, buildingDocument.version);
+
     const current = characterRepository.getDocument();
     const character = structuredClone(current.character);
-    const item = character.items.find((entry) => entry.id === "tastee-tack-turkey-cranberry-meal");
-    item.id = "tastee-tack-gala-turkey-cranberry-meal";
+    const item = character.items.find((entry) => entry.id === "lobby-exterior-key");
+    item.id = "lobby-side-door-key";
 
     const renameRes = responseCapture();
     await api.handle(request("PUT", "/api/character", {
@@ -142,27 +152,37 @@ describe("story API", () => {
       expectedVersion: current.version,
       renames: [{
         domain: "items",
-        from: "tastee-tack-turkey-cranberry-meal",
-        to: "tastee-tack-gala-turkey-cranberry-meal",
+        from: "lobby-exterior-key",
+        to: "lobby-side-door-key",
       }],
     }), renameRes);
 
     expect(renameRes.status).toBe(200);
     const action = buildingRepository.getDocument().building.actions
-      .find((candidate) => candidate.id === "eat-rations");
+      .find((candidate) => candidate.id === "grant-test-key");
     expect(action.effects[0]).toEqual(expect.objectContaining({
       op: "item.add",
-      id: "tastee-tack-gala-turkey-cranberry-meal",
+      id: "lobby-side-door-key",
     }));
     db.close();
   });
 
-  it("infers and cascades a real item rename when the client saves the renamed draft", async () => {
+  it("infers and cascades an item rename when the client saves the renamed draft", async () => {
     const { db, api, characterRepository, buildingRepository } = setup();
+    const buildingDocument = buildingRepository.getDocument();
+    const building = structuredClone(buildingDocument.building);
+    building.actions.push({
+      id: "grant-test-key",
+      room: "library",
+      label: "Grant test key",
+      effects: [{ op: "item.add", id: "lobby-exterior-key", quantity: 1 }],
+    });
+    buildingRepository.save(building.id, building, buildingDocument.version);
+
     const current = characterRepository.getDocument();
     const character = structuredClone(current.character);
-    const item = character.items.find((entry) => entry.id === "tastee-tack-turkey-cranberry-meal");
-    item.id = "tastee-tack-gala-turkey-cranberry-meal";
+    const item = character.items.find((entry) => entry.id === "lobby-exterior-key");
+    item.id = "lobby-side-door-key";
 
     const renameRes = responseCapture();
     await api.handle(request("PUT", "/api/character", {
@@ -172,8 +192,8 @@ describe("story API", () => {
 
     expect(renameRes.status).toBe(200);
     const action = buildingRepository.getDocument().building.actions
-      .find((candidate) => candidate.id === "eat-rations");
-    expect(action.effects[0].id).toBe("tastee-tack-gala-turkey-cranberry-meal");
+      .find((candidate) => candidate.id === "grant-test-key");
+    expect(action.effects[0].id).toBe("lobby-side-door-key");
     db.close();
   });
 

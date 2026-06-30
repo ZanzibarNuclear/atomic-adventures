@@ -32,10 +32,10 @@ describe("grid avatar placement at room stands", () => {
     expect(avatar.x).toBe(stand.x);
     expect(avatar.y).toBe(stand.y - offset);
 
-    const legacyIconRoomY =
+    const iconTopAlignedY =
       stand.y - ROOM_ICON_HALF_HEIGHT - FEET_GAP_ABOVE_ROOM_ICON - offset;
-    expect(avatar.y).not.toBe(legacyIconRoomY);
-    expect(avatar.y - legacyIconRoomY).toBe(
+    expect(avatar.y).not.toBe(iconTopAlignedY);
+    expect(avatar.y - iconTopAlignedY).toBe(
       ROOM_ICON_HALF_HEIGHT + FEET_GAP_ABOVE_ROOM_ICON,
     );
   });

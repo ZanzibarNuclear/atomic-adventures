@@ -898,7 +898,6 @@ function serializeExit(exit, indent) {
     if (exit.standAt) lines.push(`${inner}standAt: ${fmtStandAt(exit.standAt)}`)
     return lines.join('\n')
   }
-  // Legacy door-based map transition
   const lines = [`${pad}- door: ${exit.door}`]
   if (exit.room) lines.push(`${inner}room: ${exit.room}`)
   if (exit.exteriorNode) lines.push(`${inner}exteriorNode: ${exit.exteriorNode}`)

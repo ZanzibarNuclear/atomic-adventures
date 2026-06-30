@@ -39,7 +39,7 @@ const STORY_AREA_ID = "part-i";
 const route = useRoute();
 const router = useRouter();
 
-const catalog = ref({ world: { hexes: [], rooms: [], exteriorNodes: [], localExits: [], mapTransitions: [], buildings: [] } });
+const catalog = ref({ world: { hexes: [], rooms: [], exteriorNodes: [], mapTransitions: [], buildings: [] } });
 const locationMode = ref("outdoors");
 const selectedLocation = ref(mapData.start);
 const indoorLevel = ref(
@@ -167,7 +167,7 @@ const matchWarnings = computed(() => {
   const groups = new Map();
   for (const beat of displayedLocationBeats.value) {
     const origin = originHexLabel(beat.match?.originHex);
-    const mapTransition = beat.match?.mapTransition ?? beat.match?.localExit ?? "";
+    const mapTransition = beat.match?.mapTransition ?? "";
     const direction = beat.match?.transitionDirection ?? "";
     const time = timeCriteriaParts(beat.time).join(":");
     const key = `${locationMode.value}:${selectedLocation.value}:origin=${origin}:mapTransition=${mapTransition}:direction=${direction}:time=${time}`;
@@ -179,7 +179,7 @@ const matchWarnings = computed(() => {
     .filter((group) => group.length > 1)
     .map((group) => {
       const origin = originHexLabel(group[0].match?.originHex);
-      const mapTransition = group[0].match?.mapTransition ?? group[0].match?.localExit;
+      const mapTransition = group[0].match?.mapTransition;
       const direction = group[0].match?.transitionDirection;
       const label = [
         origin ? `origin ${origin}` : "",
@@ -452,7 +452,7 @@ function emptyBeat() {
     text: "",
     revisit: "",
     trigger,
-    match: { originHex: null, localExit: null, mapTransition: null, transitionDirection: null },
+    match: { originHex: null, mapTransition: null, transitionDirection: null },
     time: {
       days: [],
       dayFrom: null,
@@ -541,7 +541,6 @@ async function applyStoryRouteQuery() {
   if (draft.value) {
     draft.value.match.mapTransition = mapTransition;
     draft.value.match.transitionDirection = transitionDirection;
-    draft.value.match.localExit = null;
   }
 }
 

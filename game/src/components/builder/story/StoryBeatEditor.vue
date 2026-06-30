@@ -145,10 +145,7 @@ function hexLabel(id) {
 }
 
 function transitionLabel(id) {
-  const transition = [
-    ...(props.catalog.world.mapTransitions ?? []),
-    ...(props.catalog.world.localExits ?? []),
-  ].find((item) => item.id === id);
+  const transition = (props.catalog.world.mapTransitions ?? []).find((item) => item.id === id);
   return transition ? `${transition.label} (${transition.id})` : id;
 }
 
@@ -279,7 +276,7 @@ function directionLabel(value) {
               <select v-model="draft.match.mapTransition">
                 <option :value="null">Default</option>
                 <option
-                  v-for="transition in catalog.world.mapTransitions ?? catalog.world.localExits"
+                  v-for="transition in catalog.world.mapTransitions"
                   :key="transition.id"
                   :value="transition.id"
                 >

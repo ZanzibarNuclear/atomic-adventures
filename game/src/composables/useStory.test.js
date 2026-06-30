@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { nextTick, reactive, ref } from "vue";
 import { useStory } from "./useStory.js";
-import { createCharacterState, markCharacterChanged } from "./useCharacterState.js";
-import { addItem } from "../lib/character/holdings.js";
+import { createCharacterState } from "./useCharacterState.js";
 
 function harness(initialStory, {
   withCharacter = false,
@@ -13,7 +12,6 @@ function harness(initialStory, {
   initialRoom = null,
   initialExteriorNode = null,
   initialOriginHex = null,
-  initialLocalExit = null,
   initialMapTransition = null,
   initialTransitionDirection = null,
   initialClock = { elapsedMinutes: 0, minuteOfDay: 8 * 60, day: 1 },
@@ -46,7 +44,6 @@ function harness(initialStory, {
     state: reactive({
       currentId: "origin",
       previousId: initialOriginHex,
-      localExit: initialLocalExit,
       mapTransition: initialMapTransition,
       transitionDirection: initialTransitionDirection,
     }),
@@ -86,21 +83,6 @@ describe("useStory reactive content", () => {
     await nextTick();
     expect(api.pendingBeat.value.heading).toBe("Edited");
     expect(api.pendingBeat.value.text).toBe("Edited text");
-  });
-
-  it("updates a pending beat when live content changes", async () => {
-    const { story, api } = harness({ beats: { intro: beat } });
-    api.refreshNarrative();
-    story.value = {
-      beats: {
-        intro: {
-          ...beat,
-          heading: "Edited again",
-        },
-      },
-    };
-    await nextTick();
-    expect(api.pendingBeat.value.heading).toBe("Edited again");
   });
 
   it("marks a beat seen when it is presented", () => {
@@ -174,42 +156,6 @@ describe("useStory reactive content", () => {
     expect(gameState.storySeen.has("ambient")).toBe(true);
     expect(api.pendingBeat.value.id).toBe("ambient");
     expect(api.pendingBeat.value.choices[0].text).toBe("Continue");
-  });
-
-  it("ignores legacy beat requirements", () => {
-    const gatedBeat = {
-      ...beat,
-      require: { items: ["key"] },
-      choices: [
-        { text: "Continue" },
-      ],
-    };
-    const { api } = harness({ beats: { gated: gatedBeat } }, {
-      withCharacter: true,
-    });
-
-    api.refreshNarrative();
-    expect(api.pendingBeat.value.id).toBe("gated");
-    expect(api.pendingBeat.value.choices[0].disabled).toBeUndefined();
-  });
-
-  it("keeps a legacy required beat visible after character revision changes", async () => {
-    const gatedBeat = {
-      ...beat,
-      require: { items: ["key"] },
-    };
-    const { api, gameState } = harness({ beats: { gated: gatedBeat } }, {
-      withCharacter: true,
-    });
-
-    api.refreshNarrative();
-    expect(api.pendingBeat.value.id).toBe("gated");
-
-    addItem(gameState.character.holdings, gameState.character.definitions, "key");
-    markCharacterChanged(gameState.character);
-    await nextTick();
-
-    expect(api.pendingBeat.value.id).toBe("gated");
   });
 
   it("commits choice flags before movement", () => {
@@ -587,31 +533,6 @@ describe("useStory reactive content", () => {
     expect(setup.api.pendingBeat.value.id).toBe("utility-yard-from-garage");
   });
 
-  it("keeps legacy localExit beats working after returning from a local map", () => {
-    const setup = harness({
-      beats: {
-        "utility-yard-default": {
-          text: "The utility station is just ahead.",
-          trigger: { place: "outdoors", hex: "origin" },
-          choices: [],
-        },
-        "utility-yard-from-garage": {
-          text: "You are standing in front of the garage doors.",
-          trigger: { place: "outdoors", hex: "origin" },
-          match: { localExit: "garage-exit" },
-          choices: [],
-        },
-      },
-    }, {
-      initialOriginHex: null,
-      initialLocalExit: "garage-exit",
-    });
-
-    setup.api.refreshNarrative();
-
-    expect(setup.api.pendingBeat.value.id).toBe("utility-yard-from-garage");
-  });
-
   it("uses a map-transition beat after entering a local map", () => {
     const setup = harness({
       beats: {
@@ -656,7 +577,6 @@ describe("useStory reactive content", () => {
       },
     }, {
       initialOriginHex: "the-flats",
-      initialLocalExit: null,
     });
 
     setup.api.refreshNarrative();
@@ -665,7 +585,6 @@ describe("useStory reactive content", () => {
 
     setup.api.pendingBeat.value = null;
     setup.outdoor.state.previousId = "west-slope";
-    setup.outdoor.state.localExit = "garage-exit";
     setup.outdoor.state.mapTransition = "garage-exit";
     setup.outdoor.state.transitionDirection = "toRegional";
     setup.api.refreshNarrative();

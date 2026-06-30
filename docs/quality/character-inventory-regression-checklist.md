@@ -11,7 +11,7 @@ story-integration, movement, save/load, builder, and close-up-view work.
 
 - [ ] Existing movement and barrier tests remain green.
 - [ ] Existing keys and doors behave identically.
-- [ ] Legacy saves migrate and remain playable.
+- [ ] Current saves round-trip and remain playable.
 - [ ] New saves round-trip every character domain and holder.
 - [ ] Reset/New Game clears player state but not authored definitions.
 - [ ] Live authoring never replaces player-owned state.

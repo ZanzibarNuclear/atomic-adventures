@@ -11,7 +11,7 @@ const character = {
 };
 
 describe("character requirements", () => {
-  it("normalizes legacy flags and item arrays", () => {
+  it("normalizes flag and item shorthand", () => {
     expect(normalizeRequirements({ all: ["ready"], items: ["key"] })).toMatchObject({
       flags: { all: ["ready"], any: [], not: [] },
       items: { all: [{ id: "key", quantity: 1, access: "carried" }] },

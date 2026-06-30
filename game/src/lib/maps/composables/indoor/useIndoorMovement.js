@@ -243,7 +243,6 @@ export function createIndoorMovement(deps) {
     indoor.viewLevel = indoor.level;
     outdoor.state.mapTransition = entryTransition?.id ?? entryTransition?.door ?? null;
     outdoor.state.transitionDirection = outdoor.state.mapTransition ? "toLocal" : null;
-    outdoor.state.localExit = null;
     place.value = "indoors";
   }
 
@@ -293,7 +292,6 @@ export function createIndoorMovement(deps) {
     const previousId = outdoor.state.currentId;
     outdoor.state.currentId = hexId;
     outdoor.state.previousId = previousId !== hexId ? previousId : null;
-    outdoor.state.localExit = exit.id ?? doorId;
     outdoor.state.mapTransition = exit.id ?? doorId;
     outdoor.state.transitionDirection = "toRegional";
     resetOutdoorStand(hexId, exit.standAt);
@@ -307,7 +305,6 @@ export function createIndoorMovement(deps) {
     const hexId = building.value.outdoorHex ?? outdoor.state.currentId;
     outdoor.state.currentId = hexId;
     outdoor.state.previousId = null;
-    outdoor.state.localExit = null;
     outdoor.state.mapTransition = null;
     outdoor.state.transitionDirection = null;
     resetOutdoorStand(hexId);

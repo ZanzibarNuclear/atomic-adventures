@@ -638,7 +638,6 @@ function parseMatchJson(value) {
   const mapTransition = nullableText(parsed.mapTransition);
   return {
     originHex: originHexValue(parsed.originHex),
-    localExit: nullableText(parsed.localExit),
     mapTransition,
     transitionDirection: nullableText(parsed.transitionDirection),
   };

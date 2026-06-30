@@ -495,7 +495,6 @@ describe("indoor room stands", () => {
     expect(place.value).toBe("outdoors");
     expect(outdoor.state.currentId).toBe("utility-yard");
     expect(outdoor.state.previousId).toBeNull();
-    expect(outdoor.state.localExit).toBe("man-door-path");
     expect(outdoor.state.mapTransition).toBe("man-door-path");
     expect(outdoor.state.transitionDirection).toBe("toRegional");
     expect(outdoor.state.stand).toEqual(

@@ -91,19 +91,6 @@ describe('getMovementOptions', () => {
     ])
   })
 
-  it('lists story choices on revisit beats', () => {
-    const pendingBeat = {
-      revisit: true,
-      choices: [
-        { text: 'Try the trail again', go_hex: 'south-pines' },
-      ],
-    }
-    const outdoor = outdoorAt('lower-stand')
-    const options = getMovementOptions(outdoor, pendingBeat)
-
-    expect(options.map((option) => option.label)).toContain('Try the trail again')
-  })
-
   it('omits disabled story choices from play actions', () => {
     const pendingBeat = {
       choices: [

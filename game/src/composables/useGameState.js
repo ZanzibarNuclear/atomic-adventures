@@ -11,7 +11,6 @@ import {
   applyCharacterState,
   captureCharacterState,
   createCharacterState,
-  migrateLegacyInventory,
   resetCharacterState,
 } from "./useCharacterState.js";
 import { createGameClock } from "../lib/character/gameTime.js";
@@ -52,7 +51,6 @@ export function captureSnapshot({ gameState, place, outdoor, indoor }) {
     outdoor: {
       currentId: outdoor.state.currentId,
       previousId: outdoor.state.previousId ?? null,
-      localExit: outdoor.state.localExit ?? null,
       mapTransition: outdoor.state.mapTransition ?? null,
       transitionDirection: outdoor.state.transitionDirection ?? null,
       discovered: [...outdoor.state.discovered],
@@ -85,15 +83,12 @@ export function captureSnapshot({ gameState, place, outdoor, indoor }) {
 function applyOutdoorSnapshot(o, outdoor) {
   outdoor.state.currentId = o.currentId ?? outdoor.START;
   outdoor.state.previousId = o.previousId ?? null;
-  outdoor.state.localExit = o.localExit ?? null;
-  outdoor.state.mapTransition = o.mapTransition ?? o.localExit ?? null;
-  outdoor.state.transitionDirection = o.transitionDirection ?? (o.localExit ? "toRegional" : null);
+  outdoor.state.mapTransition = o.mapTransition ?? null;
+  outdoor.state.transitionDirection = o.transitionDirection ?? null;
   outdoor.state.discovered = [...(o.discovered ?? [outdoor.state.currentId])];
 
   if (o.stand) {
     outdoor.state.stand = { ...o.stand };
-  } else if (o.barrierStand) {
-    outdoor.state.stand = { ...o.barrierStand };
   } else {
     outdoor.state.stand = outdoor.defaultStandForHex(outdoor.state.currentId);
   }
@@ -113,11 +108,7 @@ export function applySnapshot(snapshot, { gameState, place, outdoor, indoor }) {
   gameState.storySeen = new Set(snapshot.storySeen ?? []);
   gameState.endCardDismissed = snapshot.endCardDismissed ?? false;
   gameState.clock = createGameClock(snapshot.clock);
-  if (snapshot.character) {
-    applyCharacterState(gameState.character, snapshot.character);
-  } else {
-    migrateLegacyInventory(gameState.character, snapshot.indoor?.inventory ?? []);
-  }
+  if (snapshot.character) applyCharacterState(gameState.character, snapshot.character);
 
   applyOutdoorSnapshot(snapshot.outdoor ?? {}, outdoor);
 

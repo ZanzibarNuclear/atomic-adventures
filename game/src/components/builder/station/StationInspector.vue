@@ -87,11 +87,8 @@ function selectionTitle(selection) {
 
 function transitionBeatMatches(beat, transitionId, direction) {
   const match = beat.match ?? {};
-  const beatTransition = match.mapTransition ?? match.localExit;
-  if (beatTransition !== transitionId) return false;
-  if (!match.transitionDirection) {
-    return direction === "toRegional" && Boolean(match.localExit);
-  }
+  if (match.mapTransition !== transitionId) return false;
+  if (!match.transitionDirection) return false;
   return match.transitionDirection === direction;
 }
 
@@ -110,7 +107,6 @@ function beatContextLabel(beat) {
   const details = [
     originHexPrefix(match.originHex),
     match.mapTransition ? `via ${match.mapTransition}` : "",
-    match.localExit ? `via ${match.localExit}` : "",
     match.transitionDirection || "",
   ].filter(Boolean);
   return details.join(" / ") || "Default location beat";

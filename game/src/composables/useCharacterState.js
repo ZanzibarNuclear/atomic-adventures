@@ -1,6 +1,5 @@
 import { reactive, toRaw } from "vue";
 import {
-  addItem,
   createHoldings,
   holdingRecords,
   itemQuantity,
@@ -107,20 +106,6 @@ export function applyCharacterState(state, snapshot = {}) {
   state.documents = plainObject(snapshot.documents);
   refreshOrphanItems(state);
   markCharacterChanged(state);
-}
-
-export function migrateLegacyInventory(state, ids = []) {
-  state.holdings = createHoldings(
-    state.definitions.profile?.id,
-    state.holderDefinitions,
-  );
-  for (const id of ids) {
-    if (!id) continue;
-    addItem(state.holdings, state.definitions, id, 1, {
-      validateDefinition: false,
-    });
-  }
-  syncCharacterDefinitions(state, state.definitions);
 }
 
 export function characterItems(state, fallbackCatalog = {}, { includeOrphans = false } = {}) {

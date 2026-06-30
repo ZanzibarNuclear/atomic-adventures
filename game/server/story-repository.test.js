@@ -196,9 +196,9 @@ describe("StoryRepository", () => {
     db.close();
   });
 
-  it("strips legacy story requirement and choice character fields", () => {
+  it("rejects unsupported story requirement and choice effect fields", () => {
     const { db, repository } = createRepository();
-    repository.createBeat("test-area", sampleBeat({
+    expect(() => repository.createBeat("test-area", sampleBeat({
       require: { items: ["lobby-exterior-key"] },
       choices: [{
         text: "Continue",
@@ -208,12 +208,8 @@ describe("StoryRepository", () => {
           { op: "flag.set", id: "test.done" },
         ],
       }],
-    }));
-
-    const beat = repository.getBeat("test-area", "test-beat");
-    expect(beat.require).toBeUndefined();
-    expect(beat.choices[0].require).toBeUndefined();
-    expect(beat.choices[0].effects).toBeUndefined();
+    }))).toThrow(ValidationError);
+    expect(repository.listBeats("test-area")).toEqual([]);
     db.close();
   });
 
@@ -258,7 +254,6 @@ describe("StoryRepository", () => {
     const beat = repository.getBeat("test-area", "test-beat");
     expect(beat.match).toEqual({
       originHex: "the-flats",
-      localExit: null,
       mapTransition: null,
       transitionDirection: null,
     });
@@ -276,30 +271,11 @@ describe("StoryRepository", () => {
     const beat = repository.getBeat("test-area", "test-beat");
     expect(beat.match).toEqual({
       originHex: ["the-flats", "west-slope"],
-      localExit: null,
       mapTransition: null,
       transitionDirection: null,
     });
     expect(repository.getRuntimeStory().areas["test-area"].beats["test-beat"].match)
       .toEqual({ originHex: ["the-flats", "west-slope"] });
-    db.close();
-  });
-
-  it("round-trips legacy localExit beat matching", () => {
-    const { db, repository } = createRepository();
-    repository.createBeat("test-area", sampleBeat({
-      match: { localExit: "garage-exit" },
-    }));
-
-    const beat = repository.getBeat("test-area", "test-beat");
-    expect(beat.match).toEqual({
-      originHex: null,
-      localExit: "garage-exit",
-      mapTransition: null,
-      transitionDirection: null,
-    });
-    expect(repository.getRuntimeStory().areas["test-area"].beats["test-beat"].match)
-      .toEqual({ localExit: "garage-exit" });
     db.close();
   });
 
@@ -312,7 +288,6 @@ describe("StoryRepository", () => {
     const beat = repository.getBeat("test-area", "test-beat");
     expect(beat.match).toEqual({
       originHex: null,
-      localExit: null,
       mapTransition: "garage-exit",
       transitionDirection: "toRegional",
     });

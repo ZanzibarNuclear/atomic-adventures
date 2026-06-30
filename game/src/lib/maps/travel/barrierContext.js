@@ -37,7 +37,7 @@ export function riverSegments(featureModels) {
 }
 
 export function barrierList(ctx) {
-  return ctx.barriers ?? [...(ctx.fences ?? []), ...(ctx.rivers ?? [])];
+  return ctx.barriers ?? [];
 }
 
 const PATH_ORIGIN_EPS = 0.02;

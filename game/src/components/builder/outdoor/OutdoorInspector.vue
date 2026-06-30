@@ -115,7 +115,6 @@ function beatContextLabel(beat) {
   const details = [
     originHexPrefix(match.originHex),
     match.mapTransition ? `via ${match.mapTransition}` : "",
-    match.localExit ? `via ${match.localExit}` : "",
     match.transitionDirection || "",
   ].filter(Boolean);
   return details.join(" / ") || "Default hex beat";

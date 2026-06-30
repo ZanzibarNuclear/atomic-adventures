@@ -114,9 +114,8 @@ later extension and are not part of the current beat schema.
 An optional trigger flag may further restrict a location trigger. Most state
 gating should be handled with separate beats and clear story flags. The current
 story beat engine intentionally has no beat-level or choice-level requirements.
-Legacy `require` fields may still exist in old SQLite columns or imported
-snapshots, but the runtime, validator, repository, YAML preview, and builder
-ignore them.
+Imported content must use the current schema before it can be stored or served
+to the runtime.
 
 ## Optional Match Criteria
 
@@ -131,7 +130,6 @@ The supported criteria are:
 | `originHex` | `enterOutdoorHex` | Neighboring outdoor hex the avatar entered from during inter-hex movement |
 | `mapTransition` | `enterIndoorLocation`, `exitLocalMap` | Map transition ID used to switch between regional and local maps |
 | `transitionDirection` | `enterIndoorLocation`, `exitLocalMap` | Optional direction filter: `toLocal` or `toRegional` |
-| `localExit` | `exitLocalMap` | Legacy alias for a `toRegional` map transition |
 
 `originHex` example:
 
@@ -166,8 +164,7 @@ utility-yard-from-garage:
 and a local map. `transitionDirection: toLocal` applies after entering the local
 map and evaluating the destination indoor trigger. `transitionDirection:
 toRegional` applies after returning to the regional map and evaluating the
-destination outdoor hex trigger. `localExit` remains readable for old content
-and behaves like a regional-return map transition.
+destination outdoor hex trigger.
 
 The Utility Station workspace in `/builder/world?map=utility-station` shows
 associated `toLocal` and `toRegional` beats on each selected map transition.

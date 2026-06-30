@@ -43,8 +43,6 @@ Entering a hex always appends it to `discovered` regardless of view mode. A hex 
 | `gameplay` | Yes | Normal play — fixed local zoom centered on current hex |
 | `full` | No | Overview of all **discovered** hexes; no fog |
 
-Legacy save values `slice` and `explored` normalize to `gameplay` on load (`normalizeMapMode`).
-
 ### Builder view (authors)
 
 When `builderView` is active, viewport rules are bypassed:
@@ -181,7 +179,7 @@ Discovery lists are independent of mode and are always saved.
 | Function | File | Role |
 | -------- | ---- | ---- |
 | `evaluateMapViewport` | `useHexMapViewport.js` | Pure mode logic; used by composable and tests |
-| `normalizeMapMode` | `useHexMapViewport.js` | Legacy save migration |
+| `normalizeMapMode` | `useHexMapViewport.js` | Keeps unknown mode values on the gameplay default |
 | `fixedGameplayViewBox` | `useHexGeometry.js` | Centered fixed-size camera |
 | `gameplayViewDimensions` | `useHexGeometry.js` | Width/height from 7-hex cluster |
 | `hexIntersectsViewBox` | `useHexGeometry.js` | Hex footprint vs. viewBox overlap |
@@ -227,8 +225,8 @@ Discovery lists are independent of mode and are always saved.
 
 | Test file | Covers |
 | --------- | ------ |
-| [`useHexMapViewport.test.js`](../../game/src/lib/maps/testing/useHexMapViewport.test.js) | Mode logic, fixed viewBox, fog neighbors, full mode, legacy normalization |
-| [`useGameState.test.js`](../../game/src/composables/useGameState.test.js) | Legacy `explored` mode migrates to `gameplay` on load |
+| [`useHexMapViewport.test.js`](../../game/src/lib/maps/testing/useHexMapViewport.test.js) | Mode logic, fixed viewBox, fog neighbors, full mode, unknown mode defaults |
+| [`useGameState.test.js`](../../game/src/composables/useGameState.test.js) | Saved viewport mode restores on load |
 
 Run: `npm run test` from repo root.
 
@@ -240,4 +238,4 @@ When changing viewport behavior, update `evaluateMapViewport` and extend `useHex
 
 | Date | Change |
 | ---- | ------ |
-| 2026-06 | Initial spec for gameplay / full viewport modes; replaces legacy slice / explored split |
+| 2026-06 | Initial spec for gameplay / full viewport modes |

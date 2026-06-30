@@ -185,45 +185,7 @@ describe('useGameState save roundtrip', () => {
     expect(indoor.indoor.exteriorNode).toBeNull()
   })
 
-  it('migrates v1 barrierStand saves to stand', () => {
-    const { outdoor, indoor, gameState, place } = buildTestHarness()
-    const legacy = {
-      version: 1,
-      place: 'outdoors',
-      flags: [],
-      storySeen: [],
-      endCardDismissed: false,
-      outdoor: {
-        currentId: 'south-pines',
-        discovered: ['origin', 'south-pines'],
-        barrierStand: { x: -42, y: 38 },
-        lastBlocked: 'fence',
-        mode: 'explored',
-      },
-      indoor: {
-        currentRoom: null,
-        exteriorNode: indoor.building.exterior?.entry,
-        discovered: [],
-        revealed: [],
-        level: 'first',
-        viewLevel: 'first',
-        doorState: indoor.indoor.doorState,
-        inventory: [],
-        pickupsTaken: [],
-        facility: { hydroOnline: false, manualMode: {} },
-        completedActions: [],
-        avatarWaypoint: null,
-      },
-    }
-
-    const ok = applySnapshot(legacy, { gameState, place, outdoor, indoor })
-    expect(ok).toBe(true)
-    expect(outdoor.state.stand).toEqual({ x: -42, y: 38 })
-    expect(outdoor.state.lastBlocked).toBe('fence')
-    expect(outdoor.mode).toBe('gameplay')
-  })
-
-  it('persists global character holdings and migrates legacy indoor inventory', () => {
+  it('persists global character holdings', () => {
     const { outdoor, indoor, gameState, place } = buildTestHarness()
     addItem(gameState.character.holdings, gameState.character.definitions, 'lobby-exterior-key', 1, {
       validateDefinition: false,
@@ -239,20 +201,6 @@ describe('useGameState save roundtrip', () => {
     expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
     expect(itemQuantity(gameState.character.holdings, 'lobby-exterior-key')).toBe(1)
     expect(indoor.indoor.inventory).toBeNull()
-
-    const legacy = {
-      ...snapshot,
-      version: 2,
-      character: undefined,
-      indoor: {
-        ...snapshot.indoor,
-        inventory: ['hallway-small-bay-key'],
-      },
-    }
-    gameState.character.holdings.stacks = {}
-    gameState.character.holdings.instances = {}
-    expect(applySnapshot(legacy, { gameState, place, outdoor, indoor })).toBe(true)
-    expect(itemQuantity(gameState.character.holdings, 'hallway-small-bay-key')).toBe(1)
   })
 
   it('round-trips authored game time without using wall-clock elapsed time', () => {

@@ -35,9 +35,8 @@ export function useStory(storyData, ctx) {
       place: place.value,
       hex: outdoor.state.currentId,
       originHex: outdoor.state.previousId,
-      localExit: outdoor.state.localExit,
-      mapTransition: outdoor.state.mapTransition ?? outdoor.state.localExit,
-      transitionDirection: outdoor.state.transitionDirection ?? (outdoor.state.localExit ? "toRegional" : null),
+      mapTransition: outdoor.state.mapTransition,
+      transitionDirection: outdoor.state.transitionDirection,
       room: indoor.indoor.currentRoom,
       exteriorNode: indoor.indoor.exteriorNode,
     };
@@ -45,7 +44,7 @@ export function useStory(storyData, ctx) {
 
   function storyActionContext(loc, event = null) {
     if (event) return "event";
-    if (loc.place === "outdoors" && loc.localExit) return "exitLocalMap";
+    if (loc.place === "outdoors" && loc.mapTransition && loc.transitionDirection === "toRegional") return "exitLocalMap";
     if (loc.place === "outdoors" && loc.originHex) return "enterOutdoorHex";
     if (loc.place === "indoors") return "enterIndoorLocation";
     return "ambientRefresh";
@@ -115,18 +114,13 @@ export function useStory(storyData, ctx) {
     const match = beat.match ?? {};
     const originHexes = originHexList(match.originHex);
     const hasOriginHex = originHexes.length > 0;
-    const hasMapTransition = Boolean(match.mapTransition || match.localExit);
+    const hasMapTransition = Boolean(match.mapTransition);
     const hasMatch = Boolean(hasOriginHex || hasMapTransition || match.transitionDirection);
     let relevant = 0;
     let score = 0;
     if (action === "enterOutdoorHex" && hasOriginHex) {
       relevant += 1;
       if (loc.place !== "outdoors" || !originHexes.includes(loc.originHex)) return -1;
-      score += 1;
-    }
-    if (action === "exitLocalMap" && match.localExit) {
-      relevant += 1;
-      if (loc.place !== "outdoors" || match.localExit !== loc.localExit) return -1;
       score += 1;
     }
     if (
@@ -136,7 +130,7 @@ export function useStory(storyData, ctx) {
         (match.transitionDirection === "toRegional" && action === "exitLocalMap") ||
         (match.transitionDirection === "toLocal" && action === "enterIndoorLocation"))
     ) {
-      const expected = match.mapTransition ?? match.localExit;
+      const expected = match.mapTransition;
       relevant += 1;
       if (!loc.mapTransition || expected !== loc.mapTransition) return -1;
       score += 1;
@@ -333,7 +327,6 @@ export function useStory(storyData, ctx) {
       place.value,
       outdoor.state.currentId,
       outdoor.state.previousId,
-      outdoor.state.localExit,
       outdoor.state.mapTransition,
       outdoor.state.transitionDirection,
       indoor.indoor.currentRoom,

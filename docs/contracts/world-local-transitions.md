@@ -21,7 +21,6 @@ local grid map such as the Utility Station exterior/interior map.
 | World map | The outdoor hex map. |
 | Local map | The grid map for a building/local area. |
 | Map transition | A bidirectional connection between one regional hex and one local-map marker. |
-| Transition | Legacy short name for a map transition. |
 | Local stand | The exterior node where the avatar appears on the local map. |
 | Arrival stand | A local stand used as the first position after switching maps. It may be off the walkable path graph. |
 | Join node | A walkable exterior node that an off-path arrival stand connects to when the player first steps onto the path network. |
@@ -56,14 +55,13 @@ Fields:
   not the avatar stand.
 - `standAt`: world-map stand where the avatar appears after exiting to the
   world. Prefer `{ stand: "stand-id" }` to reference a named stand on
-  `transition.hex`. Coordinate forms such as `{ from: "landmark", dx, dy }`
-  remain supported for legacy/snapshot content. If omitted, fall back to the
-  destination hex's authored stand/default stand.
+  `transition.hex`. If omitted, fall back to the destination hex's authored
+  stand/default stand.
 - `entryFrom`: optional list of previous world hex IDs that prefer this
   transition when entering the local map.
 
 The existing `building.exterior.entry` remains the fallback local stand for
-legacy content and ambiguous entry.
+ambiguous entry.
 
 An exterior node may include `joinNode` when it is an arrival stand rather than
 part of an authored path:

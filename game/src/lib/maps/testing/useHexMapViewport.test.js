@@ -19,9 +19,8 @@ const hexes = [
 ]
 
 describe('normalizeMapMode', () => {
-  it('maps legacy modes to gameplay', () => {
-    expect(normalizeMapMode('slice')).toBe('gameplay')
-    expect(normalizeMapMode('explored')).toBe('gameplay')
+  it('defaults unknown modes to gameplay', () => {
+    expect(normalizeMapMode('unknown')).toBe('gameplay')
     expect(normalizeMapMode(undefined)).toBe('gameplay')
   })
 

@@ -27,18 +27,13 @@ export function useOutdoorPassages({
   getAvatarFromPos,
   applyMove,
 }) {
-  function legacyGateOpen(opening) {
-    if (!opening?.require) return false;
-    return passageRequirementSatisfied(opening, gameState?.flags);
-  }
-
   function isPassageOpen(opening) {
     if (!isGatePassage(opening)) return true;
     if (!gameState) return true;
     if (Object.hasOwn(state.passageStates, opening.id)) {
       return state.passageStates[opening.id] === true;
     }
-    return legacyGateOpen(opening);
+    return false;
   }
 
   function isPassageAvailable(opening) {

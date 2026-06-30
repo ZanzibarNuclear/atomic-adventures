@@ -34,11 +34,10 @@ describe("barrier context", () => {
     expect(riverSegments(models)).toHaveLength(1);
   });
 
-  it("supports legacy fence/river contexts", () => {
-    const fences = [{ kind: "fence" }];
-    const rivers = [{ kind: "river" }];
-    expect(barrierList({ fences, rivers })).toEqual([...fences, ...rivers]);
-    expect(barrierList({ barriers: fences })).toBe(fences);
+  it("uses the current barrier segment list from the travel context", () => {
+    const barriers = [{ kind: "fence" }];
+    expect(barrierList({ barriers })).toBe(barriers);
+    expect(barrierList({})).toEqual([]);
   });
 
   it("finds the first blocking barrier hit while ignoring path-origin contact", () => {
