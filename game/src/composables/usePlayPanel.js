@@ -283,7 +283,7 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
     const door = building.doorById[d.doorId];
     if (!door) continue;
     const state = indoor.doorStateFor(d.doorId);
-    const name = doorLabel(building, d.doorId, d.toName);
+    const name = contextualDoorLabel(indoor, d);
     const status = doorStatusText(state, door, facility);
     const hint = indoor.doorLockHint(d.doorId) || status;
 
@@ -297,7 +297,7 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
 
     if (
       !isEnablerLock(door) &&
-      (canToggleLock(
+      canToggleLock(
         doorState,
         building.areaId,
         d.doorId,
@@ -305,8 +305,7 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
         playerRoomId,
         inventory,
         facility,
-      ) ||
-        state.locked)
+      )
     ) {
       items.push({
         id: `door-lock:${d.doorId}`,
@@ -344,16 +343,85 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
   return items.filter(isVisibleAction);
 }
 
+function contextualDoorLabel(indoor, nearbyDoor) {
+  const building = indoor.building;
+  const door = building.doorById?.[nearbyDoor.doorId];
+  const destinationRoomId = nearbyDoor.toRoomId;
+  const discovered = indoor.indoor?.discovered;
+  if (destinationRoomId && discovered?.has?.(destinationRoomId)) {
+    if (door?.label) return door.label;
+    const room = building.roomById?.[destinationRoomId];
+    const label = room ? doorRoomName(room) : nearbyDoor.toName;
+    return label ? `${label} door` : doorLabel(building, nearbyDoor.doorId, nearbyDoor.toName);
+  }
+  if (destinationRoomId && !discovered?.has?.(destinationRoomId)) {
+    const unknownDoors = (indoor.nearbyDoors ?? []).filter((item) =>
+      item.toRoomId && !discovered?.has?.(item.toRoomId)
+    );
+    return unknownDoors.length > 1
+      ? positionedDoorLabel(building, indoor.playerRoomId, door)
+      : "door";
+  }
+  return doorLabel(building, nearbyDoor.doorId, nearbyDoor.toName);
+}
+
+function doorRoomName(room) {
+  return String(room?.label ?? room?.id ?? "")
+    .replace(/\s+room$/i, "")
+    .toLowerCase();
+}
+
+function positionedDoorLabel(building, roomId, door) {
+  const room = building.roomById?.[roomId];
+  if (!room || !door?.at) return "door";
+  const left = room.x;
+  const right = room.x + (room.w ?? 1);
+  const top = room.y;
+  const bottom = room.y + (room.h ?? 1);
+  const sides = [
+    { label: "west", distance: Math.abs(door.at.x - left) },
+    { label: "east", distance: Math.abs(door.at.x - right) },
+    { label: "north", distance: Math.abs(door.at.y - top) },
+    { label: "south", distance: Math.abs(door.at.y - bottom) },
+  ].sort((a, b) => a.distance - b.distance);
+  return `${sides[0]?.label ?? "nearby"} door`;
+}
+
 function movementLabel(indoor, move) {
   if (move.kind === "stairs" || move.kind === "winding-stairs" || move.onSpiral) {
     return isDescendingStairs(indoor, move) ? "Descend the stairs" : "Climb the stairs";
   }
   if (indoor?.indoor && !indoor.indoor.exteriorNode && move.toExteriorNode) return "Go outside";
   if (indoor?.indoor?.exteriorNode && move.toRoomId && move.kind === "door") return "Go inside";
+  if (
+    move.toRoomId &&
+    !isDestinationRoomDiscovered(indoor, move.toRoomId) &&
+    !isKnownGenericDestination(indoor, move.toRoomId)
+  ) {
+    return "Enter the room";
+  }
+  if (
+    move.toRoomId &&
+    move.kind === "door" &&
+    indoor?.indoor?.discovered?.has &&
+    !indoor.indoor.discovered.has(move.toRoomId)
+  ) {
+    return "Enter the room";
+  }
   if (move.toExteriorNode) return `Go ${move.label ?? "along the footpath"}`;
   if (move.toStandId) return `Go ${move.label ?? "to another spot"}`;
   if (move.toRoomId) return `Go ${move.label ?? "to another room"}`;
   return `Go ${move.label ?? "onward"}`;
+}
+
+function isDestinationRoomDiscovered(indoor, roomId) {
+  const discovered = indoor?.indoor?.discovered;
+  return !discovered?.has || discovered.has(roomId);
+}
+
+function isKnownGenericDestination(indoor, roomId) {
+  const room = indoor?.building?.roomById?.[roomId];
+  return !!room?.feature || !!room?.open;
 }
 
 function isDescendingStairs(indoor, move) {

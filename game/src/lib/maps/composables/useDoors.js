@@ -160,6 +160,9 @@ export function canToggleLockFromRoom(
   if (!s || s.lockBroken || s.open) {
     return { ok: false, reason: s?.open ? 'open' : 'blocked' }
   }
+  if (door?.kind !== 'roll' && !doorLockConfig(door) && !requiredKeyId(door) && !lockFreeFromRoom(door)) {
+    return { ok: false, reason: 'no-lock' }
+  }
 
   // Roll-ups release only via manual switch or hydro power — no thumb turn / break lock.
   if (isEnablerLock(door)) {

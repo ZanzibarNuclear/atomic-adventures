@@ -390,6 +390,69 @@ describe('getMovementOptions', () => {
     ])
   })
 
+  it('labels movement through a door to a fogged room without revealing the room name', () => {
+    const indoor = {
+      indoorMoves: [
+        {
+          kind: 'door',
+          toRoomId: 'conference',
+          label: 'into the conference room',
+        },
+      ],
+      indoor: {
+        exteriorNode: null,
+        discovered: new Set(['garage-stair']),
+      },
+    }
+
+    expect(buildIndoorMovementActions(indoor)).toEqual([
+      {
+        id: 'move-room:conference',
+        label: 'Enter the room',
+        kind: 'door',
+      },
+    ])
+  })
+
+  it('labels movement to any fogged room without revealing the room name', () => {
+    const indoor = {
+      building: {
+        roomById: {
+          kitchen: { id: 'kitchen', label: 'Conference Kitchen' },
+        },
+      },
+      indoorMoves: [
+        {
+          kind: 'open',
+          toRoomId: 'kitchen',
+          label: 'to Conference Kitchen',
+        },
+      ],
+      indoor: {
+        exteriorNode: null,
+        discovered: new Set(['conference']),
+      },
+    }
+
+    expect(buildIndoorMovementActions(indoor)).toEqual([
+      {
+        id: 'move-room:kitchen',
+        label: 'Enter the room',
+        kind: 'open',
+      },
+    ])
+
+    indoor.indoor.discovered = new Set(['conference', 'kitchen'])
+
+    expect(buildIndoorMovementActions(indoor)).toEqual([
+      {
+        id: 'move-room:kitchen',
+        label: 'Go to Conference Kitchen',
+        kind: 'open',
+      },
+    ])
+  })
+
   it('normalizes manual release switch actions without em or en dashes', () => {
     const indoor = {
       indoorMoves: [],
@@ -544,6 +607,97 @@ describe('getMovementOptions', () => {
 
     expect(actions.map((action) => action.id)).not.toContain('door-lock:side-door')
     expect(actions.some((action) => action.disabled)).toBe(false)
+  })
+
+  it('does not reveal fogged room names in door action labels', () => {
+    const indoor = {
+      indoorMoves: [],
+      roomPickups: [],
+      availableActions: [],
+      nearbyDoors: [{ doorId: 'library-hallway', toRoomId: 'library', toName: 'Library' }],
+      roomSwitches: [],
+      building: {
+        areaId: 'utility-station',
+        roomById: {
+          hallway: { id: 'hallway', label: 'Hallway', x: 0, y: 0, w: 2, h: 2 },
+          library: { id: 'library', label: 'Library' },
+        },
+        doorById: {
+          'library-hallway': { id: 'library-hallway', kind: 'man', at: { x: 0, y: 1 } },
+        },
+      },
+      indoor: {
+        discovered: new Set(['hallway']),
+        doorState: {
+          'utility-station:library-hallway': {
+            open: false,
+            locked: false,
+            lockBroken: false,
+          },
+        },
+        facility: {},
+      },
+      playerRoomId: 'hallway',
+      doorStateFor: (doorId) => indoor.indoor.doorState[`utility-station:${doorId}`],
+      doorLockHint: () => '',
+      canToggleDoorLock: () => false,
+    }
+
+    let actions = buildIndoorPlayActions(indoor)
+
+    expect(actions.map((action) => action.label)).toContain('Open the door')
+    expect(actions.map((action) => action.label).join(' ')).not.toMatch(/library/i)
+    expect(actions.map((action) => action.id)).not.toContain('door-lock:library-hallway')
+
+    indoor.indoor.discovered = new Set(['hallway', 'library'])
+    actions = buildIndoorPlayActions(indoor)
+
+    expect(actions.map((action) => action.label)).toContain('Open the library door')
+  })
+
+  it('uses position labels to distinguish multiple fogged doors', () => {
+    const indoor = {
+      indoorMoves: [],
+      roomPickups: [],
+      availableActions: [],
+      nearbyDoors: [
+        { doorId: 'west-door', toRoomId: 'west-room', toName: 'West Room' },
+        { doorId: 'east-door', toRoomId: 'east-room', toName: 'East Room' },
+      ],
+      roomSwitches: [],
+      building: {
+        areaId: 'utility-station',
+        roomById: {
+          hall: { id: 'hall', label: 'Hall', x: 0, y: 0, w: 4, h: 2 },
+          'west-room': { id: 'west-room', label: 'West Room' },
+          'east-room': { id: 'east-room', label: 'East Room' },
+        },
+        doorById: {
+          'west-door': { id: 'west-door', kind: 'man', at: { x: 0, y: 1 } },
+          'east-door': { id: 'east-door', kind: 'man', at: { x: 4, y: 1 } },
+        },
+      },
+      indoor: {
+        discovered: new Set(['hall']),
+        doorState: {
+          'utility-station:west-door': { open: false, locked: false, lockBroken: false },
+          'utility-station:east-door': { open: false, locked: false, lockBroken: false },
+        },
+        facility: {},
+      },
+      playerRoomId: 'hall',
+      doorStateFor: (doorId) => indoor.indoor.doorState[`utility-station:${doorId}`],
+      doorLockHint: () => '',
+      canToggleDoorLock: () => false,
+    }
+
+    const labels = buildIndoorPlayActions(indoor).map((action) => action.label)
+
+    expect(labels).toEqual(expect.arrayContaining([
+      'Open the west door',
+      'Open the east door',
+    ]))
+    expect(labels.join(' ')).not.toMatch(/west room|east room/i)
   })
 
   it('lets indoor story choices replace matching generic movement actions', () => {

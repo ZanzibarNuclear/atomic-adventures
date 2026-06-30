@@ -453,6 +453,20 @@ export function createIndoorMovement(deps) {
     if (indoor.moving) return;
     const currentRoom = building.value.roomById[indoor.currentRoom];
     const stand = roomStandById(building.value, indoor.currentRoom, standId);
+    const currentStandModel = roomStandById(
+      building.value,
+      indoor.currentRoom,
+      indoor.currentStand,
+    );
+    if (
+      !currentRoom?.feature &&
+      currentStandModel?.kind === "stair" &&
+      currentStandModel.stair &&
+      standId === oppositeStairEndpointId(currentStandModel.id)
+    ) {
+      moveToRoom(currentStandModel.stair);
+      return;
+    }
     if (currentRoom?.feature && stand?.kind === "stair") {
       const targetLevel = stairEndpointLevel(building.value, currentRoom, stand.id) ?? indoor.level;
       const endpointRoom = stairEndpointRoom(building.value, currentRoom.id, targetLevel);
@@ -629,5 +643,11 @@ function stairEndpointRoom(building, stairRoomId, levelId) {
     const room = building.roomById?.[otherId];
     if (!room?.feature && roomLevel(room) === levelId) return room;
   }
+  return null;
+}
+
+function oppositeStairEndpointId(standId) {
+  if (standId?.endsWith(":bottom")) return standId.replace(/:bottom$/, ":top");
+  if (standId?.endsWith(":top")) return standId.replace(/:top$/, ":bottom");
   return null;
 }

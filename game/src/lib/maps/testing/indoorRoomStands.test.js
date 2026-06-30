@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ref } from "vue";
 import { mapData, utilityData } from '../../testing/content.js';
+import { useGridMapPlacements } from "../composables/useGridMapPlacements.js";
 import {
   buildBuilding,
   defaultRoomStandId,
@@ -14,7 +15,10 @@ import { useIndoorBuilding } from "../composables/useIndoorBuilding.js";
 import { useOutdoorWorld } from "../composables/useOutdoorWorld.js";
 import { resolveStandPoint } from "../composables/useAvatarStand.js";
 import { createFlags } from "../composables/useFlags.js";
-import { buildIndoorMovementActions } from "../../../composables/usePlayPanel.js";
+import {
+  buildIndoorMovementActions,
+  buildIndoorPlayActions,
+} from "../../../composables/usePlayPanel.js";
 
 function indoorHarness() {
   const place = ref("indoors");
@@ -117,6 +121,57 @@ describe("indoor room stands", () => {
     expect(indoor.indoorMoves.map((move) => move.toStandId)).toContain("service-area");
   });
 
+  it("shows the top stair endpoint while standing at the bottom endpoint", () => {
+    const building = buildBuilding(utilityData);
+    const placements = useGridMapPlacements({
+      building: ref(building),
+      level: ref("first"),
+      currentRoom: ref("large-bay"),
+      currentStand: ref("stair:garage-stair:bottom"),
+      exteriorNode: ref(null),
+      avatarWaypoint: ref(null),
+      standLevel: ref("first"),
+      doorStates: ref({}),
+      builderView: ref(false),
+      builderEdit: ref(false),
+      editMode: ref(null),
+      selectedItemId: ref(null),
+      mapClickMode: ref(null),
+      reachableExteriorNodes: ref([]),
+      reachableExitDoors: ref([]),
+      visibility: ref({ discovered: new Set(["large-bay", "garage-stair"]) }),
+      cell: ref(building.cell),
+      tp: (x, y) => ({ x, y }),
+      swapAxes: ref(false),
+    });
+
+    const top = placements.placedRoomStands.value.find(
+      (stand) => stand.id === "stair:garage-stair:top",
+    );
+
+    expect(top).toMatchObject({
+      roomId: "large-bay",
+      kind: "stair",
+      reachable: true,
+    });
+  });
+
+  it("climbs when clicking the projected top stair endpoint from the bottom", () => {
+    const { indoor } = indoorHarness();
+    indoor.indoor.currentRoom = "large-bay";
+    indoor.indoor.exteriorNode = null;
+    indoor.indoor.currentStand = "stair:garage-stair:bottom";
+    indoor.indoor.level = "first";
+    indoor.indoor.discovered = new Set(["large-bay", "garage-stair"]);
+    indoor.indoor.revealed = new Set(["large-bay", "garage-stair"]);
+
+    indoor.moveToStand("stair:garage-stair:top");
+
+    expect(indoor.indoor.currentRoom).toBe("garage-stair");
+    expect(indoor.indoor.level).toBe("second");
+    expect(indoor.indoor.currentStand).toBe("stair:garage-stair:top");
+  });
+
   it("only offers room-side door controls at that door threshold", () => {
     const { indoor } = indoorHarness();
     indoor.indoor.currentRoom = "large-bay";
@@ -196,7 +251,7 @@ describe("indoor room stands", () => {
     indoor.indoor.currentRoom = "large-bay";
     indoor.indoor.exteriorNode = null;
     indoor.indoor.currentStand = "midway";
-    indoor.indoor.discovered = new Set(["large-bay", "garage-stair", "conference"]);
+    indoor.indoor.discovered = new Set(["large-bay", "garage-stair"]);
     indoor.indoor.revealed = new Set(["large-bay", "garage-stair", "conference"]);
 
     indoor.moveToRoom("garage-stair");
@@ -215,6 +270,8 @@ describe("indoor room stands", () => {
 
     indoor.tryOpenDoor("conference-garage-stair");
     indoor.indoor.moving = false;
+    expect(buildIndoorMovementActions(indoor).map((action) => action.label)).toContain("Enter the room");
+    expect(buildIndoorMovementActions(indoor).map((action) => action.label).join(" ")).not.toMatch(/conference/i);
     indoor.moveToRoom("conference");
 
     expect(indoor.indoor.currentRoom).toBe("conference");
@@ -253,6 +310,76 @@ describe("indoor room stands", () => {
     expect(indoor.indoor.currentRoom).toBe("garage-stair");
     expect(indoor.indoor.level).toBe("second");
     expect(indoor.indoor.currentStand).toBe("stair:garage-stair:top");
+  });
+
+  it("does not offer a lock action from the top stair stand without lock hardware or a key", () => {
+    const { indoor } = indoorHarness();
+    indoor.indoor.currentRoom = "garage-stair";
+    indoor.indoor.exteriorNode = null;
+    indoor.indoor.currentStand = "stair:garage-stair:top";
+    indoor.indoor.level = "second";
+    indoor.indoor.discovered = new Set(["large-bay", "garage-stair"]);
+    indoor.indoor.revealed = new Set(["large-bay", "garage-stair", "conference"]);
+
+    const actions = buildIndoorPlayActions(indoor).map((action) => ({
+      id: action.id,
+      label: action.label,
+    }));
+
+    expect(actions.map((action) => action.id)).not.toContain("door-lock:conference-garage-stair");
+    expect(actions.map((action) => action.label)).toContain("Open the door");
+    expect(actions.map((action) => action.label).join(" ")).not.toMatch(/conference/i);
+  });
+
+  it("offers manual roll-up release only at the roll-up door stand", () => {
+    const { indoor } = indoorHarness();
+    indoor.indoor.currentRoom = "large-bay";
+    indoor.indoor.exteriorNode = null;
+    indoor.indoor.currentStand = "midway";
+    indoor.indoor.discovered = new Set(["large-bay"]);
+
+    expect(buildIndoorPlayActions(indoor).map((action) => action.id))
+      .not.toContain("switch:large-bay-roll");
+
+    indoor.moveToStand("door:large-bay-roll");
+
+    const actions = buildIndoorPlayActions(indoor);
+    expect(actions.map((action) => action.id)).toContain("switch:large-bay-roll");
+    expect(actions.map((action) => action.label)).toContain("Release the large roll-up door manually");
+  });
+
+  it("offers small roll-up manual release only at the small roll-up door stand", () => {
+    const { indoor } = indoorHarness();
+    indoor.indoor.currentRoom = "small-bay";
+    indoor.indoor.exteriorNode = null;
+    indoor.indoor.currentStand = null;
+    indoor.indoor.discovered = new Set(["small-bay"]);
+
+    expect(buildIndoorPlayActions(indoor).map((action) => action.id))
+      .not.toContain("switch:small-bay-roll");
+
+    indoor.moveToStand("door:small-bay-roll");
+
+    const actions = buildIndoorPlayActions(indoor);
+    expect(actions.map((action) => action.id)).toContain("switch:small-bay-roll");
+    expect(actions.map((action) => action.label)).toContain("Release the small roll-up door manually");
+  });
+
+  it("does not reveal fogged kitchen name from the conference room movement action", () => {
+    const { indoor } = indoorHarness();
+    indoor.tryOpenDoor("conference-kitchen");
+    indoor.indoor.moving = false;
+    indoor.indoor.currentRoom = "conference";
+    indoor.indoor.exteriorNode = null;
+    indoor.indoor.currentStand = "door:conference-kitchen";
+    indoor.indoor.level = "second";
+    indoor.indoor.discovered = new Set(["conference"]);
+    indoor.indoor.revealed = new Set(["conference", "kitchen"]);
+
+    const labels = buildIndoorMovementActions(indoor).map((action) => action.label);
+
+    expect(labels).toContain("Enter the room");
+    expect(labels.join(" ")).not.toMatch(/kitchen/i);
   });
 
   it("arrives at the destination-side threshold when crossing a door", () => {
