@@ -25,6 +25,19 @@ tests, implementation map, and this list in the same change.
 - Expand close-up stage kinds for documents, lessons, consoles, and
   simulations as Part I content starts using them.
 
+## Holo-Reader Lessons
+
+- Decide whether lesson definitions initially extend `character-main` or live
+  in a separate learning content document owned by Content Builder.
+- Implement the first lesson stage view, lesson progress state, assessment
+  completion flow, and idempotent credit awards through the shared effects
+  service.
+- Add Content Builder lesson authoring for sections, assessments, completion
+  rules, effect payloads, validation, preview states, and cross-content
+  references.
+- Integrate one hydro lesson as a real progression gate before broadening the
+  lesson library or embedding simulator-backed sections.
+
 ## Character, Inventory, And Content
 
 - Finish connecting shared requirement and effect authoring across Story
