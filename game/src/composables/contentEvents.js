@@ -56,7 +56,13 @@ function startContentEvents() {
   events.onerror = () => {
     for (const handler of errorListeners) handler();
   };
-  for (const eventName of ["story.updated", "world.updated", "building.updated", "character.updated"]) {
+  for (const eventName of [
+    "story.updated",
+    "world.updated",
+    "building.updated",
+    "character.updated",
+    "learning.updated",
+  ]) {
     events.addEventListener(eventName, (event) => {
       for (const handler of listeners.get(eventName) ?? []) handler(event);
     });

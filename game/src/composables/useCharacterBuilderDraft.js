@@ -141,7 +141,7 @@ export function useCharacterBuilderDraft() {
 
   function selectWorkspace(mode) {
     workspaceMode.value = mode;
-    if (mode === "preview" || mode === "options") return;
+    if (mode === "preview" || mode === "options" || mode === "lessons") return;
     const catalogs = mode === "artifacts" ? artifactCatalogs : characterCatalogs;
     if (!catalogs.some((catalog) => catalog.id === selectedCatalog.value)) {
       selectCatalog(catalogs[0].id);
@@ -152,10 +152,10 @@ export function useCharacterBuilderDraft() {
 
   function applyRouteSelection() {
     const mode = queryText(route.query.mode);
-    if (["character", "artifacts", "options", "preview"].includes(mode)) {
+    if (["character", "artifacts", "options", "preview", "lessons"].includes(mode)) {
       workspaceMode.value = mode;
     }
-    if (workspaceMode.value === "preview" || workspaceMode.value === "options") return;
+    if (workspaceMode.value === "preview" || workspaceMode.value === "options" || workspaceMode.value === "lessons") return;
     const catalogs = workspaceMode.value === "artifacts" ? artifactCatalogs : characterCatalogs;
     const catalog = queryText(route.query.catalog);
     if (catalogs.some((item) => item.id === catalog)) {

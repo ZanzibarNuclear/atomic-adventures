@@ -114,10 +114,22 @@ function disableTimeUntil(choice) {
         >
           <option value="inventory">Inventory</option>
           <option value="character-stats">Character stats</option>
+          <option value="lesson">Holo-reader lesson</option>
         </select>
       </label>
       <label v-if="choice.view.kind === 'character-stats'">Focus
         <input v-model="choice.view.focus" placeholder="health" />
+      </label>
+      <label v-if="choice.view.kind === 'lesson'">Lesson
+        <select v-model="choice.view.id">
+          <option value="">Choose a lesson</option>
+          <option
+            v-for="lesson in catalog.learning?.lessons ?? []"
+            :key="lesson.id"
+            :value="lesson.id">
+            {{ lesson.title }} ({{ lesson.id }})
+          </option>
+        </select>
       </label>
     </div>
     <p v-for="message in errors[`choices.${index}.destination`] ?? []" :key="message" class="field-error">{{ message }}</p>

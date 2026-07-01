@@ -5,6 +5,8 @@ import { utilityData as utilityStation } from '../testing/content.js';
 import { createCharacterState } from "../../composables/useCharacterState.js";
 import { createIndoorActions } from "../maps/composables/indoor/useIndoorActions.js";
 import { createGameClock } from "./gameTime.js";
+import { learningSeed } from "../../../server/learning-seed.js";
+import { completeLesson } from "../learning/completion.js";
 
 describe("authored learning progression", () => {
   it("moves from lesson to knowledge, practice evidence, and qualification", () => {
@@ -31,13 +33,17 @@ describe("authored learning progression", () => {
       gameState,
     });
 
-    expect(actions.availableActions.value.map((action) => action.id))
-      .toContain("holo-reader-hydro-lesson");
-    actions.performAction("holo-reader-hydro-lesson");
+    expect(actions.availableActions.value.some((action) =>
+      (action.effects ?? []).some((effect) =>
+        effect.op === "knowledge.acquire" && effect.id === "hydro-head-and-flow")
+    )).toBe(false);
+    const lesson = learningSeed.lessons.find((entry) => entry.id === "hydro-power-intro");
+    const result = completeLesson(gameState, lesson, { now: () => "lesson-passed" });
 
-    expect(character.documents["hydro-operations-primer"].readAt).toBeTruthy();
-    expect(character.knowledge["hydro-head-and-flow"].acquiredAt).toBeTruthy();
-    expect(character.skills["hydro-operations"].rank).toBe(1);
+    expect(result.ok).toBe(true);
+    expect(character.knowledge["hydro-head-and-flow"].acquiredAt).toBe("lesson-passed");
+    expect(gameState.lessons["hydro-power-intro"].completedAt).toBe("lesson-passed");
+    expect(gameState.clock.elapsedMinutes).toBe(30);
 
     indoor.currentRoom = "control-room";
     for (let day = 0; day < 3; day += 1) {
@@ -59,6 +65,24 @@ describe("authored learning progression", () => {
     expect(character.skills["hydro-operations"].rank).toBe(3);
     expect(character.skills["hydro-operations"].awards["3"].earnedText)
       .toBe("Qualified hydro operator");
+  });
+
+  it("does not charge time or reapply effects when a completed lesson is replayed", () => {
+    const character = createCharacterState(characterDefinitions);
+    const gameState = {
+      character,
+      flags: new Set(["hub.hydro_online"]),
+      clock: createGameClock(),
+      lessons: {},
+    };
+    const lesson = learningSeed.lessons.find((entry) => entry.id === "hydro-power-intro");
+
+    expect(completeLesson(gameState, lesson, { now: () => "first" }).ok).toBe(true);
+    expect(completeLesson(gameState, lesson, { now: () => "second" }).alreadyCompleted).toBe(true);
+
+    expect(gameState.lessons["hydro-power-intro"].completedAt).toBe("first");
+    expect(character.knowledge["hydro-head-and-flow"].acquiredAt).toBe("first");
+    expect(gameState.clock.elapsedMinutes).toBe(30);
   });
 
   it("keeps document discovery separate from learned knowledge", () => {

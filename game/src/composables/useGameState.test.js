@@ -203,6 +203,20 @@ describe('useGameState save roundtrip', () => {
     expect(indoor.indoor.inventory).toBeNull()
   })
 
+  it('persists completed lesson progress separately from character knowledge', () => {
+    const { outdoor, indoor, gameState, place } = buildTestHarness()
+    gameState.lessons = {
+      'hydro-power-intro': { completedAt: 'lesson-passed' },
+    }
+
+    const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
+    expect(snapshot.lessons['hydro-power-intro'].completedAt).toBe('lesson-passed')
+
+    gameState.lessons = {}
+    expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
+    expect(gameState.lessons['hydro-power-intro'].completedAt).toBe('lesson-passed')
+  })
+
   it('round-trips authored game time without using wall-clock elapsed time', () => {
     const { outdoor, indoor, gameState, place } = buildTestHarness()
     gameState.clock = { elapsedMinutes: 185, minuteOfDay: 665, day: 2 }

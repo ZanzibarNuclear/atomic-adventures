@@ -20,6 +20,8 @@
     "building:export": "node server/building-cli.js export",
     "character:import": "node server/character-cli.js import",
     "character:export": "node server/character-cli.js export",
+    "learning:import": "node server/learning-cli.js import",
+    "learning:export": "node server/learning-cli.js export",
     "test": "vitest run",
     "test:movement": "MOVEMENT_AUDIT_REPORT=1 vitest run src/lib/maps/testing/mapMovementAudit.test.js --reporter=verbose",
     "test:watch": "vitest"

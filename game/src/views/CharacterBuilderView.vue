@@ -2,6 +2,7 @@
 import CharacterCatalogBrowser from "../components/character-builder/CharacterCatalogBrowser.vue";
 import CharacterEntryEditor from "../components/character-builder/CharacterEntryEditor.vue";
 import CharacterOptionsEditor from "../components/character-builder/CharacterOptionsEditor.vue";
+import LearningLessonsEditor from "../components/character-builder/LearningLessonsEditor.vue";
 import CharacterView from "../components/game-views/CharacterView.vue";
 import BuilderPageHeader from "../components/builder/BuilderPageHeader.vue";
 import BuilderWorkspaceTabs from "../components/builder/BuilderWorkspaceTabs.vue";
@@ -58,6 +59,7 @@ const {
 const contentWorkspaceTabs = [
   { id: "character", label: "Character" },
   { id: "artifacts", label: "Artifacts" },
+  { id: "lessons", label: "Lessons" },
   { id: "options", label: "Options" },
   { id: "preview", label: "Preview" },
 ];
@@ -123,6 +125,8 @@ const contentWorkspaceTabs = [
         @add-group="addGroup"
         @remove-group="removeGroup" />
     </section>
+
+    <LearningLessonsEditor v-else-if="workspaceMode === 'lessons'" />
 
     <section v-else class="preview-workspace panel">
       <div class="preview-toolbar">

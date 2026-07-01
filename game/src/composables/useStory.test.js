@@ -304,7 +304,7 @@ describe("useStory reactive content", () => {
     expect(setup.api.pendingBeat.value.text).toBe("Morning light spills across the library.");
   });
 
-  it("opens a stage view from a story choice without dismissing the beat", () => {
+  it("opens a stage view from a story choice and clears the beat", () => {
     const opened = [];
     const viewBeat = {
       ...beat,
@@ -321,7 +321,7 @@ describe("useStory reactive content", () => {
     setup.api.applyChoice(0);
 
     expect(opened).toEqual([{ kind: "inventory" }]);
-    expect(setup.api.pendingBeat.value.id).toBe("intro");
+    expect(setup.api.pendingBeat.value).toBeNull();
     expect(setup.gameState.storySeen.has("intro")).toBe(true);
   });
 

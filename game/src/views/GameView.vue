@@ -10,6 +10,7 @@ import { useWorldContent } from "../composables/useWorldContent.js";
 import { useBuildingContent } from "../composables/useBuildingContent.js";
 import { useGameView } from "../composables/useGameView.js";
 import { useCharacterContent } from "../composables/useCharacterContent.js";
+import { useLearningContent } from "../composables/useLearningContent.js";
 import {
   markCharacterChanged,
   syncCharacterDefinitions,
@@ -26,15 +27,28 @@ import {
 import AppHeader from "../components/AppHeader.vue";
 import CharacterView from "../components/game-views/CharacterView.vue";
 import CharacterStatsStageView from "../components/game-views/CharacterStatsStageView.vue";
+import DeveloperSettingsDialog from "../components/dev/DeveloperSettingsDialog.vue";
+import HoloReaderView from "../components/game-views/HoloReaderView.vue";
 import InventoryStageView from "../components/game-views/InventoryStageView.vue";
 import StoryOverlay from "../components/story/StoryOverlay.vue";
 import OutdoorScene from "../lib/maps/views/OutdoorScene.vue";
 import IndoorScene from "../lib/maps/views/IndoorScene.vue";
 import { visibleCharacterStats } from "../lib/character/panel.js";
+import { completeLesson } from "../lib/learning/completion.js";
+import {
+  HOLO_READER_BROWSER_ACTION_ID,
+  availableHoloReaderLessons,
+  buildHoloReaderActions,
+} from "../lib/learning/holoReaderActions.js";
+import {
+  isStationPowerOverriddenOn,
+  setStationPowerOverride,
+} from "../lib/dev/developerOverrides.js";
 
 const place = ref("outdoors");
 const builderView = ref(false);
 const movementAuditVisible = ref(false);
+const developerSettingsVisible = ref(false);
 const {
   activeView,
   isMapView,
@@ -60,6 +74,11 @@ const {
   error: characterContentError,
   refresh: refreshCharacter,
 } = useCharacterContent();
+const {
+  lessons,
+  error: learningContentError,
+  refresh: refreshLearning,
+} = useLearningContent();
 const mapData = JSON.parse(JSON.stringify(worldData.value));
 const initialBuildingData = JSON.parse(JSON.stringify(buildingData.value));
 
@@ -146,6 +165,25 @@ const stageSelectedHolding = computed(() =>
     .find((record) => `${record.type}:${record.id}` === stageSelectedHoldingId.value) ?? null,
 );
 const characterStats = computed(() => visibleCharacterStats(gameState.character));
+const lessonCompletionError = ref("");
+const availableLessons = computed(() =>
+  availableHoloReaderLessons(lessons.value, {
+    flags: gameState.flags,
+    character: gameState.character,
+  }),
+);
+const holoReaderActions = computed(() =>
+  buildHoloReaderActions({
+    place: place.value,
+    currentStand: indoor.indoor.currentStand,
+    lessons: lessons.value,
+    flags: gameState.flags,
+    character: gameState.character,
+  }),
+);
+const stationPowerOverrideOn = computed(() =>
+  isStationPowerOverriddenOn(gameState, indoor),
+);
 let deferredWorld = null;
 let deferredBuilding = null;
 
@@ -216,6 +254,7 @@ function handleReset() {
 
 function handleReturnToMap() {
   returnToMap();
+  lessonCompletionError.value = "";
   nextTick(() => document.querySelector(".view-toggle")?.focus());
 }
 
@@ -254,6 +293,36 @@ function openStageView(view) {
   return openView(kind, view);
 }
 
+function handleHoloReaderAction(id) {
+  if (id === HOLO_READER_BROWSER_ACTION_ID) {
+    openView("lesson", { source: "library-holo-reader" });
+  }
+}
+
+function selectLesson(lessonId) {
+  openView("lesson", lessonId ? {
+    ...activeView.value.payload,
+    lessonId,
+  } : {
+    source: activeView.value.payload?.source ?? "library-holo-reader",
+  });
+}
+
+function handleCompleteLesson(lessonId) {
+  const lesson = lessons.value.find((candidate) => candidate.id === lessonId);
+  if (!lesson) {
+    lessonCompletionError.value = `Lesson "${lessonId}" was not found.`;
+    return;
+  }
+  const result = completeLesson(gameState, lesson);
+  lessonCompletionError.value = result.ok ? "" : result.error ?? "Lesson completion failed.";
+}
+
+function handleSetStationPowerOverride(on) {
+  const result = setStationPowerOverride({ gameState, indoor }, on);
+  if (result.ok) refreshNarrative();
+}
+
 function handleUseItem({ itemId, actionId }) {
   const result = performItemAction(gameState, itemId, actionId);
   if (result.ok) refreshNarrative();
@@ -290,12 +359,19 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       @reset="handleReset"
       @show-character="handleOpenCharacter"
       @show-map="returnToMap"
+      @show-dev-settings="developerSettingsVisible = true"
       @show-movement-audit="movementAuditVisible = true" />
 
+    <DeveloperSettingsDialog
+      v-if="developerSettingsVisible"
+      :station-power-on="stationPowerOverrideOn"
+      @set-station-power="handleSetStationPowerOverride"
+      @close="developerSettingsVisible = false" />
+
     <div
-      v-if="contentError || worldContentError || buildingContentError || characterContentError"
+      v-if="contentError || worldContentError || buildingContentError || characterContentError || learningContentError"
       class="content-error">
-      {{ contentError || worldContentError || buildingContentError || characterContentError }}
+      {{ contentError || worldContentError || buildingContentError || characterContentError || learningContentError }}
       <button
         class="sm"
         @click="contentError
@@ -304,7 +380,9 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
             ? refreshWorld()
             : buildingContentError
               ? refreshBuilding()
-              : refreshCharacter()"
+              : characterContentError
+                ? refreshCharacter()
+                : refreshLearning()"
       >Retry</button>
     </div>
 
@@ -328,6 +406,8 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       :apply-choice="applyChoice"
       :travel-to-room="travelToRoom"
       :audit-enabled="movementAuditVisible"
+      :extra-actions="holoReaderActions"
+      @extra-action="handleHoloReaderAction"
       @hide-movement-audit="movementAuditVisible = false" />
 
     <InventoryStageView
@@ -356,6 +436,16 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       :initial-tab="activeView.payload?.tab"
       @use-item="handleUseItem"
       @transfer-item="handleTransferItem"
+      @return-to-map="handleReturnToMap" />
+
+    <HoloReaderView
+      v-else-if="activeView.kind === 'lesson'"
+      :lessons="availableLessons"
+      :selected-lesson-id="activeView.payload?.lessonId ?? activeView.payload?.id"
+      :game-state="gameState"
+      :completion-error="lessonCompletionError"
+      @select-lesson="selectLesson"
+      @complete-lesson="handleCompleteLesson"
       @return-to-map="handleReturnToMap" />
 
     <StoryOverlay

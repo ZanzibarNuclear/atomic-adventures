@@ -14,18 +14,21 @@ try {
     worldRepository,
     buildingRepository,
     characterRepository,
+    learningRepository,
   } = createContentRepositories(db);
   assertContentDocuments({
     storyRepository,
     worldRepository,
     buildingRepository,
     characterRepository,
+    learningRepository,
   });
   writeRuntimeContent({
     storyRepository,
     worldRepository,
     buildingRepository,
     characterRepository,
+    learningRepository,
     outputDir,
   });
   console.log(`Exported production runtime content to ${outputDir}.`);

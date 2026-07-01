@@ -23,6 +23,7 @@ function setup() {
     worldRepository,
     buildingRepository,
     characterRepository,
+    learningRepository,
   } = createContentRepositories(db);
   return {
     db,
@@ -31,6 +32,7 @@ function setup() {
       worldRepository,
       buildingRepository,
       characterRepository,
+      learningRepository,
     ),
     worldRepository,
     buildingRepository,

@@ -24,6 +24,12 @@
                 @click="showMovementAudit">
                 {{ movementAuditVisible ? "Movement audit shown" : "Show movement audit" }}
               </button>
+              <button
+                type="button"
+                class="dev-menu-item"
+                @click="showDevSettings">
+                Settings
+              </button>
             </div>
           </details>
           <button
@@ -76,6 +82,7 @@ const emit = defineEmits([
   "save",
   "new-game",
   "reset",
+  "show-dev-settings",
   "show-movement-audit",
   "show-character",
   "show-map",
@@ -97,6 +104,11 @@ const showSaveHint = computed(() => formattedSavedAt.value.length > 0);
 
 function showMovementAudit() {
   emit("show-movement-audit");
+  if (devMenu.value) devMenu.value.open = false;
+}
+
+function showDevSettings() {
+  emit("show-dev-settings");
   if (devMenu.value) devMenu.value.open = false;
 }
 

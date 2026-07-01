@@ -255,6 +255,7 @@ export function useStory(storyData, ctx) {
     markSeen(beat.id);
 
     if (choice.view) {
+      pendingBeat.value = null;
       openStageView(choice.view);
       return;
     }

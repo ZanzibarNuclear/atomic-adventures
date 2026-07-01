@@ -10,11 +10,13 @@ export function writeRuntimeContent({
   worldRepository,
   buildingRepository,
   characterRepository,
+  learningRepository,
   outputDir = RUNTIME_CONTENT_DIR,
 }) {
   const worldDocument = worldRepository.getDocument();
   const buildingDocument = buildingRepository.getDocument();
   const characterDocument = characterRepository.getRuntimeCharacter();
+  const learningDocument = learningRepository.getRuntimeLearning();
 
   mkdirSync(outputDir, { recursive: true });
   writeJson(join(outputDir, "story.json"), storyRepository.getRuntimeStory());
@@ -31,6 +33,7 @@ export function writeRuntimeContent({
     warnings: buildingRepository.validate(buildingDocument.building).warnings,
   });
   writeJson(join(outputDir, "character.json"), characterDocument);
+  writeJson(join(outputDir, "learning.json"), learningDocument);
 }
 
 function writeJson(path, value) {

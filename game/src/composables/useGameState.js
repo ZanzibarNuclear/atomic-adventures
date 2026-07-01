@@ -15,7 +15,7 @@ import {
 } from "./useCharacterState.js";
 import { createGameClock } from "../lib/character/gameTime.js";
 
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 
 /** Plain JSON-safe clone — structuredClone fails on Vue reactive proxies. */
 function clonePlain(value) {
@@ -32,6 +32,7 @@ export function createGameState({ mapData, buildingData, characterData = {} }) {
     endCardDismissed: false,
     clock: createGameClock(),
     character: createCharacterState(characterData, buildingData.holders ?? []),
+    lessons: {},
     _startHex: startHex,
     _buildingData: buildingData,
   });
@@ -48,6 +49,7 @@ export function captureSnapshot({ gameState, place, outdoor, indoor }) {
     endCardDismissed: gameState.endCardDismissed,
     clock: clonePlain(gameState.clock),
     character: captureCharacterState(gameState.character),
+    lessons: clonePlain(gameState.lessons ?? {}),
     outdoor: {
       currentId: outdoor.state.currentId,
       previousId: outdoor.state.previousId ?? null,
@@ -109,6 +111,7 @@ export function applySnapshot(snapshot, { gameState, place, outdoor, indoor }) {
   gameState.endCardDismissed = snapshot.endCardDismissed ?? false;
   gameState.clock = createGameClock(snapshot.clock);
   if (snapshot.character) applyCharacterState(gameState.character, snapshot.character);
+  gameState.lessons = plainObject(snapshot.lessons);
 
   applyOutdoorSnapshot(snapshot.outdoor ?? {}, outdoor);
 
@@ -151,8 +154,15 @@ export function resetGameState({ gameState, place, outdoor, indoor }) {
   gameState.endCardDismissed = false;
   gameState.clock = createGameClock();
   resetCharacterState(gameState.character);
+  gameState.lessons = {};
 
   outdoor.resetPlayer();
   indoor.resetIndoor();
   place.value = "outdoors";
+}
+
+function plainObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? clonePlain(value)
+    : {};
 }

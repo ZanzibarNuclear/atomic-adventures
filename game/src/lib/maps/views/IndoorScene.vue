@@ -55,9 +55,10 @@ const props = defineProps({
   applyChoice: { type: Function, required: true },
   travelToRoom: { type: Function, required: true },
   auditEnabled: { type: Boolean, default: false },
+  extraActions: { type: Array, default: () => [] },
 });
 
-defineEmits(["hide-movement-audit"]);
+const emit = defineEmits(["hide-movement-audit", "extra-action"]);
 const devMode = import.meta.env.DEV;
 
 const locationTitle = computed(() => {
@@ -78,9 +79,17 @@ const playActions = computed(() =>
   buildIndoorPlayActions(props.indoor, props.pendingBeat),
 );
 
-const actions = computed(() => [...chooseActions.value, ...playActions.value]);
+const actions = computed(() => [
+  ...chooseActions.value,
+  ...props.extraActions,
+  ...playActions.value,
+]);
 
 function onAction(id) {
+  if (props.extraActions.some((action) => action.id === id)) {
+    emit("extra-action", id);
+    return;
+  }
   if (id.startsWith("story:")) {
     handleIndoorChooseAction(
       props.indoor,
