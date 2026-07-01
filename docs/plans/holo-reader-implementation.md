@@ -95,19 +95,19 @@ npm run build:game
 **Purpose:** Make the first lesson feel complete and educational rather than a
 thin proof of concept.
 
-- [ ] Revisit `../welcome/content/simulators/hydro-power.md` and port the
+- [x] Revisit `../welcome/content/simulators/hydro-power.md` and port the
       strongest explanatory material into `hydro-power-intro`.
-- [ ] Use `../welcome/app/components/simulators/HydroPowerSimulator.vue` for
+- [x] Use `../welcome/app/components/simulators/HydroPowerSimulator.vue` for
       teaching scenarios: flow, gross head, head loss, efficiency, net head,
       and plant-style comparisons.
-- [ ] Keep the first lesson focused on the theory behind hydro power:
+- [x] Keep the first lesson focused on the theory behind hydro power:
       gravitational potential energy, intake, penstock, turbine, generator,
       flow, net head, efficiency, and simple head-loss intuition.
-- [ ] Avoid detailed laminar/turbulent pipe-flow material in this intro lesson
+- [x] Avoid detailed laminar/turbulent pipe-flow material in this intro lesson
       except for the simple idea that losses reduce `H_net`.
-- [ ] Add more worked examples that reinforce linear scaling with `Q`,
+- [x] Add more worked examples that reinforce linear scaling with `Q`,
       `H_net`, and `eta`.
-- [ ] Consider changing the first quiz question to compare two setups with the
+- [x] Consider changing the first quiz question to compare two setups with the
       same `Q * H_net`, as described in the original plan.
 - [ ] Add accessible text for every formula, symbol table, and visual idea.
 
@@ -119,13 +119,13 @@ clear learning experience before the player uses hydro knowledge elsewhere.
 **Purpose:** Avoid hard-coded arithmetic in lesson content and prepare for
 future simulator-backed assessments.
 
-- [ ] Review `../welcome/utils/fluidMechanics.ts`.
-- [ ] Port the needed `hydraulicPowerWatts` or equivalent calculation into a
+- [x] Review `../welcome/utils/fluidMechanics.ts`.
+- [x] Port the needed `hydraulicPowerWatts` or equivalent calculation into a
       local `game/` module.
-- [ ] Add unit tests for hydraulic power and electrical power calculations.
+- [x] Add unit tests for hydraulic power and electrical power calculations.
 - [ ] Use the helper for authored example verification, quiz answer checks, or
       content validation where practical.
-- [ ] Keep the `welcome` project as source material only; do not add a runtime
+- [x] Keep the `welcome` project as source material only; do not add a runtime
       dependency on the sibling project.
 
 **Exit criterion:** Hydro lesson examples and future quiz logic have a tested
@@ -225,9 +225,9 @@ set of lessons rather than prematurely over-modeled.
 
 ## Done Criteria For Wave 2
 
-- [ ] The hydro intro lesson is richer and uses the welcome prototype as source
+- [x] The hydro intro lesson is richer and uses the welcome prototype as source
       material.
-- [ ] Hydro calculations have a tested local helper or an explicit decision is
+- [x] Hydro calculations have a tested local helper or an explicit decision is
       recorded to defer it.
 - [ ] Content Builder can author normal lessons with structured controls.
 - [ ] Lesson reference validation catches stale story and completion-effect

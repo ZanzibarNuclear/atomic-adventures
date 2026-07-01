@@ -17,6 +17,20 @@ describe("learning model", () => {
 
     expect(result.valid).toBe(true);
     expect(result.learning.lessons[0].id).toBe("hydro-power-intro");
+    expect(result.learning.lessons[0].sections.map((section) => section.title)).toEqual([
+      "Water Above, Power Below",
+      "From Water To Wires",
+      "Head, Flow, And Losses",
+      "Net Head",
+      "Electrical Power",
+      "What the Symbols Mean",
+      "Quick Examples",
+      "Plant Styles",
+    ]);
+    expect(result.learning.lessons[0].quiz[0]).toEqual(expect.objectContaining({
+      id: "same-power",
+      correctOptionId: "same",
+    }));
   });
 
   it("rejects missing completion effect references", () => {
