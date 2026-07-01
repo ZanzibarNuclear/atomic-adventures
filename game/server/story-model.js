@@ -50,7 +50,7 @@ export function normalizeBeat(input = {}) {
   };
 }
 
-export function validateBeat(input, world, character = null) {
+export function validateBeat(input, world, character = null, learning = null) {
   const beat = normalizeBeat(input);
   const errors = {};
   const add = (path, message) => {
@@ -141,6 +141,15 @@ export function validateBeat(input, world, character = null) {
     if (choice.enter && !world.buildingIds.has(choice.enter)) add(`${base}.enter`, "Choose an existing building.");
     if (choice.view && !STAGE_VIEW_KINDS.has(choice.view.kind)) {
       add(`${base}.view.kind`, "Choose a supported stage view.");
+    }
+    if (choice.view?.kind === "lesson") {
+      const lessonId = choice.view.id;
+      const lessonIds = new Set((learning?.lessons ?? []).map((lesson) => lesson.id));
+      if (!lessonId) {
+        add(`${base}.view.id`, "Choose a lesson.");
+      } else if (learning && !lessonIds.has(lessonId)) {
+        add(`${base}.view.id`, "Choose an existing lesson.");
+      }
     }
     if (choice.timeMinutes < 0) add(`${base}.timeMinutes`, "Time cannot be negative.");
     if (choice.timeMinutes > 0 && choice.timeUntil) {

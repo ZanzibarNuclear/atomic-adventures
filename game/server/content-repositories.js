@@ -22,6 +22,7 @@ export function createContentRepositories(db) {
     db,
     worldRepository.getCatalog(authoredBuilding),
     characterRepository.getDocument()?.character,
+    learningRepository.getDocument()?.learning,
   );
   worldRepository.setStoryRepository(storyRepository);
   buildingRepository.setRepositories({
@@ -30,6 +31,7 @@ export function createContentRepositories(db) {
     characterRepository,
   });
   learningRepository.setCharacterRepository(characterRepository);
+  storyRepository.setLearning(learningRepository.getDocument()?.learning);
   return {
     storyRepository,
     worldRepository,

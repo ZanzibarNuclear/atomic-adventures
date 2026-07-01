@@ -157,13 +157,13 @@ validated, saved, and launched without code changes or hand-written JSON.
 **Purpose:** Surface broken lesson references during authoring, not during
 play.
 
-- [ ] Validate story-choice `view.kind: lesson` IDs against `learning-main`.
+- [x] Validate story-choice `view.kind: lesson` IDs against `learning-main`.
 - [ ] Add reference search from lesson completion effects to character
       knowledge and other character catalogs.
 - [ ] Add reference search from story choices to lessons.
-- [ ] Reject missing lesson IDs, missing knowledge IDs, malformed assessments,
+- [x] Reject missing lesson IDs, missing knowledge IDs, malformed assessments,
       unscorable answers, and invalid completion effects.
-- [ ] Add tests for story lesson references and lesson completion effect
+- [x] Add tests for story lesson references and lesson completion effect
       references.
 
 **Exit criterion:** Missing or stale lesson references are caught in server
@@ -230,7 +230,7 @@ set of lessons rather than prematurely over-modeled.
 - [x] Hydro calculations have a tested local helper or an explicit decision is
       recorded to defer it.
 - [ ] Content Builder can author normal lessons with structured controls.
-- [ ] Lesson reference validation catches stale story and completion-effect
+- [x] Lesson reference validation catches stale story and completion-effect
       references.
 - [ ] Holo-reader UI behavior has component and integration coverage.
 - [ ] `npm run test` passes.

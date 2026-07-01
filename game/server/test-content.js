@@ -23,11 +23,13 @@ export function loadContentDocuments(path = DEFAULT_DB_PATH) {
       worldRepository,
       buildingRepository,
       characterRepository,
+      learningRepository,
     } = createContentRepositories(db);
     return {
       world: worldRepository.getDocument()?.world,
       building: buildingRepository.getDocument()?.building,
       character: characterRepository.getDocument()?.character,
+      learning: learningRepository.getDocument()?.learning,
     };
   } finally {
     db.close();

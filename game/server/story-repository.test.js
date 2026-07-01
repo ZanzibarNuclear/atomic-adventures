@@ -19,11 +19,11 @@ function createRepository() {
   dirs.push(dir);
   const path = join(dir, "test.sqlite");
   const db = openDatabase(path);
-  const { world, building, character } = loadContentDocuments();
+  const { world, building, character, learning } = loadContentDocuments();
   return {
     db,
     path,
-    repository: new StoryRepository(db, buildWorldCatalog(world, building), character),
+    repository: new StoryRepository(db, buildWorldCatalog(world, building), character, learning),
   };
 }
 
@@ -226,6 +226,41 @@ describe("StoryRepository", () => {
     expect(beat.choices[0].view).toEqual({ kind: "inventory" });
     expect(repository.getRuntimeStory().areas["test-area"].beats["test-beat"].choices[0].view)
       .toEqual({ kind: "inventory" });
+    db.close();
+  });
+
+  it("round-trips story choice lesson view actions", () => {
+    const { db, repository } = createRepository();
+    repository.createBeat("test-area", sampleBeat({
+      choices: [{
+        text: "Load the hydro lesson",
+        view: { kind: "lesson", id: "hydro-power-intro" },
+      }],
+    }));
+
+    const beat = repository.getBeat("test-area", "test-beat");
+    expect(beat.choices[0].view).toEqual({
+      kind: "lesson",
+      id: "hydro-power-intro",
+    });
+    expect(repository.getRuntimeStory().areas["test-area"].beats["test-beat"].choices[0].view)
+      .toEqual({
+        kind: "lesson",
+        id: "hydro-power-intro",
+      });
+    db.close();
+  });
+
+  it("rejects story choice lesson view actions with stale lesson IDs", () => {
+    const { db, repository } = createRepository();
+
+    expect(() => repository.createBeat("test-area", sampleBeat({
+      choices: [{
+        text: "Load the missing lesson",
+        view: { kind: "lesson", id: "missing-lesson" },
+      }],
+    }))).toThrow(ValidationError);
+    expect(repository.listBeats("test-area")).toEqual([]);
     db.close();
   });
 

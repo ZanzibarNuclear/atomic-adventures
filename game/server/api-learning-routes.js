@@ -1,6 +1,7 @@
 import { json, readJson } from "./api-utils.js";
 
 export async function handleLearningRoutes(req, res, url, {
+  repository,
   learningRepository,
   broadcast,
   syncRuntimeContent,
@@ -25,6 +26,7 @@ export async function handleLearningRoutes(req, res, url, {
     if (!learningRepository) return json(res, 404, { message: "Learning content not found." });
     const body = await readJson(req);
     const result = learningRepository.save(body.learning ?? body, body.expectedVersion);
+    repository.setLearning?.(result.learning);
     syncRuntimeContent?.();
     broadcast("learning.updated", { revision: result.revision });
     return json(res, 200, result);
@@ -39,6 +41,7 @@ export async function handleLearningRoutes(req, res, url, {
   if (restoreMatch && req.method === "POST") {
     if (!learningRepository) return json(res, 404, { message: "Learning content not found." });
     const result = learningRepository.restore(restoreMatch[1]);
+    repository.setLearning?.(result.learning);
     syncRuntimeContent?.();
     broadcast("learning.updated", { revision: result.revision, restored: true });
     return json(res, 200, result);

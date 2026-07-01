@@ -15,10 +15,11 @@ const MILESTONE_KINDS = new Set([
 ]);
 
 export class StoryRepository {
-  constructor(db, world, character = null) {
+  constructor(db, world, character = null, learning = null) {
     this.db = db;
     this.world = world;
     this.character = character;
+    this.learning = learning;
     this.revisions = new RevisionStore(db, {
       table: "story_revisions",
       idColumns: ["area_id", "beat_id"],
@@ -32,6 +33,10 @@ export class StoryRepository {
 
   setCharacter(character) {
     this.character = character;
+  }
+
+  setLearning(learning) {
+    this.learning = learning;
   }
 
   getGlobalRevision() {
@@ -122,7 +127,7 @@ export class StoryRepository {
   }
 
   createBeat(areaId, input) {
-    const validation = validateBeat(input, this.world, this.character);
+    const validation = validateBeat(input, this.world, this.character, this.learning);
     if (!validation.valid) throw new ValidationError(validation.errors);
     if (this.getBeat(areaId, validation.beat.id)) {
       throw new ValidationError({ id: ["That beat ID already exists in this area."] });
@@ -143,7 +148,7 @@ export class StoryRepository {
     if (Number(expectedVersion) !== existing.version) {
       throw new ConflictError("This beat changed in another window.", existing);
     }
-    const validation = validateBeat(input, this.world, this.character);
+    const validation = validateBeat(input, this.world, this.character, this.learning);
     if (!validation.valid) throw new ValidationError(validation.errors);
     const nextBeatId = validation.beat.id;
     const renamedFrom = nextBeatId === beatId ? null : beatId;
@@ -194,7 +199,7 @@ export class StoryRepository {
     const row = this.revisions.getSnapshot([areaId, beatId], revisionNumber);
     if (!row) throw new NotFoundError("Revision not found.");
     const snapshot = normalizeBeat({ ...row, id: beatId });
-    const validation = validateBeat(snapshot, this.world, this.character);
+    const validation = validateBeat(snapshot, this.world, this.character, this.learning);
     if (!validation.valid) throw new ValidationError(validation.errors);
 
     return transaction(this.db, () => {
@@ -218,7 +223,7 @@ export class StoryRepository {
     if (!areaId) throw new ValidationError({ area: ["Area ID is required."] });
     const entries = Object.entries(data.beats ?? {});
     const normalized = entries.map(([id, beat]) =>
-      validateBeat({ ...beat, id }, this.world, this.character));
+      validateBeat({ ...beat, id }, this.world, this.character, this.learning));
     const errors = Object.fromEntries(
       normalized.flatMap((result, index) =>
         Object.entries(result.errors).map(([path, messages]) => [`beats.${entries[index][0]}.${path}`, messages]),
@@ -286,7 +291,7 @@ export class StoryRepository {
             choice.go_exterior_node = resolveRename(exteriorRenameMap, choice.go_exterior_node);
           }
         }
-        const validation = validateBeat(beat, world, this.character);
+        const validation = validateBeat(beat, world, this.character, this.learning);
         for (const [path, messages] of Object.entries(validation.errors)) {
           errors[`story.${area.id}.${beat.id}.${path}`] = messages;
         }
@@ -299,7 +304,7 @@ export class StoryRepository {
     const errors = {};
     for (const area of this.listAreas()) {
       for (const beat of this.listBeats(area.id, { full: true })) {
-        const validation = validateBeat(beat, this.world, character);
+        const validation = validateBeat(beat, this.world, character, this.learning);
         for (const [path, messages] of Object.entries(validation.errors)) {
           if (
             path === "trigger.hex" ||
@@ -433,7 +438,7 @@ export class StoryRepository {
           }
         }
         if (!changed) continue;
-        const validation = validateBeat(beat, world, this.character);
+        const validation = validateBeat(beat, world, this.character, this.learning);
         if (!validation.valid) throw new ValidationError(validation.errors);
         this.#replaceBeat(area.id, original.id, validation.beat, original.version + 1, original.createdAt);
         const saved = this.getBeat(area.id, original.id);
@@ -477,7 +482,7 @@ export class StoryRepository {
           }
         }
         if (!changed) continue;
-        const validation = validateBeat(beat, world, this.character);
+        const validation = validateBeat(beat, world, this.character, this.learning);
         if (!validation.valid) throw new ValidationError(validation.errors);
         this.#replaceBeat(area.id, original.id, validation.beat, original.version + 1, original.createdAt);
         const saved = this.getBeat(area.id, original.id);
