@@ -145,7 +145,7 @@ correct route.
 | `currentId`          | Active hex                                                                             |
 | `stand` `{ x, y }`   | Avatar position in world pixels                                                        |
 | `discovered`         | Hexes revealed on the map (fog)                                                        |
-| `mode`               | Map view mode: `gameplay` (default) or `full` — see [map-viewport.md](map-viewport.md) |
+| `mode`               | Map view mode: `gameplay` (default) or `full`                                          |
 | `discoveredOpenings` | Hidden openings revealed by search                                                     |
 | `lastBlocked`        | Barrier kind that blocked the last failed move                                         |
 | `atBarrier`          | Barrier kind the avatar is considered “at” (status lines, search, crossings)           |
@@ -381,7 +381,7 @@ These are the remaining movement tasks. Completed work and standing maintenance 
 
 ### Geometry and stands
 
-1. **As needed: replace sampled local search with explicit reachable sub-areas.** Try this when authored geometry exposes a failure that the current resolver cannot handle reliably, such as a U-shaped barrier, three or more barrier-bounded areas in one cell, a narrow corridor, an endpoint-connected enclosure, or an approach-dependent stand that requires walking around a barrier end. The upgrade should determine the entry-side sub-area, use it for border reachability and stand selection, prefer the barrier-side stand described above, and make endpoint blocking topological rather than sample-dependent. Do not undertake this deeper rewrite without a concrete failing map case or content requirement. **Implementation plan:** [reachable-sub-areas.md](../plans/reachable-sub-areas.md).
+1. **As needed: replace sampled local search with explicit reachable sub-areas.** Try this when authored geometry exposes a failure that the current resolver cannot handle reliably, such as a U-shaped barrier, three or more barrier-bounded areas in one cell, a narrow corridor, an endpoint-connected enclosure, or an approach-dependent stand that requires walking around a barrier end. The upgrade should determine the entry-side sub-area, use it for border reachability and stand selection, prefer the barrier-side stand described above, and make endpoint blocking topological rather than sample-dependent. Do not undertake this deeper rewrite without a concrete failing map case or content requirement.
 
 ---
 

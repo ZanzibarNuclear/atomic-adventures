@@ -1,6 +1,6 @@
 # Holo-Reader Lessons
 
-**Status:** Draft contract for the Part I learning-content vertical slice  
+**Status:** Implemented MVP contract for the Part I learning-content vertical slice  
 **Scope:** `game/` lesson runtime, Content Builder lesson authoring, story/world
 entry points, player learning credit, and future hydro simulator integration
 
@@ -15,9 +15,11 @@ interactive checks, and embedded practice. The player sees a readable,
 interactive lesson surface that teaches real concepts before those concepts
 unlock story actions, simulations, skills, or facility operations.
 
-This contract defines the first durable shape for that system. It is an outline
-with enough specificity to guide implementation, while leaving detailed media
-formats and simulator adapters to concrete Part I lesson content.
+This contract defines the first durable shape for that system. The MVP supports
+authored text, formulas, symbol tables, worked examples, retryable
+multiple-choice checks, and completion effects. Additional visual, media,
+interaction, and simulator-backed lesson types should extend this contract as
+they are implemented.
 
 ## Goals
 
@@ -66,22 +68,22 @@ A lesson is opened through a game view:
 }
 ```
 
-The initial implementation should support:
+The current implementation supports:
 
 - opening a lesson by stable ID;
 - returning to the map without changing logical location;
 - displaying lesson sections in authored order;
 - keeping in-progress view state transient while the lesson is open;
 - discarding incomplete lesson progress when the player exits before passing
-  the required assessment;
-- committing player progress only when a defined completion or assessment
-  outcome succeeds;
+  the required quiz;
+- committing player progress only when the authored quiz or a future defined
+  completion outcome succeeds;
 - replaying completed lessons without duplicating one-time rewards.
 
-Lesson UI state such as the current section, expanded diagram, paused media
-time, and selected answer is view state. It is not player progress unless a
-validated lesson outcome commits it. If the player exits before completion,
-the next attempt starts from the beginning.
+Lesson UI state such as section position, selected answer, feedback state,
+expanded diagram, or paused media time is view state. It is not player progress
+unless a validated lesson outcome commits it. If the player exits before
+completion, the next attempt starts from the beginning.
 
 ## Authored Lesson Content
 
@@ -90,58 +92,82 @@ owned by `/builder/content`. `learning-main` is separate from `character-main`:
 lessons may reference character knowledge, skills, documents, quests, and
 effects, but they are not character definitions themselves.
 
-Draft lesson shape:
+Current lesson shape:
 
 ```yaml
+id: learning-main
 lessons:
   - id: hydro-power-intro
     title: Hydro Power, Water You Waiting For?
     summary: How elevation difference and flow rate determine hydro power.
-    technology: hydro
-    group: hydro-basics
-    durationMinutes: 30
-    availability:
-      require:
-        flags:
-          all: [library-power-on]
-    teaches:
-      knowledge: [hydro-head-and-flow]
-    sections:
-      - id: source
-        title: Water as stored energy
-        kind: narrative
-        body: |
-          ...
-      - id: diagram
-        title: Head, flow, and power
-        kind: diagram
-        asset: lessons/hydro/head-flow.webp
-        caption: Elevation and flow combine to set the available power.
-      - id: check
-        title: Predict the stronger site
-        kind: assessment
-        assessment: hydro-head-flow-check
+    order: 10
+    tags: [hydro, power, water]
+    availableWhen:
+      flags:
+        all: [hub.hydro_online]
+        any: []
+        not: []
+      knowledge:
+        all: []
+        any: []
+        not: []
+    timeMinutes: 30
+    activity: light
     completion:
-      mode: assessment
-      requireAssessment: hydro-head-flow-check
-      passThreshold: 1
+      awardTitle: Hydro Power Theory
+      awardText: Zanzibar understands how head, flow, and efficiency combine.
       effects:
         - { op: knowledge.acquire, id: hydro-head-and-flow }
+    sections:
+      - type: text
+        title: Water Above, Power Below
+        body: |
+          ...
+      - type: formula
+        title: Electrical Power
+        formula: "$$P_\\text{elec} = \\eta\\,\\rho\\,g\\,Q\\,H_\\text{net}$$"
+        caption: Electrical power equals hydraulic power times efficiency.
+      - type: symbols
+        title: What the Symbols Mean
+        rows:
+          - { symbol: "$Q$", meaning: Volume flow through the turbine, units: "$\\mathrm{m^3/s}$" }
+      - type: examples
+        title: Quick Examples
+        examples:
+          - title: Same Product, Same Power
+            givens:
+              - "Setup A: $Q = 1\\ \\mathrm{m^3/s}$ and $H_\\text{net} = 20\\ \\mathrm{m}$"
+              - "Setup B: $Q = 2\\ \\mathrm{m^3/s}$ and $H_\\text{net} = 10\\ \\mathrm{m}$"
+            result: Both setups have the same $Q\\,H_\\text{net}$.
+            explanation: The product matters.
+    quiz:
+      - id: same-power
+        type: multiple-choice
+        prompt: Which setup produces more electrical power?
+        options:
+          - id: a-more
+            label: Setup A produces more
+            feedback: Not quite. Setup A has twice the head but half the flow.
+          - id: same
+            label: They produce the same power
+            feedback: Correct. Flow and net head multiply.
+        correctOptionId: same
 ```
 
-Supported first-version section kinds should stay small:
+Supported MVP section types are:
 
-| Kind | Meaning |
+| Type | Meaning |
 | --- | --- |
-| `narrative` | Authored explanatory text and optional narration metadata |
-| `diagram` | Static image or annotated image with caption |
-| `media` | Registered video/audio asset or external-safe media reference |
-| `interaction` | Registered built-in interaction, such as a drag, match, slider, or prediction task |
-| `assessment` | Question or task that can produce a pass/fail or scored outcome |
-| `simulation` | Registered embedded practice surface with host-validated outcomes |
+| `text` | Authored explanatory text |
+| `formula` | Displayed math with optional caption |
+| `symbols` | Symbol, meaning, and units table |
+| `examples` | Worked example cards with givens, result, and explanation |
 
-Lesson content may reference registered assets and registered interaction IDs.
-It may not reference arbitrary component names.
+The MVP quiz model is top-level `quiz` with retryable `multiple-choice`
+questions. Future section types may include `diagram`, `media`, `interaction`,
+`assessment`, and `simulation`. Those types should reference registered assets,
+registered interaction IDs, or host-validated simulation outcomes, not
+arbitrary component names or script content.
 
 ## Simulator Extraction and Reuse
 
@@ -197,12 +223,10 @@ reactor simulators consistent with the hydro slice.
 
 ## Assessments and Learning Credit
 
-Credit must distinguish three states:
+Credit currently distinguishes completion from mere viewing:
 
 | State | Meaning |
 | --- | --- |
-| `discovered` | The player found or unlocked the lesson/document |
-| `viewed` | The player opened or browsed the lesson |
 | `completed` | The player satisfied the authored completion rule |
 
 Only `completed` lessons award knowledge by default. Viewing can mark a
@@ -211,21 +235,14 @@ grant conceptual knowledge.
 
 Assessment progress stores successful completion, not wrong attempts. Wrong
 answers are an important learning path during the lesson, but they are not
-persisted as a score or penalty. Completion records should store enough state
-to avoid duplicate one-time rewards and support future review:
+persisted as a score or penalty. Completion records store the state currently
+needed to avoid duplicate one-time rewards:
 
 ```js
 {
   lessons: {
     "hydro-power-intro": {
-      discoveredAt: "2026-06-30T00:00:00.000Z",
-      viewedAt: "2026-06-30T00:03:00.000Z",
-      completedAt: "2026-06-30T00:08:00.000Z",
-      passedAssessments: {
-        "hydro-power-intro-same-power": {
-          passedAt: "2026-06-30T00:08:00.000Z"
-        }
-      }
+      completedAt: "2026-06-30T00:08:00.000Z"
     }
   }
 }
@@ -233,6 +250,10 @@ to avoid duplicate one-time rewards and support future review:
 
 The save shape may live under a future character-progress field, but it must
 remain JSON-safe and separate from authored lesson definitions.
+
+`discoveredAt`, `viewedAt`, and per-assessment pass records should be added
+only when gameplay, lesson analytics, multi-assessment completion, or resume
+behavior needs them.
 
 Assessment authoring should support:
 
@@ -248,8 +269,8 @@ fictional competence. Zanzibar can still narrate or react to the result, but
 lesson completion credit should be tied to a real player answer or practice
 outcome.
 
-Completing a lesson advances game time by the lesson's authored duration.
-When no lesson-specific duration is authored, the default duration is 30
+Completing a lesson advances game time by the lesson's authored `timeMinutes`.
+When no lesson-specific time is authored, the default duration is 30
 in-game minutes. Replaying an already completed lesson does not duplicate
 one-time rewards or repeatedly spend completion time.
 
@@ -258,19 +279,18 @@ one-time rewards or repeatedly spend completion time.
 The Content Builder should add a **Lessons** area alongside Character,
 Artifacts, and Preview. It owns:
 
-- lesson catalog entries, grouping, ordering, and tags;
-- section authoring for text, diagrams, media, interactions, assessments, and
-  embedded simulations;
-- assessment prompts, accepted answers, scoring, hints, and feedback;
-- completion rules and authored effects;
-- references to knowledge, skills, documents, quests, flags, assets, and
-  registered simulation outcomes;
-- external availability requirements, such as requiring library power to be on
-  before a holo-reader lesson can launch;
-- internal completion requirements, such as requiring a particular assessment
-  to be passed;
-- preview states for unavailable, discovered, in-progress, completed, and
-  replayed lessons;
+- lesson catalog entries, ordering, and tags;
+- section authoring for text, formulas, symbol tables, worked examples, and
+  future registered diagram, media, interaction, assessment, and simulation
+  types;
+- quiz prompts, answer options, correct answers, and feedback;
+- completion acknowledgements and authored effects;
+- references to knowledge, skills, documents, quests, flags, and future assets
+  and registered simulation outcomes;
+- external `availableWhen` requirements, such as requiring station power to be
+  on before a holo-reader lesson can launch;
+- the completion path currently represented by passing the authored quiz;
+- preview of the authored lesson content and completion acknowledgement;
 - reference search for every story/world/content use of a lesson ID.
 
 The player normally opens the library holo-reader from the `holo-reader` stand.
@@ -286,13 +306,8 @@ choices:
   - text: Load Hydro Power, Water You Waiting For?
     view:
       kind: lesson
-      payload:
-        lessonId: hydro-power-intro
-        source: library-holo-reader
-        mode: learn
-    require:
-      flags:
-        all: [library-power-on]
+      id: hydro-power-intro
+      source: library-holo-reader
 ```
 
 The action opens the holo-reader view; it does not grant completion effects
@@ -307,8 +322,9 @@ loading, presentation, assessment, and completion credit. The first lesson is
 
 - teaches that available hydro power depends on head, flow rate, water density,
   gravity, and efficiency;
-- includes a diagram or simple visual model of reservoir/intake, penstock, and
-  turbine;
+- should include a diagram or simple visual model of reservoir/intake,
+  penstock, and turbine as a follow-up enhancement to the current text,
+  formula, symbol, and example sections;
 - asks the player to predict which site or setting produces more power;
 - awards `knowledge.acquire: hydro-head-and-flow` on a passing assessment.
 
@@ -385,12 +401,12 @@ should follow the normal reference-safety rules.
 
 Blocking validation should reject:
 
-- duplicate or malformed lesson, section, assessment, and outcome IDs;
-- unknown knowledge, skill, quest, document, flag, asset, interaction, or
-  simulation references;
-- completion rules with no reachable success path;
+- duplicate or malformed lesson IDs, quiz IDs, answer option IDs, and future
+  section, asset, interaction, assessment, or outcome IDs;
+- unknown knowledge, skill, quest, document, asset, interaction, or simulation
+  references where a validated catalog exists;
 - effects that fail the shared character-effect validation;
-- assessment answers that cannot be scored;
+- quiz answers that cannot be scored;
 - lesson entry points that reference a missing lesson;
 - arbitrary component names, script content, or unregistered external embeds.
 
@@ -399,8 +415,7 @@ Warnings should identify:
 - lessons that teach no knowledge and grant no other visible progress;
 - knowledge that is required by story/world/simulation content but never
   taught by a reachable lesson or other authored source;
-- lessons with completion effects but no assessment or explicit completion
-  action;
+- lessons with completion effects but no quiz or explicit completion action;
 - repeatable lessons that grant non-repeatable rewards;
 - long lessons without section breaks or progress indicators;
 - media references without captions, transcripts, or text alternatives.
@@ -422,15 +437,13 @@ completion.
 
 ## Implementation Research
 
-- Choose the exact power-on flag ID during implementation by checking current
-  story, world, and facility-state conventions. The examples above use
-  `library-power-on` as a placeholder until that audit is done.
+- The audited power flag for lesson availability is `hub.hydro_online`.
 - Use `holo-reader` as the stand ID for the library holo-reader.
 - When extracting future lessons from simulator prototypes, decide per lesson
   whether the best form is static sections, registered interactions, embedded
   simulator-backed sections, or a mixture.
 
-## Implementation Sequence
+## Implemented Sequence And Extension Point
 
 1. Add `learning-main` persistence, validation, API, import/export, revisions,
    production JSON export, and live-update support.
@@ -441,8 +454,8 @@ completion.
    below the persistent header.
 4. Add the power-gated `holo-reader` stand action that opens the lesson browser
    and can launch `hydro-power-intro`.
-5. Implement one section renderer for narrative/formula/example content and
-   one retryable multiple-choice assessment renderer.
+5. Implement section renderers for text, formula, symbols, and examples plus a
+   retryable multiple-choice quiz renderer.
 6. Commit completion outcomes through the existing validated effects service,
    advance authored lesson time once, and show an award/rejoin screen.
 7. Add simulator-backed lesson sections after the host outcome contract is

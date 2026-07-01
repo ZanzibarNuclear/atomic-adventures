@@ -6,7 +6,7 @@ Electrorefining-based **pyroprocessing** is Oklo’s chosen path to recycle used
 
 ## Why recycling appears in the game
 
-Parts I–II teach **open-cycle** electricity (hydro, PV). Part III brings a **thermal SMR** online with fresh fuel. The **Oklo Aurora extension** (post-game) adds pyroprocessing and an optional **fast module** — see [reactor-catalog.md](reactor-catalog.md).
+Parts I–II teach **open-cycle** electricity (hydro, PV). Part III brings a **thermal SMR** online with fresh fuel. The **Oklo Aurora extension** (post-game) adds pyroprocessing and an optional **fast module** — see [reactor-catalog.md](../reactor-catalog.md).
 
 ## Used fuel — what is in the cask?
 

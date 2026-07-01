@@ -178,7 +178,7 @@ NPC roles: recycling technician, fuel fabricator, reactor operator, health physi
 - [ ] In-universe name for recycling wing vs. Aurora module  
 - [ ] Campus load dispatch between Aalo and Aurora (sim depth)  
 - [ ] How much oxide-to-metal conversion to show vs abstract  
-- [ ] Catalog entry for Nuclear Magnate reuse — [reactor-catalog.md](reactor-catalog.md)
+- [ ] Catalog entry for Nuclear Magnate reuse — [reactor-catalog.md](../reactor-catalog.md)
 
 ## Sources
 
