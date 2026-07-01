@@ -2,6 +2,25 @@
 import { computed, onMounted, ref, toRaw } from "vue";
 import { storyApi } from "../../lib/storyApi.js";
 
+const availabilityGroups = [
+  { domain: "flags", label: "Flags" },
+  { domain: "knowledge", label: "Knowledge" },
+];
+const availabilityModes = [
+  { id: "all", label: "All required" },
+  { id: "any", label: "Any one" },
+  { id: "not", label: "Blocked by" },
+];
+const sectionTypes = ["text", "formula", "symbols", "examples"];
+const effectOps = [
+  "item.add",
+  "stat.add",
+  "knowledge.acquire",
+  "skill.add-evidence",
+  "quest.start",
+  "document.discover",
+];
+
 const draft = ref(null);
 const version = ref(0);
 const selectedId = ref("");
@@ -9,9 +28,6 @@ const status = ref("");
 const statusTone = ref("info");
 const errors = ref({});
 const warnings = ref([]);
-const sectionsText = ref("");
-const quizText = ref("");
-const effectsText = ref("");
 const saving = ref(false);
 
 const lessons = computed(() =>
@@ -32,10 +48,10 @@ async function loadLearning() {
   try {
     const result = await storyApi("/api/learning");
     draft.value = structuredClone(result.learning);
+    normalizeLearningDraft(draft.value);
     version.value = result.version;
     warnings.value = result.warnings ?? [];
     selectedId.value = draft.value.lessons?.[0]?.id ?? "";
-    syncLessonJson();
     status.value = "";
     statusTone.value = "info";
     errors.value = {};
@@ -46,36 +62,10 @@ async function loadLearning() {
 }
 
 function selectLesson(id) {
-  commitLessonJson();
   selectedId.value = id;
-  syncLessonJson();
-}
-
-function syncLessonJson() {
-  const lesson = selectedLesson.value;
-  sectionsText.value = JSON.stringify(lesson?.sections ?? [], null, 2);
-  quizText.value = JSON.stringify(lesson?.quiz ?? [], null, 2);
-  effectsText.value = JSON.stringify(lesson?.completion?.effects ?? [], null, 2);
-}
-
-function commitLessonJson() {
-  const lesson = selectedLesson.value;
-  if (!lesson) return true;
-  try {
-    lesson.sections = JSON.parse(sectionsText.value || "[]");
-    lesson.quiz = JSON.parse(quizText.value || "[]");
-    lesson.completion.effects = JSON.parse(effectsText.value || "[]");
-    errors.value = {};
-    return true;
-  } catch (error) {
-    status.value = `Lesson JSON is invalid: ${error.message}`;
-    statusTone.value = "error";
-    return false;
-  }
 }
 
 function addLesson() {
-  commitLessonJson();
   const lessonsDraft = draft.value.lessons ??= [];
   const id = uniqueId("new-lesson", lessonsDraft);
   lessonsDraft.push({
@@ -101,11 +91,9 @@ function addLesson() {
     }],
   });
   selectedId.value = id;
-  syncLessonJson();
 }
 
 async function saveLearning() {
-  if (!commitLessonJson()) return;
   saving.value = true;
   try {
     const result = await storyApi("/api/learning", {
@@ -116,12 +104,12 @@ async function saveLearning() {
       }),
     });
     draft.value = structuredClone(result.learning);
+    normalizeLearningDraft(draft.value);
     version.value = result.version;
     warnings.value = result.warnings ?? [];
     errors.value = {};
     status.value = `Saved learning version ${result.version}.`;
     statusTone.value = "success";
-    syncLessonJson();
   } catch (error) {
     errors.value = error.errors ?? {};
     status.value = error.message;
@@ -133,6 +121,105 @@ async function saveLearning() {
 
 function setCsv(target, key, value) {
   target[key] = value.split(",").map((item) => item.trim()).filter(Boolean);
+}
+
+function setList(target, key, value) {
+  target[key] = value.split(",").map((item) => item.trim()).filter(Boolean);
+}
+
+function addSection() {
+  selectedLesson.value.sections.push({ type: "text", title: "New section", body: "" });
+}
+
+function removeSection(index) {
+  selectedLesson.value.sections.splice(index, 1);
+}
+
+function moveSection(index, delta) {
+  moveEntry(selectedLesson.value.sections, index, delta);
+}
+
+function addSymbolRow(section) {
+  section.rows ??= [];
+  section.rows.push({ symbol: "", meaning: "", units: "" });
+}
+
+function addExample(section) {
+  section.examples ??= [];
+  section.examples.push({ title: "Example", givens: [], result: "", explanation: "" });
+}
+
+function addQuestion() {
+  const quiz = selectedLesson.value.quiz ??= [];
+  const id = uniqueId("question", quiz);
+  quiz.push({
+    id,
+    type: "multiple-choice",
+    prompt: "",
+    options: [
+      { id: "a", label: "", feedback: "" },
+      { id: "b", label: "", feedback: "" },
+    ],
+    correctOptionId: "a",
+  });
+}
+
+function removeQuestion(index) {
+  selectedLesson.value.quiz.splice(index, 1);
+}
+
+function addOption(question) {
+  question.options ??= [];
+  const id = uniqueId("option", question.options);
+  question.options.push({ id, label: "", feedback: "" });
+}
+
+function removeOption(question, index) {
+  const [removed] = question.options.splice(index, 1);
+  if (question.correctOptionId === removed?.id) {
+    question.correctOptionId = question.options[0]?.id ?? "";
+  }
+}
+
+function addEffect() {
+  selectedLesson.value.completion.effects.push({ op: "knowledge.acquire", id: "" });
+}
+
+function removeEffect(index) {
+  selectedLesson.value.completion.effects.splice(index, 1);
+}
+
+function normalizeLearningDraft(learning) {
+  learning.lessons ??= [];
+  learning.lessons.forEach(ensureLessonShape);
+}
+
+function ensureLessonShape(lesson) {
+  lesson.tags ??= [];
+  lesson.availableWhen ??= {};
+  for (const { domain } of availabilityGroups) {
+    lesson.availableWhen[domain] ??= {};
+    for (const { id } of availabilityModes) lesson.availableWhen[domain][id] ??= [];
+  }
+  lesson.completion ??= {};
+  lesson.completion.effects ??= [];
+  lesson.sections ??= [];
+  lesson.sections.forEach((section) => {
+    section.rows ??= [];
+    section.examples ??= [];
+  });
+  lesson.quiz ??= [];
+  lesson.quiz.forEach((question) => {
+    question.type ||= "multiple-choice";
+    question.options ??= [];
+  });
+}
+
+function moveEntry(entries, index, delta) {
+  const next = index + delta;
+  if (next < 0 || next >= entries.length) return;
+  const [entry] = entries.splice(index, 1);
+  entries.splice(next, 0, entry);
 }
 
 function uniqueId(base, entries) {
@@ -201,24 +288,155 @@ function uniqueId(base, entries) {
               :value="selectedLesson.tags.join(', ')"
               @input="setCsv(selectedLesson, 'tags', $event.target.value)">
           </label>
-          <label>Required flags
-            <input
-              :value="selectedLesson.availableWhen?.flags?.all?.join(', ') ?? ''"
-              @input="selectedLesson.availableWhen.flags.all = $event.target.value.split(',').map((item) => item.trim()).filter(Boolean)">
-          </label>
           <label>Award title<input v-model="selectedLesson.completion.awardTitle"></label>
           <label>Award text<input v-model="selectedLesson.completion.awardText"></label>
         </div>
 
-        <label>Completion effects JSON
-          <textarea v-model="effectsText" rows="4"></textarea>
-        </label>
-        <label>Sections JSON
-          <textarea v-model="sectionsText" rows="16"></textarea>
-        </label>
-        <label>Quiz JSON
-          <textarea v-model="quizText" rows="12"></textarea>
-        </label>
+        <section class="form-card">
+          <div class="section-heading">
+            <h3>Availability</h3>
+          </div>
+          <div class="availability-grid">
+            <label
+              v-for="group in availabilityGroups.flatMap((domain) => availabilityModes.map((mode) => ({ ...domain, mode })))"
+              :key="`${group.domain}-${group.mode.id}`">
+              {{ group.label }} - {{ group.mode.label }}
+              <input
+                :value="selectedLesson.availableWhen[group.domain][group.mode.id].join(', ')"
+                @input="setList(selectedLesson.availableWhen[group.domain], group.mode.id, $event.target.value)">
+            </label>
+          </div>
+        </section>
+
+        <section class="form-card">
+          <div class="section-heading">
+            <h3>Completion effects</h3>
+            <button type="button" class="sm muted" @click="addEffect">Add effect</button>
+          </div>
+          <div v-if="!selectedLesson.completion.effects.length" class="empty-inline">
+            No completion effects yet.
+          </div>
+          <div
+            v-for="(effect, index) in selectedLesson.completion.effects"
+            :key="index"
+            class="effect-row">
+            <label>Operation
+              <select v-model="effect.op">
+                <option v-for="op in effectOps" :key="op" :value="op">{{ op }}</option>
+              </select>
+            </label>
+            <label>Catalog ID<input v-model="effect.id"></label>
+            <label v-if="effect.op === 'item.add'">Quantity<input v-model.number="effect.quantity" type="number" min="1"></label>
+            <label v-if="effect.op === 'stat.add'">Value<input v-model.number="effect.value" type="number"></label>
+            <label v-if="effect.op === 'skill.add-evidence'">Evidence<input v-model="effect.evidence"></label>
+            <label v-if="effect.op === 'skill.add-evidence'">Value<input v-model.number="effect.value" type="number" min="1"></label>
+            <button type="button" class="sm danger" @click="removeEffect(index)">Remove</button>
+          </div>
+        </section>
+
+        <section class="form-card">
+          <div class="section-heading">
+            <h3>Sections</h3>
+            <button type="button" class="sm muted" @click="addSection">Add section</button>
+          </div>
+          <article
+            v-for="(section, index) in selectedLesson.sections"
+            :key="index"
+            class="nested-card">
+            <div class="section-heading">
+              <h4>Section {{ index + 1 }}</h4>
+              <div class="row-actions">
+                <button type="button" class="sm muted" :disabled="index === 0" @click="moveSection(index, -1)">Up</button>
+                <button type="button" class="sm muted" :disabled="index === selectedLesson.sections.length - 1" @click="moveSection(index, 1)">Down</button>
+                <button type="button" class="sm danger" @click="removeSection(index)">Remove</button>
+              </div>
+            </div>
+            <div class="field-grid">
+              <label>Type
+                <select v-model="section.type">
+                  <option v-for="type in sectionTypes" :key="type" :value="type">{{ type }}</option>
+                </select>
+              </label>
+              <label>Title<input v-model="section.title"></label>
+            </div>
+            <label v-if="section.type === 'text'">Body<textarea v-model="section.body" rows="4"></textarea></label>
+            <label v-if="section.type === 'formula'">Formula<textarea v-model="section.formula" rows="2"></textarea></label>
+            <label v-if="section.type === 'formula'">Caption<textarea v-model="section.caption" rows="2"></textarea></label>
+
+            <div v-if="section.type === 'symbols'" class="nested-list">
+              <div class="section-heading">
+                <h5>Symbol rows</h5>
+                <button type="button" class="sm muted" @click="addSymbolRow(section)">Add row</button>
+              </div>
+              <div v-for="(row, rowIndex) in section.rows" :key="rowIndex" class="symbol-row">
+                <label>Symbol<input v-model="row.symbol"></label>
+                <label>Meaning<input v-model="row.meaning"></label>
+                <label>Units<input v-model="row.units"></label>
+                <button type="button" class="sm danger" @click="section.rows.splice(rowIndex, 1)">Remove</button>
+              </div>
+            </div>
+
+            <div v-if="section.type === 'examples'" class="nested-list">
+              <div class="section-heading">
+                <h5>Examples</h5>
+                <button type="button" class="sm muted" @click="addExample(section)">Add example</button>
+              </div>
+              <article v-for="(example, exampleIndex) in section.examples" :key="exampleIndex" class="example-editor">
+                <div class="section-heading">
+                  <h5>Example {{ exampleIndex + 1 }}</h5>
+                  <button type="button" class="sm danger" @click="section.examples.splice(exampleIndex, 1)">Remove</button>
+                </div>
+                <label>Title<input v-model="example.title"></label>
+                <label>Givens
+                  <input
+                    :value="example.givens.join(', ')"
+                    @input="setList(example, 'givens', $event.target.value)">
+                </label>
+                <label>Result<input v-model="example.result"></label>
+                <label>Explanation<textarea v-model="example.explanation" rows="3"></textarea></label>
+              </article>
+            </div>
+          </article>
+        </section>
+
+        <section class="form-card">
+          <div class="section-heading">
+            <h3>Quiz</h3>
+            <button type="button" class="sm muted" @click="addQuestion">Add question</button>
+          </div>
+          <article
+            v-for="(question, questionIndex) in selectedLesson.quiz"
+            :key="questionIndex"
+            class="nested-card">
+            <div class="section-heading">
+              <h4>Question {{ questionIndex + 1 }}</h4>
+              <button type="button" class="sm danger" @click="removeQuestion(questionIndex)">Remove</button>
+            </div>
+            <div class="field-grid">
+              <label>ID<input v-model="question.id"></label>
+              <label>Correct answer
+                <select v-model="question.correctOptionId">
+                  <option v-for="option in question.options" :key="option.id" :value="option.id">
+                    {{ option.id || "Untitled option" }}
+                  </option>
+                </select>
+              </label>
+            </div>
+            <label>Prompt<textarea v-model="question.prompt" rows="3"></textarea></label>
+            <div class="nested-list">
+              <div class="section-heading">
+                <h5>Answer options</h5>
+                <button type="button" class="sm muted" @click="addOption(question)">Add option</button>
+              </div>
+              <div v-for="(option, optionIndex) in question.options" :key="optionIndex" class="option-row">
+                <label>ID<input v-model="option.id"></label>
+                <label>Label<input v-model="option.label"></label>
+                <label>Feedback<textarea v-model="option.feedback" rows="2"></textarea></label>
+                <button type="button" class="sm danger" @click="removeOption(question, optionIndex)">Remove</button>
+              </div>
+            </div>
+          </article>
+        </section>
       </section>
     </div>
   </section>
@@ -274,10 +492,65 @@ function uniqueId(base, entries) {
   gap: 0.75rem;
 }
 
+.form-card,
+.nested-card,
+.example-editor {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid #303949;
+  border-radius: 7px;
+  background: #151a22;
+  padding: 0.75rem;
+}
+
+.nested-card,
+.example-editor {
+  background: #121720;
+}
+
+.section-heading,
+.row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.section-heading h3,
+.section-heading h4,
+.section-heading h5 {
+  margin: 0;
+}
+
+.availability-grid,
 .field-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.7rem;
+}
+
+.effect-row,
+.symbol-row,
+.option-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  align-items: end;
+  gap: 0.6rem;
+}
+
+.option-row {
+  grid-template-columns: minmax(4rem, 7rem) minmax(10rem, 1fr) minmax(14rem, 1.4fr) auto;
+}
+
+.nested-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.empty-inline {
+  color: #9aa7b6;
+  font-size: 0.92rem;
 }
 
 label {
@@ -310,9 +583,19 @@ textarea {
   color: #ffd38a;
 }
 
+.danger {
+  border-color: #7d3642;
+  background: #351920;
+  color: #ffd4dc;
+}
+
 @media (max-width: 900px) {
   .lesson-grid,
-  .field-grid {
+  .availability-grid,
+  .field-grid,
+  .effect-row,
+  .symbol-row,
+  .option-row {
     grid-template-columns: 1fr;
   }
 }

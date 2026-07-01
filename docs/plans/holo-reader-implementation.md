@@ -136,13 +136,13 @@ local calculation boundary.
 **Purpose:** Make adding the next ordinary holo-reader lesson possible without
 editing JSON by hand.
 
-- [ ] Replace raw JSON editing for lesson sections with structured controls
+- [x] Replace raw JSON editing for lesson sections with structured controls
       for section type, title, text, formula, symbol rows, and worked examples.
-- [ ] Replace raw JSON editing for quiz questions with structured controls for
+- [x] Replace raw JSON editing for quiz questions with structured controls for
       prompt, answer options, correct answer, and feedback.
-- [ ] Replace raw JSON editing for completion effects with a reusable
+- [x] Replace raw JSON editing for completion effects with a reusable
       character-effects editor or a lesson-specific wrapper around it.
-- [ ] Add structured controls for lesson availability requirements, including
+- [x] Add structured controls for lesson availability requirements, including
       required flags and required knowledge.
 - [ ] Add a lesson preview inside Content Builder that renders the lesson with
       the same renderer used by the game view.
@@ -229,12 +229,12 @@ set of lessons rather than prematurely over-modeled.
       material.
 - [x] Hydro calculations have a tested local helper or an explicit decision is
       recorded to defer it.
-- [ ] Content Builder can author normal lessons with structured controls.
+- [x] Content Builder can author normal lessons with structured controls.
 - [x] Lesson reference validation catches stale story and completion-effect
       references.
 - [ ] Holo-reader UI behavior has component and integration coverage.
-- [ ] `npm run test` passes.
-- [ ] `npm run build:game` passes.
+- [x] `npm run test` passes.
+- [x] `npm run build:game` passes.
 
 ## Notes For Future Waves
 
