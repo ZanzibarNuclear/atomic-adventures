@@ -178,17 +178,19 @@ validation and authoring workflows.
 
 **Purpose:** Lock down the behavior the player now exercises manually.
 
-- [ ] Component test `HoloReaderView` with the intro lesson.
-- [ ] Test that selecting a new answer clears prior feedback.
-- [ ] Test that wrong answers do not grant knowledge.
-- [ ] Test that correct answers show the certificate/finish affordance.
-- [ ] Integration test that power-off state prevents the browser action at the
+- [x] Component test `HoloReaderView` with the intro lesson.
+- [x] Test that selecting a new answer clears prior feedback.
+- [x] Test that wrong answers do not grant completion.
+- [x] Test that correct answers show the certificate/finish affordance.
+- [x] Integration-style logic test that power-off state prevents the browser action at the
       `holo-reader` stand.
-- [ ] Integration test opening the lesson browser from powered `holo-reader`.
-- [ ] Integration test selecting `hydro-power-intro` from the browser.
-- [ ] Integration test exiting before completion starts the lesson from the
-      beginning on the next attempt.
-- [ ] Integration test exiting after completion returns to the same library
+- [x] Component/integration-style test opening the lesson browser from powered `holo-reader`.
+- [x] Component test selecting `hydro-power-intro` from the browser.
+- [x] Component test that exiting before completion starts the lesson from the
+      beginning on the next attempt by clearing transient quiz state.
+- [x] Component test that exiting after completion emits the return-to-world
+      action.
+- [ ] Browser integration test that exiting after completion returns to the same library
       location.
 - [x] Add lightweight section navigation because the
       enriched lesson becomes long enough to need it.
@@ -223,7 +225,8 @@ set of lessons rather than prematurely over-modeled.
 - [x] Content Builder can author normal lessons with structured controls.
 - [x] Lesson reference validation catches stale story and completion-effect
       references.
-- [ ] Holo-reader UI behavior has component and integration coverage.
+- [x] Holo-reader UI behavior has focused component coverage.
+- [ ] Holo-reader flow has browser-level integration coverage.
 - [x] `npm run test` passes.
 - [x] `npm run build:game` passes.
 

@@ -38,13 +38,13 @@ export const learningSeed = {
         {
           type: "formula",
           title: "Net Head",
-          formula: "$$H_\\text{net} = H_\\text{gross} - \\sum h_L$$",
+          formula: "$$\nH_\\text{net} = H_\\text{gross} - \\sum h_L\n$$",
           caption: "Net head is gross head minus the head lost along the path.",
         },
         {
           type: "formula",
           title: "Electrical Power",
-          formula: "$$P_\\text{elec} = \\eta\\,\\rho\\,g\\,Q\\,H_\\text{net}$$",
+          formula: "$$\nP_\\text{elec} = \\eta\\,\\rho\\,g\\,Q\\,H_\\text{net}\n$$",
           caption: "Electrical power equals hydraulic power times overall efficiency.",
         },
         {
