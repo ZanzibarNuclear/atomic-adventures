@@ -1,6 +1,6 @@
 # Holo-Reader Implementation Plan
 
-**Status:** MVP implemented; Wave 2 ready  
+**Status:** MVP implemented; Wave 2 in progress  
 **Last updated:** 2026-06-30  
 **Primary contracts:** [Holo-Reader Lessons](../contracts/holo-reader.md), [Stage Views](../contracts/stage-views.md), [Character, Artifacts, and Inventory Management](../contracts/character-inventory.md), [Story Beats](../contracts/story-beats.md)  
 **Related plan:** [Close-Up Views Implementation Plan](close-up-views-implementation.md)
@@ -87,8 +87,9 @@ npm run build:game
   JSON blocks. This is acceptable for the MVP but should improve before lesson
   authoring becomes routine.
 
-- The lesson examples are currently authored text. The local tested hydro
-  calculation helper from the `welcome` project has not yet been ported.
+- The lesson examples are currently authored text. A local tested hydro
+  calculation helper has been ported from the `welcome` project as a boundary
+  for future simulator-backed assessments.
 
 ## Wave 2 - Lesson Content And Learning Quality
 
@@ -109,8 +110,6 @@ thin proof of concept.
       `H_net`, and `eta`.
 - [x] Consider changing the first quiz question to compare two setups with the
       same `Q * H_net`, as described in the original plan.
-- [ ] Add accessible text for every formula, symbol table, and visual idea.
-
 **Exit criterion:** The first hydro lesson can stand on its own as a short,
 clear learning experience before the player uses hydro knowledge elsewhere.
 
@@ -123,8 +122,9 @@ future simulator-backed assessments.
 - [x] Port the needed `hydraulicPowerWatts` or equivalent calculation into a
       local `game/` module.
 - [x] Add unit tests for hydraulic power and electrical power calculations.
-- [ ] Use the helper for authored example verification, quiz answer checks, or
-      content validation where practical.
+- [x] Keep authored examples static for now; use the helper when dynamic
+      example generation, numeric quiz scoring, or simulator-backed lesson
+      validation is added.
 - [x] Keep the `welcome` project as source material only; do not add a runtime
       dependency on the sibling project.
 
@@ -158,9 +158,9 @@ validated, saved, and launched without code changes or hand-written JSON.
 play.
 
 - [x] Validate story-choice `view.kind: lesson` IDs against `learning-main`.
-- [ ] Add reference search from lesson completion effects to character
+- [x] Add reference search from lesson completion effects to character
       knowledge and other character catalogs.
-- [ ] Add reference search from story choices to lessons.
+- [x] Add reference search from story choices to lessons.
 - [x] Reject missing lesson IDs, missing knowledge IDs, malformed assessments,
       unscorable answers, and invalid completion effects.
 - [x] Add tests for story lesson references and lesson completion effect

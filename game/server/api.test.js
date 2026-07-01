@@ -37,6 +37,7 @@ function setup() {
     worldRepository,
     buildingRepository,
     characterRepository,
+    learningRepository,
   };
 }
 
@@ -82,6 +83,48 @@ describe("story API", () => {
     const references = JSON.parse(referencesRes.chunks.join(""));
     expect(references.some((reference) => reference.path.includes("lock.key"))).toBe(true);
     expect(references.some((reference) => reference.path.includes("pickups"))).toBe(true);
+
+    const learningCharacterReferencesRes = responseCapture();
+    await api.handle(
+      request("GET", "/api/character/references?domain=knowledge&id=hydro-head-and-flow"),
+      learningCharacterReferencesRes,
+    );
+    const learningCharacterReferences = JSON.parse(learningCharacterReferencesRes.chunks.join(""));
+    expect(learningCharacterReferences).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: "learning",
+        learningId: "learning-main",
+        lessonId: "hydro-power-intro",
+        path: expect.stringContaining("completion.effects"),
+      }),
+    ]));
+
+    const createLessonChoiceRes = responseCapture();
+    await api.handle(request("POST", "/api/story/areas/test/beats", {
+      id: "lesson-choice-ref",
+      text: "Lesson choice reference.",
+      trigger: { place: "indoors", room: "library" },
+      choices: [{
+        text: "Study hydro power",
+        view: { kind: "lesson", id: "hydro-power-intro", source: "library-holo-reader" },
+      }],
+    }), createLessonChoiceRes);
+    expect(createLessonChoiceRes.status).toBe(201);
+
+    const lessonReferencesRes = responseCapture();
+    await api.handle(
+      request("GET", "/api/learning/references?id=hydro-power-intro"),
+      lessonReferencesRes,
+    );
+    const lessonReferences = JSON.parse(lessonReferencesRes.chunks.join(""));
+    expect(lessonReferences).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: "story",
+        areaId: "test",
+        beatId: "lesson-choice-ref",
+        path: "choices.0.view.id",
+      }),
+    ]));
 
     const imagesRes = responseCapture();
     await api.handle(request("GET", "/api/character/public-images?folder=items"), imagesRes);

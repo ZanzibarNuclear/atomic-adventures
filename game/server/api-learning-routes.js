@@ -32,6 +32,12 @@ export async function handleLearningRoutes(req, res, url, {
     return json(res, 200, result);
   }
 
+  if (req.method === "GET" && url.pathname === "/api/learning/references") {
+    const id = url.searchParams.get("id");
+    if (!id) return json(res, 400, { message: "id is required." });
+    return json(res, 200, repository.findLearningReferences?.(id) ?? []);
+  }
+
   if (req.method === "GET" && url.pathname === "/api/learning/revisions") {
     if (!learningRepository) return json(res, 404, { message: "Learning content not found." });
     return json(res, 200, learningRepository.listRevisions());

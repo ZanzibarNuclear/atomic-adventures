@@ -10,6 +10,7 @@ export async function handleCharacterRoutes(req, res, url, {
   worldRepository,
   buildingRepository,
   characterRepository,
+  learningRepository,
   broadcast,
   syncRuntimeContent,
 }) {
@@ -40,6 +41,7 @@ export async function handleCharacterRoutes(req, res, url, {
     return json(res, 200, [
       ...(repository.findCharacterReferences?.(domain, id) ?? []),
       ...(buildingRepository?.findCharacterReferences?.(domain, id) ?? []),
+      ...(learningRepository?.findCharacterReferences?.(domain, id) ?? []),
     ]);
   }
 

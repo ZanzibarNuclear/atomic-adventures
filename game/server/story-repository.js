@@ -328,6 +328,25 @@ export class StoryRepository {
     return [];
   }
 
+  findLearningReferences(lessonId) {
+    const references = [];
+    for (const area of this.listAreas()) {
+      for (const beat of this.listBeats(area.id, { full: true })) {
+        beat.choices.forEach((choice, index) => {
+          if (choice.view?.kind === "lesson" && choice.view.id === lessonId) {
+            references.push({
+              kind: "story",
+              areaId: area.id,
+              beatId: beat.id,
+              path: `choices.${index}.view.id`,
+            });
+          }
+        });
+      }
+    }
+    return references;
+  }
+
   findHexReferences(hexId) {
     const references = [];
     for (const area of this.listAreas()) {

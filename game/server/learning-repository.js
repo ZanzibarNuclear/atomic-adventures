@@ -70,6 +70,40 @@ export class LearningRepository {
     });
   }
 
+  findCharacterReferences(domain, id) {
+    const learning = this.getDocument()?.learning;
+    if (!learning) return [];
+    const references = [];
+    learning.lessons?.forEach((lesson, lessonIndex) => {
+      if (domain === "knowledge") {
+        for (const group of ["all", "any", "not"]) {
+          (lesson.availableWhen?.knowledge?.[group] ?? []).forEach((entry, entryIndex) => {
+            const entryId = typeof entry === "string" ? entry : entry?.id;
+            if (entryId === id) {
+              references.push({
+                kind: "learning",
+                learningId: LEARNING_DOCUMENT_ID,
+                lessonId: lesson.id,
+                path: `lessons.${lessonIndex}.availableWhen.knowledge.${group}.${entryIndex}`,
+              });
+            }
+          });
+        }
+      }
+      lesson.completion?.effects?.forEach((effect, effectIndex) => {
+        if (characterEffectDomain(effect.op) === domain && effect.id === id) {
+          references.push({
+            kind: "learning",
+            learningId: LEARNING_DOCUMENT_ID,
+            lessonId: lesson.id,
+            path: `lessons.${lessonIndex}.completion.effects.${effectIndex}`,
+          });
+        }
+      });
+    });
+    return references;
+  }
+
   save(input, expectedVersion) {
     const existing = this.getDocument();
     if (!existing) throw new NotFoundError("Learning content not found.");
@@ -133,4 +167,14 @@ export class LearningRepository {
       };
     });
   }
+}
+
+function characterEffectDomain(op) {
+  const domain = String(op ?? "").split(".")[0];
+  return domain === "item" ? "items"
+    : domain === "stat" ? "stats"
+      : domain === "skill" ? "skills"
+        : domain === "quest" ? "quests"
+          : domain === "document" ? "documents"
+            : domain;
 }
