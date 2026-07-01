@@ -33,32 +33,32 @@ export const learningSeed = {
         {
           type: "text",
           title: "Head, Flow, And Losses",
-          body: "Gross head is the full vertical drop from the intake to the turbine. Some of that drop is lost to friction, clogged screens, bends, valves, leaks, and air in the line. Net head is what remains for the turbine. Flow is how much water reaches the turbine each second. More flow or more net head means more power, as long as the equipment can handle it.",
+          body: "Gross head ($H_\\text{gross}$) is the full vertical drop from the intake to the turbine. Some of that drop is lost to friction, clogged screens, bends, valves, leaks, and air in the line. Net head ($H_\\text{net}$) is what remains for the turbine. Flow ($Q$) is how much water reaches the turbine each second. More flow or more net head means more power, as long as the equipment can handle it.",
         },
         {
           type: "formula",
           title: "Net Head",
-          formula: "H_net = H_gross - sum(h_L)",
+          formula: "$$H_\\text{net} = H_\\text{gross} - \\sum h_L$$",
           caption: "Net head is gross head minus the head lost along the path.",
         },
         {
           type: "formula",
           title: "Electrical Power",
-          formula: "P_elec = eta * rho * g * Q * H_net",
+          formula: "$$P_\\text{elec} = \\eta\\,\\rho\\,g\\,Q\\,H_\\text{net}$$",
           caption: "Electrical power equals hydraulic power times overall efficiency.",
         },
         {
           type: "symbols",
           title: "What the Symbols Mean",
           rows: [
-            { symbol: "P_elec", meaning: "Electrical power delivered by the plant", units: "watts (W)" },
-            { symbol: "eta", meaning: "Overall efficiency of the turbine, generator, and wiring", units: "0 to 1" },
-            { symbol: "rho", meaning: "Density of water", units: "about 1000 kg/m^3" },
-            { symbol: "g", meaning: "Gravitational acceleration", units: "9.8 m/s^2" },
-            { symbol: "Q", meaning: "Volume flow through the turbine", units: "m^3/s" },
-            { symbol: "H_gross", meaning: "Total vertical drop from intake to turbine", units: "m" },
-            { symbol: "sum(h_L)", meaning: "Head lost to friction, screens, bends, leaks, and other losses", units: "m" },
-            { symbol: "H_net", meaning: "Useful vertical drop after losses", units: "m" },
+            { symbol: "$P_\\text{elec}$", meaning: "Electrical power delivered by the plant", units: "watts (W)" },
+            { symbol: "$\\eta$", meaning: "Overall efficiency of the turbine, generator, and wiring", units: "0 to 1" },
+            { symbol: "$\\rho$", meaning: "Density of water", units: "about $1000\\ \\mathrm{kg/m^3}$" },
+            { symbol: "$g$", meaning: "Gravitational acceleration", units: "$9.8\\ \\mathrm{m/s^2}$" },
+            { symbol: "$Q$", meaning: "Volume flow through the turbine", units: "$\\mathrm{m^3/s}$" },
+            { symbol: "$H_\\text{gross}$", meaning: "Total vertical drop from intake to turbine", units: "m" },
+            { symbol: "$\\sum h_L$", meaning: "Head lost to friction, screens, bends, leaks, and other losses", units: "m" },
+            { symbol: "$H_\\text{net}$", meaning: "Useful vertical drop after losses", units: "m" },
           ],
         },
         {
@@ -67,26 +67,26 @@ export const learningSeed = {
           examples: [
             {
               title: "A Simple Starter",
-              givens: ["eta = 0.80", "Q = 1 m^3/s", "H_gross = 12 m", "head losses = 2 m", "H_net = 10 m"],
-              result: "P_elec = 0.80 * 1000 * 9.8 * 1 * 10 = 78,400 W, about 78 kW",
+              givens: ["$\\eta = 0.80$", "$Q = 1\\ \\mathrm{m^3/s}$", "$H_\\text{gross} = 12\\ \\mathrm{m}$", "$\\sum h_L = 2\\ \\mathrm{m}$", "$H_\\text{net} = 10\\ \\mathrm{m}$"],
+              result: "$P_\\text{elec} = 0.80 \\times 1000 \\times 9.8 \\times 1 \\times 10 = 78{,}400\\ \\mathrm{W}$, about $78\\ \\mathrm{kW}$",
               explanation: "This is the baseline: one cubic meter of water each second, ten useful meters of drop, and 80% efficiency.",
             },
             {
               title: "Double The Flow",
-              givens: ["eta = 0.80", "Q = 2 m^3/s", "H_net = 10 m"],
-              result: "P_elec = 0.80 * 1000 * 9.8 * 2 * 10 = 156,800 W, about 157 kW",
+              givens: ["$\\eta = 0.80$", "$Q = 2\\ \\mathrm{m^3/s}$", "$H_\\text{net} = 10\\ \\mathrm{m}$"],
+              result: "$P_\\text{elec} = 0.80 \\times 1000 \\times 9.8 \\times 2 \\times 10 = 156{,}800\\ \\mathrm{W}$, about $157\\ \\mathrm{kW}$",
               explanation: "When efficiency and net head stay the same, doubling flow doubles power.",
             },
             {
               title: "Double The Net Head",
-              givens: ["eta = 0.80", "Q = 1 m^3/s", "H_net = 20 m"],
-              result: "P_elec = 0.80 * 1000 * 9.8 * 1 * 20 = 156,800 W, about 157 kW",
+              givens: ["$\\eta = 0.80$", "$Q = 1\\ \\mathrm{m^3/s}$", "$H_\\text{net} = 20\\ \\mathrm{m}$"],
+              result: "$P_\\text{elec} = 0.80 \\times 1000 \\times 9.8 \\times 1 \\times 20 = 156{,}800\\ \\mathrm{W}$, about $157\\ \\mathrm{kW}$",
               explanation: "When efficiency and flow stay the same, doubling net head also doubles power.",
             },
             {
               title: "Same Product, Same Power",
-              givens: ["Setup A: Q = 1 m^3/s and H_net = 20 m", "Setup B: Q = 2 m^3/s and H_net = 10 m", "same water and same efficiency"],
-              result: "Both setups have Q * H_net = 20, so they produce the same power.",
+              givens: ["Setup A: $Q = 1\\ \\mathrm{m^3/s}$ and $H_\\text{net} = 20\\ \\mathrm{m}$", "Setup B: $Q = 2\\ \\mathrm{m^3/s}$ and $H_\\text{net} = 10\\ \\mathrm{m}$", "same water and same efficiency"],
+              result: "Both setups have $Q\\,H_\\text{net} = 20$, so they produce the same power.",
               explanation: "A plant can trade high head for lower flow, or lower head for higher flow. The product matters.",
             },
           ],
@@ -101,7 +101,7 @@ export const learningSeed = {
         {
           id: "same-power",
           type: "multiple-choice",
-          prompt: "Two small hydro setups use the same water and the same efficiency. Setup A has Q = 1 m^3/s and H_net = 20 m. Setup B has Q = 2 m^3/s and H_net = 10 m. Which setup produces more electrical power?",
+          prompt: "Two small hydro setups use the same water and the same efficiency. Setup A has $Q = 1\\ \\mathrm{m^3/s}$ and $H_\\text{net} = 20\\ \\mathrm{m}$. Setup B has $Q = 2\\ \\mathrm{m^3/s}$ and $H_\\text{net} = 10\\ \\mathrm{m}$. Which setup produces more electrical power?",
           options: [
             {
               id: "a-more",
@@ -116,12 +116,12 @@ export const learningSeed = {
             {
               id: "same",
               label: "They produce the same power",
-              feedback: "Correct. In this formula, flow and net head multiply, so both setups have the same Q * H_net.",
+              feedback: "Correct. In this formula, flow and net head multiply, so both setups have the same $Q\\,H_\\text{net}$.",
             },
             {
               id: "not-enough",
               label: "There is not enough information",
-              feedback: "The water and efficiency are the same, so comparing Q * H_net is enough here.",
+              feedback: "The water and efficiency are the same, so comparing $Q\\,H_\\text{net}$ is enough here.",
             },
           ],
           correctOptionId: "same",

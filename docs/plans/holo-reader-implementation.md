@@ -1,7 +1,7 @@
 # Holo-Reader Implementation Plan
 
 **Status:** MVP implemented; Wave 2 in progress  
-**Last updated:** 2026-06-30  
+**Last updated:** 2026-07-01  
 **Primary contracts:** [Holo-Reader Lessons](../contracts/holo-reader.md), [Stage Views](../contracts/stage-views.md), [Character, Artifacts, and Inventory Management](../contracts/character-inventory.md), [Story Beats](../contracts/story-beats.md)  
 **Related plan:** [Close-Up Views Implementation Plan](close-up-views-implementation.md)
 
@@ -44,6 +44,9 @@ The MVP slice is implemented and playable.
       `Hydro Power, Water You Waiting For?`.
 - [x] Added the key formula, symbols, worked examples, and a retryable
       multiple-choice quiz.
+- [x] Render lesson math through `remark-math`, `rehype-katex`, and KaTeX so
+      formula-heavy lessons can use TeX-style authoring like the `welcome`
+      project.
 - [x] Cleared old quiz feedback when a new answer is selected.
 - [x] Showed a certificate-style acknowledgement after the correct answer.
 - [x] Added lesson completion state to player saves.
@@ -144,9 +147,11 @@ editing JSON by hand.
       character-effects editor or a lesson-specific wrapper around it.
 - [x] Add structured controls for lesson availability requirements, including
       required flags and required knowledge.
-- [ ] Add a lesson preview inside Content Builder that renders the lesson with
+- [x] Add a lesson preview inside Content Builder that renders the lesson with
       the same renderer used by the game view.
-- [ ] Improve validation messages so authors can fix malformed lesson content
+- [x] Support TeX-style math notation in lesson body text, formulas, symbol
+      rows, worked examples, quiz prompts, options, and feedback.
+- [x] Improve validation messages so authors can fix malformed lesson content
       without inspecting raw JSON paths.
 
 **Exit criterion:** A second ordinary lesson can be authored, previewed,
@@ -185,7 +190,7 @@ validation and authoring workflows.
       beginning on the next attempt.
 - [ ] Integration test exiting after completion returns to the same library
       location.
-- [ ] Consider a lightweight progress indicator or section navigation if the
+- [x] Add lightweight section navigation because the
       enriched lesson becomes long enough to need it.
 
 **Exit criterion:** Holo-reader behavior is covered by tests rather than only
@@ -196,28 +201,14 @@ manual playthrough.
 **Purpose:** Decide whether the MVP `completedAt` state is enough for near-term
 gameplay.
 
-- [ ] Decide whether to add `viewedAt`.
-- [ ] Decide whether to add per-assessment pass records:
-
-  ```js
-  {
-    lessons: {
-      "hydro-power-intro": {
-        viewedAt: "...",
-        completedAt: "...",
-        passedAssessments: {
-          "double-flow": {
-            passedAt: "..."
-          }
-        }
-      }
-    }
-  }
-  ```
-
-- [ ] If added, migrate save state carefully and keep wrong attempts
-      transient.
-- [ ] Keep completion idempotent: replaying the lesson must not repeatedly
+- [x] Decide whether to add `viewedAt`: do not add it yet. The current lesson
+      slice only needs completion credit, and exiting before completion starts
+      the lesson over.
+- [x] Decide whether to add per-assessment pass records: do not add them yet.
+      Wrong attempts stay transient, and completion is based on eventual quiz
+      success.
+- [x] Keep wrong attempts transient.
+- [x] Keep completion idempotent: replaying the lesson must not repeatedly
       spend time or duplicate awards.
 
 **Exit criterion:** Lesson progress state is shaped intentionally for the next

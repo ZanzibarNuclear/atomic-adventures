@@ -1,6 +1,7 @@
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed } from "vue";
 import { lessonCompleted } from "../../lib/learning/completion.js";
+import LessonRenderer from "../learning/LessonRenderer.vue";
 
 const props = defineProps({
   lessons: { type: Array, default: () => [] },
@@ -11,41 +12,13 @@ const props = defineProps({
 
 const emit = defineEmits(["select-lesson", "complete-lesson", "return-to-map"]);
 
-const selectedAnswer = ref("");
-const answered = ref(false);
-
 const selectedLesson = computed(() =>
   props.lessons.find((lesson) => lesson.id === props.selectedLessonId) ?? null,
 );
 const hasSelectedLesson = computed(() => Boolean(props.selectedLessonId));
-const question = computed(() => selectedLesson.value?.quiz?.[0] ?? null);
-const selectedOption = computed(() =>
-  question.value?.options?.find((option) => option.id === selectedAnswer.value) ?? null,
-);
-const correct = computed(() =>
-  answered.value && selectedAnswer.value === question.value?.correctOptionId,
-);
 const completed = computed(() =>
   selectedLesson.value ? lessonCompleted(props.gameState, selectedLesson.value.id) : false,
 );
-
-watch(() => props.selectedLessonId, () => {
-  selectedAnswer.value = "";
-  answered.value = false;
-});
-
-function chooseAnswer(optionId) {
-  selectedAnswer.value = optionId;
-  answered.value = false;
-}
-
-function submitAnswer() {
-  if (!selectedAnswer.value) return;
-  answered.value = true;
-  if (selectedAnswer.value === question.value?.correctOptionId) {
-    emit("complete-lesson", selectedLesson.value.id);
-  }
-}
 </script>
 
 <template>
@@ -85,77 +58,17 @@ function submitAnswer() {
       <button type="button" @click="$emit('select-lesson', null)">Back to catalog</button>
     </section>
 
-    <article v-else class="lesson-content">
-      <section
-        v-for="(section, index) in selectedLesson.sections"
-        :key="`${section.type}-${index}`"
-        class="lesson-section"
-        :class="`section-${section.type}`">
-        <h2 v-if="section.title">{{ section.title }}</h2>
-        <p v-if="section.body">{{ section.body }}</p>
-        <div v-if="section.formula" class="formula">{{ section.formula }}</div>
-        <p v-if="section.caption" class="caption">{{ section.caption }}</p>
-
-        <table v-if="section.type === 'symbols'">
-          <thead>
-            <tr><th>Symbol</th><th>Meaning</th><th>Units</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in section.rows" :key="row.symbol">
-              <td>{{ row.symbol }}</td>
-              <td>{{ row.meaning }}</td>
-              <td>{{ row.units }}</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div v-if="section.type === 'examples'" class="examples">
-          <section v-for="example in section.examples" :key="example.title" class="example">
-            <h3>{{ example.title }}</h3>
-            <ul>
-              <li v-for="given in example.givens" :key="given">{{ given }}</li>
-            </ul>
-            <p class="result">{{ example.result }}</p>
-            <p v-if="example.explanation">{{ example.explanation }}</p>
-          </section>
-        </div>
-      </section>
-
-      <section v-if="question" class="quiz">
-        <p class="eyebrow">Check your understanding</p>
-        <h2>{{ question.prompt }}</h2>
-        <div class="answers">
-          <label
-            v-for="option in question.options"
-            :key="option.id"
-            :class="{ selected: selectedAnswer === option.id }">
-            <input
-              type="radio"
-              :checked="selectedAnswer === option.id"
-              :value="option.id"
-              @change="chooseAnswer(option.id)">
-            <span>{{ option.label }}</span>
-          </label>
-        </div>
-        <button type="button" :disabled="!selectedAnswer" @click="submitAnswer">
-          Check answer
-        </button>
-        <p v-if="answered && selectedOption" class="feedback" :class="{ correct }">
-          {{ selectedOption.feedback }}
-        </p>
-      </section>
-
-      <section v-if="completed" class="award">
-        <p class="eyebrow">Certificate unlocked</p>
-        <h2>{{ selectedLesson.completion?.awardTitle ?? "Lesson complete" }}</h2>
-        <p>{{ selectedLesson.completion?.awardText }}</p>
-        <div class="award-actions">
+    <LessonRenderer
+      v-else
+      :lesson="selectedLesson"
+      :completed="completed"
+      :completion-error="completionError"
+      @pass-quiz="emit('complete-lesson', $event)">
+      <template #award-actions>
           <button type="button" @click="$emit('return-to-map')">Finish lesson</button>
           <button type="button" class="ghost-button" @click="$emit('select-lesson', null)">Back to lessons</button>
-        </div>
-      </section>
-      <p v-if="completionError" class="reader-error-text">{{ completionError }}</p>
-    </article>
+      </template>
+    </LessonRenderer>
   </section>
 </template>
 
@@ -170,8 +83,7 @@ function submitAnswer() {
 }
 
 .reader-header,
-.lesson-browser,
-.lesson-content {
+.lesson-browser {
   max-width: 1040px;
   margin: 0 auto;
 }
@@ -242,7 +154,6 @@ button {
 }
 
 .lesson-row small,
-.caption,
 .lesson-meta {
   color: #a9c7c3;
 }
@@ -254,9 +165,6 @@ button {
   min-width: 8rem;
 }
 
-.lesson-section,
-.quiz,
-.award,
 .reader-error {
   margin-top: 1rem;
   padding: 1rem;
@@ -265,106 +173,9 @@ button {
   background: rgba(8, 18, 24, 0.78);
 }
 
-.award {
-  border-color: rgba(143, 240, 164, 0.55);
-  background:
-    linear-gradient(135deg, rgba(143, 240, 164, 0.14), rgba(139, 216, 210, 0.06)),
-    rgba(8, 18, 24, 0.82);
-}
-
-.award-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
-}
-
 .ghost-button {
   background: transparent;
   color: #c8f7f1;
-}
-
-.lesson-section h2,
-.quiz h2,
-.award h2 {
-  margin: 0 0 0.65rem;
-}
-
-.formula {
-  overflow-x: auto;
-  padding: 0.8rem;
-  border-radius: 6px;
-  background: #071215;
-  color: #bffcf5;
-  font: 700 1.35rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-th,
-td {
-  padding: 0.55rem;
-  border-bottom: 1px solid rgba(139, 216, 210, 0.24);
-  text-align: left;
-  vertical-align: top;
-}
-
-.examples {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-  gap: 0.75rem;
-}
-
-.example {
-  padding: 0.8rem;
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.example h3,
-.example p {
-  margin-top: 0;
-}
-
-.result {
-  color: #c8f7f1;
-  font-weight: 700;
-}
-
-.answers {
-  display: grid;
-  gap: 0.5rem;
-  margin: 0.8rem 0;
-}
-
-.answers label {
-  display: flex;
-  gap: 0.55rem;
-  align-items: center;
-  padding: 0.6rem;
-  border: 1px solid rgba(139, 216, 210, 0.28);
-  border-radius: 7px;
-}
-
-.answers label.selected {
-  border-color: #8bd8d2;
-  background: rgba(139, 216, 210, 0.1);
-}
-
-.feedback {
-  color: #ffd38a;
-  font-weight: 700;
-}
-
-.feedback.correct {
-  color: #8ff0a4;
-}
-
-.reader-error-text {
-  color: #ffb2b2;
-  font-weight: 700;
 }
 
 @media (max-width: 700px) {

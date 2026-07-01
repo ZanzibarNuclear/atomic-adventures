@@ -31,6 +31,13 @@ describe("learning model", () => {
       id: "same-power",
       correctOptionId: "same",
     }));
+    expect(result.learning.lessons[0].sections.find((section) => section.title === "Electrical Power").formula)
+      .toContain("\\eta");
+    expect(result.learning.lessons[0].sections.find((section) => section.title === "What the Symbols Mean").rows)
+      .toEqual(expect.arrayContaining([
+        expect.objectContaining({ symbol: "$\\rho$" }),
+        expect.objectContaining({ symbol: "$\\sum h_L$" }),
+      ]));
   });
 
   it("rejects missing completion effect references", () => {

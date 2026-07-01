@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref, toRaw } from "vue";
+import LessonRenderer from "../learning/LessonRenderer.vue";
 import { storyApi } from "../../lib/storyApi.js";
 
 const availabilityGroups = [
@@ -38,7 +39,7 @@ const selectedLesson = computed(() =>
 );
 const errorMessages = computed(() =>
   Object.entries(errors.value).flatMap(([path, messages]) =>
-    messages.map((message) => `${path}: ${message}`),
+    messages.map((message) => `${formatLearningErrorPath(path)}: ${message}`),
   ),
 );
 
@@ -220,6 +221,48 @@ function moveEntry(entries, index, delta) {
   if (next < 0 || next >= entries.length) return;
   const [entry] = entries.splice(index, 1);
   entries.splice(next, 0, entry);
+}
+
+function formatLearningErrorPath(path) {
+  const parts = String(path).split(".");
+  if (parts[0] !== "lessons") return labelizePath(parts);
+  const lessonIndex = Number(parts[1]);
+  const lesson = draft.value?.lessons?.[lessonIndex];
+  const label = lesson?.title || lesson?.id || `Lesson ${lessonIndex + 1}`;
+  if (parts.length <= 2) return label;
+  if (parts[2] === "sections") {
+    const sectionIndex = Number(parts[3]);
+    const section = lesson?.sections?.[sectionIndex];
+    const sectionLabel = section?.title || `Section ${sectionIndex + 1}`;
+    return `${label} / ${sectionLabel} / ${labelizePath(parts.slice(4))}`;
+  }
+  if (parts[2] === "quiz") {
+    const questionIndex = Number(parts[3]);
+    const question = lesson?.quiz?.[questionIndex];
+    const questionLabel = question?.id || `Question ${questionIndex + 1}`;
+    if (parts[4] === "options") {
+      const optionIndex = Number(parts[5]);
+      const option = question?.options?.[optionIndex];
+      return `${label} / ${questionLabel} / ${option?.id || `Option ${optionIndex + 1}`} / ${labelizePath(parts.slice(6))}`;
+    }
+    return `${label} / ${questionLabel} / ${labelizePath(parts.slice(4))}`;
+  }
+  if (parts[2] === "completion" && parts[3] === "effects") {
+    const effectIndex = Number(parts[4]);
+    const effect = lesson?.completion?.effects?.[effectIndex];
+    return `${label} / Completion effect ${effectIndex + 1}${effect?.op ? ` (${effect.op})` : ""} / ${labelizePath(parts.slice(5))}`;
+  }
+  if (parts[2] === "availableWhen") {
+    return `${label} / Availability / ${labelizePath(parts.slice(3))}`;
+  }
+  return `${label} / ${labelizePath(parts.slice(2))}`;
+}
+
+function labelizePath(parts) {
+  return parts
+    .filter(Boolean)
+    .map((part) => part.replace(/([A-Z])/g, " $1").replace(/-/g, " "))
+    .join(" / ");
 }
 
 function uniqueId(base, entries) {
@@ -437,6 +480,20 @@ function uniqueId(base, entries) {
             </div>
           </article>
         </section>
+
+        <section class="lesson-preview">
+          <div class="section-heading">
+            <div>
+              <p class="label">Preview</p>
+              <h3>{{ selectedLesson.title || "Untitled lesson" }}</h3>
+            </div>
+          </div>
+          <LessonRenderer :lesson="selectedLesson" preview>
+            <template #award-actions>
+              <span class="preview-note">Preview only</span>
+            </template>
+          </LessonRenderer>
+        </section>
       </section>
     </div>
   </section>
@@ -587,6 +644,22 @@ textarea {
   border-color: #7d3642;
   background: #351920;
   color: #ffd4dc;
+}
+
+.lesson-preview {
+  display: grid;
+  gap: 0.5rem;
+  border: 1px solid #2f6a67;
+  border-radius: 7px;
+  background:
+    linear-gradient(135deg, rgba(40, 170, 160, 0.16), rgba(8, 18, 24, 0.7)),
+    #10151c;
+  padding: 0.75rem;
+}
+
+.preview-note {
+  color: #c8f7f1;
+  font-weight: 700;
 }
 
 @media (max-width: 900px) {
