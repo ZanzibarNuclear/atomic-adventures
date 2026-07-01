@@ -29,6 +29,7 @@ import CharacterView from "../components/game-views/CharacterView.vue";
 import CharacterStatsStageView from "../components/game-views/CharacterStatsStageView.vue";
 import DeveloperSettingsDialog from "../components/dev/DeveloperSettingsDialog.vue";
 import HoloReaderView from "../components/game-views/HoloReaderView.vue";
+import HydroConsoleView from "../components/game-views/HydroConsoleView.vue";
 import InventoryStageView from "../components/game-views/InventoryStageView.vue";
 import StoryOverlay from "../components/story/StoryOverlay.vue";
 import OutdoorScene from "../lib/maps/views/OutdoorScene.vue";
@@ -182,6 +183,19 @@ const holoReaderActions = computed(() =>
     stationPowerOn: stationPowerOverrideOn.value,
   }),
 );
+const hydroConsoleActions = computed(() => {
+  if (place.value !== "indoors") return [];
+  if (indoor.indoor.currentRoom !== "control-room") return [];
+  return [{
+    id: "hydro-console:open",
+    label: "Open the generator console",
+    kind: "system",
+  }];
+});
+const focusedConsoleActions = computed(() => [
+  ...holoReaderActions.value,
+  ...hydroConsoleActions.value,
+]);
 const stationPowerOverrideOn = computed(() =>
   isStationPowerOverriddenOn(gameState, indoor),
 );
@@ -298,6 +312,13 @@ function handleHoloReaderAction(id) {
   if (id === HOLO_READER_BROWSER_ACTION_ID) {
     openView("lesson", { source: "library-holo-reader" });
   }
+  if (id === "hydro-console:open") {
+    openView("console", {
+      panelId: "hydro-control-room-panel",
+      focus: "generation",
+      mode: "startup",
+    });
+  }
 }
 
 function selectLesson(lessonId) {
@@ -407,7 +428,7 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       :apply-choice="applyChoice"
       :travel-to-room="travelToRoom"
       :audit-enabled="movementAuditVisible"
-      :extra-actions="holoReaderActions"
+      :extra-actions="focusedConsoleActions"
       @extra-action="handleHoloReaderAction"
       @hide-movement-audit="movementAuditVisible = false" />
 
@@ -447,6 +468,12 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       :completion-error="lessonCompletionError"
       @select-lesson="selectLesson"
       @complete-lesson="handleCompleteLesson"
+      @return-to-map="handleReturnToMap" />
+
+    <HydroConsoleView
+      v-else-if="activeView.kind === 'console'"
+      :game-state="gameState"
+      :payload="activeView.payload"
       @return-to-map="handleReturnToMap" />
 
     <StoryOverlay

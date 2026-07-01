@@ -226,4 +226,47 @@ describe('useGameState save roundtrip', () => {
     expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
     expect(gameState.clock).toEqual({ elapsedMinutes: 185, minuteOfDay: 665, day: 2 })
   })
+
+  it('persists hydro generator facility state separately from indoor door state', () => {
+    const { outdoor, indoor, gameState, place } = buildTestHarness()
+    gameState.facilities.hydro = {
+      ...gameState.facilities.hydro,
+      online: true,
+      intakeClear: true,
+      intakeOpen: true,
+      startupComplete: true,
+      manualValves: {
+        upstreamOpen: true,
+        powerhouseOpen: true,
+      },
+      lastCheckpointElapsedMinutes: 44,
+      eventLog: [
+        {
+          eventId: 'hydro-event-0044-online',
+          plantId: 'upper-penstock',
+          elapsedMinutes: 44,
+          type: 'state-transition',
+          source: 'host',
+          actor: 'player',
+          label: 'Hydro generator online',
+          payload: { online: true },
+        },
+      ],
+      debrisFraction: 0,
+      leakageFraction: 0.1,
+    }
+
+    const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
+    expect(snapshot.facilities.hydro.online).toBe(true)
+    expect(snapshot.facilities.hydro.leakageFraction).toBe(0.1)
+
+    gameState.facilities.hydro.online = false
+    indoor.indoor.facility.hydroOnline = false
+
+    expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
+    expect(gameState.facilities.hydro.online).toBe(true)
+    expect(gameState.facilities.hydro.manualValves.powerhouseOpen).toBe(true)
+    expect(gameState.facilities.hydro.eventLog).toHaveLength(1)
+    expect(indoor.indoor.facility.hydroOnline).toBe(true)
+  })
 })

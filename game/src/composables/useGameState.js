@@ -14,8 +14,12 @@ import {
   resetCharacterState,
 } from "./useCharacterState.js";
 import { createGameClock } from "../lib/character/gameTime.js";
+import {
+  createHydroState,
+  normalizeHydroState,
+} from "../lib/simulations/hydro/index.js";
 
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 
 /** Plain JSON-safe clone — structuredClone fails on Vue reactive proxies. */
 function clonePlain(value) {
@@ -33,6 +37,9 @@ export function createGameState({ mapData, buildingData, characterData = {} }) {
     clock: createGameClock(),
     character: createCharacterState(characterData, buildingData.holders ?? []),
     lessons: {},
+    facilities: {
+      hydro: createHydroState(),
+    },
     _startHex: startHex,
     _buildingData: buildingData,
   });
@@ -50,6 +57,9 @@ export function captureSnapshot({ gameState, place, outdoor, indoor }) {
     clock: clonePlain(gameState.clock),
     character: captureCharacterState(gameState.character),
     lessons: clonePlain(gameState.lessons ?? {}),
+    facilities: {
+      hydro: clonePlain(gameState.facilities?.hydro ?? createHydroState()),
+    },
     outdoor: {
       currentId: outdoor.state.currentId,
       previousId: outdoor.state.previousId ?? null,
@@ -112,6 +122,13 @@ export function applySnapshot(snapshot, { gameState, place, outdoor, indoor }) {
   gameState.clock = createGameClock(snapshot.clock);
   if (snapshot.character) applyCharacterState(gameState.character, snapshot.character);
   gameState.lessons = plainObject(snapshot.lessons);
+  gameState.facilities = {
+    hydro: normalizeHydroState(snapshot.facilities?.hydro ?? {
+      ...createHydroState(),
+      online: snapshot.indoor?.facility?.hydroOnline ?? false,
+      startupComplete: snapshot.indoor?.facility?.hydroOnline ?? false,
+    }),
+  };
 
   applyOutdoorSnapshot(snapshot.outdoor ?? {}, outdoor);
 
@@ -136,7 +153,7 @@ export function applySnapshot(snapshot, { gameState, place, outdoor, indoor }) {
   d.doorState = i.doorState ?? buildInitialDoorState(building.areaId, building);
   d.pickupsTaken = new Set(i.pickupsTaken ?? []);
   d.facility = {
-    hydroOnline: i.facility?.hydroOnline ?? false,
+    hydroOnline: gameState.facilities.hydro.online || (i.facility?.hydroOnline ?? false),
     manualMode: { ...(i.facility?.manualMode ?? {}) },
   };
   d.completedActions = new Set(i.completedActions ?? []);
@@ -155,6 +172,9 @@ export function resetGameState({ gameState, place, outdoor, indoor }) {
   gameState.clock = createGameClock();
   resetCharacterState(gameState.character);
   gameState.lessons = {};
+  gameState.facilities = {
+    hydro: createHydroState(),
+  };
 
   outdoor.resetPlayer();
   indoor.resetIndoor();

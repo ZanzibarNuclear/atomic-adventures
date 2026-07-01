@@ -1,6 +1,6 @@
 # Hydro Generator Implementation Plan
 
-**Status:** Planned  
+**Status:** In progress - Waves 1-3 shell implemented  
 **Last updated:** 2026-07-01  
 **Primary contracts:** [Hydro Simulator](../contracts/hydro-simulator.md), [Control Panel](../contracts/control-panel.md), [Stage Views](../contracts/stage-views.md), [Game Time](../contracts/time.md)  
 **Quality checklist:** [Character, Inventory, and Game-View Regression Checklist](../quality/character-inventory-regression-checklist.md)
@@ -36,8 +36,8 @@ or complex generator synchronization until the core loop is playable.
   Vue components.
 - Use a code-built `hydro-generator-baseline` configuration for the alpha.
 - Define the first real `console` game view as part of this effort. The code
-  already recognizes `console` as a view kind, but there is no implemented
-  console experience yet.
+  recognizes `console` as a view kind, and the first hydro console shell now
+  renders from `GameView.vue`.
 - Treat the hydro console like the holo-reader: a focused view separate from
   the usual map/story play layout, with its own panel chrome, navigation, and
   return path.
@@ -57,66 +57,75 @@ or complex generator synchronization until the core loop is playable.
 
 **Purpose:** Build the simulation core before any UI depends on it.
 
-- [ ] Add `game/src/lib/simulations/hydro/`.
-- [ ] Reuse or move hydro equation helpers from
+- [x] Add `game/src/lib/simulations/hydro/`.
+- [x] Reuse or move hydro equation helpers from
       `game/src/lib/learning/hydroPower.js`.
-- [ ] Define a code-built `hydro-generator-baseline` plant configuration.
-- [ ] Define serializable alpha hydro state:
+- [x] Define a code-built `hydro-generator-baseline` plant configuration.
+- [x] Define serializable alpha hydro state:
       active configuration ID, hydro online/offline, intake clear/open, two
       manual valve states, startup completion state, last checkpoint time,
       simple event log, debris fraction, and leakage fraction.
-- [ ] Implement telemetry snapshot generation for `flowM3s`, `netHeadM`,
+- [x] Implement telemetry snapshot generation for `flowM3s`, `netHeadM`,
       `penstockPressureKpa`, `turbineSpeedRpm`, `generatorOutputKw`,
       `warnings`, `faults`, and `status`.
-- [ ] Keep command handling minimal in the first build. The simulator may expose
+- [x] Keep command handling minimal in the first build. The simulator may expose
       read-only graph-data and telemetry requests, but the console should not
       bypass the required startup steps or adjust field equipment.
-- [ ] Add deterministic tests for offline startup, valid startup, partially
+- [x] Add deterministic tests for offline startup, valid startup, partially
       closed valves, intake debris, leakage, low flow, and event ordering.
 
 **Exit criterion:** Pure JavaScript tests can transition the plant from offline
 to online and produce stable telemetry without rendering a Vue component.
+
+**Implemented:** `game/src/lib/simulations/hydro/` contains the baseline config,
+serializable state helpers, event helpers, and telemetry generation. Runtime
+tests cover the Wave 1 cases.
 
 ## Wave 2 - Save State and Facility Integration
 
 **Purpose:** Make hydro state part of the playable runtime without coupling the
 simulator to story flags or panel rendering.
 
-- [ ] Choose and add the durable hydro state shape to saved game state. Treat
+- [x] Choose and add the durable hydro state shape to saved game state. Treat
       the hydro generator as utility-station facility state, not as inherently
       indoor-only state.
-- [ ] Update snapshot capture/apply in `game/src/composables/useGameState.js`.
-- [ ] Add a host adapter, such as `useHydroFacility(gameState, stationContext)`,
+- [x] Update snapshot capture/apply in `game/src/composables/useGameState.js`.
+- [x] Add a host adapter, such as `useHydroFacility(gameState, stationContext)`,
       that reads facility facts, sends commands to the simulator, records
       accepted events, and exposes current telemetry.
-- [ ] Bridge hydro online/offline into the existing powered-door checks without
+- [x] Bridge hydro online/offline into the existing powered-door checks without
       storing complex simulator state beside door state unless that proves to
       be the cleanest local design.
-- [ ] Ensure save/load preserves active config, online/offline state, startup
+- [x] Ensure save/load preserves active config, online/offline state, startup
       completion state, field prerequisite state, last checkpoint time, and
       event log.
-- [ ] Keep story flags and character progression outside the simulator. If a
+- [x] Keep story flags and character progression outside the simulator. If a
       story milestone such as `hub.hydro_online` is needed, commit it through a
       host-owned effect or story boundary.
 
 **Exit criterion:** The hydro generator's online state survives save/load and
 powers existing hydro-gated station behavior.
 
+**Implemented:** saved state now includes `gameState.facilities.hydro`, with
+snapshot migration from the prior `indoor.facility.hydroOnline` boolean. The
+host adapter mirrors hydro online/offline into the existing indoor facility
+bridge used by powered roll-up doors.
+
 ## Wave 3 - Focused Console View Shell
 
 **Purpose:** Invent and render the first focused console view, using the hydro
 control-room panel as the concrete vertical slice.
 
-- [ ] Add a console view component, such as `HydroConsoleView.vue`, that owns
-      the full focused console experience.
-- [ ] Wire `activeView.kind === "console"` in `GameView.vue`; the view kind is
+- [x] Add a console view component, such as `HydroConsoleView.vue`, that owns
+      the first focused console experience.
+- [x] Wire `activeView.kind === "console"` in `GameView.vue`; the view kind is
       allowed today, but it does not have a real renderer yet.
-- [ ] Present the console like the holo-reader: a separate focused view that is
+- [x] Present the console like the holo-reader: a separate focused view that is
       visually independent from the ordinary map/story combo.
-- [ ] Register or resolve `panelId: "hydro-control-room-panel"`.
+- [x] Register or resolve `panelId: "hydro-control-room-panel"`.
 - [ ] Render the first concrete hydro panel with three sections:
       schematic/status, instant overview, and live graphs.
-- [ ] Support a payload like:
+- [x] Support a payload like:
 
 ```js
 {
@@ -129,13 +138,18 @@ control-room panel as the concrete vertical slice.
 }
 ```
 
-- [ ] Add a shared Return to Map action consistent with inventory, character,
+- [x] Add a shared Return to Map action consistent with inventory, character,
       and lesson views.
-- [ ] Show a validation error for unknown panel IDs rather than a blank panel.
+- [x] Show a validation error for unknown panel IDs rather than a blank panel.
 
 **Exit criterion:** A story choice or temporary development action can open and
 close the focused hydro console without moving the player, losing narrative
 context, or relying on the ordinary map/story layout for the console UI.
+
+**Implemented:** `HydroConsoleView.vue` renders the first focused console shell
+with schematic/status, instant readouts, diagnostics, recent events, return to
+map, and unknown-panel validation. A temporary control-room action opens the
+console. Live graphs remain open for Wave 4.
 
 ## Wave 4 - Live Monitor and Diagnostics
 
@@ -217,6 +231,11 @@ Included:
 
 ## Implementation Notes
 
+- Current implementation stopping point: Wave 1 complete, Wave 2 complete for
+  save/facility integration, and Wave 3 complete except for live graphs.
+- Verified after implementation with `npm run test -w game -- HydroConsoleView
+  useGameView hydroRuntime useHydroFacility useGameState` and full
+  `npm run test` from the repository root.
 - Run `npm run test` from the repository root before finishing each meaningful
   wave that changes travel, facility state, story integration, composables, or
   map behavior.
