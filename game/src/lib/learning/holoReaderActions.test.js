@@ -22,6 +22,19 @@ describe("holo-reader launch actions", () => {
       currentStand: "holo-reader",
       lessons: [lesson],
       flags: new Set(),
+      stationPowerOn: false,
+    });
+
+    expect(actions).toEqual([]);
+  });
+
+  it("hides the browser action when station power is off even if a lesson forgets its own requirement", () => {
+    const actions = buildHoloReaderActions({
+      place: "indoors",
+      currentStand: "holo-reader",
+      lessons: [{ ...lesson, availableWhen: {} }],
+      flags: new Set(),
+      stationPowerOn: false,
     });
 
     expect(actions).toEqual([]);
@@ -33,6 +46,7 @@ describe("holo-reader launch actions", () => {
       currentStand: "holo-reader",
       lessons: [lesson],
       flags: new Set(["hub.hydro_online"]),
+      stationPowerOn: true,
     });
 
     expect(actions.map((action) => action.id)).toEqual([HOLO_READER_BROWSER_ACTION_ID]);

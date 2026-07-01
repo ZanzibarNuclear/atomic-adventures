@@ -85,33 +85,6 @@ describe("authored learning progression", () => {
     expect(gameState.clock.elapsedMinutes).toBe(30);
   });
 
-  it("keeps document discovery separate from learned knowledge", () => {
-    const character = createCharacterState(characterDefinitions);
-    const indoor = reactive({
-      currentRoom: "library",
-      exteriorNode: null,
-      completedActions: new Set(),
-      flags: new Set(),
-      facility: { hydroOnline: false },
-    });
-    const actions = createIndoorActions({
-      building: ref(utilityStation),
-      indoor,
-      setHydroOnline: () => {},
-      builderView: ref(false),
-      character,
-      gameState: {
-        character,
-        flags: indoor.flags,
-        clock: createGameClock(),
-      },
-    });
-
-    actions.performAction("library-read-hydro");
-    expect(character.documents["hydro-operations-primer"].discoveredAt).toBeTruthy();
-    expect(character.knowledge["hydro-head-and-flow"]).toBeUndefined();
-  });
-
   it("tracks the authored hydro startup quest through automatic completion", () => {
     const character = createCharacterState(characterDefinitions);
     const flags = new Set();

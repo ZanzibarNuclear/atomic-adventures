@@ -18,9 +18,11 @@ export function buildHoloReaderActions({
   lessons = [],
   flags = new Set(),
   character = null,
+  stationPowerOn = false,
 } = {}) {
   if (place !== "indoors") return [];
   if (currentStand !== HOLO_READER_STAND_ID) return [];
+  if (!stationPowerOn) return [];
   if (!availableHoloReaderLessons(lessons, { flags, character }).length) return [];
   return [{
     id: HOLO_READER_BROWSER_ACTION_ID,

@@ -179,6 +179,7 @@ const holoReaderActions = computed(() =>
     lessons: lessons.value,
     flags: gameState.flags,
     character: gameState.character,
+    stationPowerOn: stationPowerOverrideOn.value,
   }),
 );
 const stationPowerOverrideOn = computed(() =>

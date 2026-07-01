@@ -34,6 +34,11 @@ watch(() => props.selectedLessonId, () => {
   answered.value = false;
 });
 
+function chooseAnswer(optionId) {
+  selectedAnswer.value = optionId;
+  answered.value = false;
+}
+
 function submitAnswer() {
   if (!selectedAnswer.value) return;
   answered.value = true;
@@ -124,7 +129,11 @@ function submitAnswer() {
             v-for="option in question.options"
             :key="option.id"
             :class="{ selected: selectedAnswer === option.id }">
-            <input v-model="selectedAnswer" type="radio" :value="option.id">
+            <input
+              type="radio"
+              :checked="selectedAnswer === option.id"
+              :value="option.id"
+              @change="chooseAnswer(option.id)">
             <span>{{ option.label }}</span>
           </label>
         </div>
@@ -137,10 +146,13 @@ function submitAnswer() {
       </section>
 
       <section v-if="completed" class="award">
-        <p class="eyebrow">Knowledge acquired</p>
+        <p class="eyebrow">Certificate unlocked</p>
         <h2>{{ selectedLesson.completion?.awardTitle ?? "Lesson complete" }}</h2>
         <p>{{ selectedLesson.completion?.awardText }}</p>
-        <button type="button" @click="$emit('return-to-map')">Rejoin the world</button>
+        <div class="award-actions">
+          <button type="button" @click="$emit('return-to-map')">Finish lesson</button>
+          <button type="button" class="ghost-button" @click="$emit('select-lesson', null)">Back to lessons</button>
+        </div>
       </section>
       <p v-if="completionError" class="reader-error-text">{{ completionError }}</p>
     </article>
@@ -251,6 +263,24 @@ button {
   border: 1px solid rgba(139, 216, 210, 0.32);
   border-radius: 8px;
   background: rgba(8, 18, 24, 0.78);
+}
+
+.award {
+  border-color: rgba(143, 240, 164, 0.55);
+  background:
+    linear-gradient(135deg, rgba(143, 240, 164, 0.14), rgba(139, 216, 210, 0.06)),
+    rgba(8, 18, 24, 0.82);
+}
+
+.award-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.ghost-button {
+  background: transparent;
+  color: #c8f7f1;
 }
 
 .lesson-section h2,
