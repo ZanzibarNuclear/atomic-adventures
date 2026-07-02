@@ -8,6 +8,7 @@ import {
   normalizeHydroState,
   withHydroStatePatch,
 } from "../lib/simulations/hydro/index.js";
+import { hydroStartupActionPatch } from "../lib/simulations/hydro/startupActions.js";
 
 export function ensureHydroFacilityState(gameState) {
   if (!gameState.facilities || typeof gameState.facilities !== "object") {
@@ -57,8 +58,8 @@ export function setHydroFacilityOnline(gameState, on, eventOptions = {}) {
 }
 
 export function applyHydroStartupAction(gameState, actionId, options = {}) {
-  if (!gameState || !hydroActionPatches[actionId]) return { ok: false };
-  const patch = hydroActionPatches[actionId];
+  const patch = hydroStartupActionPatch(actionId);
+  if (!gameState || !patch) return { ok: false };
   const elapsedMinutes = elapsedMinutesFor(gameState, options);
   const statePatch = patch.stateFor
     ? patch.stateFor(elapsedMinutes)
@@ -174,42 +175,3 @@ function appendDiagnosticEvents(state, beforeTelemetry, afterTelemetry, eventOpt
   }
   return eventLog;
 }
-
-const hydroActionPatches = Object.freeze({
-  "clear-intake-debris": {
-    type: "facility-change",
-    label: "Intake cleared and opened",
-    state: {
-      intakeClear: true,
-      intakeOpen: true,
-      debrisFraction: 0,
-    },
-  },
-  "align-pipeflow": {
-    type: "facility-change",
-    label: "Upstream manual valve opened",
-    state: {
-      manualValves: {
-        upstreamOpen: true,
-      },
-    },
-  },
-  "open-turbine-valve": {
-    type: "facility-change",
-    label: "Powerhouse manual valve opened",
-    state: {
-      manualValves: {
-        powerhouseOpen: true,
-      },
-    },
-  },
-  "connect-power": {
-    type: "state-transition",
-    label: "Hydro generator startup completed",
-    stateFor: (elapsedMinutes) => ({
-      startupComplete: true,
-      online: true,
-      lastCheckpointElapsedMinutes: elapsedMinutes,
-    }),
-  },
-});
