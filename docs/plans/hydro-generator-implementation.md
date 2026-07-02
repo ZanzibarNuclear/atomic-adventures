@@ -1,6 +1,6 @@
 # Hydro Generator Implementation Plan
 
-**Status:** First build implemented - Waves 1-5 complete  
+**Status:** Implemented - Waves 1-6 complete  
 **Last updated:** 2026-07-01  
 **Primary contracts:** [Hydro Simulator](../contracts/hydro-simulator.md), [Control Panel](../contracts/control-panel.md), [Stage Views](../contracts/stage-views.md), [Game Time](../contracts/time.md)  
 **Quality checklist:** [Character, Inventory, and Game-View Regression Checklist](../quality/character-inventory-regression-checklist.md)
@@ -215,22 +215,28 @@ checks online telemetry, save/load, and the existing powered roll-up behavior.
 **Purpose:** Make the console useful after the startup moment, without adding a
 full operations game yet.
 
-- [ ] Store compact event log entries for intake changes, valve changes,
+- [x] Store compact event log entries for intake changes, valve changes,
       startup completion, hydro online/offline, warnings, and faults.
-- [ ] Add graph event markers for meaningful events.
-- [ ] Add a graph data request helper that can return recent samples, generated
+- [x] Add graph event markers for meaningful events.
+- [x] Add a graph data request helper that can return recent samples, generated
       backfill from checkpoints, and event markers.
-- [ ] Add a simple "last report" summary with average output, generated energy,
+- [x] Add a simple "last report" summary with average output, generated energy,
       brownout/online status, and latest warning.
-- [ ] Keep old historical data compact. Do not persist every live display
+- [x] Keep old historical data compact. Do not persist every live display
       sample.
 
 **Exit criterion:** Closing and reopening the console can explain recent hydro
 activity without needing continuous background simulation.
 
+**Implemented:** hydro history can regenerate compact graph samples from
+event-log patches, return event markers, and summarize the current review
+window. The console renders marker ticks, marker labels, and a last-report
+summary. Live graph samples remain transient and are not saved.
+
 ## First Build Scope
 
-The first playable build should include Waves 1 through 5.
+The first playable build includes Waves 1 through 5. Wave 6 historical review
+is also implemented.
 
 Included:
 
@@ -243,9 +249,9 @@ Included:
 
 ## Implementation Notes
 
-- Current implementation stopping point: Waves 1 through 5 complete.
-- Verified after Wave 5 with `npm run test -w game -- hydroAlphaStartup
-  useHydroFacility learningProgression HydroConsoleView` and full
+- Current implementation stopping point: Waves 1 through 6 complete.
+- Verified after Wave 6 with `npm run test -w game -- hydroRuntime
+  useHydroFacility HydroConsoleView hydroAlphaStartup` and full
   `npm run test` from the repository root.
 - Run `npm run test` from the repository root before finishing each meaningful
   wave that changes travel, facility state, story integration, composables, or

@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useHydroFacility } from "../../composables/useHydroFacility.js";
+import { summarizeHydroSamples } from "../../lib/simulations/hydro/index.js";
 
 const PANEL_ID = "hydro-control-room-panel";
 const MONITOR_SAMPLE_MS = 1000;
@@ -22,6 +23,7 @@ const telemetry = computed(() => latestSample.value?.telemetry ?? hydroFacility.
 const eventLog = computed(() => hydroState.value.eventLog.slice(-6).reverse());
 const statusLabel = computed(() => statusLabels[telemetry.value.status] ?? telemetry.value.status);
 const sampleBuffer = ref([]);
+const eventMarkers = ref([]);
 const monitorStartedAtMs = ref(Date.now());
 const monitorStartedAtElapsedMinutes = ref(elapsedMinutes());
 let monitorTimer = null;
@@ -48,6 +50,8 @@ const guidedActions = computed(() => {
   return [];
 });
 const latestSample = computed(() => sampleBuffer.value.at(-1) ?? null);
+const lastReport = computed(() => summarizeHydroSamples(sampleBuffer.value, eventMarkers.value));
+const markerLines = computed(() => markerPositions(sampleBuffer.value, eventMarkers.value));
 const powerGraph = computed(() => graphSeries(sampleBuffer.value, [
   { id: "power", label: "Power output", color: "#88d68d", metric: "generatorOutputKw", max: 1 },
 ]));
@@ -154,6 +158,15 @@ function addMonitorSample() {
   sampleBuffer.value = [...sampleBuffer.value, sample].slice(-MAX_VISIBLE_SAMPLES);
 }
 
+function loadHistorySamples() {
+  const graphData = hydroFacility.readGraphData({
+    fromElapsedMinutes: Math.max(0, elapsedMinutes() - 60),
+    stepMinutes: 5,
+  });
+  sampleBuffer.value = graphData.samples.slice(-MAX_VISIBLE_SAMPLES);
+  eventMarkers.value = graphData.markers;
+}
+
 function elapsedMinutes() {
   const value = Number(props.gameState?.clock?.elapsedMinutes);
   return Number.isFinite(value) ? value : 0;
@@ -187,6 +200,19 @@ function graphY(value, maxValue) {
   return round(36 - normalized * 32, 2);
 }
 
+function markerPositions(samples, markers) {
+  if (samples.length < 2) return [];
+  const first = samples[0].elapsedMinutes;
+  const last = samples.at(-1).elapsedMinutes;
+  const span = Math.max(1, last - first);
+  return markers
+    .filter((marker) => marker.elapsedMinutes >= first && marker.elapsedMinutes <= last)
+    .map((marker) => ({
+      ...marker,
+      x: round(((marker.elapsedMinutes - first) / span) * 100, 2),
+    }));
+}
+
 function round(value, decimals) {
   const scale = 10 ** decimals;
   return Math.round(Number(value) * scale) / scale;
@@ -198,7 +224,8 @@ function sampleTimeLabel(sample) {
 }
 
 onMounted(() => {
-  addMonitorSample();
+  loadHistorySamples();
+  if (!sampleBuffer.value.length) addMonitorSample();
   monitorTimer = window.setInterval(addMonitorSample, MONITOR_SAMPLE_MS);
 });
 
@@ -285,6 +312,14 @@ onBeforeUnmount(() => {
                 <span>{{ telemetry.generatorOutputKw.toFixed(3) }} kW</span>
               </div>
               <svg viewBox="0 0 100 40" preserveAspectRatio="none" role="img" aria-label="Power output graph">
+                <line
+                  v-for="marker in markerLines"
+                  :key="`power:${marker.id}`"
+                  class="event-marker-line"
+                  :x1="marker.x"
+                  y1="3"
+                  :x2="marker.x"
+                  y2="37" />
                 <polyline
                   v-for="series in powerGraph"
                   :key="series.id"
@@ -299,6 +334,14 @@ onBeforeUnmount(() => {
                 <span>{{ telemetry.penstockPressureKpa.toFixed(1) }} kPa / {{ telemetry.turbineSpeedRpm }} rpm</span>
               </div>
               <svg viewBox="0 0 100 40" preserveAspectRatio="none" role="img" aria-label="Pressure and turbine speed graph">
+                <line
+                  v-for="marker in markerLines"
+                  :key="`pressure:${marker.id}`"
+                  class="event-marker-line"
+                  :x1="marker.x"
+                  y1="3"
+                  :x2="marker.x"
+                  y2="37" />
                 <polyline
                   v-for="series in pressureSpeedGraph"
                   :key="series.id"
@@ -318,6 +361,14 @@ onBeforeUnmount(() => {
                 <span>{{ telemetry.flowM3s.toFixed(3) }} m3/s / {{ telemetry.netHeadM.toFixed(2) }} m</span>
               </div>
               <svg viewBox="0 0 100 40" preserveAspectRatio="none" role="img" aria-label="Flow and net head graph">
+                <line
+                  v-for="marker in markerLines"
+                  :key="`flow:${marker.id}`"
+                  class="event-marker-line"
+                  :x1="marker.x"
+                  y1="3"
+                  :x2="marker.x"
+                  y2="37" />
                 <polyline
                   v-for="series in flowHeadGraph"
                   :key="series.id"
@@ -331,6 +382,34 @@ onBeforeUnmount(() => {
               </div>
             </section>
           </div>
+          <div v-if="eventMarkers.length" class="event-markers">
+            <h3>Event markers</h3>
+            <span v-for="marker in eventMarkers.slice(-5)" :key="marker.id">
+              {{ Math.round(marker.elapsedMinutes) }} min · {{ marker.label }}
+            </span>
+          </div>
+        </div>
+
+        <div class="report-panel">
+          <h2>Last report</h2>
+          <dl>
+            <div>
+              <dt>Average output</dt>
+              <dd>{{ lastReport.averageOutputKw.toFixed(3) }} kW</dd>
+            </div>
+            <div>
+              <dt>Generated energy</dt>
+              <dd>{{ lastReport.generatedEnergyKwh.toFixed(3) }} kWh</dd>
+            </div>
+            <div>
+              <dt>Brownout time</dt>
+              <dd>{{ Math.round(lastReport.brownoutMinutes) }} min</dd>
+            </div>
+            <div>
+              <dt>Latest warning</dt>
+              <dd>{{ lastReport.latestWarning ?? "None" }}</dd>
+            </div>
+          </dl>
         </div>
 
         <div class="history-panel">
@@ -410,6 +489,7 @@ button {
 .readout-panel,
 .diagnostics-panel,
 .graphs-panel,
+.report-panel,
 .history-panel,
 .console-error {
   border: 1px solid rgba(141, 214, 203, 0.28);
@@ -421,6 +501,7 @@ button {
 .schematic-panel,
 .diagnostics-panel,
 .graphs-panel,
+.report-panel,
 .history-panel,
 .console-error {
   padding: 1rem;
@@ -515,6 +596,7 @@ li span {
 
 .diagnostics-panel h2,
 .graphs-panel h2,
+.report-panel h2,
 .history-panel h2 {
   margin: 0 0 0.7rem;
   font-size: 1rem;
@@ -612,6 +694,59 @@ li span {
   stroke-linecap: round;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
+}
+
+.event-marker-line {
+  stroke: rgba(255, 255, 255, 0.42);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.event-markers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.8rem;
+  color: #abc7c0;
+}
+
+.event-markers h3 {
+  width: 100%;
+  margin: 0 0 0.1rem;
+  color: #e7f4ee;
+  font-size: 0.92rem;
+}
+
+.event-markers span {
+  border: 1px solid rgba(141, 214, 203, 0.22);
+  border-radius: 999px;
+  padding: 0.28rem 0.45rem;
+  background: rgba(7, 16, 19, 0.52);
+  font-size: 0.82rem;
+}
+
+.report-panel dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.report-panel div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.report-panel dt {
+  color: #abc7c0;
+  font-size: 0.82rem;
+}
+
+.report-panel dd {
+  margin: 0;
+  color: #f4f7ef;
+  font-weight: 700;
 }
 
 .legend {

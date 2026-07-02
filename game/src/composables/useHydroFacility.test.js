@@ -119,4 +119,56 @@ describe("useHydroFacility", () => {
       "Hydro generator startup completed",
     ]);
   });
+
+  it("exposes historical graph data without persisting display samples", () => {
+    const state = gameState();
+    state.clock.elapsedMinutes = 30;
+    applyHydroStartupAction(state, "clear-intake-debris", { elapsedMinutes: 5 });
+    applyHydroStartupAction(state, "align-pipeflow", { elapsedMinutes: 10 });
+    applyHydroStartupAction(state, "open-turbine-valve", { elapsedMinutes: 15 });
+    applyHydroStartupAction(state, "connect-power", { elapsedMinutes: 20 });
+    const hydro = useHydroFacility(state);
+    const before = JSON.stringify(state.facilities.hydro);
+
+    const graphData = hydro.readGraphData({ fromElapsedMinutes: 0, stepMinutes: 10 });
+
+    expect(graphData.samples.at(-1).elapsedMinutes).toBe(30);
+    expect(graphData.samples.at(-1).telemetry.status).toBe("online");
+    expect(graphData.markers).toHaveLength(4);
+    expect(graphData.report.generatedEnergyKwh).toBeGreaterThan(0);
+    expect(JSON.stringify(state.facilities.hydro)).toBe(before);
+  });
+
+  it("records compact warning events when facility changes introduce diagnostics", () => {
+    const state = gameState({
+      intakeClear: true,
+      intakeOpen: true,
+      manualValves: {
+        upstreamOpen: true,
+        powerhouseOpen: true,
+      },
+      startupComplete: true,
+      online: true,
+      debrisFraction: 0,
+    });
+    const hydro = useHydroFacility(state);
+
+    hydro.updateFieldState(
+      { leakageFraction: 0.25 },
+      {
+        elapsedMinutes: 55,
+        eventId: "hydro-event-0055-leak",
+        label: "Penstock leak reported",
+      },
+    );
+
+    expect(state.facilities.hydro.eventLog.map((event) => event.type)).toEqual([
+      "facility-change",
+      "warning-raised",
+    ]);
+    expect(state.facilities.hydro.eventLog.at(-1)).toMatchObject({
+      label: "Hydro warning: penstock-leakage",
+      payload: { diagnosticId: "penstock-leakage" },
+    });
+  });
 });

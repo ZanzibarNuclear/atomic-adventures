@@ -1,6 +1,7 @@
 import { computed } from "vue";
 import {
   appendHydroEvent,
+  buildHydroGraphData,
   createHydroEvent,
   createHydroState,
   generateHydroTelemetry,
@@ -20,9 +21,12 @@ export function ensureHydroFacilityState(gameState) {
 
 export function setHydroFacilityState(gameState, patch, eventOptions = null) {
   const current = ensureHydroFacilityState(gameState);
+  const beforeTelemetry = generateHydroTelemetry(current);
   const next = withHydroStatePatch(current, patch);
   if (eventOptions) {
     next.eventLog = appendHydroEvent(next, createHydroEvent(eventOptions));
+    const afterTelemetry = generateHydroTelemetry(next);
+    next.eventLog = appendDiagnosticEvents(next, beforeTelemetry, afterTelemetry, eventOptions);
   }
   gameState.facilities.hydro = next;
   return next;
@@ -115,11 +119,19 @@ export function useHydroFacility(gameState, stationContext = null) {
     return generateHydroTelemetry(hydroState.value, options);
   }
 
+  function readGraphData(options = {}) {
+    return buildHydroGraphData(hydroState.value, {
+      toElapsedMinutes: elapsedMinutesFor(gameState, options),
+      ...options,
+    });
+  }
+
   return {
     hydroState,
     telemetry,
     setOnline,
     updateFieldState,
+    readGraphData,
     readTelemetry,
     syncStationPower,
   };
@@ -130,6 +142,37 @@ function elapsedMinutesFor(gameState, options = {}) {
   if (Number.isFinite(explicit)) return explicit;
   const fromClock = Number(gameState?.clock?.elapsedMinutes);
   return Number.isFinite(fromClock) ? fromClock : 0;
+}
+
+function appendDiagnosticEvents(state, beforeTelemetry, afterTelemetry, eventOptions) {
+  const beforeWarnings = new Set(beforeTelemetry.warnings ?? []);
+  const beforeFaults = new Set(beforeTelemetry.faults ?? []);
+  let eventLog = state.eventLog;
+  for (const warning of afterTelemetry.warnings ?? []) {
+    if (beforeWarnings.has(warning)) continue;
+    eventLog = appendHydroEvent({ eventLog }, createHydroEvent({
+      elapsedMinutes: eventOptions.elapsedMinutes,
+      type: "warning-raised",
+      source: "simulator",
+      actor: "system",
+      label: `Hydro warning: ${warning}`,
+      payload: { diagnosticId: warning },
+      eventId: `${eventOptions.eventId ?? `hydro-event-${eventOptions.elapsedMinutes}`}-warning-${warning}`,
+    }));
+  }
+  for (const fault of afterTelemetry.faults ?? []) {
+    if (beforeFaults.has(fault)) continue;
+    eventLog = appendHydroEvent({ eventLog }, createHydroEvent({
+      elapsedMinutes: eventOptions.elapsedMinutes,
+      type: "fault-triggered",
+      source: "simulator",
+      actor: "system",
+      label: `Hydro fault: ${fault}`,
+      payload: { diagnosticId: fault },
+      eventId: `${eventOptions.eventId ?? `hydro-event-${eventOptions.elapsedMinutes}`}-fault-${fault}`,
+    }));
+  }
+  return eventLog;
 }
 
 const hydroActionPatches = Object.freeze({

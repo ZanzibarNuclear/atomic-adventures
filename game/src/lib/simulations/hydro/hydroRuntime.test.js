@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   appendHydroEvent,
+  buildHydroGraphData,
   createHydroEvent,
   createHydroState,
   generateHydroTelemetry,
@@ -173,5 +174,72 @@ describe("hydro runtime state and events", () => {
 
     expect(eventLog).toEqual([next, initial]);
     expect(state.eventLog).toEqual([initial]);
+  });
+
+  it("generates compact historical samples, report data, and event markers", () => {
+    const state = createHydroState();
+    state.lastCheckpointElapsedMinutes = 40;
+    state.eventLog = [
+      createHydroEvent({
+        eventId: "hydro-event-0010-intake",
+        elapsedMinutes: 10,
+        type: "facility-change",
+        label: "Intake cleared and opened",
+        payload: {
+          actionId: "clear-intake-debris",
+          patch: { intakeClear: true, intakeOpen: true, debrisFraction: 0 },
+        },
+      }),
+      createHydroEvent({
+        eventId: "hydro-event-0020-upstream",
+        elapsedMinutes: 20,
+        type: "facility-change",
+        label: "Upstream manual valve opened",
+        payload: {
+          actionId: "align-pipeflow",
+          patch: { manualValves: { upstreamOpen: true } },
+        },
+      }),
+      createHydroEvent({
+        eventId: "hydro-event-0030-powerhouse",
+        elapsedMinutes: 30,
+        type: "facility-change",
+        label: "Powerhouse manual valve opened",
+        payload: {
+          actionId: "open-turbine-valve",
+          patch: { manualValves: { powerhouseOpen: true } },
+        },
+      }),
+      createHydroEvent({
+        eventId: "hydro-event-0040-online",
+        elapsedMinutes: 40,
+        type: "state-transition",
+        label: "Hydro generator startup completed",
+        payload: {
+          actionId: "connect-power",
+          patch: { startupComplete: true, online: true, lastCheckpointElapsedMinutes: 40 },
+        },
+      }),
+    ];
+
+    const graphData = buildHydroGraphData(state, {
+      fromElapsedMinutes: 0,
+      toElapsedMinutes: 40,
+      stepMinutes: 10,
+    });
+
+    expect(graphData.samples.map((sample) => sample.elapsedMinutes)).toEqual([0, 10, 20, 30, 40]);
+    expect(graphData.samples.at(0).telemetry.status).toBe("offline");
+    expect(graphData.samples.at(-1).telemetry.status).toBe("online");
+    expect(graphData.samples.at(-1).telemetry.generatorOutputKw).toBe(1);
+    expect(graphData.markers.map((marker) => marker.label)).toEqual([
+      "Intake cleared and opened",
+      "Upstream manual valve opened",
+      "Powerhouse manual valve opened",
+      "Hydro generator startup completed",
+    ]);
+    expect(graphData.report.generatedEnergyKwh).toBe(0);
+    expect(graphData.report.online).toBe(true);
+    expect(graphData.report.markerCount).toBe(4);
   });
 });

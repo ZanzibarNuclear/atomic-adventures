@@ -16,3 +16,7 @@ export {
   withHydroStatePatch,
 } from "./state.js";
 export { generateHydroTelemetry } from "./telemetry.js";
+export {
+  buildHydroGraphData,
+  summarizeHydroSamples,
+} from "./history.js";

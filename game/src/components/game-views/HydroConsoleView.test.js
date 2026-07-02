@@ -3,7 +3,7 @@
 import { mount } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { nextTick, reactive } from "vue";
-import { createHydroState } from "../../lib/simulations/hydro/index.js";
+import { createHydroEvent, createHydroState } from "../../lib/simulations/hydro/index.js";
 import HydroConsoleView from "./HydroConsoleView.vue";
 
 function gameState(hydro = {}) {
@@ -109,8 +109,73 @@ describe("HydroConsoleView", () => {
     await nextTick();
 
     expect(wrapper.text()).toContain("242 min");
-    expect(wrapper.find("polyline").attributes("points")?.split(" ")).toHaveLength(3);
+    expect(wrapper.find("polyline").attributes("points")?.split(" ").length).toBeGreaterThan(3);
     expect(JSON.stringify(state.facilities.hydro)).toBe(before);
+    wrapper.unmount();
+  });
+
+  it("reopens with generated history, event markers, and a last report", async () => {
+    const state = gameState({
+      lastCheckpointElapsedMinutes: 20,
+      eventLog: [
+        createHydroEvent({
+          eventId: "hydro-event-0005-intake",
+          elapsedMinutes: 5,
+          type: "facility-change",
+          label: "Intake cleared and opened",
+          payload: {
+            actionId: "clear-intake-debris",
+            patch: { intakeClear: true, intakeOpen: true, debrisFraction: 0 },
+          },
+        }),
+        createHydroEvent({
+          eventId: "hydro-event-0010-upstream",
+          elapsedMinutes: 10,
+          type: "facility-change",
+          label: "Upstream manual valve opened",
+          payload: {
+            actionId: "align-pipeflow",
+            patch: { manualValves: { upstreamOpen: true } },
+          },
+        }),
+        createHydroEvent({
+          eventId: "hydro-event-0015-powerhouse",
+          elapsedMinutes: 15,
+          type: "facility-change",
+          label: "Powerhouse manual valve opened",
+          payload: {
+            actionId: "open-turbine-valve",
+            patch: { manualValves: { powerhouseOpen: true } },
+          },
+        }),
+        createHydroEvent({
+          eventId: "hydro-event-0020-online",
+          elapsedMinutes: 20,
+          type: "state-transition",
+          label: "Hydro generator startup completed",
+          payload: {
+            actionId: "connect-power",
+            patch: { startupComplete: true, online: true, lastCheckpointElapsedMinutes: 20 },
+          },
+        }),
+      ],
+    });
+    state.clock.elapsedMinutes = 35;
+
+    const wrapper = mount(HydroConsoleView, {
+      props: {
+        gameState: state,
+        payload: { panelId: "hydro-control-room-panel" },
+      },
+    });
+    await nextTick();
+
+    expect(wrapper.text()).toContain("Event markers");
+    expect(wrapper.text()).toContain("Hydro generator startup completed");
+    expect(wrapper.text()).toContain("Last report");
+    expect(wrapper.text()).toContain("Generated energy");
+    expect(wrapper.findAll(".event-marker-line").length).toBeGreaterThan(0);
+    expect(wrapper.find("polyline").attributes("points")?.split(" ").length).toBeGreaterThan(1);
     wrapper.unmount();
   });
 
