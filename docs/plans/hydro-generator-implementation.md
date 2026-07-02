@@ -1,6 +1,6 @@
 # Hydro Generator Implementation Plan
 
-**Status:** In progress - Waves 1-3 shell implemented  
+**Status:** In progress - Waves 1-4 implemented  
 **Last updated:** 2026-07-01  
 **Primary contracts:** [Hydro Simulator](../contracts/hydro-simulator.md), [Control Panel](../contracts/control-panel.md), [Stage Views](../contracts/stage-views.md), [Game Time](../contracts/time.md)  
 **Quality checklist:** [Character, Inventory, and Game-View Regression Checklist](../quality/character-inventory-regression-checklist.md)
@@ -123,7 +123,7 @@ control-room panel as the concrete vertical slice.
 - [x] Present the console like the holo-reader: a separate focused view that is
       visually independent from the ordinary map/story combo.
 - [x] Register or resolve `panelId: "hydro-control-room-panel"`.
-- [ ] Render the first concrete hydro panel with three sections:
+- [x] Render the first concrete hydro panel with three sections:
       schematic/status, instant overview, and live graphs.
 - [x] Support a payload like:
 
@@ -147,34 +147,39 @@ close the focused hydro console without moving the player, losing narrative
 context, or relying on the ordinary map/story layout for the console UI.
 
 **Implemented:** `HydroConsoleView.vue` renders the first focused console shell
-with schematic/status, instant readouts, diagnostics, recent events, return to
-map, and unknown-panel validation. A temporary control-room action opens the
-console. Live graphs remain open for Wave 4.
+with schematic/status, instant readouts, live graphs, diagnostics, recent
+events, return to map, and unknown-panel validation. A temporary control-room
+action opens the console.
 
 ## Wave 4 - Live Monitor and Diagnostics
 
 **Purpose:** Let the player watch simulated real-time behavior and understand
 the generator's condition from the control-room console.
 
-- [ ] Add a panel-side live sampler that requests telemetry from the hydro host
+- [x] Add a panel-side live sampler that requests telemetry from the hydro host
       adapter while the console is open.
-- [ ] Drive display updates from wall-clock ticks, but derive simulated samples
+- [x] Drive display updates from wall-clock ticks, but derive simulated samples
       from authored game time plus a local monitor offset.
-- [ ] Keep high-resolution graph samples transient in the panel.
-- [ ] Show instant readouts for pressure, turbine speed, power output, flow, net
+- [x] Keep high-resolution graph samples transient in the panel.
+- [x] Show instant readouts for pressure, turbine speed, power output, flow, net
       head, plant status, warnings, and faults.
-- [ ] Add required graphs:
+- [x] Add required graphs:
       power output, and pressure plus turbine speed.
-- [ ] Add an optional first flow/net-head graph if it does not slow the wave.
-- [ ] Display structured diagnostic messages for missing intake preparation,
+- [x] Add an optional first flow/net-head graph if it does not slow the wave.
+- [x] Display structured diagnostic messages for missing intake preparation,
       closed valves, generator unavailable, insufficient pressure, insufficient
       turbine speed, or missing station power.
-- [ ] Show station power online when the host facility state says the existing
+- [x] Show station power online when the host facility state says the existing
       startup path has brought the hydro generator online.
 
 **Exit criterion:** After the existing startup path brings the hydro generator
 online, the player can open the console, watch telemetry respond in simulated
 real time, and understand the current generator state from the diagnostics.
+
+**Implemented:** the hydro console now samples telemetry while mounted, keeps a
+transient sample buffer, renders output, pressure/speed, and flow/head graphs,
+and shows station-power and prerequisite diagnostics from the current facility
+state.
 
 ## Wave 5 - World Actions for Startup Prerequisites
 
@@ -232,7 +237,7 @@ Included:
 ## Implementation Notes
 
 - Current implementation stopping point: Wave 1 complete, Wave 2 complete for
-  save/facility integration, and Wave 3 complete except for live graphs.
+  save/facility integration, Wave 3 complete, and Wave 4 complete.
 - Verified after implementation with `npm run test -w game -- HydroConsoleView
   useGameView hydroRuntime useHydroFacility useGameState` and full
   `npm run test` from the repository root.

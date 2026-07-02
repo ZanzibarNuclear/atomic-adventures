@@ -1,9 +1,11 @@
 <script setup>
-import { computed } from "vue";
-import { generateHydroTelemetry } from "../../lib/simulations/hydro/index.js";
-import { ensureHydroFacilityState } from "../../composables/useHydroFacility.js";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { useHydroFacility } from "../../composables/useHydroFacility.js";
 
 const PANEL_ID = "hydro-control-room-panel";
+const MONITOR_SAMPLE_MS = 1000;
+const MONITOR_MINUTES_PER_SAMPLE = 1;
+const MAX_VISIBLE_SAMPLES = 48;
 
 const props = defineProps({
   gameState: { type: Object, required: true },
@@ -14,14 +16,33 @@ defineEmits(["return-to-map"]);
 
 const panelId = computed(() => props.payload?.panelId ?? PANEL_ID);
 const validPanel = computed(() => panelId.value === PANEL_ID);
-const hydroState = computed(() => ensureHydroFacilityState(props.gameState));
-const telemetry = computed(() => generateHydroTelemetry(hydroState.value));
+const hydroFacility = useHydroFacility(props.gameState);
+const hydroState = hydroFacility.hydroState;
+const telemetry = computed(() => latestSample.value?.telemetry ?? hydroFacility.telemetry.value);
 const eventLog = computed(() => hydroState.value.eventLog.slice(-6).reverse());
 const statusLabel = computed(() => statusLabels[telemetry.value.status] ?? telemetry.value.status);
+const sampleBuffer = ref([]);
+const monitorStartedAtMs = ref(Date.now());
+const monitorStartedAtElapsedMinutes = ref(elapsedMinutes());
+let monitorTimer = null;
+
 const diagnostics = computed(() => [
   ...telemetry.value.faults.map((id) => diagnosticLine(id, "Fault")),
   ...telemetry.value.warnings.map((id) => diagnosticLine(id, "Warning")),
+  ...(!hydroState.value.online ? [diagnosticLine("station-power-off", "Warning")] : []),
 ]);
+const latestSample = computed(() => sampleBuffer.value.at(-1) ?? null);
+const powerGraph = computed(() => graphSeries(sampleBuffer.value, [
+  { id: "power", label: "Power output", color: "#88d68d", metric: "generatorOutputKw", max: 1 },
+]));
+const pressureSpeedGraph = computed(() => graphSeries(sampleBuffer.value, [
+  { id: "pressure", label: "Pressure", color: "#66b8e6", metric: "penstockPressureKpa", max: 180 },
+  { id: "speed", label: "Turbine speed", color: "#ffd36f", metric: "turbineSpeedRpm", max: 1000 },
+]));
+const flowHeadGraph = computed(() => graphSeries(sampleBuffer.value, [
+  { id: "flow", label: "Flow", color: "#9be4d4", metric: "flowM3s", max: 0.014 },
+  { id: "head", label: "Net head", color: "#d8b7ff", metric: "netHeadM", max: 18 },
+]));
 
 const readouts = computed(() => [
   { id: "output", label: "Output", value: `${telemetry.value.generatorOutputKw.toFixed(3)} kW` },
@@ -64,6 +85,7 @@ const diagnosticLabels = {
   "major-penstock-leak": "A major penstock leak is preventing stable operation.",
   "manual-valves-not-open": "Manual valves are not fully open.",
   "penstock-leakage": "Penstock leakage is reducing output.",
+  "station-power-off": "Station power is offline.",
   "startup-incomplete": "The generator startup sequence is incomplete.",
 };
 
@@ -74,6 +96,70 @@ function diagnosticLine(id, kind) {
     label: diagnosticLabels[id] ?? id,
   };
 }
+
+function addMonitorSample() {
+  if (!validPanel.value) return;
+  const elapsedSimMinutes = monitorStartedAtElapsedMinutes.value +
+    Math.floor((Date.now() - monitorStartedAtMs.value) / MONITOR_SAMPLE_MS) * MONITOR_MINUTES_PER_SAMPLE;
+  const sample = {
+    id: `sample-${elapsedSimMinutes}-${sampleBuffer.value.length}`,
+    elapsedMinutes: elapsedSimMinutes,
+    telemetry: hydroFacility.readTelemetry(),
+  };
+  sampleBuffer.value = [...sampleBuffer.value, sample].slice(-MAX_VISIBLE_SAMPLES);
+}
+
+function elapsedMinutes() {
+  const value = Number(props.gameState?.clock?.elapsedMinutes);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function graphSeries(samples, specs) {
+  return specs.map((spec) => {
+    const points = sparklinePoints(samples, spec.metric, spec.max);
+    return {
+      ...spec,
+      points,
+      value: samples.at(-1)?.telemetry?.[spec.metric] ?? 0,
+    };
+  });
+}
+
+function sparklinePoints(samples, metric, maxValue) {
+  if (samples.length === 0) return "";
+  if (samples.length === 1) {
+    const y = graphY(samples[0].telemetry[metric], maxValue);
+    return `0,${y} 100,${y}`;
+  }
+  return samples.map((sample, index) => {
+    const x = (index / (samples.length - 1)) * 100;
+    return `${round(x, 2)},${graphY(sample.telemetry[metric], maxValue)}`;
+  }).join(" ");
+}
+
+function graphY(value, maxValue) {
+  const normalized = Math.min(1, Math.max(0, Number(value) / maxValue));
+  return round(36 - normalized * 32, 2);
+}
+
+function round(value, decimals) {
+  const scale = 10 ** decimals;
+  return Math.round(Number(value) * scale) / scale;
+}
+
+function sampleTimeLabel(sample) {
+  if (!sample) return "No samples yet";
+  return `${Math.round(sample.elapsedMinutes)} min`;
+}
+
+onMounted(() => {
+  addMonitorSample();
+  monitorTimer = window.setInterval(addMonitorSample, MONITOR_SAMPLE_MS);
+});
+
+onBeforeUnmount(() => {
+  if (monitorTimer != null) window.clearInterval(monitorTimer);
+});
 </script>
 
 <template>
@@ -132,6 +218,66 @@ function diagnosticLine(id, kind) {
               <span>{{ item.label }}</span>
             </li>
           </ul>
+        </div>
+
+        <div class="graphs-panel">
+          <div class="graphs-header">
+            <h2>Live monitor</h2>
+            <span>{{ sampleTimeLabel(latestSample) }}</span>
+          </div>
+          <div class="graph-stack">
+            <section class="graph-card">
+              <div class="graph-labels">
+                <strong>Power output</strong>
+                <span>{{ telemetry.generatorOutputKw.toFixed(3) }} kW</span>
+              </div>
+              <svg viewBox="0 0 100 40" preserveAspectRatio="none" role="img" aria-label="Power output graph">
+                <polyline
+                  v-for="series in powerGraph"
+                  :key="series.id"
+                  :points="series.points"
+                  :stroke="series.color" />
+              </svg>
+            </section>
+
+            <section class="graph-card">
+              <div class="graph-labels">
+                <strong>Pressure and turbine speed</strong>
+                <span>{{ telemetry.penstockPressureKpa.toFixed(1) }} kPa / {{ telemetry.turbineSpeedRpm }} rpm</span>
+              </div>
+              <svg viewBox="0 0 100 40" preserveAspectRatio="none" role="img" aria-label="Pressure and turbine speed graph">
+                <polyline
+                  v-for="series in pressureSpeedGraph"
+                  :key="series.id"
+                  :points="series.points"
+                  :stroke="series.color" />
+              </svg>
+              <div class="legend">
+                <span v-for="series in pressureSpeedGraph" :key="series.id">
+                  <i :style="{ background: series.color }"></i>{{ series.label }}
+                </span>
+              </div>
+            </section>
+
+            <section class="graph-card">
+              <div class="graph-labels">
+                <strong>Flow and net head</strong>
+                <span>{{ telemetry.flowM3s.toFixed(3) }} m3/s / {{ telemetry.netHeadM.toFixed(2) }} m</span>
+              </div>
+              <svg viewBox="0 0 100 40" preserveAspectRatio="none" role="img" aria-label="Flow and net head graph">
+                <polyline
+                  v-for="series in flowHeadGraph"
+                  :key="series.id"
+                  :points="series.points"
+                  :stroke="series.color" />
+              </svg>
+              <div class="legend">
+                <span v-for="series in flowHeadGraph" :key="series.id">
+                  <i :style="{ background: series.color }"></i>{{ series.label }}
+                </span>
+              </div>
+            </section>
+          </div>
         </div>
 
         <div class="history-panel">
@@ -210,6 +356,7 @@ button {
 .schematic-panel,
 .readout-panel,
 .diagnostics-panel,
+.graphs-panel,
 .history-panel,
 .console-error {
   border: 1px solid rgba(141, 214, 203, 0.28);
@@ -220,6 +367,7 @@ button {
 
 .schematic-panel,
 .diagnostics-panel,
+.graphs-panel,
 .history-panel,
 .console-error {
   padding: 1rem;
@@ -313,9 +461,95 @@ li span {
 }
 
 .diagnostics-panel h2,
+.graphs-panel h2,
 .history-panel h2 {
   margin: 0 0 0.7rem;
   font-size: 1rem;
+}
+
+.graphs-panel {
+  grid-column: 1 / -1;
+}
+
+.graphs-header,
+.graph-labels,
+.legend {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.graphs-header span,
+.graph-labels span,
+.legend {
+  color: #abc7c0;
+}
+
+.graph-stack {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.graph-card {
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
+  min-height: 10rem;
+  padding: 0.8rem;
+  border: 1px solid rgba(141, 214, 203, 0.18);
+  border-radius: 8px;
+  background: rgba(5, 12, 15, 0.5);
+}
+
+.graph-labels {
+  min-height: 2.4rem;
+}
+
+.graph-labels strong,
+.graph-labels span {
+  overflow-wrap: anywhere;
+}
+
+.graph-card svg {
+  width: 100%;
+  height: 5.5rem;
+  border: 1px solid rgba(141, 214, 203, 0.14);
+  border-radius: 6px;
+  background:
+    linear-gradient(rgba(141, 214, 203, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(141, 214, 203, 0.08) 1px, transparent 1px),
+    rgba(7, 16, 19, 0.82);
+  background-size: 100% 33.333%, 25% 100%, 100% 100%;
+}
+
+.graph-card polyline {
+  fill: none;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.legend {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  min-height: 1.2rem;
+  font-size: 0.82rem;
+}
+
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.legend i {
+  display: inline-block;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 999px;
 }
 
 ul,
@@ -347,7 +581,8 @@ li {
   }
 
   .console-grid,
-  .readout-panel {
+  .readout-panel,
+  .graph-stack {
     grid-template-columns: 1fr;
   }
 }

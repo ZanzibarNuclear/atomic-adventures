@@ -116,6 +116,11 @@ npm run dev:game        # game + builder + local content API
 - World builder: `http://127.0.0.1:5173/builder/world`
 - Content builder: `http://127.0.0.1:5173/builder/content`
 
+The user often keeps this dev server running while trying changes. If port
+`5173` or Vite's HMR port is already in use, assume it may be the user's
+intentional server. Verify with a quick browser/curl check or `lsof` before
+starting another instance or treating the port conflict as a failure.
+
 ### Tests and quality checklists
 
 Gameplay and map changes live in `game/`. **Before finishing work** on travel, barriers, story integration, composables, or world YAML, run the test suite and fix failures:
