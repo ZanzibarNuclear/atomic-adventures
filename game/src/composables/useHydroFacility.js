@@ -29,6 +29,10 @@ export function setHydroFacilityState(gameState, patch, eventOptions = null) {
 }
 
 export function setHydroFacilityOnline(gameState, on, eventOptions = {}) {
+  const current = ensureHydroFacilityState(gameState);
+  if (current.online === on && (!on || current.startupComplete)) {
+    return current;
+  }
   return setHydroFacilityState(
     gameState,
     {
@@ -46,6 +50,32 @@ export function setHydroFacilityOnline(gameState, on, eventOptions = {}) {
       eventId: eventOptions.eventId,
     },
   );
+}
+
+export function applyHydroStartupAction(gameState, actionId, options = {}) {
+  if (!gameState || !hydroActionPatches[actionId]) return { ok: false };
+  const patch = hydroActionPatches[actionId];
+  const elapsedMinutes = elapsedMinutesFor(gameState, options);
+  const statePatch = patch.stateFor
+    ? patch.stateFor(elapsedMinutes)
+    : patch.state;
+  const next = setHydroFacilityState(
+    gameState,
+    statePatch,
+    {
+      elapsedMinutes,
+      type: patch.type,
+      source: options.source ?? "field-action",
+      actor: options.actor ?? "player",
+      label: patch.label,
+      payload: {
+        actionId,
+        patch: statePatch,
+      },
+      eventId: options.eventId,
+    },
+  );
+  return { ok: true, state: next };
 }
 
 export function useHydroFacility(gameState, stationContext = null) {
@@ -101,3 +131,42 @@ function elapsedMinutesFor(gameState, options = {}) {
   const fromClock = Number(gameState?.clock?.elapsedMinutes);
   return Number.isFinite(fromClock) ? fromClock : 0;
 }
+
+const hydroActionPatches = Object.freeze({
+  "clear-intake-debris": {
+    type: "facility-change",
+    label: "Intake cleared and opened",
+    state: {
+      intakeClear: true,
+      intakeOpen: true,
+      debrisFraction: 0,
+    },
+  },
+  "align-pipeflow": {
+    type: "facility-change",
+    label: "Upstream manual valve opened",
+    state: {
+      manualValves: {
+        upstreamOpen: true,
+      },
+    },
+  },
+  "open-turbine-valve": {
+    type: "facility-change",
+    label: "Powerhouse manual valve opened",
+    state: {
+      manualValves: {
+        powerhouseOpen: true,
+      },
+    },
+  },
+  "connect-power": {
+    type: "state-transition",
+    label: "Hydro generator startup completed",
+    stateFor: (elapsedMinutes) => ({
+      startupComplete: true,
+      online: true,
+      lastCheckpointElapsedMinutes: elapsedMinutes,
+    }),
+  },
+});

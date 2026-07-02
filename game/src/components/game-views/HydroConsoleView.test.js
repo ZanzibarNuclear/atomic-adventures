@@ -135,4 +135,23 @@ describe("HydroConsoleView", () => {
     expect(wrapper.text()).toContain("Station power is offline.");
     wrapper.unmount();
   });
+
+  it("offers guided map return for missing field prerequisites", async () => {
+    const wrapper = mount(HydroConsoleView, {
+      props: {
+        gameState: gameState(),
+        payload: { panelId: "hydro-control-room-panel" },
+      },
+    });
+
+    expect(wrapper.text()).toContain("Next field action");
+    expect(wrapper.text()).toContain("Return to the upstream bank");
+    expect(wrapper.text()).toContain("Use the ordinary field action to clear and open the intake.");
+
+    const buttons = wrapper.findAll("button");
+    await buttons.find((button) => button.text() === "Return to map").trigger("click");
+
+    expect(wrapper.emitted("return-to-map")).toHaveLength(1);
+    wrapper.unmount();
+  });
 });

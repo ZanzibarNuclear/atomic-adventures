@@ -7,6 +7,7 @@ import { createIndoorActions } from "../maps/composables/indoor/useIndoorActions
 import { createGameClock } from "./gameTime.js";
 import { learningSeed } from "../../../server/learning-seed.js";
 import { completeLesson } from "../learning/completion.js";
+import { generateHydroTelemetry } from "../simulations/hydro/index.js";
 
 describe("authored learning progression", () => {
   it("moves from lesson to knowledge, practice evidence, and qualification", () => {
@@ -95,17 +96,19 @@ describe("authored learning progression", () => {
       flags,
       facility: { hydroOnline: false },
     });
+    const gameState = {
+      character,
+      flags,
+      clock: createGameClock(),
+      facilities: {},
+    };
     const actions = createIndoorActions({
       building: ref(utilityStation),
       indoor,
       setHydroOnline: (online) => { indoor.facility.hydroOnline = online; },
       builderView: ref(false),
       character,
-      gameState: {
-        character,
-        flags,
-        clock: createGameClock(),
-      },
+      gameState,
     });
 
     actions.performAction("read-micro-hydro-ops");
@@ -123,6 +126,28 @@ describe("authored learning progression", () => {
     actions.performAction("connect-power");
 
     expect(character.quests["restore-hydro"].status).toBe("completed");
+    expect(indoor.facility.hydroOnline).toBe(true);
+    expect(gameState.facilities.hydro).toMatchObject({
+      intakeClear: true,
+      intakeOpen: true,
+      debrisFraction: 0,
+      manualValves: {
+        upstreamOpen: true,
+        powerhouseOpen: true,
+      },
+      startupComplete: true,
+      online: true,
+    });
+    expect(gameState.facilities.hydro.eventLog.map((event) => event.label)).toEqual([
+      "Intake cleared and opened",
+      "Upstream manual valve opened",
+      "Powerhouse manual valve opened",
+      "Hydro generator startup completed",
+    ]);
+    expect(generateHydroTelemetry(gameState.facilities.hydro)).toMatchObject({
+      status: "online",
+      generatorOutputKw: 1,
+    });
     const objectives = Object.values(character.quests["restore-hydro"].objectives);
     expect(objectives).toHaveLength(4);
     expect(objectives.every((objective) => objective.status === "completed")).toBe(true);

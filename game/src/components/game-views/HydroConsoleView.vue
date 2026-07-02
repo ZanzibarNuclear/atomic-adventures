@@ -31,6 +31,22 @@ const diagnostics = computed(() => [
   ...telemetry.value.warnings.map((id) => diagnosticLine(id, "Warning")),
   ...(!hydroState.value.online ? [diagnosticLine("station-power-off", "Warning")] : []),
 ]);
+const guidedActions = computed(() => {
+  const state = hydroState.value;
+  if (!state.intakeClear || !state.intakeOpen) {
+    return [guidedAction("clear-intake-debris")];
+  }
+  if (!state.manualValves.upstreamOpen) {
+    return [guidedAction("align-pipeflow")];
+  }
+  if (!state.manualValves.powerhouseOpen) {
+    return [guidedAction("open-turbine-valve")];
+  }
+  if (!state.startupComplete || !state.online) {
+    return [guidedAction("connect-power")];
+  }
+  return [];
+});
 const latestSample = computed(() => sampleBuffer.value.at(-1) ?? null);
 const powerGraph = computed(() => graphSeries(sampleBuffer.value, [
   { id: "power", label: "Power output", color: "#88d68d", metric: "generatorOutputKw", max: 1 },
@@ -89,11 +105,40 @@ const diagnosticLabels = {
   "startup-incomplete": "The generator startup sequence is incomplete.",
 };
 
+const guidedActionLabels = {
+  "clear-intake-debris": {
+    title: "Return to the upstream bank",
+    body: "Use the ordinary field action to clear and open the intake.",
+  },
+  "align-pipeflow": {
+    title: "Return to the midstream bank",
+    body: "Use the ordinary field action to align the upstream valve.",
+  },
+  "open-turbine-valve": {
+    title: "Return to the downstream bank",
+    body: "Use the ordinary field action to open the turbine valve.",
+  },
+  "connect-power": {
+    title: "Stay in the control room",
+    body: "Use the ordinary control-room action to connect station power.",
+  },
+};
+
 function diagnosticLine(id, kind) {
   return {
     id,
     kind,
     label: diagnosticLabels[id] ?? id,
+  };
+}
+
+function guidedAction(id) {
+  return {
+    id,
+    ...(guidedActionLabels[id] ?? {
+      title: "Return to the map",
+      body: "Use the next ordinary field action.",
+    }),
   };
 }
 
@@ -218,6 +263,14 @@ onBeforeUnmount(() => {
               <span>{{ item.label }}</span>
             </li>
           </ul>
+          <div v-if="guidedActions.length" class="guided-actions">
+            <h3>Next field action</h3>
+            <div v-for="action in guidedActions" :key="action.id" class="guided-action">
+              <strong>{{ action.title }}</strong>
+              <span>{{ action.body }}</span>
+              <button type="button" @click="$emit('return-to-map')">Return to map</button>
+            </div>
+          </div>
         </div>
 
         <div class="graphs-panel">
@@ -465,6 +518,35 @@ li span {
 .history-panel h2 {
   margin: 0 0 0.7rem;
   font-size: 1rem;
+}
+
+.guided-actions {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.9rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(141, 214, 203, 0.18);
+}
+
+.guided-actions h3 {
+  margin: 0;
+  color: #e7f4ee;
+  font-size: 0.92rem;
+}
+
+.guided-action {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.guided-action span {
+  color: #abc7c0;
+}
+
+.guided-action button {
+  justify-self: start;
+  margin-top: 0.15rem;
+  padding: 0.45rem 0.65rem;
 }
 
 .graphs-panel {

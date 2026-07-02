@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { reactive } from "vue";
 import { createHydroState } from "../lib/simulations/hydro/index.js";
 import {
+  applyHydroStartupAction,
   ensureHydroFacilityState,
   setHydroFacilityOnline,
   useHydroFacility,
@@ -88,5 +89,34 @@ describe("useHydroFacility", () => {
     expect(telemetry.status).toBe("online");
     expect(telemetry.generatorOutputKw).toBeGreaterThan(0.9);
     expect(JSON.stringify(state.facilities.hydro)).toBe(before);
+  });
+
+  it("applies authored startup actions as host-owned facility changes", () => {
+    const state = gameState();
+    state.clock.elapsedMinutes = 90;
+
+    expect(applyHydroStartupAction(state, "clear-intake-debris").ok).toBe(true);
+    expect(applyHydroStartupAction(state, "align-pipeflow").ok).toBe(true);
+    expect(applyHydroStartupAction(state, "open-turbine-valve").ok).toBe(true);
+    expect(applyHydroStartupAction(state, "connect-power").ok).toBe(true);
+
+    expect(state.facilities.hydro).toMatchObject({
+      intakeClear: true,
+      intakeOpen: true,
+      debrisFraction: 0,
+      manualValves: {
+        upstreamOpen: true,
+        powerhouseOpen: true,
+      },
+      startupComplete: true,
+      online: true,
+      lastCheckpointElapsedMinutes: 90,
+    });
+    expect(state.facilities.hydro.eventLog.map((event) => event.label)).toEqual([
+      "Intake cleared and opened",
+      "Upstream manual valve opened",
+      "Powerhouse manual valve opened",
+      "Hydro generator startup completed",
+    ]);
   });
 });

@@ -3,6 +3,7 @@ import { hasFlag, requireSatisfied, setFlags } from "../useFlags.js";
 import { evaluateRequirements } from "../../../character/requirements.js";
 import { applyEffectsAtomically } from "../../../character/effects.js";
 import { advanceGameTime } from "../../../character/gameTime.js";
+import { applyHydroStartupAction } from "../../../../composables/useHydroFacility.js";
 
 export function createIndoorActions({
   building,
@@ -62,6 +63,7 @@ export function createIndoorActions({
       setFlags(indoor.flags, action.sets);
       setFlags(indoor.flags, action.set_flags);
     }
+    applyHydroStartupAction(gameState, action.id);
     if (action.powerOn) setHydroOnline(true);
     if (gameState && Number(action.timeMinutes) > 0) {
       advanceGameTime(gameState, Number(action.timeMinutes), action.activity ?? "light");

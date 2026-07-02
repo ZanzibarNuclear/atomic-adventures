@@ -1,6 +1,6 @@
 # Hydro Generator Implementation Plan
 
-**Status:** In progress - Waves 1-4 implemented  
+**Status:** First build implemented - Waves 1-5 complete  
 **Last updated:** 2026-07-01  
 **Primary contracts:** [Hydro Simulator](../contracts/hydro-simulator.md), [Control Panel](../contracts/control-panel.md), [Stage Views](../contracts/stage-views.md), [Game Time](../contracts/time.md)  
 **Quality checklist:** [Character, Inventory, and Game-View Regression Checklist](../quality/character-inventory-regression-checklist.md)
@@ -186,22 +186,29 @@ state.
 **Purpose:** Connect the console loop to actual field work in the playable
 world.
 
-- [ ] Reuse the existing world/indoor actions for clearing and opening the
+- [x] Reuse the existing world/indoor actions for clearing and opening the
       intake.
-- [ ] Reuse the existing world/indoor actions for turning the two manual valves.
-- [ ] Reuse the existing world/indoor startup action or switch interaction that
+- [x] Reuse the existing world/indoor actions for turning the two manual valves.
+- [x] Reuse the existing world/indoor startup action or switch interaction that
       brings the hydro generator online.
-- [ ] Make successful field actions emit host-owned hydro facility changes.
-- [ ] Make the console diagnose missing prerequisites and offer guided actions
+- [x] Make successful field actions emit host-owned hydro facility changes.
+- [x] Make the console diagnose missing prerequisites and offer guided actions
       without directly applying those changes.
-- [ ] Keep guided actions as host requests: return to map, focus a route, show
+- [x] Keep guided actions as host requests: return to map, focus a route, show
       an objective, or expose an ordinary story/world action.
-- [ ] Add tests for the full alpha startup path:
+- [x] Add tests for the full alpha startup path:
       field prerequisites, startup action, hydro online, console monitoring,
       save/load, and hydro-powered facility behavior.
 
 **Exit criterion:** The alpha startup sequence works end to end through normal
 gameplay actions and the hydro console.
+
+**Implemented:** the existing authored actions `clear-intake-debris`,
+`align-pipeflow`, `open-turbine-valve`, and `connect-power` now commit
+host-owned hydro facility changes and event log entries. The console offers
+return-to-map guidance for the next missing prerequisite but does not apply
+field repairs itself. Integration coverage walks the full alpha startup path,
+checks online telemetry, save/load, and the existing powered roll-up behavior.
 
 ## Wave 6 - Historical Review and Event Markers
 
@@ -236,10 +243,9 @@ Included:
 
 ## Implementation Notes
 
-- Current implementation stopping point: Wave 1 complete, Wave 2 complete for
-  save/facility integration, Wave 3 complete, and Wave 4 complete.
-- Verified after implementation with `npm run test -w game -- HydroConsoleView
-  useGameView hydroRuntime useHydroFacility useGameState` and full
+- Current implementation stopping point: Waves 1 through 5 complete.
+- Verified after Wave 5 with `npm run test -w game -- hydroAlphaStartup
+  useHydroFacility learningProgression HydroConsoleView` and full
   `npm run test` from the repository root.
 - Run `npm run test` from the repository root before finishing each meaningful
   wave that changes travel, facility state, story integration, composables, or
