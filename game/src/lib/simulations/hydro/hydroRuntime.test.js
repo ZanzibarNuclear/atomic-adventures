@@ -128,7 +128,7 @@ describe("hydro runtime state and events", () => {
     expect(patched.leakageFraction).toBe(1);
   });
 
-  it("sorts events by elapsed time, id, then insertion order", () => {
+  it("sorts events by elapsed time, then insertion order", () => {
     const later = createHydroEvent({
       eventId: "hydro-event-0200-valve",
       elapsedMinutes: 200,
@@ -149,8 +149,8 @@ describe("hydro runtime state and events", () => {
     });
 
     expect(sortHydroEvents([later, secondAtSameTime, firstAtSameTime])).toEqual([
-      firstAtSameTime,
       secondAtSameTime,
+      firstAtSameTime,
       later,
     ]);
   });
@@ -174,6 +174,30 @@ describe("hydro runtime state and events", () => {
 
     expect(eventLog).toEqual([next, initial]);
     expect(state.eventLog).toEqual([initial]);
+  });
+
+  it("keeps generated event IDs unique when events share time and type", () => {
+    const state = createHydroState();
+    const first = createHydroEvent({
+      elapsedMinutes: 12,
+      type: "facility-change",
+      label: "Inspection recorded",
+    });
+    const second = createHydroEvent({
+      elapsedMinutes: 12,
+      type: "facility-change",
+      label: "Inspection recorded",
+    });
+
+    const eventLog = appendHydroEvent(
+      { eventLog: appendHydroEvent(state, first) },
+      second,
+    );
+
+    expect(eventLog.map((event) => event.eventId)).toEqual([
+      "hydro-event-00012000-facility-change-inspection-recorded",
+      "hydro-event-00012000-facility-change-inspection-recorded-2",
+    ]);
   });
 
   it("generates compact historical samples, report data, and event markers", () => {

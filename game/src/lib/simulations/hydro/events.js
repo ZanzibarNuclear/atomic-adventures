@@ -9,7 +9,12 @@ export function createHydroEvent({
 } = {}) {
   const safeType = String(type || "facility-change");
   const safeElapsedMinutes = finite(elapsedMinutes);
-  const safeId = eventId || `hydro-event-${formatEventTime(safeElapsedMinutes)}-${safeType}`;
+  const safeId = eventId || [
+    "hydro-event",
+    formatEventTime(safeElapsedMinutes),
+    slug(safeType),
+    slug(payload?.actionId || payload?.diagnosticId || label || source),
+  ].filter(Boolean).join("-");
   return {
     eventId: safeId,
     plantId: "upper-penstock",
@@ -23,7 +28,12 @@ export function createHydroEvent({
 }
 
 export function appendHydroEvent(state, event) {
-  return sortHydroEvents([...(state?.eventLog ?? []), event]);
+  const existingEvents = state?.eventLog ?? [];
+  const safeEvent = {
+    ...event,
+    eventId: uniqueEventId(event.eventId, existingEvents),
+  };
+  return sortHydroEvents([...existingEvents, safeEvent]);
 }
 
 export function sortHydroEvents(events = []) {
@@ -32,8 +42,6 @@ export function sortHydroEvents(events = []) {
     .sort((left, right) => {
       const timeDelta = finite(left.event.elapsedMinutes) - finite(right.event.elapsedMinutes);
       if (timeDelta !== 0) return timeDelta;
-      const idDelta = String(left.event.eventId || "").localeCompare(String(right.event.eventId || ""));
-      if (idDelta !== 0) return idDelta;
       return left.insertionIndex - right.insertionIndex;
     })
     .map(({ event }) => event);
@@ -41,6 +49,23 @@ export function sortHydroEvents(events = []) {
 
 function formatEventTime(value) {
   return String(Math.round(finite(value) * 1000)).padStart(8, "0");
+}
+
+function uniqueEventId(eventId, events) {
+  const baseId = String(eventId || "hydro-event");
+  const used = new Set(events.map((event) => String(event.eventId || "")));
+  if (!used.has(baseId)) return baseId;
+  let suffix = 2;
+  while (used.has(`${baseId}-${suffix}`)) suffix += 1;
+  return `${baseId}-${suffix}`;
+}
+
+function slug(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 function finite(value) {

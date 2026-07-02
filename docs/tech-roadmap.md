@@ -203,14 +203,14 @@ Map and beat infrastructure support Part I, but the **full beat spine** — fore
 | Story & world builders + SQLite pipeline | **Done** |
 | Static production deploy | **Done** |
 | Simulation gates in story engine | **Not started** |
-| Hydro startup sim (Level 1) | **Not started** |
-| Hydro operations sim (Level 2+) | **Not started** |
-| Control room console | **Not started** |
-| Holo-reader | **Not started** |
+| Hydro startup sim (Level 1) | **Alpha implemented** |
+| Hydro operations sim (Level 2+) | **Partial** (monitoring/history; full ops rounds still ahead) |
+| Control room console | **Alpha implemented** |
+| Holo-reader | **Partial** |
 | eBuggy driving sim | **Not started** |
 | Close-up room inspection | **Not started** |
 | Character stats, progression, inventory & items | **Partial** |
-| In-game calendar / ops pacing | **Partial** (flags only) |
+| In-game calendar / ops pacing | **Partial** |
 | Part I content spine authored & gated | **In progress** |
 
 ---

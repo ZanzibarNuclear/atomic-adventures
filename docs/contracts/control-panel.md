@@ -1,6 +1,6 @@
 # Control Panel
 
-**Status:** Rough draft for shaping  
+**Status:** First hydro console implemented; reusable panel system still shaping  
 **Scope:** `game/` player-facing consoles and control panels, telemetry
 visualization, operator controls, facility connectivity, and simulator hosting
 
@@ -8,11 +8,13 @@ visualization, operator controls, facility connectivity, and simulator hosting
 
 ## Purpose
 
-A control panel is a focused console surface that lets the player observe and
-operate connected systems. In Part I, the hydro control-room panel visualizes
-and controls the Upper Penstock hydro simulator. Over time, the same panel
-pattern should support building circuits, doors, monitors, sensors, outside
-systems, PV equipment, vehicles, and other simulators.
+A control panel is a focused console surface that lets the player observe and,
+where the current panel is physically wired for it, operate connected systems.
+In Part I alpha, the hydro control-room panel visualizes the Upper Penstock
+hydro generator state and guides the player back to ordinary field actions for
+physical work. Over time, the same panel pattern should support building
+circuits, doors, monitors, sensors, outside systems, PV equipment, vehicles,
+and other simulators.
 
 This contract owns the visual and interaction shell: tabs, gauges, real-time
 graphs, control widgets, system connectivity, status summaries, and event

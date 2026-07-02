@@ -76,6 +76,12 @@ describe("hydro alpha startup path", () => {
       "Powerhouse manual valve opened",
       "Hydro generator startup completed",
     ]);
+    expect(gameState.facilities.hydro.eventLog.map((event) => event.elapsedMinutes)).toEqual([
+      75,
+      105,
+      125,
+      140,
+    ]);
 
     const consoleView = mount(HydroConsoleView, {
       props: {

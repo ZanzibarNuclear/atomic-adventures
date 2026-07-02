@@ -63,11 +63,11 @@ export function createIndoorActions({
       setFlags(indoor.flags, action.sets);
       setFlags(indoor.flags, action.set_flags);
     }
-    applyHydroStartupAction(gameState, action.id);
-    if (action.powerOn) setHydroOnline(true);
     if (gameState && Number(action.timeMinutes) > 0) {
       advanceGameTime(gameState, Number(action.timeMinutes), action.activity ?? "light");
     }
+    applyHydroStartupAction(gameState, action.id);
+    if (action.powerOn) setHydroOnline(true);
     if (action.once !== false) {
       indoor.completedActions.add(actionId);
     }

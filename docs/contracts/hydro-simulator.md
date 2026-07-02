@@ -1,6 +1,6 @@
 # Hydro Simulator
 
-**Status:** Rough draft for shaping  
+**Status:** Alpha runtime implemented; broader operations contract still shaping  
 **Scope:** `game/` Upper Penstock hydro simulation runtime, game-environment
 inputs, facility state, simulator outcomes, and future lesson/simulation reuse
 
@@ -13,6 +13,13 @@ plant. It turns current game-world conditions, fixed plant configuration,
 facility condition, and operator settings into production values for an elapsed
 game-time interval: flow, pressure, effective head, electrical output, energy
 generated, station power served, warnings, faults, and outcomes.
+
+The current alpha implementation covers the first hydro startup and monitoring
+slice with a code-built `hydro-generator-baseline` configuration, persistent
+`gameState.facilities.hydro` state, host-owned field action updates, live
+telemetry, compact event history, and console graph review. Authored
+configuration profiles, complex operator controls, full operations rounds, and
+story-level simulation gates remain future contract work.
 
 This contract owns the hydro model and its boundary with the game. It does not
 own the visual console layout, chart components, building connectivity map, or
