@@ -11,13 +11,17 @@ const props = defineProps({
 
 const emit = defineEmits(["pass-quiz"]);
 
-const selectedAnswer = ref("");
-const answered = ref(false);
+const selectedAnswers = ref({});
+const answeredQuestions = ref({});
 const previewPassed = ref(false);
+const completionEmitted = ref(false);
 
-const question = computed(() => props.lesson?.quiz?.[0] ?? null);
-const selectedOption = computed(() =>
-  question.value?.options?.find((option) => option.id === selectedAnswer.value) ?? null,
+const questions = computed(() => props.lesson?.quiz ?? []);
+const allRequiredChecksPassed = computed(() =>
+  Boolean(questions.value.length) && questions.value.every((question) =>
+    answeredQuestions.value[question.id] === true
+      && selectedAnswers.value[question.id] === question.correctOptionId,
+  ),
 );
 const sectionLinks = computed(() =>
   (props.lesson?.sections ?? [])
@@ -27,29 +31,45 @@ const sectionLinks = computed(() =>
     }))
     .filter((section) => section.label),
 );
-const correct = computed(() =>
-  answered.value && selectedAnswer.value === question.value?.correctOptionId,
-);
 const showAward = computed(() => props.completed || previewPassed.value);
 
 watch(() => props.lesson?.id, () => {
-  selectedAnswer.value = "";
-  answered.value = false;
+  selectedAnswers.value = {};
+  answeredQuestions.value = {};
   previewPassed.value = false;
+  completionEmitted.value = false;
 });
 
-function chooseAnswer(optionId) {
-  selectedAnswer.value = optionId;
-  answered.value = false;
+function chooseAnswer(questionId, optionId) {
+  selectedAnswers.value = {
+    ...selectedAnswers.value,
+    [questionId]: optionId,
+  };
+  answeredQuestions.value = {
+    ...answeredQuestions.value,
+    [questionId]: false,
+  };
 }
 
-function submitAnswer() {
-  if (!selectedAnswer.value) return;
-  answered.value = true;
-  if (selectedAnswer.value !== question.value?.correctOptionId) return;
-  if (props.preview) {
-    previewPassed.value = true;
-  } else {
+function selectedOption(question) {
+  return question.options?.find((option) => option.id === selectedAnswers.value[question.id]) ?? null;
+}
+
+function questionCorrect(question) {
+  return answeredQuestions.value[question.id] === true
+    && selectedAnswers.value[question.id] === question.correctOptionId;
+}
+
+function submitAnswer(question) {
+  if (!selectedAnswers.value[question.id]) return;
+  answeredQuestions.value = {
+    ...answeredQuestions.value,
+    [question.id]: true,
+  };
+  if (!allRequiredChecksPassed.value) return;
+  if (props.preview) previewPassed.value = true;
+  if (!props.preview && !completionEmitted.value) {
+    completionEmitted.value = true;
     emit("pass-quiz", props.lesson.id);
   }
 }
@@ -91,6 +111,12 @@ function submitAnswer() {
         </tbody>
       </table>
 
+      <ol v-if="section.type === 'diagram'" class="flow-diagram" :aria-label="section.title">
+        <li v-for="step in section.steps" :key="step">
+          <span>{{ step }}</span>
+        </li>
+      </ol>
+
       <div v-if="section.type === 'examples'" class="examples">
         <section v-for="example in section.examples" :key="example.title" class="example">
           <h3>{{ example.title }}</h3>
@@ -103,28 +129,37 @@ function submitAnswer() {
       </div>
     </section>
 
-    <section v-if="question" class="quiz">
+    <section v-if="questions.length" class="quiz">
       <p class="eyebrow">Check your understanding</p>
-      <h2><MathMarkdown :source="question.prompt" inline /></h2>
-      <div class="answers">
-        <label
-          v-for="option in question.options"
-          :key="option.id"
-          :class="{ selected: selectedAnswer === option.id }">
-          <input
-            type="radio"
-            :checked="selectedAnswer === option.id"
-            :value="option.id"
-            @change="chooseAnswer(option.id)">
-          <span><MathMarkdown :source="option.label" inline /></span>
-        </label>
-      </div>
-      <button type="button" :disabled="!selectedAnswer" @click="submitAnswer">
-        Check answer
-      </button>
-      <p v-if="answered && selectedOption" class="feedback" :class="{ correct }">
-        <MathMarkdown :source="selectedOption.feedback" inline />
-      </p>
+      <article
+        v-for="(question, questionIndex) in questions"
+        :key="question.id"
+        class="quiz-question">
+        <h2><MathMarkdown :source="`${questionIndex + 1}. ${question.prompt}`" inline /></h2>
+        <div class="answers">
+          <label
+            v-for="option in question.options"
+            :key="option.id"
+            :class="{ selected: selectedAnswers[question.id] === option.id }">
+            <input
+              type="radio"
+              :name="`${lesson.id}-${question.id}`"
+              :checked="selectedAnswers[question.id] === option.id"
+              :value="option.id"
+              @change="chooseAnswer(question.id, option.id)">
+            <span><MathMarkdown :source="option.label" inline /></span>
+          </label>
+        </div>
+        <button type="button" :disabled="!selectedAnswers[question.id]" @click="submitAnswer(question)">
+          Check answer
+        </button>
+        <p
+          v-if="answeredQuestions[question.id] && selectedOption(question)"
+          class="feedback"
+          :class="{ correct: questionCorrect(question) }">
+          <MathMarkdown :source="selectedOption(question).feedback" inline />
+        </p>
+      </article>
     </section>
 
     <section v-if="showAward" class="award">
@@ -236,6 +271,38 @@ td {
   vertical-align: top;
 }
 
+.flow-diagram {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.flow-diagram li {
+  position: relative;
+  display: grid;
+  align-items: center;
+  min-height: 3.5rem;
+  padding: 0.7rem 1.9rem 0.7rem 0.8rem;
+  border: 1px solid rgba(139, 216, 210, 0.34);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(139, 216, 210, 0.15), rgba(22, 65, 77, 0.4)),
+    rgba(255, 255, 255, 0.05);
+  color: #effffb;
+  font-weight: 700;
+}
+
+.flow-diagram li:not(:last-child)::after {
+  content: "->";
+  position: absolute;
+  right: 0.45rem;
+  color: #8bd8d2;
+}
+
 .examples {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
@@ -262,6 +329,12 @@ td {
   display: grid;
   gap: 0.5rem;
   margin: 0.8rem 0;
+}
+
+.quiz-question + .quiz-question {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(139, 216, 210, 0.24);
 }
 
 .answers label {

@@ -128,5 +128,188 @@ export const learningSeed = {
         },
       ],
     },
+    {
+      id: "hydro-power-intro-alpha",
+      title: "Hydro Power From Stream To Socket",
+      summary: "A beginner-friendly tour of how falling water spins a turbine and powers the station.",
+      order: 11,
+      tags: ["hydro", "power", "water", "alpha-revision", "holo-hidden"],
+      availableWhen: {
+        flags: { all: ["hub.hydro_online"] },
+      },
+      timeMinutes: 30,
+      activity: "light",
+      completion: {
+        awardTitle: "Hydro Power Theory",
+        awardText: "Zanzibar can trace the path from stored water to spinning turbine to useful electricity.",
+        effects: [
+          { op: "knowledge.acquire", id: "hydro-head-and-flow" },
+        ],
+      },
+      sections: [
+        {
+          type: "text",
+          title: "The Big Picture",
+          body: "Hydro power is electricity made from moving water. Imagine a stream pushing an old waterwheel. A hydro plant uses the same idea, but the wheel is a carefully shaped turbine and the spinning shaft turns a generator. The station's job is to guide water so gravity can do useful work.",
+        },
+        {
+          type: "diagram",
+          title: "Picture The Water Path",
+          body: "Follow one parcel of water from the high side of the system to the low side.",
+          steps: [
+            "High water",
+            "Intake screen",
+            "Penstock pressure pipe",
+            "Turbine",
+            "Generator shaft",
+            "Tailrace",
+          ],
+        },
+        {
+          type: "text",
+          title: "Why Height Matters",
+          body: "Water stored high has energy because gravity can pull it downward. The vertical difference between the high water and the turbine is called head. More height difference usually means the water can push harder at the turbine, the way a taller slide gives a faster ride.",
+        },
+        {
+          type: "text",
+          title: "Why Flow Matters",
+          body: "Flow rate means how much water moves each second. A trickle from a garden hose and a wide river may both be moving downhill, but the river carries far more water. More flow gives the turbine more water to catch, as long as the intake, pipe, and turbine are ready for it.",
+        },
+        {
+          type: "text",
+          title: "Intake And Penstock",
+          body: "The intake is the doorway for water. If its screen is blocked with debris, less water reaches the plant. The penstock is the pressure pipe that carries water downhill. If a valve is closed, the water cannot move. If the pipe leaks or traps air, some of the useful push is lost before the turbine.",
+        },
+        {
+          type: "text",
+          title: "Turbine And Generator",
+          body: "The turbine is the waterwheel inside the plant. Water pushes its blades and spins a shaft. The generator is connected to that shaft. When the shaft turns inside the generator, the generator makes electrical power for lights, consoles, chargers, and other station systems.",
+        },
+        {
+          type: "formula",
+          title: "The Simple Rule",
+          formula: "$$\n\\text{power} \\propto \\text{flow} \\times \\text{useful height}\n$$",
+          caption: "For a first mental model, more water each second and more useful drop mean more possible power.",
+        },
+        {
+          type: "text",
+          title: "What Steals Power",
+          body: "Three problems matter right away in Zanzibar's station. Debris at the intake reduces flow. Closed or misaligned valves stop the path. Leaks, rough pipe, sharp bends, and trapped air waste pressure before the turbine. The control room can only make power after the water path is open and healthy.",
+        },
+        {
+          type: "examples",
+          title: "Fast Field Checks",
+          examples: [
+            {
+              title: "Good Water Path",
+              givens: ["intake clear", "valves open", "penstock filled", "tailrace open"],
+              result: "Water can reach the turbine, spin the generator, and leave the plant.",
+              explanation: "This is the path Zanzibar is trying to restore before expecting steady electricity.",
+            },
+            {
+              title: "Blocked Intake",
+              givens: ["branches across the screen", "less water entering", "same height difference"],
+              result: "Power drops because flow drops.",
+              explanation: "The hill did not change, but less water per second reaches the turbine.",
+            },
+            {
+              title: "Closed Valve",
+              givens: ["intake clear", "penstock ready", "valve closed near the turbine"],
+              result: "The turbine cannot spin because the water path is interrupted.",
+              explanation: "Hydro power needs a complete route from high water to low water.",
+            },
+          ],
+        },
+        {
+          type: "symbols",
+          title: "Words Zanzibar Will See",
+          rows: [
+            { symbol: "head", meaning: "Height difference that lets gravity push water downhill", units: "meters of height" },
+            { symbol: "flow", meaning: "How much water moves through the turbine each second", units: "water volume per second" },
+            { symbol: "intake", meaning: "The place where water enters the hydro system", units: null },
+            { symbol: "penstock", meaning: "A pressure pipe that carries water downhill to the turbine", units: null },
+            { symbol: "turbine", meaning: "The bladed wheel that water spins", units: null },
+            { symbol: "generator", meaning: "The machine turned by the turbine shaft to make electricity", units: null },
+            { symbol: "tailrace", meaning: "The channel where water leaves the plant", units: null },
+          ],
+        },
+        {
+          type: "text",
+          title: "Zanzibar's Startup Translation",
+          body: "When Zanzibar clears debris, opens the intake, aligns valves, fills the penstock, and returns to the console, each action supports the same simple chain: water moves downhill, water spins the turbine, the turbine turns the generator, and the generator powers the station.",
+        },
+      ],
+      quiz: [
+        {
+          id: "trace-water-path",
+          type: "multiple-choice",
+          prompt: "Which path best describes how the station makes electricity?",
+          options: [
+            {
+              id: "battery-to-water",
+              label: "Battery -> intake -> stream -> generator",
+              feedback: "Not quite. The water path starts at the intake, and the generator comes after the turbine spins.",
+            },
+            {
+              id: "intake-penstock-turbine-generator",
+              label: "Intake -> penstock -> turbine -> generator -> tailrace",
+              feedback: "Correct. Water enters, travels downhill, spins the turbine, turns the generator, and leaves through the tailrace.",
+            },
+            {
+              id: "generator-turbine-intake",
+              label: "Generator -> turbine -> intake -> penstock",
+              feedback: "Not quite. The generator is turned by the turbine; it is not the start of the water path.",
+            },
+          ],
+          correctOptionId: "intake-penstock-turbine-generator",
+        },
+        {
+          id: "identify-head",
+          type: "multiple-choice",
+          prompt: "In hydro power, what does head mean?",
+          options: [
+            {
+              id: "water-temperature",
+              label: "How warm the water is",
+              feedback: "Not quite. Temperature can matter in some fluid problems, but head is about height difference.",
+            },
+            {
+              id: "height-difference",
+              label: "The useful height difference gravity can pull water through",
+              feedback: "Correct. More useful height can help the water push harder at the turbine.",
+            },
+            {
+              id: "generator-size",
+              label: "The physical size of the generator",
+              feedback: "Not quite. Generator size matters for equipment limits, but head describes the water's drop.",
+            },
+          ],
+          correctOptionId: "height-difference",
+        },
+        {
+          id: "spot-power-loss",
+          type: "multiple-choice",
+          prompt: "Branches are blocking the intake screen. What is the first reason power will fall?",
+          options: [
+            {
+              id: "less-flow",
+              label: "Less water per second reaches the turbine",
+              feedback: "Correct. Blocked intake screens reduce flow.",
+            },
+            {
+              id: "more-height",
+              label: "The height difference gets larger",
+              feedback: "Not quite. A blocked screen does not make the hill taller.",
+            },
+            {
+              id: "tailrace-reverses",
+              label: "The tailrace pushes water backward into the generator",
+              feedback: "Not quite. The practical problem is reduced flow into the system.",
+            },
+          ],
+          correctOptionId: "less-flow",
+        },
+      ],
+    },
   ],
 };

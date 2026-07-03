@@ -2,12 +2,14 @@ import { lessonAvailable } from "./availability.js";
 
 export const HOLO_READER_STAND_ID = "holo-reader";
 export const HOLO_READER_BROWSER_ACTION_ID = "lesson-browser:holo-reader";
+export const HOLO_READER_HIDDEN_TAG = "holo-hidden";
 
 export function availableHoloReaderLessons(lessons = [], {
   flags = new Set(),
   character = null,
 } = {}) {
   return lessons
+    .filter((lesson) => !lesson.tags?.includes(HOLO_READER_HIDDEN_TAG))
     .filter((lesson) => lessonAvailable(lesson, { flags, character }))
     .sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
 }

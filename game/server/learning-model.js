@@ -3,7 +3,7 @@ import { validateCharacterEffects } from "./character-reference-validation.js";
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const FLAG_PATTERN = /^[a-z0-9_]+(?:[.-][a-z0-9_]+)*$/;
 const ACTIVITIES = new Set(["resting", "light", "moderate", "strenuous"]);
-const SECTION_TYPES = new Set(["text", "formula", "symbols", "examples"]);
+const SECTION_TYPES = new Set(["text", "formula", "symbols", "examples", "diagram"]);
 const QUESTION_TYPES = new Set(["multiple-choice"]);
 
 export function normalizeLearningDocument(input = {}) {
@@ -52,6 +52,7 @@ export function validateLearningDocument(input, { character = null } = {}) {
       if (section.type === "formula" && !section.formula) add(`${sectionBase}.formula`, "Formula text is required.");
       if (section.type === "symbols" && !section.rows.length) add(`${sectionBase}.rows`, "Add at least one symbol row.");
       if (section.type === "examples" && !section.examples.length) add(`${sectionBase}.examples`, "Add at least one example.");
+      if (section.type === "diagram" && section.steps.length < 2) add(`${sectionBase}.steps`, "Add at least two diagram steps.");
     });
     if (!lesson.quiz.length) add(`${base}.quiz`, "Add at least one quiz question.");
     lesson.quiz.forEach((question, questionIndex) => {
@@ -126,6 +127,7 @@ function normalizeSection(section = {}) {
       meaning: text(row.meaning),
       units: nullableText(row.units),
     })),
+    steps: stringList(section.steps),
     examples: array(section.examples).map((example) => ({
       title: text(example.title),
       givens: stringList(example.givens),

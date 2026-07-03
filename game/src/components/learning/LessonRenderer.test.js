@@ -21,6 +21,7 @@ const lesson = {
     { type: "formula", title: "Two", formula: "$$P_\\text{elec} = \\eta\\,\\rho\\,g\\,Q\\,H_\\text{net}$$" },
     { type: "symbols", title: "Three", rows: [{ symbol: "$Q$", meaning: "Flow", units: "$\\mathrm{m^3/s}$" }] },
     { type: "examples", title: "Four", examples: [{ title: "Example", givens: ["$Q=1$"], result: "$P=1$" }] },
+    { type: "diagram", title: "Five", steps: ["Intake", "Penstock", "Turbine"] },
   ],
   quiz: [{
     id: "same-power",
@@ -75,6 +76,35 @@ describe("LessonRenderer", () => {
     expect(wrapper.emitted("pass-quiz")).toEqual([["hydro-power-intro"]]);
   });
 
+  it("requires every authored quiz question before completion", async () => {
+    const wrapper = mountLesson({
+      lesson: {
+        ...lesson,
+        quiz: [
+          ...lesson.quiz,
+          {
+            id: "second-check",
+            type: "multiple-choice",
+            prompt: "What reaches the turbine?",
+            options: [
+              { id: "water", label: "Water", feedback: "Correct." },
+              { id: "smoke", label: "Smoke", feedback: "Not for hydro." },
+            ],
+            correctOptionId: "water",
+          },
+        ],
+      },
+    });
+
+    await wrapper.find('input[value="same"]').setValue(true);
+    await wrapper.findAll(".quiz button")[0].trigger("click");
+    expect(wrapper.emitted("pass-quiz")).toBeUndefined();
+
+    await wrapper.find('input[value="water"]').setValue(true);
+    await wrapper.findAll(".quiz button")[1].trigger("click");
+    expect(wrapper.emitted("pass-quiz")).toEqual([["hydro-power-intro"]]);
+  });
+
   it("shows the certificate and finish affordance after completion", () => {
     const wrapper = mount(LessonRenderer, {
       props: { lesson, completed: true },
@@ -95,8 +125,15 @@ describe("LessonRenderer", () => {
     const wrapper = mountLesson();
 
     const links = wrapper.findAll(".section-nav a");
-    expect(links.map((link) => link.text())).toEqual(["One", "Two", "Three", "Four"]);
+    expect(links.map((link) => link.text())).toEqual(["One", "Two", "Three", "Four", "Five"]);
     expect(links[1].attributes("href")).toBe("#lesson-section-2");
+  });
+
+  it("renders diagram sections as ordered visual steps", () => {
+    const wrapper = mountLesson();
+
+    const steps = wrapper.findAll(".flow-diagram li");
+    expect(steps.map((step) => step.text())).toEqual(["Intake", "Penstock", "Turbine"]);
   });
 
   it("resets transient quiz state when the lesson attempt changes", async () => {

@@ -12,7 +12,7 @@ const availabilityModes = [
   { id: "any", label: "Any one" },
   { id: "not", label: "Blocked by" },
 ];
-const sectionTypes = ["text", "formula", "symbols", "examples"];
+const sectionTypes = ["text", "formula", "symbols", "examples", "diagram"];
 const effectOps = [
   "item.add",
   "stat.add",
@@ -150,6 +150,11 @@ function addExample(section) {
   section.examples.push({ title: "Example", givens: [], result: "", explanation: "" });
 }
 
+function addDiagramStep(section) {
+  section.steps ??= [];
+  section.steps.push("New step");
+}
+
 function addQuestion() {
   const quiz = selectedLesson.value.quiz ??= [];
   const id = uniqueId("question", quiz);
@@ -208,6 +213,7 @@ function ensureLessonShape(lesson) {
   lesson.sections.forEach((section) => {
     section.rows ??= [];
     section.examples ??= [];
+    section.steps ??= [];
   });
   lesson.quiz ??= [];
   lesson.quiz.forEach((question) => {
@@ -405,6 +411,17 @@ function uniqueId(base, entries) {
             <label v-if="section.type === 'text'">Body<textarea v-model="section.body" rows="4"></textarea></label>
             <label v-if="section.type === 'formula'">Formula<textarea v-model="section.formula" rows="2"></textarea></label>
             <label v-if="section.type === 'formula'">Caption<textarea v-model="section.caption" rows="2"></textarea></label>
+
+            <div v-if="section.type === 'diagram'" class="nested-list">
+              <div class="section-heading">
+                <h5>Diagram steps</h5>
+                <button type="button" class="sm muted" @click="addDiagramStep(section)">Add step</button>
+              </div>
+              <div v-for="(step, stepIndex) in section.steps" :key="stepIndex" class="symbol-row">
+                <label>Step<input v-model="section.steps[stepIndex]"></label>
+                <button type="button" class="sm danger" @click="section.steps.splice(stepIndex, 1)">Remove</button>
+              </div>
+            </div>
 
             <div v-if="section.type === 'symbols'" class="nested-list">
               <div class="section-heading">

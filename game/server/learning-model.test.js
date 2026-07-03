@@ -40,6 +40,30 @@ describe("learning model", () => {
       ]));
   });
 
+  it("validates the hidden alpha hydro rewrite with a diagram section", () => {
+    const result = validateLearningDocument(learningSeed, { character });
+    const alphaLesson = result.learning.lessons.find((lesson) => lesson.id === "hydro-power-intro-alpha");
+
+    expect(result.valid).toBe(true);
+    expect(alphaLesson.tags).toContain("holo-hidden");
+    expect(alphaLesson.completion.effects).toEqual([
+      { op: "knowledge.acquire", id: "hydro-head-and-flow" },
+    ]);
+    expect(alphaLesson.sections.find((section) => section.type === "diagram")).toEqual(
+      expect.objectContaining({
+        title: "Picture The Water Path",
+        steps: [
+          "High water",
+          "Intake screen",
+          "Penstock pressure pipe",
+          "Turbine",
+          "Generator shaft",
+          "Tailrace",
+        ],
+      }),
+    );
+  });
+
   it("rejects missing completion effect references", () => {
     const candidate = structuredClone(learningSeed);
     candidate.lessons[0].completion.effects[0].id = "missing-knowledge";

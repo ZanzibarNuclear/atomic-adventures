@@ -80,6 +80,29 @@ The current implementation supports:
   completion outcome succeeds;
 - replaying completed lessons without duplicating one-time rewards.
 
+### Lesson Revisions And Switching
+
+Authored lesson IDs are stable player-progress keys. Do not overwrite a
+published lesson ID with an in-progress rewrite when the original lesson may
+need to remain playable. Instead, create a new lesson with its own stable ID,
+copy the intended completion effects, and keep the prior lesson intact until
+the revision is ready.
+
+The live holo-reader catalog hides lessons tagged `holo-hidden`. This lets
+authors keep a revision in `learning-main` without exposing it to players. To
+switch a lesson revision into the playable path, remove `holo-hidden` from the
+new lesson and add it to the previous lesson in the same authoring update. To
+switch back, reverse those tags. Story, world, inventory, and document entry
+points that open a specific lesson by ID must be updated in the same change
+when they are meant to target the new revision.
+
+For the hydro alpha rewrite, keep the original `hydro-power-intro` lesson
+unchanged while authoring the beginner rewrite as `hydro-power-intro-alpha`.
+Both versions should grant the same required hydro knowledge/progression
+effects unless the progression contract intentionally changes. Completion
+state remains per lesson ID, while character effects remain idempotent through
+the shared validated effect service.
+
 Lesson UI state such as section position, selected answer, feedback state,
 expanded diagram, or paused media time is view state. It is not player progress
 unless a validated lesson outcome commits it. If the player exits before
@@ -162,9 +185,10 @@ Supported MVP section types are:
 | `formula` | Displayed math with optional caption |
 | `symbols` | Symbol, meaning, and units table |
 | `examples` | Worked example cards with givens, result, and explanation |
+| `diagram` | Ordered visual flow steps with optional explanatory body text |
 
 The MVP quiz model is top-level `quiz` with retryable `multiple-choice`
-questions. Future section types may include `diagram`, `media`, `interaction`,
+questions. Future section types may include `media`, `interaction`,
 `assessment`, and `simulation`. Those types should reference registered assets,
 registered interaction IDs, or host-validated simulation outcomes, not
 arbitrary component names or script content.

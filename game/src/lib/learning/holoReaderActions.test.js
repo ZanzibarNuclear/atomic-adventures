@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   HOLO_READER_BROWSER_ACTION_ID,
+  HOLO_READER_HIDDEN_TAG,
   availableHoloReaderLessons,
   buildHoloReaderActions,
 } from "./holoReaderActions.js";
@@ -61,5 +62,16 @@ describe("holo-reader launch actions", () => {
     expect(availableHoloReaderLessons(lessons, {
       flags: new Set(["hub.hydro_online"]),
     }).map((entry) => entry.id)).toEqual(["first", "second"]);
+  });
+
+  it("keeps hidden lesson revisions out of the playable catalog", () => {
+    const lessons = [
+      { ...lesson, id: "hydro-power-intro", order: 10 },
+      { ...lesson, id: "hydro-power-intro-alpha", order: 11, tags: [HOLO_READER_HIDDEN_TAG] },
+    ];
+
+    expect(availableHoloReaderLessons(lessons, {
+      flags: new Set(["hub.hydro_online"]),
+    }).map((entry) => entry.id)).toEqual(["hydro-power-intro"]);
   });
 });
