@@ -12,7 +12,11 @@ const availabilityModes = [
   { id: "any", label: "Any one" },
   { id: "not", label: "Blocked by" },
 ];
-const sectionTypes = ["text", "formula", "symbols", "examples", "diagram", "image"];
+const blockTypes = ["paragraph", "formula", "symbols", "examples", "diagram", "image"];
+const frameKinds = [
+  { id: "content", label: "Content" },
+  { id: "quiz", label: "Quiz" },
+];
 const effectOps = [
   "item.add",
   "stat.add",
@@ -77,16 +81,25 @@ function addLesson() {
     published: true,
     availableWhen: { flags: { all: [] }, knowledge: { all: [] } },
     completion: { awardTitle: "Lesson complete", awardText: "", effects: [] },
-    sections: [{ type: "text", title: "Opening", body: "" }],
-    quiz: [{
-      id: "first-question",
-      type: "multiple-choice",
-      prompt: "",
-      options: [
-        { id: "a", label: "", feedback: "" },
-        { id: "b", label: "", feedback: "" },
+    pages: [{
+      id: "page-1",
+      title: "Opening",
+      frames: [
+        {
+          id: "opening",
+          kind: "content",
+          title: "Opening",
+          blocks: [{ type: "paragraph", body: "" }],
+          questions: [],
+        },
+        {
+          id: "check",
+          kind: "quiz",
+          title: "Check Your Understanding",
+          blocks: [],
+          questions: [newQuestion("first-question")],
+        },
       ],
-      correctOptionId: "a",
     }],
   });
   selectedId.value = id;
@@ -126,50 +139,73 @@ function setList(target, key, value) {
   target[key] = value.split(",").map((item) => item.trim()).filter(Boolean);
 }
 
-function addSection() {
-  selectedLesson.value.sections.push({ type: "text", title: "New section", body: "" });
+function addPage() {
+  const pages = selectedLesson.value.pages ??= [];
+  const id = uniqueId("page", pages);
+  pages.push({ id, title: "New page", frames: [newFrame("content")] });
 }
 
-function removeSection(index) {
-  selectedLesson.value.sections.splice(index, 1);
+function removePage(index) {
+  selectedLesson.value.pages.splice(index, 1);
 }
 
-function moveSection(index, delta) {
-  moveEntry(selectedLesson.value.sections, index, delta);
+function movePage(index, delta) {
+  moveEntry(selectedLesson.value.pages, index, delta);
 }
 
-function addSymbolRow(section) {
-  section.rows ??= [];
-  section.rows.push({ symbol: "", meaning: "", units: "" });
+function addFrame(page, kind = "content") {
+  page.frames ??= [];
+  page.frames.push(newFrame(kind, page.frames));
 }
 
-function addExample(section) {
-  section.examples ??= [];
-  section.examples.push({ title: "Example", givens: [], result: "", explanation: "" });
+function removeFrame(page, index) {
+  page.frames.splice(index, 1);
 }
 
-function addDiagramStep(section) {
-  section.steps ??= [];
-  section.steps.push("New step");
+function moveFrame(page, index, delta) {
+  moveEntry(page.frames, index, delta);
 }
 
-function addQuestion() {
-  const quiz = selectedLesson.value.quiz ??= [];
-  const id = uniqueId("question", quiz);
-  quiz.push({
-    id,
-    type: "multiple-choice",
-    prompt: "",
-    options: [
-      { id: "a", label: "", feedback: "" },
-      { id: "b", label: "", feedback: "" },
-    ],
-    correctOptionId: "a",
-  });
+function addBlock(frame, type = "paragraph") {
+  frame.blocks ??= [];
+  frame.blocks.push(newBlock(type));
 }
 
-function removeQuestion(index) {
-  selectedLesson.value.quiz.splice(index, 1);
+function removeBlock(frame, index) {
+  frame.blocks.splice(index, 1);
+}
+
+function moveBlock(frame, index, delta) {
+  moveEntry(frame.blocks, index, delta);
+}
+
+function replaceBlock(frame, index, type) {
+  frame.blocks.splice(index, 1, newBlock(type));
+}
+
+function addSymbolRow(block) {
+  block.rows ??= [];
+  block.rows.push({ symbol: "", meaning: "", units: "" });
+}
+
+function addExample(block) {
+  block.examples ??= [];
+  block.examples.push({ title: "Example", givens: [], result: "", explanation: "" });
+}
+
+function addDiagramStep(block) {
+  block.steps ??= [];
+  block.steps.push("New step");
+}
+
+function addQuestion(frame) {
+  const questions = frame.questions ??= [];
+  const id = uniqueId("question", questions);
+  questions.push(newQuestion(id));
+}
+
+function removeQuestion(frame, index) {
+  frame.questions.splice(index, 1);
 }
 
 function addOption(question) {
@@ -207,17 +243,96 @@ function ensureLessonShape(lesson) {
   }
   lesson.completion ??= {};
   lesson.completion.effects ??= [];
-  lesson.sections ??= [];
-  lesson.sections.forEach((section) => {
-    section.rows ??= [];
-    section.examples ??= [];
-    section.steps ??= [];
+  lesson.pages = normalizeLessonPages(lesson);
+}
+
+function normalizeLessonPages(lesson) {
+  const pages = lesson.pages?.length ? lesson.pages : legacyPages(lesson);
+  delete lesson.sections;
+  delete lesson.quiz;
+  pages.forEach((page, pageIndex) => {
+    page.id ||= `page-${pageIndex + 1}`;
+    page.title ??= "";
+    page.frames ??= [];
+    page.frames.forEach((frame, frameIndex) => {
+      frame.id ||= `frame-${frameIndex + 1}`;
+      frame.kind ||= "content";
+      frame.title ??= "";
+      frame.blocks ??= [];
+      frame.questions ??= [];
+      frame.blocks.forEach(ensureBlockShape);
+      frame.questions.forEach(ensureQuestionShape);
+    });
   });
-  lesson.quiz ??= [];
-  lesson.quiz.forEach((question) => {
-    question.type ||= "multiple-choice";
-    question.options ??= [];
-  });
+  return pages;
+}
+
+function legacyPages(lesson) {
+  const frames = (lesson.sections ?? []).map((section, index) => ({
+    id: `section-${index + 1}`,
+    kind: "content",
+    title: section.title ?? "",
+    blocks: [legacyBlock(section)],
+    questions: [],
+  }));
+  if (lesson.quiz?.length) {
+    frames.push({
+      id: "quiz",
+      kind: "quiz",
+      title: "Check Your Understanding",
+      blocks: [],
+      questions: lesson.quiz,
+    });
+  }
+  return [{ id: "page-1", title: "", frames }];
+}
+
+function legacyBlock(section) {
+  return {
+    ...section,
+    type: section.type === "text" ? "paragraph" : section.type,
+  };
+}
+
+function ensureBlockShape(block) {
+  block.type ||= "paragraph";
+  block.rows ??= [];
+  block.examples ??= [];
+  block.steps ??= [];
+}
+
+function ensureQuestionShape(question) {
+  question.type ||= "multiple-choice";
+  question.options ??= [];
+}
+
+function newFrame(kind = "content", siblings = []) {
+  const id = uniqueId(kind === "quiz" ? "quiz" : "frame", siblings);
+  return kind === "quiz"
+    ? { id, kind: "quiz", title: "Check Your Understanding", blocks: [], questions: [newQuestion("question")] }
+    : { id, kind: "content", title: "New frame", blocks: [newBlock("paragraph")], questions: [] };
+}
+
+function newBlock(type = "paragraph") {
+  if (type === "formula") return { type, formula: "", caption: "" };
+  if (type === "symbols") return { type, rows: [{ symbol: "", meaning: "", units: "" }] };
+  if (type === "examples") return { type, examples: [{ title: "Example", givens: [], result: "", explanation: "" }] };
+  if (type === "diagram") return { type, steps: ["First step", "Second step"] };
+  if (type === "image") return { type, src: "", alt: "", caption: "" };
+  return { type: "paragraph", body: "" };
+}
+
+function newQuestion(id) {
+  return {
+    id,
+    type: "multiple-choice",
+    prompt: "",
+    options: [
+      { id: "a", label: "", feedback: "" },
+      { id: "b", label: "", feedback: "" },
+    ],
+    correctOptionId: "a",
+  };
 }
 
 function moveEntry(entries, index, delta) {
@@ -234,22 +349,32 @@ function formatLearningErrorPath(path) {
   const lesson = draft.value?.lessons?.[lessonIndex];
   const label = lesson?.title || lesson?.id || `Lesson ${lessonIndex + 1}`;
   if (parts.length <= 2) return label;
-  if (parts[2] === "sections") {
-    const sectionIndex = Number(parts[3]);
-    const section = lesson?.sections?.[sectionIndex];
-    const sectionLabel = section?.title || `Section ${sectionIndex + 1}`;
-    return `${label} / ${sectionLabel} / ${labelizePath(parts.slice(4))}`;
-  }
-  if (parts[2] === "quiz") {
-    const questionIndex = Number(parts[3]);
-    const question = lesson?.quiz?.[questionIndex];
-    const questionLabel = question?.id || `Question ${questionIndex + 1}`;
-    if (parts[4] === "options") {
-      const optionIndex = Number(parts[5]);
-      const option = question?.options?.[optionIndex];
-      return `${label} / ${questionLabel} / ${option?.id || `Option ${optionIndex + 1}`} / ${labelizePath(parts.slice(6))}`;
+  if (parts[2] === "pages") {
+    const pageIndex = Number(parts[3]);
+    const page = lesson?.pages?.[pageIndex];
+    const pageLabel = page?.title || page?.id || `Page ${pageIndex + 1}`;
+    if (parts[4] !== "frames") return `${label} / ${pageLabel} / ${labelizePath(parts.slice(4))}`;
+
+    const frameIndex = Number(parts[5]);
+    const frame = page?.frames?.[frameIndex];
+    const frameLabel = frame?.title || frame?.id || `Frame ${frameIndex + 1}`;
+    if (parts[6] === "blocks") {
+      const blockIndex = Number(parts[7]);
+      const block = frame?.blocks?.[blockIndex];
+      return `${label} / ${pageLabel} / ${frameLabel} / ${block?.type || `Block ${blockIndex + 1}`} / ${labelizePath(parts.slice(8))}`;
     }
-    return `${label} / ${questionLabel} / ${labelizePath(parts.slice(4))}`;
+    if (parts[6] === "questions") {
+      const questionIndex = Number(parts[7]);
+      const question = frame?.questions?.[questionIndex];
+      const questionLabel = question?.id || `Question ${questionIndex + 1}`;
+      if (parts[8] === "options") {
+        const optionIndex = Number(parts[9]);
+        const option = question?.options?.[optionIndex];
+        return `${label} / ${pageLabel} / ${frameLabel} / ${questionLabel} / ${option?.id || `Option ${optionIndex + 1}`} / ${labelizePath(parts.slice(10))}`;
+      }
+      return `${label} / ${pageLabel} / ${frameLabel} / ${questionLabel} / ${labelizePath(parts.slice(8))}`;
+    }
+    return `${label} / ${pageLabel} / ${frameLabel} / ${labelizePath(parts.slice(6))}`;
   }
   if (parts[2] === "completion" && parts[3] === "effects") {
     const effectIndex = Number(parts[4]);
@@ -373,120 +498,174 @@ function uniqueId(base, entries) {
 
         <section class="form-card">
           <div class="section-heading">
-            <h3>Sections</h3>
-            <button type="button" class="sm muted" @click="addSection">Add section</button>
+            <h3>Pages</h3>
+            <button type="button" class="sm muted" @click="addPage">Add page</button>
           </div>
           <article
-            v-for="(section, index) in selectedLesson.sections"
-            :key="index"
-            class="nested-card">
+            v-for="(page, pageIndex) in selectedLesson.pages"
+            :key="page.id || pageIndex"
+            class="nested-card page-editor">
             <div class="section-heading">
-              <h4>Section {{ index + 1 }}</h4>
+              <h4>Page {{ pageIndex + 1 }}</h4>
               <div class="row-actions">
-                <button type="button" class="sm muted" :disabled="index === 0" @click="moveSection(index, -1)">Up</button>
-                <button type="button" class="sm muted" :disabled="index === selectedLesson.sections.length - 1" @click="moveSection(index, 1)">Down</button>
-                <button type="button" class="sm danger" @click="removeSection(index)">Remove</button>
+                <button type="button" class="sm muted" :disabled="pageIndex === 0" @click="movePage(pageIndex, -1)">Up</button>
+                <button type="button" class="sm muted" :disabled="pageIndex === selectedLesson.pages.length - 1" @click="movePage(pageIndex, 1)">Down</button>
+                <button type="button" class="sm danger" @click="removePage(pageIndex)">Remove</button>
               </div>
             </div>
             <div class="field-grid">
-              <label>Type
-                <select v-model="section.type">
-                  <option v-for="type in sectionTypes" :key="type" :value="type">{{ type }}</option>
-                </select>
-              </label>
-              <label>Title<input v-model="section.title"></label>
-            </div>
-            <label v-if="section.type === 'text'">Body<textarea v-model="section.body" rows="4"></textarea></label>
-            <label v-if="section.type === 'formula'">Formula<textarea v-model="section.formula" rows="2"></textarea></label>
-            <label v-if="section.type === 'formula'">Caption<textarea v-model="section.caption" rows="2"></textarea></label>
-            <div v-if="section.type === 'image'" class="field-grid">
-              <label>Image path<input v-model="section.src" placeholder="/learning/hydro/example.png"></label>
-              <label>Alt text<input v-model="section.alt"></label>
-              <label>Caption<textarea v-model="section.caption" rows="2"></textarea></label>
+              <label>Page ID<input v-model="page.id"></label>
+              <label>Title<input v-model="page.title"></label>
             </div>
 
-            <div v-if="section.type === 'diagram'" class="nested-list">
-              <div class="section-heading">
-                <h5>Diagram steps</h5>
-                <button type="button" class="sm muted" @click="addDiagramStep(section)">Add step</button>
-              </div>
-              <div v-for="(step, stepIndex) in section.steps" :key="stepIndex" class="symbol-row">
-                <label>Step<input v-model="section.steps[stepIndex]"></label>
-                <button type="button" class="sm danger" @click="section.steps.splice(stepIndex, 1)">Remove</button>
-              </div>
-            </div>
-
-            <div v-if="section.type === 'symbols'" class="nested-list">
-              <div class="section-heading">
-                <h5>Symbol rows</h5>
-                <button type="button" class="sm muted" @click="addSymbolRow(section)">Add row</button>
-              </div>
-              <div v-for="(row, rowIndex) in section.rows" :key="rowIndex" class="symbol-row">
-                <label>Symbol<input v-model="row.symbol"></label>
-                <label>Meaning<input v-model="row.meaning"></label>
-                <label>Units<input v-model="row.units"></label>
-                <button type="button" class="sm danger" @click="section.rows.splice(rowIndex, 1)">Remove</button>
-              </div>
-            </div>
-
-            <div v-if="section.type === 'examples'" class="nested-list">
-              <div class="section-heading">
-                <h5>Examples</h5>
-                <button type="button" class="sm muted" @click="addExample(section)">Add example</button>
-              </div>
-              <article v-for="(example, exampleIndex) in section.examples" :key="exampleIndex" class="example-editor">
-                <div class="section-heading">
-                  <h5>Example {{ exampleIndex + 1 }}</h5>
-                  <button type="button" class="sm danger" @click="section.examples.splice(exampleIndex, 1)">Remove</button>
-                </div>
-                <label>Title<input v-model="example.title"></label>
-                <label>Givens
-                  <input
-                    :value="example.givens.join(', ')"
-                    @input="setList(example, 'givens', $event.target.value)">
-                </label>
-                <label>Result<input v-model="example.result"></label>
-                <label>Explanation<textarea v-model="example.explanation" rows="3"></textarea></label>
-              </article>
-            </div>
-          </article>
-        </section>
-
-        <section class="form-card">
-          <div class="section-heading">
-            <h3>Quiz</h3>
-            <button type="button" class="sm muted" @click="addQuestion">Add question</button>
-          </div>
-          <article
-            v-for="(question, questionIndex) in selectedLesson.quiz"
-            :key="questionIndex"
-            class="nested-card">
-            <div class="section-heading">
-              <h4>Question {{ questionIndex + 1 }}</h4>
-              <button type="button" class="sm danger" @click="removeQuestion(questionIndex)">Remove</button>
-            </div>
-            <div class="field-grid">
-              <label>ID<input v-model="question.id"></label>
-              <label>Correct answer
-                <select v-model="question.correctOptionId">
-                  <option v-for="option in question.options" :key="option.id" :value="option.id">
-                    {{ option.id || "Untitled option" }}
-                  </option>
-                </select>
-              </label>
-            </div>
-            <label>Prompt<textarea v-model="question.prompt" rows="3"></textarea></label>
             <div class="nested-list">
               <div class="section-heading">
-                <h5>Answer options</h5>
-                <button type="button" class="sm muted" @click="addOption(question)">Add option</button>
+                <h5>Frames</h5>
+                <div class="row-actions">
+                  <button type="button" class="sm muted" @click="addFrame(page, 'content')">Add content frame</button>
+                  <button type="button" class="sm muted" @click="addFrame(page, 'quiz')">Add quiz frame</button>
+                </div>
               </div>
-              <div v-for="(option, optionIndex) in question.options" :key="optionIndex" class="option-row">
-                <label>ID<input v-model="option.id"></label>
-                <label>Label<input v-model="option.label"></label>
-                <label>Feedback<textarea v-model="option.feedback" rows="2"></textarea></label>
-                <button type="button" class="sm danger" @click="removeOption(question, optionIndex)">Remove</button>
-              </div>
+              <article
+                v-for="(frame, frameIndex) in page.frames"
+                :key="frame.id || frameIndex"
+                class="nested-card frame-editor">
+                <div class="section-heading">
+                  <h5>Frame {{ frameIndex + 1 }}</h5>
+                  <div class="row-actions">
+                    <button type="button" class="sm muted" :disabled="frameIndex === 0" @click="moveFrame(page, frameIndex, -1)">Up</button>
+                    <button type="button" class="sm muted" :disabled="frameIndex === page.frames.length - 1" @click="moveFrame(page, frameIndex, 1)">Down</button>
+                    <button type="button" class="sm danger" @click="removeFrame(page, frameIndex)">Remove</button>
+                  </div>
+                </div>
+                <div class="field-grid">
+                  <label>Frame ID<input v-model="frame.id"></label>
+                  <label>Kind
+                    <select v-model="frame.kind">
+                      <option v-for="kind in frameKinds" :key="kind.id" :value="kind.id">{{ kind.label }}</option>
+                    </select>
+                  </label>
+                  <label>Title<input v-model="frame.title"></label>
+                </div>
+
+                <div v-if="frame.kind === 'content'" class="nested-list">
+                  <div class="section-heading">
+                    <h5>Blocks</h5>
+                    <button type="button" class="sm muted" @click="addBlock(frame)">Add block</button>
+                  </div>
+                  <article
+                    v-for="(block, blockIndex) in frame.blocks"
+                    :key="blockIndex"
+                    class="example-editor block-editor">
+                    <div class="section-heading">
+                      <h5>Block {{ blockIndex + 1 }}</h5>
+                      <div class="row-actions">
+                        <button type="button" class="sm muted" :disabled="blockIndex === 0" @click="moveBlock(frame, blockIndex, -1)">Up</button>
+                        <button type="button" class="sm muted" :disabled="blockIndex === frame.blocks.length - 1" @click="moveBlock(frame, blockIndex, 1)">Down</button>
+                        <button type="button" class="sm danger" @click="removeBlock(frame, blockIndex)">Remove</button>
+                      </div>
+                    </div>
+                    <label>Type
+                      <select :value="block.type" @change="replaceBlock(frame, blockIndex, $event.target.value)">
+                        <option v-for="type in blockTypes" :key="type" :value="type">{{ type }}</option>
+                      </select>
+                    </label>
+
+                    <label v-if="block.type === 'paragraph'">Paragraph<textarea v-model="block.body" rows="4"></textarea></label>
+                    <label v-if="block.type === 'formula'">Formula<textarea v-model="block.formula" rows="2"></textarea></label>
+                    <label v-if="block.type === 'formula'">Caption<textarea v-model="block.caption" rows="2"></textarea></label>
+                    <div v-if="block.type === 'image'" class="field-grid">
+                      <label>Image path<input v-model="block.src" placeholder="/learning/hydro/example.png"></label>
+                      <label>Alt text<input v-model="block.alt"></label>
+                      <label>Caption<textarea v-model="block.caption" rows="2"></textarea></label>
+                    </div>
+
+                    <div v-if="block.type === 'diagram'" class="nested-list">
+                      <div class="section-heading">
+                        <h5>Diagram steps</h5>
+                        <button type="button" class="sm muted" @click="addDiagramStep(block)">Add step</button>
+                      </div>
+                      <div v-for="(step, stepIndex) in block.steps" :key="stepIndex" class="symbol-row">
+                        <label>Step<input v-model="block.steps[stepIndex]"></label>
+                        <button type="button" class="sm danger" @click="block.steps.splice(stepIndex, 1)">Remove</button>
+                      </div>
+                    </div>
+
+                    <div v-if="block.type === 'symbols'" class="nested-list">
+                      <div class="section-heading">
+                        <h5>Symbol rows</h5>
+                        <button type="button" class="sm muted" @click="addSymbolRow(block)">Add row</button>
+                      </div>
+                      <div v-for="(row, rowIndex) in block.rows" :key="rowIndex" class="symbol-row">
+                        <label>Symbol<input v-model="row.symbol"></label>
+                        <label>Meaning<input v-model="row.meaning"></label>
+                        <label>Units<input v-model="row.units"></label>
+                        <button type="button" class="sm danger" @click="block.rows.splice(rowIndex, 1)">Remove</button>
+                      </div>
+                    </div>
+
+                    <div v-if="block.type === 'examples'" class="nested-list">
+                      <div class="section-heading">
+                        <h5>Examples</h5>
+                        <button type="button" class="sm muted" @click="addExample(block)">Add example</button>
+                      </div>
+                      <article v-for="(example, exampleIndex) in block.examples" :key="exampleIndex" class="example-editor">
+                        <div class="section-heading">
+                          <h5>Example {{ exampleIndex + 1 }}</h5>
+                          <button type="button" class="sm danger" @click="block.examples.splice(exampleIndex, 1)">Remove</button>
+                        </div>
+                        <label>Title<input v-model="example.title"></label>
+                        <label>Givens
+                          <input
+                            :value="example.givens.join(', ')"
+                            @input="setList(example, 'givens', $event.target.value)">
+                        </label>
+                        <label>Result<input v-model="example.result"></label>
+                        <label>Explanation<textarea v-model="example.explanation" rows="3"></textarea></label>
+                      </article>
+                    </div>
+                  </article>
+                </div>
+
+                <div v-if="frame.kind === 'quiz'" class="nested-list">
+                  <div class="section-heading">
+                    <h5>Questions</h5>
+                    <button type="button" class="sm muted" @click="addQuestion(frame)">Add question</button>
+                  </div>
+                  <article
+                    v-for="(question, questionIndex) in frame.questions"
+                    :key="questionIndex"
+                    class="example-editor">
+                    <div class="section-heading">
+                      <h5>Question {{ questionIndex + 1 }}</h5>
+                      <button type="button" class="sm danger" @click="removeQuestion(frame, questionIndex)">Remove</button>
+                    </div>
+                    <div class="field-grid">
+                      <label>ID<input v-model="question.id"></label>
+                      <label>Correct answer
+                        <select v-model="question.correctOptionId">
+                          <option v-for="option in question.options" :key="option.id" :value="option.id">
+                            {{ option.id || "Untitled option" }}
+                          </option>
+                        </select>
+                      </label>
+                    </div>
+                    <label>Prompt<textarea v-model="question.prompt" rows="3"></textarea></label>
+                    <div class="nested-list">
+                      <div class="section-heading">
+                        <h5>Answer options</h5>
+                        <button type="button" class="sm muted" @click="addOption(question)">Add option</button>
+                      </div>
+                      <div v-for="(option, optionIndex) in question.options" :key="optionIndex" class="option-row">
+                        <label>ID<input v-model="option.id"></label>
+                        <label>Label<input v-model="option.label"></label>
+                        <label>Feedback<textarea v-model="option.feedback" rows="2"></textarea></label>
+                        <button type="button" class="sm danger" @click="removeOption(question, optionIndex)">Remove</button>
+                      </div>
+                    </div>
+                  </article>
+                </div>
+              </article>
             </div>
           </article>
         </section>

@@ -36,6 +36,49 @@ const lesson = {
   }],
 };
 
+const pagedLesson = {
+  id: "hydro-alpha",
+  title: "Hydro Alpha",
+  completion: {
+    awardTitle: "Hydro Power Theory",
+    awardText: "Zanzibar understands hydro power.",
+  },
+  pages: [
+    {
+      id: "opening",
+      title: "Opening",
+      frames: [{
+        id: "water",
+        kind: "content",
+        title: "Water Path",
+        blocks: [
+          { type: "paragraph", body: "Water starts high." },
+          { type: "image", src: "/learning/hydro/cascading-waterfall-head.png", alt: "Waterfall", caption: "Head in plain sight." },
+        ],
+      }],
+    },
+    {
+      id: "check",
+      title: "Check",
+      frames: [{
+        id: "quiz",
+        kind: "quiz",
+        title: "Check Your Understanding",
+        questions: [{
+          id: "path",
+          type: "multiple-choice",
+          prompt: "Where does water go?",
+          options: [
+            { id: "up", label: "Up", feedback: "Not this time." },
+            { id: "down", label: "Down", feedback: "Correct." },
+          ],
+          correctOptionId: "down",
+        }],
+      }],
+    },
+  ],
+};
+
 function mountLesson(props = {}) {
   return mount(LessonRenderer, {
     props: { lesson, ...props },
@@ -50,7 +93,7 @@ describe("LessonRenderer", () => {
     const wrapper = mountLesson();
 
     await wrapper.find('input[value="a-more"]').setValue(true);
-    await wrapper.find(".quiz button").trigger("click");
+    await wrapper.find(".frame-quiz button").trigger("click");
     expect(wrapper.text()).toContain("A is not right.");
 
     await wrapper.find('input[value="same"]').setValue(true);
@@ -62,7 +105,7 @@ describe("LessonRenderer", () => {
     const wrapper = mountLesson();
 
     await wrapper.find('input[value="a-more"]').setValue(true);
-    await wrapper.find(".quiz button").trigger("click");
+    await wrapper.find(".frame-quiz button").trigger("click");
 
     expect(wrapper.emitted("pass-quiz")).toBeUndefined();
     expect(wrapper.find(".award").exists()).toBe(false);
@@ -72,7 +115,7 @@ describe("LessonRenderer", () => {
     const wrapper = mountLesson();
 
     await wrapper.find('input[value="same"]').setValue(true);
-    await wrapper.find(".quiz button").trigger("click");
+    await wrapper.find(".frame-quiz button").trigger("click");
 
     expect(wrapper.emitted("pass-quiz")).toEqual([["hydro-power-intro"]]);
   });
@@ -98,11 +141,11 @@ describe("LessonRenderer", () => {
     });
 
     await wrapper.find('input[value="same"]').setValue(true);
-    await wrapper.findAll(".quiz button")[0].trigger("click");
+    await wrapper.findAll(".frame-quiz button")[0].trigger("click");
     expect(wrapper.emitted("pass-quiz")).toBeUndefined();
 
     await wrapper.find('input[value="water"]').setValue(true);
-    await wrapper.findAll(".quiz button")[1].trigger("click");
+    await wrapper.findAll(".frame-quiz button")[1].trigger("click");
     expect(wrapper.emitted("pass-quiz")).toEqual([["hydro-power-intro"]]);
   });
 
@@ -149,7 +192,7 @@ describe("LessonRenderer", () => {
     const wrapper = mountLesson();
 
     await wrapper.find('input[value="a-more"]').setValue(true);
-    await wrapper.find(".quiz button").trigger("click");
+    await wrapper.find(".frame-quiz button").trigger("click");
     expect(wrapper.text()).toContain("A is not right.");
 
     await wrapper.setProps({
@@ -161,5 +204,29 @@ describe("LessonRenderer", () => {
 
     expect(wrapper.text()).not.toContain("A is not right.");
     expect(wrapper.find('input[value="a-more"]').element.checked).toBe(false);
+  });
+
+  it("renders authored pages one at a time with page controls", async () => {
+    const wrapper = mountLesson({ lesson: pagedLesson });
+
+    expect(wrapper.text()).toContain("Page 1 of 2");
+    expect(wrapper.text()).toContain("Water starts high.");
+    expect(wrapper.text()).not.toContain("Where does water go?");
+
+    await wrapper.findAll(".page-controls button")[1].trigger("click");
+
+    expect(wrapper.text()).toContain("Page 2 of 2");
+    expect(wrapper.text()).not.toContain("Water starts high.");
+    expect(wrapper.text()).toContain("Where does water go?");
+  });
+
+  it("emits completion from a quiz frame on a later page", async () => {
+    const wrapper = mountLesson({ lesson: pagedLesson });
+
+    await wrapper.findAll(".page-controls button")[1].trigger("click");
+    await wrapper.find('input[value="down"]').setValue(true);
+    await wrapper.find(".frame-quiz button").trigger("click");
+
+    expect(wrapper.emitted("pass-quiz")).toEqual([["hydro-alpha"]]);
   });
 });

@@ -48,8 +48,8 @@ unless they become necessary to make the four alpha requirements coherent.
   dams, Hoover Dam, pipes, turbines, generators, and electricity.
 - Assume most players have never heard the word `penstock`.
 - Prefer images and diagrams over text-only explanations.
-- Keep the first lesson to a rough 30-minute completion target. Faster readers
-  may finish sooner; curious players may take longer.
+- Keep the first lesson compact. This is internal scoping guidance only, not
+  lesson metadata and not player-facing text.
 - Keep quiz questions short and distributed throughout the lesson rather than
   saving all assessment for the end.
 - Present the instruction card as an object, not as ordinary prose in the story
@@ -68,9 +68,9 @@ The current hydro learning path needs to explain the basics to someone who has
 seen a waterwheel or a picture of Hoover Dam, but has not thought about how
 water becomes electricity.
 
-- [ ] Rewrite the hydro lesson for beginners.
-- [ ] Split the lesson into multiple pages or sections so each idea is small.
-- [ ] Add visual-first explanations for:
+- [x] Rewrite the hydro lesson for beginners.
+- [x] Split the lesson into multiple pages so each idea is small.
+- [x] Add visual-first explanations for:
       - water stored high or flowing downhill;
       - gravity and height difference;
       - flow rate;
@@ -80,18 +80,42 @@ water becomes electricity.
       - generator;
       - tailrace or water leaving the plant;
       - why debris, closed valves, and leaks reduce power.
-- [ ] Add frequent images or diagrams. The lesson should feel illustrated, not
+- [x] Add frequent images or diagrams. The lesson should feel illustrated, not
       like a textbook page.
-- [ ] Add short quiz questions throughout the lesson.
-- [ ] Keep the full lesson scoped to about 30 minutes.
-- [ ] Award the existing hydro knowledge/progression effects only after the
+- [x] Add short quiz questions throughout the lesson.
+- [x] Keep the full lesson compact without player-facing time estimates.
+- [x] Award the existing hydro knowledge/progression effects only after the
       player completes the lesson or required checks.
-- [ ] Test lesson selection, completion, idempotent awards, save/load, and
+- [x] Test lesson selection, completion, idempotent awards, save/load, and
       return-to-map behavior.
 
 **Exit criterion:** A new player can explain, in plain language, that water
 falls or flows through a pipe, spins a turbine, turns a generator, and makes
 electricity, and can connect that idea to the actions Zanzibar must perform.
+
+### Wave 1 Addendum - Lesson Page/Frame Expansion
+
+The beginner hydro rewrite needs more structure than the current flat
+single-block section model. The holo-reader contract defines the target shape:
+lessons contain pages, pages contain framed learning objects, and frames contain
+ordered mixed content blocks such as paragraphs, images, diagrams, formulas, and
+quiz frames.
+
+Implementation sequence:
+
+- [x] Extend the learning model to normalize both `pages` and legacy `sections`.
+   Runtime content should prefer `pages` when present and mechanically wrap
+   legacy sections into pages/frames for display.
+- [x] Update `LessonRenderer` to render one page at a time, with Back/Next
+   controls, page progress, and frames containing ordered blocks. Keep quiz
+   completion behavior equivalent to the current all-required-checks model.
+- [x] Update the Content Builder so authors can add, remove, reorder, and preview
+   pages, frames, blocks, and quiz frames. Builder editing should expose
+   multiple paragraph blocks inside one frame.
+- [x] Migrate `hydro-power-intro-alpha` from many single-block sections into a
+   shorter multi-page lesson with a few mixed-content frames per page.
+- [ ] After authored learning content no longer uses legacy `sections`, remove the
+   compatibility path in a later cleanup.
 
 ## Wave 2 - Laminated Instruction Card
 

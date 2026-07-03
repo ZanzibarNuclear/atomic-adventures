@@ -15,8 +15,17 @@ const selectedAnswers = ref({});
 const answeredQuestions = ref({});
 const previewPassed = ref(false);
 const completionEmitted = ref(false);
+const currentPageIndex = ref(0);
 
-const questions = computed(() => props.lesson?.quiz ?? []);
+const pages = computed(() => lessonPages(props.lesson));
+const currentPage = computed(() => pages.value[currentPageIndex.value] ?? pages.value[0] ?? null);
+const questions = computed(() =>
+  pages.value.flatMap((page) =>
+    page.frames
+      .filter((frame) => frame.kind === "quiz")
+      .flatMap((frame) => frame.questions ?? []),
+  ),
+);
 const allRequiredChecksPassed = computed(() =>
   Boolean(questions.value.length) && questions.value.every((question) =>
     answeredQuestions.value[question.id] === true
@@ -24,12 +33,19 @@ const allRequiredChecksPassed = computed(() =>
   ),
 );
 const showAward = computed(() => props.completed || previewPassed.value);
+const canGoBack = computed(() => currentPageIndex.value > 0);
+const canGoNext = computed(() => currentPageIndex.value < pages.value.length - 1);
 
 watch(() => props.lesson?.id, () => {
   selectedAnswers.value = {};
   answeredQuestions.value = {};
   previewPassed.value = false;
   completionEmitted.value = false;
+  currentPageIndex.value = 0;
+});
+
+watch(pages, (nextPages) => {
+  if (currentPageIndex.value >= nextPages.length) currentPageIndex.value = Math.max(0, nextPages.length - 1);
 });
 
 function chooseAnswer(questionId, optionId) {
@@ -65,94 +81,165 @@ function submitAnswer(question) {
     emit("pass-quiz", props.lesson.id);
   }
 }
+
+function previousPage() {
+  if (canGoBack.value) currentPageIndex.value -= 1;
+}
+
+function nextPage() {
+  if (canGoNext.value) currentPageIndex.value += 1;
+}
+
+function lessonPages(lesson) {
+  if (lesson?.pages?.length) return lesson.pages.map((page, pageIndex) => ({
+    id: page.id || `page-${pageIndex + 1}`,
+    title: page.title ?? null,
+    frames: (page.frames ?? []).map((frame, frameIndex) => ({
+      id: frame.id || `frame-${frameIndex + 1}`,
+      kind: frame.kind || "content",
+      title: frame.title ?? null,
+      blocks: frame.blocks ?? [],
+      questions: frame.questions ?? [],
+    })),
+  }));
+
+  const frames = (lesson?.sections ?? []).map((section, sectionIndex) => ({
+    id: `section-${sectionIndex + 1}`,
+    kind: "content",
+    title: section.title ?? null,
+    blocks: [legacySectionBlock(section)],
+    questions: [],
+  }));
+  if (lesson?.quiz?.length) {
+    frames.push({
+      id: "quiz",
+      kind: "quiz",
+      title: "Check Your Understanding",
+      blocks: [],
+      questions: lesson.quiz,
+    });
+  }
+  return [{ id: "page-1", title: null, frames }];
+}
+
+function legacySectionBlock(section = {}) {
+  return {
+    ...section,
+    type: section.type === "text" ? "paragraph" : section.type,
+  };
+}
 </script>
 
 <template>
   <article class="lesson-content" :class="{ preview }">
-    <section
-      v-for="(section, index) in lesson.sections"
-      :key="`${section.type}-${index}`"
-      class="lesson-section"
-      :class="`section-${section.type}`">
-      <h2 v-if="section.title">{{ section.title }}</h2>
-      <MathMarkdown v-if="section.body" :source="section.body" />
-      <div v-if="section.formula" class="formula">
-        <MathMarkdown :source="section.formula" />
+    <header v-if="pages.length > 1" class="page-header">
+      <div>
+        <p class="eyebrow">Page {{ currentPageIndex + 1 }} of {{ pages.length }}</p>
+        <h2 v-if="currentPage?.title">{{ currentPage.title }}</h2>
       </div>
-      <div v-if="section.caption && section.type !== 'image'" class="caption">
-        <MathMarkdown :source="section.caption" />
-      </div>
+    </header>
 
-      <figure v-if="section.type === 'image'" class="lesson-image">
-        <img :src="section.src" :alt="section.alt">
-        <figcaption v-if="section.caption">
-          <MathMarkdown :source="section.caption" />
-        </figcaption>
-      </figure>
+    <template v-if="currentPage">
+      <section
+        v-for="frame in currentPage.frames"
+        :key="frame.id"
+        class="lesson-frame"
+        :class="`frame-${frame.kind}`">
+        <template v-if="frame.kind === 'quiz'">
+          <p class="eyebrow">Check your understanding</p>
+          <h2 v-if="frame.title">{{ frame.title }}</h2>
+          <article
+            v-for="(question, questionIndex) in frame.questions"
+            :key="question.id"
+            class="quiz-question">
+            <h3><MathMarkdown :source="`${questionIndex + 1}. ${question.prompt}`" inline /></h3>
+            <div class="answers">
+              <label
+                v-for="option in question.options"
+                :key="option.id"
+                :class="{ selected: selectedAnswers[question.id] === option.id }">
+                <input
+                  type="radio"
+                  :name="`${lesson.id}-${question.id}`"
+                  :checked="selectedAnswers[question.id] === option.id"
+                  :value="option.id"
+                  @change="chooseAnswer(question.id, option.id)">
+                <span><MathMarkdown :source="option.label" inline /></span>
+              </label>
+            </div>
+            <button type="button" :disabled="!selectedAnswers[question.id]" @click="submitAnswer(question)">
+              Check answer
+            </button>
+            <p
+              v-if="answeredQuestions[question.id] && selectedOption(question)"
+              class="feedback"
+              :class="{ correct: questionCorrect(question) }">
+              <MathMarkdown :source="selectedOption(question).feedback" inline />
+            </p>
+          </article>
+        </template>
 
-      <table v-if="section.type === 'symbols'">
-        <thead>
-          <tr><th>Symbol</th><th>Meaning</th><th>Units</th></tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in section.rows" :key="row.symbol">
-            <td><MathMarkdown :source="row.symbol" inline /></td>
-            <td>{{ row.meaning }}</td>
-            <td><MathMarkdown :source="row.units" inline /></td>
-          </tr>
-        </tbody>
-      </table>
+        <template v-else>
+          <h2 v-if="frame.title">{{ frame.title }}</h2>
+          <div
+            v-for="(block, blockIndex) in frame.blocks"
+            :key="`${block.type}-${blockIndex}`"
+            class="lesson-block"
+            :class="`block-${block.type}`">
+            <MathMarkdown v-if="block.type === 'paragraph' && block.body" :source="block.body" />
+            <div v-if="block.type === 'formula' && block.formula" class="formula">
+              <MathMarkdown :source="block.formula" />
+            </div>
+            <div v-if="block.caption && block.type !== 'image'" class="caption">
+              <MathMarkdown :source="block.caption" />
+            </div>
 
-      <ol v-if="section.type === 'diagram'" class="flow-diagram" :aria-label="section.title">
-        <li v-for="step in section.steps" :key="step">
-          <span>{{ step }}</span>
-        </li>
-      </ol>
+            <figure v-if="block.type === 'image'" class="lesson-image">
+              <img :src="block.src" :alt="block.alt">
+              <figcaption v-if="block.caption">
+                <MathMarkdown :source="block.caption" />
+              </figcaption>
+            </figure>
 
-      <div v-if="section.type === 'examples'" class="examples">
-        <section v-for="example in section.examples" :key="example.title" class="example">
-          <h3>{{ example.title }}</h3>
-          <ul>
-              <li v-for="given in example.givens" :key="given"><MathMarkdown :source="given" inline /></li>
-            </ul>
-          <p class="result"><MathMarkdown :source="example.result" inline /></p>
-          <MathMarkdown v-if="example.explanation" :source="example.explanation" />
-        </section>
-      </div>
-    </section>
+            <table v-if="block.type === 'symbols'">
+              <thead>
+                <tr><th>Symbol</th><th>Meaning</th><th>Units</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in block.rows" :key="row.symbol">
+                  <td><MathMarkdown :source="row.symbol" inline /></td>
+                  <td>{{ row.meaning }}</td>
+                  <td><MathMarkdown :source="row.units" inline /></td>
+                </tr>
+              </tbody>
+            </table>
 
-    <section v-if="questions.length" class="quiz">
-      <p class="eyebrow">Check your understanding</p>
-      <article
-        v-for="(question, questionIndex) in questions"
-        :key="question.id"
-        class="quiz-question">
-        <h2><MathMarkdown :source="`${questionIndex + 1}. ${question.prompt}`" inline /></h2>
-        <div class="answers">
-          <label
-            v-for="option in question.options"
-            :key="option.id"
-            :class="{ selected: selectedAnswers[question.id] === option.id }">
-            <input
-              type="radio"
-              :name="`${lesson.id}-${question.id}`"
-              :checked="selectedAnswers[question.id] === option.id"
-              :value="option.id"
-              @change="chooseAnswer(question.id, option.id)">
-            <span><MathMarkdown :source="option.label" inline /></span>
-          </label>
-        </div>
-        <button type="button" :disabled="!selectedAnswers[question.id]" @click="submitAnswer(question)">
-          Check answer
-        </button>
-        <p
-          v-if="answeredQuestions[question.id] && selectedOption(question)"
-          class="feedback"
-          :class="{ correct: questionCorrect(question) }">
-          <MathMarkdown :source="selectedOption(question).feedback" inline />
-        </p>
-      </article>
-    </section>
+            <ol v-if="block.type === 'diagram'" class="flow-diagram" :aria-label="frame.title">
+              <li v-for="step in block.steps" :key="step">
+                <span>{{ step }}</span>
+              </li>
+            </ol>
+
+            <div v-if="block.type === 'examples'" class="examples">
+              <section v-for="example in block.examples" :key="example.title" class="example">
+                <h3>{{ example.title }}</h3>
+                <ul>
+                  <li v-for="given in example.givens" :key="given"><MathMarkdown :source="given" inline /></li>
+                </ul>
+                <p class="result"><MathMarkdown :source="example.result" inline /></p>
+                <MathMarkdown v-if="example.explanation" :source="example.explanation" />
+              </section>
+            </div>
+          </div>
+        </template>
+      </section>
+    </template>
+
+    <nav v-if="pages.length > 1" class="page-controls" aria-label="Lesson pages">
+      <button type="button" class="ghost-button" :disabled="!canGoBack" @click="previousPage">Back</button>
+      <span>Page {{ currentPageIndex + 1 }} of {{ pages.length }}</span>
+      <button type="button" :disabled="!canGoNext" @click="nextPage">Next</button>
+    </nav>
 
     <section v-if="showAward" class="award">
       <p class="eyebrow">Certificate unlocked</p>
@@ -177,14 +264,28 @@ function submitAnswer(question) {
   max-width: none;
 }
 
-.lesson-section,
-.quiz,
+.page-header,
+.lesson-frame,
 .award {
   margin-top: 1rem;
   padding: 1rem;
   border: 1px solid rgba(139, 216, 210, 0.32);
   border-radius: 8px;
   background: rgba(8, 18, 24, 0.78);
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.page-header h2 {
+  margin: 0.1rem 0 0;
+}
+
+.lesson-block + .lesson-block {
+  margin-top: 0.85rem;
 }
 
 .award {
@@ -230,8 +331,8 @@ function submitAnswer(question) {
   color: #a9c7c3;
 }
 
-.lesson-section h2,
-.quiz h2,
+.lesson-frame h2,
+.quiz-question h3,
 .award h2 {
   margin: 0 0 0.65rem;
 }
@@ -344,6 +445,20 @@ td {
   background: rgba(139, 216, 210, 0.1);
 }
 
+.page-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 0.75rem 0;
+  color: #a9c7c3;
+}
+
+.page-controls span {
+  font-weight: 700;
+}
+
 button {
   border: 1px solid #6ebcb5;
   border-radius: 7px;
@@ -351,6 +466,16 @@ button {
   color: #082422;
   padding: 0.6rem 0.8rem;
   font-weight: 700;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.ghost-button {
+  background: transparent;
+  color: #c8f7f1;
 }
 
 .feedback {

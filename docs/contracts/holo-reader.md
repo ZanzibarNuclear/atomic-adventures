@@ -241,24 +241,6 @@ The old `sections` model maps mechanically to the new model:
 No player progress should be lost during this migration. Lesson completion
 state remains keyed by lesson ID, not by page, frame, or block IDs.
 
-### Implementation Plan
-
-Implement the page/frame/block expansion in small, compatible steps:
-
-1. Extend the learning model to normalize both `pages` and legacy `sections`.
-   Runtime content should prefer `pages` when present and mechanically wrap
-   legacy sections into pages/frames for display.
-2. Update `LessonRenderer` to render one page at a time, with Back/Next
-   controls, page progress, and frames containing ordered blocks. Keep quiz
-   completion behavior equivalent to the current all-required-checks model.
-3. Update the Content Builder so authors can add, remove, reorder, and preview
-   pages, frames, blocks, and quiz frames. Builder editing should expose
-   multiple paragraph blocks inside one frame.
-4. Migrate `hydro-power-intro-alpha` from many single-block sections into a
-   shorter multi-page lesson with a few mixed-content frames per page.
-5. After authored learning content no longer uses legacy `sections`, remove the
-   compatibility path in a later cleanup.
-
 ## Simulator Extraction and Reuse
 
 Existing educational material may be adapted from sibling projects, beginning

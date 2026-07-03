@@ -14,10 +14,14 @@ const character = {
 describe("learning model", () => {
   it("validates the seeded hydro intro lesson", () => {
     const result = validateLearningDocument(learningSeed, { character });
+    const firstLesson = result.learning.lessons[0];
+    const firstLessonFrames = firstLesson.pages.flatMap((page) => page.frames);
+    const firstLessonBlocks = firstLessonFrames.flatMap((frame) => frame.blocks);
+    const firstQuiz = firstLessonFrames.find((frame) => frame.kind === "quiz");
 
     expect(result.valid).toBe(true);
-    expect(result.learning.lessons[0].id).toBe("hydro-power-intro");
-    expect(result.learning.lessons[0].sections.map((section) => section.title)).toEqual([
+    expect(firstLesson.id).toBe("hydro-power-intro");
+    expect(firstLessonFrames.filter((frame) => frame.kind === "content").map((frame) => frame.title)).toEqual([
       "Water Above, Power Below",
       "From Water To Wires",
       "Head, Flow, And Losses",
@@ -27,38 +31,45 @@ describe("learning model", () => {
       "Quick Examples",
       "Plant Styles",
     ]);
-    expect(result.learning.lessons[0].quiz[0]).toEqual(expect.objectContaining({
+    expect(firstQuiz.questions[0]).toEqual(expect.objectContaining({
       id: "same-power",
       correctOptionId: "same",
     }));
-    expect(result.learning.lessons[0].sections.find((section) => section.title === "Electrical Power").formula)
+    expect(firstLessonBlocks.find((block) => block.formula?.includes("P_\\text{elec}")).formula)
       .toContain("\\eta");
-    expect(result.learning.lessons[0].sections.find((section) => section.title === "What the Symbols Mean").rows)
+    expect(firstLessonBlocks.find((block) => block.rows?.some((row) => row.symbol === "$\\rho$")).rows)
       .toEqual(expect.arrayContaining([
         expect.objectContaining({ symbol: "$\\rho$" }),
         expect.objectContaining({ symbol: "$\\sum h_L$" }),
       ]));
   });
 
-  it("validates the hidden alpha hydro rewrite with a diagram section", () => {
+  it("validates the published alpha hydro rewrite as paged mixed content", () => {
     const result = validateLearningDocument(learningSeed, { character });
     const alphaLesson = result.learning.lessons.find((lesson) => lesson.id === "hydro-power-intro-alpha");
+    const alphaFrames = alphaLesson.pages.flatMap((page) => page.frames);
+    const alphaBlocks = alphaFrames.flatMap((frame) => frame.blocks);
 
     expect(result.valid).toBe(true);
     expect(result.learning.lessons[0].published).toBe(true);
     expect(alphaLesson.published).toBe(true);
+    expect(alphaLesson.pages.map((page) => page.id)).toEqual([
+      "water-and-height",
+      "water-path",
+      "powerhouse",
+      "field-checks",
+    ]);
     expect(alphaLesson.completion.effects).toEqual([
       { op: "knowledge.acquire", id: "hydro-head-and-flow" },
     ]);
-    expect(alphaLesson.sections.find((section) => section.type === "image")).toEqual(
+    expect(alphaBlocks.find((block) => block.type === "image")).toEqual(
       expect.objectContaining({
         src: "/learning/hydro/cascading-waterfall-head.png",
         alt: expect.stringContaining("waterfall"),
       }),
     );
-    expect(alphaLesson.sections.find((section) => section.type === "diagram")).toEqual(
+    expect(alphaBlocks.find((block) => block.type === "diagram")).toEqual(
       expect.objectContaining({
-        title: "Picture The Water Path",
         steps: [
           "High water",
           "Intake screen",
@@ -69,6 +80,8 @@ describe("learning model", () => {
         ],
       }),
     );
+    expect(alphaFrames.filter((frame) => frame.kind === "quiz").flatMap((frame) => frame.questions).map((question) => question.id))
+      .toEqual(["trace-water-path", "identify-head", "spot-power-loss"]);
   });
 
   it("rejects missing completion effect references", () => {

@@ -2,7 +2,8 @@ import { validateCharacterEffects } from "./character-reference-validation.js";
 
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const FLAG_PATTERN = /^[a-z0-9_]+(?:[.-][a-z0-9_]+)*$/;
-const SECTION_TYPES = new Set(["text", "formula", "symbols", "examples", "diagram", "image"]);
+const BLOCK_TYPES = new Set(["paragraph", "formula", "symbols", "examples", "diagram", "image"]);
+const FRAME_KINDS = new Set(["content", "quiz"]);
 const QUESTION_TYPES = new Set(["multiple-choice"]);
 
 export function normalizeLearningDocument(input = {}) {
@@ -21,8 +22,7 @@ export function normalizeLearningDocument(input = {}) {
         awardText: nullableText(lesson.completion?.awardText),
         effects: array(lesson.completion?.effects).map((effect) => structuredClone(effect)),
       },
-      sections: array(lesson.sections).map((section) => normalizeSection(section)),
-      quiz: array(lesson.quiz).map((question) => normalizeQuestion(question)),
+      pages: normalizePages(lesson),
     })),
   };
 }
@@ -38,32 +38,7 @@ export function validateLearningDocument(input, { character = null } = {}) {
     const base = `lessons.${lessonIndex}`;
     if (!lesson.title) add(`${base}.title`, "Lesson title is required.");
     validateAvailability(lesson.availableWhen, `${base}.availableWhen`, add);
-    if (!lesson.sections.length) add(`${base}.sections`, "Add at least one lesson section.");
-    lesson.sections.forEach((section, sectionIndex) => {
-      const sectionBase = `${base}.sections.${sectionIndex}`;
-      if (!SECTION_TYPES.has(section.type)) add(`${sectionBase}.type`, "Choose a supported section type.");
-      if (!section.title && section.type !== "formula") add(`${sectionBase}.title`, "Section title is required.");
-      if (section.type === "text" && !section.body) add(`${sectionBase}.body`, "Section body is required.");
-      if (section.type === "formula" && !section.formula) add(`${sectionBase}.formula`, "Formula text is required.");
-      if (section.type === "symbols" && !section.rows.length) add(`${sectionBase}.rows`, "Add at least one symbol row.");
-      if (section.type === "examples" && !section.examples.length) add(`${sectionBase}.examples`, "Add at least one example.");
-      if (section.type === "diagram" && section.steps.length < 2) add(`${sectionBase}.steps`, "Add at least two diagram steps.");
-      if (section.type === "image" && !section.src) add(`${sectionBase}.src`, "Image path is required.");
-      if (section.type === "image" && !section.alt) add(`${sectionBase}.alt`, "Image alt text is required.");
-    });
-    if (!lesson.quiz.length) add(`${base}.quiz`, "Add at least one quiz question.");
-    lesson.quiz.forEach((question, questionIndex) => {
-      const questionBase = `${base}.quiz.${questionIndex}`;
-      if (!ID_PATTERN.test(question.id)) add(`${questionBase}.id`, "Use a kebab-case question ID.");
-      if (!QUESTION_TYPES.has(question.type)) add(`${questionBase}.type`, "Choose a supported question type.");
-      if (!question.prompt) add(`${questionBase}.prompt`, "Question prompt is required.");
-      if (question.options.length < 2) add(`${questionBase}.options`, "Add at least two answer options.");
-      const optionIds = validateIds(question.options, `${questionBase}.options`, add);
-      if (question.correctOptionId && !optionIds.has(question.correctOptionId)) {
-        add(`${questionBase}.correctOptionId`, "Choose one of the answer options.");
-      }
-      if (!question.correctOptionId) add(`${questionBase}.correctOptionId`, "Correct answer is required.");
-    });
+    validatePages(lesson.pages, `${base}.pages`, add);
     validateCharacterEffects(
       lesson.completion.effects,
       `${base}.completion.effects`,
@@ -111,29 +86,129 @@ function validateAvailability(value, path, add) {
   }
 }
 
-function normalizeSection(section = {}) {
-  const type = text(section.type) || "text";
+function normalizePages(lesson = {}) {
+  const authoredPages = array(lesson.pages);
+  if (authoredPages.length) return authoredPages.map((page, pageIndex) => normalizePage(page, pageIndex));
+
+  const frames = array(lesson.sections).map((section, sectionIndex) => legacySectionToFrame(section, sectionIndex));
+  const quiz = array(lesson.quiz).map((question) => normalizeQuestion(question));
+  if (quiz.length) {
+    frames.push({
+      id: "quiz",
+      kind: "quiz",
+      title: "Check Your Understanding",
+      blocks: [],
+      questions: quiz,
+    });
+  }
+  return [{
+    id: "page-1",
+    title: null,
+    frames,
+  }];
+}
+
+function normalizePage(page = {}, pageIndex = 0) {
+  return {
+    id: text(page.id) || `page-${pageIndex + 1}`,
+    title: nullableText(page.title),
+    frames: array(page.frames).map((frame, frameIndex) => normalizeFrame(frame, frameIndex)),
+  };
+}
+
+function normalizeFrame(frame = {}, frameIndex = 0) {
+  const kind = text(frame.kind) || "content";
+  return {
+    id: text(frame.id) || `frame-${frameIndex + 1}`,
+    kind,
+    title: nullableText(frame.title),
+    blocks: array(frame.blocks).map((block) => normalizeBlock(block)),
+    questions: array(frame.questions).map((question) => normalizeQuestion(question)),
+  };
+}
+
+function normalizeBlock(block = {}) {
+  const type = text(block.type) || "paragraph";
   return {
     type,
-    title: nullableText(section.title),
-    body: nullableText(section.body),
-    src: nullableText(section.src),
-    alt: nullableText(section.alt),
-    formula: nullableText(section.formula),
-    caption: nullableText(section.caption),
-    rows: array(section.rows).map((row) => ({
+    body: nullableText(block.body),
+    src: nullableText(block.src),
+    alt: nullableText(block.alt),
+    formula: nullableText(block.formula),
+    caption: nullableText(block.caption),
+    rows: array(block.rows).map((row) => ({
       symbol: text(row.symbol),
       meaning: text(row.meaning),
       units: nullableText(row.units),
     })),
-    steps: stringList(section.steps),
-    examples: array(section.examples).map((example) => ({
+    steps: stringList(block.steps),
+    examples: array(block.examples).map((example) => ({
       title: text(example.title),
       givens: stringList(example.givens),
       result: text(example.result),
       explanation: nullableText(example.explanation),
     })),
   };
+}
+
+function legacySectionToFrame(section = {}, sectionIndex = 0) {
+  const type = text(section.type) || "text";
+  const blockType = type === "text" ? "paragraph" : type;
+  return {
+    id: `section-${sectionIndex + 1}`,
+    kind: "content",
+    title: nullableText(section.title),
+    blocks: [normalizeBlock({ ...section, type: blockType })],
+    questions: [],
+  };
+}
+
+function validatePages(pages, path, add) {
+  if (!pages.length) add(path, "Add at least one lesson page.");
+  const pageIds = validateIds(pages, path, add);
+  void pageIds;
+  pages.forEach((page, pageIndex) => {
+    const pageBase = `${path}.${pageIndex}`;
+    if (!page.frames.length) add(`${pageBase}.frames`, "Add at least one frame.");
+    validateIds(page.frames, `${pageBase}.frames`, add);
+    page.frames.forEach((frame, frameIndex) => {
+      const frameBase = `${pageBase}.frames.${frameIndex}`;
+      if (!FRAME_KINDS.has(frame.kind)) add(`${frameBase}.kind`, "Choose a supported frame kind.");
+      if (frame.kind === "content") {
+        if (!frame.blocks.length) add(`${frameBase}.blocks`, "Add at least one content block.");
+        frame.blocks.forEach((block, blockIndex) => validateBlock(block, `${frameBase}.blocks.${blockIndex}`, add));
+      }
+      if (frame.kind === "quiz") {
+        if (!frame.questions.length) add(`${frameBase}.questions`, "Add at least one quiz question.");
+        frame.questions.forEach((question, questionIndex) =>
+          validateQuestion(question, `${frameBase}.questions.${questionIndex}`, add),
+        );
+      }
+    });
+  });
+}
+
+function validateBlock(block, path, add) {
+  if (!BLOCK_TYPES.has(block.type)) add(`${path}.type`, "Choose a supported block type.");
+  if (block.type === "paragraph" && !block.body) add(`${path}.body`, "Paragraph text is required.");
+  if (block.type === "formula" && !block.formula) add(`${path}.formula`, "Formula text is required.");
+  if (block.type === "symbols" && !block.rows.length) add(`${path}.rows`, "Add at least one symbol row.");
+  if (block.type === "examples" && !block.examples.length) add(`${path}.examples`, "Add at least one example.");
+  if (block.type === "diagram" && block.steps.length < 2) add(`${path}.steps`, "Add at least two diagram steps.");
+  if (block.type === "image" && !block.src) add(`${path}.src`, "Image path is required.");
+  if (block.type === "image" && !block.alt) add(`${path}.alt`, "Image alt text is required.");
+}
+
+function validateQuestion(question, path, add) {
+  if (!ID_PATTERN.test(question.id)) add(`${path}.id`, "Use a kebab-case question ID.");
+  if (!QUESTION_TYPES.has(question.type)) add(`${path}.type`, "Choose a supported question type.");
+  if (!question.prompt) add(`${path}.prompt`, "Question prompt is required.");
+  if (question.options.length < 2) add(`${path}.options`, "Add at least two answer options.");
+  const optionIds = validateIds(question.options, `${path}.options`, add);
+  if (question.correctOptionId && !optionIds.has(question.correctOptionId)) {
+    add(`${path}.correctOptionId`, "Choose one of the answer options.");
+  }
+  if (!question.correctOptionId) add(`${path}.correctOptionId`, "Correct answer is required.");
 }
 
 function normalizeQuestion(question = {}) {
