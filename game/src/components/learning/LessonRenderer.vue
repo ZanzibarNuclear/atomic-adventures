@@ -23,14 +23,6 @@ const allRequiredChecksPassed = computed(() =>
       && selectedAnswers.value[question.id] === question.correctOptionId,
   ),
 );
-const sectionLinks = computed(() =>
-  (props.lesson?.sections ?? [])
-    .map((section, index) => ({
-      id: `lesson-section-${index + 1}`,
-      label: section.title || `Section ${index + 1}`,
-    }))
-    .filter((section) => section.label),
-);
 const showAward = computed(() => props.completed || previewPassed.value);
 
 watch(() => props.lesson?.id, () => {
@@ -77,16 +69,9 @@ function submitAnswer(question) {
 
 <template>
   <article class="lesson-content" :class="{ preview }">
-    <nav v-if="sectionLinks.length > 3" class="section-nav" aria-label="Lesson sections">
-      <a v-for="section in sectionLinks" :key="section.id" :href="`#${section.id}`">
-        {{ section.label }}
-      </a>
-    </nav>
-
     <section
       v-for="(section, index) in lesson.sections"
       :key="`${section.type}-${index}`"
-      :id="sectionLinks[index]?.id"
       class="lesson-section"
       :class="`section-${section.type}`">
       <h2 v-if="section.title">{{ section.title }}</h2>
@@ -200,23 +185,6 @@ function submitAnswer(question) {
   border: 1px solid rgba(139, 216, 210, 0.32);
   border-radius: 8px;
   background: rgba(8, 18, 24, 0.78);
-}
-
-.section-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  margin-top: 1rem;
-}
-
-.section-nav a {
-  border: 1px solid rgba(139, 216, 210, 0.32);
-  border-radius: 999px;
-  background: rgba(8, 18, 24, 0.78);
-  color: #c8f7f1;
-  padding: 0.35rem 0.55rem;
-  font-size: 0.86rem;
-  text-decoration: none;
 }
 
 .award {

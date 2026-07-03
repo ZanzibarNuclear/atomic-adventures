@@ -15,7 +15,6 @@ export function normalizeLearningDocument(input = {}) {
       summary: nullableText(lesson.summary),
       order: finiteNumber(lesson.order, lessonIndex),
       published: lesson.published !== false,
-      tags: stringList(lesson.tags),
       availableWhen: normalizeAvailability(lesson.availableWhen),
       completion: {
         awardTitle: nullableText(lesson.completion?.awardTitle),

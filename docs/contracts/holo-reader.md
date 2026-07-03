@@ -72,7 +72,7 @@ The current implementation supports:
 
 - opening a lesson by stable ID;
 - returning to the map without changing logical location;
-- displaying lesson sections in authored order;
+- displaying lesson pages, frames, and blocks in authored order;
 - keeping in-progress view state transient while the lesson is open;
 - discarding incomplete lesson progress when the player exits before passing
   the required quiz;
@@ -107,7 +107,7 @@ knowledge/progression effects unless the progression contract intentionally
 changes. Completion state remains per lesson ID, while character effects remain
 idempotent through the shared validated effect service.
 
-Lesson UI state such as section position, selected answer, feedback state,
+Lesson UI state such as page position, selected answer, feedback state,
 expanded diagram, or paused media time is view state. It is not player progress
 unless a validated lesson outcome commits it. If the player exits before
 completion, the next attempt starts from the beginning.
@@ -128,7 +128,6 @@ lessons:
     title: Hydro Power, Water You Waiting For?
     summary: How elevation difference and flow rate determine hydro power.
     order: 10
-    tags: [hydro, power, water]
     availableWhen:
       flags:
         all: [hub.hydro_online]
@@ -143,58 +142,122 @@ lessons:
       awardText: Zanzibar understands how head, flow, and efficiency combine.
       effects:
         - { op: knowledge.acquire, id: hydro-head-and-flow }
-    sections:
-      - type: text
-        title: Water Above, Power Below
-        body: |
-          ...
-      - type: formula
-        title: Electrical Power
-        formula: "$$P_\\text{elec} = \\eta\\,\\rho\\,g\\,Q\\,H_\\text{net}$$"
-        caption: Electrical power equals hydraulic power times efficiency.
-      - type: symbols
-        title: What the Symbols Mean
-        rows:
-          - { symbol: "$Q$", meaning: Volume flow through the turbine, units: "$\\mathrm{m^3/s}$" }
-      - type: examples
-        title: Quick Examples
-        examples:
-          - title: Same Product, Same Power
-            givens:
-              - "Setup A: $Q = 1\\ \\mathrm{m^3/s}$ and $H_\\text{net} = 20\\ \\mathrm{m}$"
-              - "Setup B: $Q = 2\\ \\mathrm{m^3/s}$ and $H_\\text{net} = 10\\ \\mathrm{m}$"
-            result: Both setups have the same $Q\\,H_\\text{net}$.
-            explanation: The product matters.
-    quiz:
-      - id: same-power
-        type: multiple-choice
-        prompt: Which setup produces more electrical power?
-        options:
-          - id: a-more
-            label: Setup A produces more
-            feedback: Not quite. Setup A has twice the head but half the flow.
-          - id: same
-            label: They produce the same power
-            feedback: Correct. Flow and net head multiply.
-        correctOptionId: same
+    pages:
+      - id: water-to-wires
+        title: Water To Wires
+        frames:
+          - id: downhill-water
+            title: Water Above, Power Below
+            blocks:
+              - type: paragraph
+                body: |
+                  ...
+              - type: image
+                src: /learning/hydro/cascading-waterfall-head.png
+                alt: A cascading waterfall drops from an upper pool to a lower stream.
+                caption: Water loses height as gravity pulls it downhill.
+              - type: paragraph
+                body: |
+                  ...
+          - id: simple-rule
+            title: The Simple Rule
+            blocks:
+              - type: formula
+                formula: "$$P_\\text{elec} = \\eta\\,\\rho\\,g\\,Q\\,H_\\text{net}$$"
+                caption: Electrical power equals hydraulic power times efficiency.
+              - type: symbols
+                rows:
+                  - { symbol: "$Q$", meaning: Volume flow through the turbine, units: "$\\mathrm{m^3/s}$" }
+          - id: water-path-check
+            kind: quiz
+            title: Check Your Understanding
+            questions:
+              - id: same-power
+                type: multiple-choice
+                prompt: Which setup produces more electrical power?
+                options:
+                  - id: a-more
+                    label: Setup A produces more
+                    feedback: Not quite. Setup A has twice the head but half the flow.
+                  - id: same
+                    label: They produce the same power
+                    feedback: Correct. Flow and net head multiply.
+                correctOptionId: same
 ```
 
-Supported MVP section types are:
+The current runtime still supports the earlier flat `sections` plus top-level
+`quiz` shape. That shape is a compatibility path only. New lesson authoring
+should move to `pages`, where each page contains one or more framed learning
+objects, and each frame contains mixed content blocks or quiz questions.
+
+## Pages, Frames, And Blocks
+
+Lessons may span multiple pages. A page is a navigation unit: the player moves
+through it with Next/Back controls rather than one long table-of-contents list.
+Pages should be small enough to feel readable in one sitting, and may contain
+one or more related frames.
+
+A frame is the visible bordered unit on a page. Frames replace the old idea
+that each section is exactly one content type. A frame may combine paragraphs,
+images, diagrams, formulas, symbol tables, examples, videos, interactions, and
+other supported blocks in authored order. This lets one concept live in one
+visual container while still mixing prose and media naturally.
+
+Quiz questions may be authored as their own frame with `kind: quiz`. A quiz
+frame can assess the immediately preceding frame, several related frames on the
+same page, previous pages, or the whole lesson. Completion credit is committed
+only after all required quiz or assessment frames for the lesson pass.
+
+Supported content block types are:
 
 | Type | Meaning |
 | --- | --- |
-| `text` | Authored explanatory text |
+| `paragraph` | Authored explanatory prose; frames may contain multiple paragraphs |
 | `formula` | Displayed math with optional caption |
 | `symbols` | Symbol, meaning, and units table |
 | `examples` | Worked example cards with givens, result, and explanation |
 | `diagram` | Ordered visual flow steps with optional explanatory body text |
 | `image` | Public image asset with required alt text and optional caption |
+| `video` | Future registered video/media asset with captions or transcript |
+| `interaction` | Future registered interaction ID with declared inputs and outcomes |
 
-The MVP quiz model is top-level `quiz` with retryable `multiple-choice`
-questions. Future section types may include `media`, `interaction`,
-`assessment`, and `simulation`. Those types should reference registered assets,
-registered interaction IDs, or host-validated simulation outcomes, not
-arbitrary component names or script content.
+Supported quiz question types currently include retryable `multiple-choice`.
+Future assessment, simulation, media, and interaction blocks should reference
+registered assets, registered interaction IDs, or host-validated simulation
+outcomes, not arbitrary component names or script content.
+
+### Migration From Flat Sections
+
+The old `sections` model maps mechanically to the new model:
+
+- each old section can become one frame;
+- old `text.body` becomes one `paragraph` block, or several paragraph blocks
+  when the author splits the prose;
+- old `image`, `formula`, `symbols`, `examples`, and `diagram` sections become
+  frames with one block of the same type;
+- the old top-level `quiz` becomes a final quiz frame, unless the author moves
+  questions closer to the content they assess.
+
+No player progress should be lost during this migration. Lesson completion
+state remains keyed by lesson ID, not by page, frame, or block IDs.
+
+### Implementation Plan
+
+Implement the page/frame/block expansion in small, compatible steps:
+
+1. Extend the learning model to normalize both `pages` and legacy `sections`.
+   Runtime content should prefer `pages` when present and mechanically wrap
+   legacy sections into pages/frames for display.
+2. Update `LessonRenderer` to render one page at a time, with Back/Next
+   controls, page progress, and frames containing ordered blocks. Keep quiz
+   completion behavior equivalent to the current all-required-checks model.
+3. Update the Content Builder so authors can add, remove, reorder, and preview
+   pages, frames, blocks, and quiz frames. Builder editing should expose
+   multiple paragraph blocks inside one frame.
+4. Migrate `hydro-power-intro-alpha` from many single-block sections into a
+   shorter multi-page lesson with a few mixed-content frames per page.
+5. After authored learning content no longer uses legacy `sections`, remove the
+   compatibility path in a later cleanup.
 
 ## Simulator Extraction and Reuse
 
@@ -306,10 +369,10 @@ duplicate one-time rewards.
 The Content Builder should add a **Lessons** area alongside Character,
 Artifacts, and Preview. It owns:
 
-- lesson catalog entries, ordering, and tags;
-- section authoring for text, formulas, symbol tables, worked examples, and
-  future registered diagram, media, interaction, assessment, and simulation
-  types;
+- lesson catalog entries, ordering, and publish state;
+- page authoring, frame ordering, and mixed block authoring for paragraphs,
+  images, diagrams, formulas, symbol tables, examples, and future registered
+  video, interaction, assessment, and simulation types;
 - quiz prompts, answer options, correct answers, and feedback;
 - completion acknowledgements and authored effects;
 - references to knowledge, skills, documents, quests, flags, and future assets
@@ -349,14 +412,13 @@ loading, presentation, assessment, and completion credit. The first lesson is
 
 - teaches that available hydro power depends on head, flow rate, water density,
   gravity, and efficiency;
-- should include a diagram or simple visual model of reservoir/intake,
-  penstock, and turbine as a follow-up enhancement to the current text,
-  formula, symbol, and example sections;
+- should include visual models and images of reservoir/intake, penstock,
+  valves, gauges, turbine, generator, and tailrace concepts;
 - asks the player to predict which site or setting produces more power;
 - awards `knowledge.acquire: hydro-head-and-flow` on a passing assessment.
 
 This should be integrated before building a broad lesson library. The contract
-should evolve from the working slice rather than speculative section types.
+should evolve from the working slice rather than speculative content types.
 
 ## Hydro Source Material
 
@@ -428,8 +490,8 @@ should follow the normal reference-safety rules.
 
 Blocking validation should reject:
 
-- duplicate or malformed lesson IDs, quiz IDs, answer option IDs, and future
-  section, asset, interaction, assessment, or outcome IDs;
+- duplicate or malformed lesson IDs, page IDs, frame IDs, quiz IDs, answer
+  option IDs, and future block, asset, interaction, assessment, or outcome IDs;
 - unknown knowledge, skill, quest, document, asset, interaction, or simulation
   references where a validated catalog exists;
 - effects that fail the shared character-effect validation;
@@ -444,7 +506,7 @@ Warnings should identify:
   taught by a reachable lesson or other authored source;
 - lessons with completion effects but no quiz or explicit completion action;
 - repeatable lessons that grant non-repeatable rewards;
-- long lessons without section breaks or progress indicators;
+- long lessons without page breaks, frame breaks, or progress indicators;
 - media references without captions, transcripts, or text alternatives.
 
 ## Accessibility and Presentation
@@ -467,25 +529,25 @@ completion.
 - The audited power flag for lesson availability is `hub.hydro_online`.
 - Use `holo-reader` as the stand ID for the library holo-reader.
 - When extracting future lessons from simulator prototypes, decide per lesson
-  whether the best form is static sections, registered interactions, embedded
-  simulator-backed sections, or a mixture.
+  whether the best form is static frames, registered interactions, embedded
+  simulator-backed frames, or a mixture.
 
 ## Implemented Sequence And Extension Point
 
 1. Add `learning-main` persistence, validation, API, import/export, revisions,
    production JSON export, and live-update support.
-2. Add Content Builder lesson catalog editing, section editing, assessment
-   editing, requirements, completion effects, validation, preview, and
-   cross-content reference search.
+2. Add Content Builder lesson catalog editing, section/block editing,
+   assessment editing, requirements, completion effects, validation, preview,
+   and cross-content reference search.
 3. Register a `lesson` game-view renderer that replaces the whole game area
    below the persistent header.
 4. Add the power-gated `holo-reader` stand action that opens the lesson browser
    and can launch `hydro-power-intro`.
-5. Implement section renderers for text, formula, symbols, and examples plus a
-   retryable multiple-choice quiz renderer.
+5. Implement renderers for lesson content blocks plus a retryable
+   multiple-choice quiz renderer.
 6. Commit completion outcomes through the existing validated effects service,
-   advance authored lesson time once, and show an award/rejoin screen.
-7. Add simulator-backed lesson sections after the host outcome contract is
+   and show an award/rejoin screen.
+7. Add simulator-backed lesson frames after the host outcome contract is
    exercised by a built-in assessment.
 
 Each step must preserve the separation between authored content, transient view

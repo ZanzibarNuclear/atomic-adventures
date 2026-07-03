@@ -122,12 +122,11 @@ describe("LessonRenderer", () => {
     expect(wrapper.text()).toContain("Finish lesson");
   });
 
-  it("shows section navigation for longer lessons", () => {
+  it("does not show a section table of contents", () => {
     const wrapper = mountLesson();
 
-    const links = wrapper.findAll(".section-nav a");
-    expect(links.map((link) => link.text())).toEqual(["One", "Two", "Three", "Four", "Five", "Six"]);
-    expect(links[1].attributes("href")).toBe("#lesson-section-2");
+    expect(wrapper.find(".section-nav").exists()).toBe(false);
+    expect(wrapper.find("[id^='lesson-section-']").exists()).toBe(false);
   });
 
   it("renders diagram sections as ordered visual steps", () => {

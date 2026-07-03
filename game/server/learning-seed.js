@@ -7,7 +7,6 @@ export const learningSeed = {
       summary: "Learn how flow, head, and efficiency determine hydroelectric power.",
       order: 10,
       published: true,
-      tags: ["hydro", "power", "water"],
       availableWhen: {
         flags: { all: ["hub.hydro_online"] },
       },
@@ -133,7 +132,6 @@ export const learningSeed = {
       summary: "A beginner-friendly tour of how falling water spins a turbine and powers the station.",
       order: 11,
       published: true,
-      tags: ["hydro", "power", "water", "alpha-revision"],
       availableWhen: {
         flags: { all: ["hub.hydro_online"] },
       },

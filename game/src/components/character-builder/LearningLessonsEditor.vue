@@ -75,7 +75,6 @@ function addLesson() {
     summary: "",
     order: lessonsDraft.length * 10,
     published: true,
-    tags: [],
     availableWhen: { flags: { all: [] }, knowledge: { all: [] } },
     completion: { awardTitle: "Lesson complete", awardText: "", effects: [] },
     sections: [{ type: "text", title: "Opening", body: "" }],
@@ -201,7 +200,6 @@ function normalizeLearningDraft(learning) {
 
 function ensureLessonShape(lesson) {
   lesson.published = lesson.published !== false;
-  lesson.tags ??= [];
   lesson.availableWhen ??= {};
   for (const { domain } of availabilityGroups) {
     lesson.availableWhen[domain] ??= {};
@@ -326,11 +324,6 @@ function uniqueId(base, entries) {
           <label class="check-field">
             <input v-model="selectedLesson.published" type="checkbox">
             Published in holo-reader
-          </label>
-          <label>Tags
-            <input
-              :value="selectedLesson.tags.join(', ')"
-              @input="setCsv(selectedLesson, 'tags', $event.target.value)">
           </label>
           <label>Award title<input v-model="selectedLesson.completion.awardTitle"></label>
           <label>Award text<input v-model="selectedLesson.completion.awardText"></label>
