@@ -3,7 +3,7 @@ import { validateCharacterEffects } from "./character-reference-validation.js";
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const FLAG_PATTERN = /^[a-z0-9_]+(?:[.-][a-z0-9_]+)*$/;
 const ACTIVITIES = new Set(["resting", "light", "moderate", "strenuous"]);
-const SECTION_TYPES = new Set(["text", "formula", "symbols", "examples", "diagram"]);
+const SECTION_TYPES = new Set(["text", "formula", "symbols", "examples", "diagram", "image"]);
 const QUESTION_TYPES = new Set(["multiple-choice"]);
 
 export function normalizeLearningDocument(input = {}) {
@@ -15,6 +15,7 @@ export function normalizeLearningDocument(input = {}) {
       title: text(lesson.title),
       summary: nullableText(lesson.summary),
       order: finiteNumber(lesson.order, lessonIndex),
+      published: lesson.published !== false,
       tags: stringList(lesson.tags),
       availableWhen: normalizeAvailability(lesson.availableWhen),
       timeMinutes: finiteNumber(lesson.timeMinutes, 30),
@@ -53,6 +54,8 @@ export function validateLearningDocument(input, { character = null } = {}) {
       if (section.type === "symbols" && !section.rows.length) add(`${sectionBase}.rows`, "Add at least one symbol row.");
       if (section.type === "examples" && !section.examples.length) add(`${sectionBase}.examples`, "Add at least one example.");
       if (section.type === "diagram" && section.steps.length < 2) add(`${sectionBase}.steps`, "Add at least two diagram steps.");
+      if (section.type === "image" && !section.src) add(`${sectionBase}.src`, "Image path is required.");
+      if (section.type === "image" && !section.alt) add(`${sectionBase}.alt`, "Image alt text is required.");
     });
     if (!lesson.quiz.length) add(`${base}.quiz`, "Add at least one quiz question.");
     lesson.quiz.forEach((question, questionIndex) => {
@@ -120,6 +123,8 @@ function normalizeSection(section = {}) {
     type,
     title: nullableText(section.title),
     body: nullableText(section.body),
+    src: nullableText(section.src),
+    alt: nullableText(section.alt),
     formula: nullableText(section.formula),
     caption: nullableText(section.caption),
     rows: array(section.rows).map((row) => ({

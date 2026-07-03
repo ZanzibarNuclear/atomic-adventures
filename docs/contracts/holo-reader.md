@@ -88,20 +88,24 @@ need to remain playable. Instead, create a new lesson with its own stable ID,
 copy the intended completion effects, and keep the prior lesson intact until
 the revision is ready.
 
-The live holo-reader catalog hides lessons tagged `holo-hidden`. This lets
-authors keep a revision in `learning-main` without exposing it to players. To
-switch a lesson revision into the playable path, remove `holo-hidden` from the
-new lesson and add it to the previous lesson in the same authoring update. To
-switch back, reverse those tags. Story, world, inventory, and document entry
-points that open a specific lesson by ID must be updated in the same change
-when they are meant to target the new revision.
+Lesson revisions may be exposed side by side when comparison is useful. The
+live holo-reader catalog shows only lessons where `published` is not `false`.
+The Content Builder must let authors publish or unpublish a lesson without
+deleting it. This lets authors keep a revision in `learning-main` without
+exposing it to players, but it is not required for every revision. To switch a
+lesson revision into the playable path, publish the new lesson and unpublish the
+previous lesson in the same authoring update if the older lesson should leave
+the catalog. To switch back, reverse those published states. Story, world,
+inventory, and document entry points that open a specific lesson by ID must be
+updated in the same change when they are meant to target the new revision.
 
 For the hydro alpha rewrite, keep the original `hydro-power-intro` lesson
 unchanged while authoring the beginner rewrite as `hydro-power-intro-alpha`.
-Both versions should grant the same required hydro knowledge/progression
-effects unless the progression contract intentionally changes. Completion
-state remains per lesson ID, while character effects remain idempotent through
-the shared validated effect service.
+Both versions are available in the holo-reader catalog so players and authors
+can compare them. Both should grant the same required hydro
+knowledge/progression effects unless the progression contract intentionally
+changes. Completion state remains per lesson ID, while character effects remain
+idempotent through the shared validated effect service.
 
 Lesson UI state such as section position, selected answer, feedback state,
 expanded diagram, or paused media time is view state. It is not player progress
@@ -186,6 +190,7 @@ Supported MVP section types are:
 | `symbols` | Symbol, meaning, and units table |
 | `examples` | Worked example cards with givens, result, and explanation |
 | `diagram` | Ordered visual flow steps with optional explanatory body text |
+| `image` | Public image asset with required alt text and optional caption |
 
 The MVP quiz model is top-level `quiz` with retryable `multiple-choice`
 questions. Future section types may include `media`, `interaction`,

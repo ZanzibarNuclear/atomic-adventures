@@ -94,9 +94,16 @@ function submitAnswer(question) {
       <div v-if="section.formula" class="formula">
         <MathMarkdown :source="section.formula" />
       </div>
-      <div v-if="section.caption" class="caption">
+      <div v-if="section.caption && section.type !== 'image'" class="caption">
         <MathMarkdown :source="section.caption" />
       </div>
+
+      <figure v-if="section.type === 'image'" class="lesson-image">
+        <img :src="section.src" :alt="section.alt">
+        <figcaption v-if="section.caption">
+          <MathMarkdown :source="section.caption" />
+        </figcaption>
+      </figure>
 
       <table v-if="section.type === 'symbols'">
         <thead>
@@ -234,6 +241,24 @@ function submitAnswer(question) {
 }
 
 .caption {
+  color: #a9c7c3;
+}
+
+.lesson-image {
+  margin: 0;
+}
+
+.lesson-image img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border: 1px solid rgba(139, 216, 210, 0.24);
+  border-radius: 8px;
+}
+
+.lesson-image figcaption {
+  margin-top: 0.55rem;
   color: #a9c7c3;
 }
 

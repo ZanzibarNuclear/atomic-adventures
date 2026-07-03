@@ -45,10 +45,17 @@ describe("learning model", () => {
     const alphaLesson = result.learning.lessons.find((lesson) => lesson.id === "hydro-power-intro-alpha");
 
     expect(result.valid).toBe(true);
-    expect(alphaLesson.tags).toContain("holo-hidden");
+    expect(result.learning.lessons[0].published).toBe(true);
+    expect(alphaLesson.published).toBe(true);
     expect(alphaLesson.completion.effects).toEqual([
       { op: "knowledge.acquire", id: "hydro-head-and-flow" },
     ]);
+    expect(alphaLesson.sections.find((section) => section.type === "image")).toEqual(
+      expect.objectContaining({
+        src: "/learning/hydro/cascading-waterfall-head.png",
+        alt: expect.stringContaining("waterfall"),
+      }),
+    );
     expect(alphaLesson.sections.find((section) => section.type === "diagram")).toEqual(
       expect.objectContaining({
         title: "Picture The Water Path",

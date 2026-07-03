@@ -6,6 +6,7 @@ export const learningSeed = {
       title: "Hydro Power, Water You Waiting For?",
       summary: "Learn how flow, head, and efficiency determine hydroelectric power.",
       order: 10,
+      published: true,
       tags: ["hydro", "power", "water"],
       availableWhen: {
         flags: { all: ["hub.hydro_online"] },
@@ -133,7 +134,8 @@ export const learningSeed = {
       title: "Hydro Power From Stream To Socket",
       summary: "A beginner-friendly tour of how falling water spins a turbine and powers the station.",
       order: 11,
-      tags: ["hydro", "power", "water", "alpha-revision", "holo-hidden"],
+      published: true,
+      tags: ["hydro", "power", "water", "alpha-revision"],
       availableWhen: {
         flags: { all: ["hub.hydro_online"] },
       },
@@ -151,6 +153,20 @@ export const learningSeed = {
           type: "text",
           title: "The Big Picture",
           body: "Hydro power is electricity made from moving water. Imagine a stream pushing an old waterwheel. A hydro plant uses the same idea, but the wheel is a carefully shaped turbine and the spinning shaft turns a generator. The station's job is to guide water so gravity can do useful work.",
+        },
+        {
+          type: "image",
+          title: "Water Falling Downhill",
+          src: "/learning/hydro/cascading-waterfall-head.png",
+          alt: "A forest waterfall cascading through several drops from an upper pool to a lower stream.",
+          caption: "The waterfall is the plain-language version of head: water starts high, loses height, and gains motion as gravity pulls it downhill.",
+        },
+        {
+          type: "image",
+          title: "Stored Water Above, River Below",
+          src: "/learning/hydro/hydro-dam-reservoir-tailwater.png",
+          alt: "A concrete hydro dam with a high blue reservoir above it and a lower river channel below.",
+          caption: "A dam makes the height difference easy to see: lake water above the plant, tailwater below it.",
         },
         {
           type: "diagram",
@@ -181,9 +197,30 @@ export const learningSeed = {
           body: "The intake is the doorway for water. If its screen is blocked with debris, less water reaches the plant. The penstock is the pressure pipe that carries water downhill. If a valve is closed, the water cannot move. If the pipe leaks or traps air, some of the useful push is lost before the turbine.",
         },
         {
+          type: "image",
+          title: "Intake Screen",
+          src: "/learning/hydro/hydro-intake-trash-rack.png",
+          alt: "A concrete hydro intake with metal trash rack screens catching branches and leaves as water flows toward it.",
+          caption: "The intake is where water enters. The screen protects the plant, but debris on the screen reduces flow.",
+        },
+        {
+          type: "image",
+          title: "Valve Handwheel",
+          src: "/learning/hydro/hydro-valve-handwheel.png",
+          alt: "A large round red handwheel on an industrial valve attached to a blue-gray hydro plant pipe.",
+          caption: "A wheel valve can open or close the water path. If the path is closed, the turbine cannot spin.",
+        },
+        {
           type: "text",
           title: "Turbine And Generator",
           body: "The turbine is the waterwheel inside the plant. Water pushes its blades and spins a shaft. The generator is connected to that shaft. When the shaft turns inside the generator, the generator makes electrical power for lights, consoles, chargers, and other station systems.",
+        },
+        {
+          type: "image",
+          title: "Pressure Gauge",
+          src: "/learning/hydro/hydro-pressure-gauge-40psi.png",
+          alt: "A round analog pressure gauge mounted on pipework with the needle near forty PSI.",
+          caption: "A pressure gauge is one clue that the penstock is filled and pushing. This one reads around 40 PSI.",
         },
         {
           type: "formula",

@@ -22,6 +22,7 @@ const lesson = {
     { type: "symbols", title: "Three", rows: [{ symbol: "$Q$", meaning: "Flow", units: "$\\mathrm{m^3/s}$" }] },
     { type: "examples", title: "Four", examples: [{ title: "Example", givens: ["$Q=1$"], result: "$P=1$" }] },
     { type: "diagram", title: "Five", steps: ["Intake", "Penstock", "Turbine"] },
+    { type: "image", title: "Six", src: "/learning/hydro/hydro-intake-trash-rack.png", alt: "Hydro intake screen", caption: "Water enters here." },
   ],
   quiz: [{
     id: "same-power",
@@ -125,7 +126,7 @@ describe("LessonRenderer", () => {
     const wrapper = mountLesson();
 
     const links = wrapper.findAll(".section-nav a");
-    expect(links.map((link) => link.text())).toEqual(["One", "Two", "Three", "Four", "Five"]);
+    expect(links.map((link) => link.text())).toEqual(["One", "Two", "Three", "Four", "Five", "Six"]);
     expect(links[1].attributes("href")).toBe("#lesson-section-2");
   });
 
@@ -134,6 +135,15 @@ describe("LessonRenderer", () => {
 
     const steps = wrapper.findAll(".flow-diagram li");
     expect(steps.map((step) => step.text())).toEqual(["Intake", "Penstock", "Turbine"]);
+  });
+
+  it("renders image sections with accessible alt text and captions", () => {
+    const wrapper = mountLesson();
+
+    const image = wrapper.find(".lesson-image img");
+    expect(image.attributes("src")).toBe("/learning/hydro/hydro-intake-trash-rack.png");
+    expect(image.attributes("alt")).toBe("Hydro intake screen");
+    expect(wrapper.find(".lesson-image figcaption").text()).toContain("Water enters here.");
   });
 
   it("resets transient quiz state when the lesson attempt changes", async () => {

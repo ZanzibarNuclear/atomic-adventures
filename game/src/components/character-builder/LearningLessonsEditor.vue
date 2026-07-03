@@ -12,7 +12,7 @@ const availabilityModes = [
   { id: "any", label: "Any one" },
   { id: "not", label: "Blocked by" },
 ];
-const sectionTypes = ["text", "formula", "symbols", "examples", "diagram"];
+const sectionTypes = ["text", "formula", "symbols", "examples", "diagram", "image"];
 const effectOps = [
   "item.add",
   "stat.add",
@@ -74,6 +74,7 @@ function addLesson() {
     title: "New Lesson",
     summary: "",
     order: lessonsDraft.length * 10,
+    published: true,
     tags: [],
     availableWhen: { flags: { all: [] }, knowledge: { all: [] } },
     timeMinutes: 30,
@@ -201,6 +202,7 @@ function normalizeLearningDraft(learning) {
 }
 
 function ensureLessonShape(lesson) {
+  lesson.published = lesson.published !== false;
   lesson.tags ??= [];
   lesson.availableWhen ??= {};
   for (const { domain } of availabilityGroups) {
@@ -323,6 +325,10 @@ function uniqueId(base, entries) {
           <label>Title<input v-model="selectedLesson.title"></label>
           <label>Summary<input v-model="selectedLesson.summary"></label>
           <label>Order<input v-model.number="selectedLesson.order" type="number"></label>
+          <label class="check-field">
+            <input v-model="selectedLesson.published" type="checkbox">
+            Published in holo-reader
+          </label>
           <label>Time minutes<input v-model.number="selectedLesson.timeMinutes" type="number" min="0"></label>
           <label>Activity
             <select v-model="selectedLesson.activity">
@@ -411,6 +417,11 @@ function uniqueId(base, entries) {
             <label v-if="section.type === 'text'">Body<textarea v-model="section.body" rows="4"></textarea></label>
             <label v-if="section.type === 'formula'">Formula<textarea v-model="section.formula" rows="2"></textarea></label>
             <label v-if="section.type === 'formula'">Caption<textarea v-model="section.caption" rows="2"></textarea></label>
+            <div v-if="section.type === 'image'" class="field-grid">
+              <label>Image path<input v-model="section.src" placeholder="/learning/hydro/example.png"></label>
+              <label>Alt text<input v-model="section.alt"></label>
+              <label>Caption<textarea v-model="section.caption" rows="2"></textarea></label>
+            </div>
 
             <div v-if="section.type === 'diagram'" class="nested-list">
               <div class="section-heading">
