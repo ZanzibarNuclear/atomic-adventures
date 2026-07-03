@@ -247,9 +247,7 @@ function ensureLessonShape(lesson) {
 }
 
 function normalizeLessonPages(lesson) {
-  const pages = lesson.pages?.length ? lesson.pages : legacyPages(lesson);
-  delete lesson.sections;
-  delete lesson.quiz;
+  const pages = lesson.pages?.length ? lesson.pages : [{ id: "page-1", title: "", frames: [newFrame("content")] }];
   pages.forEach((page, pageIndex) => {
     page.id ||= `page-${pageIndex + 1}`;
     page.title ??= "";
@@ -265,33 +263,6 @@ function normalizeLessonPages(lesson) {
     });
   });
   return pages;
-}
-
-function legacyPages(lesson) {
-  const frames = (lesson.sections ?? []).map((section, index) => ({
-    id: `section-${index + 1}`,
-    kind: "content",
-    title: section.title ?? "",
-    blocks: [legacyBlock(section)],
-    questions: [],
-  }));
-  if (lesson.quiz?.length) {
-    frames.push({
-      id: "quiz",
-      kind: "quiz",
-      title: "Check Your Understanding",
-      blocks: [],
-      questions: lesson.quiz,
-    });
-  }
-  return [{ id: "page-1", title: "", frames }];
-}
-
-function legacyBlock(section) {
-  return {
-    ...section,
-    type: section.type === "text" ? "paragraph" : section.type,
-  };
 }
 
 function ensureBlockShape(block) {

@@ -16,23 +16,39 @@ const lesson = {
     awardTitle: "Hydro Power Theory",
     awardText: "Zanzibar understands hydro power.",
   },
-  sections: [
-    { type: "text", title: "One", body: "Opening" },
-    { type: "formula", title: "Two", formula: "$$P_\\text{elec} = \\eta\\,\\rho\\,g\\,Q\\,H_\\text{net}$$" },
-    { type: "symbols", title: "Three", rows: [{ symbol: "$Q$", meaning: "Flow", units: "$\\mathrm{m^3/s}$" }] },
-    { type: "examples", title: "Four", examples: [{ title: "Example", givens: ["$Q=1$"], result: "$P=1$" }] },
-    { type: "diagram", title: "Five", steps: ["Intake", "Penstock", "Turbine"] },
-    { type: "image", title: "Six", src: "/learning/hydro/hydro-intake-trash-rack.png", alt: "Hydro intake screen", caption: "Water enters here." },
-  ],
-  quiz: [{
-    id: "same-power",
-    type: "multiple-choice",
-    prompt: "Which setup produces more power?",
-    options: [
-      { id: "a-more", label: "A more", feedback: "A is not right." },
-      { id: "same", label: "Same", feedback: "Correct." },
+  pages: [{
+    id: "hydro-theory",
+    title: "Hydro Theory",
+    frames: [
+      {
+        id: "content",
+        kind: "content",
+        title: "One",
+        blocks: [
+          { type: "paragraph", body: "Opening" },
+          { type: "formula", formula: "$$P_\\text{elec} = \\eta\\,\\rho\\,g\\,Q\\,H_\\text{net}$$" },
+          { type: "symbols", rows: [{ symbol: "$Q$", meaning: "Flow", units: "$\\mathrm{m^3/s}$" }] },
+          { type: "examples", examples: [{ title: "Example", givens: ["$Q=1$"], result: "$P=1$" }] },
+          { type: "diagram", steps: ["Intake", "Penstock", "Turbine"] },
+          { type: "image", src: "/learning/hydro/hydro-intake-trash-rack.png", alt: "Hydro intake screen", caption: "Water enters here." },
+        ],
+      },
+      {
+        id: "quiz",
+        kind: "quiz",
+        title: "Check Your Understanding",
+        questions: [{
+          id: "same-power",
+          type: "multiple-choice",
+          prompt: "Which setup produces more power?",
+          options: [
+            { id: "a-more", label: "A more", feedback: "A is not right." },
+            { id: "same", label: "Same", feedback: "Correct." },
+          ],
+          correctOptionId: "same",
+        }],
+      },
     ],
-    correctOptionId: "same",
   }],
 };
 
@@ -124,19 +140,27 @@ describe("LessonRenderer", () => {
     const wrapper = mountLesson({
       lesson: {
         ...lesson,
-        quiz: [
-          ...lesson.quiz,
-          {
-            id: "second-check",
-            type: "multiple-choice",
-            prompt: "What reaches the turbine?",
-            options: [
-              { id: "water", label: "Water", feedback: "Correct." },
-              { id: "smoke", label: "Smoke", feedback: "Not for hydro." },
-            ],
-            correctOptionId: "water",
-          },
-        ],
+        pages: [{
+          ...lesson.pages[0],
+          frames: lesson.pages[0].frames.map((frame) => frame.kind === "quiz"
+            ? {
+                ...frame,
+                questions: [
+                  ...frame.questions,
+                  {
+                    id: "second-check",
+                    type: "multiple-choice",
+                    prompt: "What reaches the turbine?",
+                    options: [
+                      { id: "water", label: "Water", feedback: "Correct." },
+                      { id: "smoke", label: "Smoke", feedback: "Not for hydro." },
+                    ],
+                    correctOptionId: "water",
+                  },
+                ],
+              }
+            : frame),
+        }],
       },
     });
 
@@ -165,21 +189,20 @@ describe("LessonRenderer", () => {
     expect(wrapper.text()).toContain("Finish lesson");
   });
 
-  it("does not show a section table of contents", () => {
+  it("does not show a table of contents", () => {
     const wrapper = mountLesson();
 
-    expect(wrapper.find(".section-nav").exists()).toBe(false);
-    expect(wrapper.find("[id^='lesson-section-']").exists()).toBe(false);
+    expect(wrapper.find(".table-of-contents").exists()).toBe(false);
   });
 
-  it("renders diagram sections as ordered visual steps", () => {
+  it("renders diagram blocks as ordered visual steps", () => {
     const wrapper = mountLesson();
 
     const steps = wrapper.findAll(".flow-diagram li");
     expect(steps.map((step) => step.text())).toEqual(["Intake", "Penstock", "Turbine"]);
   });
 
-  it("renders image sections with accessible alt text and captions", () => {
+  it("renders image blocks with accessible alt text and captions", () => {
     const wrapper = mountLesson();
 
     const image = wrapper.find(".lesson-image img");

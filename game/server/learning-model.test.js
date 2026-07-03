@@ -25,10 +25,7 @@ describe("learning model", () => {
       "Water Above, Power Below",
       "From Water To Wires",
       "Head, Flow, And Losses",
-      "Net Head",
-      "Electrical Power",
-      "What the Symbols Mean",
-      "Quick Examples",
+      "Symbols And Examples",
       "Plant Styles",
     ]);
     expect(firstQuiz.questions[0]).toEqual(expect.objectContaining({

@@ -91,7 +91,7 @@ function nextPage() {
 }
 
 function lessonPages(lesson) {
-  if (lesson?.pages?.length) return lesson.pages.map((page, pageIndex) => ({
+  return (lesson?.pages ?? []).map((page, pageIndex) => ({
     id: page.id || `page-${pageIndex + 1}`,
     title: page.title ?? null,
     frames: (page.frames ?? []).map((frame, frameIndex) => ({
@@ -102,31 +102,6 @@ function lessonPages(lesson) {
       questions: frame.questions ?? [],
     })),
   }));
-
-  const frames = (lesson?.sections ?? []).map((section, sectionIndex) => ({
-    id: `section-${sectionIndex + 1}`,
-    kind: "content",
-    title: section.title ?? null,
-    blocks: [legacySectionBlock(section)],
-    questions: [],
-  }));
-  if (lesson?.quiz?.length) {
-    frames.push({
-      id: "quiz",
-      kind: "quiz",
-      title: "Check Your Understanding",
-      blocks: [],
-      questions: lesson.quiz,
-    });
-  }
-  return [{ id: "page-1", title: null, frames }];
-}
-
-function legacySectionBlock(section = {}) {
-  return {
-    ...section,
-    type: section.type === "text" ? "paragraph" : section.type,
-  };
 }
 </script>
 

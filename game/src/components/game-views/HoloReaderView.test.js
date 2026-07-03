@@ -9,8 +9,7 @@ const lesson = {
   title: "Hydro Power, Water You Waiting For?",
   summary: "Learn hydro power.",
   completion: { awardTitle: "Hydro Power Theory", awardText: "Done." },
-  sections: [],
-  quiz: [],
+  pages: [],
 };
 
 function mountReader(props = {}) {

@@ -87,25 +87,7 @@ function validateAvailability(value, path, add) {
 }
 
 function normalizePages(lesson = {}) {
-  const authoredPages = array(lesson.pages);
-  if (authoredPages.length) return authoredPages.map((page, pageIndex) => normalizePage(page, pageIndex));
-
-  const frames = array(lesson.sections).map((section, sectionIndex) => legacySectionToFrame(section, sectionIndex));
-  const quiz = array(lesson.quiz).map((question) => normalizeQuestion(question));
-  if (quiz.length) {
-    frames.push({
-      id: "quiz",
-      kind: "quiz",
-      title: "Check Your Understanding",
-      blocks: [],
-      questions: quiz,
-    });
-  }
-  return [{
-    id: "page-1",
-    title: null,
-    frames,
-  }];
+  return array(lesson.pages).map((page, pageIndex) => normalizePage(page, pageIndex));
 }
 
 function normalizePage(page = {}, pageIndex = 0) {
@@ -148,18 +130,6 @@ function normalizeBlock(block = {}) {
       result: text(example.result),
       explanation: nullableText(example.explanation),
     })),
-  };
-}
-
-function legacySectionToFrame(section = {}, sectionIndex = 0) {
-  const type = text(section.type) || "text";
-  const blockType = type === "text" ? "paragraph" : type;
-  return {
-    id: `section-${sectionIndex + 1}`,
-    kind: "content",
-    title: nullableText(section.title),
-    blocks: [normalizeBlock({ ...section, type: blockType })],
-    questions: [],
   };
 }
 

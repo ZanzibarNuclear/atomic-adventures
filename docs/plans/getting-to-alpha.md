@@ -95,27 +95,24 @@ electricity, and can connect that idea to the actions Zanzibar must perform.
 
 ### Wave 1 Addendum - Lesson Page/Frame Expansion
 
-The beginner hydro rewrite needs more structure than the current flat
-single-block section model. The holo-reader contract defines the target shape:
-lessons contain pages, pages contain framed learning objects, and frames contain
-ordered mixed content blocks such as paragraphs, images, diagrams, formulas, and
-quiz frames.
+The beginner hydro rewrite uses the holo-reader page/frame/block shape: lessons
+contain pages, pages contain framed learning objects, and frames contain ordered
+mixed content blocks such as paragraphs, images, diagrams, formulas, and quiz
+frames.
 
 Implementation sequence:
 
-- [x] Extend the learning model to normalize both `pages` and legacy `sections`.
-   Runtime content should prefer `pages` when present and mechanically wrap
-   legacy sections into pages/frames for display.
+- [x] Extend the learning model to normalize authored `pages`.
 - [x] Update `LessonRenderer` to render one page at a time, with Back/Next
    controls, page progress, and frames containing ordered blocks. Keep quiz
    completion behavior equivalent to the current all-required-checks model.
 - [x] Update the Content Builder so authors can add, remove, reorder, and preview
    pages, frames, blocks, and quiz frames. Builder editing should expose
    multiple paragraph blocks inside one frame.
-- [x] Migrate `hydro-power-intro-alpha` from many single-block sections into a
-   shorter multi-page lesson with a few mixed-content frames per page.
-- [ ] After authored learning content no longer uses legacy `sections`, remove the
-   compatibility path in a later cleanup.
+- [x] Migrate `hydro-power-intro-alpha` into a shorter multi-page lesson with a
+   few mixed-content frames per page.
+- [x] Upgrade the original hydro lesson to authored pages and remove the
+   compatibility path.
 
 ## Wave 2 - Laminated Instruction Card
 

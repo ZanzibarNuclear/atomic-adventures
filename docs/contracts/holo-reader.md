@@ -185,10 +185,9 @@ lessons:
                 correctOptionId: same
 ```
 
-The current runtime still supports the earlier flat `sections` plus top-level
-`quiz` shape. That shape is a compatibility path only. New lesson authoring
-should move to `pages`, where each page contains one or more framed learning
-objects, and each frame contains mixed content blocks or quiz questions.
+Lesson authoring uses `pages`, where each page contains one or more framed
+learning objects, and each frame contains mixed content blocks or quiz
+questions.
 
 ## Pages, Frames, And Blocks
 
@@ -197,8 +196,7 @@ through it with Next/Back controls rather than one long table-of-contents list.
 Pages should be small enough to feel readable in one sitting, and may contain
 one or more related frames.
 
-A frame is the visible bordered unit on a page. Frames replace the old idea
-that each section is exactly one content type. A frame may combine paragraphs,
+A frame is the visible bordered unit on a page. A frame may combine paragraphs,
 images, diagrams, formulas, symbol tables, examples, videos, interactions, and
 other supported blocks in authored order. This lets one concept live in one
 visual container while still mixing prose and media naturally.
@@ -226,21 +224,6 @@ Future assessment, simulation, media, and interaction blocks should reference
 registered assets, registered interaction IDs, or host-validated simulation
 outcomes, not arbitrary component names or script content.
 
-### Migration From Flat Sections
-
-The old `sections` model maps mechanically to the new model:
-
-- each old section can become one frame;
-- old `text.body` becomes one `paragraph` block, or several paragraph blocks
-  when the author splits the prose;
-- old `image`, `formula`, `symbols`, `examples`, and `diagram` sections become
-  frames with one block of the same type;
-- the old top-level `quiz` becomes a final quiz frame, unless the author moves
-  questions closer to the content they assess.
-
-No player progress should be lost during this migration. Lesson completion
-state remains keyed by lesson ID, not by page, frame, or block IDs.
-
 ## Simulator Extraction and Reuse
 
 Existing educational material may be adapted from sibling projects, beginning
@@ -259,7 +242,7 @@ Atomic Adventures should extract simulator material in layers:
 
 | Layer | Example from `welcome` | Atomic Adventures use |
 | --- | --- | --- |
-| Concept text | `content/simulators/hydro-power.md` | Rewrite into in-world lesson sections |
+| Concept text | `content/simulators/hydro-power.md` | Rewrite into in-world lesson frames |
 | Static assets | `public/images/simulators/*.svg`, covers | Copy or recreate as registered lesson assets with captions |
 | Physics kernels | `utils/fluidMechanics.ts` | Port into local registered simulation/assessment helpers |
 | Presets | Hydro plant styles/sites; pipe diameter/length examples | Convert into lesson scenarios and assessment inputs |
@@ -518,7 +501,7 @@ completion.
 
 1. Add `learning-main` persistence, validation, API, import/export, revisions,
    production JSON export, and live-update support.
-2. Add Content Builder lesson catalog editing, section/block editing,
+2. Add Content Builder lesson catalog editing, page/frame/block editing,
    assessment editing, requirements, completion effects, validation, preview,
    and cross-content reference search.
 3. Register a `lesson` game-view renderer that replaces the whole game area
