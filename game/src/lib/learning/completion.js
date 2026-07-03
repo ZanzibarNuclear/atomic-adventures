@@ -12,8 +12,6 @@ export function completeLesson(gameState, lesson, { now = () => new Date().toISO
   }
   const result = commitGameActivity(gameState, {
     effects: lesson.completion?.effects ?? [],
-    timeMinutes: lesson.timeMinutes ?? 30,
-    activity: lesson.activity ?? "light",
     now,
   });
   if (!result.ok) return result;

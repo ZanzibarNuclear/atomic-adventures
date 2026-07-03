@@ -77,8 +77,6 @@ function addLesson() {
     published: true,
     tags: [],
     availableWhen: { flags: { all: [] }, knowledge: { all: [] } },
-    timeMinutes: 30,
-    activity: "light",
     completion: { awardTitle: "Lesson complete", awardText: "", effects: [] },
     sections: [{ type: "text", title: "Opening", body: "" }],
     quiz: [{
@@ -328,15 +326,6 @@ function uniqueId(base, entries) {
           <label class="check-field">
             <input v-model="selectedLesson.published" type="checkbox">
             Published in holo-reader
-          </label>
-          <label>Time minutes<input v-model.number="selectedLesson.timeMinutes" type="number" min="0"></label>
-          <label>Activity
-            <select v-model="selectedLesson.activity">
-              <option>resting</option>
-              <option>light</option>
-              <option>moderate</option>
-              <option>strenuous</option>
-            </select>
           </label>
           <label>Tags
             <input

@@ -8,7 +8,6 @@ const lesson = {
   id: "hydro-power-intro",
   title: "Hydro Power, Water You Waiting For?",
   summary: "Learn hydro power.",
-  timeMinutes: 30,
   completion: { awardTitle: "Hydro Power Theory", awardText: "Done." },
   sections: [],
   quiz: [],

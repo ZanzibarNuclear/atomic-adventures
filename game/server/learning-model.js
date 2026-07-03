@@ -2,7 +2,6 @@ import { validateCharacterEffects } from "./character-reference-validation.js";
 
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const FLAG_PATTERN = /^[a-z0-9_]+(?:[.-][a-z0-9_]+)*$/;
-const ACTIVITIES = new Set(["resting", "light", "moderate", "strenuous"]);
 const SECTION_TYPES = new Set(["text", "formula", "symbols", "examples", "diagram", "image"]);
 const QUESTION_TYPES = new Set(["multiple-choice"]);
 
@@ -18,8 +17,6 @@ export function normalizeLearningDocument(input = {}) {
       published: lesson.published !== false,
       tags: stringList(lesson.tags),
       availableWhen: normalizeAvailability(lesson.availableWhen),
-      timeMinutes: finiteNumber(lesson.timeMinutes, 30),
-      activity: text(lesson.activity) || "light",
       completion: {
         awardTitle: nullableText(lesson.completion?.awardTitle),
         awardText: nullableText(lesson.completion?.awardText),
@@ -41,8 +38,6 @@ export function validateLearningDocument(input, { character = null } = {}) {
   learning.lessons.forEach((lesson, lessonIndex) => {
     const base = `lessons.${lessonIndex}`;
     if (!lesson.title) add(`${base}.title`, "Lesson title is required.");
-    if (lesson.timeMinutes < 0) add(`${base}.timeMinutes`, "Lesson time cannot be negative.");
-    if (!ACTIVITIES.has(lesson.activity)) add(`${base}.activity`, "Choose a supported activity profile.");
     validateAvailability(lesson.availableWhen, `${base}.availableWhen`, add);
     if (!lesson.sections.length) add(`${base}.sections`, "Add at least one lesson section.");
     lesson.sections.forEach((section, sectionIndex) => {

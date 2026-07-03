@@ -46,7 +46,6 @@ const completed = computed(() =>
           <small>{{ lesson.summary }}</small>
         </span>
         <span class="lesson-meta">
-          {{ lesson.timeMinutes ?? 30 }} min
           <span v-if="lessonCompleted(gameState, lesson.id)">Completed</span>
         </span>
       </button>

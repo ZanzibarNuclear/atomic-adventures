@@ -44,7 +44,6 @@ describe("authored learning progression", () => {
     expect(result.ok).toBe(true);
     expect(character.knowledge["hydro-head-and-flow"].acquiredAt).toBe("lesson-passed");
     expect(gameState.lessons["hydro-power-intro"].completedAt).toBe("lesson-passed");
-    expect(gameState.clock.elapsedMinutes).toBe(30);
 
     indoor.currentRoom = "control-room";
     for (let day = 0; day < 3; day += 1) {
@@ -68,7 +67,7 @@ describe("authored learning progression", () => {
       .toBe("Qualified hydro operator");
   });
 
-  it("does not charge time or reapply effects when a completed lesson is replayed", () => {
+  it("does not reapply effects when a completed lesson is replayed", () => {
     const character = createCharacterState(characterDefinitions);
     const gameState = {
       character,
@@ -83,7 +82,6 @@ describe("authored learning progression", () => {
 
     expect(gameState.lessons["hydro-power-intro"].completedAt).toBe("first");
     expect(character.knowledge["hydro-head-and-flow"].acquiredAt).toBe("first");
-    expect(gameState.clock.elapsedMinutes).toBe(30);
   });
 
   it("tracks the authored hydro startup quest through automatic completion", () => {

@@ -138,8 +138,6 @@ lessons:
         all: []
         any: []
         not: []
-    timeMinutes: 30
-    activity: light
     completion:
       awardTitle: Hydro Power Theory
       awardText: Zanzibar understands how head, flow, and efficiency combine.
@@ -298,10 +296,10 @@ fictional competence. Zanzibar can still narrate or react to the result, but
 lesson completion credit should be tied to a real player answer or practice
 outcome.
 
-Completing a lesson advances game time by the lesson's authored `timeMinutes`.
-When no lesson-specific time is authored, the default duration is 30
-in-game minutes. Replaying an already completed lesson does not duplicate
-one-time rewards or repeatedly spend completion time.
+Lesson duration is an editorial scoping device only. Lesson content does not
+persist or enforce duration, does not advance game time on completion, and does
+not show a duration to players. Replaying an already completed lesson does not
+duplicate one-time rewards.
 
 ## Builder Contract
 

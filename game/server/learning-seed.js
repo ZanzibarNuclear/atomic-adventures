@@ -11,8 +11,6 @@ export const learningSeed = {
       availableWhen: {
         flags: { all: ["hub.hydro_online"] },
       },
-      timeMinutes: 30,
-      activity: "light",
       completion: {
         awardTitle: "Hydro Power Theory",
         awardText: "Zanzibar understands how head, flow, and efficiency combine to make electrical power.",
@@ -139,8 +137,6 @@ export const learningSeed = {
       availableWhen: {
         flags: { all: ["hub.hydro_online"] },
       },
-      timeMinutes: 30,
-      activity: "light",
       completion: {
         awardTitle: "Hydro Power Theory",
         awardText: "Zanzibar can trace the path from stored water to spinning turbine to useful electricity.",
