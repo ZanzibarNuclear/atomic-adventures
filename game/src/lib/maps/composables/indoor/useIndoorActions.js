@@ -45,8 +45,10 @@ export function createIndoorActions({
 
   function performAction(actionId) {
     const action = (building.value.actions ?? []).find((a) => a.id === actionId);
-    if (!action) return;
-    if (!availableActions.value.some((a) => a.id === actionId)) return;
+    if (!action) return { ok: false, error: "Unknown indoor action." };
+    if (!availableActions.value.some((a) => a.id === actionId)) {
+      return { ok: false, error: "Indoor action is not available." };
+    }
 
     if (character) {
       const effects = [
@@ -58,19 +60,24 @@ export function createIndoorActions({
         character,
         flags: indoor.flags,
       });
-      if (!result.ok) return;
+      if (!result.ok) return result;
     } else {
       setFlags(indoor.flags, action.sets);
       setFlags(indoor.flags, action.set_flags);
     }
     if (gameState && Number(action.timeMinutes) > 0) {
-      advanceGameTime(gameState, Number(action.timeMinutes), action.activity ?? "light");
+      const timeResult = advanceGameTime(gameState, Number(action.timeMinutes), action.activity ?? "light");
+      if (!timeResult.ok) return timeResult;
     }
     applyHydroStartupAction(gameState, action.id);
     if (action.powerOn) setHydroOnline(true);
     if (action.once !== false) {
       indoor.completedActions.add(actionId);
     }
+    return {
+      ok: true,
+      view: action.view && typeof action.view === "object" ? { ...action.view } : null,
+    };
   }
 
   function resetActions() {

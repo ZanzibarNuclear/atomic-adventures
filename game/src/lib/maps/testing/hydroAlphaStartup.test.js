@@ -4,6 +4,10 @@ import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
 import { ref } from "vue";
 import { createGameState, applySnapshot, captureSnapshot } from "../../../composables/useGameState.js";
+import {
+  buildIndoorPlayActions,
+  handleIndoorPlayAction,
+} from "../../../composables/usePlayPanel.js";
 import { useIndoorBuilding } from "../composables/useIndoorBuilding.js";
 import { useOutdoorWorld } from "../composables/useOutdoorWorld.js";
 import { getDoorState } from "../composables/useDoors.js";
@@ -47,7 +51,27 @@ describe("hydro alpha startup path", () => {
     expect(rollDoorBefore.locked).toBe(true);
 
     setIndoorLocation(indoor, { room: "control-room" });
-    indoor.performAction("read-micro-hydro-ops");
+    indoor.indoor.currentStand = "console";
+    const cardActions = buildIndoorPlayActions(indoor);
+    expect(cardActions.map((action) => action.id)).toContain("action:read-hydro-startup-card");
+    expect(cardActions.map((action) => action.id)).not.toContain("action:read-micro-hydro-ops");
+    expect(cardActions.map((action) => action.label)).toContain("Read the laminated startup card");
+    expect(cardActions.map((action) => action.label).join(" ")).not.toContain("Micro-hydro Operations");
+
+    const cardResult = handleIndoorPlayAction(indoor, "action:read-hydro-startup-card");
+    expect(cardResult).toMatchObject({
+      ok: true,
+      view: {
+        kind: "document",
+        id: "hydro-startup-instruction-card",
+        documentType: "hydro-startup-card",
+      },
+    });
+    expect(gameState.flags.has("hydro.startup_card_read")).toBe(true);
+    expect(gameState.flags.has("hydro.outdoor-actions")).toBe(true);
+    expect(gameState.flags.has("hydro.discovered")).toBe(true);
+    expect(gameState.character.documents["hydro-startup-instruction-card"].readAt).toBeTruthy();
+
     setIndoorLocation(indoor, { exteriorNode: "upstream-bank" });
     indoor.performAction("clear-intake-debris");
     setIndoorLocation(indoor, { exteriorNode: "midstream-bank" });
@@ -77,10 +101,10 @@ describe("hydro alpha startup path", () => {
       "Hydro generator startup completed",
     ]);
     expect(gameState.facilities.hydro.eventLog.map((event) => event.elapsedMinutes)).toEqual([
+      45,
       75,
-      105,
-      125,
-      140,
+      95,
+      110,
     ]);
 
     const consoleView = mount(HydroConsoleView, {

@@ -441,6 +441,7 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       :audit-enabled="movementAuditVisible"
       :extra-actions="focusedConsoleActions"
       @extra-action="handleHoloReaderAction"
+      @stage-view="openStageView"
       @hide-movement-audit="movementAuditVisible = false" />
 
     <InventoryStageView

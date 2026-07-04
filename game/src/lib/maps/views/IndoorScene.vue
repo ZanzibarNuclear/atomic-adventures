@@ -58,7 +58,7 @@ const props = defineProps({
   extraActions: { type: Array, default: () => [] },
 });
 
-const emit = defineEmits(["hide-movement-audit", "extra-action"]);
+const emit = defineEmits(["hide-movement-audit", "extra-action", "stage-view"]);
 const devMode = import.meta.env.DEV;
 
 const locationTitle = computed(() => {
@@ -99,7 +99,8 @@ function onAction(id) {
     );
     return;
   }
-  handleIndoorPlayAction(props.indoor, id);
+  const result = handleIndoorPlayAction(props.indoor, id);
+  if (result?.view) emit("stage-view", result.view);
 }
 
 const mapStageProps = computed(() => ({

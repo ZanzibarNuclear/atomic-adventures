@@ -496,8 +496,7 @@ export function handleIndoorPlayAction(indoor, actionId) {
     return;
   }
   if (actionId.startsWith("action:")) {
-    indoor.performAction(actionId.slice("action:".length));
-    return;
+    return indoor.performAction(actionId.slice("action:".length));
   }
   if (actionId.startsWith("door-break:")) {
     indoor.tryBreakLock(actionId.slice("door-break:".length));

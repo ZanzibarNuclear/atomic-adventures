@@ -30,6 +30,7 @@ function state() {
         timeMinutes: 0,
         effects: [
           { op: "flag.set", id: "hydro.startup_card_read" },
+          { op: "flag.set", id: "hydro.discovered" },
           { op: "document.mark-read", id: "startup-card" },
         ],
         view: {
@@ -87,6 +88,7 @@ describe("item actions", () => {
       },
     });
     expect(gameState.flags.has("hydro.startup_card_read")).toBe(true);
+    expect(gameState.flags.has("hydro.discovered")).toBe(true);
     expect(gameState.character.documents["startup-card"].readAt).toBeTruthy();
     expect(gameState.clock.elapsedMinutes).toBe(0);
   });

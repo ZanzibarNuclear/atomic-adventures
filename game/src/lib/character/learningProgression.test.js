@@ -89,6 +89,7 @@ describe("authored learning progression", () => {
     const flags = new Set();
     const indoor = reactive({
       currentRoom: "control-room",
+      currentStand: "console",
       exteriorNode: null,
       completedActions: new Set(),
       flags,
@@ -109,7 +110,11 @@ describe("authored learning progression", () => {
       gameState,
     });
 
-    actions.performAction("read-micro-hydro-ops");
+    const cardResult = actions.performAction("read-hydro-startup-card");
+    expect(cardResult.view).toMatchObject({
+      kind: "document",
+      id: "hydro-startup-instruction-card",
+    });
     expect(character.quests["restore-hydro"].status).toBe("active");
 
     indoor.currentRoom = null;
