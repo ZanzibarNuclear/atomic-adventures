@@ -144,18 +144,18 @@ player.
 The current console proves the technical loop, but alpha should reduce the
 display to the few signals a beginner can act on.
 
-- [ ] Review the current console layout after hands-on play.
-- [ ] Identify which readouts are required for alpha and which should move to
+- [x] Review the current console layout after hands-on play.
+- [x] Identify which readouts are required for alpha and which should move to
       an advanced/details view.
-- [ ] Keep a clear system status area: - station power online/offline; - intake ready/not ready; - valves ready/not ready; - generator online/offline; - next recommended action.
-- [ ] Keep three core telemetry readings visible: - pressure; - turbine speed; - power output.
-- [ ] Decide whether flow and net head stay visible in alpha or become
+- [x] Keep a clear system status area: - station power online/offline; - intake ready/not ready; - valves ready/not ready; - generator online/offline; - next recommended action.
+- [x] Keep three core telemetry readings visible: - pressure; - turbine speed; - power output.
+- [x] Decide whether flow and net head stay visible in alpha or become
       expandable details.
-- [ ] Reduce graph count if the console feels busy.
-- [ ] Keep diagnostics in plain language.
-- [ ] Keep historical report/event markers available, but make them secondary
-      if they distract from startup.
-- [ ] Test online/offline, missing prerequisites, warning/fault cases, return
+- [x] Reduce graph count if the console feels busy.
+- [x] Keep diagnostics in plain language.
+- [x] Keep historical event markers on the live graphs, and move the separate
+      report/event-list panels out of the alpha console.
+- [x] Test online/offline, missing prerequisites, warning/fault cases, return
       to map, and save/load while the console is open or recently closed.
 
 **Exit criterion:** The console answers three beginner questions quickly:

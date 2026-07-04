@@ -1,9 +1,13 @@
 <script setup>
 defineProps({
+  diagnostics: { type: Array, required: true },
   fieldChecks: { type: Array, required: true },
+  guidedActions: { type: Array, required: true },
   statusLabel: { type: String, required: true },
   telemetry: { type: Object, required: true },
 });
+
+defineEmits(["return-to-map"]);
 </script>
 
 <template>
@@ -28,5 +32,25 @@ defineProps({
         {{ check.label }}
       </span>
     </div>
+    <section class="console-guidance" aria-label="Console guidance">
+      <div>
+        <h2>Diagnostics</h2>
+        <p v-if="!diagnostics.length" class="quiet">No warnings or faults.</p>
+        <ul v-else>
+          <li v-for="item in diagnostics" :key="`${item.kind}:${item.id}`">
+            <strong>{{ item.kind }}</strong>
+            <span>{{ item.label }}</span>
+          </li>
+        </ul>
+      </div>
+      <div v-if="guidedActions.length" class="guided-actions">
+        <h2>Next action</h2>
+        <div v-for="action in guidedActions" :key="action.id" class="guided-action">
+          <strong>{{ action.title }}</strong>
+          <span>{{ action.body }}</span>
+          <button type="button" @click="$emit('return-to-map')">Return to map</button>
+        </div>
+      </div>
+    </section>
   </div>
 </template>

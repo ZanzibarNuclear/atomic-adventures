@@ -1,11 +1,8 @@
 <script setup>
 import { computed } from "vue";
 import { useHydroConsoleMonitor } from "../../composables/useHydroConsoleMonitor.js";
-import HydroDiagnosticsPanel from "./hydro-console/HydroDiagnosticsPanel.vue";
-import HydroEventHistory from "./hydro-console/HydroEventHistory.vue";
 import HydroGraphsPanel from "./hydro-console/HydroGraphsPanel.vue";
 import HydroReadoutPanel from "./hydro-console/HydroReadoutPanel.vue";
-import HydroReportPanel from "./hydro-console/HydroReportPanel.vue";
 import HydroSchematicPanel from "./hydro-console/HydroSchematicPanel.vue";
 
 const PANEL_ID = "hydro-control-room-panel";
@@ -22,12 +19,8 @@ const validPanel = computed(() => panelId.value === PANEL_ID);
 
 const {
   diagnostics,
-  eventLog,
-  eventMarkers,
   fieldChecks,
-  flowHeadGraph,
   guidedActions,
-  lastReport,
   latestSample,
   markerLines,
   powerGraph,
@@ -57,30 +50,22 @@ const {
     <template v-else>
       <section class="console-grid">
         <HydroSchematicPanel
+          :diagnostics="diagnostics"
           :field-checks="fieldChecks"
+          :guided-actions="guidedActions"
           :status-label="statusLabel"
-          :telemetry="telemetry" />
+          :telemetry="telemetry"
+          @return-to-map="$emit('return-to-map')" />
 
         <HydroReadoutPanel :readouts="readouts" />
 
-        <HydroDiagnosticsPanel
-          :diagnostics="diagnostics"
-          :guided-actions="guidedActions"
-          @return-to-map="$emit('return-to-map')" />
-
         <HydroGraphsPanel
-          :event-markers="eventMarkers"
-          :flow-head-graph="flowHeadGraph"
           :latest-sample="latestSample"
           :marker-lines="markerLines"
           :power-graph="powerGraph"
           :pressure-speed-graph="pressureSpeedGraph"
           :sample-time-label="sampleTimeLabel"
           :telemetry="telemetry" />
-
-        <HydroReportPanel :report="lastReport" />
-
-        <HydroEventHistory :events="eventLog" />
       </section>
     </template>
   </section>
@@ -146,10 +131,7 @@ const {
 
 .hydro-console-view .schematic-panel,
 .hydro-console-view .readout-panel,
-.hydro-console-view .diagnostics-panel,
 .hydro-console-view .graphs-panel,
-.hydro-console-view .report-panel,
-.hydro-console-view .history-panel,
 .hydro-console-view .console-error {
   border: 1px solid rgba(141, 214, 203, 0.28);
   border-radius: 8px;
@@ -158,10 +140,7 @@ const {
 }
 
 .hydro-console-view .schematic-panel,
-.hydro-console-view .diagnostics-panel,
 .hydro-console-view .graphs-panel,
-.hydro-console-view .report-panel,
-.hydro-console-view .history-panel,
 .hydro-console-view .console-error {
   padding: 1rem;
 }
@@ -229,7 +208,7 @@ const {
 
 .hydro-console-view .readout-panel {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   overflow: hidden;
 }
 
@@ -253,10 +232,8 @@ const {
   color: #f4f7ef;
 }
 
-.hydro-console-view .diagnostics-panel h2,
 .hydro-console-view .graphs-panel h2,
-.hydro-console-view .report-panel h2,
-.hydro-console-view .history-panel h2 {
+.hydro-console-view .schematic-panel h2 {
   margin: 0 0 0.7rem;
   font-size: 1rem;
 }
@@ -264,9 +241,6 @@ const {
 .hydro-console-view .guided-actions {
   display: grid;
   gap: 0.65rem;
-  margin-top: 0.9rem;
-  padding-top: 0.8rem;
-  border-top: 1px solid rgba(141, 214, 203, 0.18);
 }
 
 .hydro-console-view .guided-actions h3 {
@@ -294,6 +268,15 @@ const {
   grid-column: 1 / -1;
 }
 
+.hydro-console-view .console-guidance {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 0.75fr);
+  gap: 0.9rem;
+  margin-top: 0.9rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(141, 214, 203, 0.18);
+}
+
 .hydro-console-view .graphs-header,
 .hydro-console-view .graph-labels,
 .hydro-console-view .legend {
@@ -311,7 +294,7 @@ const {
 
 .hydro-console-view .graph-stack {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
 }
 
@@ -360,52 +343,6 @@ const {
   stroke-width: 1;
   stroke-dasharray: 2 2;
   vector-effect: non-scaling-stroke;
-}
-
-.hydro-console-view .event-markers {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  margin-top: 0.8rem;
-  color: #abc7c0;
-}
-
-.hydro-console-view .event-markers h3 {
-  width: 100%;
-  margin: 0 0 0.1rem;
-  color: #e7f4ee;
-  font-size: 0.92rem;
-}
-
-.hydro-console-view .event-markers span {
-  border: 1px solid rgba(141, 214, 203, 0.22);
-  border-radius: 999px;
-  padding: 0.28rem 0.45rem;
-  background: rgba(7, 16, 19, 0.52);
-  font-size: 0.82rem;
-}
-
-.hydro-console-view .report-panel dl {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin: 0;
-}
-
-.hydro-console-view .report-panel div {
-  display: grid;
-  gap: 0.2rem;
-}
-
-.hydro-console-view .report-panel dt {
-  color: #abc7c0;
-  font-size: 0.82rem;
-}
-
-.hydro-console-view .report-panel dd {
-  margin: 0;
-  color: #f4f7ef;
-  font-weight: 700;
 }
 
 .hydro-console-view .legend {
@@ -457,6 +394,7 @@ const {
   }
 
   .hydro-console-view .console-grid,
+  .hydro-console-view .console-guidance,
   .hydro-console-view .readout-panel,
   .hydro-console-view .graph-stack {
     grid-template-columns: 1fr;

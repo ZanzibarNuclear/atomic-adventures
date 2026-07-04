@@ -45,7 +45,13 @@ describe("HydroConsoleView", () => {
     expect(wrapper.text()).toContain("Generator console");
     expect(wrapper.text()).toContain("Online");
     expect(wrapper.text()).toContain("Output");
+    expect(wrapper.text()).toContain("Pressure");
+    expect(wrapper.text()).toContain("Turbine");
     expect(wrapper.text()).toContain("1.000 kW");
+    expect(wrapper.text()).not.toContain("Flow");
+    expect(wrapper.text()).not.toContain("Net head");
+    expect(wrapper.text()).not.toContain("Last report");
+    expect(wrapper.text()).not.toContain("Recent events");
     wrapper.unmount();
   });
 
@@ -103,7 +109,7 @@ describe("HydroConsoleView", () => {
 
     expect(wrapper.text()).toContain("Live monitor");
     expect(wrapper.text()).toContain("240 min");
-    expect(wrapper.findAll("polyline")).toHaveLength(5);
+    expect(wrapper.findAll("polyline")).toHaveLength(3);
 
     await vi.advanceTimersByTimeAsync(2000);
     await nextTick();
@@ -114,7 +120,7 @@ describe("HydroConsoleView", () => {
     wrapper.unmount();
   });
 
-  it("reopens with generated history, event markers, and a last report", async () => {
+  it("reopens with generated history as graph marker lines without report clutter", async () => {
     const state = gameState({
       lastCheckpointElapsedMinutes: 20,
       eventLog: [
@@ -180,12 +186,11 @@ describe("HydroConsoleView", () => {
     });
     await nextTick();
 
-    expect(wrapper.text()).toContain("Event markers");
-    expect(wrapper.text()).toContain("Hydro generator startup completed");
-    expect(wrapper.text()).toContain("Last report");
-    expect(wrapper.text()).toContain("Generated energy");
     expect(wrapper.findAll(".event-marker-line").length).toBeGreaterThan(0);
     expect(wrapper.find("polyline").attributes("points")?.split(" ").length).toBeGreaterThan(1);
+    expect(wrapper.text()).not.toContain("Last report");
+    expect(wrapper.text()).not.toContain("Recent events");
+    expect(wrapper.text()).not.toContain("Generated energy");
     wrapper.unmount();
   });
 
@@ -219,7 +224,7 @@ describe("HydroConsoleView", () => {
       },
     });
 
-    expect(wrapper.text()).toContain("Next field action");
+    expect(wrapper.text()).toContain("Next action");
     expect(wrapper.text()).toContain("Return to the upstream bank");
     expect(wrapper.text()).toContain("Use the ordinary field action to clear debris from the intake.");
 

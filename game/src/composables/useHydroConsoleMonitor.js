@@ -1,6 +1,5 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useHydroFacility } from "./useHydroFacility.js";
-import { summarizeHydroSamples } from "../lib/simulations/hydro/index.js";
 
 const MONITOR_SAMPLE_MS = 1000;
 const MONITOR_MINUTES_PER_SAMPLE = 1;
@@ -68,7 +67,6 @@ export function useHydroConsoleMonitor(gameState, validPanel) {
 
   const latestSample = computed(() => sampleBuffer.value.at(-1) ?? null);
   const telemetry = computed(() => latestSample.value?.telemetry ?? hydroFacility.telemetry.value);
-  const eventLog = computed(() => hydroState.value.eventLog.slice(-6).reverse());
   const statusLabel = computed(() => statusLabels[telemetry.value.status] ?? telemetry.value.status);
   const diagnostics = computed(() => [
     ...telemetry.value.faults.map((id) => diagnosticLine(id, "Fault")),
@@ -78,7 +76,6 @@ export function useHydroConsoleMonitor(gameState, validPanel) {
   const guidedActions = computed(() => nextGuidedActions(hydroState.value));
   const readouts = computed(() => buildReadouts(telemetry.value));
   const fieldChecks = computed(() => buildFieldChecks(hydroState.value));
-  const lastReport = computed(() => summarizeHydroSamples(sampleBuffer.value, eventMarkers.value));
   const markerLines = computed(() => markerPositions(sampleBuffer.value, eventMarkers.value));
   const powerGraph = computed(() => graphSeries(sampleBuffer.value, [
     { id: "power", label: "Power output", color: "#88d68d", metric: "generatorOutputKw", max: 1 },
@@ -86,10 +83,6 @@ export function useHydroConsoleMonitor(gameState, validPanel) {
   const pressureSpeedGraph = computed(() => graphSeries(sampleBuffer.value, [
     { id: "pressure", label: "Pressure", color: "#66b8e6", metric: "penstockPressureKpa", max: 180 },
     { id: "speed", label: "Turbine speed", color: "#ffd36f", metric: "turbineSpeedRpm", max: 1000 },
-  ]));
-  const flowHeadGraph = computed(() => graphSeries(sampleBuffer.value, [
-    { id: "flow", label: "Flow", color: "#9be4d4", metric: "flowM3s", max: 0.014 },
-    { id: "head", label: "Net head", color: "#d8b7ff", metric: "netHeadM", max: 18 },
   ]));
 
   function addMonitorSample() {
@@ -125,12 +118,8 @@ export function useHydroConsoleMonitor(gameState, validPanel) {
 
   return {
     diagnostics,
-    eventLog,
-    eventMarkers,
     fieldChecks,
-    flowHeadGraph,
     guidedActions,
-    lastReport,
     latestSample,
     markerLines,
     powerGraph,
@@ -147,8 +136,6 @@ function buildReadouts(telemetry) {
     { id: "output", label: "Output", value: `${telemetry.generatorOutputKw.toFixed(3)} kW` },
     { id: "pressure", label: "Pressure", value: `${telemetry.penstockPressureKpa.toFixed(1)} kPa` },
     { id: "speed", label: "Turbine", value: `${telemetry.turbineSpeedRpm} rpm` },
-    { id: "flow", label: "Flow", value: `${telemetry.flowM3s.toFixed(3)} m3/s` },
-    { id: "head", label: "Net head", value: `${telemetry.netHeadM.toFixed(2)} m` },
   ];
 }
 

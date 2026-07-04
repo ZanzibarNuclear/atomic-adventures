@@ -165,7 +165,7 @@ describe("hydro alpha startup path", () => {
     });
     expect(consoleView.text()).toContain("Online");
     expect(consoleView.text()).toContain("1.000 kW");
-    expect(consoleView.text()).not.toContain("Next field action");
+    expect(consoleView.text()).not.toContain("Next action");
     consoleView.unmount();
 
     const snapshot = captureSnapshot({ gameState, place, outdoor, indoor });
