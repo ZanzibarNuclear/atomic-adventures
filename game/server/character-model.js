@@ -8,6 +8,16 @@ const STAT_DIRECTIONS = new Set(["higher-is-better"]);
 const STAT_TONES = new Set(["positive", "warning", "error"]);
 const SKILL_MODES = new Set(["acquired", "ranked"]);
 const ACTIVITIES = new Set(["resting", "light", "moderate", "strenuous"]);
+const STAGE_VIEW_KINDS = new Set([
+  "inventory",
+  "character-stats",
+  "character",
+  "closeup",
+  "lesson",
+  "document",
+  "console",
+  "simulation",
+]);
 
 export function normalizeCharacterDocument(input = {}) {
   const source = input && typeof input === "object" ? structuredClone(input) : {};
@@ -65,6 +75,9 @@ export function normalizeCharacterDocument(input = {}) {
         timeMinutes: finiteNumber(action.timeMinutes, 0),
         activity: text(action.activity) || "light",
         effects: array(action.effects).map((effect) => structuredClone(effect)),
+        view: action.view && typeof action.view === "object"
+          ? structuredClone(action.view)
+          : null,
       })),
     })),
     stats: array(source.stats).map((stat, index) => ({
@@ -206,6 +219,14 @@ export function validateCharacterDocument(input) {
       if (action.consume < 0) add(`${actionBase}.consume`, "Consume quantity cannot be negative.");
       if (action.timeMinutes < 0) add(`${actionBase}.timeMinutes`, "Time cannot be negative.");
       if (!ACTIVITIES.has(action.activity)) add(`${actionBase}.activity`, "Choose a supported activity profile.");
+      if (action.view) {
+        if (!STAGE_VIEW_KINDS.has(text(action.view.kind))) {
+          add(`${actionBase}.view.kind`, "Choose a supported stage view.");
+        }
+        if (action.view.kind === "document" && !text(action.view.id)) {
+          add(`${actionBase}.view.id`, "Choose a document.");
+        }
+      }
     });
   });
 

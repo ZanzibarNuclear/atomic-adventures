@@ -70,16 +70,7 @@ water becomes electricity.
 
 - [x] Rewrite the hydro lesson for beginners.
 - [x] Split the lesson into multiple pages so each idea is small.
-- [x] Add visual-first explanations for:
-      - water stored high or flowing downhill;
-      - gravity and height difference;
-      - flow rate;
-      - intake;
-      - penstock as a pressure pipe;
-      - turbine;
-      - generator;
-      - tailrace or water leaving the plant;
-      - why debris, closed valves, and leaks reduce power.
+- [x] Add visual-first explanations for: - water stored high or flowing downhill; - gravity and height difference; - flow rate; - intake; - penstock as a pressure pipe; - turbine; - generator; - tailrace or water leaving the plant; - why debris, closed valves, and leaks reduce power.
 - [x] Add frequent images or diagrams. The lesson should feel illustrated, not
       like a textbook page.
 - [x] Add short quiz questions throughout the lesson.
@@ -104,15 +95,15 @@ Implementation sequence:
 
 - [x] Extend the learning model to normalize authored `pages`.
 - [x] Update `LessonRenderer` to render one page at a time, with Back/Next
-   controls, page progress, and frames containing ordered blocks. Keep quiz
-   completion behavior equivalent to the current all-required-checks model.
+      controls, page progress, and frames containing ordered blocks. Keep quiz
+      completion behavior equivalent to the current all-required-checks model.
 - [x] Update the Content Builder so authors can add, remove, reorder, and preview
-   pages, frames, blocks, and quiz frames. Builder editing should expose
-   multiple paragraph blocks inside one frame.
+      pages, frames, blocks, and quiz frames. Builder editing should expose
+      multiple paragraph blocks inside one frame.
 - [x] Migrate `hydro-power-intro-alpha` into a shorter multi-page lesson with a
-   few mixed-content frames per page.
+      few mixed-content frames per page.
 - [x] Upgrade the original hydro lesson to authored pages and remove the
-   compatibility path.
+      compatibility path.
 
 ## Wave 2 - Laminated Instruction Card
 
@@ -122,25 +113,24 @@ The instruction card should temporarily replace the map viewing area, like the
 holo-reader does, but with a different look: a laminated front-and-back card
 that Zanzibar can inspect.
 
-- [ ] Define an instruction-card focused view or document-style close-up.
-- [ ] Let the card open from the authored instruction artifact or relevant
+- [x] Define an instruction-card focused view or document-style close-up.
+- [x] Let the card open from the authored instruction artifact or relevant
       story/action.
-- [ ] Show the card large in the viewing area.
-- [ ] Present a front side with the startup checklist:
-      1. Clear debris and open the intake.
-      2. Align the upstream/diversion valve.
-      3. Open the turbine valve or powerhouse pipe valve.
-      4. Return to the control room.
-      5. Connect station power.
-      6. Check the console.
-- [ ] Present a back side with a mini-map of the hydro system.
-- [ ] Use visual labels for the intake, valve locations, powerhouse, control
+- [x] Show the card large in the viewing area.
+- [x] Present a front side with the startup checklist: 1. Clear debris and open the intake. 2. Align the upstream/diversion valve. 3. Open the turbine valve or powerhouse pipe valve. 4. Return to the control room. 5. Connect station power. 6. Check the console.
+- [x] Present a back side with a mini-map of the hydro system. the mini map
+      shows the numbers of the steps on the front, making it clear to the
+      player where to go for each step.
+- [x] Use visual labels for the intake, valve locations, powerhouse, control
       room, and water path.
-- [ ] Make the card an inventory/backpack item or confirm it is already
-      represented as one.
-- [ ] Keep card state separate from player progression; reading the card may
-      set a flag, but the card itself should not directly repair equipment.
-- [ ] Test opening, flipping, returning to map, carrying/access from inventory,
+- [x] The card is an artifact. It starts out placed on the console. The control
+      room has a 'console' stand. As with any artifact, the card can be held or
+      placed inside the backpack. Make sure everything is set up correctly
+      for this to work.
+- [x] Reading the card impacts the game state for the player. However, the player
+      has to take the actions the card describes if he wants to make progress.
+      The action do not happen automatically just by reading the card.
+- [x] Test opening, flipping, returning to map, carrying/access from inventory,
       save/load, and stale/missing content handling.
 
 **Exit criterion:** Before doing field work, a player can inspect a visual
@@ -157,16 +147,8 @@ display to the few signals a beginner can act on.
 - [ ] Review the current console layout after hands-on play.
 - [ ] Identify which readouts are required for alpha and which should move to
       an advanced/details view.
-- [ ] Keep a clear system status area:
-      - station power online/offline;
-      - intake ready/not ready;
-      - valves ready/not ready;
-      - generator online/offline;
-      - next recommended action.
-- [ ] Keep three core telemetry readings visible:
-      - pressure;
-      - turbine speed;
-      - power output.
+- [ ] Keep a clear system status area: - station power online/offline; - intake ready/not ready; - valves ready/not ready; - generator online/offline; - next recommended action.
+- [ ] Keep three core telemetry readings visible: - pressure; - turbine speed; - power output.
 - [ ] Decide whether flow and net head stay visible in alpha or become
       expandable details.
 - [ ] Reduce graph count if the console feels busy.

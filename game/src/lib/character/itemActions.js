@@ -34,5 +34,8 @@ export function performItemAction(gameState, itemId, actionId) {
     );
     if (!timeResult.ok) return timeResult;
   }
-  return { ok: true };
+  return {
+    ok: true,
+    view: action.view && typeof action.view === "object" ? { ...action.view } : null,
+  };
 }

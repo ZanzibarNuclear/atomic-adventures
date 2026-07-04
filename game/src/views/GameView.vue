@@ -30,6 +30,7 @@ import CharacterStatsStageView from "../components/game-views/CharacterStatsStag
 import DeveloperSettingsDialog from "../components/dev/DeveloperSettingsDialog.vue";
 import HoloReaderView from "../components/game-views/HoloReaderView.vue";
 import HydroConsoleView from "../components/game-views/HydroConsoleView.vue";
+import InstructionCardView from "../components/game-views/InstructionCardView.vue";
 import InventoryStageView from "../components/game-views/InventoryStageView.vue";
 import StoryOverlay from "../components/story/StoryOverlay.vue";
 import OutdoorScene from "../lib/maps/views/OutdoorScene.vue";
@@ -112,13 +113,19 @@ const nearbyHolderIds = computed(() => {
   for (const holder of Object.values(gameState.character.holdings.holders ?? {})) {
     if (holder.kind === "vehicle" || holder.kind === "fixed") {
       const location = holder.location ?? {};
-      if (place.value === "indoors" && location.room && location.room === indoor.indoor.currentRoom) {
+      if (
+        place.value === "indoors" &&
+        location.room &&
+        location.room === indoor.indoor.currentRoom &&
+        (!location.stand || location.stand === indoor.indoor.currentStand)
+      ) {
         ids.push(holder.id);
       }
       if (
         place.value === "indoors" &&
         location.exteriorNode &&
-        location.exteriorNode === indoor.indoor.exteriorNode
+        location.exteriorNode === indoor.indoor.exteriorNode &&
+        (!location.stand || location.stand === indoor.indoor.currentStand)
       ) {
         ids.push(holder.id);
       }
@@ -166,6 +173,7 @@ const stageSelectedHolding = computed(() =>
     .find((record) => `${record.type}:${record.id}` === stageSelectedHoldingId.value) ?? null,
 );
 const characterStats = computed(() => visibleCharacterStats(gameState.character));
+const characterDocuments = computed(() => gameState.character.definitions.documents ?? []);
 const lessonCompletionError = ref("");
 const availableLessons = computed(() =>
   availableHoloReaderLessons(lessons.value, {
@@ -347,7 +355,10 @@ function handleSetStationPowerOverride(on) {
 
 function handleUseItem({ itemId, actionId }) {
   const result = performItemAction(gameState, itemId, actionId);
-  if (result.ok) refreshNarrative();
+  if (result.ok) {
+    refreshNarrative();
+    if (result.view) openStageView(result.view);
+  }
 }
 
 function handleTransferItem({ type, recordId, quantity, toHolder }) {
@@ -473,6 +484,12 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
     <HydroConsoleView
       v-else-if="activeView.kind === 'console'"
       :game-state="gameState"
+      :payload="activeView.payload"
+      @return-to-map="handleReturnToMap" />
+
+    <InstructionCardView
+      v-else-if="activeView.kind === 'document'"
+      :documents="characterDocuments"
       :payload="activeView.payload"
       @return-to-map="handleReturnToMap" />
 

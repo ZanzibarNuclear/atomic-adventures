@@ -44,4 +44,36 @@ describe("character model", () => {
     expect(result.errors[`items.${invalidIndex}.group`]).toBeDefined();
     expect(result.errors[`items.${invalidIndex}.relatedDocument`]).toBeDefined();
   });
+
+  it("preserves document stage views on item actions", () => {
+    const candidate = loadCharacter();
+    candidate.documents.push({
+      id: "startup-card",
+      title: "Startup Card",
+    });
+    candidate.items.push({
+      id: "startup-card-item",
+      label: "Startup card",
+      group: candidate.panel.inventoryGroups[0].id,
+      relatedDocument: "startup-card",
+      actions: [{
+        id: "read",
+        label: "Read card",
+        view: {
+          kind: "document",
+          id: "startup-card",
+          documentType: "hydro-startup-card",
+        },
+      }],
+    });
+
+    const result = validateCharacterDocument(candidate);
+
+    expect(result.valid).toBe(true);
+    expect(result.character.items.at(-1).actions[0].view).toEqual({
+      kind: "document",
+      id: "startup-card",
+      documentType: "hydro-startup-card",
+    });
+  });
 });

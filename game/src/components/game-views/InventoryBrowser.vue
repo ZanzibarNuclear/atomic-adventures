@@ -24,7 +24,7 @@ const isHeldDirectly = computed(() =>
 );
 
 const isWithinReach = computed(() =>
-  props.selectedHolding?.holder?.kind === "world",
+  ["fixed", "vehicle", "world"].includes(props.selectedHolding?.holder?.kind),
 );
 
 const isContainerItem = computed(() =>
