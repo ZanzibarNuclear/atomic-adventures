@@ -600,8 +600,20 @@ export function buildIndoorStatusLines(indoor) {
   const lines = [];
   if (indoor.powerOn) {
     lines.push("Station power is on.");
+    lines.push(...poweredObjectStatusLines(indoor));
   }
   return lines;
+}
+
+function poweredObjectStatusLines(indoor) {
+  const roomId = indoor.indoor?.currentRoom ?? indoor.playerRoomId ?? null;
+  const standId = indoor.indoor?.currentStand ?? null;
+  if (!roomId) return [];
+  return (indoor.building?.poweredObjects ?? [])
+    .filter((object) => object.room === roomId)
+    .filter((object) => !object.stand || object.stand === standId)
+    .map((object) => object.activeLine || `${object.label} is powered.`)
+    .filter(Boolean);
 }
 
 export function buildOutdoorStatusLines(outdoor, indoor) {

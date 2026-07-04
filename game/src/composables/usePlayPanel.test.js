@@ -14,6 +14,7 @@ import {
   buildStoryChoices,
   buildIndoorMovementActions,
   buildIndoorPlayActions,
+  buildIndoorStatusLines,
   handleIndoorPlayAction,
   handleOutdoorPlayAction,
 } from './usePlayPanel.js'
@@ -469,6 +470,46 @@ describe('getMovementOptions', () => {
 
     expect(actions.map((action) => action.label)).toContain('Engage the motor for the large roll-up')
     expect(actions.map((action) => action.label).join(' ')).not.toMatch(/[–—]/)
+  })
+
+  it('lists powered room and stand affordances once station power is online', () => {
+    const indoor = {
+      powerOn: true,
+      building: {
+        poweredObjects: [
+          {
+            id: 'kitchen-lights',
+            room: 'kitchen',
+            label: 'Kitchen lights',
+            activeLine: 'The kitchen lights are on.',
+          },
+          {
+            id: 'kitchen-stove',
+            room: 'kitchen',
+            stand: 'stove',
+            label: 'Electric stove',
+            activeLine: 'The electric stove is ready.',
+          },
+          {
+            id: 'kitchen-table-outlet',
+            room: 'kitchen',
+            stand: 'kitchen-table',
+            label: 'Table outlet',
+            activeLine: 'The table outlet is active.',
+          },
+        ],
+      },
+      indoor: {
+        currentRoom: 'kitchen',
+        currentStand: 'stove',
+      },
+    }
+
+    expect(buildIndoorStatusLines(indoor)).toEqual([
+      'Station power is on.',
+      'The kitchen lights are on.',
+      'The electric stove is ready.',
+    ])
   })
 
   it('drops carried artifacts at the current stand and requires returning there to pick them up', () => {

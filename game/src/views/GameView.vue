@@ -194,6 +194,7 @@ const holoReaderActions = computed(() =>
 const hydroConsoleActions = computed(() => {
   if (place.value !== "indoors") return [];
   if (indoor.indoor.currentRoom !== "control-room") return [];
+  if (!stationPowerOverrideOn.value) return [];
   return [{
     id: "hydro-console:open",
     label: "Open the generator console",

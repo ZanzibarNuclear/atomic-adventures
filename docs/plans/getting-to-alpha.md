@@ -203,19 +203,23 @@ player to lose the authored story thread. Alpha needs an explicit split:
 **Exit criterion:** A player knows whether they are following Zanzibar's story
 or freely experimenting, and the UI behavior matches that choice.
 
-## Future Stage - Electrical Affordances
+## Current Stage - Electrical Affordances
 
-**Purpose:** Make station power matter broadly after alpha.
+**Purpose:** Make station power matter broadly now that the official hydro
+startup path can bring the utility station online.
 
 Once station power is online, anything electrical should have a consistent way
 to express that it can be powered, switched, charged, plugged in, unplugged, or
 otherwise used.
 
-- [ ] Define a simple powered-object model for authored building/world items.
-- [ ] Add actions such as `turn on`, `turn off`, `plug in`, `unplug`, and
-      `charge` where appropriate.
-- [ ] Decide which electrical objects are alpha-visible and which are later.
-- [ ] Keep these affordances connected to facility state, not ad hoc flags.
+- [x] Define a simple powered-object model for authored utility-station items.
+- [x] Treat room lights and outlets as active once station power is online.
+- [x] Keep the holo-reader, generator console, stove, and EV charger connected
+      to station power.
+- [x] Keep these affordances connected to facility state, not ad hoc flags.
+- [ ] Add detailed `turn off`, `plug in`, `unplug`, and `charge` behaviors where
+      they matter for later puzzles.
+- [ ] Add brownout/load behavior when battery and load modeling exists.
 
 ## Future Stage - eBuggy Charging and Driving
 
