@@ -208,10 +208,20 @@ describe("hydro runtime state and events", () => {
         eventId: "hydro-event-0010-intake",
         elapsedMinutes: 10,
         type: "facility-change",
-        label: "Intake cleared and opened",
+        label: "Intake debris cleared",
         payload: {
           actionId: "clear-intake-debris",
-          patch: { intakeClear: true, intakeOpen: true, debrisFraction: 0 },
+          patch: { intakeClear: true, debrisFraction: 0 },
+        },
+      }),
+      createHydroEvent({
+        eventId: "hydro-event-0015-intake-open",
+        elapsedMinutes: 15,
+        type: "facility-change",
+        label: "Intake opened",
+        payload: {
+          actionId: "open-intake",
+          patch: { intakeOpen: true },
         },
       }),
       createHydroEvent({
@@ -257,13 +267,14 @@ describe("hydro runtime state and events", () => {
     expect(graphData.samples.at(-1).telemetry.status).toBe("online");
     expect(graphData.samples.at(-1).telemetry.generatorOutputKw).toBe(1);
     expect(graphData.markers.map((marker) => marker.label)).toEqual([
-      "Intake cleared and opened",
+      "Intake debris cleared",
+      "Intake opened",
       "Upstream manual valve opened",
       "Powerhouse manual valve opened",
       "Hydro generator startup completed",
     ]);
     expect(graphData.report.generatedEnergyKwh).toBe(0);
     expect(graphData.report.online).toBe(true);
-    expect(graphData.report.markerCount).toBe(4);
+    expect(graphData.report.markerCount).toBe(5);
   });
 });

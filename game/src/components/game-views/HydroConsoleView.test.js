@@ -122,10 +122,20 @@ describe("HydroConsoleView", () => {
           eventId: "hydro-event-0005-intake",
           elapsedMinutes: 5,
           type: "facility-change",
-          label: "Intake cleared and opened",
+          label: "Intake debris cleared",
           payload: {
             actionId: "clear-intake-debris",
-            patch: { intakeClear: true, intakeOpen: true, debrisFraction: 0 },
+            patch: { intakeClear: true, debrisFraction: 0 },
+          },
+        }),
+        createHydroEvent({
+          eventId: "hydro-event-0008-intake-open",
+          elapsedMinutes: 8,
+          type: "facility-change",
+          label: "Intake opened",
+          payload: {
+            actionId: "open-intake",
+            patch: { intakeOpen: true },
           },
         }),
         createHydroEvent({
@@ -211,7 +221,7 @@ describe("HydroConsoleView", () => {
 
     expect(wrapper.text()).toContain("Next field action");
     expect(wrapper.text()).toContain("Return to the upstream bank");
-    expect(wrapper.text()).toContain("Use the ordinary field action to clear and open the intake.");
+    expect(wrapper.text()).toContain("Use the ordinary field action to clear debris from the intake.");
 
     const buttons = wrapper.findAll("button");
     await buttons.find((button) => button.text() === "Return to map").trigger("click");

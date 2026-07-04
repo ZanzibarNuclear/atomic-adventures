@@ -37,7 +37,11 @@ const diagnosticLabels = {
 const guidedActionLabels = {
   "clear-intake-debris": {
     title: "Return to the upstream bank",
-    body: "Use the ordinary field action to clear and open the intake.",
+    body: "Use the ordinary field action to clear debris from the intake.",
+  },
+  "open-intake": {
+    title: "Stay at the upstream bank",
+    body: "Use the ordinary field action to open the intake.",
   },
   "align-pipeflow": {
     title: "Return to the midstream bank",
@@ -160,7 +164,8 @@ function buildFieldChecks(hydroState) {
 }
 
 function nextGuidedActions(state) {
-  if (!state.intakeClear || !state.intakeOpen) return [guidedAction("clear-intake-debris")];
+  if (!state.intakeClear) return [guidedAction("clear-intake-debris")];
+  if (!state.intakeOpen) return [guidedAction("open-intake")];
   if (!state.manualValves.upstreamOpen) return [guidedAction("align-pipeflow")];
   if (!state.manualValves.powerhouseOpen) return [guidedAction("open-turbine-valve")];
   if (!state.startupComplete || !state.online) return [guidedAction("connect-power")];

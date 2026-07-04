@@ -11,6 +11,10 @@ import {
 import { useIndoorBuilding } from "../composables/useIndoorBuilding.js";
 import { useOutdoorWorld } from "../composables/useOutdoorWorld.js";
 import { getDoorState } from "../composables/useDoors.js";
+import {
+  characterHolderId,
+  itemQuantity,
+} from "../../../lib/character/holdings.js";
 import characterContent from "../../../../public/content/character.json";
 import worldContent from "../../../../public/content/world.json";
 import utilityStationContent from "../../../../public/content/utility-station.json";
@@ -56,7 +60,19 @@ describe("hydro alpha startup path", () => {
     expect(cardActions.map((action) => action.id)).toContain("action:read-hydro-startup-card");
     expect(cardActions.map((action) => action.id)).not.toContain("action:read-micro-hydro-ops");
     expect(cardActions.map((action) => action.label)).toContain("Read the laminated startup card");
+    expect(cardActions.map((action) => action.label)).toContain("Pick up the laminated startup card");
     expect(cardActions.map((action) => action.label).join(" ")).not.toContain("Micro-hydro Operations");
+
+    expect(itemQuantity(
+      gameState.character.holdings,
+      "hydro-startup-instruction-card",
+      { holderId: characterHolderId(gameState.character.holdings) },
+    )).toBe(0);
+    expect(itemQuantity(
+      gameState.character.holdings,
+      "hydro-startup-instruction-card",
+      { holderId: "fixed:control-room-console" },
+    )).toBe(1);
 
     const cardResult = handleIndoorPlayAction(indoor, "action:read-hydro-startup-card");
     expect(cardResult).toMatchObject({
@@ -71,12 +87,44 @@ describe("hydro alpha startup path", () => {
     expect(gameState.flags.has("hydro.outdoor-actions")).toBe(true);
     expect(gameState.flags.has("hydro.discovered")).toBe(true);
     expect(gameState.character.documents["hydro-startup-instruction-card"].readAt).toBeTruthy();
+    expect(itemQuantity(
+      gameState.character.holdings,
+      "hydro-startup-instruction-card",
+      { holderId: characterHolderId(gameState.character.holdings) },
+    )).toBe(0);
+    expect(itemQuantity(
+      gameState.character.holdings,
+      "hydro-startup-instruction-card",
+      { holderId: "fixed:control-room-console" },
+    )).toBe(1);
+    expect(buildIndoorPlayActions(indoor).map((action) => action.label))
+      .toContain("Pick up the laminated startup card");
+    expect(handleIndoorPlayAction(indoor, "holding-pickup:instance:hydro-startup-instruction-card-4"))
+      .toMatchObject({ ok: true });
+    expect(itemQuantity(
+      gameState.character.holdings,
+      "hydro-startup-instruction-card",
+      { holderId: characterHolderId(gameState.character.holdings) },
+    )).toBe(1);
+    expect(itemQuantity(
+      gameState.character.holdings,
+      "hydro-startup-instruction-card",
+      { holderId: "fixed:control-room-console" },
+    )).toBe(0);
 
     setIndoorLocation(indoor, { exteriorNode: "upstream-bank" });
+    let upstreamActions = buildIndoorPlayActions(indoor);
+    expect(upstreamActions.map((action) => action.label)).toContain("Clear intake debris");
+    expect(upstreamActions.map((action) => action.label)).not.toContain("Open intake");
     indoor.performAction("clear-intake-debris");
+    upstreamActions = buildIndoorPlayActions(indoor);
+    expect(upstreamActions.map((action) => action.label)).toContain("Open intake");
+    indoor.performAction("open-intake");
     setIndoorLocation(indoor, { exteriorNode: "midstream-bank" });
+    expect(buildIndoorPlayActions(indoor).map((action) => action.label)).toContain("Align the diversion valve");
     indoor.performAction("align-pipeflow");
     setIndoorLocation(indoor, { exteriorNode: "downstream-bank" });
+    expect(buildIndoorPlayActions(indoor).map((action) => action.label)).toContain("Open turbine valve");
     indoor.performAction("open-turbine-valve");
     setIndoorLocation(indoor, { room: "control-room" });
     indoor.performAction("connect-power");
@@ -95,12 +143,14 @@ describe("hydro alpha startup path", () => {
     expect(indoor.powerOn).toBe(true);
     expect(getDoorState(indoor.indoor.doorState, "utility-station", "large-bay-roll").locked).toBe(false);
     expect(gameState.facilities.hydro.eventLog.map((event) => event.label)).toEqual([
-      "Intake cleared and opened",
+      "Intake debris cleared",
+      "Intake opened",
       "Upstream manual valve opened",
       "Powerhouse manual valve opened",
       "Hydro generator startup completed",
     ]);
     expect(gameState.facilities.hydro.eventLog.map((event) => event.elapsedMinutes)).toEqual([
+      30,
       45,
       75,
       95,

@@ -96,6 +96,7 @@ describe("useHydroFacility", () => {
     state.clock.elapsedMinutes = 90;
 
     expect(applyHydroStartupAction(state, "clear-intake-debris").ok).toBe(true);
+    expect(applyHydroStartupAction(state, "open-intake").ok).toBe(true);
     expect(applyHydroStartupAction(state, "align-pipeflow").ok).toBe(true);
     expect(applyHydroStartupAction(state, "open-turbine-valve").ok).toBe(true);
     expect(applyHydroStartupAction(state, "connect-power").ok).toBe(true);
@@ -113,7 +114,8 @@ describe("useHydroFacility", () => {
       lastCheckpointElapsedMinutes: 90,
     });
     expect(state.facilities.hydro.eventLog.map((event) => event.label)).toEqual([
-      "Intake cleared and opened",
+      "Intake debris cleared",
+      "Intake opened",
       "Upstream manual valve opened",
       "Powerhouse manual valve opened",
       "Hydro generator startup completed",
@@ -122,19 +124,20 @@ describe("useHydroFacility", () => {
 
   it("exposes historical graph data without persisting display samples", () => {
     const state = gameState();
-    state.clock.elapsedMinutes = 30;
+    state.clock.elapsedMinutes = 60;
     applyHydroStartupAction(state, "clear-intake-debris", { elapsedMinutes: 5 });
-    applyHydroStartupAction(state, "align-pipeflow", { elapsedMinutes: 10 });
-    applyHydroStartupAction(state, "open-turbine-valve", { elapsedMinutes: 15 });
-    applyHydroStartupAction(state, "connect-power", { elapsedMinutes: 20 });
+    applyHydroStartupAction(state, "open-intake", { elapsedMinutes: 10 });
+    applyHydroStartupAction(state, "align-pipeflow", { elapsedMinutes: 15 });
+    applyHydroStartupAction(state, "open-turbine-valve", { elapsedMinutes: 20 });
+    applyHydroStartupAction(state, "connect-power", { elapsedMinutes: 25 });
     const hydro = useHydroFacility(state);
     const before = JSON.stringify(state.facilities.hydro);
 
     const graphData = hydro.readGraphData({ fromElapsedMinutes: 0, stepMinutes: 10 });
 
-    expect(graphData.samples.at(-1).elapsedMinutes).toBe(30);
+    expect(graphData.samples.at(-1).elapsedMinutes).toBe(60);
     expect(graphData.samples.at(-1).telemetry.status).toBe("online");
-    expect(graphData.markers).toHaveLength(4);
+    expect(graphData.markers).toHaveLength(5);
     expect(graphData.report.generatedEnergyKwh).toBeGreaterThan(0);
     expect(JSON.stringify(state.facilities.hydro)).toBe(before);
   });

@@ -1,11 +1,17 @@
 const hydroStartupActionPatches = Object.freeze({
   "clear-intake-debris": {
     type: "facility-change",
-    label: "Intake cleared and opened",
+    label: "Intake debris cleared",
     state: {
       intakeClear: true,
-      intakeOpen: true,
       debrisFraction: 0,
+    },
+  },
+  "open-intake": {
+    type: "facility-change",
+    label: "Intake opened",
+    state: {
+      intakeOpen: true,
     },
   },
   "align-pipeflow": {

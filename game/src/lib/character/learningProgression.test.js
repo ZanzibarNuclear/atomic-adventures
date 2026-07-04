@@ -120,6 +120,7 @@ describe("authored learning progression", () => {
     indoor.currentRoom = null;
     indoor.exteriorNode = "upstream-bank";
     actions.performAction("clear-intake-debris");
+    actions.performAction("open-intake");
     indoor.exteriorNode = "midstream-bank";
     actions.performAction("align-pipeflow");
     indoor.exteriorNode = "downstream-bank";
@@ -142,7 +143,8 @@ describe("authored learning progression", () => {
       online: true,
     });
     expect(gameState.facilities.hydro.eventLog.map((event) => event.label)).toEqual([
-      "Intake cleared and opened",
+      "Intake debris cleared",
+      "Intake opened",
       "Upstream manual valve opened",
       "Powerhouse manual valve opened",
       "Hydro generator startup completed",
@@ -152,7 +154,7 @@ describe("authored learning progression", () => {
       generatorOutputKw: 1,
     });
     const objectives = Object.values(character.quests["restore-hydro"].objectives);
-    expect(objectives).toHaveLength(4);
+    expect(objectives).toHaveLength(5);
     expect(objectives.every((objective) => objective.status === "completed")).toBe(true);
   });
 });

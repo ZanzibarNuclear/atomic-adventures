@@ -11,6 +11,12 @@ import {
 } from "../lib/maps/composables/useDoors.js";
 import { searchActionLabel } from "../lib/maps/composables/useBarrierOpenings.js";
 import { barrierHintAtStand } from "../lib/maps/composables/useBarrierStand.js";
+import {
+  characterHolderId,
+  holdingRecords,
+  transferHolding,
+} from "../lib/character/holdings.js";
+import { markCharacterChanged } from "./useCharacterState.js";
 
 function actionButtonLabel(action) {
   if (action.verb) return cleanActionLabel(`${action.verb} ${withArticle(action.label)}`);
@@ -266,6 +272,13 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
     });
   }
 
+  for (const record of nearbyPortableHoldings(indoor)) {
+    items.push({
+      id: `holding-pickup:${record.type}:${record.id}`,
+      label: `Pick up ${withArticle(record.label)}`,
+    });
+  }
+
   for (const action of indoor.availableActions ?? []) {
     items.push({
       id: `action:${action.id}`,
@@ -495,6 +508,9 @@ export function handleIndoorPlayAction(indoor, actionId) {
     indoor.tryPickup(actionId.slice("pickup:".length));
     return;
   }
+  if (actionId.startsWith("holding-pickup:")) {
+    return pickupNearbyHolding(indoor, actionId.slice("holding-pickup:".length));
+  }
   if (actionId.startsWith("action:")) {
     return indoor.performAction(actionId.slice("action:".length));
   }
@@ -524,6 +540,59 @@ export function handleIndoorPlayAction(indoor, actionId) {
   }
   if (actionId === "exit-building") {
     indoor.exitBuilding();
+  }
+}
+
+function nearbyPortableHoldings(indoor) {
+  const character = indoor.character;
+  if (!character?.holdings) return [];
+  const holders = nearbyFixedHolderIds(indoor);
+  return holdingRecords(character.holdings, character.definitions, holders)
+    .filter((record) => record.definition?.portable !== false)
+    .map((record) => ({
+      ...record,
+      label: record.definition?.label ?? record.item,
+    }));
+}
+
+function nearbyFixedHolderIds(indoor) {
+  const currentRoom = indoor.indoor?.currentRoom ?? null;
+  const currentStand = indoor.indoor?.currentStand ?? null;
+  const exteriorNode = indoor.indoor?.exteriorNode ?? null;
+  return Object.values(indoor.character?.holdings?.holders ?? {})
+    .filter((holder) => holder.kind === "fixed" || holder.kind === "vehicle")
+    .filter((holder) => {
+      const location = holder.location ?? {};
+      if (currentRoom && location.room === currentRoom) {
+        return !location.stand || location.stand === currentStand;
+      }
+      if (exteriorNode && location.exteriorNode === exteriorNode) {
+        return !location.stand || location.stand === currentStand;
+      }
+      return false;
+    })
+    .map((holder) => holder.id);
+}
+
+function pickupNearbyHolding(indoor, encoded) {
+  const character = indoor.character;
+  if (!character?.holdings) return { ok: false, error: "Character holdings are unavailable." };
+  const [type, ...idParts] = String(encoded).split(":");
+  const id = idParts.join(":");
+  const record = nearbyPortableHoldings(indoor)
+    .find((entry) => entry.type === type && entry.id === id);
+  if (!record) return { ok: false, error: "Holding is not available." };
+  try {
+    transferHolding(character.holdings, character.definitions, {
+      type,
+      id,
+      quantity: record.quantity ?? 1,
+      toHolder: characterHolderId(character.holdings),
+    });
+    markCharacterChanged(character);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error.message };
   }
 }
 

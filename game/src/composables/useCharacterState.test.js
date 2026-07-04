@@ -96,6 +96,87 @@ describe("character state", () => {
       .find((item) => item.id === "known-key")?.orphan).toBe(true);
   });
 
+  it("merges newly authored placed holdings into existing saves", () => {
+    const state = createCharacterState(definitions);
+    applyCharacterState(state, {
+      holdings: {
+        holders: {
+          "character:player": { id: "character:player", kind: "character", label: "Holding" },
+        },
+        stacks: {},
+        instances: {},
+        nextId: 1,
+      },
+    });
+
+    syncCharacterDefinitions(state, {
+      ...definitions,
+      items: [
+        ...definitions.items,
+        { id: "startup-card", label: "Startup card", carrying: "unique", maxQuantity: 1 },
+      ],
+      holdings: {
+        holders: {
+          "fixed:console": {
+            id: "fixed:console",
+            kind: "fixed",
+            label: "Console",
+            location: { room: "control-room", stand: "console" },
+          },
+        },
+        instances: {
+          "startup-card-1": { item: "startup-card", holder: "fixed:console" },
+        },
+        stacks: {},
+        nextId: 2,
+      },
+    });
+
+    expect(itemQuantity(state.holdings, "startup-card", { holderId: "fixed:console" })).toBe(1);
+  });
+
+  it("does not respawn an authored unique item after the player has moved it", () => {
+    const state = createCharacterState(definitions);
+    applyCharacterState(state, {
+      holdings: {
+        holders: {
+          "character:player": { id: "character:player", kind: "character", label: "Holding" },
+        },
+        stacks: {},
+        instances: {
+          "startup-card-1": { item: "startup-card", holder: "character:player" },
+        },
+        nextId: 2,
+      },
+    });
+
+    syncCharacterDefinitions(state, {
+      ...definitions,
+      items: [
+        ...definitions.items,
+        { id: "startup-card", label: "Startup card", carrying: "unique", maxQuantity: 1 },
+      ],
+      holdings: {
+        holders: {
+          "fixed:console": {
+            id: "fixed:console",
+            kind: "fixed",
+            label: "Console",
+            location: { room: "control-room", stand: "console" },
+          },
+        },
+        instances: {
+          "startup-card-1": { item: "startup-card", holder: "fixed:console" },
+        },
+        stacks: {},
+        nextId: 2,
+      },
+    });
+
+    expect(itemQuantity(state.holdings, "startup-card", { holderId: "character:player" })).toBe(1);
+    expect(itemQuantity(state.holdings, "startup-card", { holderId: "fixed:console" })).toBe(0);
+  });
+
   it("round-trips all character domains", () => {
     const state = createCharacterState(definitions);
     applyCharacterState(state, {

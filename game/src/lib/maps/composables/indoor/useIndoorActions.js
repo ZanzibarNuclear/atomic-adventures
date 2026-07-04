@@ -29,7 +29,11 @@ export function createIndoorActions({
         return false;
       }
       return character
-        ? evaluateRequirements(action.require, { character, flags: indoor.flags }).ok
+        ? evaluateRequirements(action.require, {
+            character,
+            flags: indoor.flags,
+            nearbyHolderIds: nearbyHolderIds(character, indoor),
+          }).ok
         : requireSatisfied(action.require, indoor.flags);
     });
   });
@@ -94,4 +98,23 @@ export function createIndoorActions({
     performAction,
     resetActions,
   };
+}
+
+function nearbyHolderIds(character, indoor) {
+  const currentRoom = indoor.currentRoom ?? null;
+  const currentStand = indoor.currentStand ?? null;
+  const exteriorNode = indoor.exteriorNode ?? null;
+  return Object.values(character?.holdings?.holders ?? {})
+    .filter((holder) => holder.kind === "fixed" || holder.kind === "vehicle" || holder.kind === "world")
+    .filter((holder) => {
+      const location = holder.location ?? {};
+      if (currentRoom && location.room === currentRoom) {
+        return !location.stand || location.stand === currentStand;
+      }
+      if (exteriorNode && location.exteriorNode === exteriorNode) {
+        return !location.stand || location.stand === currentStand;
+      }
+      return false;
+    })
+    .map((holder) => holder.id);
 }

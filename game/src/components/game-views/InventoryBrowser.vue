@@ -63,7 +63,7 @@ const detailImage = computed(() => {
 });
 
 const visibleActions = computed(() =>
-  isHeldDirectly.value ? (props.selectedHolding?.actions ?? []) : [],
+  isHeldDirectly.value || isInsideContainer.value ? (props.selectedHolding?.actions ?? []) : [],
 );
 
 const availableTransferTargets = computed(() => {
