@@ -185,6 +185,124 @@ export function isStepComplete(step, ctx) {
   return false;
 }
 
+export function filterAllowedActions(actions = [], policy, context = {}) {
+  return actions.filter((action) => isActionAllowed(action, policy, context));
+}
+
+export function isActionAllowed(action, policy, context = {}) {
+  if (!policy || policy.unrestricted || policy.mode !== "storyline") return true;
+  const actionId = typeof action === "string" ? action : action?.id;
+  if (!actionId) return false;
+  const allowed = policy.allowed ?? {};
+  if (isExplicitlyAllowed(actionId, allowed)) return true;
+  if (isStageViewAllowed(policy, action)) return true;
+
+  if (actionId.startsWith("story:")) return listIncludes(allowed.storyChoices, actionId);
+  if (actionId.startsWith("route:") || actionId.startsWith("barrier:")) {
+    return isDestinationAllowed(policy, {
+      type: "hex",
+      id: actionId.slice(actionId.indexOf(":") + 1),
+    });
+  }
+  if (actionId.startsWith("move-room:")) {
+    return isDestinationAllowed(policy, { type: "room", id: actionId.slice("move-room:".length) });
+  }
+  if (actionId.startsWith("move-exterior:")) {
+    return isDestinationAllowed(policy, { type: "exteriorNode", id: actionId.slice("move-exterior:".length) });
+  }
+  if (actionId.startsWith("move-stand:")) {
+    return movementMode(allowed) !== "current-location-only";
+  }
+  if (actionId.startsWith("action:")) {
+    const raw = actionId.slice("action:".length);
+    return listIncludes(allowed.indoorActions, raw) || listIncludes(allowed.indoorActions, actionId);
+  }
+  if (actionId.startsWith("pickup:")) {
+    const raw = actionId.slice("pickup:".length);
+    return listIncludes(allowed.indoorActions, raw) || listIncludes(allowed.indoorActions, actionId);
+  }
+  if (actionId.startsWith("holding-pickup:")) {
+    return listIncludes(allowed.indoorActions, actionId);
+  }
+  if (actionId.startsWith("door-") || actionId.startsWith("switch:") || actionId.startsWith("exit-world:")) {
+    return listIncludes(allowed.indoorActions, actionId);
+  }
+  if (
+    actionId === "search:barrier" ||
+    actionId.startsWith("passage:") ||
+    actionId.startsWith("passage-unlock:") ||
+    actionId.startsWith("passage-toggle:")
+  ) {
+    return listIncludes(allowed.outdoorActions, actionId);
+  }
+  if (actionId.includes(":")) {
+    return listIncludes(allowed.indoorActions, actionId) ||
+      listIncludes(allowed.outdoorActions, actionId) ||
+      listIncludes(allowed.developerActions, actionId);
+  }
+  void context;
+  return false;
+}
+
+export function isDestinationAllowed(policy, destination) {
+  if (!policy || policy.unrestricted || policy.mode !== "storyline") return true;
+  const allowed = policy.allowed ?? {};
+  const mode = movementMode(allowed);
+  if (mode === "unrestricted") return true;
+  if (mode === "current-location-only") return false;
+  if (destination.type === "hex") {
+    return listIncludes(allowed.movement?.hexes, destination.id) || mode === "local-area";
+  }
+  if (destination.type === "room") {
+    return listIncludes(allowed.movement?.rooms, destination.id) || mode === "local-area";
+  }
+  if (destination.type === "exteriorNode") {
+    return listIncludes(allowed.movement?.exteriorNodes, destination.id) || mode === "local-area";
+  }
+  if (destination.type === "transition") {
+    return listIncludes(allowed.movement?.transitions, destination.id) || mode === "local-area";
+  }
+  return false;
+}
+
+export function isStageViewAllowed(policy, viewOrAction) {
+  if (!policy || policy.unrestricted || policy.mode !== "storyline") return true;
+  const allowed = policy.allowed ?? {};
+  const view = stageViewFor(viewOrAction);
+  if (!view?.kind) return false;
+  return (allowed.stageViews ?? []).some((candidate) => {
+    if (candidate.kind !== view.kind) return false;
+    if (candidate.id && candidate.id !== view.id) return false;
+    if (candidate.focus && candidate.focus !== view.focus) return false;
+    if (candidate.tab && candidate.tab !== view.tab) return false;
+    return true;
+  });
+}
+
+function stageViewFor(viewOrAction) {
+  if (!viewOrAction) return null;
+  if (viewOrAction.kind) return viewOrAction;
+  if (viewOrAction.id === "hydro-console:open") return { kind: "console", id: "hydro" };
+  if (viewOrAction.id === "holo-reader:open" || viewOrAction.id === "holo-reader:library") return { kind: "lesson" };
+  return null;
+}
+
+function isExplicitlyAllowed(actionId, allowed) {
+  return listIncludes(allowed.indoorActions, actionId) ||
+    listIncludes(allowed.outdoorActions, actionId) ||
+    listIncludes(allowed.storyChoices, actionId) ||
+    listIncludes(allowed.itemActions, actionId) ||
+    listIncludes(allowed.developerActions, actionId);
+}
+
+function movementMode(allowed) {
+  return allowed?.movement?.mode ?? null;
+}
+
+function listIncludes(list, value) {
+  return Array.isArray(list) && list.includes(value);
+}
+
 function facilityMatches(facilities, expected) {
   return Object.entries(expected ?? {}).every(([path, value]) => getPath(facilities, path) === value);
 }

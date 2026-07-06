@@ -116,6 +116,7 @@ const {
 const {
   currentObjective,
   authoringError: storylineError,
+  actionPolicy: storylineActionPolicy,
   tick: tickStoryline,
 } = useStoryline(storylineData, { gameState, place, outdoor, indoor, openStageView });
 
@@ -513,6 +514,7 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       :travel-to-hex="travelToHex"
       :enter-building="enterBuilding"
       :audit-enabled="movementAuditVisible"
+      :action-policy="storylineActionPolicy"
       @hide-movement-audit="movementAuditVisible = false" />
 
     <IndoorScene
@@ -524,6 +526,7 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       :travel-to-room="travelToRoom"
       :audit-enabled="movementAuditVisible"
       :extra-actions="focusedConsoleActions"
+      :action-policy="storylineActionPolicy"
       @extra-action="handleHoloReaderAction"
       @stage-view="openStageView"
       @hide-movement-audit="movementAuditVisible = false" />

@@ -14,10 +14,10 @@
 
   <StatusLines :lines="statusLines" />
 
-  <PlayPanel v-if="actions.length">
-    <ActionOptions v-if="actions.length" label="Choose an Action">
+  <PlayPanel v-if="filteredActions.length">
+    <ActionOptions v-if="filteredActions.length" label="Choose an Action">
       <button
-        v-for="item in actions"
+        v-for="item in filteredActions"
         :key="item.id"
         class="route-btn"
         :class="item.kind ? 'k-' + item.kind : null"
@@ -47,6 +47,11 @@ import {
   handleIndoorChooseAction,
   handleIndoorPlayAction,
 } from "../../../composables/usePlayPanel.js";
+import {
+  filterAllowedActions,
+  isActionAllowed,
+  isDestinationAllowed,
+} from "../../../composables/useStoryline.js";
 
 const props = defineProps({
   indoor: { type: Object, required: true },
@@ -56,6 +61,7 @@ const props = defineProps({
   travelToRoom: { type: Function, required: true },
   auditEnabled: { type: Boolean, default: false },
   extraActions: { type: Array, default: () => [] },
+  actionPolicy: { type: Object, default: null },
 });
 
 const emit = defineEmits(["hide-movement-audit", "extra-action", "stage-view"]);
@@ -84,8 +90,12 @@ const actions = computed(() => [
   ...props.extraActions,
   ...playActions.value,
 ]);
+const filteredActions = computed(() =>
+  filterAllowedActions(actions.value, props.actionPolicy),
+);
 
 function onAction(id) {
+  if (!filteredActions.value.some((action) => action.id === id)) return;
   if (props.extraActions.some((action) => action.id === id)) {
     emit("extra-action", id);
     return;
@@ -113,23 +123,53 @@ const mapStageProps = computed(() => ({
   revealed: [...props.indoor.indoor.revealed],
   level: props.indoor.indoor.viewLevel,
   standLevel: props.indoor.indoor.level,
-  reachableRooms: props.indoor.reachableRooms,
-  reachableExteriorNodes: props.indoor.reachableExteriorNodes,
+  reachableRooms: (props.indoor.reachableRooms ?? []).filter((roomId) =>
+    isDestinationAllowed(props.actionPolicy, { type: "room", id: roomId })
+  ),
+  reachableExteriorNodes: (props.indoor.reachableExteriorNodes ?? []).filter((nodeId) =>
+    isDestinationAllowed(props.actionPolicy, { type: "exteriorNode", id: nodeId })
+  ),
   doorStates: props.indoor.indoor.doorState,
-  interactableDoorIds: props.indoor.interactableDoorIds,
-  reachableExitDoors: props.indoor.reachableExitDoors,
+  interactableDoorIds: (props.indoor.interactableDoorIds ?? []).filter((doorId) =>
+    isDoorActionAllowed(doorId)
+  ),
+  reachableExitDoors: (props.indoor.reachableExitDoors ?? []).filter((doorId) =>
+    isActionAllowed(`exit-world:${doorId}`, props.actionPolicy)
+  ),
   hydroDiscovered: props.indoor.hydroDiscovered ?? false,
 }));
 
 const mapStageListeners = computed(() => ({
-  "room-click": props.travelToRoom,
-  "stand-click": ({ roomId, standId }) => {
-    if (roomId === props.indoor.indoor.currentRoom) props.indoor.moveToStand(standId);
+  "room-click": (roomId) => {
+    if (isDestinationAllowed(props.actionPolicy, { type: "room", id: roomId })) props.travelToRoom(roomId);
   },
-  "exterior-node-click": props.indoor.moveToExteriorNode,
-  "door-click": props.indoor.tryToggleDoor,
-  "exit-click": props.indoor.exitViaDoor,
+  "stand-click": ({ roomId, standId }) => {
+    if (
+      roomId === props.indoor.indoor.currentRoom &&
+      isActionAllowed(`move-stand:${standId}`, props.actionPolicy)
+    ) {
+      props.indoor.moveToStand(standId);
+    }
+  },
+  "exterior-node-click": (nodeId) => {
+    if (isDestinationAllowed(props.actionPolicy, { type: "exteriorNode", id: nodeId })) {
+      props.indoor.moveToExteriorNode(nodeId);
+    }
+  },
+  "door-click": (doorId) => {
+    if (isDoorActionAllowed(doorId)) props.indoor.tryToggleDoor(doorId);
+  },
+  "exit-click": (doorId) => {
+    if (isActionAllowed(`exit-world:${doorId}`, props.actionPolicy)) props.indoor.exitViaDoor(doorId);
+  },
 }));
+
+function isDoorActionAllowed(doorId) {
+  return isActionAllowed(`door-open:${doorId}`, props.actionPolicy) ||
+    isActionAllowed(`door-close:${doorId}`, props.actionPolicy) ||
+    isActionAllowed(`door-lock:${doorId}`, props.actionPolicy) ||
+    isActionAllowed(`door-break:${doorId}`, props.actionPolicy);
+}
 </script>
 
 <style scoped>

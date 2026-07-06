@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { nextTick, reactive, ref } from "vue";
 import { createGameState, setPlayMode } from "./useGameState.js";
-import { useStoryline, isStepComplete } from "./useStoryline.js";
+import {
+  filterAllowedActions,
+  isActionAllowed,
+  isDestinationAllowed,
+  isStageViewAllowed,
+  useStoryline,
+  isStepComplete,
+} from "./useStoryline.js";
 import { mapData, utilityData } from "../lib/testing/content.js";
 import { useOutdoorWorld } from "../lib/maps/composables/useOutdoorWorld.js";
 import { addItem } from "../lib/character/holdings.js";
@@ -182,5 +189,73 @@ describe("useStoryline", () => {
     setup.gameState.storyline.stepId = "missing-step";
 
     expect(setup.api.authoringError.value).toBe('Storyline step "missing-step" was not found.');
+  });
+
+  it("allows open-world actions without storyline gates", () => {
+    const policy = { mode: "open-world", unrestricted: true };
+
+    expect(isActionAllowed("action:anything", policy)).toBe(true);
+    expect(isDestinationAllowed(policy, { type: "room", id: "control-room" })).toBe(true);
+    expect(isStageViewAllowed(policy, { kind: "console", id: "hydro" })).toBe(true);
+  });
+
+  it("filters actions through exact and semantic storyline allowances", () => {
+    const policy = {
+      mode: "storyline",
+      unrestricted: false,
+      allowed: {
+        movement: {
+          mode: "current-location-only",
+          rooms: ["control-room"],
+          exteriorNodes: [],
+          hexes: [],
+          transitions: [],
+        },
+        storyChoices: ["story:0"],
+        stageViews: [{ kind: "console", id: "hydro" }],
+        indoorActions: ["clear-intake-debris", "door-open:control-room-door"],
+        outdoorActions: ["search:barrier"],
+      },
+    };
+
+    expect(filterAllowedActions([
+      { id: "story:0" },
+      { id: "story:1" },
+      { id: "action:clear-intake-debris" },
+      { id: "action:optional-lookaround" },
+      { id: "door-open:control-room-door" },
+      { id: "search:barrier" },
+      { id: "hydro-console:open" },
+      { id: "move-room:garage" },
+    ], policy).map((action) => action.id)).toEqual([
+      "story:0",
+      "action:clear-intake-debris",
+      "door-open:control-room-door",
+      "search:barrier",
+      "hydro-console:open",
+    ]);
+  });
+
+  it("uses movement modes and destination lists for storyline movement", () => {
+    const currentOnly = {
+      mode: "storyline",
+      unrestricted: false,
+      allowed: { movement: { mode: "current-location-only", rooms: ["control-room"] } },
+    };
+    const localArea = {
+      mode: "storyline",
+      unrestricted: false,
+      allowed: { movement: { mode: "local-area" } },
+    };
+    const explicit = {
+      mode: "storyline",
+      unrestricted: false,
+      allowed: { movement: { rooms: ["control-room"] } },
+    };
+
+    expect(isDestinationAllowed(currentOnly, { type: "room", id: "control-room" })).toBe(false);
+    expect(isDestinationAllowed(localArea, { type: "room", id: "garage" })).toBe(true);
+    expect(isDestinationAllowed(explicit, { type: "room", id: "control-room" })).toBe(true);
+    expect(isDestinationAllowed(explicit, { type: "room", id: "garage" })).toBe(false);
   });
 });

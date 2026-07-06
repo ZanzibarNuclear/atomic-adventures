@@ -123,14 +123,14 @@ using beat selection as the sequencer.
 **Purpose:** Ensure storyline gates apply everywhere, not only in the play
 panel.
 
-- [ ] Define a normalized action identity scheme for movement, story choices,
+- [x] Define a normalized action identity scheme for movement, story choices,
       stage views, pickups, item actions, room actions, doors, switches,
       passages, searches, and map transitions.
 - [x] Have `useStoryline()` produce an action policy for the current step.
-- [ ] Filter play-panel actions through the policy in storyline mode.
-- [ ] Block direct map clicks and direct movement handlers through the same
+- [x] Filter play-panel actions through the policy in storyline mode.
+- [x] Block direct map clicks and direct movement handlers through the same
       policy.
-- [ ] Block indoor and outdoor interaction handlers through the same policy.
+- [x] Block indoor and outdoor interaction handlers through the same policy.
 - [ ] Keep shell actions such as save/load, return-to-map, and development-only
       diagnostics available according to contract rules.
 - [ ] Verify that storyline policy cannot bypass ordinary movement, door,
@@ -222,7 +222,7 @@ mode.
 - [x] Unit test storyline step selection, completion predicates, forced effects,
       and missing-content diagnostics.
 - [x] Unit test beat filtering by `modes` and `storylineStep`.
-- [ ] Unit test action-policy filtering for play-panel actions.
+- [x] Unit test action-policy filtering for play-panel actions.
 - [ ] Integration test map clicks and indoor/outdoor handlers so policy cannot
       be bypassed.
 - [ ] Smoke test guided hydro startup with storyline gates active.

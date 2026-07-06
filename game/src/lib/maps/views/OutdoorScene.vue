@@ -32,12 +32,12 @@
       :flags="outdoor.flags"
       :mode="auditEnabled ? 'full' : outdoor.mode"
       :stand-override="outdoor.standOverride"
-      :building-enterable="outdoor.atBuildingEntrance"
-      :clickable-hex-ids="outdoor.reachableHexIds"
+      :building-enterable="buildingEnterable"
+      :clickable-hex-ids="clickableHexIds"
       :movement-audit-entries="visibleAuditEntries"
       :avatar-instant="auditEnabled"
-      @hex-click="travelToHex"
-      @building-enter="enterBuilding" />
+      @hex-click="travelToAllowedHex"
+      @building-enter="enterAllowedBuilding" />
     <MapCaption :title="hexLabel(outdoor.currentHexData)" />
   </section>
 
@@ -45,10 +45,10 @@
 
   <StatusLines :lines="statusLines" />
 
-  <PlayPanel v-if="actions.length">
-    <ActionOptions v-if="actions.length" label="Choose an Action">
+  <PlayPanel v-if="filteredActions.length">
+    <ActionOptions v-if="filteredActions.length" label="Choose an Action">
       <button
-        v-for="item in actions"
+        v-for="item in filteredActions"
         :key="item.id"
         class="route-btn"
         :class="item.kind ? 'k-' + item.kind : null"
@@ -77,6 +77,10 @@ import {
   handleOutdoorChooseAction,
 } from "../../../composables/usePlayPanel.js";
 import {
+  filterAllowedActions,
+  isDestinationAllowed,
+} from "../../../composables/useStoryline.js";
+import {
   buildMapMovementAudit,
   movementAuditSummary,
 } from "../debug/mapMovementAudit.js";
@@ -90,6 +94,7 @@ const props = defineProps({
   travelToHex: { type: Function, required: true },
   enterBuilding: { type: Function, required: true },
   auditEnabled: { type: Boolean, default: false },
+  actionPolicy: { type: Object, default: null },
 });
 
 defineEmits(["hide-movement-audit"]);
@@ -136,14 +141,37 @@ const playActions = computed(() => {
 });
 
 const actions = computed(() => [...chooseActions.value, ...playActions.value]);
+const filteredActions = computed(() =>
+  filterAllowedActions(actions.value, props.actionPolicy),
+);
+const clickableHexIds = computed(() =>
+  (props.outdoor.reachableHexIds ?? []).filter((hexId) =>
+    isDestinationAllowed(props.actionPolicy, { type: "hex", id: hexId })
+  ),
+);
+const buildingEnterable = computed(() =>
+  props.outdoor.atBuildingEntrance &&
+  isDestinationAllowed(props.actionPolicy, { type: "transition", id: "building" }),
+);
 
 function onAction(id) {
+  if (!filteredActions.value.some((action) => action.id === id)) return;
   handleOutdoorChooseAction(
     props.outdoor,
     props.applyChoice,
     id,
     props.travelToHex,
   );
+}
+
+function travelToAllowedHex(hexId) {
+  if (!isDestinationAllowed(props.actionPolicy, { type: "hex", id: hexId })) return;
+  props.travelToHex(hexId);
+}
+
+function enterAllowedBuilding() {
+  if (!buildingEnterable.value) return;
+  props.enterBuilding();
 }
 </script>
 
