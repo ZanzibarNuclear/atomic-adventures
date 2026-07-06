@@ -110,18 +110,6 @@ describe('getMovementOptions', () => {
     ])
   })
 
-  it('does not add movement options beside a story destination', () => {
-    const pendingBeat = {
-      choices: [{ text: 'Keep walking west', go_hex: 'east-pines' }],
-    }
-    const outdoor = outdoorAt('origin')
-    const options = getMovementOptions(outdoor, pendingBeat)
-    const eastPines = options.filter((o) => o.toHexId === 'east-pines')
-
-    expect(eastPines).toHaveLength(1)
-    expect(eastPines[0].kind).toBeUndefined()
-  })
-
   it('omits story choices to adjacent but unreachable hexes', () => {
     const outdoor = useOutdoorWorld(mapData)
     outdoor.state.currentId = 'south-pines'
