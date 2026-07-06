@@ -14,6 +14,10 @@ import { useCharacterContent } from "../composables/useCharacterContent.js";
 import { useLearningContent } from "../composables/useLearningContent.js";
 import { useStorylineContent } from "../composables/useStorylineContent.js";
 import {
+  isActionAllowed,
+  isStageViewAllowed,
+} from "../composables/useStoryline.js";
+import {
   markCharacterChanged,
   syncCharacterDefinitions,
   syncCharacterHolderDefinitions,
@@ -102,6 +106,7 @@ const indoor = useIndoorBuilding(initialBuildingData, outdoor, ctx);
 const save = useSaveGame();
 const { lastSavedAt, loadError, hasSave, save: saveGame, load, clearSave } = save;
 
+const openStageViewForStory = (view) => openStageView(view, { force: true });
 const {
   narrativeBeat,
   pendingBeat,
@@ -112,13 +117,13 @@ const {
   travelToRoom,
   dismissEndCard,
   refreshNarrative,
-} = useStory(storyData, { gameState, place, outdoor, indoor, openStageView });
+} = useStory(storyData, { gameState, place, outdoor, indoor, openStageView: openStageViewForStory });
 const {
   currentObjective,
   authoringError: storylineError,
   actionPolicy: storylineActionPolicy,
   tick: tickStoryline,
-} = useStoryline(storylineData, { gameState, place, outdoor, indoor, openStageView });
+} = useStoryline(storylineData, { gameState, place, outdoor, indoor, openStageView: openStageViewForStory });
 
 const saveCtx = computed(() => ({ gameState, place, outdoor, indoor }));
 const nearbyHolderIds = computed(() => {
@@ -345,9 +350,10 @@ function publicAssetPath(path) {
   return path.startsWith("/") ? path : `/${path.replace(/^\.?\//, "")}`;
 }
 
-function openStageView(view) {
+function openStageView(view, { force = false } = {}) {
   const kind = view?.kind;
   if (!kind) return false;
+  if (!force && !isStageViewAllowed(storylineActionPolicy.value, view)) return false;
   if (kind === "inventory") {
     currentWorldHolderId();
     return openCharacter({ ...view, tab: "inventory" });
@@ -358,6 +364,7 @@ function openStageView(view) {
 }
 
 function handleHoloReaderAction(id) {
+  if (!isActionAllowed(id, storylineActionPolicy.value)) return;
   if (id === HOLO_READER_BROWSER_ACTION_ID) {
     openView("lesson", { source: "library-holo-reader" });
   }
@@ -371,6 +378,10 @@ function handleHoloReaderAction(id) {
 }
 
 function selectLesson(lessonId) {
+  if (!isStageViewAllowed(storylineActionPolicy.value, {
+    kind: "lesson",
+    id: lessonId,
+  })) return;
   openView("lesson", lessonId ? {
     ...activeView.value.payload,
     lessonId,
@@ -380,6 +391,10 @@ function selectLesson(lessonId) {
 }
 
 function handleCompleteLesson(lessonId) {
+  if (!isStageViewAllowed(storylineActionPolicy.value, {
+    kind: "lesson",
+    id: lessonId,
+  })) return;
   const lesson = lessons.value.find((candidate) => candidate.id === lessonId);
   if (!lesson) {
     lessonCompletionError.value = `Lesson "${lessonId}" was not found.`;
@@ -395,6 +410,10 @@ function handleSetStationPowerOverride(on) {
 }
 
 function handleUseItem({ itemId, actionId }) {
+  if (!isActionAllowed(`item-action:${itemId}.${actionId}`, storylineActionPolicy.value, {
+    itemId,
+    actionId,
+  })) return;
   const result = performItemAction(gameState, itemId, actionId);
   if (result.ok) {
     refreshNarrative();
@@ -538,6 +557,7 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       :selected-holding-id="stageSelectedHoldingId"
       :transfer-targets="transferTargets"
       :public-asset-path="publicAssetPath"
+      :action-policy="storylineActionPolicy"
       @select-holding="stageSelectedHoldingId = $event"
       @use-item="handleUseItem"
       @transfer-item="handleTransferItem"
@@ -555,6 +575,7 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       :clock="gameState.clock"
       :nearby-holder-ids="[...nearbyHolderIds, currentWorldHolderId()]"
       :initial-tab="activeView.payload?.tab"
+      :action-policy="storylineActionPolicy"
       @use-item="handleUseItem"
       @transfer-item="handleTransferItem"
       @return-to-map="handleReturnToMap" />

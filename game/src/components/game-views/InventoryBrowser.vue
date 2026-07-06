@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from "vue";
+import { isActionAllowed } from "../../composables/useStoryline.js";
 
 const props = defineProps({
   holders: { type: Array, required: true },
@@ -7,6 +8,7 @@ const props = defineProps({
   selectedHoldingId: { type: String, default: null },
   transferTargets: { type: Array, required: true },
   publicAssetPath: { type: Function, required: true },
+  actionPolicy: { type: Object, default: null },
 });
 
 const emit = defineEmits(["select-holding", "transfer-item", "use-item"]);
@@ -63,7 +65,13 @@ const detailImage = computed(() => {
 });
 
 const visibleActions = computed(() =>
-  isHeldDirectly.value || isInsideContainer.value ? (props.selectedHolding?.actions ?? []) : [],
+  isHeldDirectly.value || isInsideContainer.value
+    ? (props.selectedHolding?.actions ?? []).filter((action) =>
+      isActionAllowed(`item-action:${props.selectedHolding.item}.${action.id}`, props.actionPolicy, {
+        itemId: props.selectedHolding.item,
+        actionId: action.id,
+      }))
+    : [],
 );
 
 const availableTransferTargets = computed(() => {

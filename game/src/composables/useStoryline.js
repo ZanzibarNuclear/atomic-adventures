@@ -120,7 +120,7 @@ export function useStoryline(storylineData, {
       if (!result.ok) return result;
     }
     if (effect.move) applyMove(effect.move);
-    if (effect.view) openStageView(effect.view);
+    if (effect.view) openStageView(effect.view, { force: true });
     return { ok: true };
   }
 
@@ -224,6 +224,13 @@ export function isActionAllowed(action, policy, context = {}) {
   if (actionId.startsWith("holding-pickup:")) {
     return listIncludes(allowed.indoorActions, actionId);
   }
+  if (actionId.startsWith("item-action:")) {
+    const raw = actionId.slice("item-action:".length);
+    return listIncludes(allowed.itemActions, raw) || listIncludes(allowed.itemActions, actionId);
+  }
+  if (context.itemId && context.actionId) {
+    return itemActionAllowed(allowed, context.itemId, context.actionId);
+  }
   if (actionId.startsWith("door-") || actionId.startsWith("switch:") || actionId.startsWith("exit-world:")) {
     return listIncludes(allowed.indoorActions, actionId);
   }
@@ -293,6 +300,12 @@ function isExplicitlyAllowed(actionId, allowed) {
     listIncludes(allowed.storyChoices, actionId) ||
     listIncludes(allowed.itemActions, actionId) ||
     listIncludes(allowed.developerActions, actionId);
+}
+
+function itemActionAllowed(allowed, itemId, actionId) {
+  return listIncludes(allowed.itemActions, `${itemId}.${actionId}`) ||
+    listIncludes(allowed.itemActions, `item-action:${itemId}.${actionId}`) ||
+    listIncludes(allowed.itemActions, actionId);
 }
 
 function movementMode(allowed) {

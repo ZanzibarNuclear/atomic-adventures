@@ -144,11 +144,11 @@ const actions = computed(() => [...chooseActions.value, ...playActions.value]);
 const filteredActions = computed(() =>
   filterAllowedActions(actions.value, props.actionPolicy),
 );
-const clickableHexIds = computed(() =>
-  (props.outdoor.reachableHexIds ?? []).filter((hexId) =>
+const clickableHexIds = computed(() => new Set(
+  [...(props.outdoor.reachableHexIds ?? [])].filter((hexId) =>
     isDestinationAllowed(props.actionPolicy, { type: "hex", id: hexId })
   ),
-);
+));
 const buildingEnterable = computed(() =>
   props.outdoor.atBuildingEntrance &&
   isDestinationAllowed(props.actionPolicy, { type: "transition", id: "building" }),

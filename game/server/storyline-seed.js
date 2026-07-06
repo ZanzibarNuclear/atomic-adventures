@@ -9,33 +9,34 @@ export const storylineSeed = {
       steps: [
         {
           id: "intro",
-          objective: "Get oriented at the utility station.",
+          objective: "Enter the utility station control room.",
           allowed: { movement: { mode: "unrestricted" } },
-          completesWhen: { flag: "story.intro.complete" },
+          completesWhen: { location: { place: "indoors", room: "control-room" } },
           next: "read-startup-card",
         },
         {
           id: "read-startup-card",
           objective: "Read the laminated startup card.",
           allowed: {
-            movement: { mode: "current-location-only" },
-            stageViews: [{ kind: "document", id: "hydro-startup-card" }],
-            itemActions: ["hydro-startup-card.read"],
+            movement: { mode: "local-area", rooms: ["control-room"] },
+            stageViews: [{ kind: "document", id: "hydro-startup-instruction-card" }],
+            indoorActions: ["read-hydro-startup-card"],
+            itemActions: ["hydro-startup-instruction-card.read"],
           },
-          completesWhen: { flag: "artifacts.hydro-startup-card.read" },
+          completesWhen: { flag: "hydro.startup_card_read" },
           next: "inspect-intake",
         },
         {
           id: "inspect-intake",
-          objective: "Go to the intake and inspect the water path.",
+          objective: "Go to the intake and inspect the water path upstream.",
           allowed: {
             movement: {
               mode: "local-area",
               hexes: ["utility-yard"],
-              exteriorNodes: ["intake-entrance"],
+              exteriorNodes: ["upstream-bank", "intake-entrance"],
             },
           },
-          completesWhen: { location: { place: "indoors", exteriorNode: "intake-entrance" } },
+          completesWhen: { location: { place: "indoors", exteriorNode: "upstream-bank" } },
           next: "clear-open-intake",
         },
         {
@@ -53,7 +54,7 @@ export const storylineSeed = {
           objective: "Align the upstream diversion valve.",
           allowed: {
             movement: { mode: "local-area" },
-            indoorActions: ["open-upstream-valve"],
+            indoorActions: ["align-pipeflow"],
           },
           completesWhen: { facility: { "hydro.manualValves.upstreamOpen": true } },
           next: "open-turbine-valve",
@@ -63,7 +64,7 @@ export const storylineSeed = {
           objective: "Open the powerhouse pipe valve.",
           allowed: {
             movement: { mode: "local-area" },
-            indoorActions: ["open-powerhouse-valve"],
+            indoorActions: ["open-turbine-valve"],
           },
           completesWhen: { facility: { "hydro.manualValves.powerhouseOpen": true } },
           next: "return-control-room",
@@ -78,16 +79,16 @@ export const storylineSeed = {
             },
           },
           completesWhen: { location: { place: "indoors", room: "control-room" } },
-          next: "connect-station-power",
+          next: "connect-power",
         },
         {
-          id: "connect-station-power",
+          id: "connect-power",
           objective: "Connect station power.",
           allowed: {
             movement: { mode: "current-location-only" },
-            indoorActions: ["connect-station-power"],
+            indoorActions: ["connect-power"],
           },
-          completesWhen: { facility: { "hydro.stationPowerConnected": true } },
+          completesWhen: { facility: { "hydro.online": true } },
           next: "check-console",
         },
         {
@@ -96,6 +97,9 @@ export const storylineSeed = {
           allowed: {
             movement: { mode: "current-location-only" },
             stageViews: [{ kind: "console", id: "hydro" }],
+          },
+          onEnter: {
+            view: { kind: "console", id: "hydro", focus: "generation" },
           },
           completesWhen: { facility: { "hydro.online": true } },
           next: "complete-startup",

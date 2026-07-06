@@ -75,17 +75,19 @@ function harness(storyline = { scenarios: [scenario()] }) {
     objective: "Get oriented.",
   });
   const openedViews = [];
+  const openedViewOptions = [];
   const api = useStoryline(storylineData, {
     gameState,
     place,
     outdoor,
     indoor,
-    openStageView: (view) => {
+    openStageView: (view, options) => {
       openedViews.push(view);
+      openedViewOptions.push(options);
       return true;
     },
   });
-  return { storylineData, gameState, place, outdoor, indoor, api, openedViews };
+  return { storylineData, gameState, place, outdoor, indoor, api, openedViews, openedViewOptions };
 }
 
 describe("useStoryline", () => {
@@ -161,6 +163,7 @@ describe("useStoryline", () => {
     expect(setup.gameState.storyline.stepId).toBeNull();
     expect(setup.gameState.flags.has("story.finished")).toBe(true);
     expect(setup.openedViews).toEqual([{ kind: "document", id: "hydro-startup-card" }]);
+    expect(setup.openedViewOptions).toEqual([{ force: true }]);
   });
 
   it("evaluates facility, location, holding, and lesson predicates", () => {
@@ -215,9 +218,16 @@ describe("useStoryline", () => {
         stageViews: [{ kind: "console", id: "hydro" }],
         indoorActions: ["clear-intake-debris", "door-open:control-room-door"],
         outdoorActions: ["search:barrier"],
+        itemActions: ["hydro-startup-instruction-card.read"],
       },
     };
 
+    expect(isActionAllowed("item-action:hydro-startup-instruction-card.read", policy)).toBe(true);
+    expect(isActionAllowed("item-action:hydro-startup-instruction-card.discard", policy)).toBe(false);
+    expect(isActionAllowed("read", policy, {
+      itemId: "hydro-startup-instruction-card",
+      actionId: "read",
+    })).toBe(true);
     expect(filterAllowedActions([
       { id: "story:0" },
       { id: "story:1" },
@@ -226,6 +236,7 @@ describe("useStoryline", () => {
       { id: "door-open:control-room-door" },
       { id: "search:barrier" },
       { id: "hydro-console:open" },
+      { id: "item-action:hydro-startup-instruction-card.read" },
       { id: "move-room:garage" },
     ], policy).map((action) => action.id)).toEqual([
       "story:0",
@@ -233,6 +244,7 @@ describe("useStoryline", () => {
       "door-open:control-room-door",
       "search:barrier",
       "hydro-console:open",
+      "item-action:hydro-startup-instruction-card.read",
     ]);
   });
 

@@ -166,9 +166,9 @@ competing for the same trigger as hidden state machines.
 - [x] Show the current mode in the game UI.
 - [x] Show the current storyline objective prominently in storyline mode.
 - [x] Do not show a canonical objective in open-world mode.
-- [ ] Ensure focused stage views such as the instruction card, holo-reader, and
+- [x] Ensure focused stage views such as the instruction card, holo-reader, and
       console do not hide the objective in a confusing way.
-- [ ] Keep the narrative card for prose; use objective UI for "what matters
+- [x] Keep the narrative card for prose; use objective UI for "what matters
       right now."
 
 **Exit criterion:** A new player can tell whether they are following Zanzibar's
@@ -196,14 +196,14 @@ copying IDs or creating fragile hidden beat dependencies.
 
 **Purpose:** Encode the canonical alpha path as a scenario.
 
-- [ ] Create `part-i-hydro-alpha`.
-- [ ] Add steps for:
+- [x] Create `part-i-hydro-alpha`.
+- [x] Add steps for:
       intro, read startup card, inspect intake, clear/open intake, align
       upstream/diversion valve, open turbine valve, return to control room,
       connect station power, check console, and complete startup.
-- [ ] Gate optional exploration in storyline mode where it obscures the current
+- [x] Gate optional exploration in storyline mode where it obscures the current
       step.
-- [ ] Keep open-world mode broad enough to complete hydro startup out of story
+- [x] Keep open-world mode broad enough to complete hydro startup out of story
       order when facility rules allow it.
 - [ ] Move hydro startup beat prose into storyline-scoped step beats or
       open-world ambient beats.
@@ -223,12 +223,13 @@ mode.
       and missing-content diagnostics.
 - [x] Unit test beat filtering by `modes` and `storylineStep`.
 - [x] Unit test action-policy filtering for play-panel actions.
+- [x] Regression test that both play-mode choices render the playable scene.
 - [ ] Integration test map clicks and indoor/outdoor handlers so policy cannot
       be bypassed.
 - [ ] Smoke test guided hydro startup with storyline gates active.
 - [ ] Smoke test open-world startup with broad actions and valid out-of-order
       completion.
-- [ ] Run `npm run test` from the repo root before finishing implementation
+- [x] Run `npm run test` from the repo root before finishing implementation
       work.
 
 **Exit criterion:** Both modes are covered by tests at the state, action, beat,

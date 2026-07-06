@@ -5,12 +5,12 @@ import { storylineSeed } from "./storyline-seed.js";
 const world = {
   hexIds: new Set(["utility-yard"]),
   roomIds: new Set(["control-room"]),
-  exteriorNodeIds: new Set(["intake-entrance"]),
+  exteriorNodeIds: new Set(["intake-entrance", "upstream-bank"]),
   mapTransitionIds: new Set(["garage-exit"]),
 };
 
 const character = {
-  items: [{ id: "hydro-startup-card" }],
+  items: [{ id: "hydro-startup-instruction-card" }],
   stats: [],
   knowledge: [],
   skills: [],
