@@ -41,31 +41,31 @@ describe("learning model", () => {
       ]));
   });
 
-  it("validates the published alpha hydro rewrite as paged mixed content", () => {
+  it("validates the published beginner hydro lesson as paged mixed content", () => {
     const result = validateLearningDocument(learningSeed, { character });
-    const alphaLesson = result.learning.lessons.find((lesson) => lesson.id === "hydro-power-intro-alpha");
-    const alphaFrames = alphaLesson.pages.flatMap((page) => page.frames);
-    const alphaBlocks = alphaFrames.flatMap((frame) => frame.blocks);
+    const beginnerLesson = result.learning.lessons.find((lesson) => lesson.id === "hydro-power-stream-to-socket");
+    const beginnerFrames = beginnerLesson.pages.flatMap((page) => page.frames);
+    const beginnerBlocks = beginnerFrames.flatMap((frame) => frame.blocks);
 
     expect(result.valid).toBe(true);
     expect(result.learning.lessons[0].published).toBe(true);
-    expect(alphaLesson.published).toBe(true);
-    expect(alphaLesson.pages.map((page) => page.id)).toEqual([
+    expect(beginnerLesson.published).toBe(true);
+    expect(beginnerLesson.pages.map((page) => page.id)).toEqual([
       "water-and-height",
       "water-path",
       "powerhouse",
       "field-checks",
     ]);
-    expect(alphaLesson.completion.effects).toEqual([
+    expect(beginnerLesson.completion.effects).toEqual([
       { op: "knowledge.acquire", id: "hydro-head-and-flow" },
     ]);
-    expect(alphaBlocks.find((block) => block.type === "image")).toEqual(
+    expect(beginnerBlocks.find((block) => block.type === "image")).toEqual(
       expect.objectContaining({
         src: "/learning/hydro/cascading-waterfall-head.png",
         alt: expect.stringContaining("waterfall"),
       }),
     );
-    expect(alphaBlocks.find((block) => block.type === "diagram")).toEqual(
+    expect(beginnerBlocks.find((block) => block.type === "diagram")).toEqual(
       expect.objectContaining({
         steps: [
           "High water",
@@ -77,7 +77,7 @@ describe("learning model", () => {
         ],
       }),
     );
-    expect(alphaFrames.filter((frame) => frame.kind === "quiz").flatMap((frame) => frame.questions).map((question) => question.id))
+    expect(beginnerFrames.filter((frame) => frame.kind === "quiz").flatMap((frame) => frame.questions).map((question) => question.id))
       .toEqual(["trace-water-path", "identify-head", "spot-power-loss"]);
   });
 

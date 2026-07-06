@@ -33,7 +33,7 @@ const character = {
 };
 
 const learning = {
-  lessons: [{ id: "hydro-power-intro-alpha" }],
+  lessons: [{ id: "hydro-power-stream-to-socket" }],
 };
 
 const story = {
@@ -56,7 +56,7 @@ const story = {
 };
 
 describe("storyline model", () => {
-  it("validates the seeded alpha scenario shape", () => {
+  it("validates the seeded Part I scenario shape", () => {
     const result = validateStorylineDocument(storylineSeed, { story, world, character, learning });
     expect(result.valid).toBe(true);
     expect(result.storyline.id).toBe("storyline-main");

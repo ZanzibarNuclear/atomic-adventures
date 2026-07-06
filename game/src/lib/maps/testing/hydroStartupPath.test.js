@@ -47,14 +47,14 @@ function setIndoorLocation(indoor, { room = null, exteriorNode = null }) {
   indoor.indoor.exteriorNode = exteriorNode;
 }
 
-describe("hydro alpha startup path", () => {
+describe("hydro startup path", () => {
   it("connects food, water purification, and rest to the first survival crisis", () => {
     const { gameState, indoor } = buildHarness();
     gameState.flags.add("story.the-garage");
     setIndoorLocation(indoor, { room: "kitchen" });
 
-    expect(gameState.character.stats.satiety).toBe(35);
-    expect(gameState.character.stats.hydration).toBe(35);
+    expect(gameState.character.stats.satiety).toBe(49);
+    expect(gameState.character.stats.hydration).toBe(49);
     expect(gameState.character.stats.energy).toBe(82);
 
     expect(indoor.performAction("eat-rations")).toMatchObject({ ok: true });

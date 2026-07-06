@@ -99,8 +99,8 @@ the catalog. To switch back, reverse those published states. Story, world,
 inventory, and document entry points that open a specific lesson by ID must be
 updated in the same change when they are meant to target the new revision.
 
-For the hydro alpha rewrite, keep the original `hydro-power-intro` lesson
-unchanged while authoring the beginner rewrite as `hydro-power-intro-alpha`.
+For the hydro beginner rewrite, keep the original `hydro-power-intro` lesson
+unchanged while authoring the streamlined lesson as `hydro-power-stream-to-socket`.
 Both versions are available in the holo-reader catalog so players and authors
 can compare them. Both should grant the same required hydro
 knowledge/progression effects unless the progression contract intentionally

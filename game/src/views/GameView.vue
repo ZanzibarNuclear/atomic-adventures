@@ -219,8 +219,8 @@ const wellbeingAlerts = computed(() =>
     })),
 );
 const catastrophicVitals = computed(() =>
-  wellbeingOverview.value.vitals.filter((vital) =>
-    vital.id === "health" && Number(vital.value) <= Number(vital.min ?? 0),
+  [wellbeingOverview.value.health].filter((vital) =>
+    Number(vital.value) <= Number(vital.min ?? 0),
   ),
 );
 const gameFailed = computed(() => catastrophicVitals.value.length > 0);

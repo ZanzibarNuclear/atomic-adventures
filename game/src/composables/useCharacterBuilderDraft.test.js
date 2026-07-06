@@ -84,8 +84,8 @@ describe("content builder preview character", () => {
       energy: 25,
       composure: 25,
     }));
+    expect(overview.health).toEqual(expect.objectContaining({ id: "health", value: 25, state: "Weak" }));
     expect(overview.vitals).toEqual([
-      expect.objectContaining({ id: "health", value: 25, state: "Weak" }),
       expect.objectContaining({ id: "satiety", value: 25, state: "Hungry" }),
       expect.objectContaining({ id: "hydration", value: 25, state: "Thirsty" }),
       expect.objectContaining({ id: "energy", value: 25, state: "Exhausted" }),

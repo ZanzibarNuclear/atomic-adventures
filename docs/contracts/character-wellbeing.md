@@ -11,9 +11,10 @@ or other consequences over time. The character overview presents positive
 vitals, named condition states, and health as a calculated result of sustained
 or severe problems rather than as a standalone need meter.
 
-The playable game surfaces serious wellbeing states in a compact vitals bar
-near the game timestamp and in the character overview. The bar is not shown
-before a play mode is active, and it is not a separate simulation.
+The playable game surfaces serious reserve states in a compact vitals bar near
+the game timestamp and in the character overview. The bar is not shown before a
+play mode is active, and it is not a separate simulation. Health is a calculated
+result, not an independently adjustable or player-facing vital meter.
 
 ## Player-Facing Model
 
@@ -23,18 +24,20 @@ Character overview vitals follow one rule:
 
 The preferred visible vitals are:
 
-- `Health` — calculated physical condition. Higher is better.
 - `Satiety` — food reserve / how fed Zanzibar is. Higher is better.
 - `Hydration` — water reserve / how hydrated Zanzibar is. Higher is better.
 - `Energy` — fatigue and sleep reserve. Higher is better.
 - `Composure` — emotional steadiness. Higher is better.
 
+Calculated health can still use words for failure logic, diagnostics, or
+future presentation outside the vitals list: healthy, stable, weak, critical,
+collapsed.
+
 Use words alongside or instead of numbers where words are clearer. Examples:
 
-- Health: healthy, stable, weak, critical, collapsed.
 - Satiety: sated, fed, hungry, very hungry, starving.
 - Hydration: hydrated, okay, thirsty, dehydrated, severely dehydrated.
-- Energy: rested, tired, exhausted, spent.
+- Energy: energized, rested, tired, exhausted, barely awake, asleep uncontrollably.
 - Composure: calm, alert, nervous, scared, panicked.
 
 Those player-facing words are authored per stat with `displayStates`. Each
@@ -42,12 +45,16 @@ entry is a minimum reserve value for that label and tone:
 
 ```yaml
 displayStates:
-  - { at: 80, state: rested, tone: positive }
-  - { at: 50, state: tired, tone: warning }
-  - { at: 25, state: exhausted, tone: error }
-  - { at: 5, state: spent, tone: error }
-  - { at: 0, state: asleep on feet, tone: error }
+  - { at: 80, state: energized, tone: positive }
+  - { at: 50, state: rested, tone: positive }
+  - { at: 34, state: tired, tone: warning }
+  - { at: 18, state: exhausted, tone: error }
+  - { at: 1, state: barely awake, tone: error }
+  - { at: 0, state: asleep uncontrollably, tone: error }
 ```
+
+That yields the ranges: energized 80-100, rested 50-79, tired 34-49,
+exhausted 18-33, barely awake 1-17, and asleep uncontrollably at 0.
 
 Vitals do not need identical display bands. Health might enter `critical` at
 `5`, while satiety, hydration, energy, and composure can use their own authored

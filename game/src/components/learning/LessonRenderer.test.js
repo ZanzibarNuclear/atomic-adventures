@@ -53,8 +53,8 @@ const lesson = {
 };
 
 const pagedLesson = {
-  id: "hydro-alpha",
-  title: "Hydro Alpha",
+  id: "hydro-stream-to-socket",
+  title: "Hydro Stream To Socket",
   completion: {
     awardTitle: "Hydro Power Theory",
     awardText: "Zanzibar understands hydro power.",
@@ -250,6 +250,6 @@ describe("LessonRenderer", () => {
     await wrapper.find('input[value="down"]').setValue(true);
     await wrapper.find(".frame-quiz button").trigger("click");
 
-    expect(wrapper.emitted("pass-quiz")).toEqual([["hydro-alpha"]]);
+    expect(wrapper.emitted("pass-quiz")).toEqual([["hydro-stream-to-socket"]]);
   });
 });

@@ -173,7 +173,7 @@ Supported alpha predicate families should include:
 | `facility` | `{ hydro.intakeReady: true }` | A facility state field has the expected value. |
 | `location` | `{ place: indoors, room: control-room }` | Player reached a specific location. |
 | `holding` | `{ item: hydro-startup-card, holder: character:zanzibar-nuhero }` | A required artifact is held by an accessible holder. |
-| `lesson` | `{ id: hydro-power-intro-alpha, status: completed }` | A lesson reached a known progress state. |
+| `lesson` | `{ id: hydro-power-stream-to-socket, status: completed }` | A lesson reached a known progress state. |
 
 If a new predicate is needed, add it with runtime evaluation, builder controls,
 validation, tests, and this contract together. Do not add arbitrary nested
@@ -353,7 +353,7 @@ must include storyline references:
 - selected world or content objects should show which storyline steps reference
   them.
 
-## Part I Alpha Scenario
+## Part I Guided Scenario
 
 The alpha storyline scenario should encode Zanzibar's full Part I opening arc,
 not only the hydro startup sequence:

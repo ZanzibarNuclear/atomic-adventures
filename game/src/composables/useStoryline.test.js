@@ -210,7 +210,7 @@ describe("useStoryline", () => {
     setup.gameState.facilities.hydro.intakeOpen = true;
     setup.place.value = "indoors";
     setup.indoor.indoor.currentRoom = "control-room";
-    setup.gameState.lessons["hydro-power-intro-alpha"] = { completedAt: "now" };
+    setup.gameState.lessons["hydro-power-stream-to-socket"] = { completedAt: "now" };
     addItem(
       setup.gameState.character.holdings,
       setup.gameState.character.definitions,
@@ -222,7 +222,7 @@ describe("useStoryline", () => {
     expect(isStepComplete({ completesWhen: { location: { place: "indoors", room: "control-room" } } }, setup)).toBe(true);
     expect(isStepComplete({ completesWhen: { holding: { item: "hydro-startup-card" } } }, setup)).toBe(true);
     expect(isStepComplete({
-      completesWhen: { lesson: { id: "hydro-power-intro-alpha", status: "completed" } },
+      completesWhen: { lesson: { id: "hydro-power-stream-to-socket", status: "completed" } },
     }, setup)).toBe(true);
   });
 
@@ -402,6 +402,6 @@ describe("useStoryline", () => {
     expect(isActionAllowed("item-action:ration.eat", policy)).toBe(true);
     expect(isActionAllowed("item-action:hydro-startup-instruction-card.read", policy)).toBe(false);
     expect(isStageViewAllowed(policy, { kind: "character", tab: "overview" })).toBe(true);
-    expect(isStageViewAllowed(policy, { kind: "lesson", id: "hydro-power-intro-alpha" })).toBe(false);
+    expect(isStageViewAllowed(policy, { kind: "lesson", id: "hydro-power-stream-to-socket" })).toBe(false);
   });
 });

@@ -28,8 +28,8 @@ export function characterWellbeingOverview(character) {
   const byId = Object.fromEntries(allCharacterStats(character).map((stat) => [stat.id, stat]));
   const derivedHealth = derivedHealthVital(byId);
   return {
+    health: derivedHealth,
     vitals: [
-      derivedHealth,
       vitalFromStat(byId.satiety ?? reserveFromPressureStat(byId.hunger, {
         id: "satiety",
         label: "Satiety",
@@ -67,11 +67,12 @@ export function characterWellbeingOverview(character) {
         label: "Energy",
         fallback: 100,
         states: [
-          [80, "Rested", "positive"],
-          [50, "Tired", "warning"],
-          [25, "Exhausted", "error"],
-          [1, "Spent", "error"],
-          [0, "Asleep on feet", "error"],
+          [80, "Energized", "positive"],
+          [50, "Rested", "positive"],
+          [34, "Tired", "warning"],
+          [18, "Exhausted", "error"],
+          [1, "Barely awake", "error"],
+          [0, "Asleep uncontrollably", "error"],
         ],
       }),
       vitalFromStat(byId.composure, {

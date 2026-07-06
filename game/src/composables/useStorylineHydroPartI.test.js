@@ -74,7 +74,7 @@ async function tick(harness) {
   await nextTick();
 }
 
-describe("hydro alpha play modes", () => {
+describe("Part I hydro play modes", () => {
   it("guides the hydro startup sequence with story gates active", async () => {
     const harness = buildHarness("story");
 

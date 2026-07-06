@@ -165,7 +165,7 @@ export const learningSeed = {
       ],
     },
     {
-      id: "hydro-power-intro-alpha",
+      id: "hydro-power-stream-to-socket",
       title: "Hydro Power From Stream To Socket",
       summary: "A beginner-friendly tour of how falling water spins a turbine and powers the station.",
       order: 11,

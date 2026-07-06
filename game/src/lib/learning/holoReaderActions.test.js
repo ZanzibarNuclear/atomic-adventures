@@ -66,7 +66,7 @@ describe("holo-reader launch actions", () => {
   it("keeps unpublished lessons out of the playable catalog", () => {
     const lessons = [
       { ...lesson, id: "hydro-power-intro", order: 10 },
-      { ...lesson, id: "hydro-power-intro-alpha", order: 11, published: false },
+      { ...lesson, id: "hydro-power-stream-to-socket", order: 11, published: false },
     ];
 
     expect(availableHoloReaderLessons(lessons, {

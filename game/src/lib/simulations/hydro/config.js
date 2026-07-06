@@ -6,7 +6,7 @@ export const HYDRO_BASELINE_CONFIG = Object.freeze({
   label: "Upper Penstock micro-hydro baseline",
   profileKind: "baseline",
   plantType: "diversion-run-of-river",
-  tags: ["alpha", "easy-mode", "micro-hydro"],
+  tags: ["intro-path", "easy-mode", "micro-hydro"],
   equationInputs: {
     netHeadM: 15.24,
     designFlowM3s: 0.012,
