@@ -252,16 +252,18 @@ what matters immediately, and is warned when survival pressure becomes serious.
 **Purpose:** Make the opening survival premise mechanically real enough for
 alpha.
 
-- [ ] Confirm movement and authored actions consistently advance time with an
+- [x] Add modal for observing player vitals, something to keep open and watch
+      to see how levels change over game time.
+- [x] Confirm movement and authored actions consistently advance time with an
       activity profile.
-- [ ] Tune hydration, satiety, and energy drift for early Part I travel.
-- [ ] Add or verify thresholds for warning, serious impairment, collapse, and
+- [x] Tune hydration, satiety, and energy drift for early Part I travel.
+- [x] Add or verify thresholds for warning, serious impairment, collapse, and
       failure.
-- [ ] Ensure canonical progress to food/water is tense but survivable.
-- [ ] Ensure repeated wandering or walking in circles can produce serious
+- [x] Ensure canonical progress to food/water is tense but survivable.
+- [x] Ensure repeated wandering or walking in circles can produce serious
       consequences.
-- [ ] Connect food, water purification, and rest to resolving the first crisis.
-- [ ] Add tests for time/wellbeing drift during repeated movement.
+- [x] Connect food, water purification, and rest to resolving the first crisis.
+- [x] Add tests for time/wellbeing drift during repeated movement.
 
 **Exit criterion:** The first objective has stakes: exploration is allowed, but
 time and vitals matter.

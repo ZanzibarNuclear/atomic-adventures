@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { characterDefinitions, mapData, utilityData } from '../lib/testing/content.js'
 import {
   buildTravelWorld,
@@ -28,6 +28,10 @@ import { createFlags } from '../lib/maps/composables/useFlags.js'
 import { ref } from 'vue'
 
 const world = buildTravelWorld(mapData)
+
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 function outdoorAt(hexId, pendingBeat = null) {
   const fromHex = world.hexById[hexId]
@@ -198,6 +202,62 @@ describe('getMovementOptions', () => {
 
     expect(gameState.clock.elapsedMinutes).toBe(20)
     expect(gameState.character.stats.effort).toBeCloseTo(2)
+  })
+
+  it('drifts survival vitals during repeated outdoor movement', () => {
+    vi.useFakeTimers()
+    const gameState = {
+      flags: new Set(),
+      clock: createGameClock(),
+      character: createCharacterState({
+        items: [],
+        stats: [
+          {
+            id: 'satiety',
+            label: 'Satiety',
+            type: 'meter',
+            default: 58,
+            min: 0,
+            max: 100,
+            drift: { perGameHour: { moderate: -4.5 } },
+          },
+          {
+            id: 'hydration',
+            label: 'Hydration',
+            type: 'meter',
+            default: 48,
+            min: 0,
+            max: 100,
+            drift: { perGameHour: { moderate: -8 } },
+          },
+          {
+            id: 'energy',
+            label: 'Energy',
+            type: 'meter',
+            default: 82,
+            min: 0,
+            max: 100,
+            drift: { perGameHour: { moderate: -5 } },
+          },
+        ],
+        knowledge: [],
+        skills: [],
+        quests: [],
+        documents: [],
+      }),
+    }
+    const outdoor = useOutdoorWorld(mapData, gameState)
+
+    outdoor.moveTo('east-pines')
+    vi.advanceTimersByTime(650)
+    outdoor.moveTo('center-pines')
+    vi.advanceTimersByTime(650)
+    outdoor.moveTo('east-pines')
+
+    expect(gameState.clock.elapsedMinutes).toBe(45)
+    expect(gameState.character.stats.satiety).toBeCloseTo(54.625)
+    expect(gameState.character.stats.hydration).toBeCloseTo(42)
+    expect(gameState.character.stats.energy).toBeCloseTo(78.25)
   })
 
   it('hides fence inspection after the hidden opening is found', () => {

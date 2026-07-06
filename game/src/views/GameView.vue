@@ -39,6 +39,7 @@ import HydroConsoleView from "../components/game-views/HydroConsoleView.vue";
 import InstructionCardView from "../components/game-views/InstructionCardView.vue";
 import InventoryStageView from "../components/game-views/InventoryStageView.vue";
 import StoryOverlay from "../components/story/StoryOverlay.vue";
+import VitalsMonitorDialog from "../components/game-views/VitalsMonitorDialog.vue";
 import OutdoorScene from "../lib/maps/views/OutdoorScene.vue";
 import IndoorScene from "../lib/maps/views/IndoorScene.vue";
 import {
@@ -60,6 +61,7 @@ const place = ref("outdoors");
 const builderView = ref(false);
 const movementAuditVisible = ref(false);
 const developerSettingsVisible = ref(false);
+const vitalsMonitorVisible = ref(false);
 const {
   activeView,
   isMapView,
@@ -480,6 +482,7 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       @reset="handleReset"
       @show-character="handleOpenCharacter"
       @show-map="returnToMap"
+      @show-vitals="vitalsMonitorVisible = true"
       @show-dev-settings="developerSettingsVisible = true"
       @show-movement-audit="movementAuditVisible = true" />
 
@@ -488,6 +491,12 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       :station-power-on="stationPowerOverrideOn"
       @set-station-power="handleSetStationPowerOverride"
       @close="developerSettingsVisible = false" />
+
+    <VitalsMonitorDialog
+      v-if="vitalsMonitorVisible"
+      :overview="wellbeingOverview"
+      :clock="gameState.clock"
+      @close="vitalsMonitorVisible = false" />
 
     <div
       v-if="contentError || worldContentError || buildingContentError || characterContentError || learningContentError || storylineContentError"
@@ -563,6 +572,7 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
         :class="alert.tone">
         {{ alert.label }}: {{ alert.state }}
       </span>
+      <button type="button" class="sm muted" @click="vitalsMonitorVisible = true">Monitor</button>
     </section>
 
     <section

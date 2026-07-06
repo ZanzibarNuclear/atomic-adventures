@@ -39,6 +39,13 @@
             @click="$emit(activeGameView === 'character' ? 'show-map' : 'show-character')">
             {{ activeGameView === "character" ? "Map" : "Player Stats" }}
           </button>
+          <button
+            type="button"
+            class="sm"
+            :disabled="!playMode"
+            @click="$emit('show-vitals')">
+            Vitals
+          </button>
           <details ref="gameMenu" class="game-menu">
             <summary class="sm">Game</summary>
             <div class="game-menu-popover">
@@ -87,6 +94,7 @@ const emit = defineEmits([
   "show-movement-audit",
   "show-character",
   "show-map",
+  "show-vitals",
 ]);
 const devMode = import.meta.env.DEV;
 const devMenu = ref(null);

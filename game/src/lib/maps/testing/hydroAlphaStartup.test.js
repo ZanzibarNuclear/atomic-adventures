@@ -48,6 +48,34 @@ function setIndoorLocation(indoor, { room = null, exteriorNode = null }) {
 }
 
 describe("hydro alpha startup path", () => {
+  it("connects food, water purification, and rest to the first survival crisis", () => {
+    const { gameState, indoor } = buildHarness();
+    gameState.flags.add("story.the-garage");
+    setIndoorLocation(indoor, { room: "kitchen" });
+
+    expect(gameState.character.stats.satiety).toBe(58);
+    expect(gameState.character.stats.hydration).toBe(48);
+    expect(gameState.character.stats.energy).toBe(82);
+
+    expect(indoor.performAction("eat-rations")).toMatchObject({ ok: true });
+    expect(itemQuantity(gameState.character.holdings, "tastee-tack-turkey-cranberry-meal")).toBe(1);
+    expect(gameState.flags.has("day1.found-food")).toBe(true);
+    expect(gameState.character.stats.satiety).toBeGreaterThan(99);
+
+    expect(indoor.performAction("purify-water")).toMatchObject({ ok: true });
+    expect(itemQuantity(gameState.character.holdings, "purified-water")).toBe(1);
+    expect(gameState.flags.has("day1.found-water")).toBe(true);
+    expect(gameState.character.stats.hydration).toBeGreaterThan(82);
+
+    gameState.character.stats.energy = 55;
+    setIndoorLocation(indoor, { room: "library" });
+    expect(indoor.performAction("rest-in-library")).toMatchObject({ ok: true });
+
+    expect(gameState.flags.has("day1.complete")).toBe(true);
+    expect(gameState.character.stats.energy).toBeGreaterThan(94);
+    expect(gameState.character.stats.health).toBe(100);
+  });
+
   it("connects authored field actions to hydro state, save/load, console telemetry, and station power", async () => {
     const harness = buildHarness();
     const { gameState, indoor, outdoor, place } = harness;

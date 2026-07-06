@@ -10,6 +10,13 @@ or other consequences over time. The character overview presents positive
 vitals, named condition states, and health as the result of sustained or severe
 problems rather than as a duplicate of every need meter.
 
+The playable game also provides a watchable vitals monitor. The monitor is an
+in-game modal that can remain open while game time advances, so authors and
+players can see health, satiety, hydration, energy, composure, and active
+conditions update after movement, story choices, indoor actions, item use, and
+rest. It uses the same underlying values and labels as the character overview;
+it is not a separate debug-only simulation and must not advance time on its own.
+
 ## Player-Facing Model
 
 Character overview vitals follow one rule:
@@ -263,6 +270,7 @@ progression.
 
 Minimum alpha behavior:
 
+- a vitals monitor can stay open while game-time actions update the meters;
 - travel and authored actions advance time with an activity profile;
 - time drift reduces relevant reserves such as hydration, satiety, and energy;
 - low reserves surface clear warning states in the character/status UI and may
