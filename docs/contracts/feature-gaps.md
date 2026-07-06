@@ -11,10 +11,32 @@ tests, implementation map, and this list in the same change.
   requires it: beat requirements, choice visibility rules, choice-specific
   character effects, passage-to-passage `go_to`, variants, simulation gates,
   images, ambient audio, and dedicated ambient beat semantics.
+- Add beat `modes` and `storylineStep` support once the play-mode/storyline
+  controller is implemented. These fields should scope prose; they should not
+  make beats the storyline action-policy engine.
 - Add stand-level story triggers if a room needs prose that depends on the
   avatar's precise `currentStand`, not just `currentRoom` or `exteriorNode`.
 - Keep future beat conditions targeted. Avoid rebuilding a general-purpose
   requirement engine inside story beats.
+
+## Play Modes And Storyline
+
+- Add new-game mode selection with Storyline as the alpha default and
+  Open-world as an explicit freeform option.
+- Add `playMode` and active storyline state to saves.
+- Implement scenario content, runtime loading, production JSON export, live
+  authoring updates, and revision history.
+- Implement the storyline controller, current objective, typed step completion
+  predicates, forced effects, and action policy.
+- Apply storyline action policy consistently to play-panel buttons, map clicks,
+  movement handlers, room actions, pickups, item actions, stage views, doors,
+  switches, passages, and transitions.
+- Add Story Builder scenario authoring and reference-aware rename/delete support
+  across Story Builder, World Builder, and Content Builder.
+- Migrate hydro alpha startup into a `part-i-hydro-alpha` scenario and keep
+  open-world hydro startup broad but physically valid.
+- Defer switching arbitrary open-world saves back into storyline until there is
+  a dedicated rejoin contract.
 
 ## Stage Views
 

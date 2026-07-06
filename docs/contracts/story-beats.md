@@ -1,21 +1,62 @@
 # Story Beats
 
-**Status:** Source of truth for the current Part I story-beat runtime and authoring behavior  
+**Status:** Source of truth for story-beat prose, triggers, choices, and mode scoping
 **Scope:** `game/` story builder, content API, game state, and `useStory`
 
 ---
 
 ## Purpose
 
-A **beat** is the current game engine's unit of location-triggered narrative. It
-attaches prose and optional choices to a hex, room, exterior node, or named
-event. Beats are authored in the story builder at `/builder/story`, stored in
+A **beat** is the game engine's unit of triggered narrative prose. It attaches
+Zanzibar's authored voice, ambient discovery text, and optional small choices
+to a hex, room, exterior node, named event, or active storyline step. Beats are
+authored in the story builder at `/builder/story`, stored in
 `game/content/atomic-adventures.sqlite`, and delivered to the game through the
 local content API.
 
-This document describes the behavior implemented today. The broader passage
-format in `game-design/content/story/story-data-format.md` includes planned features
+Beats are not the global quest engine. They do not own play-mode selection,
+current objectives, broad action gating, forced movement, forced time passage,
+or canonical story sequencing. Those responsibilities belong to the storyline
+controller described in [play-modes-and-storyline.md](play-modes-and-storyline.md).
+
+This document describes implemented beat behavior plus the planned alpha
+mode-scoping fields required by the dual-mode split. The broader passage format
+in `game-design/content/story/story-data-format.md` includes planned features
 that the current beat engine does not yet support.
+
+## Relationship to Play Modes
+
+The game has two explicit modes:
+
+- `storyline`: the player follows Zanzibar's canonical story and may be
+  limited to the actions, movement, timing, and stage views allowed by the
+  active storyline step.
+- `open-world`: the player explores freely, with ordinary world, facility,
+  character, inventory, and movement rules providing safety rails.
+
+Beats may be scoped to one or both modes:
+
+```yaml
+modes: [storyline]
+storylineStep: read-startup-card
+```
+
+Rules:
+
+- Omitting `modes` keeps the beat eligible in both modes when its trigger and
+  other criteria match.
+- `modes: [storyline]` makes the beat eligible only in storyline saves.
+- `modes: [open-world]` makes the beat eligible only in open-world saves.
+- `storylineStep` restricts the beat to the named active storyline step and
+  implies storyline eligibility.
+- Storyline-scoped beats should preserve the canonical story thread and
+  Zanzibar's authored voice.
+- Open-world-scoped beats should avoid implying that the player is following
+  canonical timing or required story beats.
+
+The active storyline step may select or prefer a beat by ID. A step-associated
+beat still uses normal validation and display fields; the step owns objective,
+allowed actions, completion, and forced effects.
 
 ## Beat Selection
 
@@ -35,9 +76,11 @@ story is being evaluated, such as:
 A beat is eligible when:
 
 1. Its trigger matches the current location or event.
-2. Every authored `match` criterion relevant to the current action context
+2. Its optional `modes` and `storylineStep` match the current play mode and
+   active storyline step.
+3. Every authored `match` criterion relevant to the current action context
    matches that context.
-3. Every authored time and milestone criterion matches the current clock and
+4. Every authored time and milestone criterion matches the current clock and
    player progression state.
 
 If multiple beats match the same location, the runtime prefers the eligible beat
@@ -200,6 +243,32 @@ Selection examples for `utility-yard`:
 - If all `utility-yard` beats define nonmatching criteria for the current
   action and no default beat exists, no `utility-yard` beat is shown.
 
+## Storyline Step Criteria
+
+`storylineStep` is a mode-specific criterion, not a replacement for location or
+event triggers. It should be used when a beat belongs to a canonical story step
+instead of being ordinary ambient location prose.
+
+Example:
+
+```yaml
+hydro-card-on-console:
+  modes: [storyline]
+  storylineStep: read-startup-card
+  trigger: { place: indoors, room: control-room }
+  heading: Startup card
+  text: The laminated card waits beside the console, exactly where someone
+    hoped a future operator would find it.
+```
+
+The beat can be selected only while the active playthrough is in storyline mode
+and the current scenario step is `read-startup-card`. The storyline step still
+owns the objective text, the allowed action set, and any completion condition
+such as reading or taking the card.
+
+Use `storylineStep` for canonical sequencing. Use ordinary location, time,
+milestone, and mode criteria for ambient discovery text.
+
 ## Future Beat Conditions
 
 The removed Requirements model was an attempt at general-purpose beat
@@ -274,6 +343,11 @@ A choice contains:
 A choice may have at most one movement destination. Flag changes and optional
 time costs are committed before movement. If applying a time cost fails, the
 player does not move and the beat remains active.
+
+In storyline mode, choice visibility is additionally filtered by the active
+storyline action policy. A beat choice that would be valid in open-world mode
+may be hidden or blocked during a canonical step unless that step allows it.
+Storyline policy cannot make an otherwise invalid destination or action valid.
 
 A choice with `view` changes only the stage area above the narrative card. It
 does not also move the player, and it leaves the current beat and choices
@@ -366,6 +440,7 @@ Story definitions and player story state are separate:
 | --- | --- |
 | Beat definitions and revision history | `game/content/atomic-adventures.sqlite` |
 | Seen beat IDs and gameplay flags | Player save in `localStorage` |
+| Play mode and active storyline step | Player save in `localStorage` |
 | Map and building geometry | `game/content/atomic-adventures.sqlite` |
 | YAML story snapshots | Import/export only |
 
@@ -378,7 +453,6 @@ remote installation.
 The current beat engine does not yet implement the full planned passage schema.
 Notable omissions include:
 
-- Beat-level time criteria
 - Clearing flags
 - Beat-level and choice-specific requirements
 - Choice-specific character effects
@@ -391,6 +465,10 @@ Notable omissions include:
 Add these deliberately to the runtime, database schema, builder, validation,
 tests, and this document together.
 
+Broad storyline requirements, objectives, action gates, forced movement, and
+forced time passage are not beat limitations to close inside this document.
+They belong to [play-modes-and-storyline.md](play-modes-and-storyline.md).
+
 ## Implementation Map
 
 | Concern | Location |
@@ -398,6 +476,7 @@ tests, and this document together.
 | Runtime selection and lifecycle | `game/src/composables/useStory.js` |
 | Player-facing choice integration | `game/src/composables/usePlayPanel.js` |
 | Persistent seen state | `game/src/composables/useGameState.js` |
+| Play mode and storyline action policy | `game/src/composables/useStoryline.js` or equivalent |
 | Builder | `game/src/views/BuilderView.vue` |
 | Validation and runtime projection | `game/server/story-model.js` |
 | SQLite repository and revisions | `game/server/story-repository.js` |

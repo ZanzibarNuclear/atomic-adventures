@@ -1,6 +1,6 @@
 # World Authoring
 
-**Status:** Implemented outdoor-world authoring contract  
+**Status:** Implemented outdoor-world authoring contract
 **Scope:** `game/` world builder, outdoor content API, runtime map loading, and revisions
 
 ## Purpose
@@ -218,10 +218,21 @@ The workspace supports:
 - full-document validation, traversal audit, revisions, and restore.
 - catalog-backed door keys, item placements, and character requirements/effects
   for world interactions.
+- storyline reference awareness for hexes, rooms, exterior nodes, transitions,
+  pickups, actions, and authored world interactions used by the active
+  storyline scenarios.
 
 Room and exterior-node renames cascade into story triggers and `go_room`
 destinations in the same transaction. Deletions that leave story or building
 references unresolved are rejected.
+
+When storyline scenarios are implemented, the same reference-safety rule applies
+to scenario steps and action policies. Renaming a referenced hex, room, exterior
+node, transition, pickup, fixture action, or world interaction updates the
+storyline reference in the same transaction when the rename is reference-aware.
+Deletion is rejected when it would leave a storyline step, completion predicate,
+forced effect, or allowed action unresolved. See
+[play-modes-and-storyline.md](play-modes-and-storyline.md).
 
 The building document owns item placements, not item definitions. Door keys
 and `pickups[].item` values reference IDs in the versioned `character-main`

@@ -1,8 +1,8 @@
 # Getting to Alpha
 
-**Status:** Planned  
-**Last updated:** 2026-07-03  
-**Primary contracts:** [Story Beats](../contracts/story-beats.md), [Stage Views](../contracts/stage-views.md), [Holo-Reader](../contracts/holo-reader.md), [Control Panel](../contracts/control-panel.md), [Hydro Simulator](../contracts/hydro-simulator.md), [Character, Artifacts, and Inventory Management](../contracts/character-inventory.md)  
+**Status:** Planned
+**Last updated:** 2026-07-03
+**Primary contracts:** [Play Modes and Storyline Control](../contracts/play-modes-and-storyline.md), [Story Beats](../contracts/story-beats.md), [Stage Views](../contracts/stage-views.md), [Holo-Reader](../contracts/holo-reader.md), [Control Panel](../contracts/control-panel.md), [Hydro Simulator](../contracts/hydro-simulator.md), [Character, Artifacts, and Inventory Management](../contracts/character-inventory.md)
 **Quality checklist:** [Character, Inventory, and Game-View Regression Checklist](../quality/character-inventory-regression-checklist.md)
 
 ## Goal
@@ -174,6 +174,13 @@ player to lose the authored story thread. Alpha needs an explicit split:
   coherent.
 - **Open-world mode** — the player explores freely, defines their own goals,
   and tries to figure things out without following the canonical story.
+
+The implementation contract for this split is
+[Play Modes and Storyline Control](../contracts/play-modes-and-storyline.md).
+The migration plan is
+[Dual Play Modes Implementation Plan](dual-play-modes-implementation.md).
+Story beats remain the prose layer; storyline steps own objectives, gates,
+forced transitions, and canonical sequencing.
 
 ### Storyline Mode Requirements
 
