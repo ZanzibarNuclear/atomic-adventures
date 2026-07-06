@@ -142,9 +142,9 @@ function barrierName(kind) {
 }
 
 export function buildOutdoorRouteActions(outdoor, pendingBeat = null) {
-  const storyDests = storyChoiceDestinations(pendingBeat).hexes;
+  void pendingBeat;
   return (outdoor.moves ?? [])
-    .filter((move) => move.routeId && !storyDests.has(move.toHexId))
+    .filter((move) => move.routeId)
     .map((move) => ({
       id: `route:${move.toHexId}`,
       toHexId: move.toHexId,
@@ -154,6 +154,7 @@ export function buildOutdoorRouteActions(outdoor, pendingBeat = null) {
 }
 
 export function buildOutdoorBarrierFollowActions(outdoor, pendingBeat = null) {
+  void pendingBeat;
   const currentBarrier =
     outdoor.barrierHintAtStand?.() ??
     outdoor.state?.atBarrier ??
@@ -161,9 +162,7 @@ export function buildOutdoorBarrierFollowActions(outdoor, pendingBeat = null) {
     null;
   if (!currentBarrier) return [];
 
-  const storyDests = storyChoiceDestinations(pendingBeat).hexes;
   return (outdoor.directMoves ?? [])
-    .filter((move) => !storyDests.has(move.toHexId))
     .filter((move) => {
       const preview = outdoor.previewMove?.(move.toHexId);
       if (!preview || preview.result?.activeHexId !== move.toHexId) return false;
@@ -184,7 +183,7 @@ export function buildOutdoorBarrierFollowActions(outdoor, pendingBeat = null) {
 }
 
 export function buildOutdoorDirectMovementActions(outdoor, pendingBeat = null) {
-  const storyDests = storyChoiceDestinations(pendingBeat).hexes;
+  void pendingBeat;
   const routeDests = new Set((outdoor.moves ?? [])
     .filter((move) => move.routeId)
     .map((move) => move.toHexId));
@@ -192,7 +191,6 @@ export function buildOutdoorDirectMovementActions(outdoor, pendingBeat = null) {
     .map((action) => action.toHexId));
 
   return (outdoor.directMoves ?? [])
-    .filter((move) => !storyDests.has(move.toHexId))
     .filter((move) => !routeDests.has(move.toHexId))
     .filter((move) => !barrierDests.has(move.toHexId))
     .map((move) => ({
@@ -479,20 +477,10 @@ function isDescendingStairs(indoor, move) {
 }
 
 export function buildIndoorMovementActions(indoor, pendingBeat = null) {
+  void pendingBeat;
   const moves = indoor.indoorMoves ?? [];
-  const storyDests = storyChoiceDestinations(pendingBeat);
-  const exteriorNodes = new Set(
-    (pendingBeat?.choices ?? [])
-      .map((choice) => choice.go_exterior_node)
-      .filter(Boolean),
-  );
   return moves
     .filter((move) => move.toExteriorNode || move.toStandId || move.toRoomId)
-    .filter((move) => {
-      if (move.toRoomId && storyDests.rooms.has(move.toRoomId)) return false;
-      if (move.toExteriorNode && exteriorNodes.has(move.toExteriorNode)) return false;
-      return true;
-    })
     .map((move) => {
       if (move.toExteriorNode) {
         return {

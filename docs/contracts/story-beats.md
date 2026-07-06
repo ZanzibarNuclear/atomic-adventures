@@ -61,7 +61,7 @@ Rules:
 
 The active storyline step may select or prefer a beat by ID. A step-associated
 beat still uses normal validation and display fields; the step owns objective,
-story-forward prompts, completion, and forced effects.
+story-continuing action references, completion, and forced effects.
 
 ## Voice And Knowledge
 
@@ -374,8 +374,8 @@ In story mode, choice visibility is additionally filtered by the active
 storyline action policy when the choice performs a story-sensitive action,
 opens a stage view, mutates inventory/facility state, or reveals future
 knowledge. Ordinary movement choices should remain visible when the movement is
-physically valid, especially when they are the story-forward path or a bounded
-curiosity detour. Storyline policy cannot make an otherwise invalid destination
+physically valid, including story-continuing paths and bounded curiosity
+detours. Storyline policy cannot make an otherwise invalid destination
 or action valid.
 
 A choice with `view` changes only the stage area above the narrative card. It
@@ -390,9 +390,9 @@ Indoor `go_room` and `go_exterior_node` choices use the same movement handlers
 as room and exterior-path map clicks.
 
 If a storyline choice and ordinary movement both lead to the same destination,
-the story-forward label should replace the generic movement action so the
-authored label is shown only once. This is how Story mode says "Keep
-walking west" while Open-world mode can use a more general route label.
+both may be shown when they express different player intent. Story mode should
+not visually reveal which action is canonical; authored labels and generated
+movement labels are presented as neutral peers.
 
 ## Multiple Beats
 

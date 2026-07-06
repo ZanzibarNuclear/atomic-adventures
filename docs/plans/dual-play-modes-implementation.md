@@ -10,8 +10,8 @@
 Replace the hybrid beat-driven experience with two explicit play promises:
 
 - **Story mode**: the player experiences Zanzibar's canonical Part I story
-  from inside his point of view. The UI keeps at least one story-forward action
-  visible, objectives reflect Zanzibar's immediate internal concern, and
+  from inside his point of view. The UI keeps plausible next actions visible
+  without labeling the canonical path, objectives reflect Zanzibar's immediate internal concern, and
   storyline beats preserve discovery order.
 - **Open-world mode**: the player explores freely as a player-authored run.
   The game uses general area descriptions and broad action access while still
@@ -65,8 +65,8 @@ The corrected model:
 - Storyline beats use Zanzibar's voice and canonical discovery order.
 - Open-world beats are neutral area descriptions and player-authored discovery
   prompts.
-- Story mode always keeps a story-forward action visible when one is
-  physically available.
+- Story mode keeps plausible story-continuing or story-returning actions visible
+  when physically available, but presents them like ordinary movement and actions.
 - Ordinary movement remains available in Story mode.
 - Wandering and detours are allowed, but time and wellbeing make them matter.
 
@@ -76,8 +76,8 @@ The corrected model:
 new game mode selection
   -> gameState.playMode
   -> useStoryline() when playMode === "story"
-  -> current objective + story-forward prompt policy
-  -> play panel merges story-forward prompts with ordinary movement/actions
+  -> current objective + action policy
+  -> play panel merges authored prompts with ordinary movement/actions
   -> useStory() filters beats by mode and active step
   -> wellbeing/time systems apply pressure in both modes
 ```
@@ -86,7 +86,7 @@ In Story mode:
 
 - the active step provides Zanzibar's current internal objective;
 - storyline-scoped beats supply canonical prose;
-- story-forward movement/actions are emphasized in the play panel;
+- story-continuing movement/actions are not visually distinguished in the play panel;
 - ordinary movement remains available when physically valid;
 - nonmovement actions that reveal or mutate future story state can still be
   gated by step policy;
@@ -183,40 +183,41 @@ rails.
 - [x] Block stage-view and item-action bypasses through the same policy.
 - [x] Change Storyline movement handling so ordinary movement actions remain
       visible when physically valid.
-- [x] Add a story-forward prompt category that emphasizes the canonical action
-      without suppressing valid detours.
-- [x] Ensure a Storyline step always exposes at least one story-forward action
-      when the player is at a valid story location.
+- [x] Keep story-continuing actions available without visually emphasizing the
+      canonical path or suppressing valid detours.
+- [x] Ensure a Storyline step always exposes at least one plausible
+      story-continuing action when the player is at a valid story location.
 - [x] Let known curiosity actions remain visible when they do not reveal future
       discoveries.
-- [ ] Gate only nonmovement or story-sensitive actions that would reveal,
+- [x] Gate only nonmovement or story-sensitive actions that would reveal,
       complete, or mutate future story state out of order.
-- [ ] Keep shell actions such as save/load, return-to-map, character/status,
+- [x] Keep shell actions such as save/load, return-to-map, character/status,
       inventory inspection, and development diagnostics available according to
       contract rules.
-- [ ] Verify that storyline policy cannot bypass ordinary movement, door,
+- [x] Verify that storyline policy cannot bypass ordinary movement, door,
       holder, inventory, facility, or wellbeing rules.
 
-**Exit criterion:** Story mode shows story-forward choices and bounded
-curiosity while preserving physical freedom and consequences.
+**Exit criterion:** Story mode shows authored choices, ordinary movement, and
+bounded curiosity as one neutral action set while preserving physical freedom
+and consequences.
 
 ## Phase 5 - Beat Mode Scoping and Prose Migration
 
 **Purpose:** Separate Zanzibar's canonical voice from open-world descriptions.
 
-- [ ] Add `modes` and `storylineStep` to beat import/export and Story Builder
+- [x] Add `modes` and `storylineStep` to beat import/export and Story Builder
       editing.
 - [x] Add `modes` and `storylineStep` to beat normalization, validation, and
       runtime projection.
 - [x] Update `useStory()` to filter beats by `gameState.playMode` and the
       active storyline step.
-- [ ] Let a storyline step select or prefer a beat by ID.
+- [x] Let a storyline step select or prefer a beat by ID.
 - [ ] Audit opening forest, fence, gate, road, station, and hydro beats.
 - [ ] Move canonical Zanzibar prose into `modes: [story]` beats.
 - [ ] Add or revise `modes: [open-world]` area descriptions that do not assume
       Zanzibar's canonical story.
 - [ ] Preserve authored choice labels such as cardinal movement and story hints
-      as story-forward actions in Story mode.
+      as neutral actions in Story mode.
 - [ ] Remove content patterns where a beat choice is the only thing preventing
       a story-breaking action.
 
@@ -239,9 +240,9 @@ Zanzibar's thought, not a quest spoiler.
 - [x] Revise objective copy to be internal and knowledge-limited.
 - [x] Ensure early objectives never name the utility station, eBuggy, hydro
       system, startup card, or kitchen before discovery.
-- [ ] Surface wellbeing warnings clearly when wandering or strenuous actions
+- [x] Surface wellbeing warnings clearly when wandering or strenuous actions
       push Zanzibar toward thirst, hunger, exhaustion, collapse, or death.
-- [ ] Add a simple failure/retry presentation for catastrophic vitals.
+- [x] Add a simple failure/retry presentation for catastrophic vitals.
 
 **Exit criterion:** A new player can tell they are in Zanzibar's story, knows
 what matters immediately, and is warned when survival pressure becomes serious.
@@ -269,15 +270,15 @@ time and vitals matter.
 
 **Purpose:** Make scenario and mode-scoped prose authoring maintainable.
 
-- [ ] Add a Scenario panel to `/builder/story`.
-- [ ] Support scenario metadata, ordered steps, internal objective text,
-      associated beat, story-forward actions, optional actions, completion
+- [x] Add a Scenario panel to `/builder/story`.
+- [x] Support scenario metadata, ordered steps, internal objective text,
+      associated beat, story-continuing actions, optional actions, completion
       predicates, forced effects, and next step.
 - [ ] Provide selectors for hexes, rooms, exterior nodes, transitions, stage
       views, items, item actions, lessons, documents, and facility predicates.
-- [ ] Add a step preview that shows story-forward actions, optional actions,
-      and ordinary available movement separately.
-- [ ] Add `modes` and `storylineStep` editing to Story Builder beat forms.
+- [ ] Add a step preview that shows story-continuing actions, optional actions,
+      and ordinary available movement as one player-facing action set.
+- [x] Add `modes` and `storylineStep` editing to Story Builder beat forms.
 - [ ] Add reference-aware rename and delete handling for storyline references
       in Story Builder, World Builder, and Content Builder.
 - [ ] Show "referenced by storyline step" in relevant object detail panels.
@@ -320,8 +321,8 @@ acts as the opening objective.
 - [x] Smoke test open-world startup with broad actions and valid out-of-order
       completion.
 - [x] Add Playwright-based browser smoke visibility for local dev.
-- [ ] Add browser coverage that Story mode shows story-forward movement
-      actions from the opening location.
+- [ ] Add browser coverage that Story mode shows story-continuing movement
+      actions from the opening location without visual emphasis.
 - [ ] Add browser coverage that Story mode permits valid detours while
       keeping the internal objective.
 - [ ] Add browser coverage for the noncanonical fence-hole shortcut.

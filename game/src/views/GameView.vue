@@ -41,7 +41,10 @@ import InventoryStageView from "../components/game-views/InventoryStageView.vue"
 import StoryOverlay from "../components/story/StoryOverlay.vue";
 import OutdoorScene from "../lib/maps/views/OutdoorScene.vue";
 import IndoorScene from "../lib/maps/views/IndoorScene.vue";
-import { visibleCharacterStats } from "../lib/character/panel.js";
+import {
+  characterWellbeingOverview,
+  visibleCharacterStats,
+} from "../lib/character/panel.js";
 import { completeLesson } from "../lib/learning/completion.js";
 import {
   HOLO_READER_BROWSER_ACTION_ID,
@@ -108,6 +111,13 @@ const { lastSavedAt, loadError, hasSave, save: saveGame, load, clearSave } = sav
 
 const openStageViewForStory = (view) => openStageView(view, { force: true });
 const {
+  activeStep: activeStorylineStep,
+  currentObjective,
+  authoringError: storylineError,
+  actionPolicy: storylineActionPolicy,
+  tick: tickStoryline,
+} = useStoryline(storylineData, { gameState, place, outdoor, indoor, openStageView: openStageViewForStory });
+const {
   narrativeBeat,
   pendingBeat,
   showEndCard,
@@ -117,13 +127,14 @@ const {
   travelToRoom,
   dismissEndCard,
   refreshNarrative,
-} = useStory(storyData, { gameState, place, outdoor, indoor, openStageView: openStageViewForStory });
-const {
-  currentObjective,
-  authoringError: storylineError,
-  actionPolicy: storylineActionPolicy,
-  tick: tickStoryline,
-} = useStoryline(storylineData, { gameState, place, outdoor, indoor, openStageView: openStageViewForStory });
+} = useStory(storyData, {
+  gameState,
+  place,
+  outdoor,
+  indoor,
+  openStageView: openStageViewForStory,
+  storylineStep: activeStorylineStep,
+});
 
 const saveCtx = computed(() => ({ gameState, place, outdoor, indoor }));
 const nearbyHolderIds = computed(() => {
@@ -191,6 +202,23 @@ const stageSelectedHolding = computed(() =>
     .find((record) => `${record.type}:${record.id}` === stageSelectedHoldingId.value) ?? null,
 );
 const characterStats = computed(() => visibleCharacterStats(gameState.character));
+const wellbeingOverview = computed(() => characterWellbeingOverview(gameState.character));
+const wellbeingAlerts = computed(() =>
+  wellbeingOverview.value.vitals
+    .filter((vital) => vital.tone === "warning" || vital.tone === "error")
+    .map((vital) => ({
+      id: vital.id,
+      label: vital.label,
+      state: vital.state,
+      tone: vital.tone,
+    })),
+);
+const catastrophicVitals = computed(() =>
+  wellbeingOverview.value.vitals.filter((vital) =>
+    vital.tone === "error" && Number(vital.value) <= Number(vital.min ?? 0),
+  ),
+);
+const gameFailed = computed(() => catastrophicVitals.value.length > 0);
 const characterDocuments = computed(() => gameState.character.definitions.documents ?? []);
 const lessonCompletionError = ref("");
 const availableLessons = computed(() =>
@@ -522,8 +550,40 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       {{ storylineError }}
     </section>
 
+    <section
+      v-if="wellbeingAlerts.length && !gameFailed"
+      class="wellbeing-alerts"
+      role="status"
+      aria-label="Wellbeing warnings">
+      <span class="wellbeing-alerts-label">Vitals</span>
+      <span
+        v-for="alert in wellbeingAlerts"
+        :key="alert.id"
+        class="wellbeing-chip"
+        :class="alert.tone">
+        {{ alert.label }}: {{ alert.state }}
+      </span>
+    </section>
+
+    <section
+      v-if="gameFailed"
+      class="failure-panel"
+      role="alert"
+      aria-labelledby="failure-title">
+      <p class="failure-kicker">Zanzibar cannot keep going</p>
+      <h2 id="failure-title">The trail goes dark.</h2>
+      <p>
+        {{ catastrophicVitals.map((vital) => `${vital.label.toLowerCase()} is ${vital.state.toLowerCase()}`).join(", ") }}.
+        Restoring from the last save or starting again is the way forward.
+      </p>
+      <div class="failure-actions">
+        <button type="button" class="sm" @click="handleReset">Retry from save</button>
+        <button type="button" class="sm muted" @click="handleNewGame">New game</button>
+      </div>
+    </section>
+
     <OutdoorScene
-      v-if="gameState.playMode && isMapView && place === 'outdoors'"
+      v-if="gameState.playMode && !gameFailed && isMapView && place === 'outdoors'"
       :outdoor="outdoor"
       :indoor="indoor"
       :narrative-beat="narrativeBeat"
@@ -537,7 +597,7 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       @hide-movement-audit="movementAuditVisible = false" />
 
     <IndoorScene
-      v-else-if="gameState.playMode && isMapView"
+      v-else-if="gameState.playMode && !gameFailed && isMapView"
       :indoor="indoor"
       :narrative-beat="narrativeBeat"
       :pending-beat="pendingBeat"
@@ -552,7 +612,7 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       @hide-movement-audit="movementAuditVisible = false" />
 
     <InventoryStageView
-      v-else-if="gameState.playMode && activeView.kind === 'inventory'"
+      v-else-if="gameState.playMode && !gameFailed && activeView.kind === 'inventory'"
       :holders="inventoryHolders"
       :selected-holding="stageSelectedHolding"
       :selected-holding-id="stageSelectedHoldingId"
@@ -565,13 +625,13 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       @return-to-map="handleReturnToMap" />
 
     <CharacterStatsStageView
-      v-else-if="gameState.playMode && activeView.kind === 'character-stats'"
+      v-else-if="gameState.playMode && !gameFailed && activeView.kind === 'character-stats'"
       :stats="characterStats"
       :focus="activeView.payload?.focus"
       @return-to-map="handleReturnToMap" />
 
     <CharacterView
-      v-else-if="gameState.playMode && isCharacterView"
+      v-else-if="gameState.playMode && !gameFailed && isCharacterView"
       :character="gameState.character"
       :clock="gameState.clock"
       :nearby-holder-ids="[...nearbyHolderIds, currentWorldHolderId()]"
@@ -582,7 +642,7 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       @return-to-map="handleReturnToMap" />
 
     <HoloReaderView
-      v-else-if="gameState.playMode && activeView.kind === 'lesson'"
+      v-else-if="gameState.playMode && !gameFailed && activeView.kind === 'lesson'"
       :lessons="availableLessons"
       :selected-lesson-id="activeView.payload?.lessonId ?? activeView.payload?.id"
       :game-state="gameState"
@@ -592,19 +652,19 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       @return-to-map="handleReturnToMap" />
 
     <HydroConsoleView
-      v-else-if="gameState.playMode && activeView.kind === 'console'"
+      v-else-if="gameState.playMode && !gameFailed && activeView.kind === 'console'"
       :game-state="gameState"
       :payload="activeView.payload"
       @return-to-map="handleReturnToMap" />
 
     <InstructionCardView
-      v-else-if="gameState.playMode && activeView.kind === 'document'"
+      v-else-if="gameState.playMode && !gameFailed && activeView.kind === 'document'"
       :documents="characterDocuments"
       :payload="activeView.payload"
       @return-to-map="handleReturnToMap" />
 
     <StoryOverlay
-      v-if="gameState.playMode && isMapView"
+      v-if="gameState.playMode && !gameFailed && isMapView"
       :show-end-card="showEndCard"
       @dismiss-end="dismissEndCard" />
   </main>
@@ -689,5 +749,62 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
   border-radius: 8px;
   padding: 0.65rem 0.85rem;
   margin-bottom: 0.75rem;
+}
+.wellbeing-alerts {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  border: 1px solid #756143;
+  background: #2f281e;
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.wellbeing-alerts-label,
+.failure-kicker {
+  color: #d7b77f;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+.wellbeing-chip {
+  border: 1px solid #675640;
+  border-radius: 999px;
+  padding: 0.2rem 0.5rem;
+  color: #ffdca3;
+  font-size: 0.82rem;
+}
+.wellbeing-chip.error {
+  border-color: #8d4c4c;
+  color: #ffabab;
+}
+.failure-panel {
+  width: min(42rem, calc(100% - 2rem));
+  margin: 4rem auto;
+  border: 1px solid #9f6a5d;
+  border-radius: 8px;
+  background: #2d2020;
+  color: #f7e9e6;
+  padding: 1.25rem;
+}
+.failure-panel h2,
+.failure-panel p {
+  margin: 0;
+}
+.failure-panel h2 {
+  margin-top: 0.25rem;
+  font-size: 1.35rem;
+}
+.failure-panel p:not(.failure-kicker) {
+  margin-top: 0.75rem;
+  color: #dec6c1;
+  line-height: 1.5;
+}
+.failure-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
 }
 </style>

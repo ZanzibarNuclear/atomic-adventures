@@ -85,6 +85,15 @@ const timeCriteriaSummary = computed(() => {
   return summary;
 });
 
+const modeCriteriaSummary = computed(() => {
+  if (!props.draft) return [];
+  const summary = [];
+  const modes = Array.isArray(props.draft.modes) ? props.draft.modes : [];
+  if (modes.length) summary.push(`Modes: ${modes.map(modeLabel).join(", ")}`);
+  if (props.draft.storylineStep) summary.push(`Storyline step: ${props.draft.storylineStep}`);
+  return summary;
+});
+
 watch(
   () => props.selectedLocation,
   () => {
@@ -153,6 +162,24 @@ function directionLabel(value) {
   if (value === "toLocal") return "To local map";
   if (value === "toRegional") return "To regional map";
   return value;
+}
+
+function modeLabel(value) {
+  if (value === "story") return "Story";
+  if (value === "open-world") return "Open-world";
+  return value;
+}
+
+function modeEnabled(mode) {
+  return Array.isArray(props.draft?.modes) && props.draft.modes.includes(mode);
+}
+
+function setModeEnabled(mode, enabled) {
+  if (!props.draft) return;
+  const current = new Set(Array.isArray(props.draft.modes) ? props.draft.modes : []);
+  if (enabled) current.add(mode);
+  else current.delete(mode);
+  props.draft.modes = [...current];
 }
 </script>
 
@@ -229,6 +256,47 @@ function directionLabel(value) {
       </div>
 
       <div v-show="activeTab === 'criteria'" class="tab-panel" role="tabpanel">
+        <section class="criteria-card">
+          <div class="criteria-card-header">
+            <h3>Mode and storyline</h3>
+          </div>
+          <div class="criteria-readonly">
+            <span
+              v-for="item in modeCriteriaSummary"
+              :key="item"
+              class="summary-chip"
+            >
+              {{ item }}
+            </span>
+            <p v-if="!modeCriteriaSummary.length" class="empty-origin-list">Default: both play modes.</p>
+          </div>
+          <div class="mode-grid">
+            <label class="check-row">
+              <input
+                type="checkbox"
+                :checked="modeEnabled('story')"
+                @change="setModeEnabled('story', $event.target.checked)"
+              />
+              Story mode
+            </label>
+            <label class="check-row">
+              <input
+                type="checkbox"
+                :checked="modeEnabled('open-world')"
+                @change="setModeEnabled('open-world', $event.target.checked)"
+              />
+              Open-world mode
+            </label>
+            <label class="span-all">Storyline step
+              <input
+                v-model="draft.storylineStep"
+                placeholder="optional step ID"
+              />
+              <span v-if="fieldError('storylineStep')" class="field-error">{{ fieldError("storylineStep") }}</span>
+            </label>
+          </div>
+        </section>
+
         <section class="criteria-card">
           <div class="criteria-card-header">
             <h3>Location based</h3>
@@ -523,6 +591,23 @@ textarea {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.7rem;
 }
+.mode-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid #3d485b;
+  border-radius: 7px;
+  background: #171b22;
+  padding: 0.5rem 0.6rem;
+}
+.check-row input {
+  width: auto;
+}
 
 .span-all {
   grid-column: 1 / -1;
@@ -637,6 +722,9 @@ legend {
 
 @media (max-width: 720px) {
   .field-grid {
+    grid-template-columns: 1fr;
+  }
+  .mode-grid {
     grid-template-columns: 1fr;
   }
 

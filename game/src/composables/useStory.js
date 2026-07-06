@@ -8,7 +8,7 @@ import { advanceGameTime } from "../lib/character/gameTime.js";
  * authored. Choices remain available whenever the beat is active.
  */
 export function useStory(storyData, ctx) {
-  const { gameState, place, outdoor, indoor, openStageView = () => false } = ctx;
+  const { gameState, place, outdoor, indoor, openStageView = () => false, storylineStep = null } = ctx;
   const beats = computed(() => unref(storyData)?.beats ?? {});
 
   /** Active story beat, including repeat visits. */
@@ -180,6 +180,20 @@ export function useStory(storyData, ctx) {
   }
 
   function findBeat(loc, event = null) {
+    const preferredBeatId = unref(storylineStep)?.beat ?? null;
+    if (preferredBeatId) {
+      const preferred = beats.value[preferredBeatId];
+      if (
+        preferred &&
+        triggerMatches(preferred, loc, event) &&
+        modeMatches(preferred) &&
+        timeMatches(preferred) &&
+        matchScore(preferred, loc, storyActionContext(loc, event)) >= 0
+      ) {
+        return activeBeat(preferredBeatId, preferred);
+      }
+    }
+
     let selected = null;
     let selectedScore = -1;
     const action = storyActionContext(loc, event);

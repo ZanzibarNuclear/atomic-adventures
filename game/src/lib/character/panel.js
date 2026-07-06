@@ -41,7 +41,11 @@ export function characterWellbeingOverview(character) {
           [0, "Collapsed", "error"],
         ],
       }),
-      vitalFromStat(byId.satiety, {
+      vitalFromStat(byId.satiety ?? reserveFromPressureStat(byId.hunger, {
+        id: "satiety",
+        label: "Satiety",
+        fallback: 100,
+      }), {
         id: "satiety",
         label: "Satiety",
         fallback: 100,
@@ -53,7 +57,11 @@ export function characterWellbeingOverview(character) {
           [0, "Starving", "error"],
         ],
       }),
-      vitalFromStat(byId.hydration, {
+      vitalFromStat(byId.hydration ?? reserveFromPressureStat(byId.thirst, {
+        id: "hydration",
+        label: "Hydration",
+        fallback: 100,
+      }), {
         id: "hydration",
         label: "Hydration",
         fallback: 100,
@@ -217,6 +225,23 @@ function vitalFromStat(stat, options) {
     max,
     ...stateForValue(value, displayStatesForStat(stat, options.states)),
     description: stat?.description ?? null,
+  };
+}
+
+function reserveFromPressureStat(stat, options) {
+  if (!stat) return null;
+  const min = finiteNumber(stat.min, 0);
+  const max = finiteNumber(stat.max, 100);
+  const pressure = clamp(finiteNumber(stat.value, stat.default ?? min), min, max);
+  return {
+    id: options.id,
+    label: options.label,
+    type: "meter",
+    min,
+    max,
+    value: max - (pressure - min),
+    default: options.fallback,
+    description: stat.description ?? null,
   };
 }
 

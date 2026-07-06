@@ -34,14 +34,15 @@ of truth for physical possibility, movement, safety, and survival pressure.
   guesses. It should not name the utility station, hydro facility, eBuggy, or
   other undiscovered things before Zanzibar has reason to know them.
 - **Story mode is guided by prompts, not by locking the player onto rails.**
-  Alpha should always surface at least one story-forward action, but ordinary
-  movement remains available when the world allows it. Detours may cost time,
-  energy, hydration, satiety, or safety.
+  Alpha should always surface at least one plausible story-continuing action,
+  but ordinary movement remains available when the world allows it. Story
+  actions and ordinary actions should look the same to the player. Detours may
+  cost time, energy, hydration, satiety, or safety.
 - **Beats are prose, not the quest engine.** Beats may attach narrative to a
-  step, location, or event, but storyline steps own objectives, story-forward
+  step, location, or event, but storyline steps own objectives, story-continuing
   prompts, completion, and progression.
 - **One action policy for prompts and nonmovement gates.** Storyline policy
-  must apply consistently to story-forward prompts, beat choices, stage views,
+  must apply consistently to story-continuing prompts, beat choices, stage views,
   item actions, facility actions, and other story-sensitive interactions.
   It should not block ordinary movement unless a concrete authored scene has a
   special physical or narrative reason.
@@ -186,7 +187,7 @@ item actions, facility actions, and story-sensitive room or map interactions.
 
 The policy has two jobs:
 
-1. Make the story-forward action or actions visible.
+1. Make plausible story-continuing or story-returning actions visible.
 2. Hide or block nonmovement actions that would reveal, complete, or mutate
    story-sensitive content before Zanzibar reaches the right context.
 
@@ -196,8 +197,9 @@ In story mode:
   rules. If the player can physically walk somewhere, the storyline policy
   should not suppress the movement affordance simply because it is not the
   canonical next step.
-- The play panel should always include at least one story-forward action when
-  the underlying world rules allow it.
+- The play panel should always include at least one plausible
+  story-continuing action when the underlying world rules allow it, without
+  visually marking it as canonical.
 - Optional movement and curiosity actions may stay visible when they are known
   to the player and do not reveal future discoveries.
 - Facility, item, document, simulation, close-up, and mutating room actions are
@@ -215,17 +217,17 @@ from map, facility, inventory, character, and stage-view rules.
 ## Allowed Actions
 
 The `allowed` shape should describe player intent in stable IDs, not component
-implementation details. Alpha should distinguish story-forward prompts from
-hard gates:
+implementation details. Alpha should distinguish internal story-continuing
+references from hard gates without exposing that distinction in the play panel:
 
 | Category | Meaning |
 | --- | --- |
-| `storyForwardActions` | Actions that move Zanzibar along the canonical path and should be emphasized when available. |
+| `storyForwardActions` | Internal action IDs that move Zanzibar along the canonical path. They affect availability and authoring validation, not player-facing emphasis. |
 | `optionalActions` | Known curiosity actions that may stay visible without being canonical. |
-| `movement.hexes` | World hexes that are story-forward or explicitly optional, not the full set of physically reachable hexes. |
-| `movement.rooms` | Indoor rooms that are story-forward or explicitly optional. |
-| `movement.exteriorNodes` | Local exterior nodes that are story-forward or explicitly optional. |
-| `movement.transitions` | Map transition IDs that are story-forward or explicitly optional. |
+| `movement.hexes` | World hexes that are story-continuing or explicitly optional, not the full set of physically reachable hexes. |
+| `movement.rooms` | Indoor rooms that are story-continuing or explicitly optional. |
+| `movement.exteriorNodes` | Local exterior nodes that are story-continuing or explicitly optional. |
+| `movement.transitions` | Map transition IDs that are story-continuing or explicitly optional. |
 | `movement.mode` | Prompt scope such as `local-area` or `unrestricted`; not a default physical movement lock. |
 | `storyChoices` | Story choice IDs or generated stable choice references allowed for this step. |
 | `stageViews` | Focused views such as documents, lessons, inventory, console, or simulation. |
@@ -240,8 +242,9 @@ policy cannot bypass physical movement, door, holder, or facility rules.
 
 When no `storyForwardActions` are available because the player has wandered, the
 runtime should still show ordinary available movement and survival/status
-actions. The objective and beats should help the player infer a plausible
-direction without naming undiscovered destinations.
+actions. When they are available, they should look like the rest of the action
+set. The objective and beats should help the player infer a plausible direction
+without naming undiscovered destinations.
 
 ## Forced Effects
 
@@ -323,7 +326,7 @@ authored storyline.
 ## Builder Responsibilities
 
 Storyline authoring belongs with Story Builder because it composes story beats,
-objectives, conditions, choices, stage views, and story-forward prompts. The first
+objectives, conditions, choices, stage views, and story-continuing action references. The first
 implementation may be a Scenario panel inside `/builder/story`; a separate
 route can be added later if scenario authoring grows.
 
@@ -333,7 +336,7 @@ The Story Builder should support:
 - ordering steps;
 - editing objective text;
 - associating a step with a story beat;
-- selecting story-forward hexes, rooms, exterior nodes, transitions, actions,
+- selecting story-continuing hexes, rooms, exterior nodes, transitions, actions,
   stage views, and item actions from known content;
 - editing completion predicates;
 - editing `onEnter` and `onComplete` forced effects;
@@ -373,8 +376,8 @@ not only the hydro startup sequence:
     open the turbine valve, return to the control room, connect power, check
     the simplified console, and complete hydro startup.
 
-Story mode should keep at least one canonical story-forward prompt visible,
-but it should not remove ordinary movement or curiosity paths. Open-world mode
+Story mode should keep at least one canonical story-continuing prompt visible,
+but it should not label that prompt as canonical or remove ordinary movement or curiosity paths. Open-world mode
 uses general area descriptions and lets the player define the story they are
 making, while preserving the same physical, facility, and wellbeing rules.
 
@@ -400,7 +403,7 @@ Alpha requires tests for:
 - save/load of `playMode`, scenario ID, step ID, completed steps, objectives,
   inventory, flags, character state, and facility state;
 - story beat filtering by `modes` and `storylineStep`;
-- story-forward prompt visibility in story mode;
+- story-continuing prompt visibility in story mode;
 - ordinary movement remaining available in story mode when physically
   valid;
 - nonmovement action policy hiding and blocking actions outside the current

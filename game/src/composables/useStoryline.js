@@ -196,9 +196,8 @@ export function filterAllowedActions(actions = [], policy, context = {}) {
 }
 
 export function actionPromptCategory(action, policy) {
-  if (!policy || policy.unrestricted || policy.mode !== "story") return "ordinary";
-  if (isStoryForwardAction(action, policy)) return "story-forward";
-  if (isOptionalAction(action, policy)) return "optional";
+  void action;
+  void policy;
   return "ordinary";
 }
 

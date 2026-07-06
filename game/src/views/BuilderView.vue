@@ -5,6 +5,7 @@ import StoryBeatEditor from "../components/builder/story/StoryBeatEditor.vue";
 import StoryBeatList from "../components/builder/story/StoryBeatList.vue";
 import StoryLocationPicker from "../components/builder/story/StoryLocationPicker.vue";
 import StoryMilestonePanel from "../components/builder/story/StoryMilestonePanel.vue";
+import StoryScenarioPanel from "../components/builder/story/StoryScenarioPanel.vue";
 import BuilderPageHeader from "../components/builder/BuilderPageHeader.vue";
 import BuilderWorkspaceTabs from "../components/builder/BuilderWorkspaceTabs.vue";
 import UnsavedChangesDialog from "../components/builder/UnsavedChangesDialog.vue";
@@ -49,15 +50,24 @@ const indoorViewportMode = ref("fit-all");
 const storyWorkspaceTabs = [
   { id: "outdoors", label: "Area" },
   { id: "rooms", label: "Utility Station" },
+  { id: "scenarios", label: "Scenarios" },
   { id: "milestones", label: "Milestones" },
 ];
 const activeWorkspace = ref("outdoors");
 const storyWorkspace = computed(() =>
-  activeWorkspace.value === "milestones"
-    ? "milestones"
+  ["milestones", "scenarios"].includes(activeWorkspace.value)
+    ? activeWorkspace.value
     : locationMode.value === "outdoors" ? "outdoors" : "rooms",
 );
 const milestones = ref([]);
+const storylineVersion = ref(null);
+const storylineDocumentText = ref("");
+const storylineBaselineText = ref("");
+const storylineStatus = ref("");
+const storylineErrors = ref({});
+const storylineDirty = computed(() =>
+  storylineDocumentText.value !== storylineBaselineText.value,
+);
 const milestoneDialog = ref({
   visible: false,
   field: null,
@@ -209,6 +219,7 @@ onMounted(async () => {
   try {
     catalog.value = await storyApi("/api/catalog");
     await loadMilestones();
+    await loadStorylineDocument();
     await loadBeats();
     await applyStoryRouteQuery();
   } catch (error) {
@@ -227,6 +238,57 @@ async function saveMilestones(nextMilestones = milestones.value) {
   });
   milestones.value = result.milestones;
   return result.milestones;
+}
+
+async function loadStorylineDocument() {
+  const result = await storyApi("/api/storyline");
+  storylineVersion.value = result.version;
+  storylineDocumentText.value = JSON.stringify(result.storyline, null, 2);
+  storylineBaselineText.value = storylineDocumentText.value;
+  storylineErrors.value = {};
+  storylineStatus.value = `Loaded storyline version ${result.version}.`;
+}
+
+async function saveStorylineDocument() {
+  storylineErrors.value = {};
+  storylineStatus.value = "Saving storyline...";
+  let storyline;
+  try {
+    storyline = JSON.parse(storylineDocumentText.value);
+  } catch (error) {
+    storylineStatus.value = error.message;
+    return false;
+  }
+  try {
+    const result = await storyApi("/api/storyline", {
+      method: "PUT",
+      body: JSON.stringify({
+        storyline,
+        expectedVersion: storylineVersion.value,
+      }),
+    });
+    storylineVersion.value = result.version;
+    storylineDocumentText.value = JSON.stringify(result.storyline, null, 2);
+    storylineBaselineText.value = storylineDocumentText.value;
+    storylineStatus.value = `Saved storyline version ${result.version}.`;
+    return true;
+  } catch (error) {
+    storylineErrors.value = error.errors ?? {};
+    storylineStatus.value = error.status === 409
+      ? "Storyline content changed elsewhere. Reload before saving."
+      : error.message;
+    return false;
+  }
+}
+
+function revertStorylineDocument() {
+  storylineDocumentText.value = storylineBaselineText.value;
+  storylineErrors.value = {};
+  storylineStatus.value = "Reverted unsaved storyline edits.";
+}
+
+function confirmStorylineNavigation() {
+  return !storylineDirty.value || window.confirm("Discard unsaved storyline edits?");
 }
 
 watch(worldRevision, async () => {
@@ -329,15 +391,24 @@ async function applyExteriorSelection(id) {
 
 function switchMode(mode) {
   if (mode === "milestones") {
+    if (!confirmStorylineNavigation()) return;
     if (activeWorkspace.value === "milestones") return;
     void requestContextChange(() => {
       activeWorkspace.value = "milestones";
     });
     return;
   }
+  if (mode === "scenarios") {
+    if (activeWorkspace.value === "scenarios") return;
+    void requestContextChange(() => {
+      activeWorkspace.value = "scenarios";
+    });
+    return;
+  }
+  if (!confirmStorylineNavigation()) return;
   if (
-    (mode === "outdoors" && locationMode.value === "outdoors" && activeWorkspace.value !== "milestones") ||
-    (mode === "rooms" && ["rooms", "exterior"].includes(locationMode.value) && activeWorkspace.value !== "milestones")
+    (mode === "outdoors" && locationMode.value === "outdoors" && !["milestones", "scenarios"].includes(activeWorkspace.value)) ||
+    (mode === "rooms" && ["rooms", "exterior"].includes(locationMode.value) && !["milestones", "scenarios"].includes(activeWorkspace.value))
   ) {
     return;
   }
@@ -451,6 +522,8 @@ function emptyBeat() {
     heading: "",
     text: "",
     revisit: "",
+    modes: [],
+    storylineStep: null,
     trigger,
     match: { originHex: null, mapTransition: null, transitionDirection: null },
     time: {
@@ -559,7 +632,7 @@ async function applyStoryRouteQuery() {
       </template>
     </BuilderPageHeader>
 
-    <div v-if="storyWorkspace !== 'milestones'" class="builder-workspace">
+    <div v-if="storyWorkspace !== 'milestones' && storyWorkspace !== 'scenarios'" class="builder-workspace">
       <div class="builder-nav-column">
         <StoryLocationPicker
           v-model:indoor-level="indoorLevel"
@@ -622,6 +695,17 @@ async function applyStoryRouteQuery() {
         @restore-revision="restoreRevision"
       />
     </div>
+
+    <StoryScenarioPanel
+      v-else-if="storyWorkspace === 'scenarios'"
+      v-model:document-text="storylineDocumentText"
+      :dirty="storylineDirty"
+      :status="storylineStatus"
+      :errors="storylineErrors"
+      @save="saveStorylineDocument"
+      @revert="revertStorylineDocument"
+      @reload="loadStorylineDocument"
+    />
 
     <div v-else class="milestone-workspace">
       <StoryMilestonePanel

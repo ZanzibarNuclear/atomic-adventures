@@ -7,6 +7,8 @@ function clonePlain(value) {
 
 function ensureEditableBeat(value) {
   const next = clonePlain(value);
+  next.modes = stringList(next.modes);
+  next.storylineStep ??= null;
   next.match ??= { originHex: null, mapTransition: null, transitionDirection: null };
   next.match.originHex = stringList(next.match.originHex);
   next.match.mapTransition ??= null;

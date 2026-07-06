@@ -161,4 +161,26 @@ describe("useStoryBeatDocument", () => {
     expect(document.draft.value.match.originHex).toEqual(["the-flats"]);
     expect(document.dirty.value).toBe(false);
   });
+
+  it("keeps beat mode fields editable without marking loaded content dirty", async () => {
+    storyApi.mockImplementation(async (url) => {
+      if (url === "/api/story/areas/part-i/beats/origin") {
+        return {
+          beat: {
+            ...beat,
+            modes: "story",
+            storylineStep: "intro",
+          },
+        };
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    const { document } = createDocument();
+
+    await document.openFirstBeatForSelectedLocation();
+
+    expect(document.draft.value.modes).toEqual(["story"]);
+    expect(document.draft.value.storylineStep).toBe("intro");
+    expect(document.dirty.value).toBe(false);
+  });
 });

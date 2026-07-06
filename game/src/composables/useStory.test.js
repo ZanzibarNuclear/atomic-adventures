@@ -16,6 +16,7 @@ function harness(initialStory, {
   initialTransitionDirection = null,
   initialClock = { elapsedMinutes: 0, minuteOfDay: 8 * 60, day: 1 },
   openStageView = () => {},
+  storylineStep = null,
 } = {}) {
   const story = ref(initialStory);
   const place = ref(initialPlace);
@@ -63,7 +64,7 @@ function harness(initialStory, {
     outdoor,
     indoor,
     place,
-    api: useStory(story, { gameState, place, outdoor, indoor, openStageView }),
+    api: useStory(story, { gameState, place, outdoor, indoor, openStageView, storylineStep }),
   };
 }
 
@@ -747,5 +748,36 @@ describe("useStory reactive content", () => {
 
     expect(setup.api.pendingBeat.value.id).toBe("card");
     expect(setup.api.pendingBeat.value.text).toBe("Card text");
+  });
+
+  it("prefers the active storyline step beat when it matches the current trigger", () => {
+    const storylineStep = ref({ id: "intro", beat: "preferred" });
+    const setup = harness({
+      beats: {
+        ambient: {
+          ...beat,
+          text: "Ambient text",
+          modes: ["story"],
+        },
+        preferred: {
+          ...beat,
+          text: "Preferred text",
+          modes: ["story"],
+          storylineStep: "intro",
+        },
+      },
+    }, { storylineStep });
+
+    setup.gameState.playMode = "story";
+    setup.gameState.storyline = {
+      scenarioId: "part-i-opener",
+      stepId: "intro",
+      completedStepIds: [],
+      objective: "Keep moving.",
+    };
+    setup.api.refreshNarrative();
+
+    expect(setup.api.pendingBeat.value.id).toBe("preferred");
+    expect(setup.api.pendingBeat.value.text).toBe("Preferred text");
   });
 });

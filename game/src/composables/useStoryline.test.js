@@ -294,14 +294,14 @@ describe("useStoryline", () => {
       "route:east-pines",
     ]);
 
-    expect(actionPromptCategory({ id: "action:clear-intake-debris" }, policy)).toBe("story-forward");
-    expect(actionPromptCategory({ id: "action:optional-lookaround" }, policy)).toBe("optional");
+    expect(actionPromptCategory({ id: "action:clear-intake-debris" }, policy)).toBe("ordinary");
+    expect(actionPromptCategory({ id: "action:optional-lookaround" }, policy)).toBe("ordinary");
     expect(annotateActionPrompts([{ id: "search:barrier" }], policy)).toEqual([
       { id: "search:barrier", promptCategory: "ordinary" },
     ]);
   });
 
-  it("classifies story-forward movement by destination without suppressing detours", () => {
+  it("keeps story-continuing movement visually ordinary without suppressing detours", () => {
     const policy = {
       mode: "story",
       unrestricted: false,
@@ -311,10 +311,10 @@ describe("useStoryline", () => {
     };
 
     expect(isActionAllowed("move-hex:lower-stand", policy)).toBe(true);
-    expect(actionPromptCategory({ id: "move-hex:east-pines", toHexId: "east-pines" }, policy)).toBe("story-forward");
+    expect(actionPromptCategory({ id: "move-hex:east-pines", toHexId: "east-pines" }, policy)).toBe("ordinary");
     expect(actionPromptCategory({ id: "move-hex:lower-stand", toHexId: "lower-stand" }, policy)).toBe("ordinary");
-    expect(actionPromptCategory({ id: "move-room:control-room" }, policy)).toBe("story-forward");
-    expect(actionPromptCategory({ id: "move-exterior:upstream-bank" }, policy)).toBe("story-forward");
+    expect(actionPromptCategory({ id: "move-room:control-room" }, policy)).toBe("ordinary");
+    expect(actionPromptCategory({ id: "move-exterior:upstream-bank" }, policy)).toBe("ordinary");
   });
 
   it("keeps ordinary movement destinations available in story mode", () => {
@@ -341,5 +341,30 @@ describe("useStoryline", () => {
     expect(isDestinationAllowed(explicit, { type: "room", id: "garage" })).toBe(true);
     expect(isDestinationAllowed(explicit, { type: "hex", id: "south-pines" })).toBe(true);
     expect(isDestinationAllowed(explicit, { type: "transition", id: "building" })).toBe(true);
+  });
+
+  it("blocks story-sensitive nonmovement actions without changing ordinary movement", () => {
+    const policy = {
+      mode: "story",
+      unrestricted: false,
+      allowed: {
+        movement: { mode: "local-area" },
+        stageViews: [{ kind: "character", tab: "overview" }],
+        indoorActions: ["door-open:garage-side-door"],
+        outdoorActions: ["search:barrier"],
+        itemActions: ["ration.eat"],
+      },
+    };
+
+    expect(isActionAllowed("move-room:kitchen", policy)).toBe(true);
+    expect(isActionAllowed("route:gate-woods", policy)).toBe(true);
+    expect(isActionAllowed("door-open:garage-side-door", policy)).toBe(true);
+    expect(isActionAllowed("door-open:control-room-door", policy)).toBe(false);
+    expect(isActionAllowed("search:barrier", policy)).toBe(true);
+    expect(isActionAllowed("passage-toggle:fence-hole", policy)).toBe(false);
+    expect(isActionAllowed("item-action:ration.eat", policy)).toBe(true);
+    expect(isActionAllowed("item-action:hydro-startup-instruction-card.read", policy)).toBe(false);
+    expect(isStageViewAllowed(policy, { kind: "character", tab: "overview" })).toBe(true);
+    expect(isStageViewAllowed(policy, { kind: "lesson", id: "hydro-power-intro-alpha" })).toBe(false);
   });
 });

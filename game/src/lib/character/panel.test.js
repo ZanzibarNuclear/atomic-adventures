@@ -125,6 +125,23 @@ describe("character panel presentation", () => {
     expect(formatVitalValue(overview.vitals[1])).toBe("Fed · 65 / 100");
   });
 
+  it("derives positive reserves from current hunger and thirst pressure stats", () => {
+    const state = character();
+    state.definitions.stats.push(
+      { id: "hunger", label: "Hunger", type: "meter", min: 0, max: 100, visible: "always" },
+      { id: "thirst", label: "Thirst", type: "meter", min: 0, max: 100, visible: "always" },
+    );
+    state.stats.hunger = 80;
+    state.stats.thirst = 95;
+
+    const overview = characterWellbeingOverview(state);
+
+    expect(overview.vitals).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "satiety", value: 20, state: "Very hungry", tone: "error" }),
+      expect.objectContaining({ id: "hydration", value: 5, state: "Dehydrated", tone: "error" }),
+    ]));
+  });
+
   it("uses authored display states for wellbeing vitals", () => {
     const state = character();
     state.definitions.stats.push({

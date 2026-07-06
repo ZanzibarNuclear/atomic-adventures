@@ -234,7 +234,7 @@ describe('getMovementOptions', () => {
     )
   })
 
-  it('lets story choices replace route actions to the same destination', () => {
+  it('keeps route actions visible beside story choices to the same destination', () => {
     const outdoor = useOutdoorWorld(mapData)
     outdoor.state.currentId = 'road-fork'
     outdoor.state.stand = outdoor.defaultStandForHex('road-fork')
@@ -244,7 +244,7 @@ describe('getMovementOptions', () => {
 
     const actions = buildOutdoorRouteActions(outdoor, pendingBeat)
 
-    expect(actions.map((action) => action.toHexId)).not.toContain('gate-woods')
+    expect(actions.map((action) => action.toHexId)).toContain('gate-woods')
     expect(actions.map((action) => action.toHexId)).toContain('upper-gorge')
   })
 
@@ -741,7 +741,7 @@ describe('getMovementOptions', () => {
     expect(labels.join(' ')).not.toMatch(/west room|east room/i)
   })
 
-  it('lets indoor story choices replace matching generic movement actions', () => {
+  it('keeps indoor movement visible beside matching story choices', () => {
     const indoor = {
       indoorMoves: [
         {
@@ -763,6 +763,7 @@ describe('getMovementOptions', () => {
     }
 
     expect(buildIndoorMovementActions(indoor, pendingBeat).map((action) => action.id)).toEqual([
+      'move-exterior:north-east-corner',
       'move-exterior:small-bay-roll-front',
     ])
   })
