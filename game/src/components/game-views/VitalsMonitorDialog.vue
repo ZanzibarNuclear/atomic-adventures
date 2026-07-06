@@ -15,17 +15,31 @@ const conditions = computed(() => (props.overview?.conditions ?? []).filter((con
 </script>
 
 <template>
-  <div class="modal-backdrop" role="presentation" @click.self="$emit('close')">
+  <div class="floating-layer" role="presentation">
     <section
       class="vitals-monitor"
       role="dialog"
-      aria-modal="true"
+      aria-modal="false"
       aria-labelledby="vitals-monitor-title">
       <header>
         <div>
           <p class="label">Real-time vitals</p>
           <h2 id="vitals-monitor-title">Condition monitor</h2>
           <p v-if="clock" class="game-time">{{ formatGameClock(clock) }}</p>
+          <div class="vitals-strip" aria-label="Vitals summary">
+            <span
+              v-for="vital in vitals"
+              :key="vital.id"
+              class="strip-meter"
+              :class="vital.tone"
+              :title="`${vital.label}: ${formatVitalValue(vital)}`">
+              <span>{{ vital.label }}</span>
+              <b>
+                <i
+                  :style="{ width: `${Math.round(((vital.value - vital.min) / (vital.max - vital.min || 1)) * 100)}%` }" />
+              </b>
+            </span>
+          </div>
         </div>
         <button type="button" class="sm" @click="$emit('close')">Close</button>
       </header>
@@ -39,13 +53,6 @@ const conditions = computed(() => (props.overview?.conditions ?? []).filter((con
           <div class="vital-heading">
             <span>{{ vital.label }}</span>
             <strong>{{ formatVitalValue(vital) }}</strong>
-          </div>
-          <div
-            class="vital-track"
-            :aria-label="`${vital.label}: ${formatVitalValue(vital)}`">
-            <span
-              class="vital-fill"
-              :style="{ width: `${Math.round(((vital.value - vital.min) / (vital.max - vital.min || 1)) * 100)}%` }" />
           </div>
           <p v-if="vital.description">{{ vital.description }}</p>
         </article>
@@ -68,18 +75,17 @@ const conditions = computed(() => (props.overview?.conditions ?? []).filter((con
 </template>
 
 <style scoped>
-.modal-backdrop {
+.floating-layer {
   position: fixed;
-  inset: 0;
+  top: 0.75rem;
+  right: 0.75rem;
   z-index: 50;
-  display: grid;
-  place-items: center;
-  padding: 1rem;
-  background: rgba(8, 11, 16, 0.68);
+  width: min(38rem, calc(100vw - 1.5rem));
+  pointer-events: none;
 }
 .vitals-monitor {
-  width: min(46rem, 100%);
-  max-height: min(42rem, calc(100vh - 2rem));
+  width: 100%;
+  max-height: min(38rem, calc(100vh - 1.5rem));
   overflow: auto;
   border: 1px solid #64758d;
   border-radius: 8px;
@@ -87,6 +93,7 @@ const conditions = computed(() => (props.overview?.conditions ?? []).filter((con
   color: #eef3f8;
   padding: 1rem;
   box-shadow: 0 1.2rem 3rem rgba(0, 0, 0, 0.34);
+  pointer-events: auto;
 }
 header {
   display: flex;
@@ -108,6 +115,43 @@ p {
 .game-time {
   margin-top: 0.25rem;
   color: #c5cedb;
+}
+.vitals-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(3.6rem, 1fr));
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+}
+.strip-meter {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+.strip-meter span {
+  overflow: hidden;
+  color: #aeb9c8;
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.strip-meter b {
+  display: block;
+  height: 0.38rem;
+  border-radius: 999px;
+  background: #2d3542;
+  overflow: hidden;
+}
+.strip-meter i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #77aa83;
+}
+.strip-meter.warning i {
+  background: #d2a94d;
+}
+.strip-meter.error i {
+  background: #d56b5d;
 }
 .vitals-grid {
   display: grid;
@@ -140,24 +184,6 @@ p {
 .vital-heading strong {
   color: #f2f5f8;
   font-size: 1.05rem;
-}
-.vital-track {
-  height: 0.55rem;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #2d3542;
-}
-.vital-fill {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: #77aa83;
-}
-.warning .vital-fill {
-  background: #d2a94d;
-}
-.error .vital-fill {
-  background: #d56b5d;
 }
 .vital-card p,
 .empty-note {
@@ -192,8 +218,16 @@ p {
   border-color: #9b574e;
 }
 @media (max-width: 640px) {
+  .floating-layer {
+    top: 0.5rem;
+    right: 0.5rem;
+    width: calc(100vw - 1rem);
+  }
   header {
     flex-direction: column;
+  }
+  .vitals-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>

@@ -34,6 +34,10 @@ describe("VitalsMonitorDialog", () => {
 
     expect(wrapper.text()).toContain("Day 1 · 12:00 PM");
     expect(wrapper.text()).toContain("Okay · 48 / 100");
+    expect(wrapper.find(".floating-layer").exists()).toBe(true);
+    expect(wrapper.find(".modal-backdrop").exists()).toBe(false);
+    expect(wrapper.get("[role='dialog']").attributes("aria-modal")).toBe("false");
+    expect(wrapper.find(".game-time + .vitals-strip").exists()).toBe(true);
 
     await wrapper.setProps({
       overview: overview(34),
