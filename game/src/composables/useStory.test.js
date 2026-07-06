@@ -698,10 +698,10 @@ describe("useStory reactive content", () => {
   it("filters beats by play mode", () => {
     const setup = harness({
       beats: {
-        storyline: {
+        story: {
           ...beat,
-          text: "Storyline text",
-          modes: ["storyline"],
+          text: "Story text",
+          modes: ["story"],
         },
         openWorld: {
           ...beat,
@@ -724,19 +724,19 @@ describe("useStory reactive content", () => {
         intro: {
           ...beat,
           text: "Intro text",
-          modes: ["storyline"],
+          modes: ["story"],
           storylineStep: "intro",
         },
         card: {
           ...beat,
           text: "Card text",
-          modes: ["storyline"],
+          modes: ["story"],
           storylineStep: "understand-building",
         },
       },
     });
 
-    setup.gameState.playMode = "storyline";
+    setup.gameState.playMode = "story";
     setup.gameState.storyline = {
       scenarioId: "part-i-station",
       stepId: "understand-building",

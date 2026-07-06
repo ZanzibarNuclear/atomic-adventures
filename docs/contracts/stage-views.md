@@ -64,7 +64,7 @@ A view choice:
 Movement choices keep their existing behavior: flags and time are applied first,
 then the player moves and the current beat clears.
 
-In storyline mode, stage-view opening is also subject to the active storyline
+In story mode, stage-view opening is also subject to the active storyline
 action policy. A view that is valid in open-world mode may be hidden or blocked
 during a canonical step unless that step allows it. Returning from a focused
 stage view to the map is an interface action and should remain available unless

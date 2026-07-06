@@ -103,7 +103,7 @@ const formattedSavedAt = computed(() => {
 
 const showSaveHint = computed(() => formattedSavedAt.value.length > 0);
 const playModeLabel = computed(() => {
-  if (props.playMode === "storyline") return "Storyline mode";
+  if (props.playMode === "story") return "Story mode";
   if (props.playMode === "open-world") return "Open-world mode";
   return "";
 });

@@ -39,7 +39,7 @@ The game has two explicit modes:
 Beats may be scoped to one or both modes:
 
 ```yaml
-modes: [storyline]
+modes: [story]
 storylineStep: understand-building
 ```
 
@@ -47,7 +47,7 @@ Rules:
 
 - Omitting `modes` keeps the beat eligible in both modes when its trigger and
   other criteria match.
-- `modes: [storyline]` makes the beat eligible only in storyline saves.
+- `modes: [story]` makes the beat eligible only in story-mode saves.
 - `modes: [open-world]` makes the beat eligible only in open-world saves.
 - `storylineStep` restricts the beat to the named active storyline step and
   implies storyline eligibility.
@@ -279,7 +279,7 @@ Example:
 
 ```yaml
 hydro-card-on-console:
-  modes: [storyline]
+  modes: [story]
   storylineStep: understand-building
   trigger: { place: indoors, room: control-room }
   heading: Startup card
@@ -287,7 +287,7 @@ hydro-card-on-console:
     hoped a future operator would find it.
 ```
 
-The beat can be selected only while the active playthrough is in storyline mode
+The beat can be selected only while the active playthrough is in story mode
 and the current scenario step is `understand-building`. The storyline step still
 owns the objective text, the allowed action set, and any completion condition
 such as reading or taking the card.
@@ -370,7 +370,7 @@ A choice may have at most one movement destination. Flag changes and optional
 time costs are committed before movement. If applying a time cost fails, the
 player does not move and the beat remains active.
 
-In storyline mode, choice visibility is additionally filtered by the active
+In story mode, choice visibility is additionally filtered by the active
 storyline action policy when the choice performs a story-sensitive action,
 opens a stage view, mutates inventory/facility state, or reveals future
 knowledge. Ordinary movement choices should remain visible when the movement is
@@ -391,7 +391,7 @@ as room and exterior-path map clicks.
 
 If a storyline choice and ordinary movement both lead to the same destination,
 the story-forward label should replace the generic movement action so the
-authored label is shown only once. This is how Storyline mode says "Keep
+authored label is shown only once. This is how Story mode says "Keep
 walking west" while Open-world mode can use a more general route label.
 
 ## Multiple Beats

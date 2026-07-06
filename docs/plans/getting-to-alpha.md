@@ -34,7 +34,7 @@ Alpha requires the following work beyond the current build:
 - beginner-friendly hydro lesson;
 - visual laminated instruction card;
 - simplified hydro console;
-- explicit storyline mode versus open-world mode.
+- explicit story mode versus open-world mode.
 
 The other ideas in this plan are important, but they should not block alpha
 unless they become necessary to make the four alpha requirements coherent.
@@ -162,14 +162,14 @@ display to the few signals a beginner can act on.
 `Is the station powered?`, `What is happening right now?`, and `What should I
 do next?`
 
-## Wave 4 - Storyline Mode and Open-World Mode
+## Wave 4 - Story Mode and Open-World Mode
 
 **Purpose:** Stop asking one interface to carry two incompatible experiences.
 
 Open access to rooms, outdoor nodes, and many actions makes it too easy for a
 player to lose the authored story thread. Alpha needs an explicit split:
 
-- **Storyline mode** — the player is Zanzibar in the canonical story. Many
+- **Story mode** — the player is Zanzibar in the canonical story. Many
   actions, timings, and transitions may be forced or gated so the story remains
   coherent.
 - **Open-world mode** — the player explores freely, defines their own goals,
@@ -182,11 +182,11 @@ The migration plan is
 Story beats remain the prose layer; storyline steps own objectives, gates,
 forced transitions, and canonical sequencing.
 
-### Storyline Mode Requirements
+### Story Mode Requirements
 
 - [ ] Add an explicit mode selection or new-game choice.
-- [ ] Decide whether storyline mode is the default for alpha.
-- [ ] In storyline mode, gate or hide actions that would break the current
+- [ ] Decide whether story mode is the default for alpha.
+- [ ] In story mode, gate or hide actions that would break the current
       narrative beat.
 - [ ] Allow forced movement, forced time passage, and limited action sets where
       the story requires it.
@@ -303,10 +303,10 @@ interactive close-ups with stateful controls.
       checklist plus mini-map.
 - [ ] The instruction card can be carried or accessed from inventory/backpack.
 - [ ] The console is simplified for alpha and gives a clear next action.
-- [ ] The game explicitly supports storyline mode and open-world mode, or at
-      minimum clearly gates alpha as storyline mode while marking free
+- [ ] The game explicitly supports story mode and open-world mode, or at
+      minimum clearly gates alpha as story mode while marking free
       exploration separately.
-- [ ] The hydro startup path works end to end in storyline mode.
+- [ ] The hydro startup path works end to end in story mode.
 - [ ] Save/load preserves lesson, card, mode, inventory, hydro facility state,
       and console behavior.
 - [ ] `npm run test` passes from the repository root.

@@ -4,7 +4,7 @@ export const storylineSeed = {
     {
       id: "part-i-opener",
       label: "Part I Opener",
-      defaultMode: "storyline",
+      defaultMode: "story",
       startStep: "survive-in-the-woods",
       steps: [
         {
@@ -45,7 +45,7 @@ export const storylineSeed = {
     {
       id: "part-i-station",
       label: "Part I Station",
-      defaultMode: "storyline",
+      defaultMode: "story",
       startStep: "find-a-way-past-fence",
       steps: [
         {

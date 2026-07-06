@@ -97,12 +97,12 @@ export function useStory(storyData, ctx) {
   }
 
   function modeMatches(beat) {
-    const mode = gameState.playMode ?? "storyline";
+    const mode = gameState.playMode ?? "story";
     const modes = Array.isArray(beat.modes) ? beat.modes : [];
     const stepId = gameState.storyline?.stepId ?? null;
     if (modes.length && !modes.includes(mode)) return false;
     if (beat.storylineStep) {
-      if (mode !== "storyline") return false;
+      if (mode !== "story") return false;
       if (beat.storylineStep !== stepId) return false;
     }
     return true;

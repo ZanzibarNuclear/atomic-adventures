@@ -21,7 +21,7 @@ tests, implementation map, and this list in the same change.
 
 ## Play Modes And Storyline
 
-- Add new-game mode selection with Storyline as the alpha default and
+- Add new-game mode selection with Story as the alpha default and
   Open-world as an explicit freeform option.
 - Add `playMode` and active storyline state to saves.
 - Implement scenario content, runtime loading, production JSON export, live

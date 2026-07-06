@@ -19,7 +19,7 @@ function scenario(overrides = {}) {
   return {
     id: "part-i-opener",
     label: "Part I Opener",
-    defaultMode: "storyline",
+    defaultMode: "story",
     startStep: "intro",
     steps: [
       {
@@ -71,7 +71,7 @@ function harness(storyline = { scenarios: [scenario()] }) {
       indoor.indoor.exteriorNode = node;
     },
   };
-  setPlayMode(gameState, "storyline", {
+  setPlayMode(gameState, "story", {
     scenarioId: "part-i-opener",
     stepId: "intro",
     objective: "Get oriented.",
@@ -233,7 +233,7 @@ describe("useStoryline", () => {
     expect(setup.api.authoringError.value).toBe('Storyline step "missing-step" was not found.');
   });
 
-  it("allows open-world actions without storyline gates", () => {
+  it("allows open-world actions without story gates", () => {
     const policy = { mode: "open-world", unrestricted: true };
 
     expect(isActionAllowed("action:anything", policy)).toBe(true);
@@ -241,9 +241,9 @@ describe("useStoryline", () => {
     expect(isStageViewAllowed(policy, { kind: "console", id: "hydro" })).toBe(true);
   });
 
-  it("filters actions through exact and semantic storyline allowances", () => {
+  it("filters actions through exact and semantic story allowances", () => {
     const policy = {
-      mode: "storyline",
+      mode: "story",
       unrestricted: false,
       allowed: {
         movement: {
@@ -303,7 +303,7 @@ describe("useStoryline", () => {
 
   it("classifies story-forward movement by destination without suppressing detours", () => {
     const policy = {
-      mode: "storyline",
+      mode: "story",
       unrestricted: false,
       allowed: {
         movement: { hexes: ["east-pines"], rooms: ["control-room"], exteriorNodes: ["upstream-bank"] },
@@ -317,19 +317,19 @@ describe("useStoryline", () => {
     expect(actionPromptCategory({ id: "move-exterior:upstream-bank" }, policy)).toBe("story-forward");
   });
 
-  it("keeps ordinary movement destinations available in storyline mode", () => {
+  it("keeps ordinary movement destinations available in story mode", () => {
     const currentOnly = {
-      mode: "storyline",
+      mode: "story",
       unrestricted: false,
       allowed: { movement: { mode: "current-location-only", rooms: ["control-room"] } },
     };
     const localArea = {
-      mode: "storyline",
+      mode: "story",
       unrestricted: false,
       allowed: { movement: { mode: "local-area" } },
     };
     const explicit = {
-      mode: "storyline",
+      mode: "story",
       unrestricted: false,
       allowed: { movement: { rooms: ["control-room"] } },
     };

@@ -240,7 +240,7 @@ simulation precision.
   the game into a survival spreadsheet.
 - Early Part I should be forgiving while teaching the vocabulary: health, food,
   water, exertion, rest.
-- Alpha Storyline mode should have real survival pressure during the opening
+- Alpha Story mode should have real survival pressure during the opening
   forest sequence. Wandering, backtracking, and strenuous shortcuts can consume
   time, hydration, satiety, and energy. The intended path should be forgiving,
   but repeatedly walking in circles can lead to serious impairment and

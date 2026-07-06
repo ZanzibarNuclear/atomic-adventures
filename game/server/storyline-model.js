@@ -2,7 +2,7 @@ import { validateCharacterEffects } from "./character-reference-validation.js";
 
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const FLAG_PATTERN = /^[a-z0-9_]+(?:[.-][a-z0-9_]+)*$/;
-const PLAY_MODES = new Set(["storyline", "open-world"]);
+const PLAY_MODES = new Set(["story", "open-world"]);
 const MOVEMENT_MODES = new Set(["current-location-only", "local-area", "unrestricted"]);
 const STAGE_VIEW_KINDS = new Set([
   "inventory",
@@ -80,7 +80,7 @@ function normalizeScenario(input = {}, index = 0) {
   return {
     id: text(input.id) || `scenario-${index + 1}`,
     label: text(input.label),
-    defaultMode: text(input.defaultMode) || "storyline",
+    defaultMode: normalizePlayMode(text(input.defaultMode)) || "story",
     startStep: text(input.startStep),
     steps: array(input.steps).map((step, stepIndex) => normalizeStep(step, stepIndex)),
   };
@@ -264,6 +264,10 @@ function validateActionIds(ids, path, add) {
       add(`${path}.${index}`, "Use a normalized action ID with a category prefix.");
     }
   });
+}
+
+function normalizePlayMode(mode) {
+  return mode === "storyline" ? "story" : mode;
 }
 
 function validateWorldIds(ids, catalog, path, add, label) {

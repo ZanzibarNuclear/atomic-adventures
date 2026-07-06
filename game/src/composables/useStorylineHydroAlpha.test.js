@@ -20,7 +20,7 @@ const storylineData = ref(storylineContent.storyline);
 const mapData = worldContent.world;
 const utilityData = utilityStationContent.building;
 
-function buildHarness(mode = "storyline") {
+function buildHarness(mode = "story") {
   const place = ref("outdoors");
   const builderView = ref(false);
   const gameState = createGameState({
@@ -35,7 +35,7 @@ function buildHarness(mode = "storyline") {
     gameState,
   });
   const openedViews = [];
-  setPlayMode(gameState, mode, mode === "storyline"
+  setPlayMode(gameState, mode, mode === "story"
     ? { scenarioId: "part-i-station", stepId: "understand-building" }
     : {});
   const storyline = useStoryline(storylineData, {
@@ -75,8 +75,8 @@ async function tick(harness) {
 }
 
 describe("hydro alpha play modes", () => {
-  it("guides the hydro startup sequence with storyline gates active", async () => {
-    const harness = buildHarness("storyline");
+  it("guides the hydro startup sequence with story gates active", async () => {
+    const harness = buildHarness("story");
 
     setIndoorLocation(harness, { room: "control-room" });
     await tick(harness);

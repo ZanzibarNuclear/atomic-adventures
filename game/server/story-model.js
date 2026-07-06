@@ -12,7 +12,7 @@ const STAGE_VIEW_KINDS = new Set([
   "simulation",
 ]);
 const TRANSITION_DIRECTIONS = new Set(["toLocal", "toRegional"]);
-const PLAY_MODES = new Set(["storyline", "open-world"]);
+const PLAY_MODES = new Set(["story", "open-world"]);
 
 export function normalizeBeat(input = {}) {
   const trigger = input.trigger ?? {};
@@ -23,7 +23,7 @@ export function normalizeBeat(input = {}) {
     heading: nullableText(input.heading),
     text: String(input.text ?? ""),
     revisit: nullableText(input.revisit),
-    modes: stringList(input.modes),
+    modes: stringList(input.modes).map(normalizePlayMode),
     storylineStep: nullableText(input.storylineStep),
     trigger: {
       place: nullableText(trigger.place),
@@ -125,13 +125,13 @@ export function validateBeat(input, world, character = null, learning = null) {
   }
   validateBeatTime(beat.time, add);
   beat.modes.forEach((mode, index) => {
-    if (!PLAY_MODES.has(mode)) add(`modes.${index}`, "Choose storyline or open-world.");
+    if (!PLAY_MODES.has(mode)) add(`modes.${index}`, "Choose story or open-world.");
   });
   if (beat.storylineStep && !ID_PATTERN.test(beat.storylineStep)) {
     add("storylineStep", "Use a kebab-case storyline step ID.");
   }
-  if (beat.storylineStep && beat.modes.length && !beat.modes.includes("storyline")) {
-    add("storylineStep", "Storyline step beats must be eligible in storyline mode.");
+  if (beat.storylineStep && beat.modes.length && !beat.modes.includes("story")) {
+    add("storylineStep", "Storyline step beats must be eligible in story mode.");
   }
 
   beat.choices.forEach((choice, index) => {
@@ -321,6 +321,10 @@ function stringList(value) {
   if (Array.isArray(value)) return value.map(String).map((item) => item.trim()).filter(Boolean);
   if (typeof value === "string") return value.split(",").map((item) => item.trim()).filter(Boolean);
   return [];
+}
+
+function normalizePlayMode(mode) {
+  return mode === "storyline" ? "story" : mode;
 }
 
 function finiteNumber(value, fallback) {

@@ -11,7 +11,7 @@ world/content authoring
 
 Atomic Adventures supports two different player promises:
 
-- **Storyline mode**: the player is Zanzibar in the canonical Part I story.
+- **Story mode**: the player is Zanzibar in the canonical Part I story.
   Story beats, objectives, and suggested actions present Zanzibar's internal
   experience and encourage the canonical path without revealing discoveries
   before Zanzibar makes them.
@@ -27,13 +27,13 @@ of truth for physical possibility, movement, safety, and survival pressure.
 
 ## Design Principles
 
-- **Explicit mode choice.** A new playthrough chooses `storyline` or
+- **Explicit mode choice.** A new playthrough chooses `story` or
   `open-world` before ordinary play begins.
-- **Storyline is Zanzibar's point of view.** Storyline mode presents the
+- **Story mode is Zanzibar's point of view.** Story mode presents the
   authored sequence through Zanzibar's perceptions, memories, worries, and
   guesses. It should not name the utility station, hydro facility, eBuggy, or
   other undiscovered things before Zanzibar has reason to know them.
-- **Storyline is guided by prompts, not by locking the player onto rails.**
+- **Story mode is guided by prompts, not by locking the player onto rails.**
   Alpha should always surface at least one story-forward action, but ordinary
   movement remains available when the world allows it. Detours may cost time,
   energy, hydration, satiety, or safety.
@@ -49,7 +49,7 @@ of truth for physical possibility, movement, safety, and survival pressure.
   map, and action access while preserving movement rules, facility prerequisites,
   inventory requirements, and invalid-state safety rails.
 - **Survival pressure is shared.** Both modes use character wellbeing, time, and
-  activity costs. Storyline mode may warn and frame consequences in Zanzibar's
+  activity costs. Story mode may warn and frame consequences in Zanzibar's
   voice, but wandering too long can still put the character in serious trouble.
 - **Mode state is save state.** Save/load preserves selected mode, storyline
   position, objectives, character state, inventory, flags, facility state, and
@@ -65,7 +65,7 @@ progress:
 
 ```js
 {
-  playMode: "storyline" | "open-world",
+  playMode: "story" | "open-world",
   storyline: {
     scenarioId: "part-i-opener",
     stepId: "survive-in-the-woods",
@@ -75,7 +75,7 @@ progress:
 }
 ```
 
-`playMode` is required. New alpha playthroughs default to `storyline` unless the
+`playMode` is required. New alpha playthroughs default to `story` unless the
 player chooses `open-world`.
 
 `storyline` is active only when `playMode` is `storyline`. It records the
@@ -93,14 +93,14 @@ Starting a new game presents an explicit mode choice before normal play:
 
 | Mode | Player-facing promise | Alpha default |
 | --- | --- | --- |
-| Storyline | Experience Zanzibar's story from the inside. | Yes |
+| Story | Experience Zanzibar's story from the inside. | Yes |
 | Open-world | Explore and experiment freely as a player-authored run. | No |
 
-For alpha, a save cannot switch from `open-world` back into `storyline`.
+For alpha, a save cannot switch from `open-world` back into `story`.
 Supporting that later requires a deliberate rejoin contract that can map
 arbitrary world, inventory, and facility states onto a valid story step.
 
-A future one-way "continue as open-world" escape from storyline may be added
+A future one-way "continue as open-world" escape from story mode may be added
 when useful, but it is not required for alpha.
 
 ## Scenario Content
@@ -116,7 +116,7 @@ phase names:
 ```yaml
 id: part-i-opener
 label: Part I Opener
-defaultMode: storyline
+defaultMode: story
 startStep: survive-in-the-woods
 
 steps:
@@ -141,7 +141,7 @@ Field meanings:
 | --- | --- |
 | `id` | Stable scenario ID. |
 | `label` | Author-facing scenario label. |
-| `defaultMode` | Suggested new-game default; alpha uses `storyline`. |
+| `defaultMode` | Suggested new-game default; alpha uses `story`. |
 | `startStep` | First step ID for a new storyline playthrough. |
 | `steps` | Ordered canonical story steps. |
 
@@ -190,7 +190,7 @@ The policy has two jobs:
 2. Hide or block nonmovement actions that would reveal, complete, or mutate
    story-sensitive content before Zanzibar reaches the right context.
 
-In storyline mode:
+In story mode:
 
 - Ordinary movement remains governed by map, passage, door, time, and wellbeing
   rules. If the player can physically walk somewhere, the storyline policy
@@ -276,14 +276,14 @@ Story beats remain the prose layer described in
 [story-beats.md](story-beats.md). A beat may be scoped by mode:
 
 ```yaml
-modes: [storyline]
+modes: [story]
 storylineStep: understand-building
 ```
 
 Rules:
 
 - `modes` omitted means the beat is eligible in both modes.
-- `modes: [storyline]` means only storyline saves can select the beat.
+- `modes: [story]` means only story-mode saves can select the beat.
 - `modes: [open-world]` means only open-world saves can select the beat.
 - `storylineStep` restricts a beat to the named active step and implies
   `storyline` eligibility.
@@ -294,7 +294,7 @@ Rules:
 
 ## Objectives
 
-Storyline mode must show the current objective clearly in the player-facing UI.
+Story mode must show the current objective clearly in the player-facing UI.
 The objective is Zanzibar's internal near-term concern, not an omniscient quest
 log. It should answer "what matters right now?" without revealing future
 locations, artifacts, facilities, or solutions.
@@ -355,7 +355,7 @@ must include storyline references:
 The alpha storyline scenario should encode Zanzibar's full Part I opening arc,
 not only the hydro startup sequence:
 
-1. Choose Storyline mode.
+1. Choose Story mode.
 2. Establish that Zanzibar is lost, hungry, thirsty, and moving by instinct.
 3. Encourage westward movement across the forest without naming the destination.
 4. Let the fence become the discovered obstacle.
@@ -373,7 +373,7 @@ not only the hydro startup sequence:
     open the turbine valve, return to the control room, connect power, check
     the simplified console, and complete hydro startup.
 
-Storyline mode should keep at least one canonical story-forward prompt visible,
+Story mode should keep at least one canonical story-forward prompt visible,
 but it should not remove ordinary movement or curiosity paths. Open-world mode
 uses general area descriptions and lets the player define the story they are
 making, while preserving the same physical, facility, and wellbeing rules.
@@ -389,7 +389,7 @@ Open game windows may refresh scenario content without losing player state. If
 the active scenario or step still exists, the runtime re-evaluates objective,
 allowed actions, and completion state. If the active step is removed or becomes
 invalid during live authoring, development builds should show a clear authoring
-error and fall back to a safe blocked policy for storyline mode rather than
+error and fall back to a safe blocked policy for story mode rather than
 silently exposing open-world actions.
 
 ## Tests
@@ -400,15 +400,15 @@ Alpha requires tests for:
 - save/load of `playMode`, scenario ID, step ID, completed steps, objectives,
   inventory, flags, character state, and facility state;
 - story beat filtering by `modes` and `storylineStep`;
-- story-forward prompt visibility in storyline mode;
-- ordinary movement remaining available in storyline mode when physically
+- story-forward prompt visibility in story mode;
+- ordinary movement remaining available in story mode when physically
   valid;
 - nonmovement action policy hiding and blocking actions outside the current
   step;
 - map clicks and play-panel movement sharing the same physical movement rules;
 - forced movement, forced time passage, forced stage views, and step effects;
 - survival/wellbeing consequences for excessive wandering or time passage;
-- hydro startup completion in storyline mode with gates active;
+- hydro startup completion in story mode with gates active;
 - open-world startup with broad action access and valid out-of-order completion;
 - live authoring refresh of active scenario data.
 

@@ -142,7 +142,7 @@ describe("story API", () => {
     expect(storyline.storyline.id).toBe("storyline-main");
     expect(storyline.storyline.scenarios[0]).toEqual(expect.objectContaining({
       id: "part-i-opener",
-      defaultMode: "storyline",
+      defaultMode: "story",
       startStep: "survive-in-the-woods",
     }));
     expect(storyline.storyline.scenarios[1]).toEqual(expect.objectContaining({

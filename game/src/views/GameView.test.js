@@ -76,7 +76,7 @@ describe("GameView play mode entry", () => {
     vi.restoreAllMocks();
   });
 
-  it("renders the playable scene after choosing storyline mode", async () => {
+  it("renders the playable scene after choosing story mode", async () => {
     const wrapper = mount(GameView);
 
     await wrapper.get("button.recommended").trigger("click");

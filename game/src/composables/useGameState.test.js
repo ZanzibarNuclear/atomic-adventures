@@ -273,7 +273,7 @@ describe('useGameState save roundtrip', () => {
 
   it('persists play mode and storyline progress', () => {
     const { outdoor, indoor, gameState, place } = buildTestHarness()
-    setPlayMode(gameState, 'storyline', {
+    setPlayMode(gameState, 'story', {
       scenarioId: 'part-i-station',
       stepId: 'understand-building',
       objective: 'Figure out what this building was for.',
@@ -282,7 +282,7 @@ describe('useGameState save roundtrip', () => {
 
     const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
     expect(snapshot.version).toBe(SAVE_VERSION)
-    expect(snapshot.playMode).toBe('storyline')
+    expect(snapshot.playMode).toBe('story')
     expect(snapshot.storyline).toEqual({
       scenarioId: 'part-i-station',
       stepId: 'understand-building',
@@ -293,19 +293,19 @@ describe('useGameState save roundtrip', () => {
 
     setPlayMode(gameState, 'open-world')
     expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
-    expect(gameState.playMode).toBe('storyline')
+    expect(gameState.playMode).toBe('story')
     expect(gameState.storyline.stepId).toBe('understand-building')
     expect(gameState.storyline.completedStepIds).toEqual(['solve-first-crisis'])
   })
 
-  it('normalizes older saves to storyline mode', () => {
+  it('normalizes older saves to story mode', () => {
     const { outdoor, indoor, gameState, place } = buildTestHarness()
     const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
     delete snapshot.playMode
     delete snapshot.storyline
 
     expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
-    expect(gameState.playMode).toBe('storyline')
+    expect(gameState.playMode).toBe('story')
     expect(gameState.storyline).toEqual({
       scenarioId: 'part-i-opener',
       stepId: null,
@@ -323,7 +323,7 @@ describe('useGameState save roundtrip', () => {
     expect(snapshot.playMode).toBe('open-world')
     expect(snapshot.storyline).toBeNull()
 
-    setPlayMode(gameState, 'storyline', { stepId: 'intro' })
+    setPlayMode(gameState, 'story', { stepId: 'intro' })
     expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
     expect(gameState.playMode).toBe('open-world')
     expect(gameState.storyline).toBeNull()

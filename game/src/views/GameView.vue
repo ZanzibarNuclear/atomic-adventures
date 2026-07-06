@@ -200,7 +200,7 @@ const availableLessons = computed(() =>
   }),
 );
 const defaultScenario = computed(() =>
-  storylineData.value?.scenarios?.find((scenario) => scenario.defaultMode === "storyline") ??
+  storylineData.value?.scenarios?.find((scenario) => scenario.defaultMode === "story") ??
   storylineData.value?.scenarios?.[0] ??
   null,
 );
@@ -306,10 +306,10 @@ function handleReset() {
 }
 
 function choosePlayMode(mode) {
-  if (mode === "storyline") {
+  if (mode === "story") {
     const scenario = defaultScenario.value;
     const startStep = scenario?.steps?.find((step) => step.id === scenario.startStep);
-    setPlayMode(gameState, "storyline", {
+    setPlayMode(gameState, "story", {
       scenarioId: scenario?.id,
       stepId: scenario?.startStep ?? null,
       objective: startStep?.objective ?? null,
@@ -492,9 +492,9 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
           <button
             type="button"
             class="mode-choice-card recommended"
-            @click="choosePlayMode('storyline')">
-            <span class="mode-choice-label">Storyline</span>
-            <span class="mode-choice-note">Guided hydro startup with Zanzibar's canonical story.</span>
+            @click="choosePlayMode('story')">
+            <span class="mode-choice-label">Story</span>
+            <span class="mode-choice-note">Follow Zanzibar's story through guided exploration.</span>
           </button>
           <button
             type="button"
@@ -508,7 +508,7 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
     </section>
 
     <section
-      v-else-if="gameState.playMode === 'storyline' && currentObjective"
+      v-else-if="gameState.playMode === 'story' && currentObjective"
       class="story-objective"
       aria-label="Current objective">
       <span class="story-objective-label">Objective</span>

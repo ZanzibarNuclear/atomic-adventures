@@ -15,9 +15,9 @@ export function useStoryline(storylineData, {
 } = {}) {
   const scenarios = computed(() => storylineData.value?.scenarios ?? []);
   const activeScenario = computed(() => {
-    if (gameState.playMode !== "storyline") return null;
+    if (gameState.playMode !== "story") return null;
     return scenarios.value.find((scenario) => scenario.id === gameState.storyline?.scenarioId)
-      ?? scenarios.value.find((scenario) => scenario.defaultMode === "storyline")
+      ?? scenarios.value.find((scenario) => scenario.defaultMode === "story")
       ?? scenarios.value[0]
       ?? null;
   });
@@ -29,25 +29,25 @@ export function useStoryline(storylineData, {
     return scenario.steps?.find((step) => step.id === stepId) ?? null;
   });
   const currentObjective = computed(() => {
-    if (gameState.playMode !== "storyline") return "";
+    if (gameState.playMode !== "story") return "";
     return activeStep.value?.objective ?? gameState.storyline?.objective ?? "";
   });
   const authoringError = computed(() => {
-    if (gameState.playMode !== "storyline") return "";
-    if (!activeScenario.value) return "Storyline mode has no active scenario.";
+    if (gameState.playMode !== "story") return "";
+    if (!activeScenario.value) return "Story mode has no active scenario.";
     if (!gameState.storyline?.stepId) return "";
     if (!activeStep.value) return `Storyline step "${gameState.storyline?.stepId ?? activeScenario.value.startStep}" was not found.`;
     return "";
   });
   const actionPolicy = computed(() => ({
-    mode: gameState.playMode === "storyline" ? "storyline" : "open-world",
+    mode: gameState.playMode === "story" ? "story" : "open-world",
     stepId: activeStep.value?.id ?? null,
     allowed: activeStep.value?.allowed ?? null,
-    unrestricted: gameState.playMode !== "storyline" || !activeStep.value,
+    unrestricted: gameState.playMode !== "story" || !activeStep.value,
   }));
 
   function ensureStarted() {
-    if (gameState.playMode !== "storyline") return;
+    if (gameState.playMode !== "story") return;
     const scenario = activeScenario.value;
     if (!scenario) return;
     if (gameState.storyline?.scenarioId !== scenario.id || !gameState.storyline) {
@@ -63,7 +63,7 @@ export function useStoryline(storylineData, {
   }
 
   function tick() {
-    if (gameState.playMode !== "storyline") return;
+    if (gameState.playMode !== "story") return;
     ensureStarted();
     if (authoringError.value) return;
 
@@ -196,7 +196,7 @@ export function filterAllowedActions(actions = [], policy, context = {}) {
 }
 
 export function actionPromptCategory(action, policy) {
-  if (!policy || policy.unrestricted || policy.mode !== "storyline") return "ordinary";
+  if (!policy || policy.unrestricted || policy.mode !== "story") return "ordinary";
   if (isStoryForwardAction(action, policy)) return "story-forward";
   if (isOptionalAction(action, policy)) return "optional";
   return "ordinary";
@@ -210,7 +210,7 @@ export function annotateActionPrompts(actions = [], policy) {
 }
 
 export function isStoryForwardAction(action, policy) {
-  if (!policy || policy.unrestricted || policy.mode !== "storyline") return false;
+  if (!policy || policy.unrestricted || policy.mode !== "story") return false;
   const actionId = typeof action === "string" ? action : action?.id;
   const allowed = policy.allowed ?? {};
   return actionIdMatchesAllowed(actionId, allowed.storyForwardActions) ||
@@ -218,13 +218,13 @@ export function isStoryForwardAction(action, policy) {
 }
 
 export function isOptionalAction(action, policy) {
-  if (!policy || policy.unrestricted || policy.mode !== "storyline") return false;
+  if (!policy || policy.unrestricted || policy.mode !== "story") return false;
   const actionId = typeof action === "string" ? action : action?.id;
   return actionIdMatchesAllowed(actionId, policy.allowed?.optionalActions);
 }
 
 export function isActionAllowed(action, policy, context = {}) {
-  if (!policy || policy.unrestricted || policy.mode !== "storyline") return true;
+  if (!policy || policy.unrestricted || policy.mode !== "story") return true;
   const actionId = typeof action === "string" ? action : action?.id;
   if (!actionId) return false;
   const allowed = policy.allowed ?? {};
@@ -283,13 +283,13 @@ export function isActionAllowed(action, policy, context = {}) {
 }
 
 export function isDestinationAllowed(policy, destination) {
-  if (!policy || policy.unrestricted || policy.mode !== "storyline") return true;
+  if (!policy || policy.unrestricted || policy.mode !== "story") return true;
   void destination;
   return true;
 }
 
 export function isStageViewAllowed(policy, viewOrAction) {
-  if (!policy || policy.unrestricted || policy.mode !== "storyline") return true;
+  if (!policy || policy.unrestricted || policy.mode !== "story") return true;
   const allowed = policy.allowed ?? {};
   const view = stageViewFor(viewOrAction);
   if (!view?.kind) return false;

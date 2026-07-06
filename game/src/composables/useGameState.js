@@ -20,9 +20,9 @@ import {
 } from "../lib/simulations/hydro/index.js";
 
 export const SAVE_VERSION = 10;
-export const DEFAULT_PLAY_MODE = "storyline";
+export const DEFAULT_PLAY_MODE = "story";
 export const STORYLINE_SCENARIO_ID = "part-i-opener";
-const PLAY_MODES = new Set(["storyline", "open-world"]);
+const PLAY_MODES = new Set(["story", "open-world"]);
 
 /** Plain JSON-safe clone — structuredClone fails on Vue reactive proxies. */
 function clonePlain(value) {
@@ -198,12 +198,13 @@ export function setPlayMode(gameState, mode, {
   objective = null,
 } = {}) {
   gameState.playMode = normalizePlayMode(mode);
-  gameState.storyline = gameState.playMode === "storyline"
+  gameState.storyline = gameState.playMode === "story"
     ? createStorylineState({ scenarioId, stepId, objective })
     : null;
 }
 
 export function normalizePlayMode(mode) {
+  if (mode === "storyline") return "story";
   return PLAY_MODES.has(mode) ? mode : DEFAULT_PLAY_MODE;
 }
 
@@ -224,7 +225,7 @@ export function createStorylineState({
 }
 
 function normalizeStorylineState(value, playMode) {
-  if (playMode !== "storyline") return null;
+  if (playMode !== "story") return null;
   const completed = Array.isArray(value?.completedStepIds)
     ? value.completedStepIds.map(String).filter(Boolean)
     : [];
@@ -241,7 +242,7 @@ function normalizeStorylineState(value, playMode) {
 
 function captureStorylineState(gameState) {
   const mode = normalizePlayMode(gameState.playMode);
-  if (mode !== "storyline") return null;
+  if (mode !== "story") return null;
   return normalizeStorylineState(gameState.storyline, mode);
 }
 
