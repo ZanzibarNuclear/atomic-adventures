@@ -81,7 +81,8 @@ tests, implementation map, and this list in the same change.
 ## Character Wellbeing
 
 - Decide whether max health is part of the first survival loop. The current
-  implementation has a single `health` meter.
+  implementation calculates visible health from a hidden base health input plus
+  severe reserve and condition penalties.
 - Add named conditions, threshold-driven penalties, daily need targets,
   fullness/safe water intake bounds, fatigue, environmental modifiers, and
   wellbeing tuning once the Part I survival pressure needs them.

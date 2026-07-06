@@ -170,6 +170,30 @@ describe("character panel presentation", () => {
     }));
   });
 
+  it("calculates health from hidden base health and severe wellbeing pressures", () => {
+    const state = character();
+    state.definitions.stats[0].visible = "hidden";
+    state.definitions.stats.push(
+      { id: "satiety", label: "Satiety", type: "meter", min: 0, max: 100, visible: "always" },
+      { id: "hydration", label: "Hydration", type: "meter", min: 0, max: 100, visible: "always" },
+      { id: "poisoned", label: "Poisoned", type: "meter", min: 0, max: 100, visible: "always" },
+    );
+    state.stats.health = 90;
+    state.stats.satiety = 8;
+    state.stats.hydration = 4;
+    state.stats.poisoned = 12;
+
+    const overview = characterWellbeingOverview(state);
+
+    expect(visibleCharacterStats(state).map((stat) => stat.id)).not.toContain("health");
+    expect(overview.vitals[0]).toEqual(expect.objectContaining({
+      id: "health",
+      value: 35,
+      state: "Weak",
+      derived: true,
+    }));
+  });
+
   it("uses words for clear condition states", () => {
     const overview = characterWellbeingOverview(character());
 

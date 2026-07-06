@@ -53,19 +53,19 @@ describe("hydro alpha startup path", () => {
     gameState.flags.add("story.the-garage");
     setIndoorLocation(indoor, { room: "kitchen" });
 
-    expect(gameState.character.stats.satiety).toBe(58);
-    expect(gameState.character.stats.hydration).toBe(48);
+    expect(gameState.character.stats.satiety).toBe(35);
+    expect(gameState.character.stats.hydration).toBe(35);
     expect(gameState.character.stats.energy).toBe(82);
 
     expect(indoor.performAction("eat-rations")).toMatchObject({ ok: true });
     expect(itemQuantity(gameState.character.holdings, "tastee-tack-turkey-cranberry-meal")).toBe(1);
     expect(gameState.flags.has("day1.found-food")).toBe(true);
-    expect(gameState.character.stats.satiety).toBeGreaterThan(99);
+    expect(gameState.character.stats.satiety).toBeGreaterThan(80);
 
     expect(indoor.performAction("purify-water")).toMatchObject({ ok: true });
     expect(itemQuantity(gameState.character.holdings, "purified-water")).toBe(1);
     expect(gameState.flags.has("day1.found-water")).toBe(true);
-    expect(gameState.character.stats.hydration).toBeGreaterThan(82);
+    expect(gameState.character.stats.hydration).toBeGreaterThan(70);
 
     gameState.character.stats.energy = 55;
     setIndoorLocation(indoor, { room: "library" });

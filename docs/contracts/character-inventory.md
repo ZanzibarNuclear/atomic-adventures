@@ -401,21 +401,21 @@ suggested hunger effects from calories while still saving the explicit result.
 
 ## Stats
 
-Stats are authored character values suitable for health metrics, progression,
+Stats are authored character values suitable for wellbeing metrics, progression,
 reputation, experience, and similar quantities:
 
 ```yaml
 stats:
   - id: health
     label: Health
-    description: Zanzibar's current physical condition.
+    description: Base physical condition before derived wellbeing penalties.
     group: wellbeing
     type: meter
     default: 100
     min: 0
     max: 100
     format: percent
-    visible: always
+    visible: hidden
     order: 10
 
   - id: operator-level
@@ -440,10 +440,12 @@ Definitions provide defaults, bounds, display format, group, order, and
 visibility. Player saves store only current values. Numeric effects clamp to
 authored bounds.
 
-Derived formulas are not part of the first implementation. Simulations may
-calculate results in code and return ordinary stat effects. This keeps authored
-content declarative and prevents a second programming language from growing
-inside JSON.
+The runtime may derive display values from authored stats where the contract
+needs a calculated concept. Health is the first such display value: the visible
+health vital is calculated from hidden base health plus survival and condition
+penalties. Simulations may also calculate results in code and return ordinary
+stat effects. This keeps authored content declarative and prevents a second
+programming language from growing inside JSON.
 
 ### Time-Driven Needs and Wellbeing
 
@@ -451,46 +453,46 @@ Stats may opt into controlled change when the game clock advances:
 
 ```yaml
 stats:
-  - id: hunger
-    label: Hunger
+  - id: satiety
+    label: Satiety
     group: wellbeing
     type: meter
     default: 35
     min: 0
     max: 100
-    direction: lower-is-better
+    direction: higher-is-better
     drift:
       perGameHour:
-        resting: 1.5
-        light: 3
-        moderate: 5
-        strenuous: 8
+        resting: -0.8
+        light: -2.8
+        moderate: -4.5
+        strenuous: -7
     thresholds:
-      - at: 70
+      - at: 30
         state: hungry
-      - at: 90
+      - at: 10
         state: starving
         effectsPerGameHour:
           - { op: stat.add, id: health, value: -2 }
 
-  - id: thirst
-    label: Thirst
+  - id: hydration
+    label: Hydration
     group: wellbeing
     type: meter
-    default: 45
+    default: 35
     min: 0
     max: 100
-    direction: lower-is-better
+    direction: higher-is-better
     drift:
       perGameHour:
-        resting: 3
-        light: 6
-        moderate: 10
-        strenuous: 15
+        resting: -1.5
+        light: -5
+        moderate: -8
+        strenuous: -12
     thresholds:
-      - at: 65
+      - at: 35
         state: thirsty
-      - at: 85
+      - at: 15
         state: dehydrated
         effectsPerGameHour:
           - { op: stat.add, id: health, value: -4 }
@@ -511,9 +513,11 @@ Activity profiles are engine-defined; authors select among them and configure
 rates. Authors cannot add executable rate formulas. Weather or injuries may
 apply registered rate multipliers later if Part I demonstrates the need.
 
-`health`, `hunger`, and `thirst` remain independent authored stats. Hunger and
-thirst affect health only through explicit threshold effects, allowing
-balancing without hard-coding a survival model into the engine.
+`satiety`, `hydration`, `energy`, and `composure` are positive reserve stats.
+Visible health is calculated from authored inputs such as hidden base health,
+sustained low reserves, injury, poison, and sickness. Hunger and thirst should
+not be retained as parallel inverse meters unless they are being migrated to
+positive reserves.
 
 ## Knowledge
 

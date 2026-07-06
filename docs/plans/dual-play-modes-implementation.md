@@ -242,7 +242,7 @@ Zanzibar's thought, not a quest spoiler.
       system, startup card, or kitchen before discovery.
 - [x] Surface wellbeing warnings clearly when wandering or strenuous actions
       push Zanzibar toward thirst, hunger, exhaustion, collapse, or death.
-- [x] Add a simple failure/retry presentation for catastrophic vitals.
+- [x] Add a simple failure/retry presentation for calculated health collapse.
 
 **Exit criterion:** A new player can tell they are in Zanzibar's story, knows
 what matters immediately, and is warned when survival pressure becomes serious.

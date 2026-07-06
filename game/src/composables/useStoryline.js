@@ -223,6 +223,7 @@ export function isOptionalAction(action, policy) {
 }
 
 export function isActionAllowed(action, policy, context = {}) {
+  if (policy?.mustRest) return isRestAction(action, context);
   if (!policy || policy.unrestricted || policy.mode !== "story") return true;
   const actionId = typeof action === "string" ? action : action?.id;
   if (!actionId) return false;
@@ -283,6 +284,13 @@ export function isActionAllowed(action, policy, context = {}) {
   }
   void context;
   return false;
+}
+
+function isRestAction(action, context = {}) {
+  const actionId = typeof action === "string" ? action : action?.id;
+  const label = typeof action === "string" ? "" : action?.label;
+  const haystack = `${actionId ?? ""} ${label ?? ""} ${context.actionId ?? ""}`.toLowerCase();
+  return haystack.includes("rest") || haystack.includes("sleep");
 }
 
 export function isDestinationAllowed(policy, destination) {

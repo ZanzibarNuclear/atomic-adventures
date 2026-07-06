@@ -25,22 +25,11 @@ export function visibleCharacterStats(character) {
 }
 
 export function characterWellbeingOverview(character) {
-  const stats = visibleCharacterStats(character);
-  const byId = Object.fromEntries(stats.map((stat) => [stat.id, stat]));
+  const byId = Object.fromEntries(allCharacterStats(character).map((stat) => [stat.id, stat]));
+  const derivedHealth = derivedHealthVital(byId);
   return {
     vitals: [
-      vitalFromStat(byId.health, {
-        id: "health",
-        label: "Health",
-        fallback: 100,
-        states: [
-          [80, "Healthy", "positive"],
-          [50, "Stable", "positive"],
-          [25, "Weak", "warning"],
-          [1, "Critical", "error"],
-          [0, "Collapsed", "error"],
-        ],
-      }),
+      derivedHealth,
       vitalFromStat(byId.satiety ?? reserveFromPressureStat(byId.hunger, {
         id: "satiety",
         label: "Satiety",
@@ -137,6 +126,11 @@ export function characterWellbeingOverview(character) {
   };
 }
 
+export function derivedHealthValue(character) {
+  const byId = Object.fromEntries(allCharacterStats(character).map((stat) => [stat.id, stat]));
+  return derivedHealthVital(byId).value;
+}
+
 export function visibleInventoryGroups(character) {
   const definitions = character.definitions ?? {};
   const groups = ordered(definitions.panel?.inventoryGroups);
@@ -228,6 +222,64 @@ function vitalFromStat(stat, options) {
   };
 }
 
+function derivedHealthVital(byId) {
+  const healthStat = byId.health;
+  const min = finiteNumber(healthStat?.min, 0);
+  const max = finiteNumber(healthStat?.max, 100);
+  const base = clamp(finiteNumber(healthStat?.value, healthStat?.default ?? max), min, max);
+  const value = clamp(base - derivedHealthPenalty(byId), min, max);
+  return {
+    id: "health",
+    label: "Health",
+    value,
+    min,
+    max,
+    ...stateForValue(value, displayStatesForStat(healthStat, [
+      [80, "Healthy", "positive"],
+      [50, "Stable", "positive"],
+      [25, "Weak", "warning"],
+      [1, "Critical", "error"],
+      [0, "Collapsed", "error"],
+    ])),
+    description: healthStat?.description ??
+      "Overall physical condition calculated from survival pressures and injuries.",
+    derived: true,
+  };
+}
+
+function derivedHealthPenalty(byId) {
+  return reservePenalty(byId.hydration, [
+    [0, 100],
+    [5, 35],
+    [15, 15],
+  ]) +
+    reservePenalty(byId.satiety, [
+      [0, 100],
+      [5, 20],
+      [10, 8],
+    ]) +
+    conditionPenalty(byId.injured ?? byId.injury, 0.9) +
+    conditionPenalty(byId.poisoned ?? byId.poison, 1) +
+    conditionPenalty(byId.sick ?? byId.illness, 0.8);
+}
+
+function reservePenalty(stat, bands) {
+  if (!stat) return 0;
+  const min = finiteNumber(stat.min, 0);
+  const max = finiteNumber(stat.max, 100);
+  const value = clamp(finiteNumber(stat.value, stat.default ?? max), min, max);
+  for (const [at, penalty] of bands) {
+    if (value <= at) return penalty;
+  }
+  return 0;
+}
+
+function conditionPenalty(stat, multiplier) {
+  if (!stat) return 0;
+  const value = Math.max(0, finiteNumber(stat.value, stat.default ?? 0));
+  return value * multiplier;
+}
+
 function reserveFromPressureStat(stat, options) {
   if (!stat) return null;
   const min = finiteNumber(stat.min, 0);
@@ -299,6 +351,14 @@ function visibleDefinition(definition, acquired) {
   if (definition.visible === "hidden") return false;
   if (["when-acquired", "when-started"].includes(definition.visible)) return acquired;
   return true;
+}
+
+function allCharacterStats(character) {
+  return ordered(character.definitions?.stats)
+    .map((definition) => ({
+      ...definition,
+      value: character.stats?.[definition.id] ?? definition.default ?? null,
+    }));
 }
 
 function ordered(items = []) {

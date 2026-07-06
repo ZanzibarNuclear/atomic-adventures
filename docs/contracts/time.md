@@ -25,7 +25,7 @@ Time supports four related design needs:
 4. **Operations play** - restored energy systems can run over minutes, days,
    and weeks without requiring the player to watch every second.
 
-The vitals monitor observes this authored game time. Keeping the monitor open
+The vitals bar and character overview observe this authored game time. The UI
 does not spend minutes; it simply re-renders when movement, story choices,
 indoor actions, item use, rest, or simulations call the normal time-advance
 boundary.

@@ -241,6 +241,20 @@ describe("useStoryline", () => {
     expect(isStageViewAllowed(policy, { kind: "console", id: "hydro" })).toBe(true);
   });
 
+  it("limits available actions to rest or sleep when energy is depleted", () => {
+    const policy = { mode: "open-world", unrestricted: true, mustRest: true };
+
+    expect(isActionAllowed({ id: "action:rest-in-library", label: "Rest in the library" }, policy)).toBe(true);
+    expect(isActionAllowed({ id: "action:sleep", label: "Sleep" }, policy)).toBe(true);
+    expect(isActionAllowed({ id: "move-room:kitchen", label: "Go to kitchen" }, policy)).toBe(false);
+    expect(filterAllowedActions([
+      { id: "move-room:kitchen", label: "Go to kitchen" },
+      { id: "action:rest-in-library", label: "Rest in the library" },
+    ], policy)).toEqual([
+      expect.objectContaining({ id: "action:rest-in-library" }),
+    ]);
+  });
+
   it("filters actions through exact and semantic story allowances", () => {
     const policy = {
       mode: "story",

@@ -203,6 +203,11 @@ const stageSelectedHolding = computed(() =>
 );
 const characterStats = computed(() => visibleCharacterStats(gameState.character));
 const wellbeingOverview = computed(() => characterWellbeingOverview(gameState.character));
+const mustRest = computed(() => Number(gameState.character.stats?.energy ?? 100) <= 0);
+const wellbeingActionPolicy = computed(() => ({
+  ...(storylineActionPolicy.value ?? {}),
+  mustRest: mustRest.value,
+}));
 const wellbeingAlerts = computed(() =>
   wellbeingOverview.value.vitals
     .filter((vital) => vital.tone === "warning" || vital.tone === "error")
@@ -215,7 +220,7 @@ const wellbeingAlerts = computed(() =>
 );
 const catastrophicVitals = computed(() =>
   wellbeingOverview.value.vitals.filter((vital) =>
-    vital.tone === "error" && Number(vital.value) <= Number(vital.min ?? 0),
+    vital.id === "health" && Number(vital.value) <= Number(vital.min ?? 0),
   ),
 );
 const gameFailed = computed(() => catastrophicVitals.value.length > 0);
@@ -381,7 +386,7 @@ function publicAssetPath(path) {
 function openStageView(view, { force = false } = {}) {
   const kind = view?.kind;
   if (!kind) return false;
-  if (!force && !isStageViewAllowed(storylineActionPolicy.value, view)) return false;
+  if (!force && !isStageViewAllowed(wellbeingActionPolicy.value, view)) return false;
   if (kind === "inventory") {
     currentWorldHolderId();
     return openCharacter({ ...view, tab: "inventory" });
@@ -392,7 +397,7 @@ function openStageView(view, { force = false } = {}) {
 }
 
 function handleHoloReaderAction(id) {
-  if (!isActionAllowed(id, storylineActionPolicy.value)) return;
+  if (!isActionAllowed(id, wellbeingActionPolicy.value)) return;
   if (id === HOLO_READER_BROWSER_ACTION_ID) {
     openView("lesson", { source: "library-holo-reader" });
   }
@@ -406,7 +411,7 @@ function handleHoloReaderAction(id) {
 }
 
 function selectLesson(lessonId) {
-  if (!isStageViewAllowed(storylineActionPolicy.value, {
+  if (!isStageViewAllowed(wellbeingActionPolicy.value, {
     kind: "lesson",
     id: lessonId,
   })) return;
@@ -419,7 +424,7 @@ function selectLesson(lessonId) {
 }
 
 function handleCompleteLesson(lessonId) {
-  if (!isStageViewAllowed(storylineActionPolicy.value, {
+  if (!isStageViewAllowed(wellbeingActionPolicy.value, {
     kind: "lesson",
     id: lessonId,
   })) return;
@@ -455,7 +460,7 @@ function handleAdjustVital({ id, delta }) {
 }
 
 function handleUseItem({ itemId, actionId }) {
-  if (!isActionAllowed(`item-action:${itemId}.${actionId}`, storylineActionPolicy.value, {
+  if (!isActionAllowed(`item-action:${itemId}.${actionId}`, wellbeingActionPolicy.value, {
     itemId,
     actionId,
   })) return;
@@ -598,7 +603,7 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       :travel-to-hex="travelToHex"
       :enter-building="enterBuilding"
       :audit-enabled="movementAuditVisible"
-      :action-policy="storylineActionPolicy"
+      :action-policy="wellbeingActionPolicy"
       :wellbeing-alerts="wellbeingAlerts"
       @hide-movement-audit="movementAuditVisible = false" />
 
@@ -612,7 +617,7 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       :travel-to-room="travelToRoom"
       :audit-enabled="movementAuditVisible"
       :extra-actions="focusedConsoleActions"
-      :action-policy="storylineActionPolicy"
+      :action-policy="wellbeingActionPolicy"
       :wellbeing-alerts="wellbeingAlerts"
       @extra-action="handleHoloReaderAction"
       @stage-view="openStageView"
@@ -625,7 +630,7 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       :selected-holding-id="stageSelectedHoldingId"
       :transfer-targets="transferTargets"
       :public-asset-path="publicAssetPath"
-      :action-policy="storylineActionPolicy"
+      :action-policy="wellbeingActionPolicy"
       @select-holding="stageSelectedHoldingId = $event"
       @use-item="handleUseItem"
       @transfer-item="handleTransferItem"
@@ -643,7 +648,7 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       :clock="gameState.clock"
       :nearby-holder-ids="[...nearbyHolderIds, currentWorldHolderId()]"
       :initial-tab="activeView.payload?.tab"
-      :action-policy="storylineActionPolicy"
+      :action-policy="wellbeingActionPolicy"
       @use-item="handleUseItem"
       @transfer-item="handleTransferItem"
       @return-to-map="handleReturnToMap" />

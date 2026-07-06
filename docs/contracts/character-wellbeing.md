@@ -3,19 +3,17 @@
 **Scope:** Character stats, food, water, time drift, thresholds, health effects,
 and future tuning for player survival pressure.
 
-Atomic Adventures wellbeing is authored as positive reserve stats: health,
-satiety, hydration, energy, and composure. Game time can drift those stats,
+Atomic Adventures wellbeing is authored as positive reserve stats such as
+satiety, hydration, energy, and composure, plus condition/damage inputs such as
+base health, injury, poison, and sickness. Game time can drift reserve stats,
 consumable item actions can change them, and thresholds can apply health effects
 or other consequences over time. The character overview presents positive
-vitals, named condition states, and health as the result of sustained or severe
-problems rather than as a duplicate of every need meter.
+vitals, named condition states, and health as a calculated result of sustained
+or severe problems rather than as a standalone need meter.
 
-The playable game also provides a watchable vitals monitor. The monitor is an
-in-game modal that can remain open while game time advances, so authors and
-players can see health, satiety, hydration, energy, composure, and active
-conditions update after movement, story choices, indoor actions, item use, and
-rest. It uses the same underlying values and labels as the character overview;
-it is not a separate debug-only simulation and must not advance time on its own.
+The playable game surfaces serious wellbeing states in a compact vitals bar
+near the game timestamp and in the character overview. The bar is not shown
+before a play mode is active, and it is not a separate simulation.
 
 ## Player-Facing Model
 
@@ -25,7 +23,7 @@ Character overview vitals follow one rule:
 
 The preferred visible vitals are:
 
-- `Health` — current physical condition. Higher is better.
+- `Health` — calculated physical condition. Higher is better.
 - `Satiety` — food reserve / how fed Zanzibar is. Higher is better.
 - `Hydration` — water reserve / how hydrated Zanzibar is. Higher is better.
 - `Energy` — fatigue and sleep reserve. Higher is better.
@@ -102,7 +100,7 @@ reserves run out.
 Do not assume every visible state must have a gameplay effect, or that every
 gameplay threshold must be a displayed state.
 
-## Health, Max Health, And Penalties
+## Calculated Health And Penalties
 
 Health should not drop at the first sign of low satiety, low hydration, fear, or fatigue.
 Needs should have forgiving ranges, then warning states, then sustained harm.
@@ -114,12 +112,20 @@ Use thresholds and time:
 - Severe dehydration should affect health sooner and faster than starvation.
 - Starvation should develop slowly over days, first reducing energy and recovery
   before causing serious health loss.
-- Exhaustion should reduce action quality and recovery before directly harming
-  health.
-- Extreme panic or stress should mostly affect choices, precision, learning,
-  perception, or simulation performance; direct health effects should be rare.
+- Exhaustion should reduce action quality and recovery. At zero energy the
+  player should have to sleep/rest before doing ordinary actions; low energy
+  alone must not kill the character.
+- Extreme panic or stress should affect choices, precision, learning,
+  perception, or simulation performance; panic alone must not kill the
+  character.
 
-The preferred future health model has both current and maximum health:
+Health is calculated from authored inputs. The first implementation keeps a
+hidden `health` input as the base physical condition for direct injury, poison,
+sickness, or scripted damage, then subtracts tunable penalties from severe
+survival and condition states. The visible health vital is derived from that
+calculation.
+
+Future health models may add both current and maximum health:
 
 ```text
 Current Health: 72 / 86
@@ -136,10 +142,6 @@ Maximum health can be lowered by sustained or serious problems:
 
 Current health should recover only up to the current max. Eating, drinking,
 resting, treatment, or calmer circumstances can raise the max again.
-
-The current implementation only has a single `health` meter. Until max health is
-implemented, threshold effects may apply direct health drift for severe states,
-but the player-facing language should still explain why health is changing.
 
 ## Conditions
 
@@ -209,8 +211,8 @@ Health is affected by more than food and water. Health influences may include:
 - injury from falls, electrical hazards, sharp tools, or failed equipment work;
 - cold, heat, wet clothing, and exposure;
 - illness or contaminated food/water;
-- exhaustion and sleep debt;
-- stress or panic;
+- exhaustion and sleep debt as action/recovery constraints;
+- stress or panic as choice, precision, perception, or learning constraints;
 - radiation or industrial hazards in later parts;
 - medical supplies and rest.
 
@@ -257,9 +259,10 @@ simulation precision.
   hungry, starving, exhausted, injured.
 - Vitals should render in one direction: higher means better.
 - Conditions should use named severity states rather than unexplained amounts.
-- Death or irreversible failure should be rare and intentionally designed, but
-  alpha may include a simple "You lose. Play again?" outcome when vitals reach a
-  catastrophic state through sustained neglect.
+- Death or irreversible failure should be rare and intentionally designed.
+  Alpha may include a simple "You lose. Play again?" outcome when calculated
+  health reaches zero through sustained neglect, dehydration, starvation,
+  poison, injury, sickness, or other physical harm.
 
 ## Alpha Survival Pressure
 
@@ -270,13 +273,14 @@ progression.
 
 Minimum alpha behavior:
 
-- a vitals monitor can stay open while game-time actions update the meters;
+- the vitals bar and character overview update as game-time actions change
+  reserves and derived health;
 - travel and authored actions advance time with an activity profile;
 - time drift reduces relevant reserves such as hydration, satiety, and energy;
 - low reserves surface clear warning states in the character/status UI and may
   influence story beats;
-- reaching zero or a catastrophic threshold on vital stats creates serious
-  disability and may trigger a failure scene;
+- reaching zero energy forces rest/sleep before ordinary actions continue;
+- calculated health reaching zero triggers a failure scene;
 - food, water, shelter, and rest discovered in the utility station can resolve
   the first crisis.
 
