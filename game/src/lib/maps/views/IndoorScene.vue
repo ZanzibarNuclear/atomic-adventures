@@ -2,6 +2,7 @@
   <section class="stage">
     <IndoorMapStage v-bind="mapStageProps" v-on="mapStageListeners" />
     <MapCaption :title="locationTitle" />
+    <p v-if="clock" class="game-timestamp">{{ formatGameTimestamp(clock) }}</p>
   </section>
 
   <NarrativeCard :beat="narrativeBeat" />
@@ -40,6 +41,7 @@ import ActionOptions from "../components/hud/ActionOptions.vue";
 import StatusLines from "../../../components/hud/StatusLines.vue";
 import NarrativeCard from "../../../components/story/NarrativeCard.vue";
 import IndoorMovementAudit from "../components/diagnostics/IndoorMovementAudit.vue";
+import { formatGameTimestamp } from "../../character/gameTime.js";
 import {
   buildIndoorChooseActions,
   buildIndoorPlayActions,
@@ -57,6 +59,7 @@ const props = defineProps({
   indoor: { type: Object, required: true },
   narrativeBeat: { type: Object, default: null },
   pendingBeat: { type: Object, default: null },
+  clock: { type: Object, default: null },
   applyChoice: { type: Function, required: true },
   travelToRoom: { type: Function, required: true },
   auditEnabled: { type: Boolean, default: false },
@@ -176,5 +179,13 @@ function isDoorActionAllowed(doorId) {
 .stage {
   display: block;
   margin-bottom: 1rem;
+}
+.game-timestamp {
+  margin: 0.35rem 0 0;
+  color: #9fb0c2;
+  font-size: 0.78rem;
+  letter-spacing: 0;
+  opacity: 0.82;
+  text-align: right;
 }
 </style>

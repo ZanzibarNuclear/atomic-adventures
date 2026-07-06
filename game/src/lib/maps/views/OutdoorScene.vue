@@ -39,6 +39,7 @@
       @hex-click="travelToAllowedHex"
       @building-enter="enterAllowedBuilding" />
     <MapCaption :title="hexLabel(outdoor.currentHexData)" />
+    <p v-if="clock" class="game-timestamp">{{ formatGameTimestamp(clock) }}</p>
   </section>
 
   <NarrativeCard :beat="narrativeBeat" />
@@ -70,6 +71,7 @@ import MapCaption from "../components/hud/MapCaption.vue";
 import ActionOptions from "../components/hud/ActionOptions.vue";
 import StatusLines from "../../../components/hud/StatusLines.vue";
 import NarrativeCard from "../../../components/story/NarrativeCard.vue";
+import { formatGameTimestamp } from "../../character/gameTime.js";
 import {
   buildOutdoorPlayActions,
   getMovementOptions,
@@ -90,6 +92,7 @@ const props = defineProps({
   indoor: { type: Object, required: true },
   narrativeBeat: { type: Object, default: null },
   pendingBeat: { type: Object, default: null },
+  clock: { type: Object, default: null },
   applyChoice: { type: Function, required: true },
   travelToHex: { type: Function, required: true },
   enterBuilding: { type: Function, required: true },
@@ -179,6 +182,14 @@ function enterAllowedBuilding() {
 .stage {
   display: block;
   margin-bottom: 1rem;
+}
+.game-timestamp {
+  margin: 0.35rem 0 0;
+  color: #9fb0c2;
+  font-size: 0.78rem;
+  letter-spacing: 0;
+  opacity: 0.82;
+  text-align: right;
 }
 .audit-controls {
   display: flex;
