@@ -40,6 +40,7 @@
       @building-enter="enterAllowedBuilding" />
     <MapCaption :title="hexLabel(outdoor.currentHexData)" />
     <p v-if="clock" class="game-timestamp">{{ formatGameTimestamp(clock) }}</p>
+    <VitalsAlertBar :alerts="wellbeingAlerts" />
   </section>
 
   <NarrativeCard :beat="narrativeBeat" />
@@ -71,6 +72,7 @@ import MapCaption from "../components/hud/MapCaption.vue";
 import ActionOptions from "../components/hud/ActionOptions.vue";
 import StatusLines from "../../../components/hud/StatusLines.vue";
 import NarrativeCard from "../../../components/story/NarrativeCard.vue";
+import VitalsAlertBar from "../../../components/game-views/VitalsAlertBar.vue";
 import { formatGameTimestamp } from "../../character/gameTime.js";
 import {
   buildOutdoorPlayActions,
@@ -99,6 +101,7 @@ const props = defineProps({
   enterBuilding: { type: Function, required: true },
   auditEnabled: { type: Boolean, default: false },
   actionPolicy: { type: Object, default: null },
+  wellbeingAlerts: { type: Array, default: () => [] },
 });
 
 defineEmits(["hide-movement-audit"]);

@@ -3,6 +3,7 @@
     <IndoorMapStage v-bind="mapStageProps" v-on="mapStageListeners" />
     <MapCaption :title="locationTitle" />
     <p v-if="clock" class="game-timestamp">{{ formatGameTimestamp(clock) }}</p>
+    <VitalsAlertBar :alerts="wellbeingAlerts" />
   </section>
 
   <NarrativeCard :beat="narrativeBeat" />
@@ -40,6 +41,7 @@ import MapCaption from "../components/hud/MapCaption.vue";
 import ActionOptions from "../components/hud/ActionOptions.vue";
 import StatusLines from "../../../components/hud/StatusLines.vue";
 import NarrativeCard from "../../../components/story/NarrativeCard.vue";
+import VitalsAlertBar from "../../../components/game-views/VitalsAlertBar.vue";
 import IndoorMovementAudit from "../components/diagnostics/IndoorMovementAudit.vue";
 import { formatGameTimestamp } from "../../character/gameTime.js";
 import {
@@ -66,6 +68,7 @@ const props = defineProps({
   auditEnabled: { type: Boolean, default: false },
   extraActions: { type: Array, default: () => [] },
   actionPolicy: { type: Object, default: null },
+  wellbeingAlerts: { type: Array, default: () => [] },
 });
 
 const emit = defineEmits(["hide-movement-audit", "extra-action", "stage-view"]);

@@ -98,4 +98,23 @@ describe("GameView play mode entry", () => {
     expect(wrapper.findComponent({ name: "OutdoorScene" }).exists()).toBe(true);
     wrapper.unmount();
   });
+
+  it("keeps wellbeing warnings hidden until a play mode is active", async () => {
+    const hydration = characterDefinitions.stats.find((stat) => stat.id === "hydration");
+    const originalDefault = hydration.default;
+    hydration.default = 20;
+    const wrapper = mount(GameView);
+
+    try {
+      expect(wrapper.find(".wellbeing-alerts").exists()).toBe(false);
+
+      await wrapper.get("button.recommended").trigger("click");
+
+      expect(wrapper.find(".wellbeing-alerts").exists()).toBe(true);
+      expect(wrapper.text()).toContain("Hydration: Dehydrated");
+    } finally {
+      hydration.default = originalDefault;
+      wrapper.unmount();
+    }
+  });
 });

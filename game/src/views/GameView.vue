@@ -39,7 +39,6 @@ import HydroConsoleView from "../components/game-views/HydroConsoleView.vue";
 import InstructionCardView from "../components/game-views/InstructionCardView.vue";
 import InventoryStageView from "../components/game-views/InventoryStageView.vue";
 import StoryOverlay from "../components/story/StoryOverlay.vue";
-import VitalsMonitorDialog from "../components/game-views/VitalsMonitorDialog.vue";
 import OutdoorScene from "../lib/maps/views/OutdoorScene.vue";
 import IndoorScene from "../lib/maps/views/IndoorScene.vue";
 import {
@@ -61,7 +60,6 @@ const place = ref("outdoors");
 const builderView = ref(false);
 const movementAuditVisible = ref(false);
 const developerSettingsVisible = ref(false);
-const vitalsMonitorVisible = ref(false);
 const {
   activeView,
   isMapView,
@@ -499,7 +497,6 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       @reset="handleReset"
       @show-character="handleOpenCharacter"
       @show-map="returnToMap"
-      @show-vitals="vitalsMonitorVisible = true"
       @show-dev-settings="developerSettingsVisible = true"
       @show-movement-audit="movementAuditVisible = true" />
 
@@ -511,12 +508,6 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       @set-vital="handleSetVital"
       @adjust-vital="handleAdjustVital"
       @close="developerSettingsVisible = false" />
-
-    <VitalsMonitorDialog
-      v-if="vitalsMonitorVisible"
-      :overview="wellbeingOverview"
-      :clock="gameState.clock"
-      @close="vitalsMonitorVisible = false" />
 
     <div
       v-if="contentError || worldContentError || buildingContentError || characterContentError || learningContentError || storylineContentError"
@@ -580,22 +571,6 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
     </section>
 
     <section
-      v-if="wellbeingAlerts.length && !gameFailed"
-      class="wellbeing-alerts"
-      role="status"
-      aria-label="Wellbeing warnings">
-      <span class="wellbeing-alerts-label">Vitals</span>
-      <span
-        v-for="alert in wellbeingAlerts"
-        :key="alert.id"
-        class="wellbeing-chip"
-        :class="alert.tone">
-        {{ alert.label }}: {{ alert.state }}
-      </span>
-      <button type="button" class="sm muted" @click="vitalsMonitorVisible = true">Monitor</button>
-    </section>
-
-    <section
       v-if="gameFailed"
       class="failure-panel"
       role="alert"
@@ -624,6 +599,7 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       :enter-building="enterBuilding"
       :audit-enabled="movementAuditVisible"
       :action-policy="storylineActionPolicy"
+      :wellbeing-alerts="wellbeingAlerts"
       @hide-movement-audit="movementAuditVisible = false" />
 
     <IndoorScene
@@ -637,6 +613,7 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       :audit-enabled="movementAuditVisible"
       :extra-actions="focusedConsoleActions"
       :action-policy="storylineActionPolicy"
+      :wellbeing-alerts="wellbeingAlerts"
       @extra-action="handleHoloReaderAction"
       @stage-view="openStageView"
       @hide-movement-audit="movementAuditVisible = false" />
@@ -780,34 +757,11 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
   padding: 0.65rem 0.85rem;
   margin-bottom: 0.75rem;
 }
-.wellbeing-alerts {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  border: 1px solid #756143;
-  background: #2f281e;
-  border-radius: 8px;
-  padding: 0.55rem 0.75rem;
-  margin-bottom: 0.75rem;
-}
-.wellbeing-alerts-label,
 .failure-kicker {
   color: #d7b77f;
   font-size: 0.74rem;
   text-transform: uppercase;
   letter-spacing: 0;
-}
-.wellbeing-chip {
-  border: 1px solid #675640;
-  border-radius: 999px;
-  padding: 0.2rem 0.5rem;
-  color: #ffdca3;
-  font-size: 0.82rem;
-}
-.wellbeing-chip.error {
-  border-color: #8d4c4c;
-  color: #ffabab;
 }
 .failure-panel {
   width: min(42rem, calc(100% - 2rem));
