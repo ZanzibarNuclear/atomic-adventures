@@ -287,6 +287,7 @@ describe('useGameState save roundtrip', () => {
       scenarioId: 'part-i-hydro-alpha',
       stepId: 'read-startup-card',
       completedStepIds: ['intro'],
+      enteredStepIds: [],
       objective: 'Read the laminated startup card.',
     })
 
@@ -309,6 +310,7 @@ describe('useGameState save roundtrip', () => {
       scenarioId: 'part-i-hydro-alpha',
       stepId: null,
       completedStepIds: [],
+      enteredStepIds: [],
       objective: null,
     })
   })

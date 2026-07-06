@@ -19,7 +19,7 @@ import {
   normalizeHydroState,
 } from "../lib/simulations/hydro/index.js";
 
-export const SAVE_VERSION = 9;
+export const SAVE_VERSION = 10;
 export const DEFAULT_PLAY_MODE = "storyline";
 export const STORYLINE_SCENARIO_ID = "part-i-hydro-alpha";
 const PLAY_MODES = new Set(["storyline", "open-world"]);
@@ -211,12 +211,14 @@ export function createStorylineState({
   scenarioId = STORYLINE_SCENARIO_ID,
   stepId = null,
   completedStepIds = [],
+  enteredStepIds = [],
   objective = null,
 } = {}) {
   return {
     scenarioId,
     stepId,
     completedStepIds: [...completedStepIds],
+    enteredStepIds: [...enteredStepIds],
     objective,
   };
 }
@@ -230,6 +232,9 @@ function normalizeStorylineState(value, playMode) {
     scenarioId: value?.scenarioId || STORYLINE_SCENARIO_ID,
     stepId: value?.stepId || null,
     completedStepIds: completed,
+    enteredStepIds: Array.isArray(value?.enteredStepIds)
+      ? value.enteredStepIds.map(String).filter(Boolean)
+      : [],
     objective: value?.objective || null,
   });
 }

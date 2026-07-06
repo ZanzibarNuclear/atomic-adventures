@@ -102,17 +102,17 @@ that mode.
 **Purpose:** Move canonical sequencing out of beats.
 
 - [x] Implement scenario loading through the content API and production JSON.
-- [ ] Add `useStoryline()` to resolve the active scenario, active step,
+- [x] Add `useStoryline()` to resolve the active scenario, active step,
       objective, completion state, and next step.
-- [ ] Implement typed completion predicates for alpha:
+- [x] Implement typed completion predicates for alpha:
       `flag`, `facility`, `location`, `holding`, and `lesson`.
-- [ ] Implement `onEnter` and `onComplete` effects for:
+- [x] Implement `onEnter` and `onComplete` effects for:
       flag effects, validated character/inventory effects, stage views, forced
       movement, and time passage.
-- [ ] Re-evaluate step completion when flags, facilities, inventory, lessons,
+- [x] Re-evaluate step completion when flags, facilities, inventory, lessons,
       clock, or location change.
-- [ ] Persist completed step IDs and current step ID.
-- [ ] Surface authoring errors clearly in development when the active step is
+- [x] Persist completed step IDs and current step ID.
+- [x] Surface authoring errors clearly in development when the active step is
       missing or invalid.
 
 **Exit criterion:** A scenario can advance through hydro startup steps without
@@ -126,7 +126,7 @@ panel.
 - [ ] Define a normalized action identity scheme for movement, story choices,
       stage views, pickups, item actions, room actions, doors, switches,
       passages, searches, and map transitions.
-- [ ] Have `useStoryline()` produce an action policy for the current step.
+- [x] Have `useStoryline()` produce an action policy for the current step.
 - [ ] Filter play-panel actions through the policy in storyline mode.
 - [ ] Block direct map clicks and direct movement handlers through the same
       policy.
@@ -163,9 +163,9 @@ competing for the same trigger as hidden state machines.
 
 **Purpose:** Make the mode visible and actionable to the player.
 
-- [ ] Show the current mode in the game UI.
-- [ ] Show the current storyline objective prominently in storyline mode.
-- [ ] Do not show a canonical objective in open-world mode.
+- [x] Show the current mode in the game UI.
+- [x] Show the current storyline objective prominently in storyline mode.
+- [x] Do not show a canonical objective in open-world mode.
 - [ ] Ensure focused stage views such as the instruction card, holo-reader, and
       console do not hide the objective in a confusing way.
 - [ ] Keep the narrative card for prose; use objective UI for "what matters
@@ -218,10 +218,10 @@ mode.
 
 **Purpose:** Lock down the split before building more content on it.
 
-- [ ] Unit test mode normalization, save/load, and reset behavior.
-- [ ] Unit test storyline step selection, completion predicates, forced effects,
+- [x] Unit test mode normalization, save/load, and reset behavior.
+- [x] Unit test storyline step selection, completion predicates, forced effects,
       and missing-content diagnostics.
-- [ ] Unit test beat filtering by `modes` and `storylineStep`.
+- [x] Unit test beat filtering by `modes` and `storylineStep`.
 - [ ] Unit test action-policy filtering for play-panel actions.
 - [ ] Integration test map clicks and indoor/outdoor handlers so policy cannot
       be bypassed.

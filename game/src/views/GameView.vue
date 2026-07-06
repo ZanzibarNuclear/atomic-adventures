@@ -5,6 +5,7 @@ import { useIndoorBuilding } from "../lib/maps/composables/useIndoorBuilding.js"
 import { createGameState, resetGameState, setPlayMode } from "../composables/useGameState.js";
 import { useSaveGame } from "../composables/useSaveGame.js";
 import { useStory } from "../composables/useStory.js";
+import { useStoryline } from "../composables/useStoryline.js";
 import { useStoryContent } from "../composables/useStoryContent.js";
 import { useWorldContent } from "../composables/useWorldContent.js";
 import { useBuildingContent } from "../composables/useBuildingContent.js";
@@ -112,6 +113,11 @@ const {
   dismissEndCard,
   refreshNarrative,
 } = useStory(storyData, { gameState, place, outdoor, indoor, openStageView });
+const {
+  currentObjective,
+  authoringError: storylineError,
+  tick: tickStoryline,
+} = useStoryline(storylineData, { gameState, place, outdoor, indoor, openStageView });
 
 const saveCtx = computed(() => ({ gameState, place, outdoor, indoor }));
 const nearbyHolderIds = computed(() => {
@@ -192,14 +198,6 @@ const defaultScenario = computed(() =>
   storylineData.value?.scenarios?.[0] ??
   null,
 );
-const currentObjective = computed(() => {
-  if (gameState.playMode !== "storyline") return "";
-  const scenario = storylineData.value?.scenarios?.find(
-    (candidate) => candidate.id === gameState.storyline?.scenarioId,
-  );
-  const step = scenario?.steps?.find((candidate) => candidate.id === gameState.storyline?.stepId);
-  return step?.objective ?? gameState.storyline?.objective ?? "";
-});
 const holoReaderActions = computed(() =>
   buildHoloReaderActions({
     place: place.value,
@@ -280,12 +278,12 @@ watch(
 onMounted(async () => {
   if (hasSave()) load(saveCtx.value);
   await refreshContent();
-  ensureStorylineStart();
+  tickStoryline();
   refreshNarrative();
 });
 
 watch(storylineData, () => {
-  ensureStorylineStart();
+  tickStoryline();
 });
 
 function handleNewGame() {
@@ -297,20 +295,8 @@ function handleNewGame() {
 
 function handleReset() {
   if (!hasSave() || !load(saveCtx.value)) resetGameState(saveCtx.value);
-  ensureStorylineStart();
+  tickStoryline();
   refreshNarrative();
-}
-
-function ensureStorylineStart() {
-  if (gameState.playMode !== "storyline") return;
-  if (gameState.storyline?.stepId) return;
-  const scenario = defaultScenario.value;
-  const startStep = scenario?.steps?.find((step) => step.id === scenario.startStep);
-  setPlayMode(gameState, "storyline", {
-    scenarioId: scenario?.id,
-    stepId: scenario?.startStep ?? null,
-    objective: startStep?.objective ?? null,
-  });
 }
 
 function choosePlayMode(mode) {
@@ -325,6 +311,7 @@ function choosePlayMode(mode) {
   } else {
     setPlayMode(gameState, "open-world");
   }
+  tickStoryline();
   refreshNarrative();
 }
 
@@ -509,6 +496,13 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       <span>{{ currentObjective }}</span>
     </section>
 
+    <section
+      v-if="storylineError"
+      class="storyline-error"
+      role="alert">
+      {{ storylineError }}
+    </section>
+
     <OutdoorScene
       v-if="gameState.playMode && isMapView && place === 'outdoors'"
       :outdoor="outdoor"
@@ -662,5 +656,13 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
   font-size: 0.74rem;
   text-transform: uppercase;
   letter-spacing: 0;
+}
+.storyline-error {
+  border: 1px solid #9f6a5d;
+  background: #39251f;
+  color: #ffd6cd;
+  border-radius: 8px;
+  padding: 0.65rem 0.85rem;
+  margin-bottom: 0.75rem;
 }
 </style>
