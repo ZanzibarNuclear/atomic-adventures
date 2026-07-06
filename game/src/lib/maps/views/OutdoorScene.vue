@@ -186,7 +186,7 @@ function enterAllowedBuilding() {
 <style scoped>
 .stage {
   display: block;
-  margin-bottom: 1rem;
+  margin-bottom: 0.65rem;
 }
 .game-timestamp {
   margin: 0.35rem 0 0;
