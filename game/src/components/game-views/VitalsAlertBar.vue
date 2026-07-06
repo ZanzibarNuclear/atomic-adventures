@@ -25,15 +25,16 @@ defineProps({
 .wellbeing-alerts {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 0.5rem;
   flex-wrap: wrap;
-  width: min(100%, 38rem);
+  width: 100%;
+  box-sizing: border-box;
   border: 1px solid #756143;
   background: #2f281e;
   border-radius: 8px;
   padding: 0.55rem 0.75rem;
-  margin: 0.45rem auto 0;
+  margin: 0.45rem 0 0;
 }
 .wellbeing-alerts-label {
   color: #d7b77f;
