@@ -101,7 +101,8 @@ export class StoryRepository {
     const rows = this.db.prepare(`
       SELECT area_id, id, sort_order, trigger_place, trigger_hex, trigger_room,
         trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
-        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json, match_json, time_json,
+        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json,
+        modes_json, storyline_step, match_json, time_json,
         version, created_at, updated_at
       FROM story_beats
       WHERE area_id = ?
@@ -118,7 +119,8 @@ export class StoryRepository {
     const row = this.db.prepare(`
       SELECT area_id, id, sort_order, trigger_place, trigger_hex, trigger_room,
         trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
-        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json, match_json, time_json,
+        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json,
+        modes_json, storyline_step, match_json, time_json,
         version, created_at, updated_at
       FROM story_beats
       WHERE area_id = ? AND id = ?
@@ -530,9 +532,10 @@ export class StoryRepository {
       INSERT INTO story_beats(
         area_id, id, sort_order, trigger_place, trigger_hex, trigger_room,
         trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
-        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json, match_json, time_json,
+        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json,
+        modes_json, storyline_step, match_json, time_json,
         version, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       areaId, beat.id, 0, beat.trigger.place, beat.trigger.hex, beat.trigger.room,
       beat.trigger.exteriorNode, beat.trigger.event, beat.trigger.flag,
@@ -542,6 +545,8 @@ export class StoryRepository {
       JSON.stringify([]),
       JSON.stringify([]),
       JSON.stringify({}),
+      JSON.stringify(beat.modes ?? []),
+      beat.storylineStep,
       JSON.stringify(compactObject(beat.match ?? {})),
       JSON.stringify(compactObject(beat.time ?? {})),
       version, createdAt, now,
@@ -583,6 +588,8 @@ export class StoryRepository {
       heading: row.heading,
       text: row.text,
       revisit: row.revisit,
+      modes: parseNullableJson(row.modes_json) ?? [],
+      storylineStep: row.storyline_step,
       trigger: {
         place: row.trigger_place,
         hex: row.trigger_hex,

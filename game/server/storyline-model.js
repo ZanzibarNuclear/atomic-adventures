@@ -279,7 +279,10 @@ function validateWorldIds(ids, catalog, path, add, label) {
 
 function storyBeatIds(story) {
   const ids = new Set();
-  for (const area of story?.areas ?? []) {
+  const areas = Array.isArray(story?.areas)
+    ? story.areas
+    : Object.values(story?.areas ?? {});
+  for (const area of areas) {
     for (const beatId of Object.keys(area.beats ?? {})) ids.add(beatId);
   }
   return ids;

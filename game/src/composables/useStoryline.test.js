@@ -272,6 +272,8 @@ describe("useStoryline", () => {
     expect(filterAllowedActions([
       { id: "story:0" },
       { id: "story:1" },
+      { id: "story:2", toRoomId: "control-room" },
+      { id: "story:3", toRoomId: "garage" },
       { id: "action:clear-intake-debris" },
       { id: "action:optional-lookaround" },
       { id: "door-open:control-room-door" },
@@ -283,6 +285,7 @@ describe("useStoryline", () => {
       { id: "route:east-pines" },
     ], policy).map((action) => action.id)).toEqual([
       "story:0",
+      "story:2",
       "action:clear-intake-debris",
       "action:optional-lookaround",
       "door-open:control-room-door",
@@ -315,6 +318,26 @@ describe("useStoryline", () => {
     expect(actionPromptCategory({ id: "move-hex:lower-stand", toHexId: "lower-stand" }, policy)).toBe("ordinary");
     expect(actionPromptCategory({ id: "move-room:control-room" }, policy)).toBe("ordinary");
     expect(actionPromptCategory({ id: "move-exterior:upstream-bank" }, policy)).toBe("ordinary");
+  });
+
+  it("allows movement-shaped story choices without opening every story choice", () => {
+    const policy = {
+      mode: "story",
+      unrestricted: false,
+      allowed: {
+        movement: {
+          rooms: ["kitchen"],
+          exteriorNodes: ["intake-entrance"],
+          hexes: ["utility-yard"],
+        },
+      },
+    };
+
+    expect(isActionAllowed({ id: "story:0", toRoomId: "kitchen" }, policy)).toBe(true);
+    expect(isActionAllowed({ id: "story:1", toExteriorNode: "intake-entrance" }, policy)).toBe(true);
+    expect(isActionAllowed({ id: "story:2", toHexId: "utility-yard" }, policy)).toBe(true);
+    expect(isActionAllowed({ id: "story:3", toRoomId: "control-room" }, policy)).toBe(false);
+    expect(isActionAllowed({ id: "story:4" }, policy)).toBe(false);
   });
 
   it("keeps ordinary movement destinations available in story mode", () => {

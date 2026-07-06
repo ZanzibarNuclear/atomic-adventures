@@ -230,7 +230,11 @@ export function isActionAllowed(action, policy, context = {}) {
   if (isExplicitlyAllowed(actionId, allowed)) return true;
   if (isStageViewAllowed(policy, action)) return true;
 
-  if (actionId.startsWith("story:")) return listIncludes(allowed.storyChoices, actionId);
+  if (actionId.startsWith("story:")) {
+    return listIncludes(allowed.storyChoices, actionId) ||
+      actionMatchesMovement(action, allowed.movement) ||
+      Boolean(action?.enterBuilding);
+  }
   if (actionId.startsWith("route:") || actionId.startsWith("barrier:") || actionId.startsWith("move-hex:")) {
     return true;
   }
@@ -342,7 +346,12 @@ function actionMatchesMovement(action, movement = {}) {
   const actionId = typeof action === "string" ? action : action?.id;
   if (!actionId) return false;
   const target = typeof action === "string" ? null : action;
-  if (actionId.startsWith("story:") && target?.toHexId) return listIncludes(movement.hexes, target.toHexId);
+  if (actionId.startsWith("story:")) {
+    if (target?.toHexId) return listIncludes(movement.hexes, target.toHexId);
+    if (target?.toRoomId) return listIncludes(movement.rooms, target.toRoomId);
+    if (target?.toExteriorNode) return listIncludes(movement.exteriorNodes, target.toExteriorNode);
+    return false;
+  }
   if (actionId.startsWith("route:") || actionId.startsWith("barrier:") || actionId.startsWith("move-hex:")) {
     const hexId = target?.toHexId ?? actionId.slice(actionId.indexOf(":") + 1);
     return listIncludes(movement.hexes, hexId);

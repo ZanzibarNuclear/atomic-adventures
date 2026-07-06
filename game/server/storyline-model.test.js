@@ -36,9 +36,28 @@ const learning = {
   lessons: [{ id: "hydro-power-intro-alpha" }],
 };
 
+const story = {
+  areas: {
+    "part-i": {
+      beats: Object.fromEntries([
+        "intro",
+        "east-pines",
+        "center-pines",
+        "the-gate",
+        "large-bay-man-front",
+        "large-bay",
+        "control-room",
+        "intake-entrance",
+        "midstream-bank",
+        "downstream-bank",
+      ].map((id) => [id, { text: id }])),
+    },
+  },
+};
+
 describe("storyline model", () => {
   it("validates the seeded alpha scenario shape", () => {
-    const result = validateStorylineDocument(storylineSeed, { world, character, learning });
+    const result = validateStorylineDocument(storylineSeed, { story, world, character, learning });
     expect(result.valid).toBe(true);
     expect(result.storyline.id).toBe("storyline-main");
     expect(result.storyline.scenarios[0].id).toBe("part-i-opener");

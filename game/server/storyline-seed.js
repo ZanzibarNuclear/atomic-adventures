@@ -10,6 +10,7 @@ export const storylineSeed = {
         {
           id: "survive-in-the-woods",
           objective: "Keep moving. Find something that can help you survive.",
+          beat: "intro",
           allowed: {
             movement: { mode: "unrestricted", hexes: ["east-pines"] },
             storyForwardActions: ["move-hex:east-pines"],
@@ -20,6 +21,7 @@ export const storylineSeed = {
         {
           id: "keep-moving-west",
           objective: "Keep moving. Stay across the slope.",
+          beat: "east-pines",
           allowed: {
             movement: { mode: "unrestricted", hexes: ["center-pines"] },
             storyForwardActions: ["move-hex:center-pines"],
@@ -30,6 +32,7 @@ export const storylineSeed = {
         {
           id: "reach-the-gate",
           objective: "Follow the fence. Find where it leads.",
+          beat: "center-pines",
           allowed: {
             movement: {
               mode: "unrestricted",
@@ -51,6 +54,7 @@ export const storylineSeed = {
         {
           id: "find-a-way-past-fence",
           objective: "Find a way past the fence.",
+          beat: "the-gate",
           allowed: {
             movement: {
               mode: "unrestricted",
@@ -79,6 +83,7 @@ export const storylineSeed = {
         {
           id: "look-for-shelter",
           objective: "Look for shelter before you run out of light.",
+          beat: "large-bay-man-front",
           allowed: {
             movement: {
               mode: "local-area",
@@ -99,6 +104,7 @@ export const storylineSeed = {
         {
           id: "solve-first-crisis",
           objective: "Find food, water, and somewhere safe to rest.",
+          beat: "large-bay",
           allowed: {
             movement: {
               mode: "local-area",
@@ -119,6 +125,7 @@ export const storylineSeed = {
         {
           id: "understand-building",
           objective: "Figure out what this building was for.",
+          beat: "control-room",
           allowed: {
             movement: { mode: "local-area", rooms: ["control-room"] },
             storyForwardActions: ["move-room:control-room", "action:read-hydro-startup-card"],
@@ -132,6 +139,7 @@ export const storylineSeed = {
         {
           id: "inspect-intake",
           objective: "Trace the water path outside.",
+          beat: "intake-entrance",
           allowed: {
             movement: {
               mode: "local-area",
@@ -146,6 +154,7 @@ export const storylineSeed = {
         {
           id: "clear-open-intake",
           objective: "Clear debris and open the intake.",
+          beat: "intake-entrance",
           allowed: {
             movement: { mode: "local-area" },
             storyForwardActions: ["action:clear-intake-debris", "action:open-intake"],
@@ -157,6 +166,7 @@ export const storylineSeed = {
         {
           id: "align-diversion-valve",
           objective: "Align the upstream diversion valve.",
+          beat: "midstream-bank",
           allowed: {
             movement: { mode: "local-area" },
             storyForwardActions: ["move-exterior:midstream-bank", "action:align-pipeflow"],
@@ -168,6 +178,7 @@ export const storylineSeed = {
         {
           id: "open-turbine-valve",
           objective: "Open the powerhouse pipe valve.",
+          beat: "downstream-bank",
           allowed: {
             movement: { mode: "local-area" },
             storyForwardActions: ["move-exterior:downstream-bank", "action:open-turbine-valve"],
@@ -179,6 +190,7 @@ export const storylineSeed = {
         {
           id: "return-control-room",
           objective: "Return to the control room.",
+          beat: "control-room",
           allowed: {
             movement: {
               mode: "local-area",
@@ -192,6 +204,7 @@ export const storylineSeed = {
         {
           id: "connect-power",
           objective: "Connect station power.",
+          beat: "control-room",
           allowed: {
             movement: { mode: "current-location-only" },
             storyForwardActions: ["action:connect-power"],
@@ -203,6 +216,7 @@ export const storylineSeed = {
         {
           id: "check-console",
           objective: "Check the generator console.",
+          beat: "control-room",
           allowed: {
             movement: { mode: "current-location-only" },
             storyForwardActions: ["hydro-console:open"],
@@ -217,6 +231,7 @@ export const storylineSeed = {
         {
           id: "complete-startup",
           objective: "Bring the hydro generator online.",
+          beat: "control-room",
           allowed: { movement: { mode: "unrestricted" } },
           completesWhen: { facility: { "hydro.startupComplete": true } },
           next: null,

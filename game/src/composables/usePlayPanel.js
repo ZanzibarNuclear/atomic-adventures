@@ -59,6 +59,9 @@ export function buildStoryChoices(pendingBeat, canReachHex = () => true) {
     .map(({ choice, index }) => ({
       id: `story:${index}`,
       toHexId: choice.go_hex ?? null,
+      toRoomId: choice.go_room ?? null,
+      toExteriorNode: choice.go_exterior_node ?? null,
+      enterBuilding: choice.enter ?? null,
       label: choice.text,
     }));
 }
