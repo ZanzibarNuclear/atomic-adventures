@@ -3,13 +3,13 @@ export const storylineSeed = {
   scenarios: [
     {
       id: "part-i-hydro-alpha",
-      label: "Hydro Startup Storyline",
+      label: "Zanzibar Part I Storyline",
       defaultMode: "storyline",
       startStep: "intro",
       steps: [
         {
           id: "intro",
-          objective: "Enter the utility station control room.",
+          objective: "Keep moving. Find something that can help you survive.",
           allowed: { movement: { mode: "unrestricted" } },
           completesWhen: { location: { place: "indoors", room: "control-room" } },
           next: "read-startup-card",

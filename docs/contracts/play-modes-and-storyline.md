@@ -12,35 +12,45 @@ world/content authoring
 Atomic Adventures supports two different player promises:
 
 - **Storyline mode**: the player is Zanzibar in the canonical Part I story.
-  The runtime may gate actions, limit movement, force transitions, advance time,
-  and show a clear objective so the authored story remains coherent.
+  Story beats, objectives, and suggested actions present Zanzibar's internal
+  experience and encourage the canonical path without revealing discoveries
+  before Zanzibar makes them.
 - **Open-world mode**: the player explores freely, defines their own goals, and
   experiments with rooms, maps, facilities, artifacts, and actions without
-  being forced through the canonical story sequence.
+  being cast as Zanzibar's authored story.
 
 These modes are intentionally separate. A location-triggered story beat should
 not carry the burden of being prose, quest logic, action policy, objective UI,
 and open-world discovery text at the same time. Storyline sequencing belongs to
 a first-class scenario controller. World and facility systems remain the source
-of truth for physical possibility and safety.
+of truth for physical possibility, movement, safety, and survival pressure.
 
 ## Design Principles
 
 - **Explicit mode choice.** A new playthrough chooses `storyline` or
   `open-world` before ordinary play begins.
-- **Storyline is guided by default for alpha.** Alpha should introduce a new
-  player to hydro startup through Zanzibar's canonical story unless the player
-  deliberately chooses free exploration.
+- **Storyline is Zanzibar's point of view.** Storyline mode presents the
+  authored sequence through Zanzibar's perceptions, memories, worries, and
+  guesses. It should not name the utility station, hydro facility, eBuggy, or
+  other undiscovered things before Zanzibar has reason to know them.
+- **Storyline is guided by prompts, not by locking the player onto rails.**
+  Alpha should always surface at least one story-forward action, but ordinary
+  movement remains available when the world allows it. Detours may cost time,
+  energy, hydration, satiety, or safety.
 - **Beats are prose, not the quest engine.** Beats may attach narrative to a
-  step, location, or event, but storyline steps own objectives, gating, forced
-  movement, and progression.
-- **One action policy.** Storyline gating must apply to button lists, map
-  clicks, direct movement handlers, room interactions, pickups, doors, stage
-  views, and authored story choices. Hidden actions must not be reachable
-  through another UI path.
+  step, location, or event, but storyline steps own objectives, story-forward
+  prompts, completion, and progression.
+- **One action policy for prompts and nonmovement gates.** Storyline policy
+  must apply consistently to story-forward prompts, beat choices, stage views,
+  item actions, facility actions, and other story-sensitive interactions.
+  It should not block ordinary movement unless a concrete authored scene has a
+  special physical or narrative reason.
 - **Open-world is broad, not impossible.** Open-world mode exposes broad room,
   map, and action access while preserving movement rules, facility prerequisites,
   inventory requirements, and invalid-state safety rails.
+- **Survival pressure is shared.** Both modes use character wellbeing, time, and
+  activity costs. Storyline mode may warn and frame consequences in Zanzibar's
+  voice, but wandering too long can still put the character in serious trouble.
 - **Mode state is save state.** Save/load preserves selected mode, storyline
   position, objectives, character state, inventory, flags, facility state, and
   physical location.
@@ -57,10 +67,10 @@ progress:
 {
   playMode: "storyline" | "open-world",
   storyline: {
-    scenarioId: "part-i-hydro-alpha",
-    stepId: "read-startup-card",
+    scenarioId: "part-i-zanzibar-alpha",
+    stepId: "survive-in-the-woods",
     completedStepIds: ["intro"],
-    objective: "Read the laminated startup card."
+    objective: "Keep moving. Find something that can help you survive."
   }
 }
 ```
@@ -83,8 +93,8 @@ Starting a new game presents an explicit mode choice before normal play:
 
 | Mode | Player-facing promise | Alpha default |
 | --- | --- | --- |
-| Storyline | Follow Zanzibar's guided hydro startup story. | Yes |
-| Open-world | Explore and experiment freely. The canonical story may not hold your hand. | No |
+| Storyline | Experience Zanzibar's story from the inside. | Yes |
+| Open-world | Explore and experiment freely as a player-authored run. | No |
 
 For alpha, a save cannot switch from `open-world` back into `storyline`.
 Supporting that later requires a deliberate rejoin contract that can map
@@ -104,25 +114,24 @@ and character documents:
 
 ```yaml
 id: part-i-hydro-alpha
-label: Hydro Startup Storyline
+label: Zanzibar Part I Storyline
 defaultMode: storyline
 startStep: intro
 
 steps:
-  - id: read-startup-card
-    objective: Read the laminated startup card.
-    beat: hydro-card-on-console
+  - id: survive-in-the-woods
+    objective: Keep moving. Find something that can help you survive.
+    beat: forest-lost-opening
     allowed:
-      stageViews:
-        - { kind: document, id: hydro-startup-card }
-      indoorActions:
-        - pickup:hydro-startup-card
-        - item-action:hydro-startup-card.read
       movement:
-        mode: current-location-only
+        mode: unrestricted
+      storyForwardActions:
+        - route:east-pines
+      optionalActions:
+        - stage:inventory
     completesWhen:
-      flag: artifacts.hydro-startup-card.read
-    next: inspect-intake
+      location: { place: outdoors, hex: gate-woods }
+    next: find-a-way-through
 ```
 
 Field meanings:
@@ -140,9 +149,9 @@ Step meanings:
 | Field | Meaning |
 | --- | --- |
 | `id` | Stable step ID. |
-| `objective` | Short player-facing current task. Required. |
+| `objective` | Short internal current concern. Required. It should describe what Zanzibar can reasonably understand now. |
 | `beat` | Optional story beat ID to present while the step is active. |
-| `allowed` | Action policy additions and restrictions for the step. |
+| `allowed` | Story-forward prompts, optional prompt categories, and nonmovement action gates for the step. |
 | `completesWhen` | Typed completion predicate. |
 | `onEnter` | Optional effects, stage view, movement, or time passage when the step starts. |
 | `onComplete` | Optional effects, stage view, movement, or time passage after completion. |
@@ -167,22 +176,31 @@ If a new predicate is needed, add it with runtime evaluation, builder controls,
 validation, tests, and this contract together. Do not add arbitrary nested
 boolean expressions until a concrete authored sequence proves they are needed.
 
-## Action Policy
+## Storyline Action Policy
 
 The storyline controller produces an action policy for the current step. The
-policy is consumed by play-panel builders, map click handlers, movement
-handlers, stage-view launchers, and room interaction handlers.
+policy is consumed by play-panel builders, beat choices, stage-view launchers,
+item actions, facility actions, and story-sensitive room or map interactions.
 
 The policy has two jobs:
 
-1. Allow the current step's required and supporting actions.
-2. Hide or block actions that would obscure or break the current story beat.
+1. Make the story-forward action or actions visible.
+2. Hide or block nonmovement actions that would reveal, complete, or mutate
+   story-sensitive content before Zanzibar reaches the right context.
 
-In storyline mode, an action may be shown only when both conditions are true:
+In storyline mode:
 
-1. The underlying world/facility/character rule allows it.
-2. The current storyline step allows it, or the action is part of the always
-   available shell.
+- Ordinary movement remains governed by map, passage, door, time, and wellbeing
+  rules. If the player can physically walk somewhere, the storyline policy
+  should not suppress the movement affordance simply because it is not the
+  canonical next step.
+- The play panel should always include at least one story-forward action when
+  the underlying world rules allow it.
+- Optional movement and curiosity actions may stay visible when they are known
+  to the player and do not reveal future discoveries.
+- Facility, item, document, simulation, close-up, and mutating room actions are
+  subject to the active step's policy when they could break story order or
+  reveal undiscovered knowledge.
 
 Always available shell actions may include saving, loading, developer tools in
 development, returning from a focused stage view to the map, and opening
@@ -195,15 +213,18 @@ from map, facility, inventory, character, and stage-view rules.
 ## Allowed Actions
 
 The `allowed` shape should describe player intent in stable IDs, not component
-implementation details. Alpha should support these categories:
+implementation details. Alpha should distinguish story-forward prompts from
+hard gates:
 
 | Category | Meaning |
 | --- | --- |
-| `movement.hexes` | World hexes the player may enter. |
-| `movement.rooms` | Indoor rooms the player may enter. |
-| `movement.exteriorNodes` | Local exterior nodes the player may enter. |
-| `movement.transitions` | Map transition IDs the player may use. |
-| `movement.mode` | Coarse restriction such as `current-location-only`, `local-area`, or `unrestricted`. |
+| `storyForwardActions` | Actions that move Zanzibar along the canonical path and should be emphasized when available. |
+| `optionalActions` | Known curiosity actions that may stay visible without being canonical. |
+| `movement.hexes` | World hexes that are story-forward or explicitly optional, not the full set of physically reachable hexes. |
+| `movement.rooms` | Indoor rooms that are story-forward or explicitly optional. |
+| `movement.exteriorNodes` | Local exterior nodes that are story-forward or explicitly optional. |
+| `movement.transitions` | Map transition IDs that are story-forward or explicitly optional. |
+| `movement.mode` | Prompt scope such as `local-area` or `unrestricted`; not a default physical movement lock. |
 | `storyChoices` | Story choice IDs or generated stable choice references allowed for this step. |
 | `stageViews` | Focused views such as documents, lessons, inventory, console, or simulation. |
 | `indoorActions` | Authored room actions, fixture actions, door actions, switches, and pickups. |
@@ -215,10 +236,15 @@ If an allowed action references an object that the underlying system considers
 invalid, unavailable, or unsafe, the action remains unavailable. Storyline
 policy cannot bypass physical movement, door, holder, or facility rules.
 
+When no `storyForwardActions` are available because the player has wandered, the
+runtime should still show ordinary available movement and survival/status
+actions. The objective and beats should help the player infer a plausible
+direction without naming undiscovered destinations.
+
 ## Forced Effects
 
-Storyline steps may need forced movement, forced time passage, or forced stage
-views to keep the canonical story coherent. These effects are authored in
+Storyline steps may need forced time passage, forced stage views, or rare forced
+movement to keep a specific authored moment coherent. These effects are authored in
 `onEnter` or `onComplete`:
 
 ```yaml
@@ -235,7 +261,9 @@ onComplete:
     - story.hydro-startup.returned-to-console
 ```
 
-Forced effects are still validated. Movement destinations must exist. Stage
+Forced effects are still validated. Movement destinations must exist. Forced
+movement should be rare and reserved for scenes where Zanzibar actually commits
+to movement in prose or where a map transition has already been chosen. Stage
 views must use registered kinds. Time advancement must use a supported activity
 profile. Character and facility changes must use the shared validated effect
 service when they mutate character or inventory state.
@@ -265,8 +293,25 @@ Rules:
 ## Objectives
 
 Storyline mode must show the current objective clearly in the player-facing UI.
-The objective should answer "what matters right now?" without requiring the
-player to infer it from prose.
+The objective is Zanzibar's internal near-term concern, not an omniscient quest
+log. It should answer "what matters right now?" without revealing future
+locations, artifacts, facilities, or solutions.
+
+Good opening objective:
+
+```text
+Keep moving. Find something that can help you survive.
+```
+
+Avoid objectives such as "Go to the utility station" before the station is
+discovered. As Zanzibar learns, objectives may become more concrete:
+
+1. Keep moving. Find something that can help you survive.
+2. Find a way past the fence.
+3. Follow the road and look for shelter.
+4. Get inside before nightfall.
+5. Figure out what this building was for.
+6. Find a way to turn the power back on.
 
 Open-world mode should not show a canonical objective. It may show freeform
 status such as current location, facility status, active warnings, or optional
@@ -276,7 +321,7 @@ authored storyline.
 ## Builder Responsibilities
 
 Storyline authoring belongs with Story Builder because it composes story beats,
-objectives, conditions, choices, stage views, and movement gates. The first
+objectives, conditions, choices, stage views, and story-forward prompts. The first
 implementation may be a Scenario panel inside `/builder/story`; a separate
 route can be added later if scenario authoring grows.
 
@@ -286,11 +331,11 @@ The Story Builder should support:
 - ordering steps;
 - editing objective text;
 - associating a step with a story beat;
-- selecting allowed hexes, rooms, exterior nodes, transitions, actions, stage
-  views, and item actions from known content;
+- selecting story-forward hexes, rooms, exterior nodes, transitions, actions,
+  stage views, and item actions from known content;
 - editing completion predicates;
 - editing `onEnter` and `onComplete` forced effects;
-- validating unresolved references and unreachable or contradictory gates;
+- validating unresolved references and unreachable or contradictory prompts;
 - previewing the visible action set for a selected step.
 
 World Builder and Content Builder remain separate, but their reference systems
@@ -303,25 +348,33 @@ must include storyline references:
 - selected world or content objects should show which storyline steps reference
   them.
 
-## Hydro Alpha Scenario
+## Part I Alpha Scenario
 
-The alpha storyline scenario should encode the canonical hydro startup sequence:
+The alpha storyline scenario should encode Zanzibar's full Part I opening arc,
+not only the hydro startup sequence:
 
 1. Choose Storyline mode.
-2. Establish Zanzibar's situation and first objective.
-3. Read or pick up the laminated startup card.
-4. Go to the intake.
-5. Clear debris and open the intake.
-6. Align the upstream/diversion valve.
-7. Open the turbine or powerhouse pipe valve.
-8. Return to the control room.
-9. Connect station power.
-10. Check the simplified console.
-11. Complete hydro startup.
+2. Establish that Zanzibar is lost, hungry, thirsty, and moving by instinct.
+3. Encourage westward movement across the forest without naming the destination.
+4. Let the fence become the discovered obstacle.
+5. Allow a noncanonical downhill shortcut through a fence hole.
+6. Keep the canonical uphill/westward path to the gate visible.
+7. Let Zanzibar figure out the gate and follow the road.
+8. Discover the utility station.
+9. Explore around the building and break in through the side garage door.
+10. Discover the eBuggy, stairs, conference room, kitchen, food, and water
+    purifier.
+11. Complete the first survival objective: crisis averted.
+12. Shift the objective to understanding what the building was for.
+13. Discover the laminated startup card and hydro context.
+14. Go to the intake, clear debris, open intake, align the diversion valve,
+    open the turbine valve, return to the control room, connect power, check
+    the simplified console, and complete hydro startup.
 
-Storyline mode should prevent optional exploration from burying these steps.
-Open-world mode should allow the same hydro facility to be started out of the
-canonical order when the underlying facility rules permit it.
+Storyline mode should keep at least one canonical story-forward prompt visible,
+but it should not remove ordinary movement or curiosity paths. Open-world mode
+uses general area descriptions and lets the player define the story they are
+making, while preserving the same physical, facility, and wellbeing rules.
 
 ## Production and Live Authoring
 
@@ -345,9 +398,14 @@ Alpha requires tests for:
 - save/load of `playMode`, scenario ID, step ID, completed steps, objectives,
   inventory, flags, character state, and facility state;
 - story beat filtering by `modes` and `storylineStep`;
-- action policy hiding and blocking movement/actions outside the current step;
-- map clicks respecting the same policy as play-panel buttons;
+- story-forward prompt visibility in storyline mode;
+- ordinary movement remaining available in storyline mode when physically
+  valid;
+- nonmovement action policy hiding and blocking actions outside the current
+  step;
+- map clicks and play-panel movement sharing the same physical movement rules;
 - forced movement, forced time passage, forced stage views, and step effects;
+- survival/wellbeing consequences for excessive wandering or time passage;
 - hydro startup completion in storyline mode with gates active;
 - open-world startup with broad action access and valid out-of-order completion;
 - live authoring refresh of active scenario data.

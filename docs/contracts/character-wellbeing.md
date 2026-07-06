@@ -240,12 +240,41 @@ simulation precision.
   the game into a survival spreadsheet.
 - Early Part I should be forgiving while teaching the vocabulary: health, food,
   water, exertion, rest.
+- Alpha Storyline mode should have real survival pressure during the opening
+  forest sequence. Wandering, backtracking, and strenuous shortcuts can consume
+  time, hydration, satiety, and energy. The intended path should be forgiving,
+  but repeatedly walking in circles can lead to serious impairment and
+  eventually a clear failure state.
 - Consumable numbers should be easy to author and easy to explain.
 - Thresholds should use clear player-facing states: thirsty, dehydrated,
   hungry, starving, exhausted, injured.
 - Vitals should render in one direction: higher means better.
 - Conditions should use named severity states rather than unexplained amounts.
-- Death or irreversible failure should be rare and intentionally designed.
+- Death or irreversible failure should be rare and intentionally designed, but
+  alpha may include a simple "You lose. Play again?" outcome when vitals reach a
+  catastrophic state through sustained neglect.
+
+## Alpha Survival Pressure
+
+The first Storyline objective is survival, not hydro startup. Zanzibar begins
+lost in the forest, low on food and water, and moving by instinct. The wellbeing
+system should make this situation matter without punishing normal story
+progression.
+
+Minimum alpha behavior:
+
+- travel and authored actions advance time with an activity profile;
+- time drift reduces relevant reserves such as hydration, satiety, and energy;
+- low reserves surface clear warning states in the character/status UI and may
+  influence story beats;
+- reaching zero or a catastrophic threshold on vital stats creates serious
+  disability and may trigger a failure scene;
+- food, water, shelter, and rest discovered in the utility station can resolve
+  the first crisis.
+
+The exact drift numbers are tuning data, not contract constants. During alpha
+and beta, tune them so canonical progress is tense but survivable, while
+excessive wandering or repeated nonproductive actions can fail.
 
 ## Areas To Explore
 

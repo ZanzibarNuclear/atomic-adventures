@@ -23,6 +23,7 @@
     "learning:import": "node server/learning-cli.js import",
     "learning:export": "node server/learning-cli.js export",
     "test": "vitest run",
+    "browser:smoke": "node scripts/browser-smoke.mjs",
     "test:movement": "MOVEMENT_AUDIT_REPORT=1 vitest run src/lib/maps/testing/mapMovementAudit.test.js --reporter=verbose",
     "test:watch": "vitest"
   },
@@ -43,6 +44,7 @@
     "@vitejs/plugin-vue": "^6.0.7",
     "@vue/test-utils": "^2.4.11",
     "jsdom": "^29.1.1",
+    "playwright": "^1.61.1",
     "vite": "^8.0.14",
     "vitest": "^4.1.9"
   }

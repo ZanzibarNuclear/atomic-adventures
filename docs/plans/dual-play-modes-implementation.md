@@ -1,40 +1,74 @@
 # Dual Play Modes Implementation Plan
 
-**Status:** Planned
-**Last updated:** 2026-07-05
-**Primary contracts:** [Play Modes and Storyline Control](../contracts/play-modes-and-storyline.md), [Story Beats](../contracts/story-beats.md), [Stage Views](../contracts/stage-views.md), [World Authoring](../contracts/world-authoring.md), [Character, Artifacts, and Inventory Management](../contracts/character-inventory.md)
+**Status:** In progress
+**Last updated:** 2026-07-06
+**Primary contracts:** [Play Modes and Storyline Control](../contracts/play-modes-and-storyline.md), [Story Beats](../contracts/story-beats.md), [Character Wellbeing](../contracts/character-wellbeing.md), [Stage Views](../contracts/stage-views.md), [World Authoring](../contracts/world-authoring.md), [Character, Artifacts, and Inventory Management](../contracts/character-inventory.md)
 **Related alpha plan:** [Getting to Alpha](getting-to-alpha.md)
 
 ## Goal
 
-Replace the current hybrid beat-driven experience with two explicit modes:
+Replace the hybrid beat-driven experience with two explicit play promises:
 
-- **Storyline mode**, the default guided alpha experience for Zanzibar's
-  canonical hydro startup story.
-- **Open-world mode**, an explicit freeform exploration mode that keeps broad
-  map, room, inventory, artifact, and facility access without requiring the
-  canonical story sequence.
+- **Storyline mode**: the player experiences Zanzibar's canonical Part I story
+  from inside his point of view. The UI keeps at least one story-forward action
+  visible, objectives reflect Zanzibar's immediate internal concern, and
+  storyline beats preserve discovery order.
+- **Open-world mode**: the player explores freely as a player-authored run.
+  The game uses general area descriptions and broad action access while still
+  honoring world, facility, inventory, character, and wellbeing rules.
 
-The result should satisfy Wave 4 of the alpha plan: a player knows which mode
-they are playing, the UI behavior matches that choice, optional exploration no
-longer obscures critical hydro startup steps, and open-world remains available
-for experimentation.
+This plan supersedes the earlier "restrict every action to the current step"
+interpretation. Storyline mode guides through prompts, beats, objectives, and
+consequences; it should not remove ordinary movement when the world says the
+movement is physically valid.
+
+## Clarified Storyline Shape
+
+Part I opens before the player knows what the game contains. Zanzibar is lost
+in the forest; the path he followed disappeared hours ago, maybe days ago. He is
+hungry, thirsty, and moving by instinct.
+
+The first objective is:
+
+```text
+Keep moving. Find something that can help you survive.
+```
+
+The initial canonical arc is:
+
+1. Move generally west, perpendicular to the mountain slope.
+2. Reach the fence and discover it as an obstacle.
+3. Choose a direction along the fence.
+4. Noncanonical shortcut: go downslope, search the fence, and find a hole.
+5. Canonical path: go upslope to a corner, then west to the gate.
+6. Figure out how to open the gate.
+7. Follow the road and discover the utility station.
+8. Explore around the building.
+9. Break in through the side garage door.
+10. Discover the eBuggy, stairs, conference room, kitchen, food, and water
+    purifier.
+11. Resolve the first survival crisis.
+12. Shift the objective to understanding what the building is for.
+13. Shift later to restoring power and completing hydro startup.
 
 ## Current Problem
 
-Today, story beats try to do too much:
+The first pass split mode state and added a scenario controller, but it leaned
+too far toward gating. In Storyline mode, the initial objective named a distant
+unknown destination and the action policy hid the ordinary movement action list,
+even though map clicks still worked. That is not the intended player
+experience.
 
-- trigger prose;
-- suggest movement;
-- replace generic movement labels;
-- set flags and time costs;
-- imply the next objective;
-- compete with broad map and room actions;
-- support both canonical story pacing and free exploration.
+The corrected model:
 
-That hybrid is brittle. Making beats more conditional would rebuild a generic
-quest/action system inside the prose layer. Instead, the migration introduces a
-first-class storyline controller and narrows beats to narrative presentation.
+- Storyline objectives are internal, near-term, and intentionally mysterious.
+- Storyline beats use Zanzibar's voice and canonical discovery order.
+- Open-world beats are neutral area descriptions and player-authored discovery
+  prompts.
+- Storyline mode always keeps a story-forward action visible when one is
+  physically available.
+- Ordinary movement remains available in Storyline mode.
+- Wandering and detours are allowed, but time and wellbeing make them matter.
 
 ## Target Architecture
 
@@ -42,43 +76,51 @@ first-class storyline controller and narrows beats to narrative presentation.
 new game mode selection
   -> gameState.playMode
   -> useStoryline() when playMode === "storyline"
-  -> actionPolicy for the active step
-  -> play panel, map clicks, indoor/outdoor action handlers
+  -> current objective + story-forward prompt policy
+  -> play panel merges story-forward prompts with ordinary movement/actions
   -> useStory() filters beats by mode and active step
+  -> wellbeing/time systems apply pressure in both modes
 ```
 
-In storyline mode:
+In Storyline mode:
 
-- the active step provides the current objective;
-- the active step allows only the movement, actions, choices, and stage views
-  that keep the canonical sequence coherent;
-- the same action policy filters buttons and blocks direct map/action bypasses;
-- step completion advances the scenario and may force movement, time passage,
-  stage views, or effects.
+- the active step provides Zanzibar's current internal objective;
+- storyline-scoped beats supply canonical prose;
+- story-forward movement/actions are emphasized in the play panel;
+- ordinary movement remains available when physically valid;
+- nonmovement actions that reveal or mutate future story state can still be
+  gated by step policy;
+- excessive wandering can create wellbeing consequences.
 
-In open-world mode:
+In Open-world mode:
 
 - the storyline controller is inactive;
-- ordinary world, facility, character, inventory, and movement rules determine
-  action visibility;
-- mode labeling makes clear that the player is freely experimenting rather than
-  following the authored story.
+- no canonical objective is shown;
+- open-world beats describe places and systems without assuming Zanzibar's
+  canonical arc;
+- ordinary world/facility/character/inventory/wellbeing rules determine action
+  visibility and consequences.
 
-## Phase 1 - Contract and Content Shape
+## Phase 1 - Contracts and Content Shape
 
-**Purpose:** Make the new model explicit before implementation starts.
+**Purpose:** Align the written model with the clarified Storyline/Open-world
+split.
 
 - [x] Add [Play Modes and Storyline Control](../contracts/play-modes-and-storyline.md).
 - [x] Revise [Story Beats](../contracts/story-beats.md) so beats support mode
-      scoping but do not own objectives or action policy.
+      scoping but do not own sequencing.
 - [x] Add a scenario content shape to the server-side model layer.
-- [x] Decide whether scenario content lives as a story-area child document or
-      as a separate coarse document such as `storyline-main`.
-- [x] Define the production JSON export path for scenarios.
+- [x] Store scenario content as the coarse `storyline-main` document.
+- [x] Export scenarios to production runtime JSON.
 - [x] Add scenario references to content-reference validation.
+- [x] Revise the contracts so Storyline mode guides by prompts and prose rather
+      than default movement restriction.
+- [x] Document alpha survival pressure in
+      [Character Wellbeing](../contracts/character-wellbeing.md).
 
-**Exit criterion:** The content model can represent the hydro alpha storyline
-without overloading beat conditions.
+**Exit criterion:** The content model can represent Zanzibar's opening survival
+arc and hydro startup without overloading beat conditions or hiding ordinary
+movement.
 
 ## Phase 2 - Save State and Mode Selection
 
@@ -99,7 +141,8 @@ that mode.
 
 ## Phase 3 - Storyline Controller
 
-**Purpose:** Move canonical sequencing out of beats.
+**Purpose:** Move canonical sequencing out of beats while preserving mystery and
+player freedom.
 
 - [x] Implement scenario loading through the content API and production JSON.
 - [x] Add `useStoryline()` to resolve the active scenario, active step,
@@ -114,34 +157,52 @@ that mode.
 - [x] Persist completed step IDs and current step ID.
 - [x] Surface authoring errors clearly in development when the active step is
       missing or invalid.
+- [ ] Rename or reshape the alpha scenario from hydro-only startup to the full
+      Part I survival-to-power arc.
+- [ ] Replace the opening objective with
+      `Keep moving. Find something that can help you survive.`
+- [ ] Add early steps for forest movement, fence discovery, shortcut/gate
+      branches, road discovery, station discovery, break-in, kitchen discovery,
+      and first-crisis completion.
+- [ ] Keep hydro startup as the later "turn the power back on" objective arc.
 
-**Exit criterion:** A scenario can advance through hydro startup steps without
-using beat selection as the sequencer.
+**Exit criterion:** Storyline steps advance from immediate survival through
+building discovery and then hydro startup without naming future discoveries too
+early.
 
-## Phase 4 - Action Policy
+## Phase 4 - Story-Forward Action Policy
 
-**Purpose:** Ensure storyline gates apply everywhere, not only in the play
-panel.
+**Purpose:** Keep the story path visible without turning Storyline mode into
+rails.
 
 - [x] Define a normalized action identity scheme for movement, story choices,
       stage views, pickups, item actions, room actions, doors, switches,
       passages, searches, and map transitions.
 - [x] Have `useStoryline()` produce an action policy for the current step.
-- [x] Filter play-panel actions through the policy in storyline mode.
-- [x] Block direct map clicks and direct movement handlers through the same
-      policy.
-- [x] Block indoor and outdoor interaction handlers through the same policy.
-- [ ] Keep shell actions such as save/load, return-to-map, and development-only
-      diagnostics available according to contract rules.
+- [x] Filter play-panel actions through the policy in Storyline mode.
+- [x] Block stage-view and item-action bypasses through the same policy.
+- [ ] Change Storyline movement handling so ordinary movement actions remain
+      visible when physically valid.
+- [ ] Add a story-forward prompt category that emphasizes the canonical action
+      without suppressing valid detours.
+- [ ] Ensure a Storyline step always exposes at least one story-forward action
+      when the player is at a valid story location.
+- [ ] Let known curiosity actions remain visible when they do not reveal future
+      discoveries.
+- [ ] Gate only nonmovement or story-sensitive actions that would reveal,
+      complete, or mutate future story state out of order.
+- [ ] Keep shell actions such as save/load, return-to-map, character/status,
+      inventory inspection, and development diagnostics available according to
+      contract rules.
 - [ ] Verify that storyline policy cannot bypass ordinary movement, door,
-      holder, inventory, or facility rules.
+      holder, inventory, facility, or wellbeing rules.
 
-**Exit criterion:** If a storyline step hides an action, the player cannot
-activate that action through another UI route.
+**Exit criterion:** Storyline mode shows story-forward choices and bounded
+curiosity while preserving physical freedom and consequences.
 
-## Phase 5 - Beat Mode Scoping
+## Phase 5 - Beat Mode Scoping and Prose Migration
 
-**Purpose:** Preserve prose while removing hybrid sequencing pressure.
+**Purpose:** Separate Zanzibar's canonical voice from open-world descriptions.
 
 - [ ] Add `modes` and `storylineStep` to beat import/export and Story Builder
       editing.
@@ -150,71 +211,101 @@ activate that action through another UI route.
 - [x] Update `useStory()` to filter beats by `gameState.playMode` and the
       active storyline step.
 - [ ] Let a storyline step select or prefer a beat by ID.
-- [ ] Keep open-world ambient beats separate from canonical storyline beats.
-- [ ] Update existing hydro startup beats to either storyline-scoped step beats
-      or open-world ambient/discovery beats.
+- [ ] Audit opening forest, fence, gate, road, station, and hydro beats.
+- [ ] Move canonical Zanzibar prose into `modes: [storyline]` beats.
+- [ ] Add or revise `modes: [open-world]` area descriptions that do not assume
+      Zanzibar's canonical story.
+- [ ] Preserve authored choice labels such as cardinal movement and story hints
+      as story-forward actions in Storyline mode.
 - [ ] Remove content patterns where a beat choice is the only thing preventing
       a story-breaking action.
 
-**Exit criterion:** Storyline prose and open-world prose can coexist without
-competing for the same trigger as hidden state machines.
+**Exit criterion:** Storyline prose and open-world prose can coexist at the same
+locations without competing for the same trigger or revealing unknown future
+content.
 
-## Phase 6 - Objective and Mode UI
+## Phase 6 - Objective, Mode, and Consequence UI
 
-**Purpose:** Make the mode visible and actionable to the player.
+**Purpose:** Make the mode clear and make the current concern feel like
+Zanzibar's thought, not a quest spoiler.
 
 - [x] Show the current mode in the game UI.
-- [x] Show the current storyline objective prominently in storyline mode.
-- [x] Do not show a canonical objective in open-world mode.
+- [x] Show the current storyline objective prominently in Storyline mode.
+- [x] Do not show a canonical objective in Open-world mode.
 - [x] Ensure focused stage views such as the instruction card, holo-reader, and
       console do not hide the objective in a confusing way.
 - [x] Keep the narrative card for prose; use objective UI for "what matters
       right now."
+- [ ] Revise objective copy to be internal and knowledge-limited.
+- [ ] Ensure early objectives never name the utility station, eBuggy, hydro
+      system, startup card, or kitchen before discovery.
+- [ ] Surface wellbeing warnings clearly when wandering or strenuous actions
+      push Zanzibar toward thirst, hunger, exhaustion, collapse, or death.
+- [ ] Add a simple failure/retry presentation for catastrophic vitals.
 
-**Exit criterion:** A new player can tell whether they are following Zanzibar's
-story or freely experimenting, and can identify the next storyline task.
+**Exit criterion:** A new player can tell they are in Zanzibar's story, knows
+what matters immediately, and is warned when survival pressure becomes serious.
 
-## Phase 7 - Builder Support
+## Phase 7 - Alpha Survival Pressure
 
-**Purpose:** Make scenario authoring maintainable.
+**Purpose:** Make the opening survival premise mechanically real enough for
+alpha.
+
+- [ ] Confirm movement and authored actions consistently advance time with an
+      activity profile.
+- [ ] Tune hydration, satiety, and energy drift for early Part I travel.
+- [ ] Add or verify thresholds for warning, serious impairment, collapse, and
+      failure.
+- [ ] Ensure canonical progress to food/water is tense but survivable.
+- [ ] Ensure repeated wandering or walking in circles can produce serious
+      consequences.
+- [ ] Connect food, water purification, and rest to resolving the first crisis.
+- [ ] Add tests for time/wellbeing drift during repeated movement.
+
+**Exit criterion:** The first objective has stakes: exploration is allowed, but
+time and vitals matter.
+
+## Phase 8 - Builder Support
+
+**Purpose:** Make scenario and mode-scoped prose authoring maintainable.
 
 - [ ] Add a Scenario panel to `/builder/story`.
-- [ ] Support scenario metadata, ordered steps, objective text, associated beat,
-      allowed actions, completion predicates, forced effects, and next step.
+- [ ] Support scenario metadata, ordered steps, internal objective text,
+      associated beat, story-forward actions, optional actions, completion
+      predicates, forced effects, and next step.
 - [ ] Provide selectors for hexes, rooms, exterior nodes, transitions, stage
       views, items, item actions, lessons, documents, and facility predicates.
-- [ ] Add a step preview that shows the visible action set for the selected
-      step.
+- [ ] Add a step preview that shows story-forward actions, optional actions,
+      and ordinary available movement separately.
+- [ ] Add `modes` and `storylineStep` editing to Story Builder beat forms.
 - [ ] Add reference-aware rename and delete handling for storyline references
       in Story Builder, World Builder, and Content Builder.
 - [ ] Show "referenced by storyline step" in relevant object detail panels.
 
-**Exit criterion:** Authors can edit the hydro alpha scenario without manually
-copying IDs or creating fragile hidden beat dependencies.
+**Exit criterion:** Authors can maintain the opening story arc and hydro arc
+without manually copying IDs or hiding story logic in prose.
 
-## Phase 8 - Hydro Alpha Migration
+## Phase 9 - Hydro Startup Migration
 
-**Purpose:** Encode the canonical alpha path as a scenario.
+**Purpose:** Keep the hydro alpha path, but place it after survival and
+discovery.
 
-- [x] Create `part-i-hydro-alpha`.
-- [x] Add steps for:
-      intro, read startup card, inspect intake, clear/open intake, align
-      upstream/diversion valve, open turbine valve, return to control room,
-      connect station power, check console, and complete startup.
-- [x] Gate optional exploration in storyline mode where it obscures the current
-      step.
-- [x] Keep open-world mode broad enough to complete hydro startup out of story
-      order when facility rules allow it.
+- [x] Create `part-i-hydro-alpha` as the initial scenario scaffold.
+- [x] Add hydro steps for reading the startup card, inspecting the intake,
+      clear/open intake, align diversion valve, open turbine valve, return to
+      control room, connect power, check console, and complete startup.
+- [ ] Rename/reframe the scenario as the broader Part I storyline or split the
+      hydro startup into a later sub-arc.
 - [ ] Move hydro startup beat prose into storyline-scoped step beats or
-      open-world ambient beats.
+      open-world ambient/discovery beats.
 - [ ] Verify the laminated card, beginner lesson, simplified console, inventory,
-      and facility state still work in both modes.
+      and facility state still work in both modes after the new opening arc.
 
-**Exit criterion:** The hydro alpha startup sequence plays as a guided
-canonical story in Storyline mode and as a freeform experiment in Open-world
-mode.
+**Exit criterion:** Hydro startup remains a guided canonical sequence in
+Storyline mode and a freeform experiment in Open-world mode, but it no longer
+acts as the opening objective.
 
-## Phase 9 - Tests and Verification
+## Phase 10 - Tests and Browser Verification
 
 **Purpose:** Lock down the split before building more content on it.
 
@@ -224,24 +315,30 @@ mode.
 - [x] Unit test beat filtering by `modes` and `storylineStep`.
 - [x] Unit test action-policy filtering for play-panel actions.
 - [x] Regression test that both play-mode choices render the playable scene.
-- [ ] Integration test map clicks and indoor/outdoor handlers so policy cannot
-      be bypassed.
-- [ ] Smoke test guided hydro startup with storyline gates active.
-- [ ] Smoke test open-world startup with broad actions and valid out-of-order
+- [x] Smoke test guided hydro startup with storyline gates active.
+- [x] Smoke test open-world startup with broad actions and valid out-of-order
       completion.
-- [x] Run `npm run test` from the repo root before finishing implementation
-      work.
+- [x] Add Playwright-based browser smoke visibility for local dev.
+- [ ] Add browser coverage that Storyline mode shows story-forward movement
+      actions from the opening location.
+- [ ] Add browser coverage that Storyline mode permits valid detours while
+      keeping the internal objective.
+- [ ] Add browser coverage for the noncanonical fence-hole shortcut.
+- [ ] Add browser coverage for the canonical gate-to-station path.
+- [ ] Add tests for survival consequences from excessive wandering.
+- [ ] Run `npm run test` and `npm run build:game` before finishing each
+      implementation pass.
 
-**Exit criterion:** Both modes are covered by tests at the state, action, beat,
-and hydro journey levels.
+**Exit criterion:** Both modes are covered at the state, prose, action,
+wellbeing, hydro journey, and browser-smoke levels.
 
 ## Deferred
 
 These are deliberately not alpha requirements:
 
-- switching an arbitrary open-world save back into storyline;
+- switching an arbitrary open-world save back into Storyline;
 - multiple simultaneous storylines;
-- branching scenario graphs beyond simple `next` links;
+- branching scenario graphs beyond the Part I opening shortcut shape;
 - general boolean scripting for step conditions;
 - AI-assisted station operation;
 - full electrical-system modeling;

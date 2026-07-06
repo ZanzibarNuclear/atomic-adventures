@@ -238,6 +238,8 @@ describe("useStoryline", () => {
       { id: "hydro-console:open" },
       { id: "item-action:hydro-startup-instruction-card.read" },
       { id: "move-room:garage" },
+      { id: "move-stand:window" },
+      { id: "route:east-pines" },
     ], policy).map((action) => action.id)).toEqual([
       "story:0",
       "action:clear-intake-debris",
@@ -245,10 +247,13 @@ describe("useStoryline", () => {
       "search:barrier",
       "hydro-console:open",
       "item-action:hydro-startup-instruction-card.read",
+      "move-room:garage",
+      "move-stand:window",
+      "route:east-pines",
     ]);
   });
 
-  it("uses movement modes and destination lists for storyline movement", () => {
+  it("keeps ordinary movement destinations available in storyline mode", () => {
     const currentOnly = {
       mode: "storyline",
       unrestricted: false,
@@ -265,9 +270,12 @@ describe("useStoryline", () => {
       allowed: { movement: { rooms: ["control-room"] } },
     };
 
-    expect(isDestinationAllowed(currentOnly, { type: "room", id: "control-room" })).toBe(false);
+    expect(isDestinationAllowed(currentOnly, { type: "room", id: "control-room" })).toBe(true);
+    expect(isDestinationAllowed(currentOnly, { type: "room", id: "garage" })).toBe(true);
     expect(isDestinationAllowed(localArea, { type: "room", id: "garage" })).toBe(true);
     expect(isDestinationAllowed(explicit, { type: "room", id: "control-room" })).toBe(true);
-    expect(isDestinationAllowed(explicit, { type: "room", id: "garage" })).toBe(false);
+    expect(isDestinationAllowed(explicit, { type: "room", id: "garage" })).toBe(true);
+    expect(isDestinationAllowed(explicit, { type: "hex", id: "south-pines" })).toBe(true);
+    expect(isDestinationAllowed(explicit, { type: "transition", id: "building" })).toBe(true);
   });
 });

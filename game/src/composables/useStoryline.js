@@ -199,19 +199,16 @@ export function isActionAllowed(action, policy, context = {}) {
 
   if (actionId.startsWith("story:")) return listIncludes(allowed.storyChoices, actionId);
   if (actionId.startsWith("route:") || actionId.startsWith("barrier:")) {
-    return isDestinationAllowed(policy, {
-      type: "hex",
-      id: actionId.slice(actionId.indexOf(":") + 1),
-    });
+    return true;
   }
   if (actionId.startsWith("move-room:")) {
-    return isDestinationAllowed(policy, { type: "room", id: actionId.slice("move-room:".length) });
+    return true;
   }
   if (actionId.startsWith("move-exterior:")) {
-    return isDestinationAllowed(policy, { type: "exteriorNode", id: actionId.slice("move-exterior:".length) });
+    return true;
   }
   if (actionId.startsWith("move-stand:")) {
-    return movementMode(allowed) !== "current-location-only";
+    return true;
   }
   if (actionId.startsWith("action:")) {
     const raw = actionId.slice("action:".length);
@@ -253,23 +250,8 @@ export function isActionAllowed(action, policy, context = {}) {
 
 export function isDestinationAllowed(policy, destination) {
   if (!policy || policy.unrestricted || policy.mode !== "storyline") return true;
-  const allowed = policy.allowed ?? {};
-  const mode = movementMode(allowed);
-  if (mode === "unrestricted") return true;
-  if (mode === "current-location-only") return false;
-  if (destination.type === "hex") {
-    return listIncludes(allowed.movement?.hexes, destination.id) || mode === "local-area";
-  }
-  if (destination.type === "room") {
-    return listIncludes(allowed.movement?.rooms, destination.id) || mode === "local-area";
-  }
-  if (destination.type === "exteriorNode") {
-    return listIncludes(allowed.movement?.exteriorNodes, destination.id) || mode === "local-area";
-  }
-  if (destination.type === "transition") {
-    return listIncludes(allowed.movement?.transitions, destination.id) || mode === "local-area";
-  }
-  return false;
+  void destination;
+  return true;
 }
 
 export function isStageViewAllowed(policy, viewOrAction) {
@@ -306,10 +288,6 @@ function itemActionAllowed(allowed, itemId, actionId) {
   return listIncludes(allowed.itemActions, `${itemId}.${actionId}`) ||
     listIncludes(allowed.itemActions, `item-action:${itemId}.${actionId}`) ||
     listIncludes(allowed.itemActions, actionId);
-}
-
-function movementMode(allowed) {
-  return allowed?.movement?.mode ?? null;
 }
 
 function listIncludes(list, value) {

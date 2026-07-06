@@ -82,7 +82,7 @@ describe("GameView play mode entry", () => {
     await wrapper.get("button.recommended").trigger("click");
 
     expect(wrapper.text()).toContain("Objective");
-    expect(wrapper.text()).toContain("Enter the utility station control room.");
+    expect(wrapper.text()).toContain("Keep moving. Find something that can help you survive.");
     expect(wrapper.text()).toContain("Origin");
     expect(wrapper.findComponent({ name: "OutdoorScene" }).exists()).toBe(true);
     wrapper.unmount();

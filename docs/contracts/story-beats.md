@@ -8,8 +8,8 @@
 ## Purpose
 
 A **beat** is the game engine's unit of triggered narrative prose. It attaches
-Zanzibar's authored voice, ambient discovery text, and optional small choices
-to a hex, room, exterior node, named event, or active storyline step. Beats are
+Zanzibar's authored voice, open-world area description, and optional small
+choices to a hex, room, exterior node, named event, or active storyline step. Beats are
 authored in the story builder at `/builder/story`, stored in
 `game/content/atomic-adventures.sqlite`, and delivered to the game through the
 local content API.
@@ -28,11 +28,13 @@ that the current beat engine does not yet support.
 
 The game has two explicit modes:
 
-- `storyline`: the player follows Zanzibar's canonical story and may be
-  limited to the actions, movement, timing, and stage views allowed by the
-  active storyline step.
+- `storyline`: the player experiences Zanzibar's canonical story from his
+  point of view. Beats may describe memory, fear, guesswork, fatigue, hunger,
+  thirst, and discovery in Zanzibar's authored voice.
 - `open-world`: the player explores freely, with ordinary world, facility,
-  character, inventory, and movement rules providing safety rails.
+  character, inventory, and movement rules providing safety rails. Beats should
+  read as general area descriptions or player-authored discovery prompts, not
+  as Zanzibar's required canonical path.
 
 Beats may be scoped to one or both modes:
 
@@ -50,13 +52,37 @@ Rules:
 - `storylineStep` restricts the beat to the named active storyline step and
   implies storyline eligibility.
 - Storyline-scoped beats should preserve the canonical story thread and
-  Zanzibar's authored voice.
-- Open-world-scoped beats should avoid implying that the player is following
-  canonical timing or required story beats.
+  Zanzibar's authored voice. They may imply his uncertainty and should avoid
+  naming undiscovered places, artifacts, or systems before he learns them.
+- Open-world-scoped beats should avoid implying that the player is Zanzibar,
+  that canonical timing is happening, or that required story beats have occurred.
+  They can describe what is physically present, what the player notices, and
+  what systems are available for experimentation.
 
 The active storyline step may select or prefer a beat by ID. A step-associated
 beat still uses normal validation and display fields; the step owns objective,
-allowed actions, completion, and forced effects.
+story-forward prompts, completion, and forced effects.
+
+## Voice And Knowledge
+
+Storyline and open-world beats are allowed to describe the same place
+differently because they answer different questions:
+
+- Storyline beat: "What does Zanzibar think, fear, remember, or infer at this
+  moment in the canonical story?"
+- Open-world beat: "What can a player observe or do here without assuming a
+  canonical protagonist or sequence?"
+
+Storyline beats must preserve discovery order. At the beginning of Part I,
+Zanzibar does not know there is a utility station, an eBuggy, a hydro plant, a
+startup card, or a kitchen. Opening beats should use immediate, grounded
+language: slope, forest, hunger, thirst, light, wind, path, fence, gate, road,
+shelter. Later beats may name the utility station, control room, intake, and
+hydro equipment only after the story has made those discoveries available.
+
+Open-world beats may be more neutral and reusable. They should not borrow
+Zanzibar's internal monologue unless explicitly authored as a Zanzibar
+storyline beat.
 
 ## Beat Selection
 
@@ -345,9 +371,12 @@ time costs are committed before movement. If applying a time cost fails, the
 player does not move and the beat remains active.
 
 In storyline mode, choice visibility is additionally filtered by the active
-storyline action policy. A beat choice that would be valid in open-world mode
-may be hidden or blocked during a canonical step unless that step allows it.
-Storyline policy cannot make an otherwise invalid destination or action valid.
+storyline action policy when the choice performs a story-sensitive action,
+opens a stage view, mutates inventory/facility state, or reveals future
+knowledge. Ordinary movement choices should remain visible when the movement is
+physically valid, especially when they are the story-forward path or a bounded
+curiosity detour. Storyline policy cannot make an otherwise invalid destination
+or action valid.
 
 A choice with `view` changes only the stage area above the narrative card. It
 does not also move the player, and it leaves the current beat and choices
@@ -360,9 +389,10 @@ data to bypass barriers.
 Indoor `go_room` and `go_exterior_node` choices use the same movement handlers
 as room and exterior-path map clicks.
 
-If a story choice and ordinary movement both lead to the same destination, the
-story choice replaces the generic movement action so the authored label is
-shown only once.
+If a storyline choice and ordinary movement both lead to the same destination,
+the story-forward label should replace the generic movement action so the
+authored label is shown only once. This is how Storyline mode says "Keep
+walking west" while Open-world mode can use a more general route label.
 
 ## Multiple Beats
 
