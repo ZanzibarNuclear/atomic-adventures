@@ -40,10 +40,11 @@
       @building-enter="enterAllowedBuilding" />
     <MapCaption :title="hexLabel(outdoor.currentHexData)" />
     <p v-if="clock" class="game-timestamp">{{ formatGameTimestamp(clock) }}</p>
-    <VitalsAlertBar :alerts="wellbeingAlerts" />
   </section>
 
   <NarrativeCard :beat="narrativeBeat" />
+
+  <VitalsAlertBar :alerts="wellbeingAlerts" />
 
   <StatusLines :lines="statusLines" />
 

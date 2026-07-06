@@ -3,10 +3,11 @@
     <IndoorMapStage v-bind="mapStageProps" v-on="mapStageListeners" />
     <MapCaption :title="locationTitle" />
     <p v-if="clock" class="game-timestamp">{{ formatGameTimestamp(clock) }}</p>
-    <VitalsAlertBar :alerts="wellbeingAlerts" />
   </section>
 
   <NarrativeCard :beat="narrativeBeat" />
+
+  <VitalsAlertBar :alerts="wellbeingAlerts" />
 
   <IndoorMovementAudit
     v-if="auditEnabled && devMode"
