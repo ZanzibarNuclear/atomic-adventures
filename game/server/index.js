@@ -18,6 +18,7 @@ const {
   buildingRepository,
   characterRepository,
   learningRepository,
+  storylineRepository,
 } = createContentRepositories(db);
 assertContentDocuments({
   storyRepository: repository,
@@ -25,6 +26,7 @@ assertContentDocuments({
   buildingRepository,
   characterRepository,
   learningRepository,
+  storylineRepository,
 });
 const api = createApiHandler(
   repository,
@@ -32,6 +34,7 @@ const api = createApiHandler(
   buildingRepository,
   characterRepository,
   learningRepository,
+  storylineRepository,
   { syncRuntimeContentOnMutation: !production },
 );
 

@@ -71,11 +71,11 @@ In open-world mode:
 - [x] Add [Play Modes and Storyline Control](../contracts/play-modes-and-storyline.md).
 - [x] Revise [Story Beats](../contracts/story-beats.md) so beats support mode
       scoping but do not own objectives or action policy.
-- [ ] Add a scenario content shape to the server-side model layer.
-- [ ] Decide whether scenario content lives as a story-area child document or
+- [x] Add a scenario content shape to the server-side model layer.
+- [x] Decide whether scenario content lives as a story-area child document or
       as a separate coarse document such as `storyline-main`.
-- [ ] Define the production JSON export path for scenarios.
-- [ ] Add scenario references to content-reference validation.
+- [x] Define the production JSON export path for scenarios.
+- [x] Add scenario references to content-reference validation.
 
 **Exit criterion:** The content model can represent the hydro alpha storyline
 without overloading beat conditions.
@@ -84,15 +84,15 @@ without overloading beat conditions.
 
 **Purpose:** Let a new playthrough explicitly choose its promise.
 
-- [ ] Add `playMode` and inactive/active `storyline` state to
+- [x] Add `playMode` and inactive/active `storyline` state to
       `useGameState.js` snapshots.
-- [ ] Bump the save version and normalize older saves to the alpha default.
-- [ ] Add a new-game mode selection surface before normal play begins.
-- [ ] Make Storyline mode the default highlighted choice for alpha.
-- [ ] Label Open-world mode as freeform/experimental.
-- [ ] Keep existing save/load, clear save, and reset flows coherent with mode
+- [x] Bump the save version and normalize older saves to the alpha default.
+- [x] Add a new-game mode selection surface before normal play begins.
+- [x] Make Storyline mode the default highlighted choice for alpha.
+- [x] Label Open-world mode as freeform/experimental.
+- [x] Keep existing save/load, clear save, and reset flows coherent with mode
       state.
-- [ ] Do not support open-world-to-storyline switching for alpha.
+- [x] Do not support open-world-to-storyline switching for alpha.
 
 **Exit criterion:** A fresh alpha player chooses a mode, and save/load restores
 that mode.
@@ -101,7 +101,7 @@ that mode.
 
 **Purpose:** Move canonical sequencing out of beats.
 
-- [ ] Implement scenario loading through the content API and production JSON.
+- [x] Implement scenario loading through the content API and production JSON.
 - [ ] Add `useStoryline()` to resolve the active scenario, active step,
       objective, completion state, and next step.
 - [ ] Implement typed completion predicates for alpha:
@@ -143,9 +143,11 @@ activate that action through another UI route.
 
 **Purpose:** Preserve prose while removing hybrid sequencing pressure.
 
-- [ ] Add `modes` and `storylineStep` to beat normalization, validation,
-      runtime projection, import/export, and Story Builder editing.
-- [ ] Update `useStory()` to filter beats by `gameState.playMode` and the
+- [ ] Add `modes` and `storylineStep` to beat import/export and Story Builder
+      editing.
+- [x] Add `modes` and `storylineStep` to beat normalization, validation, and
+      runtime projection.
+- [x] Update `useStory()` to filter beats by `gameState.playMode` and the
       active storyline step.
 - [ ] Let a storyline step select or prefer a beat by ID.
 - [ ] Keep open-world ambient beats separate from canonical storyline beats.

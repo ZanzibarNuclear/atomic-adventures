@@ -8,6 +8,7 @@ const storyPath = join(dist, "content", "story.json");
 const worldPath = join(dist, "content", "world.json");
 const buildingPath = join(dist, "content", "utility-station.json");
 const characterPath = join(dist, "content", "character.json");
+const storylinePath = join(dist, "content", "storyline.json");
 const assetsPath = join(dist, "assets");
 
 for (const path of [
@@ -16,6 +17,7 @@ for (const path of [
   worldPath,
   buildingPath,
   characterPath,
+  storylinePath,
 ]) {
   if (!existsSync(path)) throw new Error(`Production artifact is missing: ${path}`);
 }
@@ -24,6 +26,7 @@ const story = JSON.parse(readFileSync(storyPath, "utf8"));
 const world = JSON.parse(readFileSync(worldPath, "utf8"));
 const building = JSON.parse(readFileSync(buildingPath, "utf8"));
 const character = JSON.parse(readFileSync(characterPath, "utf8"));
+const storyline = JSON.parse(readFileSync(storylinePath, "utf8"));
 if (!Object.keys(story.areas ?? {}).length) throw new Error("Production story export has no areas.");
 if (!(world.world?.hexes?.length > 0)) throw new Error("Production world export has no hexes.");
 if (!(building.building?.rooms?.length > 0)) {
@@ -31,6 +34,9 @@ if (!(building.building?.rooms?.length > 0)) {
 }
 if (!(character.character?.items?.length > 0)) {
   throw new Error("Production character export has no items.");
+}
+if (!(storyline.storyline?.scenarios?.length > 0)) {
+  throw new Error("Production storyline export has no scenarios.");
 }
 
 const assets = readdirSync(assetsPath);
@@ -47,6 +53,7 @@ for (const forbidden of [
   "/api/story",
   "/api/world",
   "/api/character",
+  "/api/storyline",
   "/api/content/events",
   "new EventSource",
 ]) {
@@ -59,6 +66,7 @@ for (const required of [
   "/content/world.json",
   "/content/utility-station.json",
   "/content/character.json",
+  "/content/storyline.json",
 ]) {
   if (!javascript.includes(required)) {
     throw new Error(`Production bundle does not reference static runtime content: ${required}`);
@@ -69,5 +77,6 @@ console.log(
   `Verified production build: ${Object.keys(story.areas).length} story area(s), ` +
     `${world.world.hexes.length} outdoor hexes, ${building.building.rooms.length} indoor rooms, ` +
     `${character.character.items.length} character item(s), ` +
+    `${storyline.storyline.scenarios.length} storyline scenario(s), ` +
     `no builder chunks or authoring API dependency.`,
 );

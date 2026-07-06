@@ -96,6 +96,18 @@ export function useStory(storyData, ctx) {
     return true;
   }
 
+  function modeMatches(beat) {
+    const mode = gameState.playMode ?? "storyline";
+    const modes = Array.isArray(beat.modes) ? beat.modes : [];
+    const stepId = gameState.storyline?.stepId ?? null;
+    if (modes.length && !modes.includes(mode)) return false;
+    if (beat.storylineStep) {
+      if (mode !== "storyline") return false;
+      if (beat.storylineStep !== stepId) return false;
+    }
+    return true;
+  }
+
   function timeScore(beat) {
     const time = beat.time ?? {};
     if (!hasTimeCriteria(time)) return 0;
@@ -173,6 +185,7 @@ export function useStory(storyData, ctx) {
     const action = storyActionContext(loc, event);
     for (const [id, beat] of Object.entries(beats.value)) {
       if (!triggerMatches(beat, loc, event)) continue;
+      if (!modeMatches(beat)) continue;
       if (!timeMatches(beat)) continue;
       const score = matchScore(beat, loc, action) + timeScore(beat);
       if (score < 0 || score <= selectedScore) continue;
@@ -337,6 +350,8 @@ export function useStory(storyData, ctx) {
       gameState.clock?.minuteOfDay,
       gameState.clock?.elapsedMinutes,
       gameState.character?.revision ?? 0,
+      gameState.playMode,
+      gameState.storyline?.stepId,
     ],
     () => {
       const loc = locationContext();

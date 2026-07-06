@@ -19,7 +19,10 @@ import {
   normalizeHydroState,
 } from "../lib/simulations/hydro/index.js";
 
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
+export const DEFAULT_PLAY_MODE = "storyline";
+export const STORYLINE_SCENARIO_ID = "part-i-hydro-alpha";
+const PLAY_MODES = new Set(["storyline", "open-world"]);
 
 /** Plain JSON-safe clone — structuredClone fails on Vue reactive proxies. */
 function clonePlain(value) {
@@ -40,6 +43,8 @@ export function createGameState({ mapData, buildingData, characterData = {} }) {
     facilities: {
       hydro: createHydroState(),
     },
+    playMode: null,
+    storyline: createStorylineState(),
     _startHex: startHex,
     _buildingData: buildingData,
   });
@@ -57,6 +62,8 @@ export function captureSnapshot({ gameState, place, outdoor, indoor }) {
     clock: clonePlain(gameState.clock),
     character: captureCharacterState(gameState.character),
     lessons: clonePlain(gameState.lessons ?? {}),
+    playMode: normalizePlayMode(gameState.playMode),
+    storyline: captureStorylineState(gameState),
     facilities: {
       hydro: clonePlain(gameState.facilities?.hydro ?? createHydroState()),
     },
@@ -122,6 +129,8 @@ export function applySnapshot(snapshot, { gameState, place, outdoor, indoor }) {
   gameState.clock = createGameClock(snapshot.clock);
   if (snapshot.character) applyCharacterState(gameState.character, snapshot.character);
   gameState.lessons = plainObject(snapshot.lessons);
+  gameState.playMode = normalizePlayMode(snapshot.playMode);
+  gameState.storyline = normalizeStorylineState(snapshot.storyline, gameState.playMode);
   gameState.facilities = {
     hydro: normalizeHydroState(snapshot.facilities?.hydro ?? {
       ...createHydroState(),
@@ -172,6 +181,8 @@ export function resetGameState({ gameState, place, outdoor, indoor }) {
   gameState.clock = createGameClock();
   resetCharacterState(gameState.character);
   gameState.lessons = {};
+  gameState.playMode = null;
+  gameState.storyline = createStorylineState();
   gameState.facilities = {
     hydro: createHydroState(),
   };
@@ -179,6 +190,54 @@ export function resetGameState({ gameState, place, outdoor, indoor }) {
   outdoor.resetPlayer();
   indoor.resetIndoor();
   place.value = "outdoors";
+}
+
+export function setPlayMode(gameState, mode, {
+  scenarioId = STORYLINE_SCENARIO_ID,
+  stepId = null,
+  objective = null,
+} = {}) {
+  gameState.playMode = normalizePlayMode(mode);
+  gameState.storyline = gameState.playMode === "storyline"
+    ? createStorylineState({ scenarioId, stepId, objective })
+    : null;
+}
+
+export function normalizePlayMode(mode) {
+  return PLAY_MODES.has(mode) ? mode : DEFAULT_PLAY_MODE;
+}
+
+export function createStorylineState({
+  scenarioId = STORYLINE_SCENARIO_ID,
+  stepId = null,
+  completedStepIds = [],
+  objective = null,
+} = {}) {
+  return {
+    scenarioId,
+    stepId,
+    completedStepIds: [...completedStepIds],
+    objective,
+  };
+}
+
+function normalizeStorylineState(value, playMode) {
+  if (playMode !== "storyline") return null;
+  const completed = Array.isArray(value?.completedStepIds)
+    ? value.completedStepIds.map(String).filter(Boolean)
+    : [];
+  return createStorylineState({
+    scenarioId: value?.scenarioId || STORYLINE_SCENARIO_ID,
+    stepId: value?.stepId || null,
+    completedStepIds: completed,
+    objective: value?.objective || null,
+  });
+}
+
+function captureStorylineState(gameState) {
+  const mode = normalizePlayMode(gameState.playMode);
+  if (mode !== "storyline") return null;
+  return normalizeStorylineState(gameState.storyline, mode);
 }
 
 function plainObject(value) {

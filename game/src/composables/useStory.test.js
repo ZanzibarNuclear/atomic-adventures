@@ -694,4 +694,58 @@ describe("useStory reactive content", () => {
     expect(movedTo).toBe("north-east-corner");
     expect(setup.gameState.storySeen.has("exterior")).toBe(true);
   });
+
+  it("filters beats by play mode", () => {
+    const setup = harness({
+      beats: {
+        storyline: {
+          ...beat,
+          text: "Storyline text",
+          modes: ["storyline"],
+        },
+        openWorld: {
+          ...beat,
+          text: "Open-world text",
+          modes: ["open-world"],
+        },
+      },
+    });
+
+    setup.gameState.playMode = "open-world";
+    setup.api.refreshNarrative();
+
+    expect(setup.api.pendingBeat.value.id).toBe("openWorld");
+    expect(setup.api.pendingBeat.value.text).toBe("Open-world text");
+  });
+
+  it("filters storyline step beats by active step", () => {
+    const setup = harness({
+      beats: {
+        intro: {
+          ...beat,
+          text: "Intro text",
+          modes: ["storyline"],
+          storylineStep: "intro",
+        },
+        card: {
+          ...beat,
+          text: "Card text",
+          modes: ["storyline"],
+          storylineStep: "read-startup-card",
+        },
+      },
+    });
+
+    setup.gameState.playMode = "storyline";
+    setup.gameState.storyline = {
+      scenarioId: "part-i-hydro-alpha",
+      stepId: "read-startup-card",
+      completedStepIds: [],
+      objective: "Read the laminated startup card.",
+    };
+    setup.api.refreshNarrative();
+
+    expect(setup.api.pendingBeat.value.id).toBe("card");
+    expect(setup.api.pendingBeat.value.text).toBe("Card text");
+  });
 });

@@ -2,7 +2,7 @@
 import { ref, onMounted, computed, watch, nextTick } from "vue";
 import { useOutdoorWorld } from "../lib/maps/composables/useOutdoorWorld.js";
 import { useIndoorBuilding } from "../lib/maps/composables/useIndoorBuilding.js";
-import { createGameState, resetGameState } from "../composables/useGameState.js";
+import { createGameState, resetGameState, setPlayMode } from "../composables/useGameState.js";
 import { useSaveGame } from "../composables/useSaveGame.js";
 import { useStory } from "../composables/useStory.js";
 import { useStoryContent } from "../composables/useStoryContent.js";
@@ -11,6 +11,7 @@ import { useBuildingContent } from "../composables/useBuildingContent.js";
 import { useGameView } from "../composables/useGameView.js";
 import { useCharacterContent } from "../composables/useCharacterContent.js";
 import { useLearningContent } from "../composables/useLearningContent.js";
+import { useStorylineContent } from "../composables/useStorylineContent.js";
 import {
   markCharacterChanged,
   syncCharacterDefinitions,
@@ -81,6 +82,11 @@ const {
   error: learningContentError,
   refresh: refreshLearning,
 } = useLearningContent();
+const {
+  storylineData,
+  error: storylineContentError,
+  refresh: refreshStoryline,
+} = useStorylineContent();
 const mapData = JSON.parse(JSON.stringify(worldData.value));
 const initialBuildingData = JSON.parse(JSON.stringify(buildingData.value));
 
@@ -181,6 +187,19 @@ const availableLessons = computed(() =>
     character: gameState.character,
   }),
 );
+const defaultScenario = computed(() =>
+  storylineData.value?.scenarios?.find((scenario) => scenario.defaultMode === "storyline") ??
+  storylineData.value?.scenarios?.[0] ??
+  null,
+);
+const currentObjective = computed(() => {
+  if (gameState.playMode !== "storyline") return "";
+  const scenario = storylineData.value?.scenarios?.find(
+    (candidate) => candidate.id === gameState.storyline?.scenarioId,
+  );
+  const step = scenario?.steps?.find((candidate) => candidate.id === gameState.storyline?.stepId);
+  return step?.objective ?? gameState.storyline?.objective ?? "";
+});
 const holoReaderActions = computed(() =>
   buildHoloReaderActions({
     place: place.value,
@@ -261,7 +280,12 @@ watch(
 onMounted(async () => {
   if (hasSave()) load(saveCtx.value);
   await refreshContent();
+  ensureStorylineStart();
   refreshNarrative();
+});
+
+watch(storylineData, () => {
+  ensureStorylineStart();
 });
 
 function handleNewGame() {
@@ -273,6 +297,34 @@ function handleNewGame() {
 
 function handleReset() {
   if (!hasSave() || !load(saveCtx.value)) resetGameState(saveCtx.value);
+  ensureStorylineStart();
+  refreshNarrative();
+}
+
+function ensureStorylineStart() {
+  if (gameState.playMode !== "storyline") return;
+  if (gameState.storyline?.stepId) return;
+  const scenario = defaultScenario.value;
+  const startStep = scenario?.steps?.find((step) => step.id === scenario.startStep);
+  setPlayMode(gameState, "storyline", {
+    scenarioId: scenario?.id,
+    stepId: scenario?.startStep ?? null,
+    objective: startStep?.objective ?? null,
+  });
+}
+
+function choosePlayMode(mode) {
+  if (mode === "storyline") {
+    const scenario = defaultScenario.value;
+    const startStep = scenario?.steps?.find((step) => step.id === scenario.startStep);
+    setPlayMode(gameState, "storyline", {
+      scenarioId: scenario?.id,
+      stepId: scenario?.startStep ?? null,
+      objective: startStep?.objective ?? null,
+    });
+  } else {
+    setPlayMode(gameState, "open-world");
+  }
   refreshNarrative();
 }
 
@@ -388,6 +440,7 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       :movement-audit-visible="movementAuditVisible"
       :active-game-view="activeView.kind"
       :clock="gameState.clock"
+      :play-mode="gameState.playMode"
       @save="saveGame(saveCtx)"
       @new-game="handleNewGame"
       @reset="handleReset"
@@ -403,9 +456,9 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       @close="developerSettingsVisible = false" />
 
     <div
-      v-if="contentError || worldContentError || buildingContentError || characterContentError || learningContentError"
+      v-if="contentError || worldContentError || buildingContentError || characterContentError || learningContentError || storylineContentError"
       class="content-error">
-      {{ contentError || worldContentError || buildingContentError || characterContentError || learningContentError }}
+      {{ contentError || worldContentError || buildingContentError || characterContentError || learningContentError || storylineContentError }}
       <button
         class="sm"
         @click="contentError
@@ -416,12 +469,48 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
               ? refreshBuilding()
               : characterContentError
                 ? refreshCharacter()
-                : refreshLearning()"
+                : learningContentError
+                  ? refreshLearning()
+                  : refreshStoryline()"
       >Retry</button>
     </div>
 
+    <section
+      v-if="!gameState.playMode"
+      class="mode-choice"
+      aria-labelledby="mode-choice-title">
+      <div class="mode-choice-panel">
+        <p class="mode-choice-kicker">New game</p>
+        <h2 id="mode-choice-title">Choose how to play</h2>
+        <div class="mode-choice-options">
+          <button
+            type="button"
+            class="mode-choice-card recommended"
+            @click="choosePlayMode('storyline')">
+            <span class="mode-choice-label">Storyline</span>
+            <span class="mode-choice-note">Guided hydro startup with Zanzibar's canonical story.</span>
+          </button>
+          <button
+            type="button"
+            class="mode-choice-card"
+            @click="choosePlayMode('open-world')">
+            <span class="mode-choice-label">Open-world</span>
+            <span class="mode-choice-note">Freeform exploration and experimentation without the canonical sequence.</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section
+      v-else-if="gameState.playMode === 'storyline' && currentObjective"
+      class="story-objective"
+      aria-label="Current objective">
+      <span class="story-objective-label">Objective</span>
+      <span>{{ currentObjective }}</span>
+    </section>
+
     <OutdoorScene
-      v-if="isMapView && place === 'outdoors'"
+      v-if="gameState.playMode && isMapView && place === 'outdoors'"
       :outdoor="outdoor"
       :indoor="indoor"
       :narrative-beat="narrativeBeat"
@@ -433,7 +522,7 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       @hide-movement-audit="movementAuditVisible = false" />
 
     <IndoorScene
-      v-else-if="isMapView"
+      v-else-if="gameState.playMode && isMapView"
       :indoor="indoor"
       :narrative-beat="narrativeBeat"
       :pending-beat="pendingBeat"
@@ -446,7 +535,7 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       @hide-movement-audit="movementAuditVisible = false" />
 
     <InventoryStageView
-      v-else-if="activeView.kind === 'inventory'"
+      v-else-if="gameState.playMode && activeView.kind === 'inventory'"
       :holders="inventoryHolders"
       :selected-holding="stageSelectedHolding"
       :selected-holding-id="stageSelectedHoldingId"
@@ -458,13 +547,13 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       @return-to-map="handleReturnToMap" />
 
     <CharacterStatsStageView
-      v-else-if="activeView.kind === 'character-stats'"
+      v-else-if="gameState.playMode && activeView.kind === 'character-stats'"
       :stats="characterStats"
       :focus="activeView.payload?.focus"
       @return-to-map="handleReturnToMap" />
 
     <CharacterView
-      v-else-if="isCharacterView"
+      v-else-if="gameState.playMode && isCharacterView"
       :character="gameState.character"
       :clock="gameState.clock"
       :nearby-holder-ids="[...nearbyHolderIds, currentWorldHolderId()]"
@@ -474,7 +563,7 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       @return-to-map="handleReturnToMap" />
 
     <HoloReaderView
-      v-else-if="activeView.kind === 'lesson'"
+      v-else-if="gameState.playMode && activeView.kind === 'lesson'"
       :lessons="availableLessons"
       :selected-lesson-id="activeView.payload?.lessonId ?? activeView.payload?.id"
       :game-state="gameState"
@@ -484,20 +573,94 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       @return-to-map="handleReturnToMap" />
 
     <HydroConsoleView
-      v-else-if="activeView.kind === 'console'"
+      v-else-if="gameState.playMode && activeView.kind === 'console'"
       :game-state="gameState"
       :payload="activeView.payload"
       @return-to-map="handleReturnToMap" />
 
     <InstructionCardView
-      v-else-if="activeView.kind === 'document'"
+      v-else-if="gameState.playMode && activeView.kind === 'document'"
       :documents="characterDocuments"
       :payload="activeView.payload"
       @return-to-map="handleReturnToMap" />
 
     <StoryOverlay
-      v-if="isMapView"
+      v-if="gameState.playMode && isMapView"
       :show-end-card="showEndCard"
       @dismiss-end="dismissEndCard" />
   </main>
 </template>
+
+<style scoped>
+.mode-choice {
+  min-height: min(58vh, 32rem);
+  display: grid;
+  place-items: center;
+  padding: 2rem 1rem;
+}
+.mode-choice-panel {
+  width: min(46rem, 100%);
+  border: 1px solid #566174;
+  background: #1f2631;
+  border-radius: 8px;
+  padding: 1.25rem;
+}
+.mode-choice-kicker {
+  margin: 0 0 0.25rem;
+  color: #9fb0c2;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+.mode-choice-panel h2 {
+  margin: 0 0 1rem;
+  font-size: 1.35rem;
+}
+.mode-choice-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.75rem;
+}
+.mode-choice-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  text-align: left;
+  min-height: 8.5rem;
+  border: 1px solid #566174;
+  border-radius: 8px;
+  background: #293241;
+  color: #eef3f8;
+  padding: 1rem;
+}
+.mode-choice-card.recommended {
+  border-color: #7ea77e;
+  background: #26362d;
+}
+.mode-choice-label {
+  font-size: 1rem;
+  font-weight: 700;
+}
+.mode-choice-note {
+  color: #c2ccd8;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+.story-objective {
+  display: flex;
+  align-items: baseline;
+  gap: 0.65rem;
+  border: 1px solid #4f6174;
+  background: #202b37;
+  border-radius: 8px;
+  padding: 0.65rem 0.85rem;
+  margin-bottom: 0.75rem;
+  color: #e9f0f8;
+}
+.story-objective-label {
+  color: #9fb0c2;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+</style>

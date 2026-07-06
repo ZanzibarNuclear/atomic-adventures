@@ -24,6 +24,7 @@ function setup() {
     buildingRepository,
     characterRepository,
     learningRepository,
+    storylineRepository,
   } = createContentRepositories(db);
   return {
     db,
@@ -33,11 +34,13 @@ function setup() {
       buildingRepository,
       characterRepository,
       learningRepository,
+      storylineRepository,
     ),
     worldRepository,
     buildingRepository,
     characterRepository,
     learningRepository,
+    storylineRepository,
   };
 }
 
@@ -68,7 +71,7 @@ function request(method, url, body) {
 
 describe("story API", () => {
   it("publishes the character catalog and protects referenced definitions", async () => {
-    const { db, api, characterRepository } = setup();
+    const { db, api, characterRepository, storylineRepository } = setup();
 
     const catalogRes = responseCapture();
     await api.handle(request("GET", "/api/catalog"), catalogRes);
@@ -131,6 +134,18 @@ describe("story API", () => {
     const images = JSON.parse(imagesRes.chunks.join(""));
     expect(imagesRes.status).toBe(200);
     expect(images.images).toContain("items/field-backpack.png");
+
+    const storylineRes = responseCapture();
+    await api.handle(request("GET", "/api/storyline"), storylineRes);
+    const storyline = JSON.parse(storylineRes.chunks.join(""));
+    expect(storylineRes.status).toBe(200);
+    expect(storyline.storyline.id).toBe("storyline-main");
+    expect(storyline.storyline.scenarios[0]).toEqual(expect.objectContaining({
+      id: "part-i-hydro-alpha",
+      defaultMode: "storyline",
+      startStep: "intro",
+    }));
+    expect(storylineRepository.validate(storyline.storyline).valid).toBe(true);
 
     const current = characterRepository.getDocument();
     const removeRes = responseCapture();

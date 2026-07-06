@@ -3,6 +3,8 @@ import { CharacterRepository } from "./character-repository.js";
 import { LearningRepository } from "./learning-repository.js";
 import { learningSeed } from "./learning-seed.js";
 import { StoryRepository } from "./story-repository.js";
+import { StorylineRepository } from "./storyline-repository.js";
+import { storylineSeed } from "./storyline-seed.js";
 import { WorldRepository } from "./world-repository.js";
 
 export function createContentRepositories(db) {
@@ -24,6 +26,13 @@ export function createContentRepositories(db) {
     characterRepository.getDocument()?.character,
     learningRepository.getDocument()?.learning,
   );
+  const storylineRepository = new StorylineRepository(db, {
+    seedStoryline: storylineSeed,
+    storyRepository,
+    worldRepository,
+    characterRepository,
+    learningRepository,
+  });
   worldRepository.setStoryRepository(storyRepository);
   buildingRepository.setRepositories({
     worldRepository,
@@ -38,6 +47,7 @@ export function createContentRepositories(db) {
     buildingRepository,
     characterRepository,
     learningRepository,
+    storylineRepository,
   };
 }
 
@@ -47,6 +57,7 @@ export function assertContentDocuments({
   buildingRepository,
   characterRepository,
   learningRepository,
+  storylineRepository,
 }) {
   const missing = [];
   if (!storyRepository.listAreas().length) missing.push("story areas");
@@ -54,6 +65,7 @@ export function assertContentDocuments({
   if (!buildingRepository.getDocument()) missing.push("utility station building");
   if (!characterRepository.getDocument()) missing.push("character content");
   if (!learningRepository.getDocument()) missing.push("learning content");
+  if (!storylineRepository.getDocument()) missing.push("storyline content");
   if (missing.length) {
     throw new Error(
       `SQLite content is incomplete: missing ${missing.join(", ")}. Import a snapshot or restore game/content/atomic-adventures.sqlite.`,

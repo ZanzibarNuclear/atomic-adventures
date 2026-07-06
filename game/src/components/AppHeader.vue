@@ -55,6 +55,7 @@
           </details>
         </div>
         <p v-if="clock" class="game-timestamp">{{ formatGameTimestamp(clock) }}</p>
+        <p v-if="playModeLabel" class="mode-label">{{ playModeLabel }}</p>
         <p v-if="loadError" class="error-hint">{{ loadError }}</p>
       </div>
     </div>
@@ -76,6 +77,7 @@ const props = defineProps({
   movementAuditVisible: { type: Boolean, default: false },
   activeGameView: { type: String, default: "map" },
   clock: { type: Object, default: null },
+  playMode: { type: String, default: null },
 });
 
 const emit = defineEmits([
@@ -101,6 +103,11 @@ const formattedSavedAt = computed(() => {
 });
 
 const showSaveHint = computed(() => formattedSavedAt.value.length > 0);
+const playModeLabel = computed(() => {
+  if (props.playMode === "storyline") return "Storyline mode";
+  if (props.playMode === "open-world") return "Open-world mode";
+  return "";
+});
 
 function showMovementAudit() {
   emit("show-movement-audit");
@@ -173,6 +180,11 @@ header {
   font-size: 0.78rem;
   letter-spacing: 0;
   opacity: 0.82;
+}
+.mode-label {
+  margin: 0;
+  color: #c7d4e2;
+  font-size: 0.78rem;
 }
 .game-controls {
   display: flex;

@@ -12,6 +12,7 @@ const STAGE_VIEW_KINDS = new Set([
   "simulation",
 ]);
 const TRANSITION_DIRECTIONS = new Set(["toLocal", "toRegional"]);
+const PLAY_MODES = new Set(["storyline", "open-world"]);
 
 export function normalizeBeat(input = {}) {
   const trigger = input.trigger ?? {};
@@ -22,6 +23,8 @@ export function normalizeBeat(input = {}) {
     heading: nullableText(input.heading),
     text: String(input.text ?? ""),
     revisit: nullableText(input.revisit),
+    modes: stringList(input.modes),
+    storylineStep: nullableText(input.storylineStep),
     trigger: {
       place: nullableText(trigger.place),
       hex: nullableText(trigger.hex),
@@ -121,6 +124,15 @@ export function validateBeat(input, world, character = null, learning = null) {
     add("match.transitionDirection", "Choose to local or to regional.");
   }
   validateBeatTime(beat.time, add);
+  beat.modes.forEach((mode, index) => {
+    if (!PLAY_MODES.has(mode)) add(`modes.${index}`, "Choose storyline or open-world.");
+  });
+  if (beat.storylineStep && !ID_PATTERN.test(beat.storylineStep)) {
+    add("storylineStep", "Use a kebab-case storyline step ID.");
+  }
+  if (beat.storylineStep && beat.modes.length && !beat.modes.includes("storyline")) {
+    add("storylineStep", "Storyline step beats must be eligible in storyline mode.");
+  }
 
   beat.choices.forEach((choice, index) => {
     const base = `choices.${index}`;
@@ -166,10 +178,13 @@ export function validateBeat(input, world, character = null, learning = null) {
 export function beatToRuntime(beat) {
   const match = compactObject(beat.match ?? {});
   const time = compactTime(beat.time ?? {});
+  const modes = stringList(beat.modes);
   return compactObject({
     eyebrow: beat.eyebrow ?? undefined,
     heading: beat.heading ?? undefined,
     trigger: compactObject(beat.trigger),
+    modes: modes.length ? modes : undefined,
+    storylineStep: beat.storylineStep ?? undefined,
     match: Object.keys(match).length ? match : undefined,
     time: Object.keys(time).length ? time : undefined,
     text: beat.text,

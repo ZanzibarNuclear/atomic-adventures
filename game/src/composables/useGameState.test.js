@@ -10,6 +10,7 @@ import {
   captureSnapshot,
   applySnapshot,
   createGameState,
+  setPlayMode,
 } from './useGameState.js'
 import { addItem, itemQuantity } from '../lib/character/holdings.js'
 
@@ -268,5 +269,61 @@ describe('useGameState save roundtrip', () => {
     expect(gameState.facilities.hydro.manualValves.powerhouseOpen).toBe(true)
     expect(gameState.facilities.hydro.eventLog).toHaveLength(1)
     expect(indoor.indoor.facility.hydroOnline).toBe(true)
+  })
+
+  it('persists play mode and storyline progress', () => {
+    const { outdoor, indoor, gameState, place } = buildTestHarness()
+    setPlayMode(gameState, 'storyline', {
+      scenarioId: 'part-i-hydro-alpha',
+      stepId: 'read-startup-card',
+      objective: 'Read the laminated startup card.',
+    })
+    gameState.storyline.completedStepIds = ['intro']
+
+    const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
+    expect(snapshot.version).toBe(SAVE_VERSION)
+    expect(snapshot.playMode).toBe('storyline')
+    expect(snapshot.storyline).toEqual({
+      scenarioId: 'part-i-hydro-alpha',
+      stepId: 'read-startup-card',
+      completedStepIds: ['intro'],
+      objective: 'Read the laminated startup card.',
+    })
+
+    setPlayMode(gameState, 'open-world')
+    expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
+    expect(gameState.playMode).toBe('storyline')
+    expect(gameState.storyline.stepId).toBe('read-startup-card')
+    expect(gameState.storyline.completedStepIds).toEqual(['intro'])
+  })
+
+  it('normalizes older saves to storyline mode', () => {
+    const { outdoor, indoor, gameState, place } = buildTestHarness()
+    const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
+    delete snapshot.playMode
+    delete snapshot.storyline
+
+    expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
+    expect(gameState.playMode).toBe('storyline')
+    expect(gameState.storyline).toEqual({
+      scenarioId: 'part-i-hydro-alpha',
+      stepId: null,
+      completedStepIds: [],
+      objective: null,
+    })
+  })
+
+  it('persists open-world mode without active storyline progress', () => {
+    const { outdoor, indoor, gameState, place } = buildTestHarness()
+    setPlayMode(gameState, 'open-world')
+
+    const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
+    expect(snapshot.playMode).toBe('open-world')
+    expect(snapshot.storyline).toBeNull()
+
+    setPlayMode(gameState, 'storyline', { stepId: 'intro' })
+    expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
+    expect(gameState.playMode).toBe('open-world')
+    expect(gameState.storyline).toBeNull()
   })
 })

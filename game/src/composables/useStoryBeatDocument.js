@@ -67,6 +67,8 @@ function normalizeForDirty(value) {
     heading: nullableText(beat.heading),
     text: String(beat.text ?? ""),
     revisit: nullableText(beat.revisit),
+    modes: stringList(beat.modes),
+    storylineStep: nullableText(beat.storylineStep),
     trigger: {
       place: nullableText(trigger.place),
       hex: nullableText(trigger.hex),

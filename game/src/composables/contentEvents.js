@@ -62,6 +62,7 @@ function startContentEvents() {
     "building.updated",
     "character.updated",
     "learning.updated",
+    "storyline.updated",
   ]) {
     events.addEventListener(eventName, (event) => {
       for (const handler of listeners.get(eventName) ?? []) handler(event);
