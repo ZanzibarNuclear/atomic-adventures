@@ -76,7 +76,19 @@ describe("GameView play mode entry", () => {
     vi.restoreAllMocks();
   });
 
-  it("renders the playable scene after choosing story mode", async () => {
+  function actionLabels(wrapper) {
+    return wrapper.findAll("button.route-btn").map((button) => button.text());
+  }
+
+  async function chooseAction(wrapper, label) {
+    const button = wrapper.findAll("button.route-btn")
+      .find((candidate) => candidate.text() === label);
+    expect(button, `Expected action button "${label}" to be visible`).toBeDefined();
+    await button.trigger("click");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  it("renders playable story mode with usable scene actions", async () => {
     const wrapper = mount(GameView);
 
     await wrapper.get("button.recommended").trigger("click");
@@ -84,18 +96,26 @@ describe("GameView play mode entry", () => {
     expect(wrapper.text()).toContain("Objective");
     expect(wrapper.text()).toContain("Keep moving. Find something that can help you survive.");
     expect(wrapper.text()).toContain("Origin");
-    expect(wrapper.findComponent({ name: "OutdoorScene" }).exists()).toBe(true);
+    expect(actionLabels(wrapper)).toContain("Go west");
+
+    await chooseAction(wrapper, "Go west");
+
+    expect(wrapper.text()).toContain("East Pines");
     wrapper.unmount();
   });
 
-  it("renders the playable scene after choosing open-world mode", async () => {
+  it("renders playable open-world mode with usable scene actions", async () => {
     const wrapper = mount(GameView);
 
     await wrapper.findAll(".mode-choice-card")[1].trigger("click");
 
     expect(wrapper.text()).not.toContain("Objective");
     expect(wrapper.text()).toContain("Origin");
-    expect(wrapper.findComponent({ name: "OutdoorScene" }).exists()).toBe(true);
+    expect(actionLabels(wrapper)).toContain("Go west");
+
+    await chooseAction(wrapper, "Go west");
+
+    expect(wrapper.text()).toContain("East Pines");
     wrapper.unmount();
   });
 
