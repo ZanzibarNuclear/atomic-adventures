@@ -274,28 +274,28 @@ describe('useGameState save roundtrip', () => {
   it('persists play mode and storyline progress', () => {
     const { outdoor, indoor, gameState, place } = buildTestHarness()
     setPlayMode(gameState, 'storyline', {
-      scenarioId: 'part-i-hydro-alpha',
-      stepId: 'read-startup-card',
-      objective: 'Read the laminated startup card.',
+      scenarioId: 'part-i-station',
+      stepId: 'understand-building',
+      objective: 'Figure out what this building was for.',
     })
-    gameState.storyline.completedStepIds = ['intro']
+    gameState.storyline.completedStepIds = ['solve-first-crisis']
 
     const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
     expect(snapshot.version).toBe(SAVE_VERSION)
     expect(snapshot.playMode).toBe('storyline')
     expect(snapshot.storyline).toEqual({
-      scenarioId: 'part-i-hydro-alpha',
-      stepId: 'read-startup-card',
-      completedStepIds: ['intro'],
+      scenarioId: 'part-i-station',
+      stepId: 'understand-building',
+      completedStepIds: ['solve-first-crisis'],
       enteredStepIds: [],
-      objective: 'Read the laminated startup card.',
+      objective: 'Figure out what this building was for.',
     })
 
     setPlayMode(gameState, 'open-world')
     expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
     expect(gameState.playMode).toBe('storyline')
-    expect(gameState.storyline.stepId).toBe('read-startup-card')
-    expect(gameState.storyline.completedStepIds).toEqual(['intro'])
+    expect(gameState.storyline.stepId).toBe('understand-building')
+    expect(gameState.storyline.completedStepIds).toEqual(['solve-first-crisis'])
   })
 
   it('normalizes older saves to storyline mode', () => {
@@ -307,7 +307,7 @@ describe('useGameState save roundtrip', () => {
     expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
     expect(gameState.playMode).toBe('storyline')
     expect(gameState.storyline).toEqual({
-      scenarioId: 'part-i-hydro-alpha',
+      scenarioId: 'part-i-opener',
       stepId: null,
       completedStepIds: [],
       enteredStepIds: [],

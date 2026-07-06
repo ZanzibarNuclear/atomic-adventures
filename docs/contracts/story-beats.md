@@ -40,7 +40,7 @@ Beats may be scoped to one or both modes:
 
 ```yaml
 modes: [storyline]
-storylineStep: read-startup-card
+storylineStep: understand-building
 ```
 
 Rules:
@@ -280,7 +280,7 @@ Example:
 ```yaml
 hydro-card-on-console:
   modes: [storyline]
-  storylineStep: read-startup-card
+  storylineStep: understand-building
   trigger: { place: indoors, room: control-room }
   heading: Startup card
   text: The laminated card waits beside the console, exactly where someone
@@ -288,7 +288,7 @@ hydro-card-on-console:
 ```
 
 The beat can be selected only while the active playthrough is in storyline mode
-and the current scenario step is `read-startup-card`. The storyline step still
+and the current scenario step is `understand-building`. The storyline step still
 owns the objective text, the allowed action set, and any completion condition
 such as reading or taking the card.
 

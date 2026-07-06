@@ -36,7 +36,7 @@ function buildHarness(mode = "storyline") {
   });
   const openedViews = [];
   setPlayMode(gameState, mode, mode === "storyline"
-    ? { scenarioId: "part-i-hydro-alpha", stepId: "intro" }
+    ? { scenarioId: "part-i-station", stepId: "understand-building" }
     : {});
   const storyline = useStoryline(storylineData, {
     gameState,
@@ -80,7 +80,7 @@ describe("hydro alpha play modes", () => {
 
     setIndoorLocation(harness, { room: "control-room" });
     await tick(harness);
-    expect(harness.storyline.activeStep.value.id).toBe("read-startup-card");
+    expect(harness.storyline.activeStep.value.id).toBe("understand-building");
     expect(filteredFacilityActionIds(harness)).toEqual(["action:read-hydro-startup-card"]);
 
     expect(handleIndoorPlayAction(harness.indoor, "action:read-hydro-startup-card")).toMatchObject({

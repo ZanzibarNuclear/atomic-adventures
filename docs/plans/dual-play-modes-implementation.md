@@ -157,14 +157,14 @@ player freedom.
 - [x] Persist completed step IDs and current step ID.
 - [x] Surface authoring errors clearly in development when the active step is
       missing or invalid.
-- [ ] Rename or reshape the alpha scenario from hydro-only startup to the full
+- [x] Rename or reshape the alpha scenario from hydro-only startup to the full
       Part I survival-to-power arc.
-- [ ] Replace the opening objective with
+- [x] Replace the opening objective with
       `Keep moving. Find something that can help you survive.`
-- [ ] Add early steps for forest movement, fence discovery, shortcut/gate
+- [x] Add early steps for forest movement, fence discovery, shortcut/gate
       branches, road discovery, station discovery, break-in, kitchen discovery,
       and first-crisis completion.
-- [ ] Keep hydro startup as the later "turn the power back on" objective arc.
+- [x] Keep hydro startup as the later "turn the power back on" objective arc.
 
 **Exit criterion:** Storyline steps advance from immediate survival through
 building discovery and then hydro startup without naming future discoveries too
@@ -181,13 +181,13 @@ rails.
 - [x] Have `useStoryline()` produce an action policy for the current step.
 - [x] Filter play-panel actions through the policy in Storyline mode.
 - [x] Block stage-view and item-action bypasses through the same policy.
-- [ ] Change Storyline movement handling so ordinary movement actions remain
+- [x] Change Storyline movement handling so ordinary movement actions remain
       visible when physically valid.
-- [ ] Add a story-forward prompt category that emphasizes the canonical action
+- [x] Add a story-forward prompt category that emphasizes the canonical action
       without suppressing valid detours.
-- [ ] Ensure a Storyline step always exposes at least one story-forward action
+- [x] Ensure a Storyline step always exposes at least one story-forward action
       when the player is at a valid story location.
-- [ ] Let known curiosity actions remain visible when they do not reveal future
+- [x] Let known curiosity actions remain visible when they do not reveal future
       discoveries.
 - [ ] Gate only nonmovement or story-sensitive actions that would reveal,
       complete, or mutate future story state out of order.
@@ -236,8 +236,8 @@ Zanzibar's thought, not a quest spoiler.
       console do not hide the objective in a confusing way.
 - [x] Keep the narrative card for prose; use objective UI for "what matters
       right now."
-- [ ] Revise objective copy to be internal and knowledge-limited.
-- [ ] Ensure early objectives never name the utility station, eBuggy, hydro
+- [x] Revise objective copy to be internal and knowledge-limited.
+- [x] Ensure early objectives never name the utility station, eBuggy, hydro
       system, startup card, or kitchen before discovery.
 - [ ] Surface wellbeing warnings clearly when wandering or strenuous actions
       push Zanzibar toward thirst, hunger, exhaustion, collapse, or death.
@@ -287,14 +287,15 @@ without manually copying IDs or hiding story logic in prose.
 
 ## Phase 9 - Hydro Startup Migration
 
-**Purpose:** Keep the hydro alpha path, but place it after survival and
+**Purpose:** Keep the hydro startup path, but place it after survival and
 discovery.
 
-- [x] Create `part-i-hydro-alpha` as the initial scenario scaffold.
+- [x] Create `part-i-opener` as the initial wilderness scenario and
+      `part-i-station` as the follow-on station scenario.
 - [x] Add hydro steps for reading the startup card, inspecting the intake,
       clear/open intake, align diversion valve, open turbine valve, return to
       control room, connect power, check console, and complete startup.
-- [ ] Rename/reframe the scenario as the broader Part I storyline or split the
+- [x] Rename/reframe the scenario as the broader Part I storyline or split the
       hydro startup into a later sub-arc.
 - [ ] Move hydro startup beat prose into storyline-scoped step beats or
       open-world ambient/discovery beats.

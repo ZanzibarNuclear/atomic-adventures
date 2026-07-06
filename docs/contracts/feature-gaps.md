@@ -33,7 +33,7 @@ tests, implementation map, and this list in the same change.
   switches, passages, and transitions.
 - Add Story Builder scenario authoring and reference-aware rename/delete support
   across Story Builder, World Builder, and Content Builder.
-- Migrate hydro alpha startup into a `part-i-hydro-alpha` scenario and keep
+- Migrate hydro startup into the `part-i-station` scenario and keep
   open-world hydro startup broad but physically valid.
 - Defer switching arbitrary open-world saves back into storyline until there is
   a dedicated rejoin contract.

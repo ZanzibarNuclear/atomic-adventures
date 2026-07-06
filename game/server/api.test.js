@@ -141,9 +141,13 @@ describe("story API", () => {
     expect(storylineRes.status).toBe(200);
     expect(storyline.storyline.id).toBe("storyline-main");
     expect(storyline.storyline.scenarios[0]).toEqual(expect.objectContaining({
-      id: "part-i-hydro-alpha",
+      id: "part-i-opener",
       defaultMode: "storyline",
-      startStep: "intro",
+      startStep: "survive-in-the-woods",
+    }));
+    expect(storyline.storyline.scenarios[1]).toEqual(expect.objectContaining({
+      id: "part-i-station",
+      startStep: "find-a-way-past-fence",
     }));
     expect(storylineRepository.validate(storyline.storyline).valid).toBe(true);
 

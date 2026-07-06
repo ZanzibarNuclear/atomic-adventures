@@ -3,10 +3,24 @@ import { validateStorylineDocument } from "./storyline-model.js";
 import { storylineSeed } from "./storyline-seed.js";
 
 const world = {
-  hexIds: new Set(["utility-yard"]),
-  roomIds: new Set(["control-room"]),
-  exteriorNodeIds: new Set(["intake-entrance", "upstream-bank"]),
-  mapTransitionIds: new Set(["garage-exit"]),
+  hexIds: new Set([
+    "east-pines",
+    "center-pines",
+    "north-bend",
+    "gate-woods",
+    "south-pines",
+    "west-slope",
+    "utility-yard",
+  ]),
+  roomIds: new Set(["large-bay", "garage-stair", "conference", "kitchen", "library", "control-room"]),
+  exteriorNodeIds: new Set([
+    "garage-front-entrance",
+    "large-bay-man-front",
+    "south-east-corner-entrance",
+    "intake-entrance",
+    "upstream-bank",
+  ]),
+  mapTransitionIds: new Set(["garage-exit", "man-door-path", "southeast-corner"]),
 };
 
 const character = {
@@ -27,7 +41,8 @@ describe("storyline model", () => {
     const result = validateStorylineDocument(storylineSeed, { world, character, learning });
     expect(result.valid).toBe(true);
     expect(result.storyline.id).toBe("storyline-main");
-    expect(result.storyline.scenarios[0].id).toBe("part-i-hydro-alpha");
+    expect(result.storyline.scenarios[0].id).toBe("part-i-opener");
+    expect(result.storyline.scenarios[1].id).toBe("part-i-station");
   });
 
   it("rejects unresolved movement references", () => {
@@ -54,6 +69,17 @@ describe("storyline model", () => {
     expect(result.valid).toBe(false);
     expect(result.errors["scenarios.0.steps.0.completesWhen"]).toContain(
       "Choose exactly one completion predicate.",
+    );
+  });
+
+  it("rejects unresolved scenario handoffs", () => {
+    const draft = structuredClone(storylineSeed);
+    draft.scenarios[0].steps.at(-1).nextScenario = "missing-scenario";
+
+    const result = validateStorylineDocument(draft, { world, character, learning });
+    expect(result.valid).toBe(false);
+    expect(result.errors["scenarios.0.steps.2.nextScenario"]).toContain(
+      "Choose an existing next scenario.",
     );
   });
 });

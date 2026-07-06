@@ -183,10 +183,31 @@ export function buildOutdoorBarrierFollowActions(outdoor, pendingBeat = null) {
     }));
 }
 
+export function buildOutdoorDirectMovementActions(outdoor, pendingBeat = null) {
+  const storyDests = storyChoiceDestinations(pendingBeat).hexes;
+  const routeDests = new Set((outdoor.moves ?? [])
+    .filter((move) => move.routeId)
+    .map((move) => move.toHexId));
+  const barrierDests = new Set(buildOutdoorBarrierFollowActions(outdoor, pendingBeat)
+    .map((action) => action.toHexId));
+
+  return (outdoor.directMoves ?? [])
+    .filter((move) => !storyDests.has(move.toHexId))
+    .filter((move) => !routeDests.has(move.toHexId))
+    .filter((move) => !barrierDests.has(move.toHexId))
+    .map((move) => ({
+      id: `move-hex:${move.toHexId}`,
+      toHexId: move.toHexId,
+      label: defaultMovementLabel(move),
+      kind: "move",
+    }));
+}
+
 export function buildOutdoorPlayActions(outdoor, pendingBeat = null) {
   return [
     ...buildOutdoorRouteActions(outdoor, pendingBeat),
     ...buildOutdoorBarrierFollowActions(outdoor, pendingBeat),
+    ...buildOutdoorDirectMovementActions(outdoor, pendingBeat),
     ...buildOutdoorSearchActions(outdoor),
     ...buildOutdoorPassageUnlockActions(outdoor),
     ...buildOutdoorPassageToggleActions(outdoor),
@@ -223,6 +244,10 @@ export function handleOutdoorChooseAction(
   }
   if (actionId.startsWith("route:") || actionId.startsWith("barrier:")) {
     travelToHex(actionId.slice(actionId.indexOf(":") + 1));
+    return;
+  }
+  if (actionId.startsWith("move-hex:")) {
+    travelToHex(actionId.slice("move-hex:".length));
     return;
   }
   if (actionId.startsWith("story:")) {

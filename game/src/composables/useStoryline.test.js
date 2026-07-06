@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { nextTick, reactive, ref } from "vue";
 import { createGameState, setPlayMode } from "./useGameState.js";
 import {
+  actionPromptCategory,
+  annotateActionPrompts,
   filterAllowedActions,
   isActionAllowed,
   isDestinationAllowed,
@@ -15,8 +17,8 @@ import { addItem } from "../lib/character/holdings.js";
 
 function scenario(overrides = {}) {
   return {
-    id: "part-i-hydro-alpha",
-    label: "Hydro Startup Storyline",
+    id: "part-i-opener",
+    label: "Part I Opener",
     defaultMode: "storyline",
     startStep: "intro",
     steps: [
@@ -70,7 +72,7 @@ function harness(storyline = { scenarios: [scenario()] }) {
     },
   };
   setPlayMode(gameState, "storyline", {
-    scenarioId: "part-i-hydro-alpha",
+    scenarioId: "part-i-opener",
     stepId: "intro",
     objective: "Get oriented.",
   });
@@ -94,7 +96,7 @@ describe("useStoryline", () => {
   it("resolves the active scenario, step, and objective", () => {
     const setup = harness();
 
-    expect(setup.api.activeScenario.value.id).toBe("part-i-hydro-alpha");
+    expect(setup.api.activeScenario.value.id).toBe("part-i-opener");
     expect(setup.api.activeStep.value.id).toBe("intro");
     expect(setup.api.currentObjective.value).toBe("Get oriented.");
     expect(setup.api.authoringError.value).toBe("");
@@ -110,6 +112,43 @@ describe("useStoryline", () => {
     expect(setup.gameState.storyline.completedStepIds).toContain("intro");
     expect(setup.gameState.storyline.stepId).toBe("read-card");
     expect(setup.api.currentObjective.value).toBe("Read the card.");
+  });
+
+  it("hands off to the next scenario at a storyline boundary", async () => {
+    const setup = harness({
+      scenarios: [
+        scenario({
+          steps: [{
+            id: "intro",
+            objective: "Reach the gate.",
+            allowed: {},
+            completesWhen: { flag: "story.at-gate" },
+            nextScenario: "part-i-station",
+          }],
+        }),
+        scenario({
+          id: "part-i-station",
+          label: "Part I Station",
+          startStep: "find-a-way-past-fence",
+          steps: [{
+            id: "find-a-way-past-fence",
+            objective: "Find a way past the fence.",
+            allowed: {},
+            completesWhen: { flag: "story.inside-fence" },
+            next: null,
+          }],
+        }),
+      ],
+    });
+
+    setup.gameState.flags.add("story.at-gate");
+    setup.api.tick();
+    await nextTick();
+
+    expect(setup.gameState.storyline.completedStepIds).toContain("intro");
+    expect(setup.gameState.storyline.scenarioId).toBe("part-i-station");
+    expect(setup.gameState.storyline.stepId).toBe("find-a-way-past-fence");
+    expect(setup.api.currentObjective.value).toBe("Find a way past the fence.");
   });
 
   it("applies onEnter effects once per step", () => {
@@ -215,6 +254,8 @@ describe("useStoryline", () => {
           transitions: [],
         },
         storyChoices: ["story:0"],
+        storyForwardActions: ["action:clear-intake-debris"],
+        optionalActions: ["action:optional-lookaround"],
         stageViews: [{ kind: "console", id: "hydro" }],
         indoorActions: ["clear-intake-debris", "door-open:control-room-door"],
         outdoorActions: ["search:barrier"],
@@ -243,6 +284,7 @@ describe("useStoryline", () => {
     ], policy).map((action) => action.id)).toEqual([
       "story:0",
       "action:clear-intake-debris",
+      "action:optional-lookaround",
       "door-open:control-room-door",
       "search:barrier",
       "hydro-console:open",
@@ -251,6 +293,28 @@ describe("useStoryline", () => {
       "move-stand:window",
       "route:east-pines",
     ]);
+
+    expect(actionPromptCategory({ id: "action:clear-intake-debris" }, policy)).toBe("story-forward");
+    expect(actionPromptCategory({ id: "action:optional-lookaround" }, policy)).toBe("optional");
+    expect(annotateActionPrompts([{ id: "search:barrier" }], policy)).toEqual([
+      { id: "search:barrier", promptCategory: "ordinary" },
+    ]);
+  });
+
+  it("classifies story-forward movement by destination without suppressing detours", () => {
+    const policy = {
+      mode: "storyline",
+      unrestricted: false,
+      allowed: {
+        movement: { hexes: ["east-pines"], rooms: ["control-room"], exteriorNodes: ["upstream-bank"] },
+      },
+    };
+
+    expect(isActionAllowed("move-hex:lower-stand", policy)).toBe(true);
+    expect(actionPromptCategory({ id: "move-hex:east-pines", toHexId: "east-pines" }, policy)).toBe("story-forward");
+    expect(actionPromptCategory({ id: "move-hex:lower-stand", toHexId: "lower-stand" }, policy)).toBe("ordinary");
+    expect(actionPromptCategory({ id: "move-room:control-room" }, policy)).toBe("story-forward");
+    expect(actionPromptCategory({ id: "move-exterior:upstream-bank" }, policy)).toBe("story-forward");
   });
 
   it("keeps ordinary movement destinations available in storyline mode", () => {

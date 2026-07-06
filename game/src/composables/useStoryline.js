@@ -98,9 +98,15 @@ export function useStoryline(storylineData, {
       completed.add(step.id);
       gameState.storyline.completedStepIds = [...completed];
     }
-    const nextStep = step.next
-      ? scenario.steps?.find((candidate) => candidate.id === step.next) ?? null
+    const nextScenario = step.nextScenario
+      ? scenarios.value.find((candidate) => candidate.id === step.nextScenario) ?? null
       : null;
+    const nextStep = nextScenario
+      ? nextScenario.steps?.find((candidate) => candidate.id === nextScenario.startStep) ?? null
+      : step.next
+        ? scenario.steps?.find((candidate) => candidate.id === step.next) ?? null
+        : null;
+    if (nextScenario) gameState.storyline.scenarioId = nextScenario.id;
     gameState.storyline.stepId = nextStep?.id ?? null;
     gameState.storyline.objective = nextStep?.objective ?? null;
   }
@@ -189,6 +195,34 @@ export function filterAllowedActions(actions = [], policy, context = {}) {
   return actions.filter((action) => isActionAllowed(action, policy, context));
 }
 
+export function actionPromptCategory(action, policy) {
+  if (!policy || policy.unrestricted || policy.mode !== "storyline") return "ordinary";
+  if (isStoryForwardAction(action, policy)) return "story-forward";
+  if (isOptionalAction(action, policy)) return "optional";
+  return "ordinary";
+}
+
+export function annotateActionPrompts(actions = [], policy) {
+  return actions.map((action) => ({
+    ...action,
+    promptCategory: actionPromptCategory(action, policy),
+  }));
+}
+
+export function isStoryForwardAction(action, policy) {
+  if (!policy || policy.unrestricted || policy.mode !== "storyline") return false;
+  const actionId = typeof action === "string" ? action : action?.id;
+  const allowed = policy.allowed ?? {};
+  return actionIdMatchesAllowed(actionId, allowed.storyForwardActions) ||
+    actionMatchesMovement(action, allowed.movement);
+}
+
+export function isOptionalAction(action, policy) {
+  if (!policy || policy.unrestricted || policy.mode !== "storyline") return false;
+  const actionId = typeof action === "string" ? action : action?.id;
+  return actionIdMatchesAllowed(actionId, policy.allowed?.optionalActions);
+}
+
 export function isActionAllowed(action, policy, context = {}) {
   if (!policy || policy.unrestricted || policy.mode !== "storyline") return true;
   const actionId = typeof action === "string" ? action : action?.id;
@@ -198,7 +232,7 @@ export function isActionAllowed(action, policy, context = {}) {
   if (isStageViewAllowed(policy, action)) return true;
 
   if (actionId.startsWith("story:")) return listIncludes(allowed.storyChoices, actionId);
-  if (actionId.startsWith("route:") || actionId.startsWith("barrier:")) {
+  if (actionId.startsWith("route:") || actionId.startsWith("barrier:") || actionId.startsWith("move-hex:")) {
     return true;
   }
   if (actionId.startsWith("move-room:")) {
@@ -281,7 +315,9 @@ function isExplicitlyAllowed(actionId, allowed) {
     listIncludes(allowed.outdoorActions, actionId) ||
     listIncludes(allowed.storyChoices, actionId) ||
     listIncludes(allowed.itemActions, actionId) ||
-    listIncludes(allowed.developerActions, actionId);
+    listIncludes(allowed.developerActions, actionId) ||
+    actionIdMatchesAllowed(actionId, allowed.storyForwardActions) ||
+    actionIdMatchesAllowed(actionId, allowed.optionalActions);
 }
 
 function itemActionAllowed(allowed, itemId, actionId) {
@@ -292,6 +328,36 @@ function itemActionAllowed(allowed, itemId, actionId) {
 
 function listIncludes(list, value) {
   return Array.isArray(list) && list.includes(value);
+}
+
+function actionIdMatchesAllowed(actionId, allowedIds = []) {
+  if (!actionId || !Array.isArray(allowedIds)) return false;
+  if (allowedIds.includes(actionId)) return true;
+  if (actionId.startsWith("action:") && allowedIds.includes(actionId.slice("action:".length))) return true;
+  if (actionId.startsWith("item-action:") && allowedIds.includes(actionId.slice("item-action:".length))) return true;
+  return false;
+}
+
+function actionMatchesMovement(action, movement = {}) {
+  if (!movement) return false;
+  const actionId = typeof action === "string" ? action : action?.id;
+  if (!actionId) return false;
+  const target = typeof action === "string" ? null : action;
+  if (actionId.startsWith("story:") && target?.toHexId) return listIncludes(movement.hexes, target.toHexId);
+  if (actionId.startsWith("route:") || actionId.startsWith("barrier:") || actionId.startsWith("move-hex:")) {
+    const hexId = target?.toHexId ?? actionId.slice(actionId.indexOf(":") + 1);
+    return listIncludes(movement.hexes, hexId);
+  }
+  if (actionId.startsWith("move-room:")) {
+    return listIncludes(movement.rooms, actionId.slice("move-room:".length));
+  }
+  if (actionId.startsWith("move-exterior:")) {
+    return listIncludes(movement.exteriorNodes, actionId.slice("move-exterior:".length));
+  }
+  if (actionId.startsWith("exit-world:")) {
+    return listIncludes(movement.transitions, actionId.slice("exit-world:".length));
+  }
+  return false;
 }
 
 function facilityMatches(facilities, expected) {

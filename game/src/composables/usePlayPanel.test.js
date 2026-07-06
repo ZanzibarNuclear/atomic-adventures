@@ -8,6 +8,7 @@ import {
 import {
   getMovementOptions,
   buildOutdoorBarrierFollowActions,
+  buildOutdoorDirectMovementActions,
   buildOutdoorPlayActions,
   buildOutdoorRouteActions,
   buildOutdoorSearchActions,
@@ -223,6 +224,16 @@ describe('getMovementOptions', () => {
     )
   })
 
+  it('offers direct outdoor movement actions for reachable non-route moves', () => {
+    const outdoor = useOutdoorWorld(mapData)
+    outdoor.state.currentId = 'origin'
+    outdoor.state.stand = outdoor.defaultStandForHex('origin')
+
+    expect(buildOutdoorDirectMovementActions(outdoor).map((action) => action.id)).toContain(
+      'move-hex:east-pines',
+    )
+  })
+
   it('lets story choices replace route actions to the same destination', () => {
     const outdoor = useOutdoorWorld(mapData)
     outdoor.state.currentId = 'road-fork'
@@ -264,6 +275,7 @@ describe('getMovementOptions', () => {
     handleOutdoorPlayAction(outdoor, 'passage:south-pines-hole')
     handleOutdoorPlayAction(outdoor, 'route:gate-woods')
     handleOutdoorPlayAction(outdoor, 'barrier:utility-yard')
+    handleOutdoorPlayAction(outdoor, 'move-hex:east-pines')
 
     expect(calls).toEqual([
       'search',
@@ -271,6 +283,7 @@ describe('getMovementOptions', () => {
       'passage:south-pines-hole',
       'move:gate-woods',
       'move:utility-yard',
+      'move:east-pines',
     ])
   })
 

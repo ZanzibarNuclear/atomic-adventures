@@ -21,7 +21,7 @@ import {
 
 export const SAVE_VERSION = 10;
 export const DEFAULT_PLAY_MODE = "storyline";
-export const STORYLINE_SCENARIO_ID = "part-i-hydro-alpha";
+export const STORYLINE_SCENARIO_ID = "part-i-opener";
 const PLAY_MODES = new Set(["storyline", "open-world"]);
 
 /** Plain JSON-safe clone — structuredClone fails on Vue reactive proxies. */

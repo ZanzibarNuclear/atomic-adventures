@@ -67,9 +67,9 @@ progress:
 {
   playMode: "storyline" | "open-world",
   storyline: {
-    scenarioId: "part-i-zanzibar-alpha",
+    scenarioId: "part-i-opener",
     stepId: "survive-in-the-woods",
-    completedStepIds: ["intro"],
+    completedStepIds: [],
     objective: "Keep moving. Find something that can help you survive."
   }
 }
@@ -109,14 +109,15 @@ A storyline scenario is an authored document in SQLite, exported to production
 runtime JSON with the rest of content. Storyline YAML is an import/export
 snapshot format only.
 
-The alpha scenario document should be coarse-grained like the existing world
-and character documents:
+The alpha storyline documents should be coarse-grained like the existing world
+and character documents. Story arc IDs use story-facing names, not software
+phase names:
 
 ```yaml
-id: part-i-hydro-alpha
-label: Zanzibar Part I Storyline
+id: part-i-opener
+label: Part I Opener
 defaultMode: storyline
-startStep: intro
+startStep: survive-in-the-woods
 
 steps:
   - id: survive-in-the-woods
@@ -131,7 +132,7 @@ steps:
         - stage:inventory
     completesWhen:
       location: { place: outdoors, hex: gate-woods }
-    next: find-a-way-through
+    nextScenario: part-i-station
 ```
 
 Field meanings:
@@ -156,6 +157,7 @@ Step meanings:
 | `onEnter` | Optional effects, stage view, movement, or time passage when the step starts. |
 | `onComplete` | Optional effects, stage view, movement, or time passage after completion. |
 | `next` | Next step ID, or null for scenario completion. |
+| `nextScenario` | Optional handoff to another scenario's `startStep`, used at story arc boundaries such as the gate. |
 
 ## Completion Predicates
 
@@ -275,7 +277,7 @@ Story beats remain the prose layer described in
 
 ```yaml
 modes: [storyline]
-storylineStep: read-startup-card
+storylineStep: understand-building
 ```
 
 Rules:

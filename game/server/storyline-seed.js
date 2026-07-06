@@ -2,23 +2,126 @@ export const storylineSeed = {
   id: "storyline-main",
   scenarios: [
     {
-      id: "part-i-hydro-alpha",
-      label: "Zanzibar Part I Storyline",
+      id: "part-i-opener",
+      label: "Part I Opener",
       defaultMode: "storyline",
-      startStep: "intro",
+      startStep: "survive-in-the-woods",
       steps: [
         {
-          id: "intro",
+          id: "survive-in-the-woods",
           objective: "Keep moving. Find something that can help you survive.",
-          allowed: { movement: { mode: "unrestricted" } },
-          completesWhen: { location: { place: "indoors", room: "control-room" } },
-          next: "read-startup-card",
+          allowed: {
+            movement: { mode: "unrestricted", hexes: ["east-pines"] },
+            storyForwardActions: ["move-hex:east-pines"],
+          },
+          completesWhen: { location: { place: "outdoors", hex: "east-pines" } },
+          next: "keep-moving-west",
         },
         {
-          id: "read-startup-card",
-          objective: "Read the laminated startup card.",
+          id: "keep-moving-west",
+          objective: "Keep moving. Stay across the slope.",
+          allowed: {
+            movement: { mode: "unrestricted", hexes: ["center-pines"] },
+            storyForwardActions: ["move-hex:center-pines"],
+          },
+          completesWhen: { location: { place: "outdoors", hex: "center-pines" } },
+          next: "reach-the-gate",
+        },
+        {
+          id: "reach-the-gate",
+          objective: "Follow the fence. Find where it leads.",
+          allowed: {
+            movement: {
+              mode: "unrestricted",
+              hexes: ["north-bend", "gate-woods"],
+            },
+            storyForwardActions: ["move-hex:north-bend", "route:gate-woods", "move-hex:gate-woods"],
+          },
+          completesWhen: { location: { place: "outdoors", hex: "gate-woods" } },
+          nextScenario: "part-i-station",
+        },
+      ],
+    },
+    {
+      id: "part-i-station",
+      label: "Part I Station",
+      defaultMode: "storyline",
+      startStep: "find-a-way-past-fence",
+      steps: [
+        {
+          id: "find-a-way-past-fence",
+          objective: "Find a way past the fence.",
+          allowed: {
+            movement: {
+              mode: "unrestricted",
+              hexes: ["south-pines", "west-slope", "utility-yard"],
+            },
+            storyForwardActions: [
+              "passage-toggle:compound-gate",
+              "passage:compound-gate",
+              "search:barrier",
+              "passage:south-pines-hole",
+              "move-hex:west-slope",
+              "route:utility-yard",
+              "move-hex:utility-yard",
+              "barrier:utility-yard",
+            ],
+            outdoorActions: [
+              "search:barrier",
+              "passage-toggle:compound-gate",
+              "passage:compound-gate",
+              "passage:south-pines-hole",
+            ],
+          },
+          completesWhen: { location: { place: "outdoors", hex: "utility-yard" } },
+          next: "look-for-shelter",
+        },
+        {
+          id: "look-for-shelter",
+          objective: "Look for shelter before you run out of light.",
+          allowed: {
+            movement: {
+              mode: "local-area",
+              exteriorNodes: ["garage-front-entrance", "large-bay-man-front", "south-east-corner-entrance"],
+              transitions: ["garage-exit", "man-door-path", "southeast-corner"],
+            },
+            storyForwardActions: [
+              "move-exterior:large-bay-man-front",
+              "door-break:large-bay-man",
+              "door-open:large-bay-man",
+              "move-room:large-bay",
+            ],
+            indoorActions: ["door-break:large-bay-man", "door-open:large-bay-man"],
+          },
+          completesWhen: { location: { place: "indoors", room: "large-bay" } },
+          next: "solve-first-crisis",
+        },
+        {
+          id: "solve-first-crisis",
+          objective: "Find food, water, and somewhere safe to rest.",
+          allowed: {
+            movement: {
+              mode: "local-area",
+              rooms: ["garage-stair", "conference", "kitchen", "library"],
+            },
+            storyForwardActions: [
+              "move-room:kitchen",
+              "action:eat-rations",
+              "action:purify-water",
+              "move-room:library",
+              "action:rest-in-library",
+            ],
+            indoorActions: ["eat-rations", "purify-water", "rest-in-library"],
+          },
+          completesWhen: { flag: "day1.complete" },
+          next: "understand-building",
+        },
+        {
+          id: "understand-building",
+          objective: "Figure out what this building was for.",
           allowed: {
             movement: { mode: "local-area", rooms: ["control-room"] },
+            storyForwardActions: ["move-room:control-room", "action:read-hydro-startup-card"],
             stageViews: [{ kind: "document", id: "hydro-startup-instruction-card" }],
             indoorActions: ["read-hydro-startup-card"],
             itemActions: ["hydro-startup-instruction-card.read"],
@@ -28,13 +131,14 @@ export const storylineSeed = {
         },
         {
           id: "inspect-intake",
-          objective: "Go to the intake and inspect the water path upstream.",
+          objective: "Trace the water path outside.",
           allowed: {
             movement: {
               mode: "local-area",
               hexes: ["utility-yard"],
               exteriorNodes: ["upstream-bank", "intake-entrance"],
             },
+            storyForwardActions: ["move-exterior:upstream-bank", "move-exterior:intake-entrance"],
           },
           completesWhen: { location: { place: "indoors", exteriorNode: "upstream-bank" } },
           next: "clear-open-intake",
@@ -44,6 +148,7 @@ export const storylineSeed = {
           objective: "Clear debris and open the intake.",
           allowed: {
             movement: { mode: "local-area" },
+            storyForwardActions: ["action:clear-intake-debris", "action:open-intake"],
             indoorActions: ["clear-intake-debris", "open-intake"],
           },
           completesWhen: { facility: { "hydro.intakeOpen": true } },
@@ -54,6 +159,7 @@ export const storylineSeed = {
           objective: "Align the upstream diversion valve.",
           allowed: {
             movement: { mode: "local-area" },
+            storyForwardActions: ["move-exterior:midstream-bank", "action:align-pipeflow"],
             indoorActions: ["align-pipeflow"],
           },
           completesWhen: { facility: { "hydro.manualValves.upstreamOpen": true } },
@@ -64,6 +170,7 @@ export const storylineSeed = {
           objective: "Open the powerhouse pipe valve.",
           allowed: {
             movement: { mode: "local-area" },
+            storyForwardActions: ["move-exterior:downstream-bank", "action:open-turbine-valve"],
             indoorActions: ["open-turbine-valve"],
           },
           completesWhen: { facility: { "hydro.manualValves.powerhouseOpen": true } },
@@ -77,6 +184,7 @@ export const storylineSeed = {
               mode: "local-area",
               rooms: ["control-room"],
             },
+            storyForwardActions: ["move-room:control-room"],
           },
           completesWhen: { location: { place: "indoors", room: "control-room" } },
           next: "connect-power",
@@ -86,6 +194,7 @@ export const storylineSeed = {
           objective: "Connect station power.",
           allowed: {
             movement: { mode: "current-location-only" },
+            storyForwardActions: ["action:connect-power"],
             indoorActions: ["connect-power"],
           },
           completesWhen: { facility: { "hydro.online": true } },
@@ -96,6 +205,7 @@ export const storylineSeed = {
           objective: "Check the generator console.",
           allowed: {
             movement: { mode: "current-location-only" },
+            storyForwardActions: ["hydro-console:open"],
             stageViews: [{ kind: "console", id: "hydro" }],
           },
           onEnter: {

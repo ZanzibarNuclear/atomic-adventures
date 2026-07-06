@@ -36,7 +36,7 @@ export function validateStorylineDocument(input, {
 
   if (storyline.id !== "storyline-main") add("id", 'Storyline document ID must be "storyline-main".');
   if (!storyline.scenarios.length) add("scenarios", "Add at least one storyline scenario.");
-  validateIds(storyline.scenarios, "scenarios", add);
+  const scenarioIds = validateIds(storyline.scenarios, "scenarios", add);
 
   storyline.scenarios.forEach((scenario, scenarioIndex) => {
     const base = `scenarios.${scenarioIndex}`;
@@ -53,6 +53,10 @@ export function validateStorylineDocument(input, {
         add(`${stepBase}.beat`, "Choose an existing story beat.");
       }
       if (step.next && !stepIds.has(step.next)) add(`${stepBase}.next`, "Choose an existing next step.");
+      if (step.next && step.nextScenario) add(`${stepBase}.next`, "Choose either a next step or next scenario, not both.");
+      if (step.nextScenario && !scenarioIds.has(step.nextScenario)) {
+        add(`${stepBase}.nextScenario`, "Choose an existing next scenario.");
+      }
       validateAllowed(step.allowed, `${stepBase}.allowed`, add, { world });
       validateCompletion(step.completesWhen, `${stepBase}.completesWhen`, add, {
         world,
@@ -92,6 +96,7 @@ function normalizeStep(input = {}, index = 0) {
     onEnter: normalizeStepEffect(input.onEnter),
     onComplete: normalizeStepEffect(input.onComplete),
     next: nullableText(input.next),
+    nextScenario: nullableText(input.nextScenario),
   };
 }
 
@@ -104,6 +109,8 @@ function normalizeAllowed(input = {}) {
       exteriorNodes: stringList(input.movement?.exteriorNodes),
       transitions: stringList(input.movement?.transitions),
     },
+    storyForwardActions: stringList(input.storyForwardActions),
+    optionalActions: stringList(input.optionalActions),
     storyChoices: stringList(input.storyChoices),
     stageViews: array(input.stageViews).map(normalizeStageView),
     indoorActions: stringList(input.indoorActions),
@@ -193,6 +200,8 @@ function validateAllowed(allowed, path, add, { world }) {
     add,
     "map transition",
   );
+  validateActionIds(allowed.storyForwardActions, `${path}.storyForwardActions`, add);
+  validateActionIds(allowed.optionalActions, `${path}.optionalActions`, add);
   allowed.stageViews.forEach((view, index) => validateStageView(view, `${path}.stageViews.${index}`, add));
 }
 
@@ -247,6 +256,14 @@ function validateLocation(location, path, add, { world }) {
 function validateStageView(view, path, add) {
   if (!view) return;
   if (!STAGE_VIEW_KINDS.has(view.kind)) add(`${path}.kind`, "Choose a supported stage view.");
+}
+
+function validateActionIds(ids, path, add) {
+  ids.forEach((id, index) => {
+    if (!id.includes(":")) {
+      add(`${path}.${index}`, "Use a normalized action ID with a category prefix.");
+    }
+  });
 }
 
 function validateWorldIds(ids, catalog, path, add, label) {

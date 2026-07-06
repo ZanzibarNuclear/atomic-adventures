@@ -16,12 +16,24 @@
   <StatusLines :lines="statusLines" />
 
   <PlayPanel v-if="filteredActions.length">
-    <ActionOptions v-if="filteredActions.length" label="Choose an Action">
+    <ActionOptions v-if="storyForwardActions.length" label="Story Forward">
       <button
-        v-for="item in filteredActions"
+        v-for="item in storyForwardActions"
         :key="item.id"
         class="route-btn"
-        :class="item.kind ? 'k-' + item.kind : null"
+        :class="[item.kind ? 'k-' + item.kind : null, 'story-forward-action']"
+        :disabled="indoor.indoor.moving || item.disabled"
+        :title="item.hint ?? ''"
+        @click="onAction(item.id)">
+        {{ item.label }}
+      </button>
+    </ActionOptions>
+    <ActionOptions v-if="otherActions.length" label="Choose an Action">
+      <button
+        v-for="item in otherActions"
+        :key="item.id"
+        class="route-btn"
+        :class="[item.kind ? 'k-' + item.kind : null, item.promptCategory === 'optional' ? 'optional-action' : null]"
         :disabled="indoor.indoor.moving || item.disabled"
         :title="item.hint ?? ''"
         @click="onAction(item.id)">
@@ -50,6 +62,7 @@ import {
   handleIndoorPlayAction,
 } from "../../../composables/usePlayPanel.js";
 import {
+  annotateActionPrompts,
   filterAllowedActions,
   isActionAllowed,
   isDestinationAllowed,
@@ -94,7 +107,13 @@ const actions = computed(() => [
   ...playActions.value,
 ]);
 const filteredActions = computed(() =>
-  filterAllowedActions(actions.value, props.actionPolicy),
+  annotateActionPrompts(filterAllowedActions(actions.value, props.actionPolicy), props.actionPolicy),
+);
+const storyForwardActions = computed(() =>
+  filteredActions.value.filter((action) => action.promptCategory === "story-forward"),
+);
+const otherActions = computed(() =>
+  filteredActions.value.filter((action) => action.promptCategory !== "story-forward"),
 );
 
 function onAction(id) {
@@ -187,5 +206,12 @@ function isDoorActionAllowed(doorId) {
   letter-spacing: 0;
   opacity: 0.82;
   text-align: right;
+}
+.story-forward-action {
+  border-color: rgba(139, 196, 154, 0.7);
+  background: rgba(83, 125, 94, 0.24);
+}
+.optional-action {
+  opacity: 0.92;
 }
 </style>

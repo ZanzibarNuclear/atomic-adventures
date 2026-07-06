@@ -731,17 +731,17 @@ describe("useStory reactive content", () => {
           ...beat,
           text: "Card text",
           modes: ["storyline"],
-          storylineStep: "read-startup-card",
+          storylineStep: "understand-building",
         },
       },
     });
 
     setup.gameState.playMode = "storyline";
     setup.gameState.storyline = {
-      scenarioId: "part-i-hydro-alpha",
-      stepId: "read-startup-card",
+      scenarioId: "part-i-station",
+      stepId: "understand-building",
       completedStepIds: [],
-      objective: "Read the laminated startup card.",
+      objective: "Figure out what this building was for.",
     };
     setup.api.refreshNarrative();
 
