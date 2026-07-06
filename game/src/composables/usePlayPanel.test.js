@@ -294,7 +294,7 @@ describe('getMovementOptions', () => {
     )
   })
 
-  it('keeps route actions visible beside story choices to the same destination', () => {
+  it('omits generated outdoor movement actions beside story choices to the same destination', () => {
     const outdoor = useOutdoorWorld(mapData)
     outdoor.state.currentId = 'road-fork'
     outdoor.state.stand = outdoor.defaultStandForHex('road-fork')
@@ -304,8 +304,24 @@ describe('getMovementOptions', () => {
 
     const actions = buildOutdoorRouteActions(outdoor, pendingBeat)
 
-    expect(actions.map((action) => action.toHexId)).toContain('gate-woods')
+    expect(actions.map((action) => action.toHexId)).not.toContain('gate-woods')
     expect(actions.map((action) => action.toHexId)).toContain('upper-gorge')
+  })
+
+  it('omits generated direct outdoor movement beside story choices to the same destination', () => {
+    const pendingBeat = {
+      choices: [{ text: 'Keep walking west', go_hex: 'east-pines' }],
+    }
+    const outdoor = outdoorAt('origin')
+
+    const actions = [
+      ...getMovementOptions(outdoor, pendingBeat),
+      ...buildOutdoorPlayActions(outdoor, pendingBeat),
+    ]
+
+    expect(actions.map((action) => action.id)).toContain('story:0')
+    expect(actions.map((action) => action.id)).not.toContain('move-hex:east-pines')
+    expect(actions.map((action) => action.label)).not.toContain('Go west')
   })
 
   it('offers barrier-following actions with barrier direction', () => {
@@ -801,7 +817,7 @@ describe('getMovementOptions', () => {
     expect(labels.join(' ')).not.toMatch(/west room|east room/i)
   })
 
-  it('keeps indoor movement visible beside matching story choices', () => {
+  it('omits generated indoor movement beside matching story choices', () => {
     const indoor = {
       indoorMoves: [
         {
@@ -823,7 +839,6 @@ describe('getMovementOptions', () => {
     }
 
     expect(buildIndoorMovementActions(indoor, pendingBeat).map((action) => action.id)).toEqual([
-      'move-exterior:north-east-corner',
       'move-exterior:small-bay-roll-front',
     ])
   })

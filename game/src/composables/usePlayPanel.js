@@ -79,12 +79,15 @@ export function defaultMovementLabel(move) {
 export function storyChoiceDestinations(pendingBeat) {
   const hexes = new Set();
   const rooms = new Set();
+  const exteriorNodes = new Set();
   for (const choice of pendingBeat?.choices ?? []) {
+    if (choice.disabled) continue;
     if (choice.go_hex) hexes.add(choice.go_hex);
     if (choice.go_room) rooms.add(choice.go_room);
+    if (choice.go_exterior_node) exteriorNodes.add(choice.go_exterior_node);
     if (choice.enter) hexes.add("__enter__");
   }
-  return { hexes, rooms };
+  return { hexes, rooms, exteriorNodes };
 }
 
 export function buildOutdoorSearchActions(outdoor) {
@@ -145,9 +148,10 @@ function barrierName(kind) {
 }
 
 export function buildOutdoorRouteActions(outdoor, pendingBeat = null) {
-  void pendingBeat;
+  const storyDests = storyChoiceDestinations(pendingBeat);
   return (outdoor.moves ?? [])
     .filter((move) => move.routeId)
+    .filter((move) => !storyDests.hexes.has(move.toHexId))
     .map((move) => ({
       id: `route:${move.toHexId}`,
       toHexId: move.toHexId,
@@ -157,7 +161,7 @@ export function buildOutdoorRouteActions(outdoor, pendingBeat = null) {
 }
 
 export function buildOutdoorBarrierFollowActions(outdoor, pendingBeat = null) {
-  void pendingBeat;
+  const storyDests = storyChoiceDestinations(pendingBeat);
   const currentBarrier =
     outdoor.barrierHintAtStand?.() ??
     outdoor.state?.atBarrier ??
@@ -166,6 +170,7 @@ export function buildOutdoorBarrierFollowActions(outdoor, pendingBeat = null) {
   if (!currentBarrier) return [];
 
   return (outdoor.directMoves ?? [])
+    .filter((move) => !storyDests.hexes.has(move.toHexId))
     .filter((move) => {
       const preview = outdoor.previewMove?.(move.toHexId);
       if (!preview || preview.result?.activeHexId !== move.toHexId) return false;
@@ -186,7 +191,7 @@ export function buildOutdoorBarrierFollowActions(outdoor, pendingBeat = null) {
 }
 
 export function buildOutdoorDirectMovementActions(outdoor, pendingBeat = null) {
-  void pendingBeat;
+  const storyDests = storyChoiceDestinations(pendingBeat);
   const routeDests = new Set((outdoor.moves ?? [])
     .filter((move) => move.routeId)
     .map((move) => move.toHexId));
@@ -196,6 +201,7 @@ export function buildOutdoorDirectMovementActions(outdoor, pendingBeat = null) {
   return (outdoor.directMoves ?? [])
     .filter((move) => !routeDests.has(move.toHexId))
     .filter((move) => !barrierDests.has(move.toHexId))
+    .filter((move) => !storyDests.hexes.has(move.toHexId))
     .map((move) => ({
       id: `move-hex:${move.toHexId}`,
       toHexId: move.toHexId,
@@ -480,10 +486,12 @@ function isDescendingStairs(indoor, move) {
 }
 
 export function buildIndoorMovementActions(indoor, pendingBeat = null) {
-  void pendingBeat;
+  const storyDests = storyChoiceDestinations(pendingBeat);
   const moves = indoor.indoorMoves ?? [];
   return moves
     .filter((move) => move.toExteriorNode || move.toStandId || move.toRoomId)
+    .filter((move) => !move.toRoomId || !storyDests.rooms.has(move.toRoomId))
+    .filter((move) => !move.toExteriorNode || !storyDests.exteriorNodes.has(move.toExteriorNode))
     .map((move) => {
       if (move.toExteriorNode) {
         return {
