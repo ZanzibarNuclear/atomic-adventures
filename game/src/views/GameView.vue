@@ -439,6 +439,23 @@ function handleSetStationPowerOverride(on) {
   if (result.ok) refreshNarrative();
 }
 
+function handleSetVital({ id, value }) {
+  const definition = gameState.character.definitions.stats?.find((stat) => stat.id === id);
+  if (!definition) return;
+  const min = Number.isFinite(Number(definition.min)) ? Number(definition.min) : 0;
+  const max = Number.isFinite(Number(definition.max)) ? Number(definition.max) : 100;
+  const next = Math.min(max, Math.max(min, Number(value)));
+  if (!Number.isFinite(next)) return;
+  gameState.character.stats[id] = next;
+  markCharacterChanged(gameState.character);
+  refreshNarrative();
+}
+
+function handleAdjustVital({ id, delta }) {
+  const current = Number(gameState.character.stats?.[id] ?? 0);
+  handleSetVital({ id, value: current + Number(delta) });
+}
+
 function handleUseItem({ itemId, actionId }) {
   if (!isActionAllowed(`item-action:${itemId}.${actionId}`, storylineActionPolicy.value, {
     itemId,
@@ -489,7 +506,10 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
     <DeveloperSettingsDialog
       v-if="developerSettingsVisible"
       :station-power-on="stationPowerOverrideOn"
+      :vitals="wellbeingOverview.vitals"
       @set-station-power="handleSetStationPowerOverride"
+      @set-vital="handleSetVital"
+      @adjust-vital="handleAdjustVital"
       @close="developerSettingsVisible = false" />
 
     <VitalsMonitorDialog
