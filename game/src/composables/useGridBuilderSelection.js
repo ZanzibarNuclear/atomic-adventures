@@ -397,8 +397,10 @@ export function useGridBuilderSelection({
         return;
       }
     }
-    const summary = references.length
-      ? `\n\n${references.length} story reference(s) will also be updated.`
+    const lines = references.slice(0, 8).map(referenceLabel);
+    const overflow = references.length - lines.length;
+    const summary = lines.length
+      ? `\n\nReferences to update:\n${lines.join("\n")}${overflow > 0 ? `\n...and ${overflow} more` : ""}`
       : "";
     if (!window.confirm(`Rename "${selected.id}" to "${next}"?${summary}`)) return;
     const from = selected.id;
@@ -487,4 +489,14 @@ export function useGridBuilderSelection({
     renameSelected,
     cascadeLocalRename,
   };
+}
+
+function referenceLabel(reference) {
+  if (reference.kind === "storyline") {
+    return `storyline ${reference.scenarioId}/${reference.stepId}: ${reference.path}`;
+  }
+  if (reference.kind === "story") {
+    return `${reference.areaId}/${reference.beatId}: ${reference.path}`;
+  }
+  return reference.path;
 }

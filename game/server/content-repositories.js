@@ -34,9 +34,11 @@ export function createContentRepositories(db) {
     learningRepository,
   });
   worldRepository.setStoryRepository(storyRepository);
+  worldRepository.setStorylineRepository(storylineRepository);
   buildingRepository.setRepositories({
     worldRepository,
     storyRepository,
+    storylineRepository,
     characterRepository,
   });
   learningRepository.setCharacterRepository(characterRepository);

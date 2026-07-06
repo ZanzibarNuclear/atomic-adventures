@@ -28,12 +28,17 @@ export function collectWorldHexReferences(world, from) {
 }
 
 export class ContentReferenceService {
-  constructor({ storyRepository = null } = {}) {
+  constructor({ storyRepository = null, storylineRepository = null } = {}) {
     this.storyRepository = storyRepository;
+    this.storylineRepository = storylineRepository;
   }
 
   setStoryRepository(repository) {
     this.storyRepository = repository;
+  }
+
+  setStorylineRepository(repository) {
+    this.storylineRepository = repository;
   }
 
   previewHexRename(world, from, to) {
@@ -43,6 +48,7 @@ export class ContentReferenceService {
       references: [
         ...collectWorldHexReferences(world, from),
         ...(this.storyRepository?.findHexReferences(from) ?? []),
+        ...(this.storylineRepository?.findHexReferences(from) ?? []),
       ],
     };
   }
@@ -52,26 +58,47 @@ export class ContentReferenceService {
       kind,
       from,
       to,
-      references: this.storyRepository?.findBuildingReferences(kind, from) ?? [],
+      references: [
+        ...(this.storyRepository?.findBuildingReferences(kind, from) ?? []),
+        ...(this.storylineRepository?.findBuildingReferences(kind, from) ?? []),
+      ],
       building,
     };
   }
 
   validateWorldReferences(worldCatalog, renames = []) {
-    return this.storyRepository?.validateAgainstWorld(worldCatalog, renames) ?? { errors: {} };
+    const story = this.storyRepository?.validateAgainstWorld(worldCatalog, renames) ?? { errors: {} };
+    const storyline = this.storylineRepository?.validateAgainstWorld(worldCatalog, renames) ?? { errors: {} };
+    return {
+      valid: !Object.keys(story.errors ?? {}).length && !Object.keys(storyline.errors ?? {}).length,
+      errors: {
+        ...(story.errors ?? {}),
+        ...(storyline.errors ?? {}),
+      },
+    };
   }
 
   cascadeHexRenames(renames = [], worldCatalog) {
-    return this.storyRepository?.cascadeHexRenames(renames, worldCatalog) ?? {
+    const story = this.storyRepository?.cascadeHexRenames(renames, worldCatalog) ?? {
       affected: [],
       revision: this.storyRepository?.getGlobalRevision?.() ?? 0,
     };
+    const storyline = this.storylineRepository?.cascadeHexRenames(renames, worldCatalog) ?? {
+      affected: [],
+      revision: this.storylineRepository?.getGlobalRevision?.() ?? 0,
+    };
+    return { story, storyline, affected: [...story.affected, ...storyline.affected] };
   }
 
   cascadeBuildingRenames(renames = [], worldCatalog) {
-    return this.storyRepository?.cascadeBuildingRenames(renames, worldCatalog) ?? {
+    const story = this.storyRepository?.cascadeBuildingRenames(renames, worldCatalog) ?? {
       affected: [],
       revision: this.storyRepository?.getGlobalRevision?.() ?? 0,
     };
+    const storyline = this.storylineRepository?.cascadeBuildingRenames(renames, worldCatalog) ?? {
+      affected: [],
+      revision: this.storylineRepository?.getGlobalRevision?.() ?? 0,
+    };
+    return { story, storyline, affected: [...story.affected, ...storyline.affected] };
   }
 }

@@ -529,7 +529,9 @@ export function useOutdoorBuilderSelection({
           body: JSON.stringify({ from: oldId, to: next, world: currentWorld.value }),
         });
         const lines = preview.references.slice(0, 12).map((reference) =>
-          reference.kind === "story"
+          reference.kind === "storyline"
+            ? `storyline ${reference.scenarioId}/${reference.stepId}: ${reference.path}`
+            : reference.kind === "story"
             ? `${reference.areaId}/${reference.beatId}: ${reference.path}`
             : reference.path,
         );

@@ -265,7 +265,7 @@ export function useCharacterBuilderDraft() {
     const references = await loadReferences(selectedCatalog.value, entry.id);
     if (references.length) {
       status.value = `Cannot delete ${entry.id}; referenced by ${references
-        .map((reference) => reference.path).join(", ")}.`;
+        .map(referenceLabel).join(", ")}.`;
       statusTone.value = "error";
       return;
     }
@@ -416,6 +416,16 @@ async function loadReferences(domain, id) {
   return storyApi(
     `/api/character/references?domain=${encodeURIComponent(domain)}&id=${encodeURIComponent(id)}`,
   );
+}
+
+function referenceLabel(reference) {
+  if (reference.kind === "storyline") {
+    return `storyline ${reference.scenarioId}/${reference.stepId}: ${reference.path}`;
+  }
+  if (reference.kind === "story") {
+    return `${reference.areaId}/${reference.beatId}: ${reference.path}`;
+  }
+  return reference.path;
 }
 
 export function buildPreviewCharacter(draft, previewMode, previewBarLevel = "authored") {

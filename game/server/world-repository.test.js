@@ -17,8 +17,12 @@ function setup() {
   const dir = mkdtempSync(join(tmpdir(), "atomic-world-"));
   dirs.push(dir);
   const db = openContentDatabaseCopy(join(dir, "world.sqlite"));
-  const { storyRepository: story, worldRepository: world } = createContentRepositories(db);
-  return { db, story, world };
+  const {
+    storyRepository: story,
+    storylineRepository: storyline,
+    worldRepository: world,
+  } = createContentRepositories(db);
+  return { db, story, storyline, world };
 }
 
 describe("WorldRepository", () => {
@@ -50,18 +54,29 @@ describe("WorldRepository", () => {
     db.close();
   });
 
-  it("cascades explicit hex renames into story beats in the same save", () => {
-    const { db, story, world } = setup();
+  it("cascades explicit hex renames into story beats and storyline steps in the same save", () => {
+    const { db, story, storyline, world } = setup();
     story.createBeat("test", {
       id: "rename-target",
       text: "Visit the origin.",
       trigger: { place: "outdoors", hex: "origin" },
       choices: [{ text: "Continue", go_hex: "east-pines" }],
     });
+    const storylineDocument = storyline.getDocument();
+    const storylineDraft = structuredClone(storylineDocument.storyline);
+    storylineDraft.scenarios[0].steps[0].allowed.movement.hexes.push("origin");
+    storylineDraft.scenarios[0].steps[0].allowed.storyForwardActions.push("move-hex:origin");
+    storyline.save(storylineDraft, storylineDocument.version);
+
     const preview = world.previewHexRename("origin", "arrival-trail");
     expect(preview.references).toEqual(expect.arrayContaining([
       expect.objectContaining({ kind: "world", path: "start" }),
       expect.objectContaining({ kind: "story", beatId: "rename-target", path: "trigger.hex" }),
+      expect.objectContaining({
+        kind: "storyline",
+        scenarioId: "part-i-opener",
+        stepId: "survive-in-the-woods",
+      }),
     ]));
     const before = world.getDocument();
     const candidate = structuredClone(before.world);
@@ -82,8 +97,12 @@ describe("WorldRepository", () => {
     ]);
     expect(saved.story.affected).toEqual(expect.arrayContaining([
       { areaId: "test", beatId: "rename-target" },
+      { scenarioId: "part-i-opener", stepId: "survive-in-the-woods" },
     ]));
     expect(story.getBeat("test", "rename-target").trigger.hex).toBe("arrival-trail");
+    expect(
+      storyline.getDocument().storyline.scenarios[0].steps[0].allowed.movement.hexes,
+    ).toContain("arrival-trail");
     expect(story.listRevisions("test", "rename-target")).toHaveLength(2);
     db.close();
   });

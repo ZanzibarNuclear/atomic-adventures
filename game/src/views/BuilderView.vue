@@ -699,6 +699,8 @@ async function applyStoryRouteQuery() {
     <StoryScenarioPanel
       v-else-if="storyWorkspace === 'scenarios'"
       v-model:document-text="storylineDocumentText"
+      :catalog="catalog"
+      :beats="beats"
       :dirty="storylineDirty"
       :status="storylineStatus"
       :errors="storylineErrors"

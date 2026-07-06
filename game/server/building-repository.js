@@ -17,13 +17,15 @@ export class BuildingRepository {
     seedBuilding,
     worldRepository = null,
     storyRepository = null,
+    storylineRepository = null,
     characterRepository = null,
   } = {}) {
     this.db = db;
     this.worldRepository = worldRepository;
     this.storyRepository = storyRepository;
+    this.storylineRepository = storylineRepository;
     this.characterRepository = characterRepository;
-    this.references = new ContentReferenceService({ storyRepository });
+    this.references = new ContentReferenceService({ storyRepository, storylineRepository });
     this.documents = new WorldDocumentStore(db, { kind: "building" });
     this.revisions = new RevisionStore(db, {
       table: "world_revisions",
@@ -33,11 +35,13 @@ export class BuildingRepository {
     if (seedBuilding) this.ensureSeed(seedBuilding);
   }
 
-  setRepositories({ worldRepository, storyRepository, characterRepository }) {
+  setRepositories({ worldRepository, storyRepository, storylineRepository, characterRepository }) {
     this.worldRepository = worldRepository;
     this.storyRepository = storyRepository;
+    this.storylineRepository = storylineRepository ?? this.storylineRepository;
     this.characterRepository = characterRepository ?? this.characterRepository;
     this.references.setStoryRepository(storyRepository);
+    this.references.setStorylineRepository(this.storylineRepository);
   }
 
   ensureSeed(seedBuilding) {

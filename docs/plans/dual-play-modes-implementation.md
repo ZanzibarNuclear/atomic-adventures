@@ -212,13 +212,13 @@ and consequences.
 - [x] Update `useStory()` to filter beats by `gameState.playMode` and the
       active storyline step.
 - [x] Let a storyline step select or prefer a beat by ID.
-- [ ] Audit opening forest, fence, gate, road, station, and hydro beats.
-- [ ] Move canonical Zanzibar prose into `modes: [story]` beats.
-- [ ] Add or revise `modes: [open-world]` area descriptions that do not assume
+- [x] Audit opening forest, fence, gate, road, station, and hydro beats.
+- [x] Move canonical Zanzibar prose into `modes: [story]` beats.
+- [x] Add or revise `modes: [open-world]` area descriptions that do not assume
       Zanzibar's canonical story.
-- [ ] Preserve authored choice labels such as cardinal movement and story hints
+- [x] Preserve authored choice labels such as cardinal movement and story hints
       as neutral actions in Story mode.
-- [ ] Remove content patterns where a beat choice is the only thing preventing
+- [x] Remove content patterns where a beat choice is the only thing preventing
       a story-breaking action.
 
 **Exit criterion:** Storyline prose and open-world prose can coexist at the same
@@ -276,12 +276,17 @@ time and vitals matter.
       predicates, forced effects, and next step.
 - [ ] Provide selectors for hexes, rooms, exterior nodes, transitions, stage
       views, items, item actions, lessons, documents, and facility predicates.
-- [ ] Add a step preview that shows story-continuing actions, optional actions,
+      Hexes, rooms, exterior nodes, transitions, stage views, items, lessons,
+      and documents now have structured controls; item-action and facility
+      predicate authoring still need richer selectors beyond ID/JSON fields.
+- [x] Add a step preview that shows story-continuing actions, optional actions,
       and ordinary available movement as one player-facing action set.
 - [x] Add `modes` and `storylineStep` editing to Story Builder beat forms.
-- [ ] Add reference-aware rename and delete handling for storyline references
+- [x] Add reference-aware rename and delete handling for storyline references
       in Story Builder, World Builder, and Content Builder.
 - [ ] Show "referenced by storyline step" in relevant object detail panels.
+      Rename/delete prompts now name storyline scenario and step references;
+      persistent object detail panels can still add the same reference list.
 
 **Exit criterion:** Authors can maintain the opening story arc and hydro arc
 without manually copying IDs or hiding story logic in prose.

@@ -11,6 +11,7 @@ export async function handleCharacterRoutes(req, res, url, {
   buildingRepository,
   characterRepository,
   learningRepository,
+  storylineRepository,
   broadcast,
   syncRuntimeContent,
 }) {
@@ -40,6 +41,7 @@ export async function handleCharacterRoutes(req, res, url, {
     }
     return json(res, 200, [
       ...(repository.findCharacterReferences?.(domain, id) ?? []),
+      ...(storylineRepository?.findCharacterReferences?.(domain, id) ?? []),
       ...(buildingRepository?.findCharacterReferences?.(domain, id) ?? []),
       ...(learningRepository?.findCharacterReferences?.(domain, id) ?? []),
     ]);

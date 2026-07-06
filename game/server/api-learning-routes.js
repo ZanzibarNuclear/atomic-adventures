@@ -3,6 +3,7 @@ import { json, readJson } from "./api-utils.js";
 export async function handleLearningRoutes(req, res, url, {
   repository,
   learningRepository,
+  storylineRepository,
   broadcast,
   syncRuntimeContent,
 }) {
@@ -35,7 +36,10 @@ export async function handleLearningRoutes(req, res, url, {
   if (req.method === "GET" && url.pathname === "/api/learning/references") {
     const id = url.searchParams.get("id");
     if (!id) return json(res, 400, { message: "id is required." });
-    return json(res, 200, repository.findLearningReferences?.(id) ?? []);
+    return json(res, 200, [
+      ...(repository.findLearningReferences?.(id) ?? []),
+      ...(storylineRepository?.findLearningReferences?.(id) ?? []),
+    ]);
   }
 
   if (req.method === "GET" && url.pathname === "/api/learning/revisions") {
