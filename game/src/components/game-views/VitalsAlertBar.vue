@@ -3,14 +3,16 @@
     v-if="alerts.length"
     class="wellbeing-alerts"
     role="status"
-    aria-label="Wellbeing warnings">
+    aria-label="Vitals">
     <span class="wellbeing-alerts-label">Vitals</span>
     <span
       v-for="alert in alerts"
       :key="alert.id"
       class="wellbeing-chip"
-      :class="alert.tone">
-      {{ alert.label }}: {{ alert.state }}
+      :class="[alert.tone, `status-${alert.status ?? alert.tone}`]"
+      :aria-label="`${alert.label}: ${alert.state}`"
+      :title="`${alert.label}: ${alert.state}`">
+      {{ alert.state }}
     </span>
   </section>
 </template>
@@ -43,14 +45,36 @@ defineProps({
   letter-spacing: 0;
 }
 .wellbeing-chip {
-  border: 1px solid #675640;
+  border: 1px solid #4f6f50;
   border-radius: 999px;
   padding: 0.2rem 0.5rem;
-  color: #ffdca3;
+  background: #14321d;
+  color: #a8f0b2;
   font-size: 0.82rem;
 }
-.wellbeing-chip.error {
-  border-color: #8d4c4c;
-  color: #ffabab;
+.wellbeing-chip.status-good {
+  border-color: #3f8a4b;
+  background: #14351e;
+  color: #a7efb1;
+}
+.wellbeing-chip.status-fine {
+  border-color: #386f91;
+  background: #132b3b;
+  color: #9ed8ff;
+}
+.wellbeing-chip.status-caution {
+  border-color: #9d842a;
+  background: #3c3212;
+  color: #ffe08a;
+}
+.wellbeing-chip.status-warning {
+  border-color: #a45f25;
+  background: #3e2112;
+  color: #ffbc7a;
+}
+.wellbeing-chip.status-worst {
+  border-color: #9a3e3e;
+  background: #3d1717;
+  color: #ff9a9a;
 }
 </style>

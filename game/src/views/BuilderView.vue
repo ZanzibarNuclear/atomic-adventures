@@ -23,6 +23,7 @@ import { useStoryBeatDocument } from "../composables/useStoryBeatDocument.js";
 import { useWorldContent } from "../composables/useWorldContent.js";
 import { useBuildingContent } from "../composables/useBuildingContent.js";
 import { hexDistance } from "../lib/maps/composables/useHexGeometry.js";
+import { buildStoryBeatMatchWarnings } from "../lib/storyBeatMatchWarnings.js";
 
 const { worldData, revision: worldRevision } = useWorldContent();
 const { buildingData, revision: buildingRevision } = useBuildingContent();
@@ -133,73 +134,12 @@ const displayedLocationBeats = computed(() => {
     beat.id === selectedBeatId.value ? currentDraft : beat,
   );
 });
-function originHexLabel(value) {
-  const origins = Array.isArray(value)
-    ? value
-    : typeof value === "string"
-      ? value.split(",").map((item) => item.trim()).filter(Boolean)
-      : value
-        ? [value]
-        : [];
-  return origins.join("|");
-}
-function timeCriteriaParts(time = {}) {
-  const parts = [];
-  if (Array.isArray(time.days) && time.days.length) {
-    parts.push(`day=${[...time.days].map(Number).filter(Number.isFinite).sort((a, b) => a - b).join("|")}`);
-  }
-  if (time.dayFrom != null) parts.push(`dayFrom=${time.dayFrom}`);
-  if (time.dayTo != null) parts.push(`dayTo=${time.dayTo}`);
-  if (time.phase) parts.push(`phase=${time.phase}`);
-  if (time.minuteOfDayFrom != null) parts.push(`minuteFrom=${time.minuteOfDayFrom}`);
-  if (time.minuteOfDayTo != null) parts.push(`minuteTo=${time.minuteOfDayTo}`);
-  if (time.elapsedFrom != null) parts.push(`elapsedFrom=${time.elapsedFrom}`);
-  if (time.elapsedTo != null) parts.push(`elapsedTo=${time.elapsedTo}`);
-  if (time.afterMilestone) parts.push(`after=${time.afterMilestone}`);
-  if (time.beforeMilestone) parts.push(`before=${time.beforeMilestone}`);
-  return parts;
-}
-function timeCriteriaLabel(time = {}) {
-  const labels = [];
-  if (Array.isArray(time.days) && time.days.length) labels.push(`Day #: ${time.days.join(", ")}`);
-  if (time.dayFrom != null) labels.push(`Day from: ${time.dayFrom}`);
-  if (time.dayTo != null) labels.push(`Day to: ${time.dayTo}`);
-  if (time.phase) labels.push(`Time of day: ${time.phase}`);
-  if (time.minuteOfDayFrom != null) labels.push(`minute from ${time.minuteOfDayFrom}`);
-  if (time.minuteOfDayTo != null) labels.push(`minute to ${time.minuteOfDayTo}`);
-  if (time.elapsedFrom != null) labels.push(`elapsed from ${time.elapsedFrom}`);
-  if (time.elapsedTo != null) labels.push(`elapsed to ${time.elapsedTo}`);
-  if (time.afterMilestone) labels.push(`after ${time.afterMilestone}`);
-  if (time.beforeMilestone) labels.push(`before ${time.beforeMilestone}`);
-  return labels.join(", ");
-}
-const matchWarnings = computed(() => {
-  const groups = new Map();
-  for (const beat of displayedLocationBeats.value) {
-    const origin = originHexLabel(beat.match?.originHex);
-    const mapTransition = beat.match?.mapTransition ?? "";
-    const direction = beat.match?.transitionDirection ?? "";
-    const time = timeCriteriaParts(beat.time).join(":");
-    const key = `${locationMode.value}:${selectedLocation.value}:origin=${origin}:mapTransition=${mapTransition}:direction=${direction}:time=${time}`;
-    const group = groups.get(key) ?? [];
-    group.push(beat);
-    groups.set(key, group);
-  }
-  return [...groups.values()]
-    .filter((group) => group.length > 1)
-    .map((group) => {
-      const origin = originHexLabel(group[0].match?.originHex);
-      const mapTransition = group[0].match?.mapTransition;
-      const direction = group[0].match?.transitionDirection;
-      const label = [
-        origin ? `origin ${origin}` : "",
-        mapTransition ? `map transition ${mapTransition}` : "",
-        direction ? (direction === "toLocal" ? "to local map" : "to regional map") : "",
-        timeCriteriaLabel(group[0].time),
-      ].filter(Boolean).join(", ") || "default/no origin or map transition";
-      return `Multiple beats use ${label}: ${group.map((beat) => beat.id).join(", ")}. The first sorted beat wins.`;
-    });
-});
+const matchWarnings = computed(() =>
+  buildStoryBeatMatchWarnings(displayedLocationBeats.value, {
+    locationMode: locationMode.value,
+    selectedLocation: selectedLocation.value,
+  }),
+);
 const draftIsOutdoorHexBeat = computed(() =>
   draft.value?.trigger?.place === "outdoors" && Boolean(draft.value?.trigger?.hex),
 );

@@ -210,14 +210,27 @@ const wellbeingActionPolicy = computed(() => ({
 }));
 const wellbeingAlerts = computed(() =>
   wellbeingOverview.value.vitals
-    .filter((vital) => vital.tone === "warning" || vital.tone === "error")
     .map((vital) => ({
       id: vital.id,
       label: vital.label,
       state: vital.state,
       tone: vital.tone,
+      status: vitalPillStatus(vital),
     })),
 );
+
+function vitalPillStatus(vital) {
+  if (vital.tone === "error") {
+    return Number(vital.value) <= Number(vital.min ?? 0) ? "worst" : "warning";
+  }
+  if (vital.tone === "warning") return "caution";
+  const min = Number(vital.min ?? 0);
+  const max = Number(vital.max ?? 100);
+  const value = Number(vital.value ?? max);
+  const span = max - min;
+  if (span > 0 && (value - min) / span < 0.8) return "fine";
+  return "good";
+}
 const catastrophicVitals = computed(() =>
   [wellbeingOverview.value.health].filter((vital) =>
     Number(vital.value) <= Number(vital.min ?? 0),

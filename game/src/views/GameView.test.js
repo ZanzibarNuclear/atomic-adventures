@@ -131,7 +131,14 @@ describe("GameView play mode entry", () => {
       await wrapper.get("button.recommended").trigger("click");
 
       expect(wrapper.find(".wellbeing-alerts").exists()).toBe(true);
-      expect(wrapper.text()).toContain("Hydration: Dehydrated");
+      expect(wrapper.find(".wellbeing-alerts").text()).toContain("Dehydrated");
+      expect(wrapper.find(".wellbeing-alerts").text()).not.toContain("Hydration:");
+      expect(wrapper.find(".wellbeing-alerts").text()).toContain("Energized");
+      expect(wrapper.find(".wellbeing-alerts").text()).toContain("Calm");
+      const chips = wrapper.findAll(".wellbeing-chip");
+      expect(chips.some((chip) => chip.text() === "Dehydrated" && chip.classes().includes("status-warning"))).toBe(true);
+      expect(chips.some((chip) => chip.text() === "Energized" && chip.classes().includes("status-good"))).toBe(true);
+      expect(chips.some((chip) => chip.text() === "Calm" && chip.classes().includes("status-good"))).toBe(true);
     } finally {
       hydration.default = originalDefault;
       wrapper.unmount();
