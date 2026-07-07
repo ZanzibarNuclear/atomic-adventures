@@ -36,7 +36,7 @@ defineProps({
   background: #2f281e;
   border-radius: 8px;
   padding: 0.55rem 0.75rem;
-  margin: 0 0 0.55rem;
+  margin: 0;
 }
 .wellbeing-alerts-label {
   color: #d7b77f;

@@ -2,7 +2,7 @@
 
 import { mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { computed, ref } from "vue";
+import { computed, nextTick, ref } from "vue";
 import GameView from "./GameView.vue";
 import { storylineSeed } from "../../server/storyline-seed.js";
 import characterContent from "../../public/content/character.json";
@@ -74,6 +74,7 @@ describe("GameView play mode entry", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    document.body.innerHTML = "";
   });
 
   function actionLabels(wrapper) {
@@ -93,8 +94,8 @@ describe("GameView play mode entry", () => {
 
     await wrapper.get("button.recommended").trigger("click");
 
-    expect(wrapper.text()).toContain("Objective");
-    expect(wrapper.text()).toContain("Keep moving. Find something that can help you survive.");
+    expect(wrapper.text()).not.toContain("Objective");
+    expect(wrapper.text()).not.toContain("Keep moving. Find something that can help you survive.");
     expect(wrapper.text()).toContain("Origin");
     expect(actionLabels(wrapper)).toContain("Go west");
 
@@ -119,7 +120,7 @@ describe("GameView play mode entry", () => {
     wrapper.unmount();
   });
 
-  it("keeps wellbeing warnings hidden until a play mode is active", async () => {
+  it("opens wellbeing warnings from the Check Vitals button after play starts", async () => {
     const hydration = characterDefinitions.stats.find((stat) => stat.id === "hydration");
     const originalDefault = hydration.default;
     hydration.default = 20;
@@ -130,17 +131,53 @@ describe("GameView play mode entry", () => {
 
       await wrapper.get("button.recommended").trigger("click");
 
-      expect(wrapper.find(".wellbeing-alerts").exists()).toBe(true);
-      expect(wrapper.find(".wellbeing-alerts").text()).toContain("Dehydrated");
-      expect(wrapper.find(".wellbeing-alerts").text()).not.toContain("Hydration:");
-      expect(wrapper.find(".wellbeing-alerts").text()).toContain("Energized");
-      expect(wrapper.find(".wellbeing-alerts").text()).toContain("Calm");
-      const chips = wrapper.findAll(".wellbeing-chip");
-      expect(chips.some((chip) => chip.text() === "Dehydrated" && chip.classes().includes("status-warning"))).toBe(true);
-      expect(chips.some((chip) => chip.text() === "Energized" && chip.classes().includes("status-good"))).toBe(true);
-      expect(chips.some((chip) => chip.text() === "Calm" && chip.classes().includes("status-good"))).toBe(true);
+      expect(wrapper.find(".wellbeing-alerts").exists()).toBe(false);
+      const checkVitals = wrapper.findAll("button")
+        .find((button) => button.text() === "Check Vitals");
+      expect(checkVitals).toBeDefined();
+      expect(wrapper.find(".play-panel").text()).toContain("Check Vitals");
+      expect(wrapper.find(".play-panel").text()).toContain("Check Inventory");
+
+      await checkVitals.trigger("click");
+      await nextTick();
+
+      const dialog = document.body.querySelector(".vitals-dialog");
+      const alertBar = document.body.querySelector(".wellbeing-alerts");
+      expect(dialog).toBeTruthy();
+      expect(alertBar).toBeTruthy();
+      expect(alertBar.textContent).toContain("Dehydrated");
+      expect(alertBar.textContent).not.toContain("Hydration:");
+      expect(alertBar.textContent).toContain("Energized");
+      expect(alertBar.textContent).toContain("Calm");
+      const chips = [...document.body.querySelectorAll(".wellbeing-chip")];
+      expect(chips.some((chip) => chip.textContent === "Dehydrated" && chip.classList.contains("status-warning"))).toBe(true);
+      expect(chips.some((chip) => chip.textContent === "Energized" && chip.classList.contains("status-good"))).toBe(true);
+      expect(chips.some((chip) => chip.textContent === "Calm" && chip.classList.contains("status-good"))).toBe(true);
     } finally {
       hydration.default = originalDefault;
+      wrapper.unmount();
+    }
+  });
+
+  it("opens carried inventory from the Check Inventory button", async () => {
+    const wrapper = mount(GameView);
+
+    try {
+      await wrapper.get("button.recommended").trigger("click");
+
+      const checkInventory = wrapper.findAll("button")
+        .find((button) => button.text() === "Check Inventory");
+      expect(checkInventory).toBeDefined();
+
+      await checkInventory.trigger("click");
+      await nextTick();
+
+      const dialog = document.body.querySelector(".inventory-dialog");
+      expect(dialog).toBeTruthy();
+      expect(dialog.textContent).toContain("Carried items");
+      expect(dialog.textContent).toContain("field backpack");
+      expect(dialog.textContent).not.toContain("hydro startup instruction card");
+    } finally {
       wrapper.unmount();
     }
   });

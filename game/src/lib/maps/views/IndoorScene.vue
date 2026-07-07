@@ -7,8 +7,6 @@
 
   <NarrativeCard :beat="narrativeBeat" />
 
-  <VitalsAlertBar :alerts="wellbeingAlerts" />
-
   <IndoorMovementAudit
     v-if="auditEnabled && devMode"
     :indoor="indoor"
@@ -17,8 +15,20 @@
 
   <StatusLines :lines="statusLines" />
 
-  <PlayPanel v-if="filteredActions.length">
+  <PlayPanel>
     <ActionOptions label="Choose an Action">
+      <button
+        type="button"
+        class="route-btn k-action"
+        @click="$emit('check-vitals')">
+        Check Vitals
+      </button>
+      <button
+        type="button"
+        class="route-btn k-action"
+        @click="$emit('check-inventory')">
+        Check Inventory
+      </button>
       <button
         v-for="item in filteredActions"
         :key="item.id"
@@ -42,7 +52,6 @@ import MapCaption from "../components/hud/MapCaption.vue";
 import ActionOptions from "../components/hud/ActionOptions.vue";
 import StatusLines from "../../../components/hud/StatusLines.vue";
 import NarrativeCard from "../../../components/story/NarrativeCard.vue";
-import VitalsAlertBar from "../../../components/game-views/VitalsAlertBar.vue";
 import IndoorMovementAudit from "../components/diagnostics/IndoorMovementAudit.vue";
 import { formatGameTimestamp } from "../../character/gameTime.js";
 import {
@@ -72,7 +81,7 @@ const props = defineProps({
   wellbeingAlerts: { type: Array, default: () => [] },
 });
 
-const emit = defineEmits(["hide-movement-audit", "extra-action", "stage-view"]);
+const emit = defineEmits(["hide-movement-audit", "extra-action", "stage-view", "check-vitals", "check-inventory"]);
 const devMode = import.meta.env.DEV;
 
 const locationTitle = computed(() => {

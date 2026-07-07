@@ -37,7 +37,9 @@ import DeveloperSettingsDialog from "../components/dev/DeveloperSettingsDialog.v
 import HoloReaderView from "../components/game-views/HoloReaderView.vue";
 import HydroConsoleView from "../components/game-views/HydroConsoleView.vue";
 import InstructionCardView from "../components/game-views/InstructionCardView.vue";
+import InventoryDialog from "../components/game-views/InventoryDialog.vue";
 import InventoryStageView from "../components/game-views/InventoryStageView.vue";
+import VitalsDialog from "../components/game-views/VitalsDialog.vue";
 import StoryOverlay from "../components/story/StoryOverlay.vue";
 import OutdoorScene from "../lib/maps/views/OutdoorScene.vue";
 import IndoorScene from "../lib/maps/views/IndoorScene.vue";
@@ -60,6 +62,8 @@ const place = ref("outdoors");
 const builderView = ref(false);
 const movementAuditVisible = ref(false);
 const developerSettingsVisible = ref(false);
+const vitalsDialogVisible = ref(false);
+const inventoryDialogVisible = ref(false);
 const {
   activeView,
   isMapView,
@@ -112,7 +116,6 @@ const { lastSavedAt, loadError, hasSave, save: saveGame, load, clearSave } = sav
 const openStageViewForStory = (view) => openStageView(view, { force: true });
 const {
   activeStep: activeStorylineStep,
-  currentObjective,
   authoringError: storylineError,
   actionPolicy: storylineActionPolicy,
   tick: tickStoryline,
@@ -166,12 +169,7 @@ const nearbyHolderIds = computed(() => {
   return ids;
 });
 const stageSelectedHoldingId = ref(null);
-const inventoryHolders = computed(() => {
-  const ids = [...accessibleHolderIds(
-    gameState.character.holdings,
-    "nearby",
-    [...nearbyHolderIds.value, currentWorldHolderId()],
-  )];
+function inventoryHolderViews(ids) {
   return ids.map((id) => ({
     ...(gameState.character.holdings.holders[id] ?? { id, label: id, kind: "holder" }),
     records: holdingRecords(
@@ -188,7 +186,19 @@ const inventoryHolders = computed(() => {
       relatedDocument: record.definition?.relatedDocument ?? null,
     })),
   }));
+}
+
+const inventoryHolders = computed(() => {
+  const ids = [...accessibleHolderIds(
+    gameState.character.holdings,
+    "nearby",
+    [...nearbyHolderIds.value, currentWorldHolderId()],
+  )];
+  return inventoryHolderViews(ids);
 });
+const playerInventoryHolders = computed(() =>
+  inventoryHolderViews([...accessibleHolderIds(gameState.character.holdings, "carried")]),
+);
 const transferTargets = computed(() => inventoryHolders.value
   .filter((holder) => holder.kind !== "container")
   .map((holder) => ({
@@ -198,6 +208,20 @@ const transferTargets = computed(() => inventoryHolders.value
   })));
 const stageSelectedHolding = computed(() =>
   inventoryHolders.value.flatMap((holder) =>
+    holder.records.map((record) => ({ ...record, holder })))
+    .find((record) => `${record.type}:${record.id}` === stageSelectedHoldingId.value) ?? null,
+);
+const playerInventoryTransferTargets = computed(() =>
+  playerInventoryHolders.value
+    .filter((holder) => holder.kind !== "container")
+    .map((holder) => ({
+      id: holder.id,
+      label: holder.label ?? holder.id,
+      kind: holder.kind,
+    })),
+);
+const playerSelectedHolding = computed(() =>
+  playerInventoryHolders.value.flatMap((holder) =>
     holder.records.map((record) => ({ ...record, holder })))
     .find((record) => `${record.type}:${record.id}` === stageSelectedHoldingId.value) ?? null,
 );
@@ -499,6 +523,17 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
     console.warn(error);
   }
 }
+
+function openInventoryDialog() {
+  inventoryDialogVisible.value = true;
+  if (playerSelectedHolding.value) return;
+  const firstHolding = playerInventoryHolders.value
+    .flatMap((holder) => holder.records)
+    .at(0);
+  stageSelectedHoldingId.value = firstHolding
+    ? `${firstHolding.type}:${firstHolding.id}`
+    : null;
+}
 </script>
 
 <template>
@@ -526,6 +561,24 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       @set-vital="handleSetVital"
       @adjust-vital="handleAdjustVital"
       @close="developerSettingsVisible = false" />
+
+    <VitalsDialog
+      v-if="vitalsDialogVisible"
+      :alerts="wellbeingAlerts"
+      @close="vitalsDialogVisible = false" />
+
+    <InventoryDialog
+      v-if="inventoryDialogVisible"
+      :holders="playerInventoryHolders"
+      :selected-holding="playerSelectedHolding"
+      :selected-holding-id="stageSelectedHoldingId"
+      :transfer-targets="playerInventoryTransferTargets"
+      :public-asset-path="publicAssetPath"
+      :action-policy="wellbeingActionPolicy"
+      @select-holding="stageSelectedHoldingId = $event"
+      @use-item="handleUseItem"
+      @transfer-item="handleTransferItem"
+      @close="inventoryDialogVisible = false" />
 
     <div
       v-if="contentError || worldContentError || buildingContentError || characterContentError || learningContentError || storylineContentError"
@@ -574,14 +627,6 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
     </section>
 
     <section
-      v-else-if="gameState.playMode === 'story' && currentObjective"
-      class="story-objective"
-      aria-label="Current objective">
-      <span class="story-objective-label">Objective</span>
-      <span>{{ currentObjective }}</span>
-    </section>
-
-    <section
       v-if="storylineError"
       class="storyline-error"
       role="alert">
@@ -618,6 +663,8 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       :audit-enabled="movementAuditVisible"
       :action-policy="wellbeingActionPolicy"
       :wellbeing-alerts="wellbeingAlerts"
+      @check-vitals="vitalsDialogVisible = true"
+      @check-inventory="openInventoryDialog"
       @hide-movement-audit="movementAuditVisible = false" />
 
     <IndoorScene
@@ -632,6 +679,8 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       :extra-actions="focusedConsoleActions"
       :action-policy="wellbeingActionPolicy"
       :wellbeing-alerts="wellbeingAlerts"
+      @check-vitals="vitalsDialogVisible = true"
+      @check-inventory="openInventoryDialog"
       @extra-action="handleHoloReaderAction"
       @stage-view="openStageView"
       @hide-movement-audit="movementAuditVisible = false" />
@@ -749,23 +798,6 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
   color: #c2ccd8;
   font-size: 0.9rem;
   line-height: 1.4;
-}
-.story-objective {
-  display: flex;
-  align-items: baseline;
-  gap: 0.65rem;
-  border: 1px solid #4f6174;
-  background: #202b37;
-  border-radius: 8px;
-  padding: 0.65rem 0.85rem;
-  margin-bottom: 0.75rem;
-  color: #e9f0f8;
-}
-.story-objective-label {
-  color: #9fb0c2;
-  font-size: 0.74rem;
-  text-transform: uppercase;
-  letter-spacing: 0;
 }
 .storyline-error {
   border: 1px solid #9f6a5d;

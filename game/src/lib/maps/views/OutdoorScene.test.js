@@ -56,7 +56,8 @@ describe("OutdoorScene play panel story choices", () => {
       },
     });
 
-    const buttons = wrapper.findAll("button.route-btn");
+    const buttons = wrapper.findAll("button.route-btn")
+      .filter((button) => !button.text().startsWith("Check "));
     expect(buttons.map((button) => button.text())).toEqual(["Continue east", "Head west"]);
 
     await buttons[0].trigger("click");
