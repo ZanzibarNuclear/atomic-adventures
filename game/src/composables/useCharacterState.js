@@ -92,7 +92,9 @@ export function captureCharacterState(state) {
   };
 }
 
-export function applyCharacterState(state, snapshot = {}) {
+export function applyCharacterState(state, snapshot = {}, {
+  mergeAuthored = true,
+} = {}) {
   const definitions = cloneDefinitions(state.definitions);
   state.definitions = definitions;
   initializeDefinitionDefaults(state);
@@ -101,7 +103,7 @@ export function applyCharacterState(state, snapshot = {}) {
     definitions,
     state.holderDefinitions,
   );
-  mergeAuthoredHoldings(state);
+  if (mergeAuthored) mergeAuthoredHoldings(state);
   state.stats = plainObject(snapshot.stats);
   state.knowledge = plainObject(snapshot.knowledge);
   state.skills = plainObject(snapshot.skills);

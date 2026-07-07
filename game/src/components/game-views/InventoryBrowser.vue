@@ -291,7 +291,11 @@ function closeToContainer() {
               :key="action.id"
               type="button"
               class="sm"
-              @click="$emit('use-item', { itemId: selectedHolding.item, actionId: action.id })">
+              @click="$emit('use-item', {
+                itemId: selectedHolding.item,
+                actionId: action.id,
+                holderId: selectedHolding.holder?.id,
+              })">
               {{ action.label }}
             </button>
           </div>

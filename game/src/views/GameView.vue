@@ -472,12 +472,12 @@ function handleAdjustVital({ id, delta }) {
   handleSetVital({ id, value: current + Number(delta) });
 }
 
-function handleUseItem({ itemId, actionId }) {
+function handleUseItem({ itemId, actionId, holderId = null }) {
   if (!isActionAllowed(`item-action:${itemId}.${actionId}`, wellbeingActionPolicy.value, {
     itemId,
     actionId,
   })) return;
-  const result = performItemAction(gameState, itemId, actionId);
+  const result = performItemAction(gameState, itemId, actionId, { holderId });
   if (result.ok) {
     refreshNarrative();
     if (result.view) openStageView(result.view);

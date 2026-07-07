@@ -39,6 +39,7 @@ export const storylineSeed = {
               hexes: ["north-bend", "gate-woods"],
             },
             storyForwardActions: ["move-hex:north-bend", "route:gate-woods", "move-hex:gate-woods"],
+            itemActions: ["half-eaten-energy-bar.eat", "half-full-water-bottle.drink"],
           },
           completesWhen: { location: { place: "outdoors", hex: "gate-woods" } },
           nextScenario: "part-i-station",
@@ -53,7 +54,7 @@ export const storylineSeed = {
       steps: [
         {
           id: "find-a-way-past-fence",
-          objective: "Find a way past the fence.",
+          objective: "Catch your breath. Eat or drink if you need to, then find a way past the fence.",
           beat: "the-gate",
           allowed: {
             movement: {
@@ -76,6 +77,7 @@ export const storylineSeed = {
               "passage:compound-gate",
               "passage:south-pines-hole",
             ],
+            itemActions: ["half-eaten-energy-bar.eat", "half-full-water-bottle.drink"],
           },
           completesWhen: { location: { place: "outdoors", hex: "utility-yard" } },
           next: "look-for-shelter",

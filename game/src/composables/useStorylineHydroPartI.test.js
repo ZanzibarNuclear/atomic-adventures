@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { nextTick, ref } from "vue";
 import { createGameState, setPlayMode } from "./useGameState.js";
-import { useStoryline, filterAllowedActions } from "./useStoryline.js";
+import { useStoryline, filterAllowedActions, isActionAllowed } from "./useStoryline.js";
 import {
   buildOutdoorPlayActions,
   buildIndoorPlayActions,
@@ -133,6 +133,14 @@ describe("Part I hydro play modes", () => {
     await chooseOutdoorDestination(harness, "gate-woods");
     expect(harness.storyline.activeScenario.value.id).toBe("part-i-station");
     expect(harness.storyline.activeStep.value.id).toBe("find-a-way-past-fence");
+    expect(isActionAllowed("item-action:half-eaten-energy-bar.eat", harness.storyline.actionPolicy.value, {
+      itemId: "half-eaten-energy-bar",
+      actionId: "eat",
+    })).toBe(true);
+    expect(isActionAllowed("item-action:half-full-water-bottle.drink", harness.storyline.actionPolicy.value, {
+      itemId: "half-full-water-bottle",
+      actionId: "drink",
+    })).toBe(true);
     expect(filteredOutdoorActionIds(harness)).toContain("passage-toggle:compound-gate");
 
     await chooseOutdoor(harness, "passage-toggle:compound-gate");

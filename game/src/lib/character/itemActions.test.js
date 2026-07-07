@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createCharacterState } from "../../composables/useCharacterState.js";
+import characterContent from "../../../public/content/character.json";
 import { createGameClock } from "./gameTime.js";
 import { addItem, itemQuantity } from "./holdings.js";
 import { performItemAction } from "./itemActions.js";
@@ -7,8 +8,18 @@ import { performItemAction } from "./itemActions.js";
 function state() {
   const character = createCharacterState({
     items: [{
+      id: "pack",
+      label: "Pack",
+      kind: "container",
+      carrying: "unique",
+      container: {
+        capacity: { slots: 4 },
+        accepts: { kinds: ["consumable", "item"] },
+      },
+    }, {
       id: "meal",
       label: "Meal",
+      kind: "consumable",
       carrying: "stack",
       maxQuantity: 10,
       actions: [{
@@ -18,6 +29,26 @@ function state() {
         timeMinutes: 20,
         activity: "resting",
         effects: [{ op: "stat.add", id: "satiety", value: 55 }],
+      }],
+    }, {
+      id: "empty-wrapper",
+      label: "Empty wrapper",
+      kind: "item",
+      carrying: "unique",
+    }, {
+      id: "snack",
+      label: "Snack",
+      kind: "consumable",
+      carrying: "unique",
+      actions: [{
+        id: "eat",
+        label: "Eat snack",
+        consume: 1,
+        timeMinutes: 0,
+        effects: [
+          { op: "item.add", id: "empty-wrapper", holder: "$source" },
+          { op: "stat.add", id: "satiety", value: 20 },
+        ],
       }],
     }, {
       id: "card",
@@ -54,9 +85,14 @@ function state() {
       title: "Startup card",
     }],
   });
+  addItem(character.holdings, character.definitions, "pack", 1);
+  const packInstanceId = Object.entries(character.holdings.instances)
+    .find(([, instance]) => instance.item === "pack")?.[0];
+  const packHolderId = `container:${packInstanceId}`;
   addItem(character.holdings, character.definitions, "meal", 2);
+  addItem(character.holdings, character.definitions, "snack", 1, { holderId: packHolderId });
   addItem(character.holdings, character.definitions, "card", 1);
-  return { character, flags: new Set(), clock: createGameClock() };
+  return { character, flags: new Set(), clock: createGameClock(), packHolderId };
 }
 
 describe("item actions", () => {
@@ -91,5 +127,52 @@ describe("item actions", () => {
     expect(gameState.flags.has("hydro.discovered")).toBe(true);
     expect(gameState.character.documents["startup-card"].readAt).toBeTruthy();
     expect(gameState.clock.elapsedMinutes).toBe(0);
+  });
+
+  it("can replace a consumed carried item in its source holder", () => {
+    const gameState = state();
+    const result = performItemAction(gameState, "snack", "eat", {
+      holderId: gameState.packHolderId,
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(result.ok).toBe(true);
+    expect(itemQuantity(gameState.character.holdings, "snack", {
+      holderId: gameState.packHolderId,
+    })).toBe(0);
+    expect(itemQuantity(gameState.character.holdings, "empty-wrapper", {
+      holderId: gameState.packHolderId,
+    })).toBe(1);
+    expect(gameState.character.stats.satiety).toBeCloseTo(45);
+  });
+
+  it("consumes Zanzibar's backpack rations into empty items", () => {
+    const character = createCharacterState(characterContent.character);
+    const gameState = { character, flags: new Set(), clock: createGameClock() };
+    const backpackHolderId = Object.values(character.holdings.holders)
+      .find((holder) => holder.kind === "container" && holder.label === "Field backpack")?.id;
+
+    expect(backpackHolderId).toBeTruthy();
+    expect(performItemAction(gameState, "half-eaten-energy-bar", "eat", {
+      holderId: backpackHolderId,
+    }).ok).toBe(true);
+    expect(performItemAction(gameState, "half-full-water-bottle", "drink", {
+      holderId: backpackHolderId,
+    }).ok).toBe(true);
+
+    expect(itemQuantity(character.holdings, "half-eaten-energy-bar", {
+      holderId: backpackHolderId,
+    })).toBe(0);
+    expect(itemQuantity(character.holdings, "empty-energy-bar-wrapper", {
+      holderId: backpackHolderId,
+    })).toBe(1);
+    expect(itemQuantity(character.holdings, "half-full-water-bottle", {
+      holderId: backpackHolderId,
+    })).toBe(0);
+    expect(itemQuantity(character.holdings, "empty-plastic-bottle", {
+      holderId: backpackHolderId,
+    })).toBe(1);
+    expect(character.stats.satiety).toBeGreaterThan(characterContent.character.stats.find((stat) => stat.id === "satiety").default);
+    expect(character.stats.hydration).toBeGreaterThan(characterContent.character.stats.find((stat) => stat.id === "hydration").default);
   });
 });
