@@ -637,9 +637,43 @@ export function buildWellbeingStatusLines(wellbeingOverview) {
     ...(wellbeingOverview.vitals ?? []),
     ...(wellbeingOverview.conditions ?? []).filter((condition) => condition.active),
   ].filter(Boolean);
-  return indicators
+  const phrases = indicators
     .filter((indicator) => indicator.tone !== "positive")
-    .map((indicator) => `${indicator.label} is ${indicator.state}.`);
+    .map(wellbeingStatusPhrase)
+    .filter(Boolean);
+  const isPhrases = phrases.filter((phrase) => phrase.verb === "is").map((phrase) => phrase.text);
+  const hasPhrases = phrases.filter((phrase) => phrase.verb === "has").map((phrase) => phrase.text);
+  return [
+    isPhrases.length ? `Zanzibar is ${formatSentenceList(isPhrases)}.` : null,
+    hasPhrases.length ? `Zanzibar has ${formatSentenceList(hasPhrases)}.` : null,
+  ].filter(Boolean);
+}
+
+function wellbeingStatusPhrase(indicator) {
+  const state = String(indicator.state ?? "").trim();
+  if (!state) return null;
+  const normalized = state.toLowerCase();
+  if (indicator.id === "health" && normalized === "critical") {
+    return { verb: "is", text: "in critical condition" };
+  }
+  if (indicator.id === "health" && normalized === "collapsed") {
+    return { verb: "has", text: "collapsed" };
+  }
+  if (["injured", "injury"].includes(indicator.id)) {
+    return { verb: "has", text: injuryPhrase(normalized) };
+  }
+  return { verb: "is", text: normalized };
+}
+
+function injuryPhrase(state) {
+  if (/^(minor|moderate|severe) injury$/.test(state)) return `a ${state}`;
+  return state;
+}
+
+function formatSentenceList(items) {
+  if (items.length <= 1) return items[0] ?? "";
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
 }
 
 function poweredObjectStatusLines(indoor) {

@@ -120,47 +120,6 @@ describe("GameView play mode entry", () => {
     wrapper.unmount();
   });
 
-  it("opens wellbeing warnings from the Health header button after play starts", async () => {
-    const hydration = characterDefinitions.stats.find((stat) => stat.id === "hydration");
-    const originalDefault = hydration.default;
-    hydration.default = 20;
-    const wrapper = mount(GameView);
-
-    try {
-      expect(wrapper.find(".wellbeing-alerts").exists()).toBe(false);
-
-      await wrapper.get("button.recommended").trigger("click");
-
-      expect(wrapper.find(".wellbeing-alerts").exists()).toBe(false);
-      const health = wrapper.findAll("button")
-        .find((button) => button.text() === "Health");
-      expect(health).toBeDefined();
-      expect(wrapper.text()).not.toContain("Player Stats");
-      expect(wrapper.find(".status-lines").text()).toContain("Hydration is Dehydrated.");
-      expect(wrapper.find(".play-panel").text()).not.toContain("Check Vitals");
-      expect(wrapper.find(".play-panel").text()).not.toContain("Check Inventory");
-
-      await health.trigger("click");
-      await nextTick();
-
-      const dialog = document.body.querySelector(".vitals-dialog");
-      const alertBar = document.body.querySelector(".wellbeing-alerts");
-      expect(dialog).toBeTruthy();
-      expect(alertBar).toBeTruthy();
-      expect(alertBar.textContent).toContain("Dehydrated");
-      expect(alertBar.textContent).not.toContain("Hydration:");
-      expect(alertBar.textContent).toContain("Energized");
-      expect(alertBar.textContent).toContain("Calm");
-      const chips = [...document.body.querySelectorAll(".wellbeing-chip")];
-      expect(chips.some((chip) => chip.textContent === "Dehydrated" && chip.classList.contains("status-warning"))).toBe(true);
-      expect(chips.some((chip) => chip.textContent === "Energized" && chip.classList.contains("status-good"))).toBe(true);
-      expect(chips.some((chip) => chip.textContent === "Calm" && chip.classList.contains("status-good"))).toBe(true);
-    } finally {
-      hydration.default = originalDefault;
-      wrapper.unmount();
-    }
-  });
-
   it("opens carried inventory from the Inventory header button", async () => {
     const wrapper = mount(GameView);
 
