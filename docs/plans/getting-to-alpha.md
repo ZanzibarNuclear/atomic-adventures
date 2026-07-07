@@ -101,7 +101,7 @@ Implementation sequence:
 - [x] Update the Content Builder so authors can add, remove, reorder, and preview
       pages, frames, blocks, and quiz frames. Builder editing should expose
       multiple paragraph blocks inside one frame.
-- [x] Migrate `hydro-power-intro-alpha` into a shorter multi-page lesson with a
+- [x] Migrate `hydro-power-stream-to-socket` into a shorter multi-page lesson with a
       few mixed-content frames per page.
 - [x] Upgrade the original hydro lesson to authored pages and remove the
       compatibility path.
