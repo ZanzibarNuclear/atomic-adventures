@@ -5,8 +5,11 @@ import { nextTick, ref } from "vue";
 import { createGameState, setPlayMode } from "./useGameState.js";
 import { useStoryline, filterAllowedActions } from "./useStoryline.js";
 import {
+  buildOutdoorPlayActions,
   buildIndoorPlayActions,
+  getMovementOptions,
   handleIndoorPlayAction,
+  handleOutdoorPlayAction,
 } from "./usePlayPanel.js";
 import { useIndoorBuilding } from "../lib/maps/composables/useIndoorBuilding.js";
 import { useOutdoorWorld } from "../lib/maps/composables/useOutdoorWorld.js";
@@ -20,7 +23,10 @@ const storylineData = ref(storylineContent.storyline);
 const mapData = worldContent.world;
 const utilityData = utilityStationContent.building;
 
-function buildHarness(mode = "story") {
+function buildHarness(mode = "story", storylineStart = {
+  scenarioId: "part-i-station",
+  stepId: "understand-building",
+}) {
   const place = ref("outdoors");
   const builderView = ref(false);
   const gameState = createGameState({
@@ -35,9 +41,7 @@ function buildHarness(mode = "story") {
     gameState,
   });
   const openedViews = [];
-  setPlayMode(gameState, mode, mode === "story"
-    ? { scenarioId: "part-i-station", stepId: "understand-building" }
-    : {});
+  setPlayMode(gameState, mode, mode === "story" ? storylineStart : {});
   const storyline = useStoryline(storylineData, {
     gameState,
     place,
@@ -65,16 +69,103 @@ function filteredActionIds(harness) {
   ).map((action) => action.id);
 }
 
+function filteredOutdoorActionIds(harness, pendingBeat = null) {
+  return filterAllowedActions(
+    [
+      ...getMovementOptions(harness.outdoor, pendingBeat),
+      ...buildOutdoorPlayActions(harness.outdoor, pendingBeat),
+    ],
+    harness.storyline.actionPolicy.value,
+  ).map((action) => action.id);
+}
+
 function filteredFacilityActionIds(harness) {
   return filteredActionIds(harness).filter((id) => id.startsWith("action:"));
 }
 
 async function tick(harness) {
+  harness.outdoor.traveling = false;
   harness.storyline.tick();
   await nextTick();
 }
 
+async function chooseOutdoor(harness, actionId) {
+  expect(filteredOutdoorActionIds(harness), `Expected ${actionId} to be visible`).toContain(actionId);
+  handleOutdoorPlayAction(harness.outdoor, actionId);
+  await tick(harness);
+}
+
+async function chooseOutdoorDestination(harness, hexId) {
+  const actionId = filteredOutdoorActionIds(harness).find((id) => id.endsWith(`:${hexId}`));
+  expect(actionId, `Expected an action to ${hexId} to be visible`).toBeDefined();
+  await chooseOutdoor(harness, actionId);
+}
+
 describe("Part I hydro play modes", () => {
+  it("keeps the opening story path visible while allowing valid detours", async () => {
+    const harness = buildHarness("story", {
+      scenarioId: "part-i-opener",
+      stepId: "survive-in-the-woods",
+    });
+
+    expect(harness.storyline.currentObjective.value).toBe("Keep moving. Find something that can help you survive.");
+    expect(filteredOutdoorActionIds(harness)).toContain("move-hex:east-pines");
+
+    await chooseOutdoor(harness, "move-hex:east-pines");
+    expect(harness.storyline.activeStep.value.id).toBe("keep-moving-west");
+    expect(harness.storyline.currentObjective.value).toBe("Keep moving. Stay across the slope.");
+    expect(filteredOutdoorActionIds(harness)).toEqual(
+      expect.arrayContaining(["move-hex:far-pines", "move-hex:center-pines", "move-hex:lower-stand"]),
+    );
+  });
+
+  it("supports the canonical gate-to-station story path", async () => {
+    const harness = buildHarness("story", {
+      scenarioId: "part-i-opener",
+      stepId: "survive-in-the-woods",
+    });
+
+    await chooseOutdoor(harness, "move-hex:east-pines");
+    await chooseOutdoor(harness, "move-hex:center-pines");
+    expect(harness.storyline.activeStep.value.id).toBe("reach-the-gate");
+
+    await chooseOutdoorDestination(harness, "north-bend");
+    await chooseOutdoorDestination(harness, "gate-woods");
+    expect(harness.storyline.activeScenario.value.id).toBe("part-i-station");
+    expect(harness.storyline.activeStep.value.id).toBe("find-a-way-past-fence");
+    expect(filteredOutdoorActionIds(harness)).toContain("passage-toggle:compound-gate");
+
+    await chooseOutdoor(harness, "passage-toggle:compound-gate");
+    expect(filteredOutdoorActionIds(harness)).toContain("passage:compound-gate");
+    await chooseOutdoor(harness, "passage:compound-gate");
+    await chooseOutdoorDestination(harness, "west-slope");
+    await chooseOutdoorDestination(harness, "utility-yard");
+
+    expect(harness.outdoor.state.currentId).toBe("utility-yard");
+    expect(harness.storyline.activeStep.value.id).toBe("look-for-shelter");
+    expect(harness.storyline.currentObjective.value).toBe("Look for shelter before you run out of light.");
+  });
+
+  it("supports the noncanonical fence-hole shortcut in story mode", async () => {
+    const harness = buildHarness("story", {
+      scenarioId: "part-i-station",
+      stepId: "find-a-way-past-fence",
+    });
+    harness.outdoor.state.currentId = "south-pines";
+    harness.outdoor.state.stand = harness.outdoor.defaultStandForHex("south-pines");
+    await tick(harness);
+
+    expect(filteredOutdoorActionIds(harness)).toContain("search:barrier");
+    await chooseOutdoor(harness, "search:barrier");
+    expect(harness.outdoor.state.discoveredOpenings).toContain("south-pines-hole");
+    expect(filteredOutdoorActionIds(harness)).toContain("passage:south-pines-hole");
+
+    await chooseOutdoorDestination(harness, "utility-yard");
+
+    expect(harness.outdoor.state.currentId).toBe("utility-yard");
+    expect(harness.storyline.activeStep.value.id).toBe("look-for-shelter");
+  });
+
   it("guides the hydro startup sequence with story gates active", async () => {
     const harness = buildHarness("story");
 

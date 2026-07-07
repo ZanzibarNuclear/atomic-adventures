@@ -1,7 +1,7 @@
 # Getting to Alpha
 
-**Status:** Planned
-**Last updated:** 2026-07-03
+**Status:** In progress
+**Last updated:** 2026-07-06
 **Primary contracts:** [Play Modes and Storyline Control](../contracts/play-modes-and-storyline.md), [Story Beats](../contracts/story-beats.md), [Stage Views](../contracts/stage-views.md), [Holo-Reader](../contracts/holo-reader.md), [Control Panel](../contracts/control-panel.md), [Hydro Simulator](../contracts/hydro-simulator.md), [Character, Artifacts, and Inventory Management](../contracts/character-inventory.md)
 **Quality checklist:** [Character, Inventory, and Game-View Regression Checklist](../quality/character-inventory-regression-checklist.md)
 
@@ -10,11 +10,11 @@
 Move the current hydro vertical slice from a promising first cut to an alpha
 experience that a new player can understand, follow, and complete.
 
-The hydro runtime, facility state, startup actions, and first console are now
-in place. The remaining alpha gap is not mostly physics; it is player
-comprehension and mode structure. A beginner needs to understand what hydro
-power is, what Zanzibar is trying to do, which actions matter right now, and
-whether they are playing the authored story or freely exploring.
+The hydro runtime, facility state, startup actions, beginner lesson, visual
+startup card, simplified console, and dual play-mode structure are now in
+place. The remaining alpha gap is mostly end-to-end polish: make sure the
+survival-to-hydro story path reads cleanly, electrical affordances are
+consistent once power comes online, and the final build/test loop stays green.
 
 Alpha should feel like:
 
@@ -23,21 +23,22 @@ Alpha should feel like:
    work.
 3. Zanzibar can bring the generator online and read a simpler control-room
    console.
-4. The player can choose between a guided storyline and an open-world mode,
-   rather than being expected to infer the canonical story while every action is
-   available.
+4. The player chooses between guided Story mode and experimental Open-world
+   mode before play begins.
 
 ## Alpha Scope
 
-Alpha requires the following work beyond the current build:
+The original four alpha pillars are implemented:
 
 - beginner-friendly hydro lesson;
 - visual laminated instruction card;
 - simplified hydro console;
-- explicit story mode versus open-world mode.
+- explicit Story mode versus Open-world mode.
 
-The other ideas in this plan are important, but they should not block alpha
-unless they become necessary to make the four alpha requirements coherent.
+Remaining alpha work should be limited to polish and verification needed to
+make those pillars coherent in one playable run. The later stages below are
+important, but they should not expand alpha unless a missing piece blocks the
+survival-to-hydro loop.
 
 ## Decisions
 
@@ -166,46 +167,46 @@ do next?`
 
 **Purpose:** Stop asking one interface to carry two incompatible experiences.
 
-Open access to rooms, outdoor nodes, and many actions makes it too easy for a
-player to lose the authored story thread. Alpha needs an explicit split:
+Open access to rooms, outdoor nodes, and many actions made it too easy for a
+player to lose the authored story thread. Alpha now has an explicit split:
 
-- **Story mode** — the player is Zanzibar in the canonical story. Many
-  actions, timings, and transitions may be forced or gated so the story remains
-  coherent.
+- **Story mode** — the player is Zanzibar in the canonical story. Objectives,
+  prose, action policy, and consequences guide the current concern while
+  ordinary valid movement remains available.
 - **Open-world mode** — the player explores freely, defines their own goals,
   and tries to figure things out without following the canonical story.
 
 The implementation contract for this split is
 [Play Modes and Storyline Control](../contracts/play-modes-and-storyline.md).
-The migration plan is
-[Dual Play Modes Implementation Plan](dual-play-modes-implementation.md).
 Story beats remain the prose layer; storyline steps own objectives, gates,
 forced transitions, and canonical sequencing.
 
 ### Story Mode Requirements
 
-- [ ] Add an explicit mode selection or new-game choice.
-- [ ] Decide whether story mode is the default for alpha.
-- [ ] In story mode, gate or hide actions that would break the current
-      narrative beat.
-- [ ] Allow forced movement, forced time passage, and limited action sets where
-      the story requires it.
-- [ ] Show current objective or next story task clearly.
-- [ ] Preserve Zanzibar's authored voice and canonical story beats.
-- [ ] Prevent optional exploration from obscuring critical hydro startup steps.
-- [ ] Test story progression through the hydro startup sequence with mode gates
-      active.
+- [x] Add an explicit mode selection or new-game choice.
+- [x] Make Story mode the default/recommended alpha choice.
+- [x] In Story mode, gate or hide nonmovement actions that would reveal or
+      mutate future story state out of order.
+- [x] Allow forced movement, forced time passage, stage views, and limited
+      action sets where the story requires them.
+- [x] Show the current internal objective clearly.
+- [x] Preserve Zanzibar's authored voice and canonical story beats.
+- [x] Keep ordinary valid movement and detours available, with survival pressure
+      providing consequence.
+- [x] Prevent optional exploration from obscuring critical hydro startup steps.
+- [x] Test opening movement, valid detours, the canonical gate path, the
+      noncanonical fence-hole shortcut, and hydro startup with mode gates active.
 
 ### Open-World Mode Requirements
 
-- [ ] Let open-world mode expose broad room, map, and action access.
-- [ ] Keep safety rails for impossible or invalid state, but do not force the
+- [x] Let open-world mode expose broad room, map, and action access.
+- [x] Keep safety rails for impossible or invalid state, but do not force the
       canonical story sequence.
-- [ ] Make it clear that open-world mode is experimental/freeform and may not
+- [x] Make it clear that open-world mode is experimental/freeform and may not
       follow the authored narrative.
-- [ ] Preserve save/load, inventory, flags, character state, and facility state.
-- [ ] Test starting in open-world mode, switching if supported, and completing
-      hydro startup out of story order if allowed.
+- [x] Preserve save/load, inventory, flags, character state, and facility state.
+- [x] Test starting in open-world mode and hydro facility actions remaining
+      broad while facility rules still determine availability.
 
 **Exit criterion:** A player knows whether they are following Zanzibar's story
 or freely experimenting, and the UI behavior matches that choice.
@@ -227,6 +228,11 @@ otherwise used.
 - [ ] Add detailed `turn off`, `plug in`, `unplug`, and `charge` behaviors where
       they matter for later puzzles.
 - [ ] Add brownout/load behavior when battery and load modeling exists.
+
+**Alpha note:** Detailed plug/unplug and brownout behavior can remain post-alpha
+unless the final story loop needs one of those interactions. The alpha
+requirement is consistency: powered objects should not contradict the station
+power state.
 
 ## Future Stage - eBuggy Charging and Driving
 
@@ -295,21 +301,21 @@ interactive close-ups with stateful controls.
 
 ## Alpha Acceptance Checklist
 
-- [ ] A beginner-friendly hydro lesson exists and can be completed in roughly
-      30 minutes.
-- [ ] The lesson uses enough images/diagrams that the core idea is visible
+- [x] A beginner-friendly hydro lesson exists.
+- [x] The lesson uses enough images/diagrams that the core idea is visible
       before it is technical.
-- [ ] The instruction card opens as a visual focused view and includes a
+- [x] The instruction card opens as a visual focused view and includes a
       checklist plus mini-map.
-- [ ] The instruction card can be carried or accessed from inventory/backpack.
-- [ ] The console is simplified for alpha and gives a clear next action.
-- [ ] The game explicitly supports story mode and open-world mode, or at
-      minimum clearly gates alpha as story mode while marking free
-      exploration separately.
-- [ ] The hydro startup path works end to end in story mode.
-- [ ] Save/load preserves lesson, card, mode, inventory, hydro facility state,
+- [x] The instruction card can be carried or accessed from inventory/backpack.
+- [x] The console is simplified for alpha and gives a clear next action.
+- [x] The game explicitly supports Story mode and Open-world mode.
+- [x] The hydro startup path works end to end in Story mode.
+- [x] Save/load preserves lesson, card, mode, inventory, hydro facility state,
       and console behavior.
-- [ ] `npm run test` passes from the repository root.
+- [ ] The full survival-to-hydro Story mode run has one final hands-on browser
+      pass for objective copy, prose order, and confusing affordances.
+- [x] `npm run test` passes from the repository root.
+- [x] `npm run build:game` passes from the repository root.
 
 ## Implementation Notes
 
