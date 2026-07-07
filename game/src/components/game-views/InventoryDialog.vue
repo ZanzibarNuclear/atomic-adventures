@@ -92,11 +92,13 @@ defineEmits(["close", "select-holding", "transfer-item", "use-item"]);
   letter-spacing: 0;
 }
 .inventory-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 2rem;
   height: 2rem;
-  border: 1px solid rgba(120, 150, 195, 0.42);
-  border-radius: 999px;
-  background: #20283a;
+  border: 0;
+  background: transparent;
   color: #e8edf5;
   font-size: 1.25rem;
   line-height: 1;
@@ -104,7 +106,6 @@ defineEmits(["close", "select-holding", "transfer-item", "use-item"]);
 }
 .inventory-close:hover,
 .inventory-close:focus-visible {
-  border-color: #8faed6;
   color: #ffffff;
 }
 @media (max-width: 760px) {
