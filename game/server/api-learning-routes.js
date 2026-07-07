@@ -3,7 +3,7 @@ import { json, readJson } from "./api-utils.js";
 export async function handleLearningRoutes(req, res, url, {
   repository,
   learningRepository,
-  storylineRepository,
+  storyArcRepository,
   broadcast,
   syncRuntimeContent,
 }) {
@@ -38,7 +38,7 @@ export async function handleLearningRoutes(req, res, url, {
     if (!id) return json(res, 400, { message: "id is required." });
     return json(res, 200, [
       ...(repository.findLearningReferences?.(id) ?? []),
-      ...(storylineRepository?.findLearningReferences?.(id) ?? []),
+      ...(storyArcRepository?.findLearningReferences?.(id) ?? []),
     ]);
   }
 

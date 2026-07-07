@@ -133,7 +133,7 @@ export function applySnapshot(snapshot, { gameState, place, outdoor, indoor }) {
   gameState.lessons = plainObject(snapshot.lessons);
   gameState.milestones = plainObject(snapshot.milestones);
   gameState.playMode = normalizePlayMode(snapshot.playMode);
-  gameState.story = normalizeStoryState(snapshot.story ?? snapshot.storyline, gameState.playMode);
+  gameState.story = normalizeStoryState(snapshot.story, gameState.playMode);
   gameState.facilities = {
     hydro: normalizeHydroState(snapshot.facilities?.hydro ?? {
       ...createHydroState(),
@@ -207,7 +207,6 @@ export function setPlayMode(gameState, mode, {
 }
 
 export function normalizePlayMode(mode) {
-  if (mode === "storyline") return "story";
   return PLAY_MODES.has(mode) ? mode : DEFAULT_PLAY_MODE;
 }
 
@@ -230,10 +229,10 @@ export function createStoryState({
 function normalizeStoryState(value, playMode) {
   if (playMode !== "story") return null;
   return createStoryState({
-    activeArcId: value?.activeArcId || value?.scenarioId || STORY_ARC_ID,
-    activeBeatId: value?.activeBeatId || value?.stepId || null,
-    completedBeatIds: normalizeIdList(value?.completedBeatIds ?? value?.completedStepIds),
-    enteredBeatIds: normalizeIdList(value?.enteredBeatIds ?? value?.enteredStepIds),
+    activeArcId: value?.activeArcId || STORY_ARC_ID,
+    activeBeatId: value?.activeBeatId || null,
+    completedBeatIds: normalizeIdList(value?.completedBeatIds),
+    enteredBeatIds: normalizeIdList(value?.enteredBeatIds),
     seenSceneIds: normalizeIdList(value?.seenSceneIds),
   });
 }

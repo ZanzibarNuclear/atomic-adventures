@@ -181,12 +181,12 @@ async function saveMilestones(nextMilestones = milestones.value) {
 }
 
 async function loadStoryArcDocument() {
-  const result = await storyApi("/api/storyline");
+  const result = await storyApi("/api/story-arcs/document");
   storyArcVersion.value = result.version;
-  storyArcDocumentText.value = JSON.stringify(result.storyline, null, 2);
+  storyArcDocumentText.value = JSON.stringify(result.storyArcDocument, null, 2);
   storyArcBaselineText.value = storyArcDocumentText.value;
   storyArcErrors.value = {};
-    storyArcStatus.value = `Loaded story arc version ${result.version}.`;
+  storyArcStatus.value = `Loaded story arc version ${result.version}.`;
 }
 
 async function saveStoryArcDocument() {
@@ -200,15 +200,15 @@ async function saveStoryArcDocument() {
     return false;
   }
   try {
-    const result = await storyApi("/api/storyline", {
+    const result = await storyApi("/api/story-arcs/document", {
       method: "PUT",
       body: JSON.stringify({
-        storyline: storyArcDraft,
+        storyArcDocument: storyArcDraft,
         expectedVersion: storyArcVersion.value,
       }),
     });
     storyArcVersion.value = result.version;
-    storyArcDocumentText.value = JSON.stringify(result.storyline, null, 2);
+    storyArcDocumentText.value = JSON.stringify(result.storyArcDocument, null, 2);
     storyArcBaselineText.value = storyArcDocumentText.value;
     storyArcStatus.value = `Saved story arc version ${result.version}.`;
     return true;
@@ -459,7 +459,7 @@ function newSceneForStoryBeat({ beatId, primarySceneId = null } = {}) {
       : null;
     beginNewBeat(sourceScene);
     if (!draft.value) return;
-    draft.value.storylineStep = beatId ?? null;
+    draft.value.storyBeat = beatId ?? null;
     draft.value.modes = ["story"];
     draft.value.heading = sourceScene?.heading ? `${sourceScene.heading} variant` : "New scene";
     draft.value.text = sourceScene?.text ?? "";
@@ -526,7 +526,7 @@ function emptyBeat() {
     text: "",
     revisit: "",
     modes: [],
-    storylineStep: null,
+    storyBeat: null,
     trigger,
     match: { originHex: null, mapTransition: null, transitionDirection: null },
     time: {

@@ -59,7 +59,7 @@ describe("StoryRepository", () => {
     expect(repository.getRuntimeStory().areas["part-i"].beats.intro.heading).toBe("Lost in the woods");
     db.close();
     const reopened = openDatabase(path);
-    expect(reopened.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get().count).toBe(13);
+    expect(reopened.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get().count).toBe(15);
     reopened.close();
   });
 
@@ -331,20 +331,20 @@ describe("StoryRepository", () => {
     db.close();
   });
 
-  it("round-trips beat mode and storyline step scoping", () => {
+  it("round-trips beat mode and story beat scoping", () => {
     const { db, repository } = createRepository();
     repository.createBeat("test-area", sampleBeat({
       modes: ["story"],
-      storylineStep: "understand-building",
+      storyBeat: "understand-building",
     }));
 
     const beat = repository.getBeat("test-area", "test-beat");
     expect(beat.modes).toEqual(["story"]);
-    expect(beat.storylineStep).toBe("understand-building");
+    expect(beat.storyBeat).toBe("understand-building");
     expect(repository.getRuntimeStory().areas["test-area"].beats["test-beat"])
       .toEqual(expect.objectContaining({
         modes: ["story"],
-        storylineStep: "understand-building",
+        storyBeat: "understand-building",
       }));
     db.close();
   });

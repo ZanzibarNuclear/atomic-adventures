@@ -45,7 +45,7 @@ const linkedScenes = computed(() => {
   const beatId = selectedStoryBeat.value?.id;
   if (!beatId) return [];
   return props.beats.filter((beat) =>
-    beat.id === selectedStoryBeat.value?.scene || beat.storylineStep === beatId,
+    beat.id === selectedStoryBeat.value?.scene || beat.storyBeat === beatId,
   );
 });
 const selectedScene = computed(() =>
@@ -60,7 +60,7 @@ const beatOptions = computed(() =>
   props.beats.map((beat) => ({
     id: beat.id,
     label: beat.heading || beat.id,
-    detail: [beat.modes?.join(", "), beat.storylineStep].filter(Boolean).join(" / "),
+    detail: [beat.modes?.join(", "), beat.storyBeat].filter(Boolean).join(" / "),
   })),
 );
 const lessonOptions = computed(() => learning.value.lessons ?? []);
@@ -377,8 +377,8 @@ function labelFor(options = [], id) {
 function createStoryBeat(id) {
   return {
     id,
-    objective: "",
-    beat: null,
+    title: "",
+    scene: null,
     allowed: {
       movement: { mode: null, hexes: [], rooms: [], exteriorNodes: [], transitions: [] },
       storyForwardActions: [],
@@ -394,7 +394,7 @@ function createStoryBeat(id) {
     onEnter: null,
     onComplete: null,
     next: null,
-    nextScenario: null,
+    nextArc: null,
   };
 }
 
@@ -436,7 +436,7 @@ function sceneLocation(scene) {
       <ul v-if="storyArcs.length" class="arc-list">
         <li v-for="arc in storyArcs" :key="arc.id" class="arc-card">
           <div>
-            <strong>{{ arc.label || arc.id }}</strong>
+            <strong>{{ arc.title || arc.id }}</strong>
             <span>{{ arc.id }}</span>
           </div>
           <dl>
@@ -453,11 +453,11 @@ function sceneLocation(scene) {
             <li
               v-for="beat in arc.beats"
               :key="beat.id"
-              :class="{ active: arc.id === selectedScenario?.id && beat.id === selectedStoryBeat?.id }"
-              @click="selectedScenarioId = arc.id; selectedStoryBeatId = beat.id"
+              :class="{ active: arc.id === selectedStoryArc?.id && beat.id === selectedStoryBeat?.id }"
+              @click="selectedStoryArcId = arc.id; selectedStoryBeatId = beat.id"
             >
               <span>{{ beat.id }}</span>
-              <small>{{ beat.objective }}</small>
+              <small>{{ beat.title }}</small>
             </li>
           </ol>
         </li>
@@ -469,10 +469,10 @@ function sceneLocation(scene) {
       <div class="arc-heading">
         <div>
           <p class="label">Structured story arc editor</p>
-          <h2>{{ selectedStoryBeat?.id || selectedScenario?.id || "Document" }}</h2>
+          <h2>{{ selectedStoryBeat?.id || selectedStoryArc?.id || "Document" }}</h2>
         </div>
         <div class="arc-actions">
-          <button type="button" class="sm muted" :disabled="!selectedScenario" @click="addStoryBeat">Add beat</button>
+          <button type="button" class="sm muted" :disabled="!selectedStoryArc" @click="addStoryBeat">Add beat</button>
           <button type="button" class="sm muted" :disabled="!selectedStoryBeat" @click="moveStoryBeat(-1)">Move up</button>
           <button type="button" class="sm muted" :disabled="!selectedStoryBeat" @click="moveStoryBeat(1)">Move down</button>
           <button type="button" class="sm muted" :disabled="!selectedStoryBeat" @click="removeStoryBeat">Remove beat</button>
@@ -481,17 +481,17 @@ function sceneLocation(scene) {
         </div>
       </div>
 
-      <div v-if="selectedScenario" class="structured-editor">
+      <div v-if="selectedStoryArc" class="structured-editor">
         <fieldset>
           <legend>Story arc</legend>
           <label>
-            Label
-            <input :value="selectedScenario.label" @input="updateScenario('label', $event.target.value)">
+            Title
+            <input :value="selectedStoryArc.title" @input="updateStoryArc('title', $event.target.value)">
           </label>
           <label>
             Start story beat
-            <select :value="selectedScenario.startBeat" @change="updateScenario('startBeat', $event.target.value)">
-              <option v-for="beat in selectedScenario.beats ?? []" :key="beat.id" :value="beat.id">{{ beat.id }}</option>
+            <select :value="selectedStoryArc.startBeat" @change="updateStoryArc('startBeat', $event.target.value)">
+              <option v-for="beat in selectedStoryArc.beats ?? []" :key="beat.id" :value="beat.id">{{ beat.id }}</option>
             </select>
           </label>
         </fieldset>
@@ -499,17 +499,17 @@ function sceneLocation(scene) {
         <fieldset v-if="selectedStoryBeat">
           <legend>Story beat</legend>
           <label>
-            Beat concern
+            Beat title
             <textarea
               class="compact-textarea"
-              :value="selectedStoryBeat.objective"
+              :value="selectedStoryBeat.title"
               rows="2"
-              @input="updateStoryBeat('objective', $event.target.value)"
+              @input="updateStoryBeat('title', $event.target.value)"
             />
           </label>
           <label>
             Primary scene
-            <select :value="selectedStoryBeat.beat || ''" @change="updateStoryBeat('beat', $event.target.value)">
+            <select :value="selectedStoryBeat.scene || ''" @change="updateStoryBeat('scene', $event.target.value)">
               <option value="">None</option>
               <option v-for="beat in beatOptions" :key="beat.id" :value="beat.id">
                 {{ beat.label }} ({{ beat.id }}){{ beat.detail ? ` - ${beat.detail}` : "" }}
@@ -528,7 +528,7 @@ function sceneLocation(scene) {
               <li
                 v-for="scene in linkedScenes"
                 :key="scene.id"
-                :class="{ primary: scene.id === selectedStoryBeat.beat }"
+                :class="{ primary: scene.id === selectedStoryBeat.scene }"
               >
                 <button type="button" class="scene-select" @click="selectScene(scene)">
                   <strong>{{ scene.heading || scene.id }}</strong>
@@ -553,14 +553,14 @@ function sceneLocation(scene) {
               Next story beat
               <select :value="selectedStoryBeat.next || ''" @change="updateStoryBeat('next', $event.target.value)">
                 <option value="">None</option>
-                <option v-for="beat in selectedScenario.beats ?? []" :key="beat.id" :value="beat.id">{{ beat.id }}</option>
+                <option v-for="beat in selectedStoryArc.beats ?? []" :key="beat.id" :value="beat.id">{{ beat.id }}</option>
               </select>
             </label>
             <label>
               Next story arc
-              <select :value="selectedStoryBeat.nextScenario || ''" @change="updateStoryBeat('nextScenario', $event.target.value)">
+              <select :value="selectedStoryBeat.nextArc || ''" @change="updateStoryBeat('nextArc', $event.target.value)">
                 <option value="">None</option>
-                <option v-for="arc in storyArcs" :key="arc.id" :value="arc.id">{{ arc.label || arc.id }}</option>
+                <option v-for="arc in storyArcs" :key="arc.id" :value="arc.id">{{ arc.title || arc.id }}</option>
               </select>
             </label>
           </div>

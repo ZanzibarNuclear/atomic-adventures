@@ -1,15 +1,9 @@
 const DEFAULT_ARC_ID = "part-i-opener";
 
 export function normalizeStoryArcContent(input = {}, { storyData = null } = {}) {
-  const source = input?.storyline ?? input ?? {};
+  const source = input ?? {};
   const proseBeats = storyData?.beats ?? {};
-  const arcs = Array.isArray(source.storyArcs)
-    ? source.storyArcs
-    : Array.isArray(source.arcs)
-      ? source.arcs
-      : Array.isArray(source.scenarios)
-        ? source.scenarios
-        : [];
+  const arcs = Array.isArray(source.storyArcs) ? source.storyArcs : [];
 
   return {
     id: text(source.id) || "story-main",
@@ -18,18 +12,14 @@ export function normalizeStoryArcContent(input = {}, { storyData = null } = {}) 
 }
 
 export function normalizeStoryArc(source = {}, index = 0, proseBeats = {}) {
-  const rawBeats = Array.isArray(source.beats)
-    ? source.beats
-    : Array.isArray(source.steps)
-      ? source.steps
-      : [];
+  const rawBeats = Array.isArray(source.beats) ? source.beats : [];
   const id = text(source.id) || `${DEFAULT_ARC_ID}-${index + 1}`;
-  const startBeat = text(source.startBeat) || text(source.startStep) || text(rawBeats[0]?.id) || null;
+  const startBeat = text(source.startBeat) || text(rawBeats[0]?.id) || null;
 
   return {
     ...source,
     id,
-    title: text(source.title) || text(source.label) || id,
+    title: text(source.title) || id,
     protagonist: text(source.protagonist) || null,
     startBeat,
     beats: rawBeats.map((beat, beatIndex) => normalizeStoryBeat(beat, beatIndex, proseBeats)),
@@ -37,7 +27,7 @@ export function normalizeStoryArc(source = {}, index = 0, proseBeats = {}) {
 }
 
 export function normalizeStoryBeat(source = {}, index = 0, proseBeats = {}) {
-  const proseBeatId = text(source.scene) || text(source.beat);
+  const proseBeatId = text(source.scene);
   const proseBeat = proseBeatId ? proseBeats[proseBeatId] : null;
   const scenes = Array.isArray(source.scenes)
     ? source.scenes
@@ -54,7 +44,7 @@ export function normalizeStoryBeat(source = {}, index = 0, proseBeats = {}) {
   return {
     ...source,
     id,
-    title: text(source.title) || text(source.label) || text(source.objective) || id,
+    title: text(source.title) || id,
     scenes: scenes.map((scene, sceneIndex) => normalizeScene(scene, sceneIndex)),
     choices: choices.map((choice, choiceIndex) => normalizeChoice(choice, choiceIndex)),
     authoredActions: normalizeAuthoredActions(source.authoredActions, source.allowed),
@@ -62,7 +52,7 @@ export function normalizeStoryBeat(source = {}, index = 0, proseBeats = {}) {
     onEnter: source.onEnter ?? null,
     onComplete: source.onComplete ?? null,
     next: text(source.next) || null,
-    nextArc: text(source.nextArc) || text(source.nextScenario) || null,
+    nextArc: text(source.nextArc) || null,
   };
 }
 
@@ -122,7 +112,7 @@ function sceneFromProseBeat(id, beat) {
     revisitProse: beat.revisit ?? "",
     eyebrow: beat.eyebrow,
     heading: beat.heading,
-    storylineStep: beat.storylineStep,
+    storyBeat: beat.storyBeat,
   };
 }
 

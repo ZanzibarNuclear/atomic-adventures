@@ -38,10 +38,6 @@ if (!(character.character?.items?.length > 0)) {
 if (!(storyArcs.story?.storyArcs?.length > 0)) {
   throw new Error("Production story arc export has no story arcs.");
 }
-if (existsSync(join(dist, "content", "storyline.json"))) {
-  throw new Error("Production must not ship the retired storyline export.");
-}
-
 const assets = readdirSync(assetsPath);
 const builderChunks = assets.filter((name) => /Builder(View|Shell)/.test(name));
 if (builderChunks.length) {
@@ -56,7 +52,6 @@ for (const forbidden of [
   "/api/story",
   "/api/world",
   "/api/character",
-  "/api/storyline",
   "/api/content/events",
   "new EventSource",
 ]) {

@@ -16,7 +16,7 @@ const STAGE_VIEW_KINDS = new Set([
 ]);
 const ACTIVITIES = new Set(["resting", "light", "moderate", "strenuous"]);
 
-export function normalizeStorylineDocument(input = {}) {
+export function normalizeStoryArcDocument(input = {}) {
   const source = input && typeof input === "object" ? structuredClone(input) : {};
   return {
     id: text(source.id) || "story-main",
@@ -24,15 +24,13 @@ export function normalizeStorylineDocument(input = {}) {
   };
 }
 
-export const normalizeStoryArcDocument = normalizeStorylineDocument;
-
-export function validateStorylineDocument(input, {
+export function validateStoryArcDocument(input, {
   story = null,
   world = null,
   character = null,
   learning = null,
 } = {}) {
-  const storyArcDocument = normalizeStorylineDocument(input);
+  const storyArcDocument = normalizeStoryArcDocument(input);
   const errors = {};
   const add = (path, message) => ((errors[path] ??= []).push(message));
 
@@ -77,8 +75,6 @@ export function validateStorylineDocument(input, {
     valid: Object.keys(errors).length === 0,
   };
 }
-
-export const validateStoryArcDocument = validateStorylineDocument;
 
 function normalizeStoryArc(input = {}, index = 0) {
   return {
@@ -280,7 +276,7 @@ function validateActionIds(ids, path, add) {
 }
 
 function normalizePlayMode(mode) {
-  return mode === "storyline" ? "story" : mode;
+  return mode;
 }
 
 function validateWorldIds(ids, catalog, path, add, label) {

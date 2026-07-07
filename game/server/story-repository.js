@@ -102,7 +102,7 @@ export class StoryRepository {
       SELECT area_id, id, sort_order, trigger_place, trigger_hex, trigger_room,
         trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
         eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json,
-        modes_json, storyline_step, match_json, time_json,
+        modes_json, story_beat, match_json, time_json,
         version, created_at, updated_at
       FROM story_beats
       WHERE area_id = ?
@@ -120,7 +120,7 @@ export class StoryRepository {
       SELECT area_id, id, sort_order, trigger_place, trigger_hex, trigger_room,
         trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
         eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json,
-        modes_json, storyline_step, match_json, time_json,
+        modes_json, story_beat, match_json, time_json,
         version, created_at, updated_at
       FROM story_beats
       WHERE area_id = ? AND id = ?
@@ -554,7 +554,7 @@ export class StoryRepository {
         area_id, id, sort_order, trigger_place, trigger_hex, trigger_room,
         trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
         eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json,
-        modes_json, storyline_step, match_json, time_json,
+        modes_json, story_beat, match_json, time_json,
         version, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
@@ -567,7 +567,7 @@ export class StoryRepository {
       JSON.stringify([]),
       JSON.stringify({}),
       JSON.stringify(beat.modes ?? []),
-      beat.storylineStep,
+      beat.storyBeat,
       JSON.stringify(compactObject(beat.match ?? {})),
       JSON.stringify(compactObject(beat.time ?? {})),
       version, createdAt, now,
@@ -611,7 +611,7 @@ export class StoryRepository {
       text: row.text,
       revisit: row.revisit,
       modes: parseNullableJson(row.modes_json) ?? [],
-      storylineStep: row.storyline_step,
+      storyBeat: row.story_beat,
       trigger: {
         place: row.trigger_place,
         hex: row.trigger_hex,

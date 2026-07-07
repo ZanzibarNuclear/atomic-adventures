@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { normalizeStoryArcContent } from "../src/composables/storyArcModel.js";
@@ -12,26 +12,26 @@ export function writeRuntimeContent({
   buildingRepository,
   characterRepository,
   learningRepository,
-  storylineRepository,
+  storyArcRepository,
   outputDir = RUNTIME_CONTENT_DIR,
 }) {
   const worldDocument = worldRepository.getDocument();
   const buildingDocument = buildingRepository.getDocument();
   const characterDocument = characterRepository.getRuntimeCharacter();
   const learningDocument = learningRepository.getRuntimeLearning();
-  const storylineDocument = storylineRepository.getRuntimeStoryline();
+  const storyArcSource = storyArcRepository.getRuntimeStoryArcDocument();
   const storyDocument = storyRepository.getRuntimeStory();
   const storyBeats = Object.assign(
     {},
     ...Object.values(storyDocument.areas ?? {}).map((area) => area.beats ?? {}),
   );
   const storyArcDocument = {
-    story: normalizeStoryArcContent(storylineDocument.storyline, {
+    story: normalizeStoryArcContent(storyArcSource.storyArcDocument, {
       storyData: { beats: storyBeats },
     }),
-    version: storylineDocument.version,
-    revision: storylineDocument.revision,
-    warnings: storylineDocument.warnings,
+    version: storyArcSource.version,
+    revision: storyArcSource.revision,
+    warnings: storyArcSource.warnings,
   };
 
   mkdirSync(outputDir, { recursive: true });
@@ -50,14 +50,9 @@ export function writeRuntimeContent({
   });
   writeJson(join(outputDir, "character.json"), characterDocument);
   writeJson(join(outputDir, "learning.json"), learningDocument);
-  removeJson(join(outputDir, "storyline.json"));
   writeJson(join(outputDir, "story-arcs.json"), storyArcDocument);
 }
 
 function writeJson(path, value) {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
-}
-
-function removeJson(path) {
-  if (existsSync(path)) unlinkSync(path);
 }

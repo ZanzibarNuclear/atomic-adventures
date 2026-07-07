@@ -169,7 +169,7 @@ describe("useStoryBeatDocument", () => {
           beat: {
             ...beat,
             modes: "story",
-            storylineStep: "intro",
+            storyBeat: "intro",
           },
         };
       }
@@ -180,7 +180,7 @@ describe("useStoryBeatDocument", () => {
     await document.openFirstBeatForSelectedLocation();
 
     expect(document.draft.value.modes).toEqual(["story"]);
-    expect(document.draft.value.storylineStep).toBe("intro");
+    expect(document.draft.value.storyBeat).toBe("intro");
     expect(document.dirty.value).toBe(false);
   });
 });

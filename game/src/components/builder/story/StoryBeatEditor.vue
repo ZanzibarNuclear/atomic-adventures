@@ -90,7 +90,7 @@ const modeCriteriaSummary = computed(() => {
   const summary = [];
   const modes = Array.isArray(props.draft.modes) ? props.draft.modes : [];
   if (modes.length) summary.push(`Modes: ${modes.map(modeLabel).join(", ")}`);
-  if (props.draft.storylineStep) summary.push(`Story beat: ${props.draft.storylineStep}`);
+  if (props.draft.storyBeat) summary.push(`Story beat: ${props.draft.storyBeat}`);
   return summary;
 });
 
@@ -289,10 +289,10 @@ function setModeEnabled(mode, enabled) {
             </label>
             <label class="span-all">Story beat
               <input
-                v-model="draft.storylineStep"
+                v-model="draft.storyBeat"
                 placeholder="optional story beat ID"
               />
-              <span v-if="fieldError('storylineStep')" class="field-error">{{ fieldError("storylineStep") }}</span>
+              <span v-if="fieldError('storyBeat')" class="field-error">{{ fieldError("storyBeat") }}</span>
             </label>
           </div>
         </section>

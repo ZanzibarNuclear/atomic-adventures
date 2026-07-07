@@ -40,17 +40,17 @@ describe("story beat match warnings", () => {
     ]);
   });
 
-  it("does not warn for distinct storyline steps", () => {
+  it("does not warn for distinct story beats", () => {
     expect(warnings([
-      beat("intro", { modes: ["story"], storylineStep: "intro" }),
-      beat("card", { modes: ["story"], storylineStep: "understand-building" }),
+      beat("intro", { modes: ["story"], storyBeat: "intro" }),
+      beat("card", { modes: ["story"], storyBeat: "understand-building" }),
     ])).toEqual([]);
   });
 
-  it("warns when an ambient story beat overlaps a storyline step beat", () => {
+  it("warns when an ambient story beat overlaps a scoped story beat scene", () => {
     expect(warnings([
       beat("ambient", { modes: ["story"] }),
-      beat("intro", { modes: ["story"], storylineStep: "intro" }),
+      beat("intro", { modes: ["story"], storyBeat: "intro" }),
     ])).toEqual([
       "Multiple beats use default/no origin or map transition: ambient, intro. The first sorted beat wins.",
     ]);

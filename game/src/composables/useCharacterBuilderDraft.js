@@ -419,8 +419,8 @@ async function loadReferences(domain, id) {
 }
 
 function referenceLabel(reference) {
-  if (reference.kind === "storyline") {
-    return `storyline ${reference.scenarioId}/${reference.stepId}: ${reference.path}`;
+  if (reference.kind === "storyArc") {
+    return `story arc ${reference.arcId}/${reference.beatId}: ${reference.path}`;
   }
   if (reference.kind === "story") {
     return `${reference.areaId}/${reference.beatId}: ${reference.path}`;

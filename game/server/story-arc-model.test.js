@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { validateStorylineDocument } from "./storyline-model.js";
-import { storylineSeed } from "./storyline-seed.js";
+import { validateStoryArcDocument } from "./story-arc-model.js";
+import { storyArcSeed } from "./story-arc-seed.js";
 
 const world = {
   hexIds: new Set([
@@ -57,61 +57,61 @@ const story = {
 
 describe("story arc transport model", () => {
   it("validates the seeded Part I story arc shape", () => {
-    const result = validateStorylineDocument(storylineSeed, { story, world, character, learning });
+    const result = validateStoryArcDocument(storyArcSeed, { story, world, character, learning });
     expect(result.valid).toBe(true);
-    expect(result.storyline.id).toBe("storyline-main");
-    expect(result.storyline.scenarios[0].id).toBe("part-i-opener");
-    expect(result.storyline.scenarios[1].id).toBe("part-i-station");
+    expect(result.storyArcDocument.id).toBe("story-main");
+    expect(result.storyArcDocument.storyArcs[0].id).toBe("part-i-opener");
+    expect(result.storyArcDocument.storyArcs[1].id).toBe("part-i-station");
   });
 
   it("rejects unresolved movement references", () => {
-    const draft = structuredClone(storylineSeed);
-    draft.scenarios[0].steps[0].allowed = {
+    const draft = structuredClone(storyArcSeed);
+    draft.storyArcs[0].beats[0].allowed = {
       movement: { hexes: ["missing-hex"] },
     };
 
-    const result = validateStorylineDocument(draft, { world, character, learning });
+    const result = validateStoryArcDocument(draft, { world, character, learning });
     expect(result.valid).toBe(false);
-    expect(result.errors["scenarios.0.steps.0.allowed.movement.hexes"]).toContain(
+    expect(result.errors["storyArcs.0.beats.0.allowed.movement.hexes"]).toContain(
       "Choose an existing hex.",
     );
   });
 
   it("keeps completion conditions typed to one family", () => {
-    const draft = structuredClone(storylineSeed);
-    draft.scenarios[0].steps[0].completesWhen = {
+    const draft = structuredClone(storyArcSeed);
+    draft.storyArcs[0].beats[0].completesWhen = {
       flag: "story.intro.complete",
       location: { place: "indoors", room: "control-room" },
     };
 
-    const result = validateStorylineDocument(draft, { world, character, learning });
+    const result = validateStoryArcDocument(draft, { world, character, learning });
     expect(result.valid).toBe(false);
-    expect(result.errors["scenarios.0.steps.0.completesWhen"]).toContain(
+    expect(result.errors["storyArcs.0.beats.0.completesWhen"]).toContain(
       "Choose exactly one completion condition.",
     );
   });
 
   it("validates completion locations with alternate destination hexes", () => {
-    const draft = structuredClone(storylineSeed);
-    draft.scenarios[0].steps[2].completesWhen = {
+    const draft = structuredClone(storyArcSeed);
+    draft.storyArcs[0].beats[2].completesWhen = {
       location: { place: "outdoors", hex: ["gate-woods", "utility-yard"] },
     };
 
-    const result = validateStorylineDocument(draft, { story, world, character, learning });
+    const result = validateStoryArcDocument(draft, { story, world, character, learning });
     expect(result.valid).toBe(true);
-    expect(result.storyline.scenarios[0].steps[2].completesWhen.location.hex).toEqual([
+    expect(result.storyArcDocument.storyArcs[0].beats[2].completesWhen.location.hex).toEqual([
       "gate-woods",
       "utility-yard",
     ]);
   });
 
   it("rejects unresolved story arc handoffs", () => {
-    const draft = structuredClone(storylineSeed);
-    draft.scenarios[0].steps.at(-1).nextScenario = "missing-scenario";
+    const draft = structuredClone(storyArcSeed);
+    draft.storyArcs[0].beats.at(-1).nextArc = "missing-arc";
 
-    const result = validateStorylineDocument(draft, { world, character, learning });
+    const result = validateStoryArcDocument(draft, { world, character, learning });
     expect(result.valid).toBe(false);
-    expect(result.errors["scenarios.0.steps.2.nextScenario"]).toContain(
+    expect(result.errors["storyArcs.0.beats.2.nextArc"]).toContain(
       "Choose an existing next story arc.",
     );
   });

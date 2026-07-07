@@ -3,8 +3,8 @@ import { CharacterRepository } from "./character-repository.js";
 import { LearningRepository } from "./learning-repository.js";
 import { learningSeed } from "./learning-seed.js";
 import { StoryRepository } from "./story-repository.js";
-import { StoryArcRepository } from "./storyline-repository.js";
-import { storyArcSeed } from "./storyline-seed.js";
+import { StoryArcRepository } from "./story-arc-repository.js";
+import { storyArcSeed } from "./story-arc-seed.js";
 import { WorldRepository } from "./world-repository.js";
 
 export function createContentRepositories(db) {
@@ -26,7 +26,7 @@ export function createContentRepositories(db) {
     characterRepository.getDocument()?.character,
     learningRepository.getDocument()?.learning,
   );
-  const storylineRepository = new StoryArcRepository(db, {
+  const storyArcRepository = new StoryArcRepository(db, {
     seedStoryArcDocument: storyArcSeed,
     storyRepository,
     worldRepository,
@@ -34,11 +34,11 @@ export function createContentRepositories(db) {
     learningRepository,
   });
   worldRepository.setStoryRepository(storyRepository);
-  worldRepository.setStorylineRepository(storylineRepository);
+  worldRepository.setStoryArcRepository(storyArcRepository);
   buildingRepository.setRepositories({
     worldRepository,
     storyRepository,
-    storylineRepository,
+    storyArcRepository,
     characterRepository,
   });
   learningRepository.setCharacterRepository(characterRepository);
@@ -49,7 +49,7 @@ export function createContentRepositories(db) {
     buildingRepository,
     characterRepository,
     learningRepository,
-    storylineRepository,
+    storyArcRepository,
   };
 }
 
@@ -59,7 +59,7 @@ export function assertContentDocuments({
   buildingRepository,
   characterRepository,
   learningRepository,
-  storylineRepository,
+  storyArcRepository,
 }) {
   const missing = [];
   if (!storyRepository.listAreas().length) missing.push("story areas");
@@ -67,7 +67,7 @@ export function assertContentDocuments({
   if (!buildingRepository.getDocument()) missing.push("utility station building");
   if (!characterRepository.getDocument()) missing.push("character content");
   if (!learningRepository.getDocument()) missing.push("learning content");
-  if (!storylineRepository.getDocument()) missing.push("story arc content");
+  if (!storyArcRepository.getDocument()) missing.push("story arc content");
   if (missing.length) {
     throw new Error(
       `SQLite content is incomplete: missing ${missing.join(", ")}. Import a snapshot or restore game/content/atomic-adventures.sqlite.`,

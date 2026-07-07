@@ -1,14 +1,14 @@
 import { json, readJson } from "./api-utils.js";
 import { normalizeStoryArcContent } from "../src/composables/storyArcModel.js";
 
-export async function handleStorylineRoutes(req, res, url, {
+export async function handleStoryArcRoutes(req, res, url, {
   repository,
-  storylineRepository,
+  storyArcRepository,
   broadcast,
   syncRuntimeContent,
 }) {
   if (req.method === "GET" && url.pathname === "/api/story-arcs") {
-    const result = storylineRepository?.getDocument();
+    const result = storyArcRepository?.getDocument();
     if (!result) return json(res, 404, { message: "Story arc content not found." });
     const storyDocument = repository?.getRuntimeStory?.() ?? {};
     const storyBeats = Object.assign(
@@ -21,44 +21,44 @@ export async function handleStorylineRoutes(req, res, url, {
       }),
       version: result.version,
       revision: result.revision,
-      warnings: storylineRepository.validate(result.storyArcDocument).warnings,
+      warnings: storyArcRepository.validate(result.storyArcDocument).warnings,
     });
   }
 
   if (req.method === "GET" && url.pathname === "/api/story-arcs/document") {
-    const result = storylineRepository?.getDocument();
+    const result = storyArcRepository?.getDocument();
     if (!result) return json(res, 404, { message: "Story arc content not found." });
     return json(res, 200, {
       ...result,
-      warnings: storylineRepository.validate(result.storyArcDocument).warnings,
+      warnings: storyArcRepository.validate(result.storyArcDocument).warnings,
     });
   }
 
   if (req.method === "POST" && url.pathname === "/api/story-arcs/document/validate") {
-    if (!storylineRepository) return json(res, 404, { message: "Story arc content not found." });
+    if (!storyArcRepository) return json(res, 404, { message: "Story arc content not found." });
     const body = await readJson(req);
-    const result = storylineRepository.validate(body.storyArcDocument ?? body);
+    const result = storyArcRepository.validate(body.storyArcDocument ?? body);
     return json(res, result.valid ? 200 : 422, result);
   }
 
   if (req.method === "PUT" && url.pathname === "/api/story-arcs/document") {
-    if (!storylineRepository) return json(res, 404, { message: "Story arc content not found." });
+    if (!storyArcRepository) return json(res, 404, { message: "Story arc content not found." });
     const body = await readJson(req);
-    const result = storylineRepository.save(body.storyArcDocument ?? body, body.expectedVersion);
+    const result = storyArcRepository.save(body.storyArcDocument ?? body, body.expectedVersion);
     syncRuntimeContent?.();
     broadcast("story-arcs.updated", { revision: result.revision });
     return json(res, 200, result);
   }
 
   if (req.method === "GET" && url.pathname === "/api/story-arcs/document/revisions") {
-    if (!storylineRepository) return json(res, 404, { message: "Story arc content not found." });
-    return json(res, 200, storylineRepository.listRevisions());
+    if (!storyArcRepository) return json(res, 404, { message: "Story arc content not found." });
+    return json(res, 200, storyArcRepository.listRevisions());
   }
 
   const restoreMatch = url.pathname.match(/^\/api\/story-arcs\/document\/revisions\/(\d+)\/restore$/);
   if (restoreMatch && req.method === "POST") {
-    if (!storylineRepository) return json(res, 404, { message: "Story arc content not found." });
-    const result = storylineRepository.restore(restoreMatch[1]);
+    if (!storyArcRepository) return json(res, 404, { message: "Story arc content not found." });
+    const result = storyArcRepository.restore(restoreMatch[1]);
     syncRuntimeContent?.();
     broadcast("story-arcs.updated", { revision: result.revision, restored: true });
     return json(res, 200, result);

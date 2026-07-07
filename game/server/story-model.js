@@ -25,7 +25,7 @@ export function normalizeBeat(input = {}) {
     text: String(input.text ?? ""),
     revisit: nullableText(input.revisit),
     modes: stringList(input.modes).map(normalizePlayMode),
-    storylineStep: nullableText(input.storylineStep),
+    storyBeat: nullableText(input.storyBeat),
     trigger: {
       place: nullableText(trigger.place),
       hex: nullableText(trigger.hex),
@@ -128,11 +128,11 @@ export function validateBeat(input, world, character = null, learning = null) {
   beat.modes.forEach((mode, index) => {
     if (!PLAY_MODES.has(mode)) add(`modes.${index}`, "Choose story or open-world.");
   });
-  if (beat.storylineStep && !ID_PATTERN.test(beat.storylineStep)) {
-    add("storylineStep", "Use a kebab-case storyline step ID.");
+  if (beat.storyBeat && !ID_PATTERN.test(beat.storyBeat)) {
+    add("storyBeat", "Use a kebab-case story beat ID.");
   }
-  if (beat.storylineStep && beat.modes.length && !beat.modes.includes("story")) {
-    add("storylineStep", "Storyline step beats must be eligible in story mode.");
+  if (beat.storyBeat && beat.modes.length && !beat.modes.includes("story")) {
+    add("storyBeat", "Story beat scenes must be eligible in story mode.");
   }
 
   beat.choices.forEach((choice, index) => {
@@ -185,7 +185,7 @@ export function beatToRuntime(beat) {
     heading: beat.heading ?? undefined,
     trigger: compactObject(beat.trigger),
     modes: modes.length ? modes : undefined,
-    storylineStep: beat.storylineStep ?? undefined,
+    storyBeat: beat.storyBeat ?? undefined,
     match: Object.keys(match).length ? match : undefined,
     time: Object.keys(time).length ? time : undefined,
     text: beat.text,
@@ -325,7 +325,7 @@ function stringList(value) {
 }
 
 function normalizePlayMode(mode) {
-  return mode === "storyline" ? "story" : mode;
+  return mode;
 }
 
 function finiteNumber(value, fallback) {

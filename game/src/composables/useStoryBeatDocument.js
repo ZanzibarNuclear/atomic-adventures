@@ -8,7 +8,7 @@ function clonePlain(value) {
 function ensureEditableBeat(value) {
   const next = clonePlain(value);
   next.modes = stringList(next.modes);
-  next.storylineStep ??= null;
+  next.storyBeat ??= null;
   next.match ??= { originHex: null, mapTransition: null, transitionDirection: null };
   next.match.originHex = stringList(next.match.originHex);
   next.match.mapTransition ??= null;
@@ -70,7 +70,7 @@ function normalizeForDirty(value) {
     text: String(beat.text ?? ""),
     revisit: nullableText(beat.revisit),
     modes: stringList(beat.modes),
-    storylineStep: nullableText(beat.storylineStep),
+    storyBeat: nullableText(beat.storyBeat),
     trigger: {
       place: nullableText(trigger.place),
       hex: nullableText(trigger.hex),

@@ -24,7 +24,7 @@ function setup() {
     buildingRepository,
     characterRepository,
     learningRepository,
-    storylineRepository,
+    storyArcRepository,
   } = createContentRepositories(db);
   return {
     db,
@@ -34,13 +34,13 @@ function setup() {
       buildingRepository,
       characterRepository,
       learningRepository,
-      storylineRepository,
+      storyArcRepository,
     ),
     worldRepository,
     buildingRepository,
     characterRepository,
     learningRepository,
-    storylineRepository,
+    storyArcRepository,
   };
 }
 
@@ -71,7 +71,7 @@ function request(method, url, body) {
 
 describe("story API", () => {
   it("publishes the character catalog and protects referenced definitions", async () => {
-    const { db, api, characterRepository, storylineRepository } = setup();
+    const { db, api, characterRepository, storyArcRepository } = setup();
 
     const catalogRes = responseCapture();
     await api.handle(request("GET", "/api/catalog"), catalogRes);
@@ -135,21 +135,21 @@ describe("story API", () => {
     expect(imagesRes.status).toBe(200);
     expect(images.images).toContain("items/field-backpack.png");
 
-    const storylineRes = responseCapture();
-    await api.handle(request("GET", "/api/storyline"), storylineRes);
-    const storyline = JSON.parse(storylineRes.chunks.join(""));
-    expect(storylineRes.status).toBe(200);
-    expect(storyline.storyline.id).toBe("storyline-main");
-    expect(storyline.storyline.scenarios[0]).toEqual(expect.objectContaining({
+    const storyArcDocumentRes = responseCapture();
+    await api.handle(request("GET", "/api/story-arcs/document"), storyArcDocumentRes);
+    const storyArcDocument = JSON.parse(storyArcDocumentRes.chunks.join(""));
+    expect(storyArcDocumentRes.status).toBe(200);
+    expect(storyArcDocument.storyArcDocument.id).toBe("story-main");
+    expect(storyArcDocument.storyArcDocument.storyArcs[0]).toEqual(expect.objectContaining({
       id: "part-i-opener",
       defaultMode: "story",
-      startStep: "survive-in-the-woods",
+      startBeat: "survive-in-the-woods",
     }));
-    expect(storyline.storyline.scenarios[1]).toEqual(expect.objectContaining({
+    expect(storyArcDocument.storyArcDocument.storyArcs[1]).toEqual(expect.objectContaining({
       id: "part-i-station",
-      startStep: "find-a-way-past-fence",
+      startBeat: "find-a-way-past-fence",
     }));
-    expect(storylineRepository.validate(storyline.storyline).valid).toBe(true);
+    expect(storyArcRepository.validate(storyArcDocument.storyArcDocument).valid).toBe(true);
 
     const storyArcsRes = responseCapture();
     await api.handle(request("GET", "/api/story-arcs"), storyArcsRes);

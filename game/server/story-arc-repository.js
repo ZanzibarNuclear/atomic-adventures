@@ -1,7 +1,7 @@
 import { transaction } from "./db.js";
 import { ConflictError, NotFoundError, ValidationError } from "./story-repository.js";
 import { RevisionStore } from "./revision-store.js";
-import { validateStoryArcDocument } from "./storyline-model.js";
+import { validateStoryArcDocument } from "./story-arc-model.js";
 
 export const STORY_ARC_DOCUMENT_ID = "story-main";
 
@@ -19,9 +19,9 @@ export class StoryArcRepository {
     this.characterRepository = characterRepository;
     this.learningRepository = learningRepository;
     this.revisions = new RevisionStore(db, {
-      table: "storyline_revisions",
-      idColumn: "storyline_id",
-      metaKey: "storyline_revision",
+      table: "story_arc_revisions",
+      idColumn: "story_arc_id",
+      metaKey: "story_arc_revision",
     });
     if (seedStoryArcDocument) this.ensureSeed(seedStoryArcDocument);
   }
@@ -45,7 +45,7 @@ export class StoryArcRepository {
     transaction(this.db, () => {
       const now = new Date().toISOString();
       this.db.prepare(`
-        INSERT INTO storyline_documents(id, document_json, version, created_at, updated_at)
+        INSERT INTO story_arc_documents(id, document_json, version, created_at, updated_at)
         VALUES (?, ?, 1, ?, ?)
       `).run(STORY_ARC_DOCUMENT_ID, JSON.stringify(validation.storyArcDocument), now, now);
       this.revisions.record(STORY_ARC_DOCUMENT_ID, "import", validation.storyArcDocument);
@@ -60,7 +60,7 @@ export class StoryArcRepository {
   getDocument() {
     const row = this.db.prepare(`
       SELECT document_json, version, created_at AS createdAt, updated_at AS updatedAt
-      FROM storyline_documents WHERE id = ?
+      FROM story_arc_documents WHERE id = ?
     `).get(STORY_ARC_DOCUMENT_ID);
     if (!row) return null;
     return {
@@ -103,7 +103,7 @@ export class StoryArcRepository {
     return transaction(this.db, () => {
       const nextVersion = existing.version + 1;
       this.db.prepare(`
-        UPDATE storyline_documents
+        UPDATE story_arc_documents
         SET document_json = ?, version = ?, updated_at = ?
         WHERE id = ?
       `).run(
@@ -136,7 +136,7 @@ export class StoryArcRepository {
     return transaction(this.db, () => {
       const nextVersion = existing.version + 1;
       this.db.prepare(`
-        UPDATE storyline_documents
+        UPDATE story_arc_documents
         SET document_json = ?, version = ?, updated_at = ?
         WHERE id = ?
       `).run(
@@ -249,7 +249,7 @@ export class StoryArcRepository {
     if (!validation.valid) throw new ValidationError(validation.errors);
     const nextVersion = existing.version + 1;
     this.db.prepare(`
-      UPDATE storyline_documents
+      UPDATE story_arc_documents
       SET document_json = ?, version = ?, updated_at = ?
       WHERE id = ?
     `).run(
@@ -266,8 +266,6 @@ export class StoryArcRepository {
     };
   }
 }
-
-export const StorylineRepository = StoryArcRepository;
 
 function collectStoryArcReferences(storyArcDocument, collector) {
   const references = [];

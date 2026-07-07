@@ -4,7 +4,7 @@ import { mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { computed, nextTick, ref } from "vue";
 import GameView from "./GameView.vue";
-import { storylineSeed } from "../../server/storyline-seed.js";
+import { storyArcSeed } from "../../server/story-arc-seed.js";
 import characterContent from "../../public/content/character.json";
 import worldContent from "../../public/content/world.json";
 import utilityStationContent from "../../public/content/utility-station.json";
@@ -56,7 +56,7 @@ vi.mock("../composables/useLearningContent.js", () => ({
 
 vi.mock("../composables/useStoryArcContent.js", () => ({
   useStoryArcContent: () => ({
-    storyArcDocument: computed(() => storylineSeed),
+    storyArcDocument: computed(() => storyArcSeed),
     error: ref(""),
     refresh: emptyRefresh,
   }),

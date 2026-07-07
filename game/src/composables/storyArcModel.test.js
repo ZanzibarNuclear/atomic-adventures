@@ -5,27 +5,27 @@ import {
 } from "./storyArcModel.js";
 
 describe("story arc normalization", () => {
-  it("maps old storyline scenarios and steps to story arcs and beats", () => {
+  it("hydrates canonical story arcs and beats with matching scenes", () => {
     const normalized = normalizeStoryArcContent({
-      id: "storyline-main",
-      scenarios: [
+      id: "story-main",
+      storyArcs: [
         {
           id: "part-i-opener",
-          label: "Part I Opener",
+          title: "Part I Opener",
           defaultMode: "story",
-          startStep: "survive",
-          steps: [
+          startBeat: "survive",
+          beats: [
             {
               id: "survive",
-              objective: "Keep moving.",
-              beat: "opening-scene",
+              title: "Keep moving.",
+              scene: "opening-scene",
               allowed: {
                 storyForwardActions: ["move-hex:east-pines"],
                 optionalActions: ["stage:inventory"],
                 itemActions: ["water-bottle.drink"],
               },
               completesWhen: { location: { place: "outdoors", hex: "east-pines" } },
-              nextScenario: "part-i-station",
+              nextArc: "part-i-station",
             },
           ],
         },
@@ -108,17 +108,17 @@ describe("story arc normalization", () => {
   });
 
   it("handles missing arcs, missing beats, missing scenes, and stale next references", () => {
-    expect(normalizeStoryArcContent({ scenarios: [] }).storyArcs).toEqual([]);
+    expect(normalizeStoryArcContent({ storyArcs: [] }).storyArcs).toEqual([]);
 
     const normalized = normalizeStoryArcContent({
-      scenarios: [{
+      storyArcs: [{
         id: "part-i-opener",
-        startStep: "missing",
-        steps: [{
+        startBeat: "missing",
+        beats: [{
           id: "intro",
-          beat: "missing-prose",
-          next: "deleted-step",
-          nextScenario: "deleted-arc",
+          scene: "missing-prose",
+          next: "deleted-beat",
+          nextArc: "deleted-arc",
         }],
       }],
     });
@@ -126,7 +126,7 @@ describe("story arc normalization", () => {
     const arc = normalized.storyArcs[0];
     expect(arc.startBeat).toBe("missing");
     expect(arc.beats[0].scenes).toEqual([]);
-    expect(arc.beats[0].next).toBe("deleted-step");
+    expect(arc.beats[0].next).toBe("deleted-beat");
     expect(arc.beats[0].nextArc).toBe("deleted-arc");
   });
 });

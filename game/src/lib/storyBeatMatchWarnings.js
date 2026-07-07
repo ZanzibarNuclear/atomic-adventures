@@ -81,9 +81,9 @@ function modeEligibility(beat) {
     : [];
   const modes = authoredModes.length ? authoredModes : PLAY_MODES;
   const scopes = new Set();
-  if (modes.includes("open-world") && !beat.storylineStep) scopes.add("open-world");
+  if (modes.includes("open-world") && !beat.storyBeat) scopes.add("open-world");
   if (modes.includes("story")) {
-    scopes.add(`story:${beat.storylineStep || STORY_SCOPE_ANY}`);
+    scopes.add(`story:${beat.storyBeat || STORY_SCOPE_ANY}`);
   }
   return scopes;
 }

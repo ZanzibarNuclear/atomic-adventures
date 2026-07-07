@@ -292,8 +292,6 @@ describe('useGameState save roundtrip', () => {
       enteredBeatIds: [],
       seenSceneIds: ['control-room'],
     })
-    expect(snapshot).not.toHaveProperty('storyline')
-
     setPlayMode(gameState, 'open-world')
     expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
     expect(gameState.playMode).toBe('story')
@@ -334,24 +332,4 @@ describe('useGameState save roundtrip', () => {
     expect(gameState.story).toBeNull()
   })
 
-  it('reads old storyline save state into story state', () => {
-    const { outdoor, indoor, gameState, place } = buildTestHarness()
-    const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
-    delete snapshot.story
-    snapshot.storyline = {
-      scenarioId: 'part-i-opener',
-      stepId: 'reach-the-gate',
-      completedStepIds: ['survive-in-the-woods'],
-      enteredStepIds: ['survive-in-the-woods', 'keep-moving-west'],
-    }
-
-    expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
-    expect(gameState.story).toEqual({
-      activeArcId: 'part-i-opener',
-      activeBeatId: 'reach-the-gate',
-      completedBeatIds: ['survive-in-the-woods'],
-      enteredBeatIds: ['survive-in-the-woods', 'keep-moving-west'],
-      seenSceneIds: [],
-    })
-  })
 })

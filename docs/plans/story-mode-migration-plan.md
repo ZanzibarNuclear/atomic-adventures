@@ -1,6 +1,6 @@
 # Story Mode Model Migration Plan
 
-**Status:** Proposed
+**Status:** Complete
 **Last updated:** 2026-07-07
 **Primary design:** [Story Mode Technical Design](story-mode-technical-design.md)
 **Impacted areas:** playable game, Story Builder, content API, SQLite content,
@@ -223,10 +223,10 @@ Story mode back into split responsibilities.
 
 **Purpose:** Remove migration scaffolding and old names.
 
-- [ ] Delete compatibility normalization for old scenario/step content once
+- [x] Delete compatibility normalization for old scenario/step content once
       SQLite and exported fixtures are migrated.
 - [x] Remove old fixtures and tests that preserve prior names.
-- [ ] Remove comments that explain old terminology unless they are in migration
+- [x] Remove comments that explain old terminology unless they are in migration
       history.
 - [x] Update all docs and quality checklists to current terms.
 - [x] Run full test suite.

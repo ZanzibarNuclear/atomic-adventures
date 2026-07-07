@@ -164,7 +164,7 @@ const showEndCard = computed(
 );
 const storyActionAvailability = computed(() => ({
   mode: gameState.playMode === "story" ? "story" : "open-world",
-  stepId: activeBeat.value?.id ?? null,
+  beatId: activeBeat.value?.id ?? null,
   allowed: activeBeat.value?.allowed ?? null,
   unrestricted: gameState.playMode !== "story" || !activeBeat.value,
 }));

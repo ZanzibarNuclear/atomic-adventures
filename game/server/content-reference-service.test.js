@@ -33,17 +33,17 @@ describe("ContentReferenceService", () => {
     const storyRepository = {
       findHexReferences: vi.fn(() => [{ kind: "story", path: "trigger.hex" }]),
     };
-    const storylineRepository = {
-      findHexReferences: vi.fn(() => [{ kind: "storyline", path: "scenarios.0.steps.0.allowed.movement.hexes.0" }]),
+    const storyArcRepository = {
+      findHexReferences: vi.fn(() => [{ kind: "storyArc", path: "storyArcs.0.beats.0.allowed.movement.hexes.0" }]),
     };
-    const service = new ContentReferenceService({ storyRepository, storylineRepository });
+    const service = new ContentReferenceService({ storyRepository, storyArcRepository });
 
     const preview = service.previewHexRename({ start: "origin" }, "origin", "camp");
 
     expect(preview.references).toEqual([
       { kind: "world", path: "start" },
       { kind: "story", path: "trigger.hex" },
-      { kind: "storyline", path: "scenarios.0.steps.0.allowed.movement.hexes.0" },
+      { kind: "storyArc", path: "storyArcs.0.beats.0.allowed.movement.hexes.0" },
     ]);
   });
 });
