@@ -65,6 +65,8 @@ const movementAuditVisible = ref(false);
 const developerSettingsVisible = ref(false);
 const vitalsDialogVisible = ref(false);
 const inventoryDialogVisible = ref(false);
+const itemActionFeedback = ref("");
+const WELLBEING_STAT_IDS = new Set(["health", "satiety", "hydration", "energy", "composure"]);
 const {
   activeView,
   isMapView,
@@ -168,6 +170,7 @@ const storyActionAvailability = computed(() => ({
   allowed: activeBeat.value?.allowed ?? null,
   unrestricted: gameState.playMode !== "story" || !activeBeat.value,
 }));
+const wellbeingItemActionIds = computed(() => itemActionIdsForWellbeing(gameState.character));
 
 function applyChoice(index = 0) {
   if (gameState.playMode === "open-world") {
@@ -320,6 +323,10 @@ const wellbeingOverview = computed(() => characterWellbeingOverview(gameState.ch
 const mustRest = computed(() => Number(gameState.character.stats?.energy ?? 100) <= 0);
 const wellbeingAvailableActions = computed(() => ({
   ...(storyActionAvailability.value ?? {}),
+  allowed: mergeAllowedItemActions(
+    storyActionAvailability.value?.allowed,
+    wellbeingItemActionIds.value,
+  ),
   mustRest: mustRest.value,
 }));
 const wellbeingAlerts = computed(() =>
@@ -500,6 +507,32 @@ function publicAssetPath(path) {
   return path.startsWith("/") ? path : `/${path.replace(/^\.?\//, "")}`;
 }
 
+function mergeAllowedItemActions(allowed, itemActions = []) {
+  if (!itemActions.length) return allowed ?? null;
+  return {
+    ...(allowed ?? {}),
+    itemActions: [...new Set([
+      ...(allowed?.itemActions ?? []),
+      ...itemActions,
+    ])],
+  };
+}
+
+function itemActionIdsForWellbeing(character) {
+  return (character.definitions?.items ?? []).flatMap((item) =>
+    (item.actions ?? [])
+      .filter((action) => actionAffectsWellbeing(action))
+      .map((action) => `${item.id}.${action.id}`),
+  );
+}
+
+function actionAffectsWellbeing(action) {
+  return (action.effects ?? []).some((effect) =>
+    String(effect?.op ?? "").startsWith("stat.") &&
+    WELLBEING_STAT_IDS.has(effect.id)
+  );
+}
+
 function openStageView(view, { force = false } = {}) {
   const kind = view?.kind;
   if (!kind) return false;
@@ -581,11 +614,35 @@ function handleUseItem({ itemId, actionId, holderId = null }) {
     itemId,
     actionId,
   })) return;
+  const beforeStats = { ...(gameState.character.stats ?? {}) };
   const result = performItemAction(gameState, itemId, actionId, { holderId });
   if (result.ok) {
+    itemActionFeedback.value = itemActionResultLine(beforeStats, gameState.character.stats);
     refreshStoryMoment();
     if (result.view) openStageView(result.view);
   }
+}
+
+function itemActionResultLine(beforeStats, afterStats = {}) {
+  const changes = (gameState.character.definitions.stats ?? [])
+    .filter((stat) => WELLBEING_STAT_IDS.has(stat.id))
+    .map((stat) => {
+      const before = Number(beforeStats?.[stat.id]);
+      const after = Number(afterStats?.[stat.id]);
+      if (!Number.isFinite(before) || !Number.isFinite(after) || before === after) return null;
+      const delta = after - before;
+      return `${stat.label ?? stat.id} ${delta > 0 ? "+" : ""}${formatStatChange(delta)} (${formatStatChange(before)} -> ${formatStatChange(after)})`;
+    })
+    .filter(Boolean);
+  return changes.length ? changes.join(", ") : "Nothing changes.";
+}
+
+function formatStatChange(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return String(value);
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 1,
+  }).format(number);
 }
 
 function handleTransferItem({ type, recordId, quantity, toHolder }) {
@@ -605,6 +662,7 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
 }
 
 function openInventoryDialog() {
+  itemActionFeedback.value = "";
   inventoryDialogVisible.value = true;
   if (playerSelectedHolding.value) return;
   const firstHolding = playerInventoryHolders.value
@@ -654,6 +712,7 @@ function openInventoryDialog() {
       :transfer-targets="playerInventoryTransferTargets"
       :public-asset-path="publicAssetPath"
       :action-policy="wellbeingAvailableActions"
+      :action-feedback="itemActionFeedback"
       @select-holding="stageSelectedHoldingId = $event"
       @use-item="handleUseItem"
       @transfer-item="handleTransferItem"
@@ -768,6 +827,7 @@ function openInventoryDialog() {
       :transfer-targets="transferTargets"
       :public-asset-path="publicAssetPath"
       :action-policy="wellbeingAvailableActions"
+      :action-feedback="itemActionFeedback"
       @select-holding="stageSelectedHoldingId = $event"
       @use-item="handleUseItem"
       @transfer-item="handleTransferItem"
@@ -786,6 +846,7 @@ function openInventoryDialog() {
       :nearby-holder-ids="[...nearbyHolderIds, currentWorldHolderId()]"
       :initial-tab="activeView.payload?.tab"
       :action-policy="wellbeingAvailableActions"
+      :action-feedback="itemActionFeedback"
       @use-item="handleUseItem"
       @transfer-item="handleTransferItem"
       @return-to-map="handleReturnToMap" />

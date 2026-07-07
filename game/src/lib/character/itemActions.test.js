@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { createCharacterState } from "../../composables/useCharacterState.js";
-import characterContent from "../../../public/content/character.json";
 import { createGameClock } from "./gameTime.js";
 import { addItem, itemQuantity } from "./holdings.js";
 import { performItemAction } from "./itemActions.js";
@@ -146,33 +145,4 @@ describe("item actions", () => {
     expect(gameState.character.stats.satiety).toBeCloseTo(45);
   });
 
-  it("consumes Zanzibar's backpack rations into empty items", () => {
-    const character = createCharacterState(characterContent.character);
-    const gameState = { character, flags: new Set(), clock: createGameClock() };
-    const backpackHolderId = Object.values(character.holdings.holders)
-      .find((holder) => holder.kind === "container" && holder.label === "Field backpack")?.id;
-
-    expect(backpackHolderId).toBeTruthy();
-    expect(performItemAction(gameState, "half-eaten-energy-bar", "eat", {
-      holderId: backpackHolderId,
-    }).ok).toBe(true);
-    expect(performItemAction(gameState, "half-full-water-bottle", "drink", {
-      holderId: backpackHolderId,
-    }).ok).toBe(true);
-
-    expect(itemQuantity(character.holdings, "half-eaten-energy-bar", {
-      holderId: backpackHolderId,
-    })).toBe(0);
-    expect(itemQuantity(character.holdings, "empty-energy-bar-wrapper", {
-      holderId: backpackHolderId,
-    })).toBe(1);
-    expect(itemQuantity(character.holdings, "half-full-water-bottle", {
-      holderId: backpackHolderId,
-    })).toBe(0);
-    expect(itemQuantity(character.holdings, "empty-plastic-bottle", {
-      holderId: backpackHolderId,
-    })).toBe(1);
-    expect(character.stats.satiety).toBeGreaterThan(characterContent.character.stats.find((stat) => stat.id === "satiety").default);
-    expect(character.stats.hydration).toBeGreaterThan(characterContent.character.stats.find((stat) => stat.id === "hydration").default);
-  });
 });

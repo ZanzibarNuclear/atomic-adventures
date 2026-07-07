@@ -23,6 +23,7 @@ const props = defineProps({
   nearbyHolderIds: { type: Array, default: () => [] },
   initialTab: { type: String, default: null },
   actionPolicy: { type: Object, default: null },
+  actionFeedback: { type: String, default: "" },
 });
 
 defineEmits(["return-to-map", "use-item", "transfer-item"]);
@@ -213,6 +214,7 @@ function publicAssetPath(path) {
         :transfer-targets="transferTargets"
         :public-asset-path="publicAssetPath"
         :action-policy="actionPolicy"
+        :action-feedback="actionFeedback"
         @select-holding="selectedHoldingId = $event"
         @transfer-item="$emit('transfer-item', $event)"
         @use-item="$emit('use-item', $event)" />

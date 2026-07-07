@@ -131,6 +131,8 @@ npm run test            # from repo root (runs game/ vitest)
 
 Run tests again after each meaningful code change in those areas — not only at the end of a large task. A pre-push hook also runs tests locally; do not rely on it as the first time you learn something broke.
 
+Tests in this repo must protect named invariants, not freeze incidental implementation details. A useful test should have a one-sentence contract such as "failed item-effect batches leave no partial inventory or flag changes," "closed barriers cannot be crossed unless the matching opening is discovered/open," "save/load preserves player location, flags, holdings, vitals, and clock," or "a consumable item action available to the player appears in inventory and applies its stat effect." Avoid tests that only pin current wording, CSS selectors, component structure, authored IDs, or the exact shape of a temporary UI. If a test would still pass when the player-facing behavior is broken, or would fail when an allowed wording/content/layout change happens, it is a misleading test. Delete or replace misleading tests instead of preserving them as legacy coverage.
+
 When adding or changing movement, barrier, or arrival behavior, add or update a test in `game/src/lib/maps/testing/` or `game/src/composables/`. See [docs/contracts/hex-crawling.md](docs/contracts/hex-crawling.md) for the movement contract (two-step border-then-stand, in-hex `crossPassage` vs inter-hex travel).
 
 For character, inventory, save/load, builder, close-up-view, and simulation
