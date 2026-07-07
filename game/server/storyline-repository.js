@@ -1,13 +1,13 @@
 import { transaction } from "./db.js";
 import { ConflictError, NotFoundError, ValidationError } from "./story-repository.js";
 import { RevisionStore } from "./revision-store.js";
-import { validateStorylineDocument } from "./storyline-model.js";
+import { validateStoryArcDocument } from "./storyline-model.js";
 
-export const STORYLINE_DOCUMENT_ID = "storyline-main";
+export const STORY_ARC_DOCUMENT_ID = "story-main";
 
-export class StorylineRepository {
+export class StoryArcRepository {
   constructor(db, {
-    seedStoryline = null,
+    seedStoryArcDocument = null,
     storyRepository = null,
     worldRepository = null,
     characterRepository = null,
@@ -23,7 +23,7 @@ export class StorylineRepository {
       idColumn: "storyline_id",
       metaKey: "storyline_revision",
     });
-    if (seedStoryline) this.ensureSeed(seedStoryline);
+    if (seedStoryArcDocument) this.ensureSeed(seedStoryArcDocument);
   }
 
   setRepositories({
@@ -38,17 +38,17 @@ export class StorylineRepository {
     this.learningRepository = learningRepository;
   }
 
-  ensureSeed(seedStoryline) {
+  ensureSeed(seedStoryArcDocument) {
     if (this.getDocument()) return;
-    const validation = this.validate(seedStoryline);
+    const validation = this.validate(seedStoryArcDocument);
     if (!validation.valid) throw new ValidationError(validation.errors);
     transaction(this.db, () => {
       const now = new Date().toISOString();
       this.db.prepare(`
         INSERT INTO storyline_documents(id, document_json, version, created_at, updated_at)
         VALUES (?, ?, 1, ?, ?)
-      `).run(STORYLINE_DOCUMENT_ID, JSON.stringify(validation.storyline), now, now);
-      this.revisions.record(STORYLINE_DOCUMENT_ID, "import", validation.storyline);
+      `).run(STORY_ARC_DOCUMENT_ID, JSON.stringify(validation.storyArcDocument), now, now);
+      this.revisions.record(STORY_ARC_DOCUMENT_ID, "import", validation.storyArcDocument);
       this.revisions.incrementGlobalRevision();
     });
   }
@@ -61,10 +61,10 @@ export class StorylineRepository {
     const row = this.db.prepare(`
       SELECT document_json, version, created_at AS createdAt, updated_at AS updatedAt
       FROM storyline_documents WHERE id = ?
-    `).get(STORYLINE_DOCUMENT_ID);
+    `).get(STORY_ARC_DOCUMENT_ID);
     if (!row) return null;
     return {
-      storyline: JSON.parse(row.document_json),
+      storyArcDocument: JSON.parse(row.document_json),
       version: row.version,
       revision: this.getGlobalRevision(),
       createdAt: row.createdAt,
@@ -72,19 +72,19 @@ export class StorylineRepository {
     };
   }
 
-  getRuntimeStoryline() {
+  getRuntimeStoryArcDocument() {
     const document = this.getDocument();
     return document ? {
-      storyline: document.storyline,
+      storyArcDocument: document.storyArcDocument,
       version: document.version,
       revision: document.revision,
-      warnings: this.validate(document.storyline).warnings,
+      warnings: this.validate(document.storyArcDocument).warnings,
     } : null;
   }
 
   validate(input) {
     const building = this.worldRepository?.buildingData ?? null;
-    return validateStorylineDocument(input, {
+    return validateStoryArcDocument(input, {
       story: this.storyRepository?.getRuntimeStory?.() ?? null,
       world: this.worldRepository?.getCatalog?.(building) ?? null,
       character: this.characterRepository?.getDocument?.()?.character ?? null,
@@ -94,9 +94,9 @@ export class StorylineRepository {
 
   save(input, expectedVersion) {
     const existing = this.getDocument();
-    if (!existing) throw new NotFoundError("Storyline content not found.");
+    if (!existing) throw new NotFoundError("Story arc content not found.");
     if (Number(expectedVersion) !== existing.version) {
-      throw new ConflictError("Storyline content changed in another window.", existing);
+      throw new ConflictError("Story arc content changed in another window.", existing);
     }
     const validation = this.validate(input);
     if (!validation.valid) throw new ValidationError(validation.errors);
@@ -107,15 +107,15 @@ export class StorylineRepository {
         SET document_json = ?, version = ?, updated_at = ?
         WHERE id = ?
       `).run(
-        JSON.stringify(validation.storyline),
+        JSON.stringify(validation.storyArcDocument),
         nextVersion,
         new Date().toISOString(),
-        STORYLINE_DOCUMENT_ID,
+        STORY_ARC_DOCUMENT_ID,
       );
-      this.revisions.record(STORYLINE_DOCUMENT_ID, "update", validation.storyline);
+      this.revisions.record(STORY_ARC_DOCUMENT_ID, "update", validation.storyArcDocument);
       const revision = this.revisions.incrementGlobalRevision();
       return {
-        storyline: validation.storyline,
+        storyArcDocument: validation.storyArcDocument,
         version: nextVersion,
         revision,
         warnings: validation.warnings,
@@ -124,12 +124,12 @@ export class StorylineRepository {
   }
 
   listRevisions() {
-    return this.revisions.list(STORYLINE_DOCUMENT_ID);
+    return this.revisions.list(STORY_ARC_DOCUMENT_ID);
   }
 
   restore(revisionNumber) {
-    const snapshot = this.revisions.getSnapshot(STORYLINE_DOCUMENT_ID, revisionNumber);
-    if (!snapshot) throw new NotFoundError("Storyline revision not found.");
+    const snapshot = this.revisions.getSnapshot(STORY_ARC_DOCUMENT_ID, revisionNumber);
+    if (!snapshot) throw new NotFoundError("Story arc revision not found.");
     const validation = this.validate(snapshot);
     if (!validation.valid) throw new ValidationError(validation.errors);
     const existing = this.getDocument();
@@ -140,15 +140,15 @@ export class StorylineRepository {
         SET document_json = ?, version = ?, updated_at = ?
         WHERE id = ?
       `).run(
-        JSON.stringify(validation.storyline),
+        JSON.stringify(validation.storyArcDocument),
         nextVersion,
         new Date().toISOString(),
-        STORYLINE_DOCUMENT_ID,
+        STORY_ARC_DOCUMENT_ID,
       );
-      this.revisions.record(STORYLINE_DOCUMENT_ID, "restore", validation.storyline);
+      this.revisions.record(STORY_ARC_DOCUMENT_ID, "restore", validation.storyArcDocument);
       const revision = this.revisions.incrementGlobalRevision();
       return {
-        storyline: validation.storyline,
+        storyArcDocument: validation.storyArcDocument,
         version: nextVersion,
         revision,
         warnings: validation.warnings,
@@ -159,8 +159,8 @@ export class StorylineRepository {
   validateAgainstWorld(world, renames = []) {
     const document = this.getDocument();
     if (!document) return { valid: true, errors: {} };
-    const storyline = applyStorylineRenames(document.storyline, renames);
-    const validation = validateStorylineDocument(storyline, {
+    const storyArcDocument = applyStoryArcRenames(document.storyArcDocument, renames);
+    const validation = validateStoryArcDocument(storyArcDocument, {
       story: this.storyRepository?.getRuntimeStory?.() ?? null,
       world,
       character: this.characterRepository?.getDocument?.()?.character ?? null,
@@ -169,19 +169,19 @@ export class StorylineRepository {
     return {
       valid: validation.valid,
       errors: Object.fromEntries(
-        Object.entries(validation.errors).map(([path, messages]) => [`storyline.${path}`, messages]),
+        Object.entries(validation.errors).map(([path, messages]) => [`storyArcDocument.${path}`, messages]),
       ),
     };
   }
 
   findHexReferences(hexId) {
-    return collectStorylineReferences(this.getDocument()?.storyline, ({ step, base, add }) => {
-      collectListReferences(step.allowed?.movement?.hexes, hexId, `${base}.allowed.movement.hexes`, add);
-      collectActionReferences(step.allowed?.storyForwardActions, hexId, "hex", `${base}.allowed.storyForwardActions`, add);
-      collectActionReferences(step.allowed?.optionalActions, hexId, "hex", `${base}.allowed.optionalActions`, add);
-      if (step.completesWhen?.location?.hex === hexId) add(`${base}.completesWhen.location.hex`);
-      if (step.onEnter?.move?.hex === hexId) add(`${base}.onEnter.move.hex`);
-      if (step.onComplete?.move?.hex === hexId) add(`${base}.onComplete.move.hex`);
+    return collectStoryArcReferences(this.getDocument()?.storyArcDocument, ({ beat, base, add }) => {
+      collectListReferences(beat.allowed?.movement?.hexes, hexId, `${base}.allowed.movement.hexes`, add);
+      collectActionReferences(beat.allowed?.storyForwardActions, hexId, "hex", `${base}.allowed.storyForwardActions`, add);
+      collectActionReferences(beat.allowed?.optionalActions, hexId, "hex", `${base}.allowed.optionalActions`, add);
+      if (beat.completesWhen?.location?.hex === hexId) add(`${base}.completesWhen.location.hex`);
+      if (beat.onEnter?.move?.hex === hexId) add(`${base}.onEnter.move.hex`);
+      if (beat.onComplete?.move?.hex === hexId) add(`${base}.onComplete.move.hex`);
     });
   }
 
@@ -189,31 +189,31 @@ export class StorylineRepository {
     const collection = kind === "room" ? "rooms" : "exteriorNodes";
     const actionKind = kind === "room" ? "room" : "exterior";
     const locationKey = kind === "room" ? "room" : "exteriorNode";
-    return collectStorylineReferences(this.getDocument()?.storyline, ({ step, base, add }) => {
-      collectListReferences(step.allowed?.movement?.[collection], id, `${base}.allowed.movement.${collection}`, add);
-      collectActionReferences(step.allowed?.storyForwardActions, id, actionKind, `${base}.allowed.storyForwardActions`, add);
-      collectActionReferences(step.allowed?.optionalActions, id, actionKind, `${base}.allowed.optionalActions`, add);
-      if (step.completesWhen?.location?.[locationKey] === id) add(`${base}.completesWhen.location.${locationKey}`);
-      if (step.onEnter?.move?.[locationKey] === id) add(`${base}.onEnter.move.${locationKey}`);
-      if (step.onComplete?.move?.[locationKey] === id) add(`${base}.onComplete.move.${locationKey}`);
+    return collectStoryArcReferences(this.getDocument()?.storyArcDocument, ({ beat, base, add }) => {
+      collectListReferences(beat.allowed?.movement?.[collection], id, `${base}.allowed.movement.${collection}`, add);
+      collectActionReferences(beat.allowed?.storyForwardActions, id, actionKind, `${base}.allowed.storyForwardActions`, add);
+      collectActionReferences(beat.allowed?.optionalActions, id, actionKind, `${base}.allowed.optionalActions`, add);
+      if (beat.completesWhen?.location?.[locationKey] === id) add(`${base}.completesWhen.location.${locationKey}`);
+      if (beat.onEnter?.move?.[locationKey] === id) add(`${base}.onEnter.move.${locationKey}`);
+      if (beat.onComplete?.move?.[locationKey] === id) add(`${base}.onComplete.move.${locationKey}`);
     });
   }
 
   findCharacterReferences(domain, id) {
     if (domain !== "items") return [];
-    return collectStorylineReferences(this.getDocument()?.storyline, ({ step, base, add }) => {
-      if (step.completesWhen?.holding?.item === id) add(`${base}.completesWhen.holding.item`);
+    return collectStoryArcReferences(this.getDocument()?.storyArcDocument, ({ beat, base, add }) => {
+      if (beat.completesWhen?.holding?.item === id) add(`${base}.completesWhen.holding.item`);
     });
   }
 
   findLearningReferences(lessonId) {
-    return collectStorylineReferences(this.getDocument()?.storyline, ({ step, base, add }) => {
-      if (step.completesWhen?.lesson?.id === lessonId) add(`${base}.completesWhen.lesson.id`);
-      (step.allowed?.stageViews ?? []).forEach((view, index) => {
+    return collectStoryArcReferences(this.getDocument()?.storyArcDocument, ({ beat, base, add }) => {
+      if (beat.completesWhen?.lesson?.id === lessonId) add(`${base}.completesWhen.lesson.id`);
+      (beat.allowed?.stageViews ?? []).forEach((view, index) => {
         if (view.kind === "lesson" && view.id === lessonId) add(`${base}.allowed.stageViews.${index}.id`);
       });
-      if (step.onEnter?.view?.kind === "lesson" && step.onEnter.view.id === lessonId) add(`${base}.onEnter.view.id`);
-      if (step.onComplete?.view?.kind === "lesson" && step.onComplete.view.id === lessonId) {
+      if (beat.onEnter?.view?.kind === "lesson" && beat.onEnter.view.id === lessonId) add(`${base}.onEnter.view.id`);
+      if (beat.onComplete?.view?.kind === "lesson" && beat.onComplete.view.id === lessonId) {
         add(`${base}.onComplete.view.id`);
       }
     });
@@ -236,11 +236,11 @@ export class StorylineRepository {
     }
     const existing = this.getDocument();
     if (!existing) return { affected: [], revision: this.getGlobalRevision() };
-    const storyline = applyStorylineRenames(existing.storyline, renames);
-    if (JSON.stringify(storyline) === JSON.stringify(existing.storyline)) {
+    const storyArcDocument = applyStoryArcRenames(existing.storyArcDocument, renames);
+    if (JSON.stringify(storyArcDocument) === JSON.stringify(existing.storyArcDocument)) {
       return { affected: [], revision: this.getGlobalRevision() };
     }
-    const validation = validateStorylineDocument(storyline, {
+    const validation = validateStoryArcDocument(storyArcDocument, {
       story: this.storyRepository?.getRuntimeStory?.() ?? null,
       world,
       character: this.characterRepository?.getDocument?.()?.character ?? null,
@@ -253,32 +253,34 @@ export class StorylineRepository {
       SET document_json = ?, version = ?, updated_at = ?
       WHERE id = ?
     `).run(
-      JSON.stringify(validation.storyline),
+      JSON.stringify(validation.storyArcDocument),
       nextVersion,
       new Date().toISOString(),
-      STORYLINE_DOCUMENT_ID,
+      STORY_ARC_DOCUMENT_ID,
     );
-    this.revisions.record(STORYLINE_DOCUMENT_ID, "update", validation.storyline);
+    this.revisions.record(STORY_ARC_DOCUMENT_ID, "update", validation.storyArcDocument);
     const revision = this.revisions.incrementGlobalRevision();
     return {
-      affected: affectedSteps(existing.storyline, validation.storyline),
+      affected: affectedBeats(existing.storyArcDocument, validation.storyArcDocument),
       revision,
     };
   }
 }
 
-function collectStorylineReferences(storyline, collector) {
+export const StorylineRepository = StoryArcRepository;
+
+function collectStoryArcReferences(storyArcDocument, collector) {
   const references = [];
-  (storyline?.scenarios ?? []).forEach((scenario, scenarioIndex) => {
-    (scenario.steps ?? []).forEach((step, stepIndex) => {
-      const base = `scenarios.${scenarioIndex}.steps.${stepIndex}`;
+  (storyArcDocument?.storyArcs ?? []).forEach((arc, arcIndex) => {
+    (arc.beats ?? []).forEach((beat, beatIndex) => {
+      const base = `storyArcs.${arcIndex}.beats.${beatIndex}`;
       const add = (path) => references.push({
-        kind: "storyline",
-        scenarioId: scenario.id,
-        stepId: step.id,
+        kind: "storyArc",
+        arcId: arc.id,
+        beatId: beat.id,
         path,
       });
-      collector({ scenario, step, base, add });
+      collector({ arc, beat, base, add });
     });
   });
   return references;
@@ -301,27 +303,27 @@ function collectActionReferences(actions = [], id, kind, path, add) {
   });
 }
 
-function applyStorylineRenames(storyline, renames = []) {
-  const next = structuredClone(storyline);
+function applyStoryArcRenames(storyArcDocument, renames = []) {
+  const next = structuredClone(storyArcDocument);
   const hexMap = renameMapFor(renames, "hex");
   const roomMap = renameMapFor(renames, "room");
   const exteriorMap = renameMapFor(renames, "exteriorNode");
-  for (const scenario of next.scenarios ?? []) {
-    for (const step of scenario.steps ?? []) {
-      const movement = step.allowed?.movement;
+  for (const arc of next.storyArcs ?? []) {
+    for (const beat of arc.beats ?? []) {
+      const movement = beat.allowed?.movement;
       if (movement) {
         movement.hexes = (movement.hexes ?? []).map((id) => resolveRename(hexMap, id));
         movement.rooms = (movement.rooms ?? []).map((id) => resolveRename(roomMap, id));
         movement.exteriorNodes = (movement.exteriorNodes ?? []).map((id) => resolveRename(exteriorMap, id));
       }
       for (const key of ["storyForwardActions", "optionalActions"]) {
-        if (Array.isArray(step.allowed?.[key])) {
-          step.allowed[key] = step.allowed[key].map((id) => renameActionId(id, { hexMap, roomMap, exteriorMap }));
+        if (Array.isArray(beat.allowed?.[key])) {
+          beat.allowed[key] = beat.allowed[key].map((id) => renameActionId(id, { hexMap, roomMap, exteriorMap }));
         }
       }
-      renameLocation(step.completesWhen?.location, { hexMap, roomMap, exteriorMap });
-      renameLocation(step.onEnter?.move, { hexMap, roomMap, exteriorMap });
-      renameLocation(step.onComplete?.move, { hexMap, roomMap, exteriorMap });
+      renameLocation(beat.completesWhen?.location, { hexMap, roomMap, exteriorMap });
+      renameLocation(beat.onEnter?.move, { hexMap, roomMap, exteriorMap });
+      renameLocation(beat.onComplete?.move, { hexMap, roomMap, exteriorMap });
     }
   }
   return next;
@@ -346,13 +348,13 @@ function renameActionPrefix(id, prefixes, map) {
   return id;
 }
 
-function affectedSteps(before, after) {
+function affectedBeats(before, after) {
   const affected = [];
-  (before.scenarios ?? []).forEach((scenario, scenarioIndex) => {
-    (scenario.steps ?? []).forEach((step, stepIndex) => {
-      const nextStep = after.scenarios?.[scenarioIndex]?.steps?.[stepIndex];
-      if (JSON.stringify(step) !== JSON.stringify(nextStep)) {
-        affected.push({ scenarioId: scenario.id, stepId: step.id });
+  (before.storyArcs ?? []).forEach((arc, arcIndex) => {
+    (arc.beats ?? []).forEach((beat, beatIndex) => {
+      const nextBeat = after.storyArcs?.[arcIndex]?.beats?.[beatIndex];
+      if (JSON.stringify(beat) !== JSON.stringify(nextBeat)) {
+        affected.push({ arcId: arc.id, beatId: beat.id });
       }
     });
   });

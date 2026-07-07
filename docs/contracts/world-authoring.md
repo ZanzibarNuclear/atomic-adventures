@@ -232,7 +232,7 @@ fixture action, or world interaction updates the story reference in the same
 transaction when the rename is reference-aware. Deletion is rejected when it
 would leave a story beat, scene, completion condition, beat effect, choice, or
 authored action unresolved. See
-[play-modes-and-storyline.md](play-modes-and-storyline.md).
+[play-modes-and-story-mode.md](play-modes-and-story-mode.md).
 
 The building document owns item placements, not item definitions. Door keys
 and `pickups[].item` values reference IDs in the versioned `character-main`

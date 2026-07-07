@@ -18,6 +18,7 @@ export function normalizeBeat(input = {}) {
   const trigger = input.trigger ?? {};
   return {
     id: String(input.id ?? "").trim(),
+    sortOrder: finiteNumber(input.sortOrder, 0),
     once: input.once !== false,
     eyebrow: nullableText(input.eyebrow),
     heading: nullableText(input.heading),

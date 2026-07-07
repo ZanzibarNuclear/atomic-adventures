@@ -4,19 +4,20 @@ import { useOutdoorWorld } from "../lib/maps/composables/useOutdoorWorld.js";
 import { useIndoorBuilding } from "../lib/maps/composables/useIndoorBuilding.js";
 import { createGameState, resetGameState, setPlayMode } from "../composables/useGameState.js";
 import { useSaveGame } from "../composables/useSaveGame.js";
-import { useStory } from "../composables/useStory.js";
-import { useStoryline } from "../composables/useStoryline.js";
+import { useStoryArc } from "../composables/useStoryArc.js";
+import { useOpenWorldStory } from "../composables/useOpenWorldStory.js";
+import { normalizeStoryArcContent } from "../composables/storyArcModel.js";
 import { useStoryContent } from "../composables/useStoryContent.js";
 import { useWorldContent } from "../composables/useWorldContent.js";
 import { useBuildingContent } from "../composables/useBuildingContent.js";
 import { useGameView } from "../composables/useGameView.js";
 import { useCharacterContent } from "../composables/useCharacterContent.js";
 import { useLearningContent } from "../composables/useLearningContent.js";
-import { useStorylineContent } from "../composables/useStorylineContent.js";
+import { useStoryArcContent } from "../composables/useStoryArcContent.js";
 import {
   isActionAllowed,
   isStageViewAllowed,
-} from "../composables/useStoryline.js";
+} from "../composables/storyActionAvailability.js";
 import {
   markCharacterChanged,
   syncCharacterDefinitions,
@@ -95,10 +96,10 @@ const {
   refresh: refreshLearning,
 } = useLearningContent();
 const {
-  storylineData,
-  error: storylineContentError,
-  refresh: refreshStoryline,
-} = useStorylineContent();
+  storyArcDocument,
+  error: storyArcContentError,
+  refresh: refreshStoryArcs,
+} = useStoryArcContent();
 const mapData = JSON.parse(JSON.stringify(worldData.value));
 const initialBuildingData = JSON.parse(JSON.stringify(buildingData.value));
 
@@ -114,30 +115,119 @@ const save = useSaveGame();
 const { lastSavedAt, loadError, hasSave, save: saveGame, load, clearSave } = save;
 
 const openStageViewForStory = (view) => openStageView(view, { force: true });
+const storyArcData = computed(() => normalizeStoryArcContent(storyArcDocument.value, {
+  storyData: storyData.value,
+}));
 const {
-  activeStep: activeStorylineStep,
-  authoringError: storylineError,
-  actionPolicy: storylineActionPolicy,
-  tick: tickStoryline,
-} = useStoryline(storylineData, { gameState, place, outdoor, indoor, openStageView: openStageViewForStory });
-const {
-  narrativeBeat,
-  pendingBeat,
-  showEndCard,
-  applyChoice,
-  travelToHex,
-  enterBuilding,
-  travelToRoom,
-  dismissEndCard,
-  refreshNarrative,
-} = useStory(storyData, {
+  activeArc,
+  activeBeat,
+  activeScene,
+  storyActions,
+  applyStoryAction,
+  storyError,
+  tick: tickStoryArc,
+} = useStoryArc(storyArcData, {
   gameState,
   place,
   outdoor,
   indoor,
   openStageView: openStageViewForStory,
-  storylineStep: activeStorylineStep,
 });
+const openWorldStory = useOpenWorldStory(storyData, {
+  gameState,
+  place,
+  outdoor,
+  indoor,
+  openStageView: openStageViewForStory,
+});
+const narrativeBeat = computed(() => {
+  if (gameState.playMode === "open-world") return openWorldStory.activeScene.value;
+  const scene = activeScene.value;
+  if (!scene) return null;
+  const seen = gameState.story?.seenSceneIds?.includes(scene.id) ?? false;
+  return {
+    id: scene.id,
+    eyebrow: scene.eyebrow,
+    heading: scene.heading,
+    text: seen && scene.revisitProse ? scene.revisitProse : scene.prose,
+    revisit: seen && Boolean(scene.revisitProse),
+    choices: activeBeat.value?.choices ?? [],
+  };
+});
+const pendingBeat = computed(() => activeBeat.value
+  ? { ...activeBeat.value, choices: activeBeat.value.choices ?? [] }
+  : gameState.playMode === "open-world"
+    ? openWorldStory.activeBeat.value
+    : null);
+const showEndCard = computed(
+  () => gameState.flags.has("day1.complete") && !gameState.endCardDismissed,
+);
+const storyActionAvailability = computed(() => ({
+  mode: gameState.playMode === "story" ? "story" : "open-world",
+  stepId: activeBeat.value?.id ?? null,
+  allowed: activeBeat.value?.allowed ?? null,
+  unrestricted: gameState.playMode !== "story" || !activeBeat.value,
+}));
+
+function applyChoice(index = 0) {
+  if (gameState.playMode === "open-world") {
+    openWorldStory.applyChoice(index);
+    return;
+  }
+  const choice = activeBeat.value?.choices?.[Number(index)];
+  if (!choice) return;
+  applyStoryAction(`story:${choice.id}`);
+}
+
+function travelToHex(hexId) {
+  if (gameState.playMode === "open-world") {
+    if (!outdoor.canReachHex(hexId)) return;
+    outdoor.moveTo(hexId);
+    return;
+  }
+  const choice = activeBeat.value?.choices?.find((candidate) => candidate.go_hex === hexId);
+  if (choice) {
+    applyStoryAction(`story:${choice.id}`);
+    return;
+  }
+  if (!outdoor.canReachHex(hexId)) return;
+  outdoor.moveTo(hexId);
+}
+
+function enterBuilding() {
+  if (gameState.playMode === "open-world") {
+    indoor.enterBuilding();
+    return;
+  }
+  const choice = activeBeat.value?.choices?.find((candidate) => candidate.enter);
+  if (choice) {
+    applyStoryAction(`story:${choice.id}`);
+    return;
+  }
+  indoor.enterBuilding();
+}
+
+function travelToRoom(roomId) {
+  if (gameState.playMode === "open-world") {
+    indoor.moveToRoom(roomId);
+    return;
+  }
+  const choice = activeBeat.value?.choices?.find((candidate) => candidate.go_room === roomId);
+  if (choice) {
+    applyStoryAction(`story:${choice.id}`);
+    return;
+  }
+  indoor.moveToRoom(roomId);
+}
+
+function dismissEndCard() {
+  gameState.endCardDismissed = true;
+}
+
+function refreshStoryMoment() {
+  tickStoryArc();
+  openWorldStory.refreshScene();
+}
 
 const saveCtx = computed(() => ({ gameState, place, outdoor, indoor }));
 const nearbyHolderIds = computed(() => {
@@ -228,8 +318,8 @@ const playerSelectedHolding = computed(() =>
 const characterStats = computed(() => visibleCharacterStats(gameState.character));
 const wellbeingOverview = computed(() => characterWellbeingOverview(gameState.character));
 const mustRest = computed(() => Number(gameState.character.stats?.energy ?? 100) <= 0);
-const wellbeingActionPolicy = computed(() => ({
-  ...(storylineActionPolicy.value ?? {}),
+const wellbeingAvailableActions = computed(() => ({
+  ...(storyActionAvailability.value ?? {}),
   mustRest: mustRest.value,
 }));
 const wellbeingAlerts = computed(() =>
@@ -269,9 +359,9 @@ const availableLessons = computed(() =>
     character: gameState.character,
   }),
 );
-const defaultScenario = computed(() =>
-  storylineData.value?.scenarios?.find((scenario) => scenario.defaultMode === "story") ??
-  storylineData.value?.scenarios?.[0] ??
+const defaultStoryArc = computed(() =>
+  storyArcData.value.storyArcs?.find((arc) => arc.defaultMode === "story") ??
+  storyArcData.value.storyArcs?.[0] ??
   null,
 );
 const holoReaderActions = computed(() =>
@@ -306,7 +396,7 @@ let deferredBuilding = null;
 
 function applyWorld(next) {
   applyOutdoorWorldUpdate(outdoor, next);
-  refreshNarrative();
+  refreshStoryMoment();
 }
 
 watch(worldData, (next) => {
@@ -328,7 +418,7 @@ watch(
 function applyBuilding(next) {
   indoor.syncFromBuildingData(next);
   syncCharacterHolderDefinitions(gameState.character, next.holders ?? []);
-  refreshNarrative();
+  refreshStoryMoment();
 }
 
 watch(buildingData, (next) => {
@@ -354,41 +444,36 @@ watch(
 onMounted(async () => {
   if (hasSave()) load(saveCtx.value);
   await refreshContent();
-  tickStoryline();
-  refreshNarrative();
+  refreshStoryMoment();
 });
 
-watch(storylineData, () => {
-  tickStoryline();
+watch(storyArcDocument, () => {
+  refreshStoryMoment();
 });
 
 function handleNewGame() {
   if (hasSave() && !window.confirm("Start a new game? Your saved progress will be erased.")) return;
   clearSave();
   resetGameState(saveCtx.value);
-  refreshNarrative();
+  refreshStoryMoment();
 }
 
 function handleReset() {
   if (!hasSave() || !load(saveCtx.value)) resetGameState(saveCtx.value);
-  tickStoryline();
-  refreshNarrative();
+  refreshStoryMoment();
 }
 
 function choosePlayMode(mode) {
   if (mode === "story") {
-    const scenario = defaultScenario.value;
-    const startStep = scenario?.steps?.find((step) => step.id === scenario.startStep);
+    const arc = defaultStoryArc.value;
     setPlayMode(gameState, "story", {
-      scenarioId: scenario?.id,
-      stepId: scenario?.startStep ?? null,
-      objective: startStep?.objective ?? null,
+      activeArcId: arc?.id,
+      activeBeatId: arc?.startBeat ?? null,
     });
   } else {
     setPlayMode(gameState, "open-world");
   }
-  tickStoryline();
-  refreshNarrative();
+  refreshStoryMoment();
 }
 
 function handleReturnToMap() {
@@ -423,7 +508,7 @@ function publicAssetPath(path) {
 function openStageView(view, { force = false } = {}) {
   const kind = view?.kind;
   if (!kind) return false;
-  if (!force && !isStageViewAllowed(wellbeingActionPolicy.value, view)) return false;
+  if (!force && !isStageViewAllowed(wellbeingAvailableActions.value, view)) return false;
   if (kind === "inventory") {
     currentWorldHolderId();
     return openCharacter({ ...view, tab: "inventory" });
@@ -434,7 +519,7 @@ function openStageView(view, { force = false } = {}) {
 }
 
 function handleHoloReaderAction(id) {
-  if (!isActionAllowed(id, wellbeingActionPolicy.value)) return;
+  if (!isActionAllowed(id, wellbeingAvailableActions.value)) return;
   if (id === HOLO_READER_BROWSER_ACTION_ID) {
     openView("lesson", { source: "library-holo-reader" });
   }
@@ -448,7 +533,7 @@ function handleHoloReaderAction(id) {
 }
 
 function selectLesson(lessonId) {
-  if (!isStageViewAllowed(wellbeingActionPolicy.value, {
+  if (!isStageViewAllowed(wellbeingAvailableActions.value, {
     kind: "lesson",
     id: lessonId,
   })) return;
@@ -461,7 +546,7 @@ function selectLesson(lessonId) {
 }
 
 function handleCompleteLesson(lessonId) {
-  if (!isStageViewAllowed(wellbeingActionPolicy.value, {
+  if (!isStageViewAllowed(wellbeingAvailableActions.value, {
     kind: "lesson",
     id: lessonId,
   })) return;
@@ -476,7 +561,7 @@ function handleCompleteLesson(lessonId) {
 
 function handleSetStationPowerOverride(on) {
   const result = setStationPowerOverride({ gameState, indoor }, on);
-  if (result.ok) refreshNarrative();
+  if (result.ok) refreshStoryMoment();
 }
 
 function handleSetVital({ id, value }) {
@@ -488,7 +573,7 @@ function handleSetVital({ id, value }) {
   if (!Number.isFinite(next)) return;
   gameState.character.stats[id] = next;
   markCharacterChanged(gameState.character);
-  refreshNarrative();
+  refreshStoryMoment();
 }
 
 function handleAdjustVital({ id, delta }) {
@@ -497,13 +582,13 @@ function handleAdjustVital({ id, delta }) {
 }
 
 function handleUseItem({ itemId, actionId, holderId = null }) {
-  if (!isActionAllowed(`item-action:${itemId}.${actionId}`, wellbeingActionPolicy.value, {
+  if (!isActionAllowed(`item-action:${itemId}.${actionId}`, wellbeingAvailableActions.value, {
     itemId,
     actionId,
   })) return;
   const result = performItemAction(gameState, itemId, actionId, { holderId });
   if (result.ok) {
-    refreshNarrative();
+    refreshStoryMoment();
     if (result.view) openStageView(result.view);
   }
 }
@@ -518,7 +603,7 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
       toHolder: target,
     });
     markCharacterChanged(gameState.character);
-    refreshNarrative();
+    refreshStoryMoment();
   } catch (error) {
     console.warn(error);
   }
@@ -574,16 +659,16 @@ function openInventoryDialog() {
       :selected-holding-id="stageSelectedHoldingId"
       :transfer-targets="playerInventoryTransferTargets"
       :public-asset-path="publicAssetPath"
-      :action-policy="wellbeingActionPolicy"
+      :action-policy="wellbeingAvailableActions"
       @select-holding="stageSelectedHoldingId = $event"
       @use-item="handleUseItem"
       @transfer-item="handleTransferItem"
       @close="inventoryDialogVisible = false" />
 
     <div
-      v-if="contentError || worldContentError || buildingContentError || characterContentError || learningContentError || storylineContentError"
+      v-if="contentError || worldContentError || buildingContentError || characterContentError || learningContentError || storyArcContentError"
       class="content-error">
-      {{ contentError || worldContentError || buildingContentError || characterContentError || learningContentError || storylineContentError }}
+      {{ contentError || worldContentError || buildingContentError || characterContentError || learningContentError || storyArcContentError }}
       <button
         class="sm"
         @click="contentError
@@ -596,7 +681,7 @@ function openInventoryDialog() {
                 ? refreshCharacter()
                 : learningContentError
                   ? refreshLearning()
-                  : refreshStoryline()"
+                  : refreshStoryArcs()"
       >Retry</button>
     </div>
 
@@ -627,10 +712,10 @@ function openInventoryDialog() {
     </section>
 
     <section
-      v-if="storylineError"
-      class="storyline-error"
+      v-if="storyError"
+      class="story-error"
       role="alert">
-      {{ storylineError }}
+      {{ storyError }}
     </section>
 
     <section
@@ -661,7 +746,7 @@ function openInventoryDialog() {
       :travel-to-hex="travelToHex"
       :enter-building="enterBuilding"
       :audit-enabled="movementAuditVisible"
-      :action-policy="wellbeingActionPolicy"
+      :action-policy="wellbeingAvailableActions"
       :wellbeing-alerts="wellbeingAlerts"
       @check-vitals="vitalsDialogVisible = true"
       @check-inventory="openInventoryDialog"
@@ -677,7 +762,7 @@ function openInventoryDialog() {
       :travel-to-room="travelToRoom"
       :audit-enabled="movementAuditVisible"
       :extra-actions="focusedConsoleActions"
-      :action-policy="wellbeingActionPolicy"
+      :action-policy="wellbeingAvailableActions"
       :wellbeing-alerts="wellbeingAlerts"
       @check-vitals="vitalsDialogVisible = true"
       @check-inventory="openInventoryDialog"
@@ -692,7 +777,7 @@ function openInventoryDialog() {
       :selected-holding-id="stageSelectedHoldingId"
       :transfer-targets="transferTargets"
       :public-asset-path="publicAssetPath"
-      :action-policy="wellbeingActionPolicy"
+      :action-policy="wellbeingAvailableActions"
       @select-holding="stageSelectedHoldingId = $event"
       @use-item="handleUseItem"
       @transfer-item="handleTransferItem"
@@ -710,7 +795,7 @@ function openInventoryDialog() {
       :clock="gameState.clock"
       :nearby-holder-ids="[...nearbyHolderIds, currentWorldHolderId()]"
       :initial-tab="activeView.payload?.tab"
-      :action-policy="wellbeingActionPolicy"
+      :action-policy="wellbeingAvailableActions"
       @use-item="handleUseItem"
       @transfer-item="handleTransferItem"
       @return-to-map="handleReturnToMap" />
@@ -799,7 +884,7 @@ function openInventoryDialog() {
   font-size: 0.9rem;
   line-height: 1.4;
 }
-.storyline-error {
+.story-error {
   border: 1px solid #9f6a5d;
   background: #39251f;
   color: #ffd6cd;

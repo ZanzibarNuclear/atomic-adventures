@@ -5,7 +5,7 @@ import StoryBeatEditor from "../components/builder/story/StoryBeatEditor.vue";
 import StoryBeatList from "../components/builder/story/StoryBeatList.vue";
 import StoryLocationPicker from "../components/builder/story/StoryLocationPicker.vue";
 import StoryMilestonePanel from "../components/builder/story/StoryMilestonePanel.vue";
-import StoryScenarioPanel from "../components/builder/story/StoryScenarioPanel.vue";
+import StoryArcPanel from "../components/builder/story/StoryArcPanel.vue";
 import BuilderPageHeader from "../components/builder/BuilderPageHeader.vue";
 import BuilderWorkspaceTabs from "../components/builder/BuilderWorkspaceTabs.vue";
 import UnsavedChangesDialog from "../components/builder/UnsavedChangesDialog.vue";
@@ -51,23 +51,23 @@ const indoorViewportMode = ref("fit-all");
 const storyWorkspaceTabs = [
   { id: "outdoors", label: "Area" },
   { id: "rooms", label: "Utility Station" },
-  { id: "scenarios", label: "Scenarios" },
+  { id: "story-arcs", label: "Story arcs" },
   { id: "milestones", label: "Milestones" },
 ];
 const activeWorkspace = ref("outdoors");
 const storyWorkspace = computed(() =>
-  ["milestones", "scenarios"].includes(activeWorkspace.value)
+  ["milestones", "story-arcs"].includes(activeWorkspace.value)
     ? activeWorkspace.value
     : locationMode.value === "outdoors" ? "outdoors" : "rooms",
 );
 const milestones = ref([]);
-const storylineVersion = ref(null);
-const storylineDocumentText = ref("");
-const storylineBaselineText = ref("");
-const storylineStatus = ref("");
-const storylineErrors = ref({});
-const storylineDirty = computed(() =>
-  storylineDocumentText.value !== storylineBaselineText.value,
+const storyArcVersion = ref(null);
+const storyArcDocumentText = ref("");
+const storyArcBaselineText = ref("");
+const storyArcStatus = ref("");
+const storyArcErrors = ref({});
+const storyArcDirty = computed(() =>
+  storyArcDocumentText.value !== storyArcBaselineText.value,
 );
 const milestoneDialog = ref({
   visible: false,
@@ -159,7 +159,7 @@ onMounted(async () => {
   try {
     catalog.value = await storyApi("/api/catalog");
     await loadMilestones();
-    await loadStorylineDocument();
+    await loadStoryArcDocument();
     await loadBeats();
     await applyStoryRouteQuery();
   } catch (error) {
@@ -180,55 +180,55 @@ async function saveMilestones(nextMilestones = milestones.value) {
   return result.milestones;
 }
 
-async function loadStorylineDocument() {
+async function loadStoryArcDocument() {
   const result = await storyApi("/api/storyline");
-  storylineVersion.value = result.version;
-  storylineDocumentText.value = JSON.stringify(result.storyline, null, 2);
-  storylineBaselineText.value = storylineDocumentText.value;
-  storylineErrors.value = {};
-  storylineStatus.value = `Loaded storyline version ${result.version}.`;
+  storyArcVersion.value = result.version;
+  storyArcDocumentText.value = JSON.stringify(result.storyline, null, 2);
+  storyArcBaselineText.value = storyArcDocumentText.value;
+  storyArcErrors.value = {};
+    storyArcStatus.value = `Loaded story arc version ${result.version}.`;
 }
 
-async function saveStorylineDocument() {
-  storylineErrors.value = {};
-  storylineStatus.value = "Saving storyline...";
-  let storyline;
+async function saveStoryArcDocument() {
+  storyArcErrors.value = {};
+  storyArcStatus.value = "Saving story arcs...";
+  let storyArcDraft;
   try {
-    storyline = JSON.parse(storylineDocumentText.value);
+    storyArcDraft = JSON.parse(storyArcDocumentText.value);
   } catch (error) {
-    storylineStatus.value = error.message;
+    storyArcStatus.value = error.message;
     return false;
   }
   try {
     const result = await storyApi("/api/storyline", {
       method: "PUT",
       body: JSON.stringify({
-        storyline,
-        expectedVersion: storylineVersion.value,
+        storyline: storyArcDraft,
+        expectedVersion: storyArcVersion.value,
       }),
     });
-    storylineVersion.value = result.version;
-    storylineDocumentText.value = JSON.stringify(result.storyline, null, 2);
-    storylineBaselineText.value = storylineDocumentText.value;
-    storylineStatus.value = `Saved storyline version ${result.version}.`;
+    storyArcVersion.value = result.version;
+    storyArcDocumentText.value = JSON.stringify(result.storyline, null, 2);
+    storyArcBaselineText.value = storyArcDocumentText.value;
+    storyArcStatus.value = `Saved story arc version ${result.version}.`;
     return true;
   } catch (error) {
-    storylineErrors.value = error.errors ?? {};
-    storylineStatus.value = error.status === 409
-      ? "Storyline content changed elsewhere. Reload before saving."
+    storyArcErrors.value = error.errors ?? {};
+    storyArcStatus.value = error.status === 409
+      ? "Story arc content changed elsewhere. Reload before saving."
       : error.message;
     return false;
   }
 }
 
-function revertStorylineDocument() {
-  storylineDocumentText.value = storylineBaselineText.value;
-  storylineErrors.value = {};
-  storylineStatus.value = "Reverted unsaved storyline edits.";
+function revertStoryArcDocument() {
+  storyArcDocumentText.value = storyArcBaselineText.value;
+  storyArcErrors.value = {};
+  storyArcStatus.value = "Reverted unsaved story arc edits.";
 }
 
-function confirmStorylineNavigation() {
-  return !storylineDirty.value || window.confirm("Discard unsaved storyline edits?");
+function confirmStoryArcNavigation() {
+  return !storyArcDirty.value || window.confirm("Discard unsaved story arc edits?");
 }
 
 watch(worldRevision, async () => {
@@ -331,24 +331,24 @@ async function applyExteriorSelection(id) {
 
 function switchMode(mode) {
   if (mode === "milestones") {
-    if (!confirmStorylineNavigation()) return;
+    if (!confirmStoryArcNavigation()) return;
     if (activeWorkspace.value === "milestones") return;
     void requestContextChange(() => {
       activeWorkspace.value = "milestones";
     });
     return;
   }
-  if (mode === "scenarios") {
-    if (activeWorkspace.value === "scenarios") return;
+  if (mode === "story-arcs") {
+    if (activeWorkspace.value === "story-arcs") return;
     void requestContextChange(() => {
-      activeWorkspace.value = "scenarios";
+      activeWorkspace.value = "story-arcs";
     });
     return;
   }
-  if (!confirmStorylineNavigation()) return;
+  if (!confirmStoryArcNavigation()) return;
   if (
-    (mode === "outdoors" && locationMode.value === "outdoors" && !["milestones", "scenarios"].includes(activeWorkspace.value)) ||
-    (mode === "rooms" && ["rooms", "exterior"].includes(locationMode.value) && !["milestones", "scenarios"].includes(activeWorkspace.value))
+    (mode === "outdoors" && locationMode.value === "outdoors" && !["milestones", "story-arcs"].includes(activeWorkspace.value)) ||
+    (mode === "rooms" && ["rooms", "exterior"].includes(locationMode.value) && !["milestones", "story-arcs"].includes(activeWorkspace.value))
   ) {
     return;
   }
@@ -449,6 +449,69 @@ function setMilestoneCriterion({ field, value }) {
 
 function newBeat(copy = null) {
   void requestContextChange(() => beginNewBeat(copy));
+}
+
+function newSceneForStoryBeat({ beatId, primarySceneId = null } = {}) {
+  void requestContextChange(async () => {
+    activeWorkspace.value = locationMode.value === "outdoors" ? "outdoors" : "rooms";
+    const sourceScene = primarySceneId
+      ? beats.value.find((beat) => beat.id === primarySceneId)
+      : null;
+    beginNewBeat(sourceScene);
+    if (!draft.value) return;
+    draft.value.storylineStep = beatId ?? null;
+    draft.value.modes = ["story"];
+    draft.value.heading = sourceScene?.heading ? `${sourceScene.heading} variant` : "New scene";
+    draft.value.text = sourceScene?.text ?? "";
+    status.value = "Drafted a new scene for this story beat.";
+  });
+}
+
+function openStoryBeatScene({ sceneId } = {}) {
+  const scene = beats.value.find((beat) => beat.id === sceneId);
+  if (!scene) return;
+  void requestContextChange(async () => {
+    await selectSceneLocation(scene);
+    await loadBeat(scene.id);
+  });
+}
+
+async function removeStoryBeatScene({ scene } = {}) {
+  if (!scene?.id || !window.confirm(`Remove scene "${scene.id}" from this story beat?`)) return;
+  try {
+    await storyApi(`/api/story/areas/${STORY_AREA_ID}/beats/${encodeURIComponent(scene.id)}`, {
+      method: "DELETE",
+      body: JSON.stringify({ expectedVersion: scene.version }),
+    });
+    await loadBeats();
+    storyArcStatus.value = `Removed scene ${scene.id}.`;
+  } catch (error) {
+    storyArcStatus.value = error.message;
+  }
+}
+
+async function reorderStoryBeatScenes({ sceneIds = [] } = {}) {
+  try {
+    await storyApi(`/api/story/areas/${STORY_AREA_ID}/beats/reorder`, {
+      method: "PUT",
+      body: JSON.stringify({ beatIds: sceneIds }),
+    });
+    await loadBeats();
+    storyArcStatus.value = "Reordered scenes for this story beat.";
+  } catch (error) {
+    storyArcStatus.value = error.message;
+  }
+}
+
+async function selectSceneLocation(scene) {
+  const trigger = scene.trigger ?? {};
+  if (trigger.hex) {
+    await applyHexSelection(trigger.hex);
+  } else if (trigger.room) {
+    await applyRoomSelection(trigger.room);
+  } else if (trigger.exteriorNode) {
+    await applyExteriorSelection(trigger.exteriorNode);
+  }
 }
 
 function emptyBeat() {
@@ -572,7 +635,7 @@ async function applyStoryRouteQuery() {
       </template>
     </BuilderPageHeader>
 
-    <div v-if="storyWorkspace !== 'milestones' && storyWorkspace !== 'scenarios'" class="builder-workspace">
+    <div v-if="storyWorkspace !== 'milestones' && storyWorkspace !== 'story-arcs'" class="builder-workspace">
       <div class="builder-nav-column">
         <StoryLocationPicker
           v-model:indoor-level="indoorLevel"
@@ -636,17 +699,21 @@ async function applyStoryRouteQuery() {
       />
     </div>
 
-    <StoryScenarioPanel
-      v-else-if="storyWorkspace === 'scenarios'"
-      v-model:document-text="storylineDocumentText"
+    <StoryArcPanel
+      v-else-if="storyWorkspace === 'story-arcs'"
+      v-model:document-text="storyArcDocumentText"
       :catalog="catalog"
       :beats="beats"
-      :dirty="storylineDirty"
-      :status="storylineStatus"
-      :errors="storylineErrors"
-      @save="saveStorylineDocument"
-      @revert="revertStorylineDocument"
-      @reload="loadStorylineDocument"
+      :dirty="storyArcDirty"
+      :status="storyArcStatus"
+      :errors="storyArcErrors"
+      @save="saveStoryArcDocument"
+      @revert="revertStoryArcDocument"
+      @reload="loadStoryArcDocument"
+      @add-scene="newSceneForStoryBeat"
+      @select-scene="openStoryBeatScene"
+      @remove-scene="removeStoryBeatScene"
+      @reorder-scenes="reorderStoryBeatScenes"
     />
 
     <div v-else class="milestone-workspace">

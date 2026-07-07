@@ -271,61 +271,87 @@ describe('useGameState save roundtrip', () => {
     expect(indoor.indoor.facility.hydroOnline).toBe(true)
   })
 
-  it('persists play mode and storyline progress', () => {
+  it('persists play mode and story progress', () => {
     const { outdoor, indoor, gameState, place } = buildTestHarness()
     setPlayMode(gameState, 'story', {
-      scenarioId: 'part-i-station',
-      stepId: 'understand-building',
-      objective: 'Figure out what this building was for.',
+      activeArcId: 'part-i-station',
+      activeBeatId: 'understand-building',
     })
-    gameState.storyline.completedStepIds = ['solve-first-crisis']
+    gameState.story.completedBeatIds = ['solve-first-crisis']
+    gameState.storySeen = new Set(['control-room'])
+    gameState.milestones = { 'day1.complete': { completedAt: 'nightfall' } }
 
     const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
     expect(snapshot.version).toBe(SAVE_VERSION)
     expect(snapshot.playMode).toBe('story')
-    expect(snapshot.storyline).toEqual({
-      scenarioId: 'part-i-station',
-      stepId: 'understand-building',
-      completedStepIds: ['solve-first-crisis'],
-      enteredStepIds: [],
-      objective: 'Figure out what this building was for.',
+    expect(snapshot.milestones).toEqual({ 'day1.complete': { completedAt: 'nightfall' } })
+    expect(snapshot.story).toEqual({
+      activeArcId: 'part-i-station',
+      activeBeatId: 'understand-building',
+      completedBeatIds: ['solve-first-crisis'],
+      enteredBeatIds: [],
+      seenSceneIds: ['control-room'],
     })
+    expect(snapshot).not.toHaveProperty('storyline')
 
     setPlayMode(gameState, 'open-world')
     expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
     expect(gameState.playMode).toBe('story')
-    expect(gameState.storyline.stepId).toBe('understand-building')
-    expect(gameState.storyline.completedStepIds).toEqual(['solve-first-crisis'])
+    expect(gameState.story.activeArcId).toBe('part-i-station')
+    expect(gameState.story.activeBeatId).toBe('understand-building')
+    expect(gameState.story.completedBeatIds).toEqual(['solve-first-crisis'])
+    expect(gameState.story.seenSceneIds).toEqual(['control-room'])
+    expect(gameState.milestones).toEqual({ 'day1.complete': { completedAt: 'nightfall' } })
   })
 
   it('normalizes older saves to story mode', () => {
     const { outdoor, indoor, gameState, place } = buildTestHarness()
     const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
     delete snapshot.playMode
-    delete snapshot.storyline
 
     expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
     expect(gameState.playMode).toBe('story')
-    expect(gameState.storyline).toEqual({
-      scenarioId: 'part-i-opener',
-      stepId: null,
-      completedStepIds: [],
-      enteredStepIds: [],
-      objective: null,
+    expect(gameState.story).toEqual({
+      activeArcId: 'part-i-opener',
+      activeBeatId: null,
+      completedBeatIds: [],
+      enteredBeatIds: [],
+      seenSceneIds: [],
     })
   })
 
-  it('persists open-world mode without active storyline progress', () => {
+  it('persists open-world mode without active story progress', () => {
     const { outdoor, indoor, gameState, place } = buildTestHarness()
     setPlayMode(gameState, 'open-world')
 
     const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
     expect(snapshot.playMode).toBe('open-world')
-    expect(snapshot.storyline).toBeNull()
+    expect(snapshot.story).toBeNull()
 
-    setPlayMode(gameState, 'story', { stepId: 'intro' })
+    setPlayMode(gameState, 'story', { activeBeatId: 'intro' })
     expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
     expect(gameState.playMode).toBe('open-world')
-    expect(gameState.storyline).toBeNull()
+    expect(gameState.story).toBeNull()
+  })
+
+  it('reads old storyline save state into story state', () => {
+    const { outdoor, indoor, gameState, place } = buildTestHarness()
+    const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
+    delete snapshot.story
+    snapshot.storyline = {
+      scenarioId: 'part-i-opener',
+      stepId: 'reach-the-gate',
+      completedStepIds: ['survive-in-the-woods'],
+      enteredStepIds: ['survive-in-the-woods', 'keep-moving-west'],
+    }
+
+    expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
+    expect(gameState.story).toEqual({
+      activeArcId: 'part-i-opener',
+      activeBeatId: 'reach-the-gate',
+      completedBeatIds: ['survive-in-the-woods'],
+      enteredBeatIds: ['survive-in-the-woods', 'keep-moving-west'],
+      seenSceneIds: [],
+    })
   })
 })

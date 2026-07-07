@@ -163,7 +163,7 @@ Story Builder and World Builder consume the catalog:
   rewards.
 - Story arcs select artifacts, item actions, holders, lessons, documents,
   completion conditions, and effects from the same known IDs; see
-  [play-modes-and-storyline.md](play-modes-and-storyline.md).
+  [play-modes-and-story-mode.md](play-modes-and-story-mode.md).
 
 Authors should not need to copy IDs manually for normal builder workflows.
 

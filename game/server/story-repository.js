@@ -193,6 +193,27 @@ export class StoryRepository {
     });
   }
 
+  reorderBeats(areaId, beatIds = []) {
+    const ids = Array.isArray(beatIds) ? beatIds.map(String).filter(Boolean) : [];
+    if (!ids.length) return { revision: this.getGlobalRevision(), beatIds: [] };
+    return transaction(this.db, () => {
+      const existing = new Set(this.listBeats(areaId).map((beat) => beat.id));
+      const missing = ids.filter((id) => !existing.has(id));
+      if (missing.length) {
+        throw new ValidationError({ beatIds: [`Unknown beat IDs: ${missing.join(", ")}`] });
+      }
+      const update = this.db.prepare(`
+        UPDATE story_beats
+        SET sort_order = ?, updated_at = ?
+        WHERE area_id = ? AND id = ?
+      `);
+      const now = new Date().toISOString();
+      ids.forEach((id, index) => update.run(index, now, areaId, id));
+      const revision = this.revisions.incrementGlobalRevision();
+      return { revision, beatIds: ids };
+    });
+  }
+
   listRevisions(areaId, beatId) {
     return this.revisions.list([areaId, beatId]);
   }
@@ -537,7 +558,7 @@ export class StoryRepository {
         version, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      areaId, beat.id, 0, beat.trigger.place, beat.trigger.hex, beat.trigger.room,
+      areaId, beat.id, Number.isFinite(Number(beat.sortOrder)) ? Number(beat.sortOrder) : 0, beat.trigger.place, beat.trigger.hex, beat.trigger.room,
       beat.trigger.exteriorNode, beat.trigger.event, beat.trigger.flag,
       Number(beat.once), 1, beat.eyebrow, beat.heading,
       beat.text, beat.revisit,
@@ -583,6 +604,7 @@ export class StoryRepository {
     const beat = {
       areaId: row.area_id,
       id: row.id,
+      sortOrder: row.sort_order,
       once: Boolean(row.once_value),
       eyebrow: row.eyebrow,
       heading: row.heading,

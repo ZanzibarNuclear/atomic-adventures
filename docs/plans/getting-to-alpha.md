@@ -2,7 +2,7 @@
 
 **Status:** In progress
 **Last updated:** 2026-07-06
-**Primary contracts:** [Play Modes And Story Mode Control](../contracts/play-modes-and-storyline.md), [Story Beats And Scenes](../contracts/story-beats.md), [Stage Views](../contracts/stage-views.md), [Holo-Reader](../contracts/holo-reader.md), [Control Panel](../contracts/control-panel.md), [Hydro Simulator](../contracts/hydro-simulator.md), [Character, Artifacts, and Inventory Management](../contracts/character-inventory.md)
+**Primary contracts:** [Play Modes And Story Mode Control](../contracts/play-modes-and-story-mode.md), [Story Beats And Scenes](../contracts/story-beats.md), [Stage Views](../contracts/stage-views.md), [Holo-Reader](../contracts/holo-reader.md), [Control Panel](../contracts/control-panel.md), [Hydro Simulator](../contracts/hydro-simulator.md), [Character, Artifacts, and Inventory Management](../contracts/character-inventory.md)
 **Quality checklist:** [Character, Inventory, and Game-View Regression Checklist](../quality/character-inventory-regression-checklist.md)
 
 ## Goal
@@ -178,7 +178,7 @@ explicit split:
   and tries to figure things out without following the canonical story.
 
 The implementation contract for this split is
-[Play Modes And Story Mode Control](../contracts/play-modes-and-storyline.md).
+[Play Modes And Story Mode Control](../contracts/play-modes-and-story-mode.md).
 Story arcs own guided progression, story beats own choices, actions,
 completion, and effects, and scenes own prose variants.
 

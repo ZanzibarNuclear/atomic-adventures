@@ -15,14 +15,22 @@ try {
 
   await page.getByRole("button", { name: /Story\b/i }).waitFor({ timeout: 10_000 });
   await page.getByRole("button", { name: /Story\b/i }).click();
-  await page.locator(".story-objective").waitFor({ timeout: 10_000 });
   await page.getByText("Origin", { exact: true }).waitFor({ timeout: 10_000 });
   await page.getByRole("button", { name: /^(Go west|Keep walking west)$/ }).waitFor({ timeout: 10_000 });
   const openingText = await page.locator("body").innerText();
   await page.getByRole("button", { name: /^(Go west|Keep walking west)$/ }).click();
   await page.getByText("East Pines", { exact: true }).waitFor({ timeout: 10_000 });
-  await page.getByRole("button", { name: "Continue west" }).waitFor({ timeout: 10_000 });
-  await page.getByRole("button", { name: "Go east" }).waitFor({ timeout: 10_000 });
+  await page.getByRole("button", { name: /^(Continue west|Go west)$/ }).waitFor({ timeout: 10_000 });
+
+  await page.evaluate(() => localStorage.clear());
+  await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 15_000 });
+  await page.getByRole("button", { name: /Open-world\b/i }).waitFor({ timeout: 10_000 });
+  await page.getByRole("button", { name: /Open-world\b/i }).click();
+  await page.getByText("Origin", { exact: true }).waitFor({ timeout: 10_000 });
+  await page.getByRole("button", { name: "Go west" }).waitFor({ timeout: 10_000 });
+  const openWorldText = await page.locator("body").innerText();
+  await page.getByRole("button", { name: "Go west" }).click();
+  await page.getByText("East Pines", { exact: true }).waitFor({ timeout: 10_000 });
 
   const text = await page.locator("body").innerText();
   const actionClasses = await page.locator("button.route-btn").evaluateAll((buttons) =>
@@ -36,19 +44,19 @@ try {
     throw new Error(`Browser console errors:\n${JSON.stringify(errorLogs, null, 2)}`);
   }
   const found = {
-    objective: openingText.includes("Keep moving. Find something that can help you survive."),
+    noObjectiveUi: !openingText.includes("Objective") && !openWorldText.includes("Objective"),
     openingMapCaption: openingText.includes("Origin"),
-    detourObjective: text.includes("Keep moving. Stay across the slope."),
-    storyContinuingAction: actionClasses.some((action) => action.label === "Continue west"),
-    detourAction: actionClasses.some((action) => action.label === "Go east"),
+    storyModeMoved: text.includes("East Pines"),
+    openWorldOpening: openWorldText.includes("Origin"),
+    storyContinuingAction: actionClasses.some((action) => ["Continue west", "Go west"].includes(action.label)),
     noStoryEmphasis: actionClasses.every((action) => !String(action.className).includes("story")),
   };
   if (
-    !found.objective ||
+    !found.noObjectiveUi ||
     !found.openingMapCaption ||
-    !found.detourObjective ||
+    !found.storyModeMoved ||
+    !found.openWorldOpening ||
     !found.storyContinuingAction ||
-    !found.detourAction ||
     !found.noStoryEmphasis
   ) {
     throw new Error(`Missing expected browser smoke text:\n${JSON.stringify(found, null, 2)}`);

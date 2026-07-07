@@ -54,9 +54,9 @@ vi.mock("../composables/useLearningContent.js", () => ({
   }),
 }));
 
-vi.mock("../composables/useStorylineContent.js", () => ({
-  useStorylineContent: () => ({
-    storylineData: computed(() => storylineSeed),
+vi.mock("../composables/useStoryArcContent.js", () => ({
+  useStoryArcContent: () => ({
+    storyArcDocument: computed(() => storylineSeed),
     error: ref(""),
     refresh: emptyRefresh,
   }),

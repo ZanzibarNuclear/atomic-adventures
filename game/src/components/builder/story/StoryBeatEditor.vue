@@ -90,7 +90,7 @@ const modeCriteriaSummary = computed(() => {
   const summary = [];
   const modes = Array.isArray(props.draft.modes) ? props.draft.modes : [];
   if (modes.length) summary.push(`Modes: ${modes.map(modeLabel).join(", ")}`);
-  if (props.draft.storylineStep) summary.push(`Storyline step: ${props.draft.storylineStep}`);
+  if (props.draft.storylineStep) summary.push(`Story beat: ${props.draft.storylineStep}`);
   return summary;
 });
 
@@ -186,7 +186,7 @@ function setModeEnabled(mode, enabled) {
 <template>
   <section class="builder-form-column panel">
     <div v-if="!draft" class="empty-editor">
-      Select a beat or create a new one.
+      Select a scene or create a new one.
     </div>
     <form v-else @submit.prevent="$emit('save')">
       <div class="form-toolbar">
@@ -205,7 +205,7 @@ function setModeEnabled(mode, enabled) {
       <p v-if="status" class="builder-status">{{ status }}</p>
       <p v-for="message in errors.trigger ?? []" :key="message" class="field-error">{{ message }}</p>
 
-      <div class="editor-tabs" role="tablist" aria-label="Beat editor sections">
+      <div class="editor-tabs" role="tablist" aria-label="Scene editor sections">
         <button
           type="button"
           class="sm"
@@ -240,7 +240,7 @@ function setModeEnabled(mode, enabled) {
 
       <div v-show="activeTab === 'story'" class="tab-panel" role="tabpanel">
         <div class="field-grid">
-          <label>Beat ID
+          <label>Scene ID
             <input v-model="draft.id" />
             <span v-if="fieldError('id')" class="field-error">{{ fieldError("id") }}</span>
           </label>
@@ -248,17 +248,17 @@ function setModeEnabled(mode, enabled) {
           <label>Heading<input v-model="draft.heading" /></label>
         </div>
 
-        <label>Story text
+        <label>Scene prose
           <textarea v-model="draft.text" rows="10" />
           <span v-if="fieldError('text')" class="field-error">{{ fieldError("text") }}</span>
         </label>
-        <label>Revisit text<textarea v-model="draft.revisit" rows="5" /></label>
+        <label>Revisit prose<textarea v-model="draft.revisit" rows="5" /></label>
       </div>
 
       <div v-show="activeTab === 'criteria'" class="tab-panel" role="tabpanel">
         <section class="criteria-card">
           <div class="criteria-card-header">
-            <h3>Mode and storyline</h3>
+            <h3>Mode and story beat</h3>
           </div>
           <div class="criteria-readonly">
             <span
@@ -287,10 +287,10 @@ function setModeEnabled(mode, enabled) {
               />
               Open-world mode
             </label>
-            <label class="span-all">Storyline step
+            <label class="span-all">Story beat
               <input
                 v-model="draft.storylineStep"
-                placeholder="optional step ID"
+                placeholder="optional story beat ID"
               />
               <span v-if="fieldError('storylineStep')" class="field-error">{{ fieldError("storylineStep") }}</span>
             </label>
@@ -442,7 +442,7 @@ function setModeEnabled(mode, enabled) {
 
       <div v-show="activeTab === 'choices'" class="tab-panel" role="tabpanel">
         <fieldset>
-          <legend>Choices</legend>
+          <legend>Scene choices</legend>
           <StoryChoiceEditor
             v-for="(choice, index) in draft.choices"
             :key="choice.id"
@@ -469,7 +469,7 @@ function setModeEnabled(mode, enabled) {
         @restore="$emit('restore-revision', $event)"
       />
 
-      <button v-if="!isNew" type="button" class="danger" @click="$emit('delete')">Delete beat</button>
+      <button v-if="!isNew" type="button" class="danger" @click="$emit('delete')">Delete scene</button>
     </form>
   </section>
 </template>

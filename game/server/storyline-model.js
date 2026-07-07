@@ -19,10 +19,12 @@ const ACTIVITIES = new Set(["resting", "light", "moderate", "strenuous"]);
 export function normalizeStorylineDocument(input = {}) {
   const source = input && typeof input === "object" ? structuredClone(input) : {};
   return {
-    id: text(source.id) || "storyline-main",
-    scenarios: array(source.scenarios).map((scenario, scenarioIndex) => normalizeScenario(scenario, scenarioIndex)),
+    id: text(source.id) || "story-main",
+    storyArcs: array(source.storyArcs).map((arc, arcIndex) => normalizeStoryArc(arc, arcIndex)),
   };
 }
+
+export const normalizeStoryArcDocument = normalizeStorylineDocument;
 
 export function validateStorylineDocument(input, {
   story = null,
@@ -30,73 +32,75 @@ export function validateStorylineDocument(input, {
   character = null,
   learning = null,
 } = {}) {
-  const storyline = normalizeStorylineDocument(input);
+  const storyArcDocument = normalizeStorylineDocument(input);
   const errors = {};
   const add = (path, message) => ((errors[path] ??= []).push(message));
 
-  if (storyline.id !== "storyline-main") add("id", 'Storyline document ID must be "storyline-main".');
-  if (!storyline.scenarios.length) add("scenarios", "Add at least one storyline scenario.");
-  const scenarioIds = validateIds(storyline.scenarios, "scenarios", add);
+  if (storyArcDocument.id !== "story-main") add("id", 'Story arc document ID must be "story-main".');
+  if (!storyArcDocument.storyArcs.length) add("storyArcs", "Add at least one story arc.");
+  const arcIds = validateIds(storyArcDocument.storyArcs, "storyArcs", add);
 
-  storyline.scenarios.forEach((scenario, scenarioIndex) => {
-    const base = `scenarios.${scenarioIndex}`;
-    if (!scenario.label) add(`${base}.label`, "Scenario label is required.");
-    if (!PLAY_MODES.has(scenario.defaultMode)) add(`${base}.defaultMode`, "Choose a supported default mode.");
-    if (!scenario.steps.length) add(`${base}.steps`, "Add at least one step.");
-    const stepIds = validateIds(scenario.steps, `${base}.steps`, add);
-    if (!stepIds.has(scenario.startStep)) add(`${base}.startStep`, "Choose an existing start step.");
+  storyArcDocument.storyArcs.forEach((arc, arcIndex) => {
+    const base = `storyArcs.${arcIndex}`;
+    if (!arc.title) add(`${base}.title`, "Story arc title is required.");
+    if (!PLAY_MODES.has(arc.defaultMode)) add(`${base}.defaultMode`, "Choose a supported default mode.");
+    if (!arc.beats.length) add(`${base}.beats`, "Add at least one story beat.");
+    const beatIds = validateIds(arc.beats, `${base}.beats`, add);
+    if (!beatIds.has(arc.startBeat)) add(`${base}.startBeat`, "Choose an existing start beat.");
 
-    scenario.steps.forEach((step, stepIndex) => {
-      const stepBase = `${base}.steps.${stepIndex}`;
-      if (!step.objective) add(`${stepBase}.objective`, "Objective text is required.");
-      if (step.beat && !storyBeatIds(story).has(step.beat)) {
-        add(`${stepBase}.beat`, "Choose an existing story beat.");
+    arc.beats.forEach((beat, beatIndex) => {
+      const beatBase = `${base}.beats.${beatIndex}`;
+      if (!beat.title) add(`${beatBase}.title`, "Story beat title is required.");
+      if (beat.scene && !storyBeatIds(story).has(beat.scene)) {
+        add(`${beatBase}.scene`, "Choose an existing scene.");
       }
-      if (step.next && !stepIds.has(step.next)) add(`${stepBase}.next`, "Choose an existing next step.");
-      if (step.next && step.nextScenario) add(`${stepBase}.next`, "Choose either a next step or next scenario, not both.");
-      if (step.nextScenario && !scenarioIds.has(step.nextScenario)) {
-        add(`${stepBase}.nextScenario`, "Choose an existing next scenario.");
+      if (beat.next && !beatIds.has(beat.next)) add(`${beatBase}.next`, "Choose an existing next beat.");
+      if (beat.next && beat.nextArc) add(`${beatBase}.next`, "Choose either a next beat or next story arc, not both.");
+      if (beat.nextArc && !arcIds.has(beat.nextArc)) {
+        add(`${beatBase}.nextArc`, "Choose an existing next story arc.");
       }
-      validateAllowed(step.allowed, `${stepBase}.allowed`, add, { world });
-      validateCompletion(step.completesWhen, `${stepBase}.completesWhen`, add, {
+      validateAllowed(beat.allowed, `${beatBase}.allowed`, add, { world });
+      validateCompletion(beat.completesWhen, `${beatBase}.completesWhen`, add, {
         world,
         character,
         learning,
       });
-      validateStepEffect(step.onEnter, `${stepBase}.onEnter`, add, { world, character });
-      validateStepEffect(step.onComplete, `${stepBase}.onComplete`, add, { world, character });
+      validateBeatEffect(beat.onEnter, `${beatBase}.onEnter`, add, { world, character });
+      validateBeatEffect(beat.onComplete, `${beatBase}.onComplete`, add, { world, character });
     });
   });
 
   return {
-    storyline,
+    storyArcDocument,
     errors,
     warnings: [],
     valid: Object.keys(errors).length === 0,
   };
 }
 
-function normalizeScenario(input = {}, index = 0) {
+export const validateStoryArcDocument = validateStorylineDocument;
+
+function normalizeStoryArc(input = {}, index = 0) {
   return {
-    id: text(input.id) || `scenario-${index + 1}`,
-    label: text(input.label),
+    id: text(input.id) || `story-arc-${index + 1}`,
+    title: text(input.title),
     defaultMode: normalizePlayMode(text(input.defaultMode)) || "story",
-    startStep: text(input.startStep),
-    steps: array(input.steps).map((step, stepIndex) => normalizeStep(step, stepIndex)),
+    startBeat: text(input.startBeat),
+    beats: array(input.beats).map((beat, beatIndex) => normalizeStoryBeat(beat, beatIndex)),
   };
 }
 
-function normalizeStep(input = {}, index = 0) {
+function normalizeStoryBeat(input = {}, index = 0) {
   return {
-    id: text(input.id) || `step-${index + 1}`,
-    objective: text(input.objective),
-    beat: nullableText(input.beat),
+    id: text(input.id) || `story-beat-${index + 1}`,
+    title: text(input.title),
+    scene: nullableText(input.scene),
     allowed: normalizeAllowed(input.allowed),
     completesWhen: normalizeCompletion(input.completesWhen),
-    onEnter: normalizeStepEffect(input.onEnter),
-    onComplete: normalizeStepEffect(input.onComplete),
+    onEnter: normalizeBeatEffect(input.onEnter),
+    onComplete: normalizeBeatEffect(input.onComplete),
     next: nullableText(input.next),
-    nextScenario: nullableText(input.nextScenario),
+    nextArc: nullableText(input.nextArc),
   };
 }
 
@@ -137,7 +141,7 @@ function normalizeCompletion(input = {}) {
   });
 }
 
-function normalizeStepEffect(input = {}) {
+function normalizeBeatEffect(input = {}) {
   if (!input || typeof input !== "object") return null;
   return compactObject({
     setFlags: stringList(input.setFlags),
@@ -214,7 +218,7 @@ function validateCompletion(completion, path, add, { world, character, learning 
   if (!completion) return;
   const families = ["flag", "facility", "location", "holding", "lesson"]
     .filter((key) => hasCompletionValue(completion[key]));
-  if (families.length !== 1) add(path, "Choose exactly one completion predicate.");
+  if (families.length !== 1) add(path, "Choose exactly one completion condition.");
   if (completion.flag && !FLAG_PATTERN.test(completion.flag)) add(`${path}.flag`, "Use a valid flag ID.");
   if (completion.location) validateLocation(completion.location, `${path}.location`, add, { world });
   if (completion.holding) {
@@ -233,7 +237,7 @@ function validateCompletion(completion, path, add, { world, character, learning 
   }
 }
 
-function validateStepEffect(effect, path, add, { world, character }) {
+function validateBeatEffect(effect, path, add, { world, character }) {
   if (!effect) return;
   effect.setFlags?.forEach((flag, index) => {
     if (!FLAG_PATTERN.test(flag)) add(`${path}.setFlags.${index}`, "Use a valid flag ID.");

@@ -151,6 +151,15 @@ describe("story API", () => {
     }));
     expect(storylineRepository.validate(storyline.storyline).valid).toBe(true);
 
+    const storyArcsRes = responseCapture();
+    await api.handle(request("GET", "/api/story-arcs"), storyArcsRes);
+    const storyArcs = JSON.parse(storyArcsRes.chunks.join(""));
+    expect(storyArcsRes.status).toBe(200);
+    expect(storyArcs.story.storyArcs[0]).toEqual(expect.objectContaining({
+      id: "part-i-opener",
+      startBeat: "survive-in-the-woods",
+    }));
+
     const current = characterRepository.getDocument();
     const removeRes = responseCapture();
     await api.handle(request("PUT", "/api/character", {

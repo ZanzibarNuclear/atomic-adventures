@@ -133,6 +133,13 @@ A `StoryArc` is an authored document in SQLite, exported to production runtime
 JSON with the rest of content. YAML remains an explicit import/export snapshot
 format only.
 
+During the current migration, the local authoring transport still accepts the
+older `/api/storyline` endpoint and SQLite table names. Those names are a
+temporary compatibility bridge for existing revisions and reference cascade
+code, not the contract model. Production runtime export uses
+`/content/story-arcs.json`, and runtime code consumes normalized `StoryArc`,
+`StoryBeat`, and `Scene` data.
+
 Story arc documents should be coarse-grained like the existing world and
 character documents. Arc IDs use story-facing names, not software phase names:
 

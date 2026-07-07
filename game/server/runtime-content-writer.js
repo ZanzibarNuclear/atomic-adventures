@@ -1,6 +1,7 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { normalizeStoryArcContent } from "../src/composables/storyArcModel.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const RUNTIME_CONTENT_DIR = join(here, "..", "public", "content");
@@ -19,9 +20,22 @@ export function writeRuntimeContent({
   const characterDocument = characterRepository.getRuntimeCharacter();
   const learningDocument = learningRepository.getRuntimeLearning();
   const storylineDocument = storylineRepository.getRuntimeStoryline();
+  const storyDocument = storyRepository.getRuntimeStory();
+  const storyBeats = Object.assign(
+    {},
+    ...Object.values(storyDocument.areas ?? {}).map((area) => area.beats ?? {}),
+  );
+  const storyArcDocument = {
+    story: normalizeStoryArcContent(storylineDocument.storyline, {
+      storyData: { beats: storyBeats },
+    }),
+    version: storylineDocument.version,
+    revision: storylineDocument.revision,
+    warnings: storylineDocument.warnings,
+  };
 
   mkdirSync(outputDir, { recursive: true });
-  writeJson(join(outputDir, "story.json"), storyRepository.getRuntimeStory());
+  writeJson(join(outputDir, "story.json"), storyDocument);
   writeJson(join(outputDir, "world.json"), {
     world: worldDocument.world,
     version: worldDocument.version,
@@ -36,9 +50,14 @@ export function writeRuntimeContent({
   });
   writeJson(join(outputDir, "character.json"), characterDocument);
   writeJson(join(outputDir, "learning.json"), learningDocument);
-  writeJson(join(outputDir, "storyline.json"), storylineDocument);
+  removeJson(join(outputDir, "storyline.json"));
+  writeJson(join(outputDir, "story-arcs.json"), storyArcDocument);
 }
 
 function writeJson(path, value) {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+function removeJson(path) {
+  if (existsSync(path)) unlinkSync(path);
 }

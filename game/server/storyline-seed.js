@@ -1,75 +1,117 @@
-export const storylineSeed = {
-  id: "storyline-main",
-  scenarios: [
+export const storyArcSeed = {
+  "id": "story-main",
+  "storyArcs": [
     {
-      id: "part-i-opener",
-      label: "Part I Opener",
-      defaultMode: "story",
-      startStep: "survive-in-the-woods",
-      steps: [
+      "id": "part-i-opener",
+      "title": "Part I Opener",
+      "defaultMode": "story",
+      "startBeat": "survive-in-the-woods",
+      "beats": [
         {
-          id: "survive-in-the-woods",
-          objective: "Keep moving. Find something that can help you survive.",
-          beat: "intro",
-          allowed: {
-            movement: { mode: "unrestricted", hexes: ["east-pines"] },
-            storyForwardActions: ["move-hex:east-pines"],
-          },
-          completesWhen: { location: { place: "outdoors", hex: "east-pines" } },
-          next: "keep-moving-west",
-        },
-        {
-          id: "keep-moving-west",
-          objective: "Keep moving. Stay across the slope.",
-          beat: "east-pines",
-          allowed: {
-            movement: { mode: "unrestricted", hexes: ["center-pines"] },
-            storyForwardActions: ["move-hex:center-pines"],
-          },
-          completesWhen: { location: { place: "outdoors", hex: "center-pines" } },
-          next: "reach-the-gate",
-        },
-        {
-          id: "reach-the-gate",
-          objective: "Follow the fence. Find where it leads.",
-          beat: "center-pines",
-          allowed: {
-            movement: {
-              mode: "unrestricted",
-              hexes: ["north-bend", "gate-woods", "south-pines", "utility-yard"],
+          "id": "survive-in-the-woods",
+          "allowed": {
+            "movement": {
+              "mode": "unrestricted",
+              "hexes": [
+                "east-pines"
+              ]
             },
-            storyForwardActions: [
+            "storyForwardActions": [
+              "move-hex:east-pines"
+            ]
+          },
+          "completesWhen": {
+            "location": {
+              "place": "outdoors",
+              "hex": "east-pines"
+            }
+          },
+          "next": "keep-moving-west",
+          "title": "Keep moving. Find something that can help you survive.",
+          "scene": "intro"
+        },
+        {
+          "id": "keep-moving-west",
+          "allowed": {
+            "movement": {
+              "mode": "unrestricted",
+              "hexes": [
+                "center-pines"
+              ]
+            },
+            "storyForwardActions": [
+              "move-hex:center-pines"
+            ]
+          },
+          "completesWhen": {
+            "location": {
+              "place": "outdoors",
+              "hex": "center-pines"
+            }
+          },
+          "next": "reach-the-gate",
+          "title": "Keep moving. Stay across the slope.",
+          "scene": "east-pines"
+        },
+        {
+          "id": "reach-the-gate",
+          "allowed": {
+            "movement": {
+              "mode": "unrestricted",
+              "hexes": [
+                "north-bend",
+                "gate-woods",
+                "south-pines",
+                "utility-yard"
+              ]
+            },
+            "storyForwardActions": [
               "move-hex:north-bend",
               "route:gate-woods",
               "move-hex:gate-woods",
               "move-hex:south-pines",
               "search:barrier",
               "passage:south-pines-hole",
-              "move-hex:utility-yard",
+              "move-hex:utility-yard"
             ],
-            itemActions: ["half-eaten-energy-bar.eat", "half-full-water-bottle.drink"],
+            "itemActions": [
+              "half-eaten-energy-bar.eat",
+              "half-full-water-bottle.drink"
+            ]
           },
-          completesWhen: { location: { place: "outdoors", hex: ["gate-woods", "utility-yard"] } },
-          nextScenario: "part-i-station",
-        },
-      ],
+          "completesWhen": {
+            "location": {
+              "place": "outdoors",
+              "hex": [
+                "gate-woods",
+                "utility-yard"
+              ]
+            }
+          },
+          "title": "Follow the fence. Find where it leads.",
+          "scene": "center-pines",
+          "nextArc": "part-i-station"
+        }
+      ]
     },
     {
-      id: "part-i-station",
-      label: "Part I Station",
-      defaultMode: "story",
-      startStep: "find-a-way-past-fence",
-      steps: [
+      "id": "part-i-station",
+      "title": "Part I Station",
+      "defaultMode": "story",
+      "startBeat": "find-a-way-past-fence",
+      "beats": [
         {
-          id: "find-a-way-past-fence",
-          objective: "Catch your breath. Eat or drink if you need to, then find a way past the fence.",
-          beat: "the-gate",
-          allowed: {
-            movement: {
-              mode: "unrestricted",
-              hexes: ["south-pines", "west-slope", "utility-yard"],
+          "id": "find-a-way-past-fence",
+          "allowed": {
+            "movement": {
+              "mode": "unrestricted",
+              "hexes": [
+                "south-pines",
+                "west-slope",
+                "utility-yard"
+              ]
             },
-            storyForwardActions: [
+            "storyForwardActions": [
               "passage-toggle:compound-gate",
               "passage:compound-gate",
               "search:barrier",
@@ -77,176 +119,323 @@ export const storylineSeed = {
               "move-hex:west-slope",
               "route:utility-yard",
               "move-hex:utility-yard",
-              "barrier:utility-yard",
+              "barrier:utility-yard"
             ],
-            outdoorActions: [
+            "outdoorActions": [
               "search:barrier",
               "passage-toggle:compound-gate",
               "passage:compound-gate",
-              "passage:south-pines-hole",
+              "passage:south-pines-hole"
             ],
-            itemActions: ["half-eaten-energy-bar.eat", "half-full-water-bottle.drink"],
+            "itemActions": [
+              "half-eaten-energy-bar.eat",
+              "half-full-water-bottle.drink"
+            ]
           },
-          completesWhen: { location: { place: "outdoors", hex: "utility-yard" } },
-          next: "look-for-shelter",
+          "completesWhen": {
+            "location": {
+              "place": "outdoors",
+              "hex": "utility-yard"
+            }
+          },
+          "next": "look-for-shelter",
+          "title": "Catch your breath. Eat or drink if you need to, then find a way past the fence.",
+          "scene": "the-gate"
         },
         {
-          id: "look-for-shelter",
-          objective: "Look for shelter before you run out of light.",
-          beat: "large-bay-man-front",
-          allowed: {
-            movement: {
-              mode: "local-area",
-              exteriorNodes: ["garage-front-entrance", "large-bay-man-front", "south-east-corner-entrance"],
-              transitions: ["garage-exit", "man-door-path", "southeast-corner"],
+          "id": "look-for-shelter",
+          "allowed": {
+            "movement": {
+              "mode": "local-area",
+              "exteriorNodes": [
+                "garage-front-entrance",
+                "large-bay-man-front",
+                "south-east-corner-entrance"
+              ],
+              "transitions": [
+                "garage-exit",
+                "man-door-path",
+                "southeast-corner"
+              ]
             },
-            storyForwardActions: [
+            "storyForwardActions": [
               "move-exterior:large-bay-man-front",
               "door-break:large-bay-man",
               "door-open:large-bay-man",
-              "move-room:large-bay",
+              "move-room:large-bay"
             ],
-            indoorActions: ["door-break:large-bay-man", "door-open:large-bay-man"],
+            "indoorActions": [
+              "door-break:large-bay-man",
+              "door-open:large-bay-man"
+            ]
           },
-          completesWhen: { location: { place: "indoors", room: "large-bay" } },
-          next: "solve-first-crisis",
+          "completesWhen": {
+            "location": {
+              "place": "indoors",
+              "room": "large-bay"
+            }
+          },
+          "next": "solve-first-crisis",
+          "title": "Look for shelter before you run out of light.",
+          "scene": "large-bay-man-front"
         },
         {
-          id: "solve-first-crisis",
-          objective: "Find food, water, and somewhere safe to rest.",
-          beat: "large-bay",
-          allowed: {
-            movement: {
-              mode: "local-area",
-              rooms: ["garage-stair", "conference", "kitchen", "library"],
+          "id": "solve-first-crisis",
+          "allowed": {
+            "movement": {
+              "mode": "local-area",
+              "rooms": [
+                "garage-stair",
+                "conference",
+                "kitchen",
+                "library"
+              ]
             },
-            storyForwardActions: [
+            "storyForwardActions": [
               "move-room:kitchen",
               "action:eat-rations",
               "action:purify-water",
               "move-room:library",
-              "action:rest-in-library",
+              "action:rest-in-library"
             ],
-            indoorActions: ["eat-rations", "purify-water", "rest-in-library"],
+            "indoorActions": [
+              "eat-rations",
+              "purify-water",
+              "rest-in-library"
+            ]
           },
-          completesWhen: { flag: "day1.complete" },
-          next: "understand-building",
+          "completesWhen": {
+            "flag": "day1.complete"
+          },
+          "next": "understand-building",
+          "title": "Find food, water, and somewhere safe to rest.",
+          "scene": "large-bay"
         },
         {
-          id: "understand-building",
-          objective: "Figure out what this building was for.",
-          beat: "control-room",
-          allowed: {
-            movement: { mode: "local-area", rooms: ["control-room"] },
-            storyForwardActions: ["move-room:control-room", "action:read-hydro-startup-card"],
-            stageViews: [{ kind: "document", id: "hydro-startup-instruction-card" }],
-            indoorActions: ["read-hydro-startup-card"],
-            itemActions: ["hydro-startup-instruction-card.read"],
-          },
-          completesWhen: { flag: "hydro.startup_card_read" },
-          next: "inspect-intake",
-        },
-        {
-          id: "inspect-intake",
-          objective: "Trace the water path outside.",
-          beat: "intake-entrance",
-          allowed: {
-            movement: {
-              mode: "local-area",
-              hexes: ["utility-yard"],
-              exteriorNodes: ["upstream-bank", "intake-entrance"],
+          "id": "understand-building",
+          "allowed": {
+            "movement": {
+              "mode": "local-area",
+              "rooms": [
+                "control-room"
+              ]
             },
-            storyForwardActions: ["move-exterior:upstream-bank", "move-exterior:intake-entrance"],
+            "storyForwardActions": [
+              "move-room:control-room",
+              "action:read-hydro-startup-card"
+            ],
+            "stageViews": [
+              {
+                "kind": "document",
+                "id": "hydro-startup-instruction-card"
+              }
+            ],
+            "indoorActions": [
+              "read-hydro-startup-card"
+            ],
+            "itemActions": [
+              "hydro-startup-instruction-card.read"
+            ]
           },
-          completesWhen: { location: { place: "indoors", exteriorNode: "upstream-bank" } },
-          next: "clear-open-intake",
+          "completesWhen": {
+            "flag": "hydro.startup_card_read"
+          },
+          "next": "inspect-intake",
+          "title": "Figure out what this building was for.",
+          "scene": "control-room"
         },
         {
-          id: "clear-open-intake",
-          objective: "Clear debris and open the intake.",
-          beat: "intake-entrance",
-          allowed: {
-            movement: { mode: "local-area" },
-            storyForwardActions: ["action:clear-intake-debris", "action:open-intake"],
-            indoorActions: ["clear-intake-debris", "open-intake"],
-          },
-          completesWhen: { facility: { "hydro.intakeOpen": true } },
-          next: "align-diversion-valve",
-        },
-        {
-          id: "align-diversion-valve",
-          objective: "Align the upstream diversion valve.",
-          beat: "midstream-bank",
-          allowed: {
-            movement: { mode: "local-area" },
-            storyForwardActions: ["move-exterior:midstream-bank", "action:align-pipeflow"],
-            indoorActions: ["align-pipeflow"],
-          },
-          completesWhen: { facility: { "hydro.manualValves.upstreamOpen": true } },
-          next: "open-turbine-valve",
-        },
-        {
-          id: "open-turbine-valve",
-          objective: "Open the powerhouse pipe valve.",
-          beat: "downstream-bank",
-          allowed: {
-            movement: { mode: "local-area" },
-            storyForwardActions: ["move-exterior:downstream-bank", "action:open-turbine-valve"],
-            indoorActions: ["open-turbine-valve"],
-          },
-          completesWhen: { facility: { "hydro.manualValves.powerhouseOpen": true } },
-          next: "return-control-room",
-        },
-        {
-          id: "return-control-room",
-          objective: "Return to the control room.",
-          beat: "control-room",
-          allowed: {
-            movement: {
-              mode: "local-area",
-              rooms: ["control-room"],
+          "id": "inspect-intake",
+          "allowed": {
+            "movement": {
+              "mode": "local-area",
+              "hexes": [
+                "utility-yard"
+              ],
+              "exteriorNodes": [
+                "upstream-bank",
+                "intake-entrance"
+              ]
             },
-            storyForwardActions: ["move-room:control-room"],
+            "storyForwardActions": [
+              "move-exterior:upstream-bank",
+              "move-exterior:intake-entrance"
+            ]
           },
-          completesWhen: { location: { place: "indoors", room: "control-room" } },
-          next: "connect-power",
+          "completesWhen": {
+            "location": {
+              "place": "indoors",
+              "exteriorNode": "upstream-bank"
+            }
+          },
+          "next": "clear-open-intake",
+          "title": "Trace the water path outside.",
+          "scene": "intake-entrance"
         },
         {
-          id: "connect-power",
-          objective: "Connect station power.",
-          beat: "control-room",
-          allowed: {
-            movement: { mode: "current-location-only" },
-            storyForwardActions: ["action:connect-power"],
-            indoorActions: ["connect-power"],
+          "id": "clear-open-intake",
+          "allowed": {
+            "movement": {
+              "mode": "local-area"
+            },
+            "storyForwardActions": [
+              "action:clear-intake-debris",
+              "action:open-intake"
+            ],
+            "indoorActions": [
+              "clear-intake-debris",
+              "open-intake"
+            ]
           },
-          completesWhen: { facility: { "hydro.online": true } },
-          next: "check-console",
+          "completesWhen": {
+            "facility": {
+              "hydro.intakeOpen": true
+            }
+          },
+          "next": "align-diversion-valve",
+          "title": "Clear debris and open the intake.",
+          "scene": "intake-entrance"
         },
         {
-          id: "check-console",
-          objective: "Check the generator console.",
-          beat: "control-room",
-          allowed: {
-            movement: { mode: "current-location-only" },
-            storyForwardActions: ["hydro-console:open"],
-            stageViews: [{ kind: "console", id: "hydro" }],
+          "id": "align-diversion-valve",
+          "allowed": {
+            "movement": {
+              "mode": "local-area"
+            },
+            "storyForwardActions": [
+              "move-exterior:midstream-bank",
+              "action:align-pipeflow"
+            ],
+            "indoorActions": [
+              "align-pipeflow"
+            ]
           },
-          onEnter: {
-            view: { kind: "console", id: "hydro", focus: "generation" },
+          "completesWhen": {
+            "facility": {
+              "hydro.manualValves.upstreamOpen": true
+            }
           },
-          completesWhen: { facility: { "hydro.online": true } },
-          next: "complete-startup",
+          "next": "open-turbine-valve",
+          "title": "Align the upstream diversion valve.",
+          "scene": "midstream-bank"
         },
         {
-          id: "complete-startup",
-          objective: "Bring the hydro generator online.",
-          beat: "control-room",
-          allowed: { movement: { mode: "unrestricted" } },
-          completesWhen: { facility: { "hydro.startupComplete": true } },
-          next: null,
+          "id": "open-turbine-valve",
+          "allowed": {
+            "movement": {
+              "mode": "local-area"
+            },
+            "storyForwardActions": [
+              "move-exterior:downstream-bank",
+              "action:open-turbine-valve"
+            ],
+            "indoorActions": [
+              "open-turbine-valve"
+            ]
+          },
+          "completesWhen": {
+            "facility": {
+              "hydro.manualValves.powerhouseOpen": true
+            }
+          },
+          "next": "return-control-room",
+          "title": "Open the powerhouse pipe valve.",
+          "scene": "downstream-bank"
         },
-      ],
-    },
-  ],
+        {
+          "id": "return-control-room",
+          "allowed": {
+            "movement": {
+              "mode": "local-area",
+              "rooms": [
+                "control-room"
+              ]
+            },
+            "storyForwardActions": [
+              "move-room:control-room"
+            ]
+          },
+          "completesWhen": {
+            "location": {
+              "place": "indoors",
+              "room": "control-room"
+            }
+          },
+          "next": "connect-power",
+          "title": "Return to the control room.",
+          "scene": "control-room"
+        },
+        {
+          "id": "connect-power",
+          "allowed": {
+            "movement": {
+              "mode": "current-location-only"
+            },
+            "storyForwardActions": [
+              "action:connect-power"
+            ],
+            "indoorActions": [
+              "connect-power"
+            ]
+          },
+          "completesWhen": {
+            "facility": {
+              "hydro.online": true
+            }
+          },
+          "next": "check-console",
+          "title": "Connect station power.",
+          "scene": "control-room"
+        },
+        {
+          "id": "check-console",
+          "allowed": {
+            "movement": {
+              "mode": "current-location-only"
+            },
+            "storyForwardActions": [
+              "hydro-console:open"
+            ],
+            "stageViews": [
+              {
+                "kind": "console",
+                "id": "hydro"
+              }
+            ]
+          },
+          "onEnter": {
+            "view": {
+              "kind": "console",
+              "id": "hydro",
+              "focus": "generation"
+            }
+          },
+          "completesWhen": {
+            "facility": {
+              "hydro.online": true
+            }
+          },
+          "next": "complete-startup",
+          "title": "Check the generator console.",
+          "scene": "control-room"
+        },
+        {
+          "id": "complete-startup",
+          "allowed": {
+            "movement": {
+              "mode": "unrestricted"
+            }
+          },
+          "completesWhen": {
+            "facility": {
+              "hydro.startupComplete": true
+            }
+          },
+          "next": null,
+          "title": "Bring the hydro generator online.",
+          "scene": "control-room"
+        }
+      ]
+    }
+  ]
 };

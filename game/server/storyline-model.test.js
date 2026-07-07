@@ -55,8 +55,8 @@ const story = {
   },
 };
 
-describe("storyline model", () => {
-  it("validates the seeded Part I scenario shape", () => {
+describe("story arc transport model", () => {
+  it("validates the seeded Part I story arc shape", () => {
     const result = validateStorylineDocument(storylineSeed, { story, world, character, learning });
     expect(result.valid).toBe(true);
     expect(result.storyline.id).toBe("storyline-main");
@@ -77,7 +77,7 @@ describe("storyline model", () => {
     );
   });
 
-  it("keeps completion predicates typed to one family", () => {
+  it("keeps completion conditions typed to one family", () => {
     const draft = structuredClone(storylineSeed);
     draft.scenarios[0].steps[0].completesWhen = {
       flag: "story.intro.complete",
@@ -87,7 +87,7 @@ describe("storyline model", () => {
     const result = validateStorylineDocument(draft, { world, character, learning });
     expect(result.valid).toBe(false);
     expect(result.errors["scenarios.0.steps.0.completesWhen"]).toContain(
-      "Choose exactly one completion predicate.",
+      "Choose exactly one completion condition.",
     );
   });
 
@@ -105,14 +105,14 @@ describe("storyline model", () => {
     ]);
   });
 
-  it("rejects unresolved scenario handoffs", () => {
+  it("rejects unresolved story arc handoffs", () => {
     const draft = structuredClone(storylineSeed);
     draft.scenarios[0].steps.at(-1).nextScenario = "missing-scenario";
 
     const result = validateStorylineDocument(draft, { world, character, learning });
     expect(result.valid).toBe(false);
     expect(result.errors["scenarios.0.steps.2.nextScenario"]).toContain(
-      "Choose an existing next scenario.",
+      "Choose an existing next story arc.",
     );
   });
 });

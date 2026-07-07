@@ -24,7 +24,7 @@ local content API. YAML is only an explicit import/export snapshot format.
 
 This document describes scene behavior and its relationship to Story mode.
 The broader Story mode controller is described in
-[play-modes-and-storyline.md](play-modes-and-storyline.md).
+[play-modes-and-story-mode.md](play-modes-and-story-mode.md).
 
 ## Relationship To Play Modes
 

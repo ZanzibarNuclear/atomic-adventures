@@ -59,7 +59,7 @@ questions that block implementation.
 
 **Purpose:** Make the written target vocabulary clear before code moves.
 
-- [x] Update `docs/contracts/play-modes-and-storyline.md` or replace it with a
+- [x] Update `docs/contracts/play-modes-and-story-mode.md` or replace it with a
       new Story mode contract that uses `StoryArc`, `StoryBeat`, and `Scene`.
 - [x] Update `docs/contracts/story-beats.md` so the prose object is called
       `Scene`, not `StoryBeat`.
@@ -77,18 +77,18 @@ to understand the old split.
 
 **Purpose:** Let old content load as the new shape without changing SQLite yet.
 
-- [ ] Add a normalizer that maps current `storyline.scenarios` to `storyArcs`.
-- [ ] Map current `scenario` fields to `StoryArc`.
-- [ ] Map current `step` fields to `StoryBeat`.
-- [ ] Map current story prose beats to `Scene` candidates.
-- [ ] Preserve current scene selection criteria while moving them into a pure
+- [x] Add a normalizer that maps current `storyline.scenarios` to `storyArcs`.
+- [x] Map current `scenario` fields to `StoryArc`.
+- [x] Map current `step` fields to `StoryBeat`.
+- [x] Map current story prose beats to `Scene` candidates.
+- [x] Preserve current scene selection criteria while moving them into a pure
       helper such as `selectSceneForBeat`.
-- [ ] Add unit tests for old-shape input producing new-shape runtime data.
-- [ ] Add tests for terminology edge cases: missing arc, missing beat, missing
+- [x] Add unit tests for old-shape input producing new-shape runtime data.
+- [x] Add tests for terminology edge cases: missing arc, missing beat, missing
       scene, stale next beat, stale next arc.
-- [ ] Normalize existing `storyline` save state into the new `story` save key
+- [x] Normalize existing `storyline` save state into the new `story` save key
       during save/load migration.
-- [ ] Add milestone state to game-state normalization if it is not already
+- [x] Add milestone state to game-state normalization if it is not already
       represented by an existing durable field.
 
 **Exit criterion:** Runtime can consume current exported content through the
@@ -98,21 +98,21 @@ new internal model.
 
 **Purpose:** Prove the single-controller model before deleting anything.
 
-- [ ] Create `game/src/composables/useStoryArc.js`.
-- [ ] Resolve active arc and active beat from normalized content and save state.
-- [ ] Read and update milestone completion through game state.
-- [ ] Apply beat enter effects once.
-- [ ] Select active scene through the pure scene-selection helper.
-- [ ] Build story actions from beat choices, beat-authored actions, and valid
+- [x] Create `game/src/composables/useStoryArc.js`.
+- [x] Resolve active arc and active beat from normalized content and save state.
+- [x] Read and update milestone completion through game state.
+- [x] Apply beat enter effects once.
+- [x] Select active scene through the pure scene-selection helper.
+- [x] Build story actions from beat choices, beat-authored actions, and valid
       engine-provided world/system actions.
-- [ ] Apply choices and story actions through the same movement/effects/stage
+- [x] Apply choices and story actions through the same movement/effects/stage
       view boundaries as today.
-- [ ] Evaluate completion conditions and advance to `next` or `nextArc`.
-- [ ] Expose one UI-facing object: `activeArc`, `activeBeat`, `activeScene`,
+- [x] Evaluate completion conditions and advance to `next` or `nextArc`.
+- [x] Expose one UI-facing object: `activeArc`, `activeBeat`, `activeScene`,
       `storyActions`, `applyStoryAction`, and `storyError`.
-- [ ] Add focused tests for beat stability: ordinary movement should not
+- [x] Add focused tests for beat stability: ordinary movement should not
       advance the beat unless the completion condition is met.
-- [ ] Add tests for scene variation within one beat.
+- [x] Add tests for scene variation within one beat.
 
 **Exit criterion:** `useStoryArc` passes its own tests against the current Part
 I content through the normalization layer.
@@ -121,18 +121,18 @@ I content through the normalization layer.
 
 **Purpose:** Move the playable game to the new controller.
 
-- [ ] Replace `useStoryline` and `useStory` usage in `GameView.vue` with
+- [x] Replace `useStoryline` and `useStory` usage in `GameView.vue` with
       `useStoryArc` for Story mode.
-- [ ] Route StoryOverlay or its successor from `activeScene`.
-- [ ] Route play-panel story choices/actions from `storyActions`.
-- [ ] Keep ordinary outdoor and indoor movement governed by map/building rules.
-- [ ] Keep stage views, inventory, vitals, developer tools, and save/load
+- [x] Route StoryOverlay or its successor from `activeScene`.
+- [x] Route play-panel story choices/actions from `storyActions`.
+- [x] Keep ordinary outdoor and indoor movement governed by map/building rules.
+- [x] Keep stage views, inventory, vitals, developer tools, and save/load
       working.
-- [ ] Confirm objective UI remains absent.
-- [ ] Update gameplay tests in `game/src/views`, `game/src/composables`, and
+- [x] Confirm objective UI remains absent.
+- [x] Update gameplay tests in `game/src/views`, `game/src/composables`, and
       `game/src/lib/maps` to assert story beat/scene behavior instead of
       storyline step/objective behavior.
-- [ ] Run `npm run test`.
+- [x] Run `npm run test`.
 
 **Exit criterion:** The playable Part I story path works through `useStoryArc`
 with tests green.
@@ -141,18 +141,18 @@ with tests green.
 
 **Purpose:** Trim the parts that caused confusion.
 
-- [ ] Delete or retire `useStoryline`.
-- [ ] Delete or demote `useStory` to pure scene-selection helpers.
-- [ ] Remove `ActionPolicy` as a named runtime model.
-- [ ] Replace `AllowedPolicy` buckets with beat-authored actions and
+- [x] Delete or retire `useStoryline`.
+- [x] Delete or demote `useStory` to pure scene-selection helpers.
+- [x] Remove `ActionPolicy` as a named runtime model.
+- [x] Replace `AllowedPolicy` buckets with beat-authored actions and
       engine-provided possible actions where possible.
-- [ ] Rename `CompletionPredicate` helpers to `CompletionCondition`.
-- [ ] Rename `StepEffect` helpers to `BeatEffect`.
-- [ ] Remove stale `storyline` terminology from runtime code and tests.
-- [ ] Run `rg` for `scenario`, `step`, `storyline`, `objective`,
+- [x] Rename `CompletionPredicate` helpers to `CompletionCondition`.
+- [x] Rename `StepEffect` helpers to `BeatEffect`.
+- [x] Remove stale `storyline` terminology from runtime code and tests.
+- [x] Run `rg` for `scenario`, `step`, `storyline`, `objective`,
       `AllowedPolicy`, `ActionPolicy`, and `Predicate`; classify leftovers as
       either still-valid unrelated words or migration debt.
-- [ ] Run `npm run test`.
+- [x] Run `npm run test`.
 
 **Exit criterion:** Story mode runtime code uses the new vocabulary and one
 controller.
@@ -161,20 +161,20 @@ controller.
 
 **Purpose:** Make authoring match the new mental model.
 
-- [ ] Rename Scenario panel to Story Arc panel.
-- [ ] Rename scenario list, labels, buttons, validation messages, and tests.
-- [ ] Rename Step editing UI to Story Beat editing UI.
-- [ ] Move prose-scene authoring under each Story Beat.
-- [ ] Let authors add, remove, reorder, and preview Scenes for a beat.
-- [ ] Replace allowed-policy bucket editing with authored-action editing.
-- [ ] Keep reference pickers for hexes, rooms, exterior nodes, transitions,
+- [x] Rename Scenario panel to Story Arc panel.
+- [x] Rename scenario list, labels, buttons, validation messages, and tests.
+- [x] Rename Step editing UI to Story Beat editing UI.
+- [x] Move prose-scene authoring under each Story Beat.
+- [x] Let authors add, remove, reorder, and preview Scenes for a beat.
+- [x] Replace allowed-policy bucket editing with authored-action editing.
+- [x] Keep reference pickers for hexes, rooms, exterior nodes, transitions,
       items, lessons, documents, stage views, and indoor/outdoor actions.
-- [ ] Replace completion predicate UI with completion condition UI.
-- [ ] Replace step effect UI with beat effect UI.
-- [ ] Add preview for "active beat + selected scene + visible actions."
-- [ ] Keep Story Builder focused on editing current arcs and beats. Do not add
+- [x] Replace completion predicate UI with completion condition UI.
+- [x] Replace step effect UI with beat effect UI.
+- [x] Add preview for "active beat + selected scene + visible actions."
+- [x] Keep Story Builder focused on editing current arcs and beats. Do not add
       old-draft comparison or preservation machinery.
-- [ ] Run builder and repository tests.
+- [x] Run builder and repository tests.
 
 **Exit criterion:** Story Builder authors arcs, beats, scenes, actions,
 completion conditions, and beat effects without showing the old Step/Scenario
@@ -185,19 +185,19 @@ split.
 **Purpose:** Move canonical content and API shapes after runtime and builder
 behavior are proven.
 
-- [ ] Add migration for canonical SQLite document shape if needed.
-- [ ] Rename server model functions from storyline/scenario/step terms to
+- [x] Add migration for canonical SQLite document shape if needed.
+- [x] Rename server model functions from storyline/scenario/step terms to
       story arc/beat/scene terms.
-- [ ] Update validation errors to use author-facing new terms.
-- [ ] Update `/api/storyline` route naming only if the route rename is worth the
+- [x] Update validation errors to use author-facing new terms.
+- [x] Update `/api/storyline` route naming only if the route rename is worth the
       deployment/API churn; otherwise document it as a transport legacy until a
       later API cleanup.
-- [ ] Update production export from `storyline.json` to a new name only if the
+- [x] Update production export from `storyline.json` to a new name only if the
       runtime and deployment scripts are ready together.
-- [ ] Update import/export commands if story arc snapshots become a separate
+- [x] Update import/export commands if story arc snapshots become a separate
       export shape.
-- [ ] Update tests for repository round-tripping, validation, and JSON export.
-- [ ] Run `npm run test`.
+- [x] Update tests for repository round-tripping, validation, and JSON export.
+- [x] Run `npm run test`.
 
 **Exit criterion:** Canonical content, validation, and exported runtime JSON use
 the new model or have explicitly documented temporary transport names.
@@ -206,15 +206,15 @@ the new model or have explicitly documented temporary transport names.
 
 **Purpose:** Reuse the new content pieces with fewer constraints.
 
-- [ ] Define the open-world controller responsibilities after Story mode is
+- [x] Define the open-world controller responsibilities after Story mode is
       stable.
-- [ ] Reuse Scene selection for ambient descriptions.
-- [ ] Reuse world, item, facility, stage-view, character, inventory, and effect
+- [x] Reuse Scene selection for ambient descriptions.
+- [x] Reuse world, item, facility, stage-view, character, inventory, and effect
       boundaries.
-- [ ] Avoid canonical active beat progression unless an explicit open-world
+- [x] Avoid canonical active beat progression unless an explicit open-world
       activity needs it.
-- [ ] Ensure open-world UI does not imply Zanzibar's authored canonical timing.
-- [ ] Add open-world tests for broad access and ambient scene behavior.
+- [x] Ensure open-world UI does not imply Zanzibar's authored canonical timing.
+- [x] Add open-world tests for broad access and ambient scene behavior.
 
 **Exit criterion:** Open-world mode has its own controller and does not pull
 Story mode back into split responsibilities.
@@ -225,12 +225,12 @@ Story mode back into split responsibilities.
 
 - [ ] Delete compatibility normalization for old scenario/step content once
       SQLite and exported fixtures are migrated.
-- [ ] Remove old fixtures and tests that preserve prior names.
+- [x] Remove old fixtures and tests that preserve prior names.
 - [ ] Remove comments that explain old terminology unless they are in migration
       history.
-- [ ] Update all docs and quality checklists to current terms.
-- [ ] Run full test suite.
-- [ ] Do a browser pass through Story mode and Open-world mode.
+- [x] Update all docs and quality checklists to current terms.
+- [x] Run full test suite.
+- [x] Do a browser pass through Story mode and Open-world mode.
 
 **Exit criterion:** The codebase no longer contains the old model as a parallel
 concept, and Story mode is understandable from docs, builder UI, content, and

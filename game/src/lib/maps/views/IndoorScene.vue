@@ -66,7 +66,7 @@ import {
   filterAllowedActions,
   isActionAllowed,
   isDestinationAllowed,
-} from "../../../composables/useStoryline.js";
+} from "../../../composables/storyActionAvailability.js";
 
 const props = defineProps({
   indoor: { type: Object, required: true },

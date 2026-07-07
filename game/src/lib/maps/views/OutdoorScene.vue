@@ -94,7 +94,7 @@ import {
   annotateActionPrompts,
   filterAllowedActions,
   isDestinationAllowed,
-} from "../../../composables/useStoryline.js";
+} from "../../../composables/storyActionAvailability.js";
 import {
   buildMapMovementAudit,
   movementAuditSummary,

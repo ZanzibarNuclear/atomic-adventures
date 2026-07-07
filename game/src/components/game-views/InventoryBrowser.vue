@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from "vue";
-import { isActionAllowed } from "../../composables/useStoryline.js";
+import { isActionAllowed } from "../../composables/storyActionAvailability.js";
 
 const props = defineProps({
   holders: { type: Array, required: true },
