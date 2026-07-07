@@ -1,6 +1,6 @@
 # Hydro Simulator
 
-**Status:** Alpha runtime implemented; broader operations contract still shaping  
+**Status:** First runtime implemented; broader operations contract still shaping
 **Scope:** `game/` Upper Penstock hydro simulation runtime, game-environment
 inputs, facility state, simulator outcomes, and future lesson/simulation reuse
 
@@ -14,7 +14,7 @@ facility condition, and operator settings into production values for an elapsed
 game-time interval: flow, pressure, effective head, electrical output, energy
 generated, station power served, warnings, faults, and outcomes.
 
-The current alpha implementation covers the first hydro startup and monitoring
+The current implementation covers the first hydro startup and monitoring
 slice with a code-built `hydro-generator-baseline` configuration, persistent
 `gameState.facilities.hydro` state, host-owned field action updates, live
 telemetry, compact event history, and console graph review. Authored
@@ -256,9 +256,9 @@ power. Rich component fields exist to support controls, faults, maintenance,
 and player understanding; they should not be required for the first easy-mode
 calculation.
 
-## Calibration and Alpha Assumptions
+## Calibration and Initial Assumptions
 
-The alpha target should be modest: enough power to make the utility station
+The first tuning target should be modest: enough power to make the utility station
 feel alive, not enough to model a full campus grid. Start by exploring roughly
 **100 W to 2 kW** of hydro output. That range is realistic for pico-hydro and
 small micro-hydro if the site has enough head or enough diverted flow.
@@ -295,7 +295,7 @@ Interpretation:
 - Low-head, high-flow options need larger pipes/channels and are more likely
   to feel like a river installation than a mountain-stream penstock.
 
-Very rough pipe intuition for the alpha:
+Very rough pipe intuition for the first tuning pass:
 
 | Scenario | Flow | Plausible pipe impression |
 | --- | ---: | --- |
@@ -310,7 +310,7 @@ the simulator and choosing the one that makes the gameplay feel right.
 
 ### Turbine and Generator Assumptions
 
-For alpha, use a simplified packaged turbine-generator module:
+For the first pass, use a simplified packaged turbine-generator module:
 
 ```js
 {
@@ -336,7 +336,7 @@ Future lesson and item-detail material can unpack more realistic options:
 - governors, dump loads, and frequency control.
 
 The game can expose those details later through holo-lessons, equipment labels,
-or boxes of replacement parts. They should not block the alpha startup loop.
+or boxes of replacement parts. They should not block the initial startup loop.
 
 ### Environment and Facility State
 
@@ -373,7 +373,7 @@ future automation. They are commands to the simulator, not UI state.
 | `bypassValvePercent` | 0-100 | Sends water around the turbine during startup or shutdown |
 | `entryValvePercent` | 0-100 | Powerhouse valve admitting penstock flow to the turbine |
 | `exciterEnabled` | boolean | Allows generator voltage buildup |
-| `generatorSwitchClosed` | boolean | Alpha control-room switch that accepts hydro power into the station system |
+| `generatorSwitchClosed` | boolean | Control-room switch that accepts hydro power into the station system |
 | `emergencyStop` | boolean command | Closes admission and opens bypass immediately |
 
 Operator input state should be serializable if an operation scenario spans a
@@ -495,7 +495,7 @@ not the source of truth.
 
 The same simulator supports two execution styles.
 
-For alpha, simulation catch-up should be **on demand and event driven**:
+For the current implementation, simulation catch-up should be **on demand and event driven**:
 
 - when the player opens the hydro monitor, catch up from the last checkpoint to
   current game time and show a brief loading state if needed;
@@ -752,7 +752,7 @@ Implementation notes:
 - Water density defaults to `1000 kg/m^3`.
 - Gravity defaults to `9.80665 m/s2`.
 - Net head must never go below zero.
-- Electrical output is zero until the alpha generator switch is closed and the
+- Electrical output is zero until the generator switch is closed and the
   generator module is available.
 - Turbine and generator efficiency may start as fixed base values, then become
   operating curves as the game needs more nuance.
@@ -852,7 +852,7 @@ control panel and scenario validation:
 | `turbineSpeedRpm` | Derived from flow/head and generator state; may be simplified to rated speed when online |
 | `generatorOutputKw` | Usable electrical output, limited by rated output and simplified station demand |
 | `stationPowerPercent` | Near 100 when generation can meet the simplified building-power threshold |
-| `frequencyHz` | Deferred advanced readout; automatic controls hide this during alpha |
+| `frequencyHz` | Deferred advanced readout; automatic controls hide this during the first pass |
 
 For the first pass, these are steady-state values for the sub-interval. A
 future panel animation may interpolate between snapshots for visual smoothness,
@@ -947,7 +947,7 @@ Startup success reports:
 The host may map this outcome to story flags such as `hub.hydro_online` and
 hydro progression effects.
 
-For alpha, the startup outcome should also enable the existing building-wide
+For the first pass, the startup outcome should also enable the existing building-wide
 power state, such as `hub.hydro_online` and the current "power is on" flag used
 by utility-station interactions. That flag gates electricity-dependent actions:
 lights, holo-reader use, EV charging, stove use, powered doors or monitors, and
@@ -985,7 +985,7 @@ Operations success should be scenario-based, not merely "maximum power":
 Qualification for Part II should be granted by a host-validated aggregate of
 operations outcomes, not by the simulator setting a broad story flag directly.
 
-Alpha pacing:
+Initial pacing:
 
 - The first challenge is startup.
 - Successful startup is a major milestone: the utility station becomes livable
@@ -1010,8 +1010,8 @@ be recoverable unless a scenario explicitly ends.
 | Excess flow | warning / trip | Turbine overspeed or cavitation risk |
 | Pressure too low | warning | Startup cannot continue; output unstable |
 | Pressure spike | warning / trip | Valve changes too abrupt for the current scenario |
-| Sync out of band | deferred warning / later challenge | Automatic controls handle this during alpha |
-| Station demand exceeds generation | warning / brownout | Alpha power flag may remain off or limited |
+| Sync out of band | deferred warning / later challenge | Automatic controls handle this during the first pass |
+| Station demand exceeds generation | warning / brownout | Building power may remain off or limited |
 | Generator overload | later trip | Deferred until detailed electrical-panel scope |
 | Emergency stop | command | Safe shutdown; no success outcome while stopped |
 
@@ -1071,7 +1071,7 @@ is a deliberate feature. Otherwise, closing or reloading returns to the last
 committed facility state and the next data collection evaluates from that
 committed timestamp.
 
-For alpha, the required persistence is smaller:
+For the current implementation, the required persistence is smaller:
 
 - active hydro configuration ID;
 - hydro online/offline;
@@ -1108,7 +1108,7 @@ later electrical-panel scope.
   water conveyance/penstock, turbine or waterwheel, generator/alternator,
   regulator, wiring, and optional inverter/battery equipment:
   <https://www.energy.gov/energysaver/microhydropower-systems>
-- The alpha design intentionally simplifies these details. The contract uses
+- The first implementation intentionally simplifies these details. The contract uses
   real terms so later holo-lessons and equipment flavor can deepen the model
   without changing the first playable loop.
 

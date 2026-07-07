@@ -19,7 +19,7 @@ current objectives, broad action gating, forced movement, forced time passage,
 or canonical story sequencing. Those responsibilities belong to the storyline
 controller described in [play-modes-and-storyline.md](play-modes-and-storyline.md).
 
-This document describes implemented beat behavior plus the planned alpha
+This document describes implemented beat behavior plus the planned
 mode-scoping fields required by the dual-mode split. The broader passage format
 in `game-design/content/story/story-data-format.md` includes planned features
 that the current beat engine does not yet support.

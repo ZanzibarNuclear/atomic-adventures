@@ -256,7 +256,7 @@ simulation precision.
   the game into a survival spreadsheet.
 - Early Part I should be forgiving while teaching the vocabulary: health, food,
   water, exertion, rest.
-- Alpha Story mode should have real survival pressure during the opening
+- Story mode should have real survival pressure during the opening
   forest sequence. Wandering, backtracking, and strenuous shortcuts can consume
   time, hydration, satiety, and energy. The intended path should be forgiving,
   but repeatedly walking in circles can lead to serious impairment and
@@ -267,18 +267,18 @@ simulation precision.
 - Vitals should render in one direction: higher means better.
 - Conditions should use named severity states rather than unexplained amounts.
 - Death or irreversible failure should be rare and intentionally designed.
-  Alpha may include a simple "You lose. Play again?" outcome when calculated
+  The first playable slice may include a simple "You lose. Play again?" outcome when calculated
   health reaches zero through sustained neglect, dehydration, starvation,
   poison, injury, sickness, or other physical harm.
 
-## Alpha Survival Pressure
+## Opening Survival Pressure
 
 The first Storyline objective is survival, not hydro startup. Zanzibar begins
 lost in the forest, low on food and water, and moving by instinct. The wellbeing
 system should make this situation matter without punishing normal story
 progression.
 
-Minimum alpha behavior:
+Minimum behavior:
 
 - the vitals bar and character overview update as game-time actions change
   reserves and derived health;
@@ -291,8 +291,8 @@ Minimum alpha behavior:
 - food, water, shelter, and rest discovered in the utility station can resolve
   the first crisis.
 
-The exact drift numbers are tuning data, not contract constants. During alpha
-and beta, tune them so canonical progress is tense but survivable, while
+The exact drift numbers are tuning data, not contract constants. Tune them so
+canonical progress is tense but survivable, while
 excessive wandering or repeated nonproductive actions can fail.
 
 ## Areas To Explore

@@ -168,7 +168,8 @@ do next?`
 **Purpose:** Stop asking one interface to carry two incompatible experiences.
 
 Open access to rooms, outdoor nodes, and many actions made it too easy for a
-player to lose the authored story thread. Alpha now has an explicit split:
+player to lose the authored story thread. The current playable slice now has an
+explicit split:
 
 - **Story mode** — the player is Zanzibar in the canonical story. Objectives,
   prose, action policy, and consequences guide the current concern while
@@ -184,7 +185,7 @@ forced transitions, and canonical sequencing.
 ### Story Mode Requirements
 
 - [x] Add an explicit mode selection or new-game choice.
-- [x] Make Story mode the default/recommended alpha choice.
+- [x] Make Story mode the default/recommended new-game choice.
 - [x] In Story mode, gate or hide nonmovement actions that would reveal or
       mutate future story state out of order.
 - [x] Allow forced movement, forced time passage, stage views, and limited

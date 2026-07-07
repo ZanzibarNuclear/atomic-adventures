@@ -1,6 +1,6 @@
 # Play Modes and Storyline Control
 
-**Status:** Planned alpha contract
+**Status:** Planned contract
 **Scope:** playable game mode selection, storyline progression, action policy,
 objectives, save data, Story Builder scenario authoring, and references from
 world/content authoring
@@ -34,8 +34,8 @@ of truth for physical possibility, movement, safety, and survival pressure.
   guesses. It should not name the utility station, hydro facility, eBuggy, or
   other undiscovered things before Zanzibar has reason to know them.
 - **Story mode is guided by prompts, not by locking the player onto rails.**
-  Alpha should always surface at least one plausible story-continuing action,
-  but ordinary movement remains available when the world allows it. Story
+  Story mode should always surface at least one plausible story-continuing
+  action, but ordinary movement remains available when the world allows it. Story
   actions and ordinary actions should look the same to the player. Detours may
   cost time, energy, hydration, satiety, or safety.
 - **Beats are prose, not the quest engine.** Beats may attach narrative to a
@@ -55,8 +55,8 @@ of truth for physical possibility, movement, safety, and survival pressure.
 - **Mode state is save state.** Save/load preserves selected mode, storyline
   position, objectives, character state, inventory, flags, facility state, and
   physical location.
-- **No rejoin puzzle for alpha.** Switching an open-world save back into a
-  canonical storyline is out of scope for alpha because open-world play may
+- **No rejoin puzzle.** Switching an open-world save back into a
+  canonical storyline is out of scope because open-world play may
   create valid but non-canonical facility and inventory states.
 
 ## Runtime State
@@ -76,7 +76,7 @@ progress:
 }
 ```
 
-`playMode` is required. New alpha playthroughs default to `story` unless the
+`playMode` is required. New playthroughs default to `story` unless the
 player chooses `open-world`.
 
 `storyline` is active only when `playMode` is `storyline`. It records the
@@ -92,17 +92,17 @@ holdings, lessons, clock, and facility state.
 
 Starting a new game presents an explicit mode choice before normal play:
 
-| Mode | Player-facing promise | Alpha default |
+| Mode | Player-facing promise | Default |
 | --- | --- | --- |
 | Story | Experience Zanzibar's story from the inside. | Yes |
 | Open-world | Explore and experiment freely as a player-authored run. | No |
 
-For alpha, a save cannot switch from `open-world` back into `story`.
+For the current implementation, a save cannot switch from `open-world` back into `story`.
 Supporting that later requires a deliberate rejoin contract that can map
 arbitrary world, inventory, and facility states onto a valid story step.
 
 A future one-way "continue as open-world" escape from story mode may be added
-when useful, but it is not required for alpha.
+when useful, but it is not required for the current implementation.
 
 ## Scenario Content
 
@@ -110,7 +110,7 @@ A storyline scenario is an authored document in SQLite, exported to production
 runtime JSON with the rest of content. Storyline YAML is an import/export
 snapshot format only.
 
-The alpha storyline documents should be coarse-grained like the existing world
+Storyline documents should be coarse-grained like the existing world
 and character documents. Story arc IDs use story-facing names, not software
 phase names:
 
@@ -142,7 +142,7 @@ Field meanings:
 | --- | --- |
 | `id` | Stable scenario ID. |
 | `label` | Author-facing scenario label. |
-| `defaultMode` | Suggested new-game default; alpha uses `story`. |
+| `defaultMode` | Suggested new-game default; the initial Part I story uses `story`. |
 | `startStep` | First step ID for a new storyline playthrough. |
 | `steps` | Ordered canonical story steps. |
 
@@ -165,7 +165,7 @@ Step meanings:
 Completion predicates should stay typed and small. They are not a general
 boolean scripting language.
 
-Supported alpha predicate families should include:
+Supported predicate families should include:
 
 | Predicate | Example | Meaning |
 | --- | --- | --- |
@@ -217,7 +217,7 @@ from map, facility, inventory, character, and stage-view rules.
 ## Allowed Actions
 
 The `allowed` shape should describe player intent in stable IDs, not component
-implementation details. Alpha should distinguish internal story-continuing
+implementation details. The runtime should distinguish internal story-continuing
 references from hard gates without exposing that distinction in the play panel:
 
 | Category | Meaning |
@@ -355,7 +355,7 @@ must include storyline references:
 
 ## Part I Guided Scenario
 
-The alpha storyline scenario should encode Zanzibar's full Part I opening arc,
+The Part I scenario should encode Zanzibar's full opening arc,
 not only the hydro startup sequence:
 
 1. Choose Story mode.
@@ -397,7 +397,7 @@ silently exposing open-world actions.
 
 ## Tests
 
-Alpha requires tests for:
+This behavior requires tests for:
 
 - new-game mode selection and storyline default;
 - save/load of `playMode`, scenario ID, step ID, completed steps, objectives,

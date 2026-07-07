@@ -10,7 +10,7 @@ visualization, operator controls, facility connectivity, and simulator hosting
 
 A control panel is a focused console surface that lets the player observe and,
 where the current panel is physically wired for it, operate connected systems.
-In Part I alpha, the hydro control-room panel visualizes the Upper Penstock
+In Part I, the hydro control-room panel visualizes the Upper Penstock
 hydro generator state and guides the player back to ordinary field actions for
 physical work. Over time, the same panel pattern should support building
 circuits, doors, monitors, sensors, outside systems, PV equipment, vehicles,
@@ -96,7 +96,7 @@ A control panel does not own:
 
 ## Panel Implementation
 
-For Part I alpha, the hydro control panel is code-built to match the controls
+For Part I, the hydro control panel is code-built to match the controls
 and monitoring visuals needed by the hydro power generator. It is not authored
 content and should not require Story Builder or Content Builder support.
 
@@ -259,7 +259,7 @@ generator, the player needs to complete only a small sequence:
 2. Turn two manual valves.
 3. Flip the generator/circuit switch from the control room.
 
-Everything else can work reliably for the alpha unless a later challenge has
+Everything else can work reliably for the first startup unless a later challenge has
 explicitly introduced it.
 
 | Problem / task | Panel guidance | Required world action |
@@ -565,7 +565,7 @@ target simulator or facility system, not to the panel shell.
 
 - What exact schematic art/layout should mirror the Utility Station map closely
   enough that players recognize intake, pipe, valves, turbine, and generator?
-- Which two manual valve locations are canonical for the alpha startup path?
+- Which two manual valve locations are canonical for the initial startup path?
 - Does the generator/circuit switch live only in the control panel, or is there
   also a physical switch object in the room close-up?
 - Which battery and circuit signals should enter the later electrical panel
