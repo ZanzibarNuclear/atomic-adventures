@@ -29,17 +29,20 @@ export function normalizeStoryArc(source = {}, index = 0, proseBeats = {}) {
 export function normalizeStoryBeat(source = {}, index = 0, proseBeats = {}) {
   const proseBeatId = text(source.scene);
   const proseBeat = proseBeatId ? proseBeats[proseBeatId] : null;
+  const id = text(source.id) || `story-beat-${index + 1}`;
+  const linkedScenes = Object.entries(proseBeats)
+    .filter(([sceneId, beat]) => sceneId !== proseBeatId && beat?.storyBeat === id)
+    .map(([sceneId, beat]) => sceneFromProseBeat(sceneId, beat));
   const scenes = Array.isArray(source.scenes)
     ? source.scenes
     : proseBeat
-      ? [sceneFromProseBeat(proseBeatId, proseBeat)]
-      : [];
-  const choices = Array.isArray(source.choices)
+      ? [sceneFromProseBeat(proseBeatId, proseBeat), ...linkedScenes]
+      : linkedScenes;
+  const choices = Array.isArray(source.choices) && source.choices.length
     ? source.choices
     : Array.isArray(proseBeat?.choices)
       ? proseBeat.choices
       : [];
-  const id = text(source.id) || `story-beat-${index + 1}`;
 
   return {
     ...source,

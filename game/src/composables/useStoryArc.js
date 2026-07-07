@@ -92,7 +92,6 @@ export function useStoryArc(storyData, {
       const arc = activeArc.value;
       if (!beat || !arc) return;
       if (!applyEnterEffects(beat)) return;
-      markActiveSceneSeen();
       if (!isCompletionConditionMet(beat.completesWhen, { gameState, place, outdoor, indoor })) return;
       completeBeat(arc, beat);
       advances += 1;
@@ -145,12 +144,13 @@ export function useStoryArc(storyData, {
     if (!action || action.disabled) return false;
     if (action.choice) return applyChoice(action.choice);
     if (action.view) return Boolean(openStageView(action.view));
-    if (action.toHexId) return moveHex(action.toHexId);
-    if (action.toRoomId) return moveRoom(action.toRoomId);
-    if (action.toExteriorNode) return moveExterior(action.toExteriorNode);
+    markActiveSceneSeen();
+    if (action.toHexId) return moveHex(action.toHexId) && tickAfterAction();
+    if (action.toRoomId) return moveRoom(action.toRoomId) && tickAfterAction();
+    if (action.toExteriorNode) return moveExterior(action.toExteriorNode) && tickAfterAction();
     if (action.enterBuilding) {
       indoor?.enterBuilding?.();
-      return true;
+      return tickAfterAction();
     }
     return false;
   }
@@ -173,16 +173,31 @@ export function useStoryArc(storyData, {
     }
     markActiveSceneSeen();
     if (choice.view) return Boolean(openStageView(choice.view));
-    if (choice.go_hex) return moveHex(choice.go_hex, { suppressDefaultTime: duration > 0 });
-    if (choice.go_room) return moveRoom(choice.go_room);
-    if (choice.go_exterior_node) return moveExterior(choice.go_exterior_node);
+    if (choice.go_hex) return moveChoiceDestination(choice, () => moveHex(choice.go_hex, { suppressDefaultTime: duration > 0 }));
+    if (choice.go_room) return moveChoiceDestination(choice, () => moveRoom(choice.go_room));
+    if (choice.go_exterior_node) return moveChoiceDestination(choice, () => moveExterior(choice.go_exterior_node));
     if (choice.enter) {
       indoor?.enterBuilding?.();
-      return true;
+      return moveChoiceDestination(choice, () => true);
     }
     if (choice.nextBeat && gameState.story) {
       gameState.story.activeBeatId = choice.nextBeat;
     }
+    tick();
+    return true;
+  }
+
+  function moveChoiceDestination(choice, move) {
+    const moved = move();
+    if (!moved) return false;
+    if (choice.nextBeat && gameState.story) {
+      gameState.story.activeBeatId = choice.nextBeat;
+    }
+    tick();
+    return true;
+  }
+
+  function tickAfterAction() {
     tick();
     return true;
   }

@@ -5,6 +5,8 @@ import { storyArcSeed } from "./story-arc-seed.js";
 const world = {
   hexIds: new Set([
     "east-pines",
+    "far-pines",
+    "lower-stand",
     "center-pines",
     "north-bend",
     "gate-woods",
@@ -42,6 +44,7 @@ const story = {
       beats: Object.fromEntries([
         "intro",
         "east-pines",
+        "far-pines",
         "center-pines",
         "the-gate",
         "large-bay-man-front",
@@ -111,7 +114,7 @@ describe("story arc transport model", () => {
 
     const result = validateStoryArcDocument(draft, { world, character, learning });
     expect(result.valid).toBe(false);
-    expect(result.errors["storyArcs.0.beats.2.nextArc"]).toContain(
+    expect(result.errors["storyArcs.0.beats.3.nextArc"]).toContain(
       "Choose an existing next story arc.",
     );
   });

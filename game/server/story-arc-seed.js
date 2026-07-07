@@ -51,7 +51,59 @@ export const storyArcSeed = {
           },
           "next": "reach-the-gate",
           "title": "Keep moving. Stay across the slope.",
-          "scene": "east-pines"
+          "scene": "east-pines",
+          "choices": [
+            {
+              "text": "Head uphill",
+              "timeMinutes": 15,
+              "activity": "moderate",
+              "go_hex": "far-pines",
+              "nextBeat": "far-pines"
+            },
+            {
+              "text": "Continue west",
+              "timeMinutes": 15,
+              "activity": "moderate",
+              "sets": [
+                "story.east-pines"
+              ],
+              "go_hex": "center-pines"
+            },
+            {
+              "text": "Head downhill",
+              "timeMinutes": 15,
+              "activity": "moderate",
+              "go_hex": "lower-stand"
+            }
+          ]
+        },
+        {
+          "id": "far-pines",
+          "allowed": {
+            "movement": {
+              "mode": "unrestricted",
+              "hexes": [
+                "north-bend",
+                "center-pines"
+              ]
+            },
+            "storyForwardActions": [
+              "move-hex:north-bend",
+              "move-hex:center-pines"
+            ]
+          },
+          "completesWhen": {
+            "location": {
+              "place": "outdoors",
+              "hex": [
+                "north-bend",
+                "center-pines"
+              ]
+            }
+          },
+          "next": "reach-the-gate",
+          "title": "Choose a way back across the slope.",
+          "scene": "far-pines"
         },
         {
           "id": "reach-the-gate",

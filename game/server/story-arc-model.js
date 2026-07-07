@@ -91,6 +91,7 @@ function normalizeStoryBeat(input = {}, index = 0) {
     id: text(input.id) || `story-beat-${index + 1}`,
     title: text(input.title),
     scene: nullableText(input.scene),
+    choices: array(input.choices).map(normalizeStoryChoice),
     allowed: normalizeAllowed(input.allowed),
     completesWhen: normalizeCompletion(input.completesWhen),
     onEnter: normalizeBeatEffect(input.onEnter),
@@ -98,6 +99,27 @@ function normalizeStoryBeat(input = {}, index = 0) {
     next: nullableText(input.next),
     nextArc: nullableText(input.nextArc),
   };
+}
+
+function normalizeStoryChoice(input = {}) {
+  if (!input || typeof input !== "object") return {};
+  return compactObject({
+    ...structuredClone(input),
+    id: nullableText(input.id),
+    label: nullableText(input.label),
+    text: nullableText(input.text),
+    go_hex: nullableText(input.go_hex),
+    go_room: nullableText(input.go_room),
+    go_exterior_node: nullableText(input.go_exterior_node),
+    enter: nullableText(input.enter),
+    nextBeat: nullableText(input.nextBeat),
+    timeMinutes: nullableNumber(input.timeMinutes),
+    activity: nullableText(input.activity),
+    sets: stringList(input.sets),
+    set_flags: stringList(input.set_flags),
+    effects: array(input.effects).map((effect) => structuredClone(effect)),
+    view: normalizeStageView(input.view),
+  });
 }
 
 function normalizeAllowed(input = {}) {
