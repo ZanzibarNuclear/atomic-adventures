@@ -48,14 +48,14 @@ export function isVisibleAction(action) {
 
 /**
  * Story choice buttons for the play panel (prose stays in NarrativeCard).
- * Story choices with go_hex use the same enterability predicate as movement options.
+ * Story movement choices are authored prompts, so action policy and choice
+ * application own validity; do not hide them during button construction.
  */
-export function buildStoryChoices(pendingBeat, canReachHex = () => true) {
+export function buildStoryChoices(pendingBeat) {
   if (!pendingBeat?.choices?.length) return [];
   return pendingBeat.choices
     .map((choice, index) => ({ choice, index }))
     .filter(({ choice }) => !choice.disabled)
-    .filter(({ choice }) => !choice.go_hex || canReachHex(choice.go_hex))
     .map(({ choice, index }) => ({
       id: `story:${index}`,
       toHexId: choice.go_hex ?? null,
@@ -92,11 +92,12 @@ export function storyChoiceDestinations(pendingBeat) {
 
 export function buildOutdoorSearchActions(outdoor) {
   if (!outdoor.canSearchHere?.()) return [];
+  if ((outdoor.passageCrossings ?? []).length > 0) return [];
   const label = searchActionLabel({
     openings: outdoor.searchableOpenings?.() ?? [],
-    atBarrier: outdoor.barrierCutsCurrentHex?.("fence")
-      ? "fence"
-      : outdoor.state.atBarrier,
+    atBarrier: outdoor.state.atBarrier ??
+      outdoor.state.lastBlocked ??
+      (outdoor.barrierCutsCurrentHex?.("fence") ? "fence" : null),
     lastBlocked: outdoor.state.lastBlocked,
   });
   return [{ id: "search:barrier", label, kind: "search" }];
@@ -223,8 +224,8 @@ export function buildOutdoorPlayActions(outdoor, pendingBeat = null) {
 }
 
 export function getMovementOptions(outdoor, pendingBeat) {
-  const canReach = (hexId) => outdoor.canReachHex?.(hexId) ?? true;
-  return buildStoryChoices(pendingBeat, canReach);
+  void outdoor;
+  return buildStoryChoices(pendingBeat);
 }
 
 export function handleOutdoorChooseAction(

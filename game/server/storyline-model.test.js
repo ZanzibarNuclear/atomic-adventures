@@ -91,6 +91,20 @@ describe("storyline model", () => {
     );
   });
 
+  it("validates completion locations with alternate destination hexes", () => {
+    const draft = structuredClone(storylineSeed);
+    draft.scenarios[0].steps[2].completesWhen = {
+      location: { place: "outdoors", hex: ["gate-woods", "utility-yard"] },
+    };
+
+    const result = validateStorylineDocument(draft, { story, world, character, learning });
+    expect(result.valid).toBe(true);
+    expect(result.storyline.scenarios[0].steps[2].completesWhen.location.hex).toEqual([
+      "gate-woods",
+      "utility-yard",
+    ]);
+  });
+
   it("rejects unresolved scenario handoffs", () => {
     const draft = structuredClone(storylineSeed);
     draft.scenarios[0].steps.at(-1).nextScenario = "missing-scenario";

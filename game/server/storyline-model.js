@@ -153,10 +153,15 @@ function normalizeLocation(input = {}) {
   if (!input || typeof input !== "object") return null;
   return compactObject({
     place: nullableText(input.place),
-    hex: nullableText(input.hex),
-    room: nullableText(input.room),
-    exteriorNode: nullableText(input.exteriorNode),
+    hex: normalizeLocationValue(input.hex),
+    room: normalizeLocationValue(input.room),
+    exteriorNode: normalizeLocationValue(input.exteriorNode),
   });
+}
+
+function normalizeLocationValue(value) {
+  if (Array.isArray(value)) return stringList(value);
+  return nullableText(value);
 }
 
 function normalizeStageView(input = {}) {
@@ -246,11 +251,15 @@ function validateLocation(location, path, add, { world }) {
   if (location.place && !["outdoors", "indoors"].includes(location.place)) {
     add(`${path}.place`, "Choose outdoors or indoors.");
   }
-  if (location.hex) validateWorldIds([location.hex], world?.hexIds, `${path}.hex`, add, "hex");
-  if (location.room) validateWorldIds([location.room], world?.roomIds, `${path}.room`, add, "room");
+  if (location.hex) validateWorldIds(locationValues(location.hex), world?.hexIds, `${path}.hex`, add, "hex");
+  if (location.room) validateWorldIds(locationValues(location.room), world?.roomIds, `${path}.room`, add, "room");
   if (location.exteriorNode) {
-    validateWorldIds([location.exteriorNode], world?.exteriorNodeIds, `${path}.exteriorNode`, add, "exterior node");
+    validateWorldIds(locationValues(location.exteriorNode), world?.exteriorNodeIds, `${path}.exteriorNode`, add, "exterior node");
   }
+}
+
+function locationValues(value) {
+  return Array.isArray(value) ? value : [value];
 }
 
 function validateStageView(view, path, add) {

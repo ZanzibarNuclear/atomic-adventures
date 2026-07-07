@@ -288,6 +288,7 @@ describe("useStoryline", () => {
       { id: "story:1" },
       { id: "story:2", toRoomId: "control-room" },
       { id: "story:3", toRoomId: "garage" },
+      { id: "story:4", toHexId: "south-pines" },
       { id: "action:clear-intake-debris" },
       { id: "action:optional-lookaround" },
       { id: "door-open:control-room-door" },
@@ -300,6 +301,8 @@ describe("useStoryline", () => {
     ], policy).map((action) => action.id)).toEqual([
       "story:0",
       "story:2",
+      "story:3",
+      "story:4",
       "action:clear-intake-debris",
       "action:optional-lookaround",
       "door-open:control-room-door",
@@ -350,7 +353,7 @@ describe("useStoryline", () => {
     expect(isActionAllowed({ id: "story:0", toRoomId: "kitchen" }, policy)).toBe(true);
     expect(isActionAllowed({ id: "story:1", toExteriorNode: "intake-entrance" }, policy)).toBe(true);
     expect(isActionAllowed({ id: "story:2", toHexId: "utility-yard" }, policy)).toBe(true);
-    expect(isActionAllowed({ id: "story:3", toRoomId: "control-room" }, policy)).toBe(false);
+    expect(isActionAllowed({ id: "story:3", toRoomId: "control-room" }, policy)).toBe(true);
     expect(isActionAllowed({ id: "story:4" }, policy)).toBe(false);
   });
 

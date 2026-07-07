@@ -233,6 +233,7 @@ export function isActionAllowed(action, policy, context = {}) {
 
   if (actionId.startsWith("story:")) {
     return listIncludes(allowed.storyChoices, actionId) ||
+      isMovementChoice(action) ||
       actionMatchesMovement(action, allowed.movement) ||
       Boolean(action?.enterBuilding);
   }
@@ -275,6 +276,8 @@ export function isActionAllowed(action, policy, context = {}) {
     actionId.startsWith("passage-unlock:") ||
     actionId.startsWith("passage-toggle:")
   ) {
+    if (actionId === "search:barrier") return true;
+    if (actionId.startsWith("passage:")) return true;
     return listIncludes(allowed.outdoorActions, actionId);
   }
   if (actionId.includes(":")) {
@@ -284,6 +287,16 @@ export function isActionAllowed(action, policy, context = {}) {
   }
   void context;
   return false;
+}
+
+function isMovementChoice(action) {
+  if (!action || typeof action === "string") return false;
+  return Boolean(
+    action.toHexId ||
+      action.toRoomId ||
+      action.toExteriorNode ||
+      action.enterBuilding,
+  );
 }
 
 function isRestAction(action, context = {}) {
@@ -382,15 +395,19 @@ function facilityMatches(facilities, expected) {
 
 function locationMatches({ place, outdoor, indoor }, expected) {
   if (expected.place && place.value !== expected.place) return false;
-  if (expected.hex && (place.value !== "outdoors" || outdoor.state.currentId !== expected.hex)) return false;
-  if (expected.room && (place.value !== "indoors" || indoor.indoor.currentRoom !== expected.room)) return false;
+  if (expected.hex && (place.value !== "outdoors" || !locationValueMatches(expected.hex, outdoor.state.currentId))) return false;
+  if (expected.room && (place.value !== "indoors" || !locationValueMatches(expected.room, indoor.indoor.currentRoom))) return false;
   if (
     expected.exteriorNode &&
-    (place.value !== "indoors" || indoor.indoor.exteriorNode !== expected.exteriorNode)
+    (place.value !== "indoors" || !locationValueMatches(expected.exteriorNode, indoor.indoor.exteriorNode))
   ) {
     return false;
   }
   return true;
+}
+
+function locationValueMatches(expected, actual) {
+  return Array.isArray(expected) ? expected.includes(actual) : expected === actual;
 }
 
 function holdingMatches(gameState, expected) {

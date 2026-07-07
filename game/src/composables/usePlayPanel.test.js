@@ -110,7 +110,7 @@ describe('getMovementOptions', () => {
     ])
   })
 
-  it('omits story choices to adjacent but unreachable hexes', () => {
+  it('keeps authored movement choices visible even when ordinary travel would block them', () => {
     const outdoor = useOutdoorWorld(mapData)
     outdoor.state.currentId = 'south-pines'
     outdoor.state.stand = outdoor.defaultStandForHex('south-pines')
@@ -121,7 +121,7 @@ describe('getMovementOptions', () => {
       ],
     }
     const choices = buildStoryChoices(pendingBeat, (id) => outdoor.canReachHex(id))
-    expect(choices.some((c) => c.toHexId === 'lower-stand')).toBe(false)
+    expect(choices.some((c) => c.toHexId === 'lower-stand')).toBe(true)
   })
 
   it('offers story choices only when enterable like movement options', () => {
@@ -248,7 +248,22 @@ describe('getMovementOptions', () => {
     expect(gameState.character.stats.energy).toBeCloseTo(78.25)
   })
 
-  it('hides fence inspection after the hidden opening is found', () => {
+  it('replaces fence inspection with passage crossing after the hidden opening is found', () => {
+    const outdoor = useOutdoorWorld(mapData)
+    outdoor.state.currentId = 'south-pines'
+    outdoor.state.stand = outdoor.defaultStandForHex('south-pines')
+    outdoor.state.discoveredOpenings = ['south-pines-hole']
+    outdoor.state.atBarrier = 'fence'
+
+    const actions = buildOutdoorSearchActions(outdoor)
+
+    expect(actions).toEqual([])
+    expect(buildOutdoorPlayActions(outdoor).map((action) => action.id)).toContain(
+      'passage:south-pines-hole',
+    )
+  })
+
+  it('does not offer fence inspection for generic hex presence after the opening is found', () => {
     const outdoor = useOutdoorWorld(mapData)
     outdoor.state.currentId = 'south-pines'
     outdoor.state.stand = outdoor.defaultStandForHex('south-pines')

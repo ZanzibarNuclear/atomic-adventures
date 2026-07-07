@@ -36,12 +36,20 @@ export const storylineSeed = {
           allowed: {
             movement: {
               mode: "unrestricted",
-              hexes: ["north-bend", "gate-woods"],
+              hexes: ["north-bend", "gate-woods", "south-pines", "utility-yard"],
             },
-            storyForwardActions: ["move-hex:north-bend", "route:gate-woods", "move-hex:gate-woods"],
+            storyForwardActions: [
+              "move-hex:north-bend",
+              "route:gate-woods",
+              "move-hex:gate-woods",
+              "move-hex:south-pines",
+              "search:barrier",
+              "passage:south-pines-hole",
+              "move-hex:utility-yard",
+            ],
             itemActions: ["half-eaten-energy-bar.eat", "half-full-water-bottle.drink"],
           },
-          completesWhen: { location: { place: "outdoors", hex: "gate-woods" } },
+          completesWhen: { location: { place: "outdoors", hex: ["gate-woods", "utility-yard"] } },
           nextScenario: "part-i-station",
         },
       ],

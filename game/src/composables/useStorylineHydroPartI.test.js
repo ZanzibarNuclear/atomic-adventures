@@ -14,6 +14,7 @@ import {
 import { useIndoorBuilding } from "../lib/maps/composables/useIndoorBuilding.js";
 import { useOutdoorWorld } from "../lib/maps/composables/useOutdoorWorld.js";
 import characterContent from "../../public/content/character.json";
+import storyContent from "../../public/content/story.json";
 import storylineContent from "../../public/content/storyline.json";
 import utilityStationContent from "../../public/content/utility-station.json";
 import worldContent from "../../public/content/world.json";
@@ -70,13 +71,17 @@ function filteredActionIds(harness) {
 }
 
 function filteredOutdoorActionIds(harness, pendingBeat = null) {
+  return filteredOutdoorActions(harness, pendingBeat).map((action) => action.id);
+}
+
+function filteredOutdoorActions(harness, pendingBeat = null) {
   return filterAllowedActions(
     [
       ...getMovementOptions(harness.outdoor, pendingBeat),
       ...buildOutdoorPlayActions(harness.outdoor, pendingBeat),
     ],
     harness.storyline.actionPolicy.value,
-  ).map((action) => action.id);
+  );
 }
 
 function filteredFacilityActionIds(harness) {
@@ -117,6 +122,45 @@ describe("Part I hydro play modes", () => {
     expect(filteredOutdoorActionIds(harness)).toEqual(
       expect.arrayContaining(["move-hex:far-pines", "move-hex:center-pines", "move-hex:lower-stand"]),
     );
+  });
+
+  it("shows both authored fence-follow choices and fence search in story mode", async () => {
+    const harness = buildHarness("story", {
+      scenarioId: "part-i-opener",
+      stepId: "survive-in-the-woods",
+    });
+    const beat = storyContent.areas["part-i"].beats["center-pines"];
+
+    await chooseOutdoor(harness, "move-hex:east-pines");
+    await chooseOutdoor(harness, "move-hex:center-pines");
+    expect(harness.storyline.activeStep.value.id).toBe("reach-the-gate");
+
+    const actions = filteredOutdoorActions(harness, beat);
+    expect(actions.map((action) => action.label)).toEqual(
+      expect.arrayContaining([
+        "Follow the fence uphill",
+        "Head downhill along the fence",
+        "Inspect the fence",
+      ]),
+    );
+    expect(actions.map((action) => action.id)).toEqual(
+      expect.arrayContaining(["story:0", "story:1", "search:barrier"]),
+    );
+
+    harness.outdoor.moveTo("south-pines");
+    await tick(harness);
+    expect(harness.storyline.activeStep.value.id).toBe("reach-the-gate");
+    expect(filteredOutdoorActionIds(harness)).toContain("search:barrier");
+
+    await chooseOutdoor(harness, "search:barrier");
+    expect(harness.outdoor.state.discoveredOpenings).toContain("south-pines-hole");
+    expect(filteredOutdoorActionIds(harness)).not.toContain("search:barrier");
+    expect(filteredOutdoorActionIds(harness)).toContain("passage:south-pines-hole");
+
+    await chooseOutdoor(harness, "passage:south-pines-hole");
+    await chooseOutdoorDestination(harness, "utility-yard");
+    expect(harness.storyline.activeScenario.value.id).toBe("part-i-station");
+    expect(harness.storyline.activeStep.value.id).toBe("look-for-shelter");
   });
 
   it("supports the canonical gate-to-station story path", async () => {
