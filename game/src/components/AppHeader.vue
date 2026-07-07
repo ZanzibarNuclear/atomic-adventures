@@ -33,11 +33,18 @@
             </div>
           </details>
           <button
+            v-if="playMode"
             type="button"
-            class="sm view-toggle"
-            :aria-pressed="activeGameView === 'character'"
-            @click="$emit(activeGameView === 'character' ? 'show-map' : 'show-character')">
-            {{ activeGameView === "character" ? "Map" : "Player Stats" }}
+            class="sm player-health"
+            @click="$emit('show-health')">
+            Health
+          </button>
+          <button
+            v-if="playMode"
+            type="button"
+            class="sm player-inventory"
+            @click="$emit('show-inventory')">
+            Inventory
           </button>
           <details ref="gameMenu" class="game-menu">
             <summary class="sm">Game</summary>
@@ -75,7 +82,6 @@ const props = defineProps({
   lastSavedAt: { type: String, default: null },
   loadError: { type: String, default: null },
   movementAuditVisible: { type: Boolean, default: false },
-  activeGameView: { type: String, default: "map" },
   playMode: { type: String, default: null },
 });
 
@@ -85,8 +91,8 @@ const emit = defineEmits([
   "reset",
   "show-dev-settings",
   "show-movement-audit",
-  "show-character",
-  "show-map",
+  "show-health",
+  "show-inventory",
 ]);
 const devMode = import.meta.env.DEV;
 const devMenu = ref(null);
@@ -179,10 +185,6 @@ header {
   gap: 0.4rem;
   flex-wrap: wrap;
   justify-content: flex-end;
-}
-.view-toggle[aria-pressed="true"] {
-  background: #49624f;
-  border-color: #6f9b79;
 }
 .dev-menu,
 .game-menu {

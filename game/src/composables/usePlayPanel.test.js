@@ -16,6 +16,7 @@ import {
   buildIndoorMovementActions,
   buildIndoorPlayActions,
   buildIndoorStatusLines,
+  buildWellbeingStatusLines,
   handleIndoorPlayAction,
   handleOutdoorPlayAction,
 } from './usePlayPanel.js'
@@ -24,6 +25,7 @@ import { useOutdoorWorld } from '../lib/maps/composables/useOutdoorWorld.js'
 import { useIndoorBuilding } from '../lib/maps/composables/useIndoorBuilding.js'
 import { createCharacterState } from './useCharacterState.js'
 import { createGameClock } from '../lib/character/gameTime.js'
+import { characterWellbeingOverview } from '../lib/character/panel.js'
 import { createFlags } from '../lib/maps/composables/useFlags.js'
 import { ref } from 'vue'
 
@@ -246,6 +248,41 @@ describe('getMovementOptions', () => {
     expect(gameState.character.stats.satiety).toBeCloseTo(54.625)
     expect(gameState.character.stats.hydration).toBeCloseTo(42)
     expect(gameState.character.stats.energy).toBeCloseTo(78.25)
+  })
+
+  it('reports health indicators that have crossed a warning threshold', () => {
+    const character = createCharacterState({
+      stats: [
+        {
+          id: 'hydration',
+          label: 'Hydration',
+          type: 'meter',
+          default: 20,
+          min: 0,
+          max: 100,
+        },
+        {
+          id: 'energy',
+          label: 'Energy',
+          type: 'meter',
+          default: 78,
+          min: 0,
+          max: 100,
+        },
+        {
+          id: 'composure',
+          label: 'Composure',
+          type: 'meter',
+          default: 91,
+          min: 0,
+          max: 100,
+        },
+      ],
+    })
+
+    expect(buildWellbeingStatusLines(characterWellbeingOverview(character))).toEqual([
+      'Hydration is Dehydrated.',
+    ])
   })
 
   it('replaces fence inspection with passage crossing after the hidden opening is found', () => {

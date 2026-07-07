@@ -48,12 +48,13 @@ defineEmits(["close"]);
   background: rgba(7, 9, 12, 0.68);
 }
 .vitals-dialog {
-  width: min(32rem, 100%);
+  width: fit-content;
+  max-width: min(100%, 34rem);
   border: 1px solid #756143;
   border-radius: 8px;
   background: #171b22;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
-  padding: 1rem;
+  padding: 0.85rem;
   color: #f4ead7;
 }
 .vitals-dialog-header {
@@ -61,7 +62,7 @@ defineEmits(["close"]);
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 0.85rem;
+  margin-bottom: 0.65rem;
 }
 .vitals-dialog-header h2 {
   margin: 0;
@@ -69,11 +70,13 @@ defineEmits(["close"]);
   letter-spacing: 0;
 }
 .vitals-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 2rem;
   height: 2rem;
-  border: 1px solid #756143;
-  border-radius: 999px;
-  background: #252016;
+  border: 0;
+  background: transparent;
   color: #f4ead7;
   font-size: 1.25rem;
   line-height: 1;
@@ -81,7 +84,6 @@ defineEmits(["close"]);
 }
 .vitals-close:hover,
 .vitals-close:focus-visible {
-  border-color: #d7b77f;
   color: #ffe3aa;
 }
 </style>

@@ -479,7 +479,7 @@ function choosePlayMode(mode) {
 function handleReturnToMap() {
   returnToMap();
   lessonCompletionError.value = "";
-  nextTick(() => document.querySelector(".view-toggle")?.focus());
+  nextTick(() => document.querySelector(".player-health")?.focus());
 }
 
 function currentWorldHolderId() {
@@ -490,11 +490,6 @@ function currentWorldHolderId() {
     exteriorNode: place.value === "indoors" ? indoor.indoor.exteriorNode : null,
     stand: place.value === "indoors" ? indoor.indoor.currentStand : outdoor.state.stand?.id,
   });
-}
-
-function handleOpenCharacter() {
-  currentWorldHolderId();
-  openCharacter();
 }
 
 function publicAssetPath(path) {
@@ -628,13 +623,12 @@ function openInventoryDialog() {
       :last-saved-at="lastSavedAt"
       :load-error="loadError"
       :movement-audit-visible="movementAuditVisible"
-      :active-game-view="activeView.kind"
       :play-mode="gameState.playMode"
       @save="saveGame(saveCtx)"
       @new-game="handleNewGame"
       @reset="handleReset"
-      @show-character="handleOpenCharacter"
-      @show-map="returnToMap"
+      @show-health="vitalsDialogVisible = true"
+      @show-inventory="openInventoryDialog"
       @show-dev-settings="developerSettingsVisible = true"
       @show-movement-audit="movementAuditVisible = true" />
 
@@ -747,9 +741,7 @@ function openInventoryDialog() {
       :enter-building="enterBuilding"
       :audit-enabled="movementAuditVisible"
       :action-policy="wellbeingAvailableActions"
-      :wellbeing-alerts="wellbeingAlerts"
-      @check-vitals="vitalsDialogVisible = true"
-      @check-inventory="openInventoryDialog"
+      :wellbeing-overview="wellbeingOverview"
       @hide-movement-audit="movementAuditVisible = false" />
 
     <IndoorScene
@@ -763,9 +755,7 @@ function openInventoryDialog() {
       :audit-enabled="movementAuditVisible"
       :extra-actions="focusedConsoleActions"
       :action-policy="wellbeingAvailableActions"
-      :wellbeing-alerts="wellbeingAlerts"
-      @check-vitals="vitalsDialogVisible = true"
-      @check-inventory="openInventoryDialog"
+      :wellbeing-overview="wellbeingOverview"
       @extra-action="handleHoloReaderAction"
       @stage-view="openStageView"
       @hide-movement-audit="movementAuditVisible = false" />

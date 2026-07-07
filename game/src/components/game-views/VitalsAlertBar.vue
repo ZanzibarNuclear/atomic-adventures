@@ -4,7 +4,6 @@
     class="wellbeing-alerts"
     role="status"
     aria-label="Vitals">
-    <span class="wellbeing-alerts-label">Vitals</span>
     <span
       v-for="alert in alerts"
       :key="alert.id"
@@ -30,19 +29,11 @@ defineProps({
   justify-content: flex-start;
   gap: 0.5rem;
   flex-wrap: wrap;
-  width: 100%;
+  width: fit-content;
+  max-width: 100%;
   box-sizing: border-box;
-  border: 1px solid #756143;
-  background: #2f281e;
-  border-radius: 8px;
-  padding: 0.55rem 0.75rem;
+  padding: 0;
   margin: 0;
-}
-.wellbeing-alerts-label {
-  color: #d7b77f;
-  font-size: 0.74rem;
-  text-transform: uppercase;
-  letter-spacing: 0;
 }
 .wellbeing-chip {
   border: 1px solid #4f6f50;

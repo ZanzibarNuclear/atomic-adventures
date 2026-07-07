@@ -49,18 +49,6 @@
   <PlayPanel>
     <ActionOptions label="Choose an Action">
       <button
-        type="button"
-        class="route-btn k-action"
-        @click="$emit('check-vitals')">
-        Check Vitals
-      </button>
-      <button
-        type="button"
-        class="route-btn k-action"
-        @click="$emit('check-inventory')">
-        Check Inventory
-      </button>
-      <button
         v-for="item in filteredActions"
         :key="item.id"
         class="route-btn"
@@ -111,10 +99,10 @@ const props = defineProps({
   enterBuilding: { type: Function, required: true },
   auditEnabled: { type: Boolean, default: false },
   actionPolicy: { type: Object, default: null },
-  wellbeingAlerts: { type: Array, default: () => [] },
+  wellbeingOverview: { type: Object, default: null },
 });
 
-defineEmits(["hide-movement-audit", "check-vitals", "check-inventory"]);
+defineEmits(["hide-movement-audit"]);
 
 const devMode = import.meta.env.DEV;
 const auditState = ref("all");
@@ -139,7 +127,7 @@ const auditSummary = computed(() =>
 );
 
 const statusLines = computed(() =>
-  buildOutdoorStatusLines(props.outdoor, props.indoor),
+  buildOutdoorStatusLines(props.outdoor, props.indoor, props.wellbeingOverview),
 );
 
 const chooseActions = computed(() => {

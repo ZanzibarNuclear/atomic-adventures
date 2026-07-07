@@ -621,13 +621,25 @@ function pickupNearbyHolding(indoor, encoded) {
   }
 }
 
-export function buildIndoorStatusLines(indoor) {
-  const lines = [];
+export function buildIndoorStatusLines(indoor, wellbeingOverview = null) {
+  const lines = buildWellbeingStatusLines(wellbeingOverview);
   if (indoor.powerOn) {
     lines.push("Station power is on.");
     lines.push(...poweredObjectStatusLines(indoor));
   }
   return lines;
+}
+
+export function buildWellbeingStatusLines(wellbeingOverview) {
+  if (!wellbeingOverview) return [];
+  const indicators = [
+    wellbeingOverview.health,
+    ...(wellbeingOverview.vitals ?? []),
+    ...(wellbeingOverview.conditions ?? []).filter((condition) => condition.active),
+  ].filter(Boolean);
+  return indicators
+    .filter((indicator) => indicator.tone !== "positive")
+    .map((indicator) => `${indicator.label} is ${indicator.state}.`);
 }
 
 function poweredObjectStatusLines(indoor) {
@@ -641,8 +653,8 @@ function poweredObjectStatusLines(indoor) {
     .filter(Boolean);
 }
 
-export function buildOutdoorStatusLines(outdoor, indoor) {
-  const lines = [];
+export function buildOutdoorStatusLines(outdoor, indoor, wellbeingOverview = null) {
+  const lines = buildWellbeingStatusLines(wellbeingOverview);
   for (const action of outdoor.lockedPassageActions ?? []) {
     if (action.status) lines.push(action.status);
   }

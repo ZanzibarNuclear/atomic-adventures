@@ -120,7 +120,7 @@ describe("GameView play mode entry", () => {
     wrapper.unmount();
   });
 
-  it("opens wellbeing warnings from the Check Vitals button after play starts", async () => {
+  it("opens wellbeing warnings from the Health header button after play starts", async () => {
     const hydration = characterDefinitions.stats.find((stat) => stat.id === "hydration");
     const originalDefault = hydration.default;
     hydration.default = 20;
@@ -132,13 +132,15 @@ describe("GameView play mode entry", () => {
       await wrapper.get("button.recommended").trigger("click");
 
       expect(wrapper.find(".wellbeing-alerts").exists()).toBe(false);
-      const checkVitals = wrapper.findAll("button")
-        .find((button) => button.text() === "Check Vitals");
-      expect(checkVitals).toBeDefined();
-      expect(wrapper.find(".play-panel").text()).toContain("Check Vitals");
-      expect(wrapper.find(".play-panel").text()).toContain("Check Inventory");
+      const health = wrapper.findAll("button")
+        .find((button) => button.text() === "Health");
+      expect(health).toBeDefined();
+      expect(wrapper.text()).not.toContain("Player Stats");
+      expect(wrapper.find(".status-lines").text()).toContain("Hydration is Dehydrated.");
+      expect(wrapper.find(".play-panel").text()).not.toContain("Check Vitals");
+      expect(wrapper.find(".play-panel").text()).not.toContain("Check Inventory");
 
-      await checkVitals.trigger("click");
+      await health.trigger("click");
       await nextTick();
 
       const dialog = document.body.querySelector(".vitals-dialog");
@@ -159,17 +161,17 @@ describe("GameView play mode entry", () => {
     }
   });
 
-  it("opens carried inventory from the Check Inventory button", async () => {
+  it("opens carried inventory from the Inventory header button", async () => {
     const wrapper = mount(GameView);
 
     try {
       await wrapper.get("button.recommended").trigger("click");
 
-      const checkInventory = wrapper.findAll("button")
-        .find((button) => button.text() === "Check Inventory");
-      expect(checkInventory).toBeDefined();
+      const inventory = wrapper.findAll("button")
+        .find((button) => button.text() === "Inventory");
+      expect(inventory).toBeDefined();
 
-      await checkInventory.trigger("click");
+      await inventory.trigger("click");
       await nextTick();
 
       const dialog = document.body.querySelector(".inventory-dialog");
