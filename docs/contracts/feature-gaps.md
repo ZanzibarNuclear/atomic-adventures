@@ -5,38 +5,37 @@ partial, or intentionally waiting for a concrete content need. It is not a
 parking lot for old systems. When a gap is closed, update the relevant contract,
 tests, implementation map, and this list in the same change.
 
-## Story Beats
+## Story Beats And Scenes
 
 - Implement the broader planned passage schema only when a current story need
-  requires it: beat requirements, choice visibility rules, choice-specific
+  requires it: scene conditions, choice visibility rules, choice-specific
   character effects, passage-to-passage `go_to`, variants, simulation gates,
-  images, ambient audio, and dedicated ambient beat semantics.
-- Add beat `modes` and `storylineStep` support once the play-mode/storyline
-  controller is implemented. These fields should scope prose; they should not
-  make beats the storyline action-policy engine.
+  images, ambient audio, and dedicated open-world scene semantics.
+- Add scene `modes` support where the current content needs distinct
+  Story-mode and open-world prose.
 - Add stand-level story triggers if a room needs prose that depends on the
   avatar's precise `currentStand`, not just `currentRoom` or `exteriorNode`.
-- Keep future beat conditions targeted. Avoid rebuilding a general-purpose
-  requirement engine inside story beats.
+- Keep future scene conditions targeted. Avoid rebuilding a general-purpose
+  requirement engine inside scenes.
 
-## Play Modes And Storyline
+## Play Modes And Story Mode
 
 - Add new-game mode selection with Story as the default and
   Open-world as an explicit freeform option.
-- Add `playMode` and active storyline state to saves.
-- Implement scenario content, runtime loading, production JSON export, live
+- Add `playMode` and active `story` arc/beat state to saves.
+- Implement StoryArc content, runtime loading, production JSON export, live
   authoring updates, and revision history.
-- Implement the storyline controller, current objective, typed step completion
-  predicates, forced effects, and action policy.
-- Apply storyline action policy consistently to play-panel buttons, map clicks,
-  movement handlers, room actions, pickups, item actions, stage views, doors,
-  switches, passages, and transitions.
-- Add Story Builder scenario authoring and reference-aware rename/delete support
+- Implement `useStoryArc`, typed completion conditions, beat effects, and
+  visible story action building.
+- Apply Story mode action availability consistently to play-panel buttons, map
+  clicks, movement handlers, room actions, pickups, item actions, stage views,
+  doors, switches, passages, and transitions.
+- Add Story Builder story arc authoring and reference-aware rename/delete support
   across Story Builder, World Builder, and Content Builder.
-- Migrate hydro startup into the `part-i-station` scenario and keep
+- Migrate hydro startup into the appropriate Part I story arc and keep
   open-world hydro startup broad but physically valid.
-- Defer switching arbitrary open-world saves back into storyline until there is
-  a dedicated rejoin contract.
+- Defer switching arbitrary open-world saves back into Story mode until there
+  is a dedicated rejoin contract.
 
 ## Stage Views
 
@@ -91,12 +90,12 @@ tests, implementation map, and this list in the same change.
 
 ## Game Time
 
-- Add authored scenario start settings instead of hard-coding Part I's opening
+- Add authored story arc start settings instead of hard-coding Part I's opening
   time.
 - Complete rest and sleep-until workflows, including Day 1 to Day 2 pacing and
   milestone/flag commits.
 - Add builder controls for start clock, phase windows, default action
-  durations, beat time criteria, milestone gating, overlapping-beat warnings,
+  durations, scene time criteria, milestone gating, overlapping-scene warnings,
   route timing estimates, and previewing content at a chosen time state.
 - Define simulation time modes and the commit boundary for simulations that
   preview results before accepting them.

@@ -59,15 +59,15 @@ questions that block implementation.
 
 **Purpose:** Make the written target vocabulary clear before code moves.
 
-- [ ] Update `docs/contracts/play-modes-and-storyline.md` or replace it with a
+- [x] Update `docs/contracts/play-modes-and-storyline.md` or replace it with a
       new Story mode contract that uses `StoryArc`, `StoryBeat`, and `Scene`.
-- [ ] Update `docs/contracts/story-beats.md` so the prose object is called
+- [x] Update `docs/contracts/story-beats.md` so the prose object is called
       `Scene`, not `StoryBeat`.
-- [ ] Update roadmap and planning references where they describe scenarios,
+- [x] Update roadmap and planning references where they describe scenarios,
       steps, storyline, or objectives.
-- [ ] Explicitly document that the objective UI has been removed and that
+- [x] Explicitly document that the objective UI has been removed and that
       player guidance comes from scenes, choices, and visible actions.
-- [ ] Add a short note that open-world mode reuses scenes and world systems
+- [x] Add a short note that open-world mode reuses scenes and world systems
       through a separate controller with fewer constraints.
 
 **Exit criterion:** Docs describe the target model without requiring the reader

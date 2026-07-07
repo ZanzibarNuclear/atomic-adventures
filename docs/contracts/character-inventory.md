@@ -161,8 +161,8 @@ Story Builder and World Builder consume the catalog:
 - World Builder places catalog items and selects acquisition behavior.
 - Simulation configuration selects known stats, knowledge, skills, quests, and
   rewards.
-- Storyline scenarios select artifacts, item actions, holders, lessons,
-  documents, completion predicates, and effects from the same known IDs; see
+- Story arcs select artifacts, item actions, holders, lessons, documents,
+  completion conditions, and effects from the same known IDs; see
   [play-modes-and-storyline.md](play-modes-and-storyline.md).
 
 Authors should not need to copy IDs manually for normal builder workflows.
@@ -906,7 +906,7 @@ state:
 - if saved state contains an unknown ID, that state is preserved but hidden from
   normal UI until the definition returns or an explicit update maps it.
 
-## Scenario Checks
+## Story Arc Checks
 
 The intended Part I cases map to the contract as follows:
 

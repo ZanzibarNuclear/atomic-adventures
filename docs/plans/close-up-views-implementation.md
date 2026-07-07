@@ -2,7 +2,7 @@
 
 **Status:** Partially implemented
 **Last updated:** 2026-07-07
-**Primary contracts:** [Stage Views](../contracts/stage-views.md), [Character, Artifacts, and Inventory Management](../contracts/character-inventory.md), [Story Beats](../contracts/story-beats.md)
+**Primary contracts:** [Stage Views](../contracts/stage-views.md), [Character, Artifacts, and Inventory Management](../contracts/character-inventory.md), [Story Beats And Scenes](../contracts/story-beats.md)
 **Quality checklist:** [Character, Inventory, and Game-View Regression Checklist](../quality/character-inventory-regression-checklist.md)
 
 ## Goal
@@ -173,8 +173,9 @@ Legend: `[x]` implemented, `[~]` partially implemented, `[ ]` not yet implemente
   holo-reader and hydro console can open focused views from authored/runtime
   actions. A generic fixture close-up vertical slice, such as eBuggy inspection
   or a service-bench detail view, is not implemented.
-- Storyline action policies can allow or block stage views, but the available
-  builder UI only authors a small subset of supported stage-view kinds.
+- Story mode action availability can allow or block stage views, but the
+  available builder UI only authors a small subset of supported stage-view
+  kinds.
 
 ### Not Yet Implemented
 

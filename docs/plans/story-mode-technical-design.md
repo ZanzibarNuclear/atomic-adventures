@@ -3,7 +3,7 @@
 **Status:** Proposed target design
 **Last updated:** 2026-07-07
 **Primary follow-up plan:** [Story Mode Model Migration Plan](story-mode-migration-plan.md)
-**Related contracts:** [Play Modes and Storyline Control](../contracts/play-modes-and-storyline.md), [Story Beats](../contracts/story-beats.md)
+**Related contracts:** [Play Modes And Story Mode Control](../contracts/play-modes-and-storyline.md), [Story Beats And Scenes](../contracts/story-beats.md)
 
 ## Goal
 

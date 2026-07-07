@@ -273,10 +273,10 @@ simulation precision.
 
 ## Opening Survival Pressure
 
-The first Storyline objective is survival, not hydro startup. Zanzibar begins
-lost in the forest, low on food and water, and moving by instinct. The wellbeing
-system should make this situation matter without punishing normal story
-progression.
+The first Story mode concern is survival, not hydro startup. Zanzibar begins
+lost in the forest, low on food and water, and moving by instinct. The
+wellbeing system should make this situation matter without punishing normal
+story progression.
 
 Minimum behavior:
 

@@ -2,7 +2,7 @@
 
 **Status:** In progress
 **Last updated:** 2026-07-06
-**Primary contracts:** [Play Modes and Storyline Control](../contracts/play-modes-and-storyline.md), [Story Beats](../contracts/story-beats.md), [Stage Views](../contracts/stage-views.md), [Holo-Reader](../contracts/holo-reader.md), [Control Panel](../contracts/control-panel.md), [Hydro Simulator](../contracts/hydro-simulator.md), [Character, Artifacts, and Inventory Management](../contracts/character-inventory.md)
+**Primary contracts:** [Play Modes And Story Mode Control](../contracts/play-modes-and-storyline.md), [Story Beats And Scenes](../contracts/story-beats.md), [Stage Views](../contracts/stage-views.md), [Holo-Reader](../contracts/holo-reader.md), [Control Panel](../contracts/control-panel.md), [Hydro Simulator](../contracts/hydro-simulator.md), [Character, Artifacts, and Inventory Management](../contracts/character-inventory.md)
 **Quality checklist:** [Character, Inventory, and Game-View Regression Checklist](../quality/character-inventory-regression-checklist.md)
 
 ## Goal
@@ -171,16 +171,16 @@ Open access to rooms, outdoor nodes, and many actions made it too easy for a
 player to lose the authored story thread. The current playable slice now has an
 explicit split:
 
-- **Story mode** — the player is Zanzibar in the canonical story. Objectives,
-  prose, action policy, and consequences guide the current concern while
-  ordinary valid movement remains available.
+- **Story mode** — the player is Zanzibar in the canonical story. Scenes,
+  choices, visible story actions, and consequences guide the current concern
+  while ordinary valid movement remains available.
 - **Open-world mode** — the player explores freely, defines their own goals,
   and tries to figure things out without following the canonical story.
 
 The implementation contract for this split is
-[Play Modes and Storyline Control](../contracts/play-modes-and-storyline.md).
-Story beats remain the prose layer; storyline steps own objectives, gates,
-forced transitions, and canonical sequencing.
+[Play Modes And Story Mode Control](../contracts/play-modes-and-storyline.md).
+Story arcs own guided progression, story beats own choices, actions,
+completion, and effects, and scenes own prose variants.
 
 ### Story Mode Requirements
 
@@ -190,7 +190,8 @@ forced transitions, and canonical sequencing.
       mutate future story state out of order.
 - [x] Allow forced movement, forced time passage, stage views, and limited
       action sets where the story requires them.
-- [x] Show the current internal objective clearly.
+- [x] Remove the standalone objective UI and guide with scenes, choices, and
+      visible actions.
 - [x] Preserve Zanzibar's authored voice and canonical story beats.
 - [x] Keep ordinary valid movement and detours available, with survival pressure
       providing consequence.
@@ -259,7 +260,7 @@ promising, but it should wait until the basic station model, console, and story
 flow are stable.
 
 - [ ] Define what the assistant can know: telemetry, event log, facility state,
-      lesson content, and current objective.
+      lesson content, and current story context.
 - [ ] Define what the assistant cannot do: bypass field actions, mutate story
       state directly, or solve challenges without player consent.
 - [ ] Prototype only after alpha needs are met.
@@ -314,7 +315,7 @@ interactive close-ups with stateful controls.
 - [x] Save/load preserves lesson, card, mode, inventory, hydro facility state,
       and console behavior.
 - [ ] The full survival-to-hydro Story mode run has one final hands-on browser
-      pass for objective copy, prose order, and confusing affordances.
+      pass for scene prose order and confusing affordances.
 - [x] `npm run test` passes from the repository root.
 - [x] `npm run build:game` passes from the repository root.
 
