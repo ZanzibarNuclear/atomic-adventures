@@ -15,6 +15,13 @@ describe("DeveloperSettingsDialog", () => {
           value: 58,
           min: 0,
           max: 100,
+          displayStates: [
+            { at: 90, state: "Stuffed", tone: "positive" },
+            { at: 55, state: "Full", tone: "positive" },
+            { at: 40, state: "Peckish", tone: "warning" },
+            { at: 10, state: "Hungry", tone: "warning" },
+            { at: 0, state: "Starving", tone: "error" },
+          ],
         }],
       },
     });
@@ -25,10 +32,31 @@ describe("DeveloperSettingsDialog", () => {
     await wrapper.get("input[type='range']").setValue(25);
     expect(wrapper.emitted("set-vital")?.[0]).toEqual([{ id: "satiety", value: 25 }]);
 
-    await wrapper.findAll("button").find((button) => button.text() === "+10").trigger("click");
-    expect(wrapper.emitted("adjust-vital")?.[0]).toEqual([{ id: "satiety", delta: 10 }]);
+    const fed = wrapper.findAll("button").find((button) => button.text() === "Full");
+    const hungry = wrapper.findAll("button").find((button) => button.text() === "Hungry");
+    expect(fed.attributes("aria-pressed")).toBe("true");
+    expect(hungry.attributes("aria-pressed")).toBe("false");
 
-    await wrapper.findAll("button").find((button) => button.text() === "Full").trigger("click");
-    expect(wrapper.emitted("set-vital")?.at(-1)).toEqual([{ id: "satiety", value: 100 }]);
+    await wrapper.setProps({
+      vitals: [{
+        id: "satiety",
+        label: "Satiety",
+        value: 37,
+        min: 0,
+        max: 100,
+        displayStates: [
+          { at: 90, state: "Stuffed", tone: "positive" },
+          { at: 55, state: "Full", tone: "positive" },
+          { at: 40, state: "Peckish", tone: "warning" },
+          { at: 10, state: "Hungry", tone: "warning" },
+          { at: 0, state: "Starving", tone: "error" },
+        ],
+      }],
+    });
+    expect(wrapper.findAll("button").find((button) => button.text() === "Full").attributes("aria-pressed")).toBe("false");
+    expect(wrapper.findAll("button").find((button) => button.text() === "Hungry").attributes("aria-pressed")).toBe("true");
+
+    await wrapper.findAll("button").find((button) => button.text() === "Hungry").trigger("click");
+    expect(wrapper.emitted("set-vital")?.at(-1)).toEqual([{ id: "satiety", value: 25 }]);
   });
 });

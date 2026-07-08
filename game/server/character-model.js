@@ -72,6 +72,13 @@ export function normalizeCharacterDocument(input = {}) {
         id: text(action.id),
         label: text(action.label),
         consume: finiteNumber(action.consume, 0),
+        consumeOptions: array(action.consumeOptions).map((option) => ({
+          id: text(option.id),
+          label: text(option.label),
+          portion: option.portion == null ? null : finiteNumber(option.portion, 0),
+          remaining: option.remaining === true,
+        })),
+        depletedItem: nullableText(action.depletedItem),
         timeMinutes: finiteNumber(action.timeMinutes, 0),
         activity: text(action.activity) || "light",
         effects: array(action.effects).map((effect) => structuredClone(effect)),

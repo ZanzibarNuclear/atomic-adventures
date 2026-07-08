@@ -39,10 +39,10 @@ export function characterWellbeingOverview(character) {
         label: "Satiety",
         fallback: 100,
         states: [
-          [80, "Sated", "positive"],
-          [50, "Fed", "positive"],
-          [25, "Hungry", "warning"],
-          [1, "Very hungry", "error"],
+          [90, "Stuffed", "positive"],
+          [55, "Full", "positive"],
+          [40, "Peckish", "warning"],
+          [10, "Hungry", "warning"],
           [0, "Starving", "error"],
         ],
       }),
@@ -55,11 +55,10 @@ export function characterWellbeingOverview(character) {
         label: "Hydration",
         fallback: 100,
         states: [
-          [80, "Hydrated", "positive"],
-          [50, "Okay", "positive"],
-          [25, "Thirsty", "warning"],
-          [1, "Dehydrated", "error"],
-          [0, "Severely dehydrated", "error"],
+          [60, "Hydrated", "positive"],
+          [30, "Thirsty", "warning"],
+          [10, "Parched", "error"],
+          [0, "Dehydrated", "error"],
         ],
       }),
       vitalFromStat(byId.energy, {
@@ -67,12 +66,11 @@ export function characterWellbeingOverview(character) {
         label: "Energy",
         fallback: 100,
         states: [
-          [80, "Energized", "positive"],
-          [50, "Rested", "positive"],
-          [34, "Tired", "warning"],
-          [18, "Exhausted", "error"],
-          [1, "Barely awake", "error"],
-          [0, "Asleep uncontrollably", "error"],
+          [50, "Energized", "positive"],
+          [25, "Tired", "warning"],
+          [10, "Exhausted", "error"],
+          [1, "Dozing", "error"],
+          [0, "Spent", "error"],
         ],
       }),
       vitalFromStat(byId.composure, {
@@ -80,10 +78,10 @@ export function characterWellbeingOverview(character) {
         label: "Composure",
         fallback: 100,
         states: [
-          [80, "Calm", "positive"],
-          [50, "Alert", "positive"],
-          [25, "Nervous", "warning"],
-          [1, "Scared", "error"],
+          [60, "Calm", "positive"],
+          [40, "Concerned", "positive"],
+          [20, "Nervous", "warning"],
+          [5, "Scared", "error"],
           [0, "Panicked", "error"],
         ],
       }),
@@ -212,13 +210,15 @@ function vitalFromStat(stat, options) {
   const min = finiteNumber(stat?.min, 0);
   const max = finiteNumber(stat?.max, 100);
   const value = clamp(finiteNumber(stat?.value, options.fallback), min, max);
+  const displayStates = displayStatesForStat(stat, options.states);
   return {
     id: options.id,
     label: options.label,
     value,
     min,
     max,
-    ...stateForValue(value, displayStatesForStat(stat, options.states)),
+    displayStates: displayStates.map(([at, state, tone]) => ({ at, state, tone })),
+    ...stateForValue(value, displayStates),
     description: stat?.description ?? null,
   };
 }

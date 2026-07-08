@@ -30,6 +30,28 @@ function state() {
         effects: [{ op: "stat.add", id: "satiety", value: 55 }],
       }],
     }, {
+      id: "bottle",
+      label: "Bottle",
+      kind: "consumable",
+      carrying: "unique",
+      actions: [{
+        id: "drink",
+        label: "Drink",
+        consume: 0,
+        consumeOptions: [
+          { id: "sip", label: "Sip", portion: 0.25 },
+          { id: "all", label: "Drink all remaining", remaining: true },
+        ],
+        depletedItem: "empty-bottle",
+        timeMinutes: 0,
+        effects: [{ op: "stat.add", id: "hydration", value: 100, scaleBy: "portion" }],
+      }],
+    }, {
+      id: "empty-bottle",
+      label: "Empty bottle",
+      kind: "item",
+      carrying: "unique",
+    }, {
       id: "empty-wrapper",
       label: "Empty wrapper",
       kind: "item",
@@ -78,6 +100,13 @@ function state() {
       min: 0,
       max: 100,
       drift: { perGameHour: { resting: -3 } },
+    }, {
+      id: "hydration",
+      label: "Hydration",
+      type: "meter",
+      default: 0,
+      min: 0,
+      max: 100,
     }],
     knowledge: [], skills: [], quests: [], documents: [{
       id: "startup-card",
@@ -143,6 +172,32 @@ describe("item actions", () => {
       holderId: gameState.packHolderId,
     })).toBe(1);
     expect(gameState.character.stats.satiety).toBeCloseTo(45);
+  });
+
+  it("scales partial consumable effects and depletes only when empty", () => {
+    const gameState = state();
+    addItem(gameState.character.holdings, gameState.character.definitions, "bottle", 1);
+    const bottle = Object.entries(gameState.character.holdings.instances)
+      .find(([, instance]) => instance.item === "bottle");
+    bottle[1].remaining = 0.5;
+
+    expect(performItemAction(gameState, "bottle", "drink", {
+      recordId: bottle[0],
+      holderId: bottle[1].holder,
+      optionId: "sip",
+    }).ok).toBe(true);
+    expect(gameState.character.stats.hydration).toBe(25);
+    expect(gameState.character.holdings.instances[bottle[0]].remaining).toBe(0.25);
+    expect(itemQuantity(gameState.character.holdings, "empty-bottle")).toBe(0);
+
+    expect(performItemAction(gameState, "bottle", "drink", {
+      recordId: bottle[0],
+      holderId: bottle[1].holder,
+      optionId: "all",
+    }).ok).toBe(true);
+    expect(gameState.character.stats.hydration).toBe(50);
+    expect(itemQuantity(gameState.character.holdings, "bottle")).toBe(0);
+    expect(itemQuantity(gameState.character.holdings, "empty-bottle")).toBe(1);
   });
 
 });

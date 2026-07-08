@@ -609,13 +609,13 @@ function handleAdjustVital({ id, delta }) {
   handleSetVital({ id, value: current + Number(delta) });
 }
 
-function handleUseItem({ itemId, actionId, holderId = null }) {
+function handleUseItem({ itemId, actionId, holderId = null, recordId = null, optionId = null }) {
   if (!isActionAllowed(`item-action:${itemId}.${actionId}`, wellbeingAvailableActions.value, {
     itemId,
     actionId,
   })) return;
   const beforeStats = { ...(gameState.character.stats ?? {}) };
-  const result = performItemAction(gameState, itemId, actionId, { holderId });
+  const result = performItemAction(gameState, itemId, actionId, { holderId, recordId, optionId });
   if (result.ok) {
     itemActionFeedback.value = itemActionResultLine(beforeStats, gameState.character.stats);
     refreshStoryMoment();

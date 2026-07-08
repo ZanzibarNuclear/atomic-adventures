@@ -65,15 +65,24 @@ const detailImage = computed(() => {
   return null;
 });
 
-const visibleActions = computed(() =>
-  isHeldDirectly.value || isInsideContainer.value
-    ? (props.selectedHolding?.actions ?? []).filter((action) =>
+const visibleActions = computed(() => {
+  if (!isHeldDirectly.value && !isInsideContainer.value) return [];
+  return (props.selectedHolding?.actions ?? [])
+    .filter((action) =>
       isActionAllowed(`item-action:${props.selectedHolding.item}.${action.id}`, props.actionPolicy, {
         itemId: props.selectedHolding.item,
         actionId: action.id,
       }))
-    : [],
-);
+    .flatMap((action) => {
+      const options = action.consumeOptions ?? [];
+      if (!options.length) return [{ ...action, buttonLabel: action.label }];
+      return options.map((option) => ({
+        ...action,
+        optionId: option.id,
+        buttonLabel: option.label || action.label,
+      }));
+    });
+});
 
 const availableTransferTargets = computed(() => {
   const currentHolderId = props.selectedHolding?.holder?.id;
@@ -241,6 +250,9 @@ function closeToContainer() {
             <p v-if="selectedHolding.quantity !== 1" class="detail-meta">
               Quantity: {{ selectedHolding.quantity }}
             </p>
+            <p v-if="selectedHolding.remaining != null" class="detail-meta">
+              Remaining: {{ Math.round(Number(selectedHolding.remaining) * 100) }}%
+            </p>
           </div>
         </div>
 
@@ -296,9 +308,11 @@ function closeToContainer() {
               @click="$emit('use-item', {
                 itemId: selectedHolding.item,
                 actionId: action.id,
+                optionId: action.optionId ?? null,
+                recordId: selectedHolding.id,
                 holderId: selectedHolding.holder?.id,
               })">
-              {{ action.label }}
+              {{ action.buttonLabel }}
             </button>
           </div>
         </div>

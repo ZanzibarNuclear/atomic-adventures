@@ -35,10 +35,10 @@ collapsed.
 
 Use words alongside or instead of numbers where words are clearer. Examples:
 
-- Satiety: sated, fed, hungry, very hungry, starving.
-- Hydration: hydrated, okay, thirsty, dehydrated, severely dehydrated.
-- Energy: energized, rested, tired, exhausted, barely awake, asleep uncontrollably.
-- Composure: calm, alert, nervous, scared, panicked.
+- Satiety: stuffed, full, peckish, hungry, starving.
+- Hydration: hydrated, thirsty, parched, dehydrated.
+- Energy: energized, tired, exhausted, dozing, spent.
+- Composure: calm, concerned, nervous, scared, panicked.
 
 Those player-facing words are authored per stat with `displayStates`. Each
 entry is a minimum reserve value for that label and tone:
@@ -262,7 +262,7 @@ simulation precision.
   but repeatedly walking in circles can lead to serious impairment and
   eventually a clear failure state.
 - Consumable numbers should be easy to author and easy to explain.
-- Thresholds should use clear player-facing states: thirsty, dehydrated,
+- Thresholds should use clear player-facing states: thirsty, parched, dehydrated,
   hungry, starving, exhausted, injured.
 - Vitals should render in one direction: higher means better.
 - Conditions should use named severity states rather than unexplained amounts.

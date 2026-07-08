@@ -117,12 +117,12 @@ describe("character panel presentation", () => {
 
     expect(overview.health).toEqual(expect.objectContaining({ id: "health", value: 85, state: "Healthy" }));
     expect(overview.vitals).toEqual([
-      expect.objectContaining({ id: "satiety", value: 65, state: "Fed" }),
+      expect.objectContaining({ id: "satiety", value: 65, state: "Full" }),
       expect.objectContaining({ id: "hydration", value: 30, state: "Thirsty" }),
       expect.objectContaining({ id: "energy", value: 100, state: "Energized" }),
       expect.objectContaining({ id: "composure", value: 100, state: "Calm" }),
     ]);
-    expect(formatVitalValue(overview.vitals[0])).toBe("Fed · 65 / 100");
+    expect(formatVitalValue(overview.vitals[0])).toBe("Full · 65 / 100");
   });
 
   it("derives positive reserves from current hunger and thirst pressure stats", () => {
@@ -137,7 +137,7 @@ describe("character panel presentation", () => {
     const overview = characterWellbeingOverview(state);
 
     expect(overview.vitals).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: "satiety", value: 20, state: "Very hungry", tone: "error" }),
+      expect.objectContaining({ id: "satiety", value: 20, state: "Hungry", tone: "warning" }),
       expect.objectContaining({ id: "hydration", value: 5, state: "Dehydrated", tone: "error" }),
     ]));
   });
@@ -170,7 +170,7 @@ describe("character panel presentation", () => {
     }));
   });
 
-  it("spreads energy states from energized through uncontrolled sleep", () => {
+  it("spreads energy states from energized through spent", () => {
     const state = character();
     state.definitions.stats.push({
       id: "energy",
@@ -188,13 +188,6 @@ describe("character panel presentation", () => {
       state: "Energized",
     }));
 
-    state.stats.energy = 50;
-    expect(characterWellbeingOverview(state).vitals).toContainEqual(expect.objectContaining({
-      id: "energy",
-      value: 50,
-      state: "Rested",
-    }));
-
     state.stats.energy = 49;
     expect(characterWellbeingOverview(state).vitals).toContainEqual(expect.objectContaining({
       id: "energy",
@@ -202,25 +195,25 @@ describe("character panel presentation", () => {
       state: "Tired",
     }));
 
-    state.stats.energy = 33;
+    state.stats.energy = 24;
     expect(characterWellbeingOverview(state).vitals).toContainEqual(expect.objectContaining({
       id: "energy",
-      value: 33,
+      value: 24,
       state: "Exhausted",
     }));
 
-    state.stats.energy = 17;
+    state.stats.energy = 9;
     expect(characterWellbeingOverview(state).vitals).toContainEqual(expect.objectContaining({
       id: "energy",
-      value: 17,
-      state: "Barely awake",
+      value: 9,
+      state: "Dozing",
     }));
 
     state.stats.energy = 0;
     expect(characterWellbeingOverview(state).vitals).toContainEqual(expect.objectContaining({
       id: "energy",
       value: 0,
-      state: "Asleep uncontrollably",
+      state: "Spent",
     }));
   });
 

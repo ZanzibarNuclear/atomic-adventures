@@ -5,6 +5,28 @@ defineProps({
 });
 
 defineEmits(["close", "set-station-power", "set-vital", "adjust-vital"]);
+
+function vitalPresets(vital) {
+  const states = [...(vital.displayStates ?? [])]
+    .sort((a, b) => Number(b.at) - Number(a.at));
+  if (!states.length) return [];
+  return states.map((state, index) => {
+    const upper = index === 0 ? Number(vital.max ?? 100) : Number(states[index - 1].at) - 1;
+    const lower = Math.max(Number(vital.min ?? 0), Number(state.at));
+    const boundedUpper = Math.max(lower, upper);
+    return {
+      label: state.state,
+      lower,
+      upper: boundedUpper,
+      value: Math.round((lower + boundedUpper) / 2),
+    };
+  }).reverse();
+}
+
+function isActivePreset(vital, preset) {
+  const value = Number(vital.value);
+  return Number.isFinite(value) && value >= preset.lower && value <= preset.upper;
+}
 </script>
 
 <template>
@@ -52,28 +74,14 @@ defineEmits(["close", "set-station-power", "set-vital", "adjust-vital"]);
             @input="$emit('set-vital', { id: vital.id, value: Number($event.target.value) })">
           <div class="vital-buttons">
             <button
+              v-for="preset in vitalPresets(vital)"
+              :key="preset.label"
               type="button"
               class="sm muted"
-              @click="$emit('adjust-vital', { id: vital.id, delta: -10 })">
-              -10
-            </button>
-            <button
-              type="button"
-              class="sm muted"
-              @click="$emit('adjust-vital', { id: vital.id, delta: 10 })">
-              +10
-            </button>
-            <button
-              type="button"
-              class="sm muted"
-              @click="$emit('set-vital', { id: vital.id, value: vital.min })">
-              Empty
-            </button>
-            <button
-              type="button"
-              class="sm muted"
-              @click="$emit('set-vital', { id: vital.id, value: vital.max })">
-              Full
+              :class="{ active: isActivePreset(vital, preset) }"
+              :aria-pressed="isActivePreset(vital, preset)"
+              @click="$emit('set-vital', { id: vital.id, value: preset.value })">
+              {{ preset.label }}
             </button>
           </div>
         </article>
@@ -180,8 +188,18 @@ defineEmits(["close", "set-station-power", "set-vital", "adjust-vital"]);
 }
 
 .vital-buttons {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
   gap: 0.35rem;
-  flex-wrap: wrap;
+}
+
+.vital-buttons button {
+  width: 100%;
+}
+
+.vital-buttons button.active {
+  border-color: #83c899;
+  background: #355b42;
+  color: #f0fff4;
 }
 </style>
