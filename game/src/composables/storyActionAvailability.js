@@ -3,8 +3,7 @@ export function filterAllowedActions(actions = [], policy, context = {}) {
 }
 
 export function actionPromptCategory(action, policy) {
-  void action;
-  void policy;
+  if (isStoryForwardAction(action, policy)) return "story";
   return "ordinary";
 }
 
@@ -45,9 +44,7 @@ export function isActionAllowed(action, policy, context = {}) {
       Boolean(action?.enterBuilding);
   }
   if (action?.enterBuilding) return true;
-  if (actionId.startsWith("route:") || actionId.startsWith("barrier:") || actionId.startsWith("move-hex:")) {
-    return actionMatchesMovement(action, allowed.movement);
-  }
+  if (actionId.startsWith("route:") || actionId.startsWith("barrier:") || actionId.startsWith("move-hex:")) return true;
   if (actionId.startsWith("move-room:")) return true;
   if (actionId.startsWith("move-exterior:")) return true;
   if (actionId.startsWith("move-stand:")) return true;

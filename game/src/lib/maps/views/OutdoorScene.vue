@@ -52,7 +52,7 @@
         v-for="item in filteredActions"
         :key="item.id"
         class="route-btn"
-        :class="item.kind ? 'k-' + item.kind : null"
+        :class="[item.kind ? 'k-' + item.kind : null, item.promptCategory ? 'p-' + item.promptCategory : null]"
         :disabled="outdoor.traveling || item.disabled"
         :title="item.hint ?? ''"
         @click="onAction(item.id)">
@@ -72,6 +72,7 @@ import ActionOptions from "../components/hud/ActionOptions.vue";
 import StatusLines from "../../../components/hud/StatusLines.vue";
 import NarrativeCard from "../../../components/story/NarrativeCard.vue";
 import { formatGameTimestamp } from "../../character/gameTime.js";
+import { hexDistance } from "../composables/useHexGeometry.js";
 import {
   buildOutdoorPlayActions,
   getMovementOptions,
@@ -81,6 +82,7 @@ import {
 import {
   annotateActionPrompts,
   filterAllowedActions,
+  isStoryForwardAction,
   isDestinationAllowed,
 } from "../../../composables/storyActionAvailability.js";
 import {
@@ -148,8 +150,18 @@ const playActions = computed(() => {
 });
 
 const actions = computed(() => [...chooseActions.value, ...playActions.value]);
+const allowedActions = computed(() =>
+  filterAllowedActions(actions.value, props.actionPolicy),
+);
+const suggestedActionId = computed(() =>
+  suggestedOutdoorStoryActionId(allowedActions.value, props.actionPolicy, props.outdoor),
+);
 const filteredActions = computed(() =>
-  annotateActionPrompts(filterAllowedActions(actions.value, props.actionPolicy), props.actionPolicy),
+  annotateActionPrompts(allowedActions.value, props.actionPolicy)
+    .map((action) => action.id === suggestedActionId.value
+      ? { ...action, promptCategory: "story" }
+      : action)
+    .sort(actionSort),
 );
 const clickableHexIds = computed(() => new Set(
   [...(props.outdoor.reachableHexIds ?? [])].filter((hexId) =>
@@ -180,6 +192,58 @@ function travelToAllowedHex(hexId) {
 function enterAllowedBuilding() {
   if (!buildingEnterable.value) return;
   props.enterBuilding();
+}
+
+function actionSort(a, b) {
+  const priority = (action) => action.promptCategory === "story" ? 0 : 1;
+  return priority(a) - priority(b);
+}
+
+function suggestedOutdoorStoryActionId(actions, policy, outdoor) {
+  if (!policy || policy.unrestricted || policy.mode !== "story") return null;
+  const explicit = actions.find((action) => isStoryForwardAction(action, policy));
+  if (explicit?.id) return explicit.id;
+
+  const targets = storyTargetHexes(policy);
+  if (!targets.length) return null;
+  const hexById = Object.fromEntries((outdoor.displayMapData?.hexes ?? []).map((hex) => [hex.id, hex]));
+  const current = hexById[outdoor.state?.currentId];
+  if (!current) return null;
+  const candidates = actions.filter((action) => action.toHexId && hexById[action.toHexId]);
+  if (!candidates.length) return null;
+
+  const currentDistance = nearestTargetDistance(current, targets, hexById);
+  let best = null;
+  let bestDistance = Infinity;
+  for (const action of candidates) {
+    const distance = nearestTargetDistance(hexById[action.toHexId], targets, hexById);
+    if (!Number.isFinite(distance)) continue;
+    if (distance < bestDistance) {
+      best = action;
+      bestDistance = distance;
+    }
+  }
+  if (!best) return null;
+  return bestDistance <= currentDistance ? best.id : null;
+}
+
+function nearestTargetDistance(hex, targets, hexById) {
+  return targets.reduce((best, targetId) => {
+    const target = hexById[targetId];
+    if (!target) return best;
+    return Math.min(best, hexDistance(hex, target));
+  }, Infinity);
+}
+
+function storyTargetHexes(policy) {
+  const allowed = policy?.allowed ?? {};
+  const hexes = new Set(Array.isArray(allowed.movement?.hexes) ? allowed.movement.hexes : []);
+  for (const id of allowed.storyForwardActions ?? []) {
+    if (typeof id !== "string") continue;
+    if (id.startsWith("move-hex:")) hexes.add(id.slice("move-hex:".length));
+    if (id.startsWith("route:") || id.startsWith("barrier:")) hexes.add(id.slice(id.indexOf(":") + 1));
+  }
+  return [...hexes];
 }
 </script>
 
