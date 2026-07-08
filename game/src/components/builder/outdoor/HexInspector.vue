@@ -1,5 +1,6 @@
 <script setup>
 import { normalizeStandEntries } from "../../../lib/maps/composables/useAvatarStand.js";
+import LocationViewsEditor from "../LocationViewsEditor.vue";
 
 defineProps({
   selected: { type: Object, required: true },
@@ -61,6 +62,11 @@ defineProps({
       </div>
     </div>
   </section>
+
+  <LocationViewsEditor
+    :owner="selected"
+    title="Hex views"
+  />
   <section class="form-section">
     <div class="subitem-heading">
       <strong>Stand points</strong>

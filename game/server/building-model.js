@@ -2,6 +2,10 @@ import {
   validateCharacterEffects,
   validateCharacterRequirements,
 } from "./character-reference-validation.js";
+import {
+  normalizeLocationViews,
+  validateLocationViews,
+} from "./location-media.js";
 
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -64,6 +68,7 @@ export function validateBuilding(input, {
   const standIdsByRoom = new Map();
   building.rooms.forEach((room, index) => {
     const base = `rooms.${index}`;
+    normalizeLocationViews(room);
     const levels = room.levels ?? (room.level ? [room.level] : []);
     if (!levels.length) add(`${base}.level`, "Rooms must belong to at least one level.");
     levels.forEach((level) => {
@@ -79,8 +84,11 @@ export function validateBuilding(input, {
     }
     if (room.mirror && !roomIds.has(room.mirror)) add(`${base}.mirror`, "Mirror must reference an existing room.");
     const standIds = validateIds(room.stands ?? [], `${base}.stands`, errors);
+    validateLocationViews(room, base, add, warn);
     for (const [standIndex, stand] of (room.stands ?? []).entries()) {
       const standBase = `${base}.stands.${standIndex}`;
+      normalizeLocationViews(stand);
+      validateLocationViews(stand, standBase, add, warn);
       if (!validPoint(stand.at)) add(`${standBase}.at`, "Room stands require numeric x/y coordinates.");
       if (
         validPoint(stand.at) &&

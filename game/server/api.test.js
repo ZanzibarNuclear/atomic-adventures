@@ -135,6 +135,12 @@ describe("story API", () => {
     expect(imagesRes.status).toBe(200);
     expect(images.images).toContain("items/field-backpack.png");
 
+    const viewImagesRes = responseCapture();
+    await api.handle(request("GET", "/api/character/public-images?folder=views"), viewImagesRes);
+    const viewImages = JSON.parse(viewImagesRes.chunks.join(""));
+    expect(viewImagesRes.status).toBe(200);
+    expect(viewImages.images).toContain("views/conference-room-cool-doorway.png");
+
     const storyArcDocumentRes = responseCapture();
     await api.handle(request("GET", "/api/story-arcs/document"), storyArcDocumentRes);
     const storyArcDocument = JSON.parse(storyArcDocumentRes.chunks.join(""));

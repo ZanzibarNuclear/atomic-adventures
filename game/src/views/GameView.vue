@@ -48,6 +48,10 @@ import {
   characterWellbeingOverview,
   visibleCharacterStats,
 } from "../lib/character/panel.js";
+import {
+  resolveIndoorLocationMedia,
+  resolveOutdoorLocationMedia,
+} from "../lib/maps/locationMedia.js";
 import { completeLesson } from "../lib/learning/completion.js";
 import {
   HOLO_READER_BROWSER_ACTION_ID,
@@ -66,6 +70,9 @@ const developerSettingsVisible = ref(false);
 const vitalsDialogVisible = ref(false);
 const inventoryDialogVisible = ref(false);
 const itemActionFeedback = ref("");
+const locationMediaMode = ref("map");
+const locationMediaIndex = ref(0);
+const locationMediaKey = ref(null);
 const WELLBEING_STAT_IDS = new Set(["health", "satiety", "hydration", "energy", "composure"]);
 const {
   activeView,
@@ -174,6 +181,11 @@ const storyActionAvailability = computed(() => ({
   unrestricted: gameState.playMode !== "story" || !actionBeat.value,
 }));
 const wellbeingItemActionIds = computed(() => itemActionIdsForWellbeing(gameState.character));
+const currentLocationMedia = computed(() =>
+  place.value === "indoors"
+    ? resolveIndoorLocationMedia(indoor)
+    : resolveOutdoorLocationMedia(outdoor),
+);
 
 function applyChoice(index = 0) {
   if (gameState.playMode === "open-world") {
@@ -451,6 +463,27 @@ watch(
   },
 );
 
+watch(
+  () => currentLocationMedia.value?.key ?? null,
+  (key, previousKey) => {
+    if (!key) {
+      locationMediaKey.value = null;
+      locationMediaMode.value = "map";
+      locationMediaIndex.value = 0;
+      return;
+    }
+    const viewCount = currentLocationMedia.value?.views?.length ?? 0;
+    if (key !== previousKey && key !== locationMediaKey.value) {
+      locationMediaMode.value = "map";
+      locationMediaIndex.value = 0;
+    } else if (locationMediaIndex.value >= viewCount) {
+      locationMediaIndex.value = Math.max(0, viewCount - 1);
+    }
+    locationMediaKey.value = key;
+  },
+  { immediate: true },
+);
+
 onMounted(async () => {
   if (hasSave()) load(saveCtx.value);
   await refreshContent();
@@ -490,6 +523,24 @@ function handleReturnToMap() {
   returnToMap();
   lessonCompletionError.value = "";
   nextTick(() => document.querySelector(".player-health")?.focus());
+}
+
+function showLocationImage() {
+  if (!currentLocationMedia.value?.views?.length) return;
+  locationMediaKey.value = currentLocationMedia.value.key;
+  if (locationMediaIndex.value >= currentLocationMedia.value.views.length) locationMediaIndex.value = 0;
+  locationMediaMode.value = "image";
+}
+
+function showLocationMap() {
+  locationMediaMode.value = "map";
+}
+
+function stepLocationImage(delta) {
+  const count = currentLocationMedia.value?.views?.length ?? 0;
+  if (count < 2) return;
+  locationMediaIndex.value = (locationMediaIndex.value + delta + count) % count;
+  locationMediaMode.value = "image";
 }
 
 function currentWorldHolderId() {
@@ -804,6 +855,13 @@ function openInventoryDialog() {
       :audit-enabled="movementAuditVisible"
       :action-policy="wellbeingAvailableActions"
       :wellbeing-overview="wellbeingOverview"
+      :location-media="currentLocationMedia"
+      :location-media-mode="locationMediaMode"
+      :location-media-index="locationMediaIndex"
+      @show-location-map="showLocationMap"
+      @show-location-image="showLocationImage"
+      @previous-location-image="stepLocationImage(-1)"
+      @next-location-image="stepLocationImage(1)"
       @hide-movement-audit="movementAuditVisible = false" />
 
     <IndoorScene
@@ -818,8 +876,15 @@ function openInventoryDialog() {
       :extra-actions="focusedConsoleActions"
       :action-policy="wellbeingAvailableActions"
       :wellbeing-overview="wellbeingOverview"
+      :location-media="currentLocationMedia"
+      :location-media-mode="locationMediaMode"
+      :location-media-index="locationMediaIndex"
       @extra-action="handleHoloReaderAction"
       @stage-view="openStageView"
+      @show-location-map="showLocationMap"
+      @show-location-image="showLocationImage"
+      @previous-location-image="stepLocationImage(-1)"
+      @next-location-image="stepLocationImage(1)"
       @hide-movement-audit="movementAuditVisible = false" />
 
     <InventoryStageView

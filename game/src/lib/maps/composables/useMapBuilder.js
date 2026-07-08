@@ -305,7 +305,23 @@ function serializeStand(stand, indent) {
   if (stand.label) lines.push(`${inner}label: ${JSON.stringify(stand.label)}`)
   if (stand.entryFrom?.length) lines.push(`${inner}entryFrom: [${stand.entryFrom.join(', ')}]`)
   lines.push(`${inner}at: ${fmtStandAt(stand.at)}`)
+  lines.push(...serializeViews(stand.views, indent + 2))
   return lines.join('\n')
+}
+
+function serializeViews(views, indent) {
+  if (!views?.length) return []
+  const pad = ' '.repeat(indent)
+  const inner = ' '.repeat(indent + 2)
+  const lines = [`${pad}views:`]
+  for (const view of views) {
+    lines.push(`${inner}- id: ${view.id}`)
+    lines.push(`${inner}  kind: ${view.kind ?? 'image'}`)
+    if (view.src) lines.push(`${inner}  src: ${JSON.stringify(view.src)}`)
+    if (view.label) lines.push(`${inner}  label: ${JSON.stringify(view.label)}`)
+    if (view.alt) lines.push(`${inner}  alt: ${JSON.stringify(view.alt)}`)
+  }
+  return lines
 }
 
 function serializeHexBlock(hex, indent) {
@@ -318,6 +334,7 @@ function serializeHexBlock(hex, indent) {
     `${inner}terrain: ${hex.terrain}`,
   ]
   if (hex.puzzle) lines.push(`${inner}puzzle: ${hex.puzzle}`)
+  lines.push(...serializeViews(hex.views, indent + 2))
   if (hex.stands?.length) {
     lines.push(`${inner}stands:`)
     for (const stand of hex.stands) lines.push(serializeStand(stand, indent + 4))

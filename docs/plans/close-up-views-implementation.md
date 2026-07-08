@@ -64,27 +64,27 @@ the top-down map. The first proof case is the conference room, but the feature
 is location image close-ups generally: the map stage can switch between the
 movement map and authored images for any room, hex, or stand point.
 
-- [ ] Add `views` arrays to world/building content for hexes, outdoor stands,
+- [x] Add `views` arrays to world/building content for hexes, outdoor stands,
       rooms, and indoor stands, following
       [location-media.md](../contracts/location-media.md).
-- [ ] Seed the Utility Station conference room with
+- [x] Seed the Utility Station conference room with
       `views/conference-room-cool-doorway.png` as the first proof case.
-- [ ] Resolve available images from current location with stand-level views
+- [x] Resolve available images from current location with stand-level views
       overriding room or hex views.
-- [ ] Show a photo/camera icon in the upper-left map control area when the
+- [x] Show a photo/camera icon in the upper-left map control area when the
       current resolved location has at least one image.
-- [ ] Switch the stage to the first available image, or the remembered valid
+- [x] Switch the stage to the first available image, or the remembered valid
       image index for the same location, when the player activates the icon.
-- [ ] Show a map icon in the same control position while a location image is
+- [x] Show a map icon in the same control position while a location image is
       visible.
-- [ ] Add light left/right carousel controls when multiple images are available.
-- [ ] Preserve scene prose, transient messages, and action buttons across
+- [x] Add light left/right carousel controls when multiple images are available.
+- [x] Preserve scene prose, transient messages, and action buttons across
       map/image toggles and carousel movement.
-- [ ] Restore the remembered map/image mode after non-movement stage views such
+- [x] Restore the remembered map/image mode after non-movement stage views such
       as inventory, health, documents, lessons, or information cards.
-- [ ] Return to the map after any action that exits the represented location,
+- [x] Return to the map after any action that exits the represented location,
       including room, stand, building, or outdoor movement.
-- [ ] Add World Builder editing, preview, validation, and YAML import/export for
+- [x] Add World Builder editing, preview, validation, and YAML import/export for
       location `views` on supported owners, sourcing images from
       `game/public/views` the same way artifact images are sourced from
       `game/public/items`.
@@ -94,7 +94,7 @@ movement map and authored images for any room, hex, or stand point.
 - [ ] Support authored available actions inside a close-up.
 - [ ] Keep Character view access consistent unless a modal view explicitly
       blocks leaving.
-- [ ] Add focused behavior tests that fail when map/image switching, carousel
+- [~] Add focused behavior tests that fail when map/image switching, carousel
       navigation, non-movement restoration, movement reset, builder validation,
       blocked exits, repeated open/return cycles, keyboard navigation, or save
       behavior around fixture views is broken.

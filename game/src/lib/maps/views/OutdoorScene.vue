@@ -21,23 +21,33 @@
   </div>
 
   <section class="stage">
-    <HexMap
-      :map-data="outdoor.displayMapData"
-      :route-models="outdoor.routeModels"
-      :feature-models="outdoor.featureModels"
-      :current-hex="outdoor.state.currentId"
-      :discovered="auditEnabled ? allHexIds : outdoor.discoveredList"
-      :discovered-openings="outdoor.state.discoveredOpenings"
-      :passage-states="outdoor.passageMarkerStates"
-      :flags="outdoor.flags"
-      :mode="auditEnabled ? 'full' : outdoor.mode"
-      :stand-override="outdoor.standOverride"
-      :building-enterable="buildingEnterable"
-      :clickable-hex-ids="clickableHexIds"
-      :movement-audit-entries="visibleAuditEntries"
-      :avatar-instant="auditEnabled"
-      @hex-click="travelToAllowedHex"
-      @building-enter="enterAllowedBuilding" />
+    <LocationStageFrame
+      :media="locationMedia"
+      :mode="locationMediaMode"
+      :selected-index="locationMediaIndex"
+      :busy="outdoor.traveling"
+      @show-map="$emit('show-location-map')"
+      @show-image="$emit('show-location-image')"
+      @previous-image="$emit('previous-location-image')"
+      @next-image="$emit('next-location-image')">
+      <HexMap
+        :map-data="outdoor.displayMapData"
+        :route-models="outdoor.routeModels"
+        :feature-models="outdoor.featureModels"
+        :current-hex="outdoor.state.currentId"
+        :discovered="auditEnabled ? allHexIds : outdoor.discoveredList"
+        :discovered-openings="outdoor.state.discoveredOpenings"
+        :passage-states="outdoor.passageMarkerStates"
+        :flags="outdoor.flags"
+        :mode="auditEnabled ? 'full' : outdoor.mode"
+        :stand-override="outdoor.standOverride"
+        :building-enterable="buildingEnterable"
+        :clickable-hex-ids="clickableHexIds"
+        :movement-audit-entries="visibleAuditEntries"
+        :avatar-instant="auditEnabled"
+        @hex-click="travelToAllowedHex"
+        @building-enter="enterAllowedBuilding" />
+    </LocationStageFrame>
     <MapCaption :title="hexLabel(outdoor.currentHexData)" />
     <p v-if="clock" class="game-timestamp">{{ formatGameTimestamp(clock) }}</p>
   </section>
@@ -66,6 +76,7 @@
 import { computed, ref } from "vue";
 import { hexLabel } from "../../displayLabel.js";
 import HexMap from "../components/HexMap.vue";
+import LocationStageFrame from "../../../components/game-views/LocationStageFrame.vue";
 import PlayPanel from "../../../components/hud/PlayPanel.vue";
 import MapCaption from "../components/hud/MapCaption.vue";
 import ActionOptions from "../components/hud/ActionOptions.vue";
@@ -102,9 +113,18 @@ const props = defineProps({
   auditEnabled: { type: Boolean, default: false },
   actionPolicy: { type: Object, default: null },
   wellbeingOverview: { type: Object, default: null },
+  locationMedia: { type: Object, default: null },
+  locationMediaMode: { type: String, default: "map" },
+  locationMediaIndex: { type: Number, default: 0 },
 });
 
-defineEmits(["hide-movement-audit"]);
+defineEmits([
+  "hide-movement-audit",
+  "show-location-map",
+  "show-location-image",
+  "previous-location-image",
+  "next-location-image",
+]);
 
 const devMode = import.meta.env.DEV;
 const auditState = ref("all");

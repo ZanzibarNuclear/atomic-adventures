@@ -24,6 +24,7 @@ export function normalizeStandEntries(hex) {
     ? hex.stands
         .filter((stand) => stand && typeof stand === 'object' && stand.at)
         .map((stand, index) => ({
+          ...stand,
           id: stand.id ?? `stand-${index + 1}`,
           label: stand.label ?? stand.id ?? `Stand ${index + 1}`,
           at: stand.at,

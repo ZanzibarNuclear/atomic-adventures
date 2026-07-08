@@ -1,6 +1,16 @@
 <template>
   <section class="stage">
-    <IndoorMapStage v-bind="mapStageProps" v-on="mapStageListeners" />
+    <LocationStageFrame
+      :media="locationMedia"
+      :mode="locationMediaMode"
+      :selected-index="locationMediaIndex"
+      :busy="indoor.indoor.moving"
+      @show-map="$emit('show-location-map')"
+      @show-image="$emit('show-location-image')"
+      @previous-image="$emit('previous-location-image')"
+      @next-image="$emit('next-location-image')">
+      <IndoorMapStage v-bind="mapStageProps" v-on="mapStageListeners" />
+    </LocationStageFrame>
     <MapCaption :title="locationTitle" />
     <p v-if="clock" class="game-timestamp">{{ formatGameTimestamp(clock) }}</p>
   </section>
@@ -35,6 +45,7 @@
 import { computed } from "vue";
 import { displayLabel, roomLabel } from "../../displayLabel.js";
 import IndoorMapStage from "../components/IndoorMapStage.vue";
+import LocationStageFrame from "../../../components/game-views/LocationStageFrame.vue";
 import PlayPanel from "../../../components/hud/PlayPanel.vue";
 import MapCaption from "../components/hud/MapCaption.vue";
 import ActionOptions from "../components/hud/ActionOptions.vue";
@@ -67,9 +78,20 @@ const props = defineProps({
   extraActions: { type: Array, default: () => [] },
   actionPolicy: { type: Object, default: null },
   wellbeingOverview: { type: Object, default: null },
+  locationMedia: { type: Object, default: null },
+  locationMediaMode: { type: String, default: "map" },
+  locationMediaIndex: { type: Number, default: 0 },
 });
 
-const emit = defineEmits(["hide-movement-audit", "extra-action", "stage-view"]);
+const emit = defineEmits([
+  "hide-movement-audit",
+  "extra-action",
+  "stage-view",
+  "show-location-map",
+  "show-location-image",
+  "previous-location-image",
+  "next-location-image",
+]);
 const devMode = import.meta.env.DEV;
 
 const locationTitle = computed(() => {
