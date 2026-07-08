@@ -101,6 +101,7 @@ export function buildMapMovementAudit(mapData) {
         fromHex,
         toHex,
         movementCase.auditStand,
+        { allowRouteOpenings: (movementCase.expectedPassages ?? []).length > 0 },
       )
       const expected = movementCase.expectedMoves.includes(destination)
       const expectedStateId = expected
@@ -117,7 +118,12 @@ export function buildMapMovementAudit(mapData) {
           }
         : null
       const pathBlocked = path
-        ? firstBlockedOnPath(path, world.ctx) != null
+        ? firstBlockedOnPath(
+            path,
+            evaluated.routeLeg
+              ? { ...world.ctx, allowOpenings: true, allowOpeningHexId: movementCase.hexId }
+              : world.ctx,
+          ) != null
         : true
       const safe =
         !!stand &&

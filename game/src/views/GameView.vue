@@ -123,7 +123,7 @@ const storyArcData = computed(() => normalizeStoryArcContent(storyArcDocument.va
 const {
   activeArc,
   activeBeat,
-  activeScene,
+  displayScene,
   activeChoices,
   storyActions,
   applyStoryAction,
@@ -145,7 +145,7 @@ const openWorldStory = useOpenWorldStory(storyData, {
 });
 const narrativeBeat = computed(() => {
   if (gameState.playMode === "open-world") return openWorldStory.activeScene.value;
-  const scene = activeScene.value;
+  const scene = displayScene.value;
   if (!scene) return null;
   const seen = gameState.story?.seenSceneIds?.includes(scene.id) ?? false;
   return {

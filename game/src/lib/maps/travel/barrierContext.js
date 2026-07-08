@@ -155,7 +155,20 @@ function closedBarrierCtx(ctx) {
 
 /** Context for adjacent hex travel: barriers block; openings do not apply. */
 export function interHexTravelCtx(ctx) {
+  if (ctx?.allowOpenings) return ctx;
   return closedBarrierCtx(ctx);
+}
+
+function openingMatchesBarrierKind(opening, kind) {
+  return BARRIER_OPENINGS[kind]?.includes(opening.kind) ?? false;
+}
+
+function hitCoveredByOpening(hit, seg, ctx) {
+  return (ctx.openings ?? []).some((opening) =>
+    (!ctx.allowOpeningHexId || opening.hex === ctx.allowOpeningHexId) &&
+    openingMatchesBarrierKind(opening, seg.kind) &&
+    pointDistance(hit, opening) <= Number(opening.r ?? 0) + 1,
+  );
 }
 
 /** First barrier hit along a polyline path; null when none. */
@@ -170,6 +183,7 @@ export function firstBlockedOnPath(path, ctx) {
       const cross = segmentIntersection(a, b, seg.a, seg.b);
       if (!cross || cross.t < PATH_ORIGIN_EPS) continue;
       if (!pathCrossesBarrier(a, b, seg.a, seg.b)) continue;
+      if (hitCoveredByOpening(cross, seg, travelCtx)) continue;
       return { ...cross, kind: seg.kind, segIndex: i, a: seg.a, b: seg.b };
     }
   }
@@ -193,6 +207,7 @@ export function firstBlockedOnPathInHex(path, ctx, hexId, hexAtPoint) {
       const cross = segmentIntersection(a, b, seg.a, seg.b);
       if (!cross || cross.t < PATH_ORIGIN_EPS) continue;
       if (!pathCrossesBarrier(a, b, seg.a, seg.b)) continue;
+      if (hitCoveredByOpening(cross, seg, travelCtx)) continue;
       if (hexAtPoint({ x: cross.x, y: cross.y }, hexId) === hexId) {
         return { ...cross, kind: seg.kind, segIndex: i, a: seg.a, b: seg.b };
       }

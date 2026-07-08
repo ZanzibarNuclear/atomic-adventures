@@ -134,7 +134,7 @@ export function buildOutdoorEnterBuildingActions(outdoor, indoor) {
   if (!outdoor.atBuildingEntrance || !indoor?.building?.label) return [];
   return [{
     id: "enter-building",
-    label: `Enter ${withArticle(indoor.building.label)}`,
+    label: "Take a closer look",
     enterBuilding: true,
     kind: "transition",
   }];

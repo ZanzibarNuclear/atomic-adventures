@@ -196,6 +196,7 @@ export function availableMoves(currentHexId, models, travelOpts = null) {
       ctx: travelOpts.barriers,
       hexAtPoint: travelOpts.hexAtPoint,
       size: travelOpts.size,
+      allowOpenings: Boolean(routeLeg),
     })
   }
 

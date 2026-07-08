@@ -83,7 +83,7 @@ describe("story arc visible actions", () => {
     expect(labels(story.storyActions.value)).toEqual([]);
   });
 
-  it("recovers forward when noncanonical travel reaches a later story location", async () => {
+  it("shows ambient location prose without advancing the active story beat", async () => {
     const place = ref("outdoors");
     const outdoor = reactive({
       state: {
@@ -155,6 +155,10 @@ describe("story arc visible actions", () => {
               id: "the-gate",
               trigger: { place: "outdoors", hex: "gate-woods" },
               prose: "The compound gate blocks the road.",
+            }, {
+              id: "upper-gorge",
+              trigger: { place: "outdoors", hex: "upper-gorge" },
+              prose: "The gorge narrows around the river.",
             }],
           },
         ],
@@ -164,14 +168,97 @@ describe("story arc visible actions", () => {
     const story = useStoryArc(storyData, { gameState, place, outdoor, indoor });
     await nextTick();
 
-    expect(gameState.story.activeBeatId).toBe("far-pines");
-    expect(story.activeScene.value?.id).toBe("far-pines");
+    expect(gameState.story.activeBeatId).toBe("keep-moving-west");
+    expect(story.activeScene.value).toBeNull();
+    expect(story.displayScene.value?.id).toBe("far-pines");
+    expect(story.displayScene.value?.ambient).toBe(true);
 
-    outdoor.state.previousId = "north-bend";
-    outdoor.state.currentId = "gate-woods";
+    outdoor.state.previousId = "road-fork";
+    outdoor.state.currentId = "upper-gorge";
+    await nextTick();
+
+    expect(gameState.story.activeBeatId).toBe("keep-moving-west");
+    expect(story.activeScene.value).toBeNull();
+    expect(story.displayScene.value?.id).toBe("upper-gorge");
+    expect(story.displayScene.value?.ambient).toBe(true);
+  });
+
+  it("recovers forward only when a later beat's completion condition is already met", async () => {
+    const place = ref("outdoors");
+    const outdoor = reactive({
+      state: {
+        currentId: "gate-woods",
+        previousId: "north-bend",
+        mapTransition: null,
+        transitionDirection: null,
+      },
+    });
+    const indoor = reactive({ indoor: { currentRoom: null, exteriorNode: null } });
+    const gameState = reactive({
+      playMode: "story",
+      story: {
+        activeArcId: "part-i",
+        activeBeatId: "keep-moving-west",
+        enteredBeatIds: [],
+        completedBeatIds: [],
+        seenSceneIds: [],
+      },
+      flags: new Set(),
+      milestones: {},
+      facilities: {},
+      lessons: {},
+      clock: null,
+      character: null,
+    });
+    const storyData = computed(() => normalizeStoryArcContent({
+      storyArcs: [{
+        id: "part-i",
+        startBeat: "keep-moving-west",
+        beats: [
+          {
+            id: "keep-moving-west",
+            scene: "east-pines",
+            completesWhen: { location: { place: "outdoors", hex: "center-pines" } },
+            next: "reach-the-gate",
+            scenes: [{
+              id: "east-pines",
+              trigger: { place: "outdoors", hex: "east-pines" },
+              prose: "Keep moving west.",
+            }],
+          },
+          {
+            id: "reach-the-gate",
+            scene: "north-bend",
+            completesWhen: { location: { place: "outdoors", hex: "gate-woods" } },
+            next: "find-a-way-past-fence",
+            scenes: [{
+              id: "north-bend",
+              trigger: { place: "outdoors", hex: "north-bend" },
+              prose: "The fence bends toward a gate.",
+            }],
+          },
+          {
+            id: "find-a-way-past-fence",
+            scene: "the-gate",
+            scenes: [{
+              id: "the-gate",
+              trigger: { place: "outdoors", hex: "gate-woods" },
+              prose: "The compound gate blocks the road.",
+            }, {
+              id: "upper-gorge",
+              trigger: { place: "outdoors", hex: "upper-gorge" },
+              prose: "The gorge narrows around the river.",
+            }],
+          },
+        ],
+      }],
+    }));
+
+    const story = useStoryArc(storyData, { gameState, place, outdoor, indoor });
     await nextTick();
 
     expect(gameState.story.activeBeatId).toBe("find-a-way-past-fence");
     expect(story.activeScene.value?.id).toBe("the-gate");
+    expect(story.displayScene.value?.ambient).toBeUndefined();
   });
 });

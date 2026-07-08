@@ -72,6 +72,7 @@ export function useOutdoorMovement({
       ctx,
       hexAtPoint,
       size: size.value,
+      allowOpenings: Boolean(routeLeg),
     });
     return { fromHex, toHex, fromPos, toPos, routeLeg, path, result };
   }

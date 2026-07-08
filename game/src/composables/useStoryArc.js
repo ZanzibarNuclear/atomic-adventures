@@ -4,7 +4,7 @@ import { applyEffectsAtomically } from "../lib/character/effects.js";
 import { itemQuantity } from "../lib/character/holdings.js";
 import { hasFlag, setFlags } from "../lib/maps/composables/useFlags.js";
 import { createStoryState, STORY_ARC_ID } from "./useGameState.js";
-import { selectSceneForBeat } from "./storyArcModel.js";
+import { selectAmbientSceneForArc, selectSceneForBeat } from "./storyArcModel.js";
 
 const MAX_ADVANCES_PER_TICK = 10;
 
@@ -40,15 +40,25 @@ export function useStoryArc(storyData, {
     room: indoor?.indoor?.currentRoom ?? null,
     exteriorNode: indoor?.indoor?.exteriorNode ?? null,
   }));
+  const sceneContext = computed(() => ({
+    playMode: gameState.playMode,
+    location: locationContext.value,
+    flags: gameState.flags,
+    milestones: gameState.milestones,
+    clock: gameState.clock,
+  }));
   const activeScene = computed(() => {
     if (gameState.playMode !== "story" || !activeBeat.value) return null;
-    return selectSceneForBeat(activeBeat.value, {
-      playMode: gameState.playMode,
-      location: locationContext.value,
-      flags: gameState.flags,
-      milestones: gameState.milestones,
-      clock: gameState.clock,
-    });
+    return selectSceneForBeat(activeBeat.value, sceneContext.value);
+  });
+  const ambientScene = computed(() => {
+    if (gameState.playMode !== "story" || activeScene.value || !activeArc.value) return null;
+    return selectAmbientSceneForArc(activeArc.value, sceneContext.value);
+  });
+  const displayScene = computed(() => activeScene.value ?? ambientScene.value);
+  const visibleScene = computed(() => {
+    if (gameState.playMode !== "story") return null;
+    return displayScene.value;
   });
   const activeChoices = computed(() => {
     if (gameState.playMode !== "story" || !activeBeat.value) return [];
@@ -113,16 +123,8 @@ export function useStoryArc(storyData, {
     const beats = arc.beats ?? [];
     const startIndex = beats.findIndex((candidate) => candidate.id === beat.id);
     if (startIndex < 0) return false;
-    const context = {
-      playMode: gameState.playMode,
-      location: locationContext.value,
-      flags: gameState.flags,
-      milestones: gameState.milestones,
-      clock: gameState.clock,
-    };
     for (const candidate of beats.slice(startIndex + 1)) {
       if (
-        selectSceneForBeat(candidate, context) ||
         isCompletionConditionMet(candidate.completesWhen, { gameState, place, outdoor, indoor })
       ) {
         gameState.story.activeBeatId = candidate.id;
@@ -285,6 +287,8 @@ export function useStoryArc(storyData, {
     activeArc,
     activeBeat,
     activeScene,
+    ambientScene,
+    displayScene: visibleScene,
     activeChoices,
     storyActions,
     applyStoryAction,

@@ -93,6 +93,31 @@ export function normalizeScene(source = {}, index = 0, context = {}) {
 
 export function selectSceneForBeat(beat, context = {}) {
   const scenes = Array.isArray(beat?.scenes) ? beat.scenes : [];
+  return selectBestScene(scenes, context);
+}
+
+export function selectAmbientSceneForArc(arc, context = {}) {
+  const beats = Array.isArray(arc?.beats) ? arc.beats : [];
+  let selected = null;
+  let selectedScore = -1;
+
+  for (const [beatIndex, beat] of beats.entries()) {
+    const scene = selectSceneForBeat(beat, context);
+    if (!scene) continue;
+    const score = sceneSelectionScore(scene, context) + ambientBeatScore(beatIndex, beats.length);
+    if (score < 0 || score <= selectedScore) continue;
+    selected = {
+      ...scene,
+      ambient: true,
+      storyBeatId: beat.id,
+    };
+    selectedScore = score;
+  }
+
+  return selected;
+}
+
+function selectBestScene(scenes, context = {}) {
   const loc = context.location ?? {};
   const event = context.event ?? null;
   const action = context.actionContext ?? sceneActionContext(loc, event);
@@ -111,6 +136,17 @@ export function selectSceneForBeat(beat, context = {}) {
   }
 
   return selected;
+}
+
+function sceneSelectionScore(scene, context = {}) {
+  const loc = context.location ?? {};
+  const event = context.event ?? null;
+  const action = context.actionContext ?? sceneActionContext(loc, event);
+  return matchScore(scene, loc, action) + timeScore(scene);
+}
+
+function ambientBeatScore(index, total) {
+  return total > 0 ? (total - index) / (total + 1) : 0;
 }
 
 export function sceneActionContext(loc, event = null) {

@@ -51,6 +51,7 @@ export function isActionAllowed(action, policy, context = {}) {
   if (actionId.startsWith("move-room:")) return true;
   if (actionId.startsWith("move-exterior:")) return true;
   if (actionId.startsWith("move-stand:")) return true;
+  if (actionId.startsWith("exit-world:")) return true;
   if (actionId.startsWith("action:")) {
     const raw = actionId.slice("action:".length);
     return listIncludes(allowed.indoorActions, raw) || listIncludes(allowed.indoorActions, actionId);
@@ -65,7 +66,7 @@ export function isActionAllowed(action, policy, context = {}) {
     return listIncludes(allowed.itemActions, raw) || listIncludes(allowed.itemActions, actionId);
   }
   if (context.itemId && context.actionId) return itemActionAllowed(allowed, context.itemId, context.actionId);
-  if (actionId.startsWith("door-") || actionId.startsWith("switch:") || actionId.startsWith("exit-world:")) {
+  if (actionId.startsWith("door-") || actionId.startsWith("switch:")) {
     return listIncludes(allowed.indoorActions, actionId);
   }
   if (

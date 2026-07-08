@@ -259,7 +259,13 @@ describe('map-wide outdoor movement audit', () => {
             preview?.result.path
               ? firstBlockedOnPath(
                   preview.result.path,
-                  outdoor.travelBarrierCtx,
+                  preview.routeLeg
+                    ? {
+                        ...outdoor.travelBarrierCtx,
+                        allowOpenings: true,
+                        allowOpeningHexId: movementCase.hexId,
+                      }
+                    : outdoor.travelBarrierCtx,
                 )
               : null,
             `${setupLabel}->${destination}: resolved path crosses a barrier`,

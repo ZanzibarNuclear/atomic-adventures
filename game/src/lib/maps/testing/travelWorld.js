@@ -132,9 +132,10 @@ export function offeredMoves(world, fromHex, fromPos) {
 /**
  * Evaluate a single step to an adjacent hex using the same path rules as gameplay.
  */
-export function evaluateNeighborMove(world, fromHex, toHex, fromPos) {
+export function evaluateNeighborMove(world, fromHex, toHex, fromPos, options = {}) {
   const toPos = world.resolveStand(toHex, fromHex, fromPos)
   const routeLeg = routeLegBetween(fromHex.id, toHex.id, world.routeModels)
+  const allowRouteOpenings = Boolean(routeLeg) && options.allowRouteOpenings === true
   const path = buildMovePath(
     fromPos,
     fromHex,
@@ -153,13 +154,19 @@ export function evaluateNeighborMove(world, fromHex, toHex, fromPos) {
     ctx: world.ctx,
     hexAtPoint: world.hexAtPoint,
     size: world.size,
+    allowOpenings: allowRouteOpenings,
   }
 
   const result = resolveMove(moveArgs)
   const enters = result.activeHexId === toHex.id
   const offerable = enters
   const reachable = !result.blockedKind && result.activeHexId === toHex.id
-  const hit = firstBlockedOnPath(path, world.ctx)
+  const hit = firstBlockedOnPath(
+    path,
+    allowRouteOpenings
+      ? { ...world.ctx, allowOpenings: true, allowOpeningHexId: fromHex.id }
+      : world.ctx,
+  )
 
   return { path, result, offerable, enters, reachable, hit, toPos, routeLeg }
 }

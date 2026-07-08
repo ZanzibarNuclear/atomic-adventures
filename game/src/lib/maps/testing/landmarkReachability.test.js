@@ -82,7 +82,7 @@ describe('landmark reachability', () => {
 
     expect(outdoor.atBuildingEntrance).toBe(true)
     expect(enter).toMatchObject({
-      label: 'Enter the Utility Station',
+      label: 'Take a closer look',
       enterBuilding: true,
     })
     expect(filterAllowedActions(actions, { mode: 'story', allowed: {} })).toContain(enter)
@@ -99,7 +99,7 @@ describe('landmark reachability', () => {
 
       expect(outdoor.atBuildingEntrance).toBe(true)
       expect(actions.find((action) => action.id === 'enter-building')).toMatchObject({
-        label: 'Enter the Utility Station',
+        label: 'Take a closer look',
         enterBuilding: true,
       })
     },
@@ -120,7 +120,7 @@ describe('landmark reachability', () => {
       suppressEnterBuilding: playActions.some((action) => action.id === 'enter-building'),
     })
 
-    expect(playActions.map((action) => action.label)).toContain('Enter the Utility Station')
+    expect(playActions.map((action) => action.label)).toContain('Take a closer look')
     expect(chooseActions.map((action) => action.label)).not.toContain('Open the local map')
   })
 

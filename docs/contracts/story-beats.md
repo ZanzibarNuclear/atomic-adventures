@@ -38,9 +38,12 @@ The game has two explicit modes:
   should read as general area descriptions or player-authored discovery
   prompts, not as Zanzibar's required canonical path.
 
-In Story mode, `useStoryArc` selects a scene from the active `StoryBeat`.
-Choices and authored actions remain attached to the story beat, not to the
-selected scene, so prose can vary without changing the action model.
+In Story mode, `useStoryArc` first selects a scene from the active
+`StoryBeat`. If the active beat has no matching scene for the player's current
+location, the prose layer may fall back to a matching ambient scene from the
+active arc. Choices and authored actions remain attached to the active story
+beat, not to the selected prose scene, so exploratory location information can
+appear without changing the action model or advancing canonical progression.
 
 In open-world mode, a separate controller may reuse scenes as ambient
 descriptions with fewer canonical constraints. Open-world scene selection
@@ -138,8 +141,15 @@ narrative design tool. Story Builder should warn when multiple scenes at the
 selected location use the same match and time criteria.
 
 If no scene has matching criteria and no default scene exists for the active
-beat and location, the runtime shows no new prose for that pass. The active
-story beat and its actions remain stable.
+beat and location, the runtime may use a matching ambient scene from elsewhere
+in the active arc as prose-only location information. Ambient fallback scenes
+do not contribute choices, authored actions, enter effects, complete effects,
+or story-beat advancement. The active story beat and its actions remain
+stable.
+
+If neither the active beat nor the ambient fallback has matching criteria, the
+runtime shows no new prose for that pass. The active story beat and its
+actions remain stable.
 
 ## Triggers
 

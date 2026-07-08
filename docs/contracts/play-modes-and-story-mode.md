@@ -61,7 +61,10 @@ normalized during migration, but they are not permanent design concepts.
 - **Story mode is guided, not railed.** It should keep at least one plausible
   story-continuing path visible when the world allows it, while ordinary
   physically valid movement remains available. Detours may cost time, energy,
-  hydration, satiety, or safety.
+  hydration, satiety, or safety. When the player steps off the canonical path,
+  the prose layer may show ambient information for the current location while
+  the active story beat waits for an explicit completion condition, choice, or
+  effect to reconnect progression.
 - **Choices live on story beats.** Scenes are prose variants. Choices and
   authored actions belong to the active `StoryBeat` so the player-facing action
   set remains stable while prose varies by location, time, flags, milestones,
