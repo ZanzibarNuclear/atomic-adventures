@@ -17,6 +17,7 @@ export function useStoryArc(storyData, {
   engineActions = () => [],
 } = {}) {
   const storyArcs = computed(() => storyData.value?.storyArcs ?? []);
+  const ambientScenes = computed(() => storyData.value?.ambientScenes ?? []);
   const activeArc = computed(() => {
     if (gameState.playMode !== "story") return null;
     return storyArcs.value.find((arc) => arc.id === gameState.story?.activeArcId)
@@ -53,7 +54,7 @@ export function useStoryArc(storyData, {
   });
   const ambientScene = computed(() => {
     if (gameState.playMode !== "story" || activeScene.value || !activeArc.value) return null;
-    return selectAmbientSceneForArc(activeArc.value, sceneContext.value);
+    return selectAmbientSceneForArc(activeArc.value, sceneContext.value, ambientScenes.value);
   });
   const displayScene = computed(() => activeScene.value ?? ambientScene.value);
   const visibleScene = computed(() => {

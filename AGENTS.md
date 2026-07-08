@@ -133,6 +133,24 @@ Run tests again after each meaningful code change in those areas — not only at
 
 Tests in this repo must protect named invariants, not freeze incidental implementation details. A useful test should have a one-sentence contract such as "failed item-effect batches leave no partial inventory or flag changes," "closed barriers cannot be crossed unless the matching opening is discovered/open," "save/load preserves player location, flags, holdings, vitals, and clock," or "a consumable item action available to the player appears in inventory and applies its stat effect." Avoid tests that only pin current wording, CSS selectors, component structure, authored IDs, or the exact shape of a temporary UI. If a test would still pass when the player-facing behavior is broken, or would fail when an allowed wording/content/layout change happens, it is a misleading test. Delete or replace misleading tests instead of preserving them as legacy coverage.
 
+Regression tests for bug fixes have a stricter bar: prove the test fails
+against the broken implementation before relying on it. The expected workflow
+is red first, then green:
+
+1. Reproduce the bug with a test or small verification that uses the real
+   failing data shape, state transition, or integration path.
+2. Run it before the fix and confirm it fails for the right reason.
+3. Implement the fix.
+4. Run the same test again and confirm it passes.
+
+Do not add a regression test if you did not see it fail against the broken
+behavior. Do not use synthetic fixtures that bypass the actual failure path
+just because they are easier to set up. If the useful failing check would be
+too expensive or brittle to keep in the suite, use it as a temporary
+verification during the fix and say so in the final notes instead of committing
+a fake-green test. When reporting the work, mention the failing-before-fix
+check for any regression test you keep.
+
 When adding or changing movement, barrier, or arrival behavior, add or update a test in `game/src/lib/maps/testing/` or `game/src/composables/`. See [docs/contracts/hex-crawling.md](docs/contracts/hex-crawling.md) for the movement contract (two-step border-then-stand, in-hex `crossPassage` vs inter-hex travel).
 
 For character, inventory, save/load, builder, close-up-view, and simulation

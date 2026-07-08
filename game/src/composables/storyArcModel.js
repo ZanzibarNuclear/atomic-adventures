@@ -4,9 +4,14 @@ export function normalizeStoryArcContent(input = {}, { storyData = null } = {}) 
   const source = input ?? {};
   const proseBeats = storyData?.beats ?? {};
   const arcs = Array.isArray(source.storyArcs) ? source.storyArcs : [];
+  const ambientScenes = mergeScenesById([
+    ...normalizeAmbientScenes(source.ambientScenes),
+    ...ambientScenesFromProseBeats(proseBeats),
+  ]);
 
   return {
     id: text(source.id) || "story-main",
+    ambientScenes,
     storyArcs: arcs.map((arc, index) => normalizeStoryArc(arc, index, proseBeats)),
   };
 }
@@ -96,25 +101,59 @@ export function selectSceneForBeat(beat, context = {}) {
   return selectBestScene(scenes, context);
 }
 
-export function selectAmbientSceneForArc(arc, context = {}) {
+export function selectAmbientSceneForArc(arc, context = {}, extraScenes = []) {
   const beats = Array.isArray(arc?.beats) ? arc.beats : [];
+  const sceneEntries = [
+    ...beats.flatMap((beat, beatIndex) =>
+      (Array.isArray(beat?.scenes) ? beat.scenes : []).map((scene) => ({
+        scene,
+        beatId: beat.id,
+        beatIndex,
+      }))
+    ),
+    ...extraScenes.map((scene, index) => ({
+      scene,
+      beatId: null,
+      beatIndex: beats.length + index,
+    })),
+  ];
   let selected = null;
   let selectedScore = -1;
 
-  for (const [beatIndex, beat] of beats.entries()) {
-    const scene = selectSceneForBeat(beat, context);
-    if (!scene) continue;
-    const score = sceneSelectionScore(scene, context) + ambientBeatScore(beatIndex, beats.length);
+  for (const { scene, beatId, beatIndex } of sceneEntries) {
+    const match = selectBestScene([scene], context);
+    if (!match) continue;
+    const score = sceneSelectionScore(scene, context) + ambientOrderScore(beatIndex, sceneEntries.length);
     if (score < 0 || score <= selectedScore) continue;
     selected = {
-      ...scene,
+      ...match,
       ambient: true,
-      storyBeatId: beat.id,
+      storyBeatId: beatId,
     };
     selectedScore = score;
   }
 
   return selected;
+}
+
+function ambientScenesFromProseBeats(proseBeats = {}) {
+  return Object.entries(proseBeats)
+    .filter(([, beat]) => !text(beat?.storyBeat))
+    .map(([sceneId, beat]) => sceneFromProseBeat(sceneId, beat));
+}
+
+function normalizeAmbientScenes(scenes) {
+  if (!Array.isArray(scenes)) return [];
+  return scenes.map((scene, index) => normalizeScene(scene, index));
+}
+
+function mergeScenesById(scenes = []) {
+  const merged = new Map();
+  for (const scene of scenes) {
+    if (!scene?.id) continue;
+    merged.set(scene.id, scene);
+  }
+  return [...merged.values()];
 }
 
 function selectBestScene(scenes, context = {}) {
@@ -145,7 +184,7 @@ function sceneSelectionScore(scene, context = {}) {
   return matchScore(scene, loc, action) + timeScore(scene);
 }
 
-function ambientBeatScore(index, total) {
+function ambientOrderScore(index, total) {
   return total > 0 ? (total - index) / (total + 1) : 0;
 }
 

@@ -142,7 +142,10 @@ selected location use the same match and time criteria.
 
 If no scene has matching criteria and no default scene exists for the active
 beat and location, the runtime may use a matching ambient scene from elsewhere
-in the active arc as prose-only location information. Ambient fallback scenes
+in the active arc or from an unassigned location beat in the story content as
+prose-only location information. Unassigned location beats are useful for
+general hex, room, or exterior-node descriptions that should remain available
+when the player explores away from the canonical path. Ambient fallback scenes
 do not contribute choices, authored actions, enter effects, complete effects,
 or story-beat advancement. The active story beat and its actions remain
 stable.
