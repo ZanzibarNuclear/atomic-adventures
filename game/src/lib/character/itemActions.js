@@ -1,6 +1,6 @@
 import { applyEffectsAtomically } from "./effects.js";
 import { ACTIVITY_PROFILES, advanceGameTime } from "./gameTime.js";
-import { addItem, itemQuantity, removeItem } from "./holdings.js";
+import { addItem, characterHolderId, itemQuantity, removeItem } from "./holdings.js";
 
 export function availableItemActions(character, itemId) {
   const item = (character.definitions?.items ?? []).find((entry) => entry.id === itemId);
@@ -19,15 +19,18 @@ export function performItemAction(gameState, itemId, actionId, {
   if (action.timeMinutes > 0 && !ACTIVITY_PROFILES.includes(action.activity ?? "light")) {
     return { ok: false, error: "Item action has an invalid activity profile." };
   }
+  const consumptionSource = consumableActionSource(gameState.character, itemId, action, holderId);
+  if (!consumptionSource.ok) return consumptionSource;
   const portion = resolveConsumptionPortion(gameState.character, itemId, action, {
-    holderId,
+    holderId: consumptionSource.holderId ?? holderId,
     recordId,
     optionId,
   });
   if (!portion.ok) return portion;
-  const sourceHolderId = holderId && itemQuantity(gameState.character.holdings, itemId, { holderId }) > 0
-    ? holderId
-    : null;
+  const sourceHolderId = consumptionSource.holderId ??
+    (holderId && itemQuantity(gameState.character.holdings, itemId, { holderId }) > 0
+      ? holderId
+      : null);
   const effects = [
     ...(action.consume > 0 && !portion.instance
       ? [{
@@ -60,6 +63,22 @@ export function performItemAction(gameState, itemId, actionId, {
     ok: true,
     view: action.view && typeof action.view === "object" ? { ...action.view } : null,
   };
+}
+
+function consumableActionSource(character, itemId, action, holderId) {
+  if (!isConsumptiveAction(action)) return { ok: true, holderId: null };
+  const heldHolderId = characterHolderId(character.holdings);
+  if (holderId && holderId !== heldHolderId) {
+    return { ok: false, error: "Hold the item before consuming it." };
+  }
+  if (itemQuantity(character.holdings, itemId, { holderId: heldHolderId }) <= 0) {
+    return { ok: false, error: "Hold the item before consuming it." };
+  }
+  return { ok: true, holderId: heldHolderId };
+}
+
+function isConsumptiveAction(action) {
+  return Number(action.consume ?? 0) > 0 || (action.consumeOptions ?? []).length > 0;
 }
 
 function resolveConsumptionPortion(character, itemId, action, {

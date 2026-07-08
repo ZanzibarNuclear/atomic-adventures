@@ -66,7 +66,7 @@ const detailImage = computed(() => {
 });
 
 const visibleActions = computed(() => {
-  if (!isHeldDirectly.value && !isInsideContainer.value) return [];
+  if (!isHeldDirectly.value) return [];
   return (props.selectedHolding?.actions ?? [])
     .filter((action) =>
       isActionAllowed(`item-action:${props.selectedHolding.item}.${action.id}`, props.actionPolicy, {

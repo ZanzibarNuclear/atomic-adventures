@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createCharacterState } from "../../composables/useCharacterState.js";
 import { createGameClock } from "./gameTime.js";
-import { addItem, itemQuantity } from "./holdings.js";
+import { addItem, characterHolderId, itemQuantity, transferHolding } from "./holdings.js";
 import { performItemAction } from "./itemActions.js";
 
 function state() {
@@ -157,19 +157,41 @@ describe("item actions", () => {
     expect(gameState.clock.elapsedMinutes).toBe(0);
   });
 
-  it("can replace a consumed carried item in its source holder", () => {
+  it("requires holding a consumable before consuming it", () => {
     const gameState = state();
     const result = performItemAction(gameState, "snack", "eat", {
       holderId: gameState.packHolderId,
     });
 
+    expect(result).toEqual({ ok: false, error: "Hold the item before consuming it." });
+    expect(itemQuantity(gameState.character.holdings, "snack", {
+      holderId: gameState.packHolderId,
+    })).toBe(1);
+    expect(itemQuantity(gameState.character.holdings, "empty-wrapper", {
+      holderId: gameState.packHolderId,
+    })).toBe(0);
+  });
+
+  it("can replace a consumed held item in its source holder", () => {
+    const gameState = state();
+    const snack = Object.entries(gameState.character.holdings.instances)
+      .find(([, instance]) => instance.item === "snack");
+    transferHolding(gameState.character.holdings, gameState.character.definitions, {
+      type: "instance",
+      id: snack[0],
+      toHolder: characterHolderId(gameState.character.holdings),
+    });
+    const result = performItemAction(gameState, "snack", "eat", {
+      holderId: characterHolderId(gameState.character.holdings),
+    });
+
     expect(result.error).toBeUndefined();
     expect(result.ok).toBe(true);
     expect(itemQuantity(gameState.character.holdings, "snack", {
-      holderId: gameState.packHolderId,
+      holderId: characterHolderId(gameState.character.holdings),
     })).toBe(0);
     expect(itemQuantity(gameState.character.holdings, "empty-wrapper", {
-      holderId: gameState.packHolderId,
+      holderId: characterHolderId(gameState.character.holdings),
     })).toBe(1);
     expect(gameState.character.stats.satiety).toBeCloseTo(45);
   });
