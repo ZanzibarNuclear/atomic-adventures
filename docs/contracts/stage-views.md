@@ -1,7 +1,8 @@
 # Stage Views
 
 **Scope:** `game/` playable scene, story choices, focused inspection panels, and
-close-up surfaces such as room detail, videos, rides, consoles, and simulations.
+close-up surfaces such as location images, room detail, videos, rides, consoles,
+and simulations.
 
 The stage view is the large viewing area above the narrative card and play
 panel. It normally shows the outdoor or indoor map, but story choices and
@@ -114,3 +115,27 @@ or completion rules:
 
 Only add payload validation for a kind when the game has a concrete use case
 for that kind.
+
+## Location Image Close-Ups
+
+Location image close-ups are the first generic `closeup` surface. They are
+authored on world locations, not on story beats. See
+[location-media.md](location-media.md) for the authored shape and resolution
+rules.
+
+When the current location resolves to one or more authored image views, the map
+stage exposes a photo or camera icon. Activating it replaces the map with the
+selected image in the same stage area. While an image is visible, the same
+control position exposes a map icon that restores the map.
+
+The image close-up must not change the active beat, prose, transient messages,
+available action buttons, inventory, health, flags, time, movement state, or
+save data. Carousel controls for multiple images are also view-only.
+
+Stage-view restoration must distinguish movement from temporary inspection:
+
+- non-movement views such as inventory, health, documents, lessons, or
+  information cards return to the previously selected map or image display when
+  closed;
+- movement away from the represented hex, room, or stand returns to `map`
+  because the previous image is no longer relevant.

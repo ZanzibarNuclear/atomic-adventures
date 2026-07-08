@@ -70,6 +70,11 @@ Hex-relative points move with their hex. Raw points remain at their authored
 world position. Landmarks use offsets from the hex center. Stand points may be
 hex-relative, landmark-relative, or raw world coordinates.
 
+Hexes and outdoor stand points may also carry ordered presentational `views`
+for player-facing image close-ups. These media fields belong to the world
+document alongside spatial authoring because they describe what the current
+place can show in the map stage. See [location-media.md](location-media.md).
+
 Edits remain local to the browser until **Save world**. Revert restores the last
 loaded version. Leaving with unsaved changes offers Save, Discard, or Keep
 Editing.
@@ -220,6 +225,9 @@ The workspace supports:
   for world interactions.
 - story arc reference awareness for hexes, rooms, exterior nodes, transitions,
   pickups, actions, and authored world interactions used by active story arcs.
+- ordered image view authoring for rooms and authored room stands, using the
+  same public image picker pattern as artifact images but pointed at
+  `game/public/views`.
 
 Room and exterior-node renames cascade into story triggers and `go_room`
 destinations in the same transaction. Deletions that leave story or building
@@ -240,6 +248,12 @@ catalog. A pickup may supply a placement-specific label; otherwise the runtime
 uses the catalog item's label and description. Taking a pickup commits an
 ordinary character item effect and records the placement as taken, so repeated
 interaction cannot duplicate a unique item.
+
+The building document also owns room and stand image view references. These
+references are ordered presentation metadata for the playable stage and are not
+story beats, inventory items, or movement destinations. Runtime resolution,
+map/image toggling, carousel behavior, and stale-reference handling are defined
+in [location-media.md](location-media.md).
 
 Utility-station YAML is an explicit snapshot format rather than the live runtime
 source. Development loads the building from

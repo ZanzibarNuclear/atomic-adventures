@@ -55,6 +55,12 @@ stands uses its computed center or stair position.
 `pose` does not change avatar art and `interaction` does not automatically
 create an action.
 
+Authored stands may define ordered `views` for stand-specific image close-ups.
+When present, stand views override room-level views while the player is at that
+stand. This lets the same room show a table, doorway, console, window, or other
+fixture image without creating a new logical room or changing room-level story
+triggers. See [location-media.md](location-media.md).
+
 ## Derived Door Thresholds
 
 Every door connected to a room produces an implicit stand just inside that
@@ -167,7 +173,8 @@ Derived door and stair thresholds are visible on the canvas for orientation but
 are not stored or directly editable.
 
 Validation rejects malformed IDs, duplicate stand IDs in a room, out-of-room
-coordinates, and invalid `defaultStand` references.
+coordinates, invalid `defaultStand` references, duplicate view IDs within a
+stand, and malformed stand view entries.
 
 ## Later Expansion
 
