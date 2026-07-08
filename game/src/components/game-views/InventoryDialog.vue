@@ -12,7 +12,7 @@
         <header class="inventory-dialog-header">
           <div>
             <p class="label">Inventory</p>
-            <h2 id="inventory-dialog-title">Carried items</h2>
+            <h2 id="inventory-dialog-title">Items within reach</h2>
           </div>
           <button
             type="button"

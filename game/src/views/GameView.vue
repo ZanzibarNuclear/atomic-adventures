@@ -665,8 +665,8 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
 function openInventoryDialog() {
   itemActionFeedback.value = "";
   inventoryDialogVisible.value = true;
-  if (playerSelectedHolding.value) return;
-  const firstHolding = playerInventoryHolders.value
+  if (stageSelectedHolding.value) return;
+  const firstHolding = inventoryHolders.value
     .flatMap((holder) => holder.records)
     .at(0);
   stageSelectedHoldingId.value = firstHolding
@@ -707,10 +707,10 @@ function openInventoryDialog() {
 
     <InventoryDialog
       v-if="inventoryDialogVisible"
-      :holders="playerInventoryHolders"
-      :selected-holding="playerSelectedHolding"
+      :holders="inventoryHolders"
+      :selected-holding="stageSelectedHolding"
       :selected-holding-id="stageSelectedHoldingId"
-      :transfer-targets="playerInventoryTransferTargets"
+      :transfer-targets="transferTargets"
       :public-asset-path="publicAssetPath"
       :action-policy="wellbeingAvailableActions"
       :action-feedback="itemActionFeedback"
