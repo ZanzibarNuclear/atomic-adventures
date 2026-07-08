@@ -124,6 +124,7 @@ const {
   activeArc,
   activeBeat,
   activeScene,
+  activeChoices,
   storyActions,
   applyStoryAction,
   storyError,
@@ -153,11 +154,11 @@ const narrativeBeat = computed(() => {
     heading: scene.heading,
     text: seen && scene.revisitProse ? scene.revisitProse : scene.prose,
     revisit: seen && Boolean(scene.revisitProse),
-    choices: activeBeat.value?.choices ?? [],
+    choices: activeChoices.value,
   };
 });
 const pendingBeat = computed(() => activeBeat.value
-  ? { ...activeBeat.value, choices: activeBeat.value.choices ?? [] }
+  ? { ...activeBeat.value, choices: activeChoices.value }
   : gameState.playMode === "open-world"
     ? openWorldStory.activeBeat.value
     : null);
@@ -177,7 +178,7 @@ function applyChoice(index = 0) {
     openWorldStory.applyChoice(index);
     return;
   }
-  const choice = activeBeat.value?.choices?.[Number(index)];
+  const choice = activeChoices.value?.[Number(index)];
   if (!choice) return;
   applyStoryAction(`story:${choice.id}`);
 }
@@ -188,7 +189,7 @@ function travelToHex(hexId) {
     outdoor.moveTo(hexId);
     return;
   }
-  const choice = activeBeat.value?.choices?.find((candidate) => candidate.go_hex === hexId);
+  const choice = activeChoices.value?.find((candidate) => candidate.go_hex === hexId);
   if (choice) {
     applyStoryAction(`story:${choice.id}`);
     return;
@@ -202,7 +203,7 @@ function enterBuilding() {
     indoor.enterBuilding();
     return;
   }
-  const choice = activeBeat.value?.choices?.find((candidate) => candidate.enter);
+  const choice = activeChoices.value?.find((candidate) => candidate.enter);
   if (choice) {
     applyStoryAction(`story:${choice.id}`);
     return;
@@ -215,7 +216,7 @@ function travelToRoom(roomId) {
     indoor.moveToRoom(roomId);
     return;
   }
-  const choice = activeBeat.value?.choices?.find((candidate) => candidate.go_room === roomId);
+  const choice = activeChoices.value?.find((candidate) => candidate.go_room === roomId);
   if (choice) {
     applyStoryAction(`story:${choice.id}`);
     return;

@@ -33,6 +33,7 @@ const storyArcs = computed(() => Array.isArray(parsed.value?.storyArcs) ? parsed
 const parseError = computed(() => parsed.value ? "" : "Story arc JSON is not valid.");
 const selectedStoryArcId = ref("");
 const selectedStoryBeatId = ref("");
+const selectedPreviewSceneId = ref("");
 const selectedStoryArc = computed(() =>
   storyArcs.value.find((arc) => arc.id === selectedStoryArcId.value) ?? storyArcs.value[0] ?? null,
 );
@@ -49,6 +50,7 @@ const linkedScenes = computed(() => {
   );
 });
 const selectedScene = computed(() =>
+  linkedScenes.value.find((beat) => beat.id === selectedPreviewSceneId.value) ??
   props.beats.find((beat) => beat.id === selectedStoryBeat.value?.scene) ??
   linkedScenes.value[0] ??
   null,
@@ -97,6 +99,19 @@ watch(selectedStoryArc, (arc) => {
   }
   if (!beats.some((beat) => beat.id === selectedStoryBeatId.value)) {
     selectedStoryBeatId.value = beats[0].id;
+  }
+}, { immediate: true });
+
+watch(linkedScenes, (scenes) => {
+  if (!scenes.length) {
+    selectedPreviewSceneId.value = "";
+    return;
+  }
+  if (!scenes.some((scene) => scene.id === selectedPreviewSceneId.value)) {
+    selectedPreviewSceneId.value = selectedStoryBeat.value?.scene &&
+      scenes.some((scene) => scene.id === selectedStoryBeat.value.scene)
+      ? selectedStoryBeat.value.scene
+      : scenes[0].id;
   }
 }, { immediate: true });
 
@@ -161,7 +176,7 @@ function addSceneForSelectedBeat() {
 
 function selectScene(scene) {
   if (!scene?.id) return;
-  updateStoryBeat("scene", scene.id);
+  selectedPreviewSceneId.value = scene.id;
   emit("select-scene", {
     arcId: selectedStoryArc.value?.id,
     beatId: selectedStoryBeat.value?.id,
@@ -176,6 +191,12 @@ function removeScene(scene) {
     beatId: selectedStoryBeat.value?.id,
     scene,
   });
+}
+
+function setPrimaryScene(scene) {
+  if (!scene?.id || scene.id === selectedStoryBeat.value?.scene) return;
+  updateStoryBeat("scene", scene.id);
+  selectedPreviewSceneId.value = scene.id;
 }
 
 function moveScene(scene, delta) {
@@ -535,6 +556,14 @@ function sceneLocation(scene) {
                   <span>{{ sceneLocation(scene) }}</span>
                 </button>
                 <div class="scene-row-actions">
+                  <button
+                    type="button"
+                    class="sm muted"
+                    :disabled="scene.id === selectedStoryBeat.scene"
+                    @click="setPrimaryScene(scene)"
+                  >
+                    Make primary
+                  </button>
                   <button type="button" class="sm muted" @click="moveScene(scene, -1)">Up</button>
                   <button type="button" class="sm muted" @click="moveScene(scene, 1)">Down</button>
                   <button type="button" class="sm muted" @click="removeScene(scene)">Remove</button>

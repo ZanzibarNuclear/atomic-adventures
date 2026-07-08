@@ -50,6 +50,10 @@ export function useStoryArc(storyData, {
       clock: gameState.clock,
     });
   });
+  const activeChoices = computed(() => {
+    if (gameState.playMode !== "story" || !activeBeat.value) return [];
+    return activeScene.value?.choices ?? [];
+  });
   const storyError = computed(() => {
     if (gameState.playMode !== "story") return "";
     if (!activeArc.value) return "Story mode has no active story arc.";
@@ -60,7 +64,7 @@ export function useStoryArc(storyData, {
   const storyActions = computed(() => {
     if (gameState.playMode !== "story" || !activeBeat.value) return [];
     return mergeStoryActions([
-      ...choiceActions(activeBeat.value),
+      ...choiceActions(activeChoices.value),
       ...authoredActions(activeBeat.value),
       ...engineActions(),
     ]);
@@ -251,6 +255,7 @@ export function useStoryArc(storyData, {
     activeArc,
     activeBeat,
     activeScene,
+    activeChoices,
     storyActions,
     applyStoryAction,
     storyError,
@@ -304,8 +309,8 @@ export function isCompletionConditionMet(condition, ctx) {
   return false;
 }
 
-function choiceActions(beat) {
-  return (beat.choices ?? []).map((choice, index) => ({
+function choiceActions(choices = []) {
+  return choices.map((choice, index) => ({
     id: `story:${choice.id ?? index}`,
     label: choice.label ?? choice.text,
     choice,

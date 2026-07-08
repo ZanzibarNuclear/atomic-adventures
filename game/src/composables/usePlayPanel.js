@@ -51,26 +51,11 @@ export function isVisibleAction(action) {
  * Story movement choices are authored prompts, so action policy and choice
  * application own validity; do not hide them during button construction.
  */
-export function buildStoryChoices(pendingBeat, location = {}) {
+export function buildStoryChoices(pendingBeat) {
   if (!pendingBeat?.choices?.length) return [];
   return pendingBeat.choices
     .map((choice, index) => ({ choice, index }))
     .filter(({ choice }) => !choice.disabled)
-    .filter(({ choice }) => !(
-      choice.go_hex &&
-      location.place === "outdoors" &&
-      choice.go_hex === location.hex
-    ))
-    .filter(({ choice }) => !(
-      choice.go_room &&
-      location.place === "indoors" &&
-      choice.go_room === location.room
-    ))
-    .filter(({ choice }) => !(
-      choice.go_exterior_node &&
-      location.place === "indoors" &&
-      choice.go_exterior_node === location.exteriorNode
-    ))
     .map(({ choice, index }) => ({
       id: `story:${index}`,
       toHexId: choice.go_hex ?? null,
@@ -239,10 +224,8 @@ export function buildOutdoorPlayActions(outdoor, pendingBeat = null) {
 }
 
 export function getMovementOptions(outdoor, pendingBeat) {
-  return buildStoryChoices(pendingBeat, {
-    place: "outdoors",
-    hex: outdoor?.state?.currentId ?? null,
-  });
+  void outdoor;
+  return buildStoryChoices(pendingBeat);
 }
 
 export function handleOutdoorChooseAction(
@@ -291,11 +274,8 @@ export function handleOutdoorPlayAction(
 }
 
 export function buildIndoorChooseActions(indoor, pendingBeat) {
-  return buildStoryChoices(pendingBeat, {
-    place: "indoors",
-    room: indoor?.indoor?.currentRoom ?? null,
-    exteriorNode: indoor?.indoor?.exteriorNode ?? null,
-  });
+  void indoor;
+  return buildStoryChoices(pendingBeat);
 }
 
 export function handleIndoorChooseAction(

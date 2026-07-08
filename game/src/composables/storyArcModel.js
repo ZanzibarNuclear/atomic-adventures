@@ -44,12 +44,20 @@ export function normalizeStoryBeat(source = {}, index = 0, proseBeats = {}) {
       ? proseBeat.choices
       : [];
 
+  const normalizedChoices = choices.map((choice, choiceIndex) => normalizeChoice(choice, choiceIndex));
+
   return {
     ...source,
     id,
     title: text(source.title) || id,
-    scenes: scenes.map((scene, sceneIndex) => normalizeScene(scene, sceneIndex)),
-    choices: choices.map((choice, choiceIndex) => normalizeChoice(choice, choiceIndex)),
+    scenes: scenes.map((scene, sceneIndex) =>
+      normalizeScene(scene, sceneIndex, {
+        proseBeats,
+        defaultSceneId: proseBeatId,
+        defaultChoices: normalizedChoices,
+      })
+    ),
+    choices: normalizedChoices,
     authoredActions: normalizeAuthoredActions(source.authoredActions, source.allowed),
     completesWhen: source.completesWhen ?? source.completionCondition ?? null,
     onEnter: source.onEnter ?? null,
@@ -59,8 +67,16 @@ export function normalizeStoryBeat(source = {}, index = 0, proseBeats = {}) {
   };
 }
 
-export function normalizeScene(source = {}, index = 0) {
+export function normalizeScene(source = {}, index = 0, context = {}) {
   const id = text(source.id) || text(source.sceneId) || `scene-${index + 1}`;
+  const proseBeat = context.proseBeats?.[id] ?? null;
+  const choices = Array.isArray(source.choices)
+    ? source.choices
+    : Array.isArray(proseBeat?.choices)
+      ? proseBeat.choices
+      : id === context.defaultSceneId
+        ? context.defaultChoices ?? []
+        : [];
   return {
     ...source,
     id,
@@ -71,6 +87,7 @@ export function normalizeScene(source = {}, index = 0) {
     time: source.time ?? {},
     prose: text(source.prose) || text(source.text),
     revisitProse: text(source.revisitProse) || text(source.revisit),
+    choices: choices.map((choice, choiceIndex) => normalizeChoice(choice, choiceIndex)),
   };
 }
 
@@ -116,6 +133,7 @@ function sceneFromProseBeat(id, beat) {
     eyebrow: beat.eyebrow,
     heading: beat.heading,
     storyBeat: beat.storyBeat,
+    choices: beat.choices ?? [],
   };
 }
 
