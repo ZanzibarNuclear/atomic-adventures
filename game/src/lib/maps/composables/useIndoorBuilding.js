@@ -44,6 +44,7 @@ export function useIndoorBuilding(buildingData, outdoor, ctx) {
     building: player.building,
     indoor: player.indoor,
     syncDoorState: doors.syncDoorState,
+    gameState,
   });
 
   const actions = createIndoorActions({

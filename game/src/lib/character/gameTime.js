@@ -106,14 +106,20 @@ function driftEffects(character, minutes, activity) {
     effects.push({ op: "stat.add", id: stat.id, value: rate * hours });
     const current = Number(character.stats?.[stat.id] ?? stat.default ?? 0);
     const next = current + rate * hours;
-    for (const threshold of [...(stat.thresholds ?? [])].sort((a, b) => a.at - b.at)) {
-      if (next < Number(threshold.at)) continue;
+    for (const threshold of [...(stat.thresholds ?? [])].sort((a, b) => Number(a.at) - Number(b.at))) {
+      if (!thresholdApplies(next, threshold)) continue;
       for (const effect of threshold.effectsPerGameHour ?? []) {
         effects.push(scaleHourlyEffect(effect, hours));
       }
     }
   }
   return effects;
+}
+
+function thresholdApplies(value, threshold) {
+  const at = Number(threshold.at);
+  if (!Number.isFinite(at)) return false;
+  return value <= at;
 }
 
 function scaleHourlyEffect(effect, hours) {

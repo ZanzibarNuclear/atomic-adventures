@@ -77,13 +77,13 @@ export class CharacterRepository {
     };
   }
 
-  save(input, expectedVersion) {
+  save(input, expectedVersion, { validate = (candidate) => this.validate(candidate), afterSave = null } = {}) {
     const existing = this.getDocument();
     if (!existing) throw new NotFoundError("Character content not found.");
     if (Number(expectedVersion) !== existing.version) {
       throw new ConflictError("Character content changed in another window.", existing);
     }
-    const validation = this.validate(input);
+    const validation = validate(input);
     if (!validation.valid) throw new ValidationError(validation.errors);
     return transaction(this.db, () => {
       const nextVersion = existing.version + 1;
@@ -97,6 +97,7 @@ export class CharacterRepository {
         new Date().toISOString(),
         CHARACTER_DOCUMENT_ID,
       );
+      afterSave?.({ character: validation.character, nextVersion });
       this.revisions.record(CHARACTER_DOCUMENT_ID, "update", validation.character);
       const revision = this.revisions.incrementGlobalRevision();
       return {

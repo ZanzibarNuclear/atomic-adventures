@@ -1,4 +1,6 @@
 <script setup>
+import LocationViewsEditor from "../LocationViewsEditor.vue";
+
 defineProps({
   selected: { type: Object, required: true },
   standEditDraft: { type: Object, required: true },
@@ -35,4 +37,9 @@ defineProps({
       <label>Offset y<input v-model.number="standEditDraft.dy" type="number" step=".01" /></label>
     </div>
   </section>
+
+  <LocationViewsEditor
+    :owner="standEditDraft"
+    title="Stand views"
+  />
 </template>

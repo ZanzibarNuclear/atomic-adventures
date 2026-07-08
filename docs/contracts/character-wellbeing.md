@@ -3,13 +3,18 @@
 **Scope:** Character stats, food, water, time drift, thresholds, health effects,
 and future tuning for player survival pressure.
 
-Atomic Adventures currently has early wellbeing mechanics: health, hunger, and
-thirst are authored stats; game time can drift those stats; consumable item
-actions can change them; thresholds can apply health effects over time. The
-player-facing model is now broader than those legacy stats: the character
-overview should present positive vitals, named condition states, and health as
-the result of sustained or severe problems rather than as a duplicate of every
-need meter.
+Atomic Adventures wellbeing is authored as positive reserve stats such as
+satiety, hydration, energy, and composure, plus condition/damage inputs such as
+base health, injury, poison, and sickness. Game time can drift reserve stats,
+consumable item actions can change them, and thresholds can apply health effects
+or other consequences over time. The character overview presents positive
+vitals, named condition states, and health as a calculated result of sustained
+or severe problems rather than as a standalone need meter.
+
+The playable game surfaces serious reserve states in a compact vitals bar near
+the game timestamp and in the character overview. The bar is not shown before a
+play mode is active, and it is not a separate simulation. Health is a calculated
+result, not an independently adjustable or player-facing vital meter.
 
 ## Player-Facing Model
 
@@ -19,42 +24,45 @@ Character overview vitals follow one rule:
 
 The preferred visible vitals are:
 
-- `Health` — current physical condition. Higher is better.
 - `Satiety` — food reserve / how fed Zanzibar is. Higher is better.
 - `Hydration` — water reserve / how hydrated Zanzibar is. Higher is better.
-- `Rested` — fatigue and sleep reserve. Higher is better.
+- `Energy` — fatigue and sleep reserve. Higher is better.
 - `Composure` — emotional steadiness. Higher is better.
+
+Calculated health can still use words for failure logic, diagnostics, or
+future presentation outside the vitals list: healthy, stable, weak, critical,
+collapsed.
 
 Use words alongside or instead of numbers where words are clearer. Examples:
 
-- Health: healthy, stable, weak, critical, collapsed.
-- Satiety: sated, fed, hungry, very hungry, starving.
-- Hydration: hydrated, okay, thirsty, dehydrated, severely dehydrated.
-- Rested: rested, tired, exhausted, spent.
-- Composure: calm, alert, nervous, scared, panicked.
+- Satiety: stuffed, full, peckish, hungry, starving.
+- Hydration: hydrated, thirsty, parched, dehydrated.
+- Energy: energized, tired, exhausted, dozing, spent.
+- Composure: calm, concerned, nervous, scared, panicked.
 
-Avoid showing a large badness meter such as `Hunger 90 / 100` in the overview.
-If the underlying stat is negative-pressure, translate it into a positive
-reserve before rendering it.
+Those player-facing words are authored per stat with `displayStates`. Each
+entry is a minimum reserve value for that label and tone:
 
-## Legacy Stat Compatibility
-
-The current authored content still stores:
-
-- `health` as a positive meter where `100` is healthy.
-- `hunger` as a negative-pressure meter where higher is worse.
-- `thirst` as a negative-pressure meter where higher is worse.
-
-Until content migrates, the overview derives:
-
-```text
-Satiety = hunger.max - hunger.value + hunger.min
-Hydration = thirst.max - thirst.value + thirst.min
+```yaml
+displayStates:
+  - { at: 80, state: energized, tone: positive }
+  - { at: 50, state: rested, tone: positive }
+  - { at: 34, state: tired, tone: warning }
+  - { at: 18, state: exhausted, tone: error }
+  - { at: 1, state: barely awake, tone: error }
+  - { at: 0, state: asleep uncontrollably, tone: error }
 ```
 
-Effects and drift may continue to modify `hunger` and `thirst` directly. The
-display layer is responsible for translating them into `Satiety` and
-`Hydration`.
+That yields the ranges: energized 80-100, rested 50-79, tired 34-49,
+exhausted 18-33, barely awake 1-17, and asleep uncontrollably at 0.
+
+Vitals do not need identical display bands. Health might enter `critical` at
+`5`, while satiety, hydration, energy, and composure can use their own authored
+labels and cutoffs.
+
+Avoid showing a large badness meter such as `Hunger 90 / 100` in the overview.
+Author the positive reserve directly as `satiety` or `hydration`; do not keep an
+inverse internal meter and translate it in the display layer.
 
 Consumables can apply character effects:
 
@@ -63,48 +71,68 @@ actions:
   - id: eat
     label: Eat energy bar
     effects:
-      - { op: stat.add, id: hunger, value: -18 }
+      - { op: stat.add, id: satiety, value: 18 }
 ```
 
-Time can increase need meters by activity profile:
+Time can reduce reserve meters by activity profile:
 
 ```yaml
 drift:
   perGameHour:
-    resting: 1.5
-    light: 3
-    moderate: 5
-    strenuous: 8
+    resting: -1.5
+    light: -3
+    moderate: -5
+    strenuous: -8
 ```
 
 Thresholds can describe states and apply effects:
 
 ```yaml
 thresholds:
-  - at: 90
+  - at: 10
     state: starving
     effectsPerGameHour:
       - { op: stat.add, id: health, value: -2 }
 ```
 
-## Health, Max Health, And Penalties
+For positive reserve stats, thresholds are low-water marks: a threshold with
+`at: 10` applies when the reserve is `10` or lower. Crises happen as important
+reserves run out.
 
-Health should not drop at the first sign of hunger, thirst, fear, or fatigue.
+`displayStates` and `thresholds` are related but separate:
+
+- `displayStates` names what the player sees at the current reserve value.
+- `thresholds` apply authored gameplay consequences over time.
+
+Do not assume every visible state must have a gameplay effect, or that every
+gameplay threshold must be a displayed state.
+
+## Calculated Health And Penalties
+
+Health should not drop at the first sign of low satiety, low hydration, fear, or fatigue.
 Needs should have forgiving ranges, then warning states, then sustained harm.
 
 Use thresholds and time:
 
-- Mild hunger or thirst should change labels and possibly story affordances, not
-  immediately damage health.
+- Mild satiety or hydration pressure should change labels and possibly story
+  affordances, not immediately damage health.
 - Severe dehydration should affect health sooner and faster than starvation.
 - Starvation should develop slowly over days, first reducing energy and recovery
   before causing serious health loss.
-- Exhaustion should reduce action quality and recovery before directly harming
-  health.
-- Extreme panic or stress should mostly affect choices, precision, learning,
-  perception, or simulation performance; direct health effects should be rare.
+- Exhaustion should reduce action quality and recovery. At zero energy the
+  player should have to sleep/rest before doing ordinary actions; low energy
+  alone must not kill the character.
+- Extreme panic or stress should affect choices, precision, learning,
+  perception, or simulation performance; panic alone must not kill the
+  character.
 
-The preferred future health model has both current and maximum health:
+Health is calculated from authored inputs. The first implementation keeps a
+hidden `health` input as the base physical condition for direct injury, poison,
+sickness, or scripted damage, then subtracts tunable penalties from severe
+survival and condition states. The visible health vital is derived from that
+calculation.
+
+Future health models may add both current and maximum health:
 
 ```text
 Current Health: 72 / 86
@@ -121,10 +149,6 @@ Maximum health can be lowered by sustained or serious problems:
 
 Current health should recover only up to the current max. Eating, drinking,
 resting, treatment, or calmer circumstances can raise the max again.
-
-The current implementation only has a single `health` meter. Until max health is
-implemented, threshold effects may apply direct health drift for severe states,
-but the player-facing language should still explain why health is changing.
 
 ## Conditions
 
@@ -164,15 +188,15 @@ Open questions:
 
 - Should calories and water be tracked as daily intake totals, as reservoir
   meters, or both?
-- Should hunger/thirst drift be derived from calorie and water deficits instead
-  of authored directly per stat?
+- Should satiety/hydration drift be derived from calorie and water deficits
+  instead of authored directly per stat?
 - At what time boundary does the game evaluate daily targets?
 - How forgiving should the system be in an educational adventure, where survival
   pressure should create stakes but not dominate exploration?
 
 ## Intake And Overconsumption
 
-Food and water are not only “reduce hunger/thirst” buttons. Future mechanics
+Food and water are not only “fill the reserve” buttons. Future mechanics
 may include:
 
 - calorie values;
@@ -194,8 +218,8 @@ Health is affected by more than food and water. Health influences may include:
 - injury from falls, electrical hazards, sharp tools, or failed equipment work;
 - cold, heat, wet clothing, and exposure;
 - illness or contaminated food/water;
-- exhaustion and sleep debt;
-- stress or panic;
+- exhaustion and sleep debt as action/recovery constraints;
+- stress or panic as choice, precision, perception, or learning constraints;
 - radiation or industrial hazards in later parts;
 - medical supplies and rest.
 
@@ -232,21 +256,53 @@ simulation precision.
   the game into a survival spreadsheet.
 - Early Part I should be forgiving while teaching the vocabulary: health, food,
   water, exertion, rest.
+- Story mode should have real survival pressure during the opening
+  forest sequence. Wandering, backtracking, and strenuous shortcuts can consume
+  time, hydration, satiety, and energy. The intended path should be forgiving,
+  but repeatedly walking in circles can lead to serious impairment and
+  eventually a clear failure state.
 - Consumable numbers should be easy to author and easy to explain.
-- Thresholds should use clear player-facing states: thirsty, dehydrated,
+- Thresholds should use clear player-facing states: thirsty, parched, dehydrated,
   hungry, starving, exhausted, injured.
 - Vitals should render in one direction: higher means better.
 - Conditions should use named severity states rather than unexplained amounts.
 - Death or irreversible failure should be rare and intentionally designed.
+  The first playable slice may include a simple "You lose. Play again?" outcome when calculated
+  health reaches zero through sustained neglect, dehydration, starvation,
+  poison, injury, sickness, or other physical harm.
+
+## Opening Survival Pressure
+
+The first Story mode concern is survival, not hydro startup. Zanzibar begins
+lost in the forest, low on food and water, and moving by instinct. The
+wellbeing system should make this situation matter without punishing normal
+story progression.
+
+Minimum behavior:
+
+- the vitals bar and character overview update as game-time actions change
+  reserves and derived health;
+- travel and authored actions advance time with an activity profile;
+- time drift reduces relevant reserves such as hydration, satiety, and energy;
+- low reserves surface clear warning states in the character/status UI and may
+  influence story beats;
+- reaching zero energy forces rest/sleep before ordinary actions continue;
+- calculated health reaching zero triggers a failure scene;
+- food, water, shelter, and rest discovered in the utility station can resolve
+  the first crisis.
+
+The exact drift numbers are tuning data, not contract constants. Tune them so
+canonical progress is tense but survivable, while
+excessive wandering or repeated nonproductive actions can fail.
 
 ## Areas To Explore
 
 - A dedicated `wellbeing` block in the character document for daily targets and
   tuning constants.
-- UI treatments for meters with opposite directions.
-- Derived hunger/thirst from calorie and water balance.
+- Derived satiety/hydration from calorie and water balance.
 - Fullness and safe water-intake bounds.
 - Fatigue/sleep as a separate axis from health.
 - Environmental modifiers such as heat, cold, rain, and exertion.
 - Clear feedback when an item action affects multiple stats.
-- Save compatibility when wellbeing formulas change.
+- Clear replacement steps when wellbeing formulas change, followed by deleting
+  the superseded path.

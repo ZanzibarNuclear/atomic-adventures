@@ -5,6 +5,7 @@ import StoryBeatEditor from "../components/builder/story/StoryBeatEditor.vue";
 import StoryBeatList from "../components/builder/story/StoryBeatList.vue";
 import StoryLocationPicker from "../components/builder/story/StoryLocationPicker.vue";
 import StoryMilestonePanel from "../components/builder/story/StoryMilestonePanel.vue";
+import StoryArcPanel from "../components/builder/story/StoryArcPanel.vue";
 import BuilderPageHeader from "../components/builder/BuilderPageHeader.vue";
 import BuilderWorkspaceTabs from "../components/builder/BuilderWorkspaceTabs.vue";
 import UnsavedChangesDialog from "../components/builder/UnsavedChangesDialog.vue";
@@ -22,6 +23,7 @@ import { useStoryBeatDocument } from "../composables/useStoryBeatDocument.js";
 import { useWorldContent } from "../composables/useWorldContent.js";
 import { useBuildingContent } from "../composables/useBuildingContent.js";
 import { hexDistance } from "../lib/maps/composables/useHexGeometry.js";
+import { buildStoryBeatMatchWarnings } from "../lib/storyBeatMatchWarnings.js";
 
 const { worldData, revision: worldRevision } = useWorldContent();
 const { buildingData, revision: buildingRevision } = useBuildingContent();
@@ -39,7 +41,7 @@ const STORY_AREA_ID = "part-i";
 const route = useRoute();
 const router = useRouter();
 
-const catalog = ref({ world: { hexes: [], rooms: [], exteriorNodes: [], localExits: [], mapTransitions: [], buildings: [] } });
+const catalog = ref({ world: { hexes: [], rooms: [], exteriorNodes: [], mapTransitions: [], buildings: [] } });
 const locationMode = ref("outdoors");
 const selectedLocation = ref(mapData.start);
 const indoorLevel = ref(
@@ -49,15 +51,24 @@ const indoorViewportMode = ref("fit-all");
 const storyWorkspaceTabs = [
   { id: "outdoors", label: "Area" },
   { id: "rooms", label: "Utility Station" },
+  { id: "story-arcs", label: "Story arcs" },
   { id: "milestones", label: "Milestones" },
 ];
 const activeWorkspace = ref("outdoors");
 const storyWorkspace = computed(() =>
-  activeWorkspace.value === "milestones"
-    ? "milestones"
+  ["milestones", "story-arcs"].includes(activeWorkspace.value)
+    ? activeWorkspace.value
     : locationMode.value === "outdoors" ? "outdoors" : "rooms",
 );
 const milestones = ref([]);
+const storyArcVersion = ref(null);
+const storyArcDocumentText = ref("");
+const storyArcBaselineText = ref("");
+const storyArcStatus = ref("");
+const storyArcErrors = ref({});
+const storyArcDirty = computed(() =>
+  storyArcDocumentText.value !== storyArcBaselineText.value,
+);
 const milestoneDialog = ref({
   visible: false,
   field: null,
@@ -123,73 +134,12 @@ const displayedLocationBeats = computed(() => {
     beat.id === selectedBeatId.value ? currentDraft : beat,
   );
 });
-function originHexLabel(value) {
-  const origins = Array.isArray(value)
-    ? value
-    : typeof value === "string"
-      ? value.split(",").map((item) => item.trim()).filter(Boolean)
-      : value
-        ? [value]
-        : [];
-  return origins.join("|");
-}
-function timeCriteriaParts(time = {}) {
-  const parts = [];
-  if (Array.isArray(time.days) && time.days.length) {
-    parts.push(`day=${[...time.days].map(Number).filter(Number.isFinite).sort((a, b) => a - b).join("|")}`);
-  }
-  if (time.dayFrom != null) parts.push(`dayFrom=${time.dayFrom}`);
-  if (time.dayTo != null) parts.push(`dayTo=${time.dayTo}`);
-  if (time.phase) parts.push(`phase=${time.phase}`);
-  if (time.minuteOfDayFrom != null) parts.push(`minuteFrom=${time.minuteOfDayFrom}`);
-  if (time.minuteOfDayTo != null) parts.push(`minuteTo=${time.minuteOfDayTo}`);
-  if (time.elapsedFrom != null) parts.push(`elapsedFrom=${time.elapsedFrom}`);
-  if (time.elapsedTo != null) parts.push(`elapsedTo=${time.elapsedTo}`);
-  if (time.afterMilestone) parts.push(`after=${time.afterMilestone}`);
-  if (time.beforeMilestone) parts.push(`before=${time.beforeMilestone}`);
-  return parts;
-}
-function timeCriteriaLabel(time = {}) {
-  const labels = [];
-  if (Array.isArray(time.days) && time.days.length) labels.push(`Day #: ${time.days.join(", ")}`);
-  if (time.dayFrom != null) labels.push(`Day from: ${time.dayFrom}`);
-  if (time.dayTo != null) labels.push(`Day to: ${time.dayTo}`);
-  if (time.phase) labels.push(`Time of day: ${time.phase}`);
-  if (time.minuteOfDayFrom != null) labels.push(`minute from ${time.minuteOfDayFrom}`);
-  if (time.minuteOfDayTo != null) labels.push(`minute to ${time.minuteOfDayTo}`);
-  if (time.elapsedFrom != null) labels.push(`elapsed from ${time.elapsedFrom}`);
-  if (time.elapsedTo != null) labels.push(`elapsed to ${time.elapsedTo}`);
-  if (time.afterMilestone) labels.push(`after ${time.afterMilestone}`);
-  if (time.beforeMilestone) labels.push(`before ${time.beforeMilestone}`);
-  return labels.join(", ");
-}
-const matchWarnings = computed(() => {
-  const groups = new Map();
-  for (const beat of displayedLocationBeats.value) {
-    const origin = originHexLabel(beat.match?.originHex);
-    const mapTransition = beat.match?.mapTransition ?? beat.match?.localExit ?? "";
-    const direction = beat.match?.transitionDirection ?? "";
-    const time = timeCriteriaParts(beat.time).join(":");
-    const key = `${locationMode.value}:${selectedLocation.value}:origin=${origin}:mapTransition=${mapTransition}:direction=${direction}:time=${time}`;
-    const group = groups.get(key) ?? [];
-    group.push(beat);
-    groups.set(key, group);
-  }
-  return [...groups.values()]
-    .filter((group) => group.length > 1)
-    .map((group) => {
-      const origin = originHexLabel(group[0].match?.originHex);
-      const mapTransition = group[0].match?.mapTransition ?? group[0].match?.localExit;
-      const direction = group[0].match?.transitionDirection;
-      const label = [
-        origin ? `origin ${origin}` : "",
-        mapTransition ? `map transition ${mapTransition}` : "",
-        direction ? (direction === "toLocal" ? "to local map" : "to regional map") : "",
-        timeCriteriaLabel(group[0].time),
-      ].filter(Boolean).join(", ") || "default/no origin or map transition";
-      return `Multiple beats use ${label}: ${group.map((beat) => beat.id).join(", ")}. The first sorted beat wins.`;
-    });
-});
+const matchWarnings = computed(() =>
+  buildStoryBeatMatchWarnings(displayedLocationBeats.value, {
+    locationMode: locationMode.value,
+    selectedLocation: selectedLocation.value,
+  }),
+);
 const draftIsOutdoorHexBeat = computed(() =>
   draft.value?.trigger?.place === "outdoors" && Boolean(draft.value?.trigger?.hex),
 );
@@ -209,6 +159,7 @@ onMounted(async () => {
   try {
     catalog.value = await storyApi("/api/catalog");
     await loadMilestones();
+    await loadStoryArcDocument();
     await loadBeats();
     await applyStoryRouteQuery();
   } catch (error) {
@@ -227,6 +178,57 @@ async function saveMilestones(nextMilestones = milestones.value) {
   });
   milestones.value = result.milestones;
   return result.milestones;
+}
+
+async function loadStoryArcDocument() {
+  const result = await storyApi("/api/story-arcs/document");
+  storyArcVersion.value = result.version;
+  storyArcDocumentText.value = JSON.stringify(result.storyArcDocument, null, 2);
+  storyArcBaselineText.value = storyArcDocumentText.value;
+  storyArcErrors.value = {};
+  storyArcStatus.value = `Loaded story arc version ${result.version}.`;
+}
+
+async function saveStoryArcDocument() {
+  storyArcErrors.value = {};
+  storyArcStatus.value = "Saving story arcs...";
+  let storyArcDraft;
+  try {
+    storyArcDraft = JSON.parse(storyArcDocumentText.value);
+  } catch (error) {
+    storyArcStatus.value = error.message;
+    return false;
+  }
+  try {
+    const result = await storyApi("/api/story-arcs/document", {
+      method: "PUT",
+      body: JSON.stringify({
+        storyArcDocument: storyArcDraft,
+        expectedVersion: storyArcVersion.value,
+      }),
+    });
+    storyArcVersion.value = result.version;
+    storyArcDocumentText.value = JSON.stringify(result.storyArcDocument, null, 2);
+    storyArcBaselineText.value = storyArcDocumentText.value;
+    storyArcStatus.value = `Saved story arc version ${result.version}.`;
+    return true;
+  } catch (error) {
+    storyArcErrors.value = error.errors ?? {};
+    storyArcStatus.value = error.status === 409
+      ? "Story arc content changed elsewhere. Reload before saving."
+      : error.message;
+    return false;
+  }
+}
+
+function revertStoryArcDocument() {
+  storyArcDocumentText.value = storyArcBaselineText.value;
+  storyArcErrors.value = {};
+  storyArcStatus.value = "Reverted unsaved story arc edits.";
+}
+
+function confirmStoryArcNavigation() {
+  return !storyArcDirty.value || window.confirm("Discard unsaved story arc edits?");
 }
 
 watch(worldRevision, async () => {
@@ -329,15 +331,24 @@ async function applyExteriorSelection(id) {
 
 function switchMode(mode) {
   if (mode === "milestones") {
+    if (!confirmStoryArcNavigation()) return;
     if (activeWorkspace.value === "milestones") return;
     void requestContextChange(() => {
       activeWorkspace.value = "milestones";
     });
     return;
   }
+  if (mode === "story-arcs") {
+    if (activeWorkspace.value === "story-arcs") return;
+    void requestContextChange(() => {
+      activeWorkspace.value = "story-arcs";
+    });
+    return;
+  }
+  if (!confirmStoryArcNavigation()) return;
   if (
-    (mode === "outdoors" && locationMode.value === "outdoors" && activeWorkspace.value !== "milestones") ||
-    (mode === "rooms" && ["rooms", "exterior"].includes(locationMode.value) && activeWorkspace.value !== "milestones")
+    (mode === "outdoors" && locationMode.value === "outdoors" && !["milestones", "story-arcs"].includes(activeWorkspace.value)) ||
+    (mode === "rooms" && ["rooms", "exterior"].includes(locationMode.value) && !["milestones", "story-arcs"].includes(activeWorkspace.value))
   ) {
     return;
   }
@@ -380,6 +391,7 @@ function openMilestoneDialog({ field = null } = {}) {
     label: "",
     id: "",
     kind: "story",
+    description: "",
   };
 }
 
@@ -396,7 +408,7 @@ async function createMilestoneFromDialog() {
       id,
       label: label || id,
       kind: milestoneDialog.value.kind,
-      description: null,
+      description: milestoneDialog.value.description.trim() || null,
     },
   ];
   try {
@@ -439,6 +451,69 @@ function newBeat(copy = null) {
   void requestContextChange(() => beginNewBeat(copy));
 }
 
+function newSceneForStoryBeat({ beatId, primarySceneId = null } = {}) {
+  void requestContextChange(async () => {
+    activeWorkspace.value = locationMode.value === "outdoors" ? "outdoors" : "rooms";
+    const sourceScene = primarySceneId
+      ? beats.value.find((beat) => beat.id === primarySceneId)
+      : null;
+    beginNewBeat(sourceScene);
+    if (!draft.value) return;
+    draft.value.storyBeat = beatId ?? null;
+    draft.value.modes = ["story"];
+    draft.value.heading = sourceScene?.heading ? `${sourceScene.heading} variant` : "New scene";
+    draft.value.text = sourceScene?.text ?? "";
+    status.value = "Drafted a new scene for this story beat.";
+  });
+}
+
+function openStoryBeatScene({ sceneId } = {}) {
+  const scene = beats.value.find((beat) => beat.id === sceneId);
+  if (!scene) return;
+  void requestContextChange(async () => {
+    await selectSceneLocation(scene);
+    await loadBeat(scene.id);
+  });
+}
+
+async function removeStoryBeatScene({ scene } = {}) {
+  if (!scene?.id || !window.confirm(`Remove scene "${scene.id}" from this story beat?`)) return;
+  try {
+    await storyApi(`/api/story/areas/${STORY_AREA_ID}/beats/${encodeURIComponent(scene.id)}`, {
+      method: "DELETE",
+      body: JSON.stringify({ expectedVersion: scene.version }),
+    });
+    await loadBeats();
+    storyArcStatus.value = `Removed scene ${scene.id}.`;
+  } catch (error) {
+    storyArcStatus.value = error.message;
+  }
+}
+
+async function reorderStoryBeatScenes({ sceneIds = [] } = {}) {
+  try {
+    await storyApi(`/api/story/areas/${STORY_AREA_ID}/beats/reorder`, {
+      method: "PUT",
+      body: JSON.stringify({ beatIds: sceneIds }),
+    });
+    await loadBeats();
+    storyArcStatus.value = "Reordered scenes for this story beat.";
+  } catch (error) {
+    storyArcStatus.value = error.message;
+  }
+}
+
+async function selectSceneLocation(scene) {
+  const trigger = scene.trigger ?? {};
+  if (trigger.hex) {
+    await applyHexSelection(trigger.hex);
+  } else if (trigger.room) {
+    await applyRoomSelection(trigger.room);
+  } else if (trigger.exteriorNode) {
+    await applyExteriorSelection(trigger.exteriorNode);
+  }
+}
+
 function emptyBeat() {
   const trigger = { place: null, hex: null, room: null, exteriorNode: null, event: null, flag: null };
   if (locationMode.value === "outdoors") Object.assign(trigger, { place: "outdoors", hex: selectedLocation.value });
@@ -450,8 +525,10 @@ function emptyBeat() {
     heading: "",
     text: "",
     revisit: "",
+    modes: [],
+    storyBeat: null,
     trigger,
-    match: { originHex: null, localExit: null, mapTransition: null, transitionDirection: null },
+    match: { originHex: null, mapTransition: null, transitionDirection: null },
     time: {
       days: [],
       dayFrom: null,
@@ -540,7 +617,6 @@ async function applyStoryRouteQuery() {
   if (draft.value) {
     draft.value.match.mapTransition = mapTransition;
     draft.value.match.transitionDirection = transitionDirection;
-    draft.value.match.localExit = null;
   }
 }
 
@@ -559,7 +635,7 @@ async function applyStoryRouteQuery() {
       </template>
     </BuilderPageHeader>
 
-    <div v-if="storyWorkspace !== 'milestones'" class="builder-workspace">
+    <div v-if="storyWorkspace !== 'milestones' && storyWorkspace !== 'story-arcs'" class="builder-workspace">
       <div class="builder-nav-column">
         <StoryLocationPicker
           v-model:indoor-level="indoorLevel"
@@ -623,6 +699,23 @@ async function applyStoryRouteQuery() {
       />
     </div>
 
+    <StoryArcPanel
+      v-else-if="storyWorkspace === 'story-arcs'"
+      v-model:document-text="storyArcDocumentText"
+      :catalog="catalog"
+      :beats="beats"
+      :dirty="storyArcDirty"
+      :status="storyArcStatus"
+      :errors="storyArcErrors"
+      @save="saveStoryArcDocument"
+      @revert="revertStoryArcDocument"
+      @reload="loadStoryArcDocument"
+      @add-scene="newSceneForStoryBeat"
+      @select-scene="openStoryBeatScene"
+      @remove-scene="removeStoryBeatScene"
+      @reorder-scenes="reorderStoryBeatScenes"
+    />
+
     <div v-else class="milestone-workspace">
       <StoryMilestonePanel
         :milestones="milestones"
@@ -646,27 +739,39 @@ async function applyStoryRouteQuery() {
 
     <div v-if="milestoneDialog.visible" class="modal-backdrop" role="presentation">
       <form class="milestone-dialog panel" @submit.prevent="createMilestoneFromDialog">
-        <h2>New milestone</h2>
-        <label>Name
-          <input v-model="milestoneDialog.label" autofocus>
-        </label>
-        <label>ID
-          <input
-            :value="milestoneDialog.id || milestoneIdFromLabel(milestoneDialog.label)"
-            @input="milestoneDialog.id = $event.target.value"
-          >
-        </label>
-        <label>Kind
-          <select v-model="milestoneDialog.kind">
-            <option value="story">story</option>
-            <option value="discovery">discovery</option>
-            <option value="knowledge">knowledge</option>
-            <option value="application">application</option>
-            <option value="operations">operations</option>
-            <option value="survival">survival</option>
-            <option value="world">world</option>
-          </select>
-        </label>
+        <div class="milestone-dialog-heading">
+          <div>
+            <p class="label">Story state</p>
+            <h2>New milestone</h2>
+          </div>
+        </div>
+        <section class="milestone-dialog-section">
+          <div class="field-grid">
+            <label>Name
+              <input v-model="milestoneDialog.label" autofocus>
+            </label>
+            <label>ID
+              <input
+                :value="milestoneDialog.id || milestoneIdFromLabel(milestoneDialog.label)"
+                @input="milestoneDialog.id = $event.target.value"
+              >
+            </label>
+            <label>Kind
+              <select v-model="milestoneDialog.kind">
+                <option value="story">story</option>
+                <option value="discovery">discovery</option>
+                <option value="knowledge">knowledge</option>
+                <option value="application">application</option>
+                <option value="operations">operations</option>
+                <option value="survival">survival</option>
+                <option value="world">world</option>
+              </select>
+            </label>
+            <label class="span-all">Description
+              <textarea v-model="milestoneDialog.description" rows="4"></textarea>
+            </label>
+          </div>
+        </section>
         <div class="dialog-actions">
           <button type="button" class="sm muted" @click="cancelMilestoneDialog">Cancel</button>
           <button type="submit" class="sm">Create</button>
@@ -757,21 +862,85 @@ async function applyStoryRouteQuery() {
 }
 .milestone-dialog {
   display: grid;
-  gap: .75rem;
-  width: min(28rem, 100%);
+  gap: .8rem;
+  width: min(34rem, 100%);
+  border-color: #343d4d;
+  border-radius: 10px;
+  background: #20252f;
+  padding: .85rem;
 }
-.milestone-dialog h2 {
+.milestone-dialog-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+.milestone-dialog h2,
+.milestone-dialog p {
   margin: 0;
+}
+.label {
+  color: #8e96a3;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.milestone-dialog-section {
+  display: grid;
+  gap: .55rem;
+  padding: .65rem;
+  border: 1px solid #343d4d;
+  border-radius: 8px;
+  background: #1b2028;
+}
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .7rem;
+}
+.span-all { grid-column: 1 / -1; }
+.milestone-dialog label {
+  display: grid;
+  gap: .35rem;
+  color: #bdc4ce;
+  font-size: .8rem;
+}
+.milestone-dialog input,
+.milestone-dialog textarea,
+.milestone-dialog select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #485267;
+  border-radius: 7px;
+  background: #171b22;
+  color: #eef1f5;
+  padding: .5rem .6rem;
+  font: inherit;
+}
+.milestone-dialog input:focus,
+.milestone-dialog textarea:focus,
+.milestone-dialog select:focus {
+  outline: 2px solid #6ea57b;
+  outline-offset: 1px;
+  border-color: #6ea57b;
+}
+.milestone-dialog textarea {
+  resize: vertical;
+  line-height: 1.5;
 }
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
   gap: .5rem;
+  flex-wrap: wrap;
 }
 @media (max-width: 1100px) {
   .builder-workspace { grid-template-columns: minmax(320px, .85fr) minmax(420px, 1.15fr); }
 }
 @media (max-width: 820px) {
   .builder-workspace { grid-template-columns: 1fr; }
+  .field-grid { grid-template-columns: 1fr; }
 }
 </style>

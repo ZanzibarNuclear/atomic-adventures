@@ -85,6 +85,15 @@ const timeCriteriaSummary = computed(() => {
   return summary;
 });
 
+const modeCriteriaSummary = computed(() => {
+  if (!props.draft) return [];
+  const summary = [];
+  const modes = Array.isArray(props.draft.modes) ? props.draft.modes : [];
+  if (modes.length) summary.push(`Modes: ${modes.map(modeLabel).join(", ")}`);
+  if (props.draft.storyBeat) summary.push(`Story beat: ${props.draft.storyBeat}`);
+  return summary;
+});
+
 watch(
   () => props.selectedLocation,
   () => {
@@ -145,10 +154,7 @@ function hexLabel(id) {
 }
 
 function transitionLabel(id) {
-  const transition = [
-    ...(props.catalog.world.mapTransitions ?? []),
-    ...(props.catalog.world.localExits ?? []),
-  ].find((item) => item.id === id);
+  const transition = (props.catalog.world.mapTransitions ?? []).find((item) => item.id === id);
   return transition ? `${transition.label} (${transition.id})` : id;
 }
 
@@ -157,12 +163,30 @@ function directionLabel(value) {
   if (value === "toRegional") return "To regional map";
   return value;
 }
+
+function modeLabel(value) {
+  if (value === "story") return "Story";
+  if (value === "open-world") return "Open-world";
+  return value;
+}
+
+function modeEnabled(mode) {
+  return Array.isArray(props.draft?.modes) && props.draft.modes.includes(mode);
+}
+
+function setModeEnabled(mode, enabled) {
+  if (!props.draft) return;
+  const current = new Set(Array.isArray(props.draft.modes) ? props.draft.modes : []);
+  if (enabled) current.add(mode);
+  else current.delete(mode);
+  props.draft.modes = [...current];
+}
 </script>
 
 <template>
   <section class="builder-form-column panel">
     <div v-if="!draft" class="empty-editor">
-      Select a beat or create a new one.
+      Select a scene or create a new one.
     </div>
     <form v-else @submit.prevent="$emit('save')">
       <div class="form-toolbar">
@@ -181,7 +205,7 @@ function directionLabel(value) {
       <p v-if="status" class="builder-status">{{ status }}</p>
       <p v-for="message in errors.trigger ?? []" :key="message" class="field-error">{{ message }}</p>
 
-      <div class="editor-tabs" role="tablist" aria-label="Beat editor sections">
+      <div class="editor-tabs" role="tablist" aria-label="Scene editor sections">
         <button
           type="button"
           class="sm"
@@ -216,7 +240,7 @@ function directionLabel(value) {
 
       <div v-show="activeTab === 'story'" class="tab-panel" role="tabpanel">
         <div class="field-grid">
-          <label>Beat ID
+          <label>Scene ID
             <input v-model="draft.id" />
             <span v-if="fieldError('id')" class="field-error">{{ fieldError("id") }}</span>
           </label>
@@ -224,14 +248,55 @@ function directionLabel(value) {
           <label>Heading<input v-model="draft.heading" /></label>
         </div>
 
-        <label>Story text
+        <label>Scene prose
           <textarea v-model="draft.text" rows="10" />
           <span v-if="fieldError('text')" class="field-error">{{ fieldError("text") }}</span>
         </label>
-        <label>Revisit text<textarea v-model="draft.revisit" rows="5" /></label>
+        <label>Revisit prose<textarea v-model="draft.revisit" rows="5" /></label>
       </div>
 
       <div v-show="activeTab === 'criteria'" class="tab-panel" role="tabpanel">
+        <section class="criteria-card">
+          <div class="criteria-card-header">
+            <h3>Mode and story beat</h3>
+          </div>
+          <div class="criteria-readonly">
+            <span
+              v-for="item in modeCriteriaSummary"
+              :key="item"
+              class="summary-chip"
+            >
+              {{ item }}
+            </span>
+            <p v-if="!modeCriteriaSummary.length" class="empty-origin-list">Default: both play modes.</p>
+          </div>
+          <div class="mode-grid">
+            <label class="check-row">
+              <input
+                type="checkbox"
+                :checked="modeEnabled('story')"
+                @change="setModeEnabled('story', $event.target.checked)"
+              />
+              Story mode
+            </label>
+            <label class="check-row">
+              <input
+                type="checkbox"
+                :checked="modeEnabled('open-world')"
+                @change="setModeEnabled('open-world', $event.target.checked)"
+              />
+              Open-world mode
+            </label>
+            <label class="span-all">Story beat
+              <input
+                v-model="draft.storyBeat"
+                placeholder="optional story beat ID"
+              />
+              <span v-if="fieldError('storyBeat')" class="field-error">{{ fieldError("storyBeat") }}</span>
+            </label>
+          </div>
+        </section>
+
         <section class="criteria-card">
           <div class="criteria-card-header">
             <h3>Location based</h3>
@@ -279,7 +344,7 @@ function directionLabel(value) {
               <select v-model="draft.match.mapTransition">
                 <option :value="null">Default</option>
                 <option
-                  v-for="transition in catalog.world.mapTransitions ?? catalog.world.localExits"
+                  v-for="transition in catalog.world.mapTransitions"
                   :key="transition.id"
                   :value="transition.id"
                 >
@@ -377,7 +442,7 @@ function directionLabel(value) {
 
       <div v-show="activeTab === 'choices'" class="tab-panel" role="tabpanel">
         <fieldset>
-          <legend>Choices</legend>
+          <legend>Scene choices</legend>
           <StoryChoiceEditor
             v-for="(choice, index) in draft.choices"
             :key="choice.id"
@@ -404,7 +469,7 @@ function directionLabel(value) {
         @restore="$emit('restore-revision', $event)"
       />
 
-      <button v-if="!isNew" type="button" class="danger" @click="$emit('delete')">Delete beat</button>
+      <button v-if="!isNew" type="button" class="danger" @click="$emit('delete')">Delete scene</button>
     </form>
   </section>
 </template>
@@ -526,6 +591,23 @@ textarea {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.7rem;
 }
+.mode-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid #3d485b;
+  border-radius: 7px;
+  background: #171b22;
+  padding: 0.5rem 0.6rem;
+}
+.check-row input {
+  width: auto;
+}
 
 .span-all {
   grid-column: 1 / -1;
@@ -640,6 +722,9 @@ legend {
 
 @media (max-width: 720px) {
   .field-grid {
+    grid-template-columns: 1fr;
+  }
+  .mode-grid {
     grid-template-columns: 1fr;
   }
 

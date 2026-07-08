@@ -4,8 +4,20 @@ const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const TABS = new Set(["overview", "inventory", "knowledge", "skills", "quests", "documents"]);
 const VISIBILITY = new Set(["always", "when-acquired", "when-started", "hidden"]);
 const STAT_TYPES = new Set(["integer", "decimal", "meter", "boolean", "enum"]);
+const STAT_DIRECTIONS = new Set(["higher-is-better"]);
+const STAT_TONES = new Set(["positive", "warning", "error"]);
 const SKILL_MODES = new Set(["acquired", "ranked"]);
 const ACTIVITIES = new Set(["resting", "light", "moderate", "strenuous"]);
+const STAGE_VIEW_KINDS = new Set([
+  "inventory",
+  "character-stats",
+  "character",
+  "closeup",
+  "lesson",
+  "document",
+  "console",
+  "simulation",
+]);
 
 export function normalizeCharacterDocument(input = {}) {
   const source = input && typeof input === "object" ? structuredClone(input) : {};
@@ -60,9 +72,19 @@ export function normalizeCharacterDocument(input = {}) {
         id: text(action.id),
         label: text(action.label),
         consume: finiteNumber(action.consume, 0),
+        consumeOptions: array(action.consumeOptions).map((option) => ({
+          id: text(option.id),
+          label: text(option.label),
+          portion: option.portion == null ? null : finiteNumber(option.portion, 0),
+          remaining: option.remaining === true,
+        })),
+        depletedItem: nullableText(action.depletedItem),
         timeMinutes: finiteNumber(action.timeMinutes, 0),
         activity: text(action.activity) || "light",
         effects: array(action.effects).map((effect) => structuredClone(effect)),
+        view: action.view && typeof action.view === "object"
+          ? structuredClone(action.view)
+          : null,
       })),
     })),
     stats: array(source.stats).map((stat, index) => ({
@@ -116,6 +138,33 @@ export function normalizeCharacterDocument(input = {}) {
     })),
     documents: normalizeCatalog(source.documents, "title"),
   };
+}
+
+export function applyCharacterRenames(character, renames = []) {
+  const maps = Object.fromEntries(
+    ["items", "stats", "knowledge", "skills", "quests", "documents"]
+      .map((domain) => [domain, renameMapFor(renames, domain)]),
+  );
+  if (!Object.values(maps).some((map) => map.size)) return character;
+  const rename = (domain, value) => resolveRename(maps[domain] ?? new Map(), value);
+
+  for (const domain of Object.keys(maps)) {
+    for (const entry of character[domain] ?? []) entry.id = rename(domain, entry.id);
+  }
+  for (const item of character.items ?? []) {
+    if (item.relatedDocument) item.relatedDocument = rename("documents", item.relatedDocument);
+    for (const action of item.actions ?? []) renameEffects(action.effects, rename);
+  }
+  for (const stack of Object.values(character.holdings?.stacks ?? {})) {
+    if (stack.item) stack.item = rename("items", stack.item);
+  }
+  for (const instance of Object.values(character.holdings?.instances ?? {})) {
+    if (instance.item) instance.item = rename("items", instance.item);
+  }
+  for (const skill of character.skills ?? []) {
+    for (const award of skill.practice?.awards ?? []) renameRequirements(award.require, rename);
+  }
+  return character;
 }
 
 export function validateCharacterDocument(input) {
@@ -177,6 +226,14 @@ export function validateCharacterDocument(input) {
       if (action.consume < 0) add(`${actionBase}.consume`, "Consume quantity cannot be negative.");
       if (action.timeMinutes < 0) add(`${actionBase}.timeMinutes`, "Time cannot be negative.");
       if (!ACTIVITIES.has(action.activity)) add(`${actionBase}.activity`, "Choose a supported activity profile.");
+      if (action.view) {
+        if (!STAGE_VIEW_KINDS.has(text(action.view.kind))) {
+          add(`${actionBase}.view.kind`, "Choose a supported stage view.");
+        }
+        if (action.view.kind === "document" && !text(action.view.id)) {
+          add(`${actionBase}.view.id`, "Choose a document.");
+        }
+      }
     });
   });
 
@@ -187,6 +244,9 @@ export function validateCharacterDocument(input) {
     if (!STAT_TYPES.has(stat.type)) add(`${base}.type`, "Choose a supported stat type.");
     if (stat.group && !statGroups.has(stat.group)) add(`${base}.group`, `Unknown stat group "${stat.group}".`);
     if (!VISIBILITY.has(stat.visible)) add(`${base}.visible`, "Choose a supported visibility.");
+    if (stat.direction && !STAT_DIRECTIONS.has(stat.direction)) {
+      add(`${base}.direction`, "Choose a supported stat direction.");
+    }
     for (const [activity, rate] of Object.entries(stat.drift?.perGameHour ?? {})) {
       if (!ACTIVITIES.has(activity)) add(`${base}.drift.perGameHour.${activity}`, "Unknown activity profile.");
       if (!Number.isFinite(Number(rate))) add(`${base}.drift.perGameHour.${activity}`, "Drift rate must be numeric.");
@@ -197,6 +257,17 @@ export function validateCharacterDocument(input) {
       }
       if (!text(threshold.state)) {
         add(`${base}.thresholds.${thresholdIndex}.state`, "Threshold state is required.");
+      }
+    });
+    (stat.displayStates ?? []).forEach((state, stateIndex) => {
+      if (!Number.isFinite(Number(state.at))) {
+        add(`${base}.displayStates.${stateIndex}.at`, "Display state minimum must be numeric.");
+      }
+      if (!text(state.state)) {
+        add(`${base}.displayStates.${stateIndex}.state`, "Display state label is required.");
+      }
+      if (state.tone && !STAT_TONES.has(text(state.tone))) {
+        add(`${base}.displayStates.${stateIndex}.tone`, "Choose positive, warning, or error.");
       }
     });
   });
@@ -328,6 +399,68 @@ function validateIds(items, path, add) {
     ids.add(item.id);
   });
   return ids;
+}
+
+function renameRequirements(require, rename) {
+  if (!require || typeof require !== "object") return;
+  for (const domain of ["items", "knowledge", "documents"]) {
+    renameGroup(require[domain], domain, rename);
+  }
+  for (const domain of ["stats", "skills", "quests"]) {
+    for (const condition of require[domain] ?? []) {
+      if (condition?.id) condition.id = rename(domain, condition.id);
+    }
+  }
+  for (const condition of require.evidence ?? []) {
+    if (condition?.skill) condition.skill = rename("skills", condition.skill);
+  }
+}
+
+function renameGroup(value, domain, rename) {
+  const groups = Array.isArray(value) ? { all: value } : value ?? {};
+  for (const key of ["all", "any", "not"]) {
+    for (const [index, entry] of (groups[key] ?? []).entries()) {
+      if (typeof entry === "string") groups[key][index] = rename(domain, entry);
+      else if (entry?.id) entry.id = rename(domain, entry.id);
+    }
+  }
+}
+
+function renameEffects(effects = [], rename) {
+  for (const effect of effects) {
+    const domain = effectDomain(effect.op);
+    if (domain && effect.id) effect.id = rename(domain, effect.id);
+  }
+}
+
+function effectDomain(op) {
+  const raw = String(op ?? "").split(".")[0];
+  return {
+    item: "items",
+    stat: "stats",
+    knowledge: "knowledge",
+    skill: "skills",
+    quest: "quests",
+    document: "documents",
+  }[raw] ?? (["items", "stats", "knowledge", "skills", "quests", "documents"].includes(raw) ? raw : null);
+}
+
+function renameMapFor(renames, domain) {
+  return new Map(
+    renames
+      .filter((rename) => rename?.domain === domain && rename.from && rename.to)
+      .map((rename) => [String(rename.from), String(rename.to)]),
+  );
+}
+
+function resolveRename(map, value) {
+  let current = value;
+  const seen = new Set();
+  while (map.has(current) && !seen.has(current)) {
+    seen.add(current);
+    current = map.get(current);
+  }
+  return current;
 }
 
 function array(value) {

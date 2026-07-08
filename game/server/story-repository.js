@@ -15,10 +15,11 @@ const MILESTONE_KINDS = new Set([
 ]);
 
 export class StoryRepository {
-  constructor(db, world, character = null) {
+  constructor(db, world, character = null, learning = null) {
     this.db = db;
     this.world = world;
     this.character = character;
+    this.learning = learning;
     this.revisions = new RevisionStore(db, {
       table: "story_revisions",
       idColumns: ["area_id", "beat_id"],
@@ -32,6 +33,10 @@ export class StoryRepository {
 
   setCharacter(character) {
     this.character = character;
+  }
+
+  setLearning(learning) {
+    this.learning = learning;
   }
 
   getGlobalRevision() {
@@ -96,7 +101,8 @@ export class StoryRepository {
     const rows = this.db.prepare(`
       SELECT area_id, id, sort_order, trigger_place, trigger_hex, trigger_room,
         trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
-        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json, match_json, time_json,
+        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json,
+        modes_json, story_beat, match_json, time_json,
         version, created_at, updated_at
       FROM story_beats
       WHERE area_id = ?
@@ -113,7 +119,8 @@ export class StoryRepository {
     const row = this.db.prepare(`
       SELECT area_id, id, sort_order, trigger_place, trigger_hex, trigger_room,
         trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
-        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json, match_json, time_json,
+        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json,
+        modes_json, story_beat, match_json, time_json,
         version, created_at, updated_at
       FROM story_beats
       WHERE area_id = ? AND id = ?
@@ -122,7 +129,7 @@ export class StoryRepository {
   }
 
   createBeat(areaId, input) {
-    const validation = validateBeat(input, this.world, this.character);
+    const validation = validateBeat(input, this.world, this.character, this.learning);
     if (!validation.valid) throw new ValidationError(validation.errors);
     if (this.getBeat(areaId, validation.beat.id)) {
       throw new ValidationError({ id: ["That beat ID already exists in this area."] });
@@ -143,7 +150,7 @@ export class StoryRepository {
     if (Number(expectedVersion) !== existing.version) {
       throw new ConflictError("This beat changed in another window.", existing);
     }
-    const validation = validateBeat(input, this.world, this.character);
+    const validation = validateBeat(input, this.world, this.character, this.learning);
     if (!validation.valid) throw new ValidationError(validation.errors);
     const nextBeatId = validation.beat.id;
     const renamedFrom = nextBeatId === beatId ? null : beatId;
@@ -186,6 +193,27 @@ export class StoryRepository {
     });
   }
 
+  reorderBeats(areaId, beatIds = []) {
+    const ids = Array.isArray(beatIds) ? beatIds.map(String).filter(Boolean) : [];
+    if (!ids.length) return { revision: this.getGlobalRevision(), beatIds: [] };
+    return transaction(this.db, () => {
+      const existing = new Set(this.listBeats(areaId).map((beat) => beat.id));
+      const missing = ids.filter((id) => !existing.has(id));
+      if (missing.length) {
+        throw new ValidationError({ beatIds: [`Unknown beat IDs: ${missing.join(", ")}`] });
+      }
+      const update = this.db.prepare(`
+        UPDATE story_beats
+        SET sort_order = ?, updated_at = ?
+        WHERE area_id = ? AND id = ?
+      `);
+      const now = new Date().toISOString();
+      ids.forEach((id, index) => update.run(index, now, areaId, id));
+      const revision = this.revisions.incrementGlobalRevision();
+      return { revision, beatIds: ids };
+    });
+  }
+
   listRevisions(areaId, beatId) {
     return this.revisions.list([areaId, beatId]);
   }
@@ -194,7 +222,7 @@ export class StoryRepository {
     const row = this.revisions.getSnapshot([areaId, beatId], revisionNumber);
     if (!row) throw new NotFoundError("Revision not found.");
     const snapshot = normalizeBeat({ ...row, id: beatId });
-    const validation = validateBeat(snapshot, this.world, this.character);
+    const validation = validateBeat(snapshot, this.world, this.character, this.learning);
     if (!validation.valid) throw new ValidationError(validation.errors);
 
     return transaction(this.db, () => {
@@ -218,7 +246,7 @@ export class StoryRepository {
     if (!areaId) throw new ValidationError({ area: ["Area ID is required."] });
     const entries = Object.entries(data.beats ?? {});
     const normalized = entries.map(([id, beat]) =>
-      validateBeat({ ...beat, id }, this.world, this.character));
+      validateBeat({ ...beat, id }, this.world, this.character, this.learning));
     const errors = Object.fromEntries(
       normalized.flatMap((result, index) =>
         Object.entries(result.errors).map(([path, messages]) => [`beats.${entries[index][0]}.${path}`, messages]),
@@ -286,7 +314,7 @@ export class StoryRepository {
             choice.go_exterior_node = resolveRename(exteriorRenameMap, choice.go_exterior_node);
           }
         }
-        const validation = validateBeat(beat, world, this.character);
+        const validation = validateBeat(beat, world, this.character, this.learning);
         for (const [path, messages] of Object.entries(validation.errors)) {
           errors[`story.${area.id}.${beat.id}.${path}`] = messages;
         }
@@ -299,7 +327,7 @@ export class StoryRepository {
     const errors = {};
     for (const area of this.listAreas()) {
       for (const beat of this.listBeats(area.id, { full: true })) {
-        const validation = validateBeat(beat, this.world, character);
+        const validation = validateBeat(beat, this.world, character, this.learning);
         for (const [path, messages] of Object.entries(validation.errors)) {
           if (
             path === "trigger.hex" ||
@@ -321,6 +349,25 @@ export class StoryRepository {
     void domain;
     void id;
     return [];
+  }
+
+  findLearningReferences(lessonId) {
+    const references = [];
+    for (const area of this.listAreas()) {
+      for (const beat of this.listBeats(area.id, { full: true })) {
+        beat.choices.forEach((choice, index) => {
+          if (choice.view?.kind === "lesson" && choice.view.id === lessonId) {
+            references.push({
+              kind: "story",
+              areaId: area.id,
+              beatId: beat.id,
+              path: `choices.${index}.view.id`,
+            });
+          }
+        });
+      }
+    }
+    return references;
   }
 
   findHexReferences(hexId) {
@@ -433,7 +480,7 @@ export class StoryRepository {
           }
         }
         if (!changed) continue;
-        const validation = validateBeat(beat, world, this.character);
+        const validation = validateBeat(beat, world, this.character, this.learning);
         if (!validation.valid) throw new ValidationError(validation.errors);
         this.#replaceBeat(area.id, original.id, validation.beat, original.version + 1, original.createdAt);
         const saved = this.getBeat(area.id, original.id);
@@ -477,7 +524,7 @@ export class StoryRepository {
           }
         }
         if (!changed) continue;
-        const validation = validateBeat(beat, world, this.character);
+        const validation = validateBeat(beat, world, this.character, this.learning);
         if (!validation.valid) throw new ValidationError(validation.errors);
         this.#replaceBeat(area.id, original.id, validation.beat, original.version + 1, original.createdAt);
         const saved = this.getBeat(area.id, original.id);
@@ -506,11 +553,12 @@ export class StoryRepository {
       INSERT INTO story_beats(
         area_id, id, sort_order, trigger_place, trigger_hex, trigger_room,
         trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
-        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json, match_json, time_json,
+        eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json,
+        modes_json, story_beat, match_json, time_json,
         version, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      areaId, beat.id, 0, beat.trigger.place, beat.trigger.hex, beat.trigger.room,
+      areaId, beat.id, Number.isFinite(Number(beat.sortOrder)) ? Number(beat.sortOrder) : 0, beat.trigger.place, beat.trigger.hex, beat.trigger.room,
       beat.trigger.exteriorNode, beat.trigger.event, beat.trigger.flag,
       Number(beat.once), 1, beat.eyebrow, beat.heading,
       beat.text, beat.revisit,
@@ -518,6 +566,8 @@ export class StoryRepository {
       JSON.stringify([]),
       JSON.stringify([]),
       JSON.stringify({}),
+      JSON.stringify(beat.modes ?? []),
+      beat.storyBeat,
       JSON.stringify(compactObject(beat.match ?? {})),
       JSON.stringify(compactObject(beat.time ?? {})),
       version, createdAt, now,
@@ -554,11 +604,14 @@ export class StoryRepository {
     const beat = {
       areaId: row.area_id,
       id: row.id,
+      sortOrder: row.sort_order,
       once: Boolean(row.once_value),
       eyebrow: row.eyebrow,
       heading: row.heading,
       text: row.text,
       revisit: row.revisit,
+      modes: parseNullableJson(row.modes_json) ?? [],
+      storyBeat: row.story_beat,
       trigger: {
         place: row.trigger_place,
         hex: row.trigger_hex,
@@ -638,7 +691,6 @@ function parseMatchJson(value) {
   const mapTransition = nullableText(parsed.mapTransition);
   return {
     originHex: originHexValue(parsed.originHex),
-    localExit: nullableText(parsed.localExit),
     mapTransition,
     transitionDirection: nullableText(parsed.transitionDirection),
   };

@@ -1,6 +1,6 @@
 # World Authoring
 
-**Status:** Implemented outdoor-world authoring contract  
+**Status:** Implemented outdoor-world authoring contract
 **Scope:** `game/` world builder, outdoor content API, runtime map loading, and revisions
 
 ## Purpose
@@ -70,6 +70,11 @@ Hex-relative points move with their hex. Raw points remain at their authored
 world position. Landmarks use offsets from the hex center. Stand points may be
 hex-relative, landmark-relative, or raw world coordinates.
 
+Hexes and outdoor stand points may also carry ordered presentational `views`
+for player-facing image close-ups. These media fields belong to the world
+document alongside spatial authoring because they describe what the current
+place can show in the map stage. See [location-media.md](location-media.md).
+
 Edits remain local to the browser until **Save world**. Revert restores the last
 loaded version. Leaving with unsaved changes offers Save, Discard, or Keep
 Editing.
@@ -100,7 +105,7 @@ the available canvas:
   footprint.
 - The frame expands to the canvas aspect ratio so the SVG fills the available
   authoring area without distortion.
-- Empty or not-yet-loaded maps fall back to the stable default frame.
+- Empty or not-yet-loaded maps use the stable default frame.
 - Route and feature geometry do not currently expand the fitted frame; authors
   should keep authored line geometry near the outdoor hex footprint unless this
   contract is intentionally revised.
@@ -211,17 +216,31 @@ The workspace supports:
 - map-transition marker placement;
 - read-only detail panels by default, with explicit edit mode for geometry and
   object fields;
-- map-transition beat associations, including existing `toLocal`/`toRegional`
-  beats and buttons that open Story Builder to add the matching beat;
+- map-transition scene associations, including existing `toLocal`/`toRegional`
+  scenes and buttons that open Story Builder to add the matching scene;
 - object creation, duplication, ordering, reference-aware rename, and deletion;
 - read-only fixture inspection;
 - full-document validation, traversal audit, revisions, and restore.
 - catalog-backed door keys, item placements, and character requirements/effects
   for world interactions.
+- story arc reference awareness for hexes, rooms, exterior nodes, transitions,
+  pickups, actions, and authored world interactions used by active story arcs.
+- ordered image view authoring for rooms and authored room stands, using the
+  same public image picker pattern as artifact images but pointed at
+  `game/public/views`.
 
 Room and exterior-node renames cascade into story triggers and `go_room`
 destinations in the same transaction. Deletions that leave story or building
 references unresolved are rejected.
+
+When story arcs are implemented, the same reference-safety rule applies to
+story beats, scenes, completion conditions, beat effects, choices, and authored
+actions. Renaming a referenced hex, room, exterior node, transition, pickup,
+fixture action, or world interaction updates the story reference in the same
+transaction when the rename is reference-aware. Deletion is rejected when it
+would leave a story beat, scene, completion condition, beat effect, choice, or
+authored action unresolved. See
+[play-modes-and-story-mode.md](play-modes-and-story-mode.md).
 
 The building document owns item placements, not item definitions. Door keys
 and `pickups[].item` values reference IDs in the versioned `character-main`
@@ -229,6 +248,12 @@ catalog. A pickup may supply a placement-specific label; otherwise the runtime
 uses the catalog item's label and description. Taking a pickup commits an
 ordinary character item effect and records the placement as taken, so repeated
 interaction cannot duplicate a unique item.
+
+The building document also owns room and stand image view references. These
+references are ordered presentation metadata for the playable stage and are not
+story beats, inventory items, or movement destinations. Runtime resolution,
+map/image toggling, carousel behavior, and stale-reference handling are defined
+in [location-media.md](location-media.md).
 
 Utility-station YAML is an explicit snapshot format rather than the live runtime
 source. Development loads the building from

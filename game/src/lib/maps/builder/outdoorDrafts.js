@@ -31,6 +31,7 @@ export function standDraftFrom(stand = {}) {
   return {
     id: stand.id ?? "",
     label: stand.label ?? "",
+    views: clonePlain(stand.views ?? []),
     anchor: at.from === "landmark" ? "landmark" : at.x != null ? "world" : "hex",
     dx: Number(at.dx ?? 0),
     dy: Number(at.dy ?? 0),
@@ -48,6 +49,7 @@ export function standFromDraft(draft = {}) {
   return {
     id: String(draft.id ?? "").trim(),
     ...(String(draft.label ?? "").trim() ? { label: String(draft.label).trim() } : {}),
+    ...(Array.isArray(draft.views) && draft.views.length ? { views: clonePlain(draft.views) } : {}),
     at,
   };
 }
@@ -56,6 +58,7 @@ export function normalizeStand(stand = {}) {
   return {
     id: String(stand.id ?? "").trim(),
     ...(String(stand.label ?? "").trim() ? { label: String(stand.label).trim() } : {}),
+    ...(Array.isArray(stand.views) && stand.views.length ? { views: clonePlain(stand.views) } : {}),
     at: clonePlain(stand.at ?? {}),
   };
 }

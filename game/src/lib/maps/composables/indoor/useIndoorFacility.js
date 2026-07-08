@@ -4,8 +4,9 @@ import {
   applyEnablerAutoUnlock,
   relockEnablerDoor,
 } from "../useDoors.js";
+import { setHydroFacilityOnline } from "../../../../composables/useHydroFacility.js";
 
-export function createIndoorFacility({ building, indoor, syncDoorState }) {
+export function createIndoorFacility({ building, indoor, syncDoorState, gameState = null }) {
   const roomSwitches = computed(() => {
     const roomId = indoor.currentRoom;
     if (!roomId) return [];
@@ -46,6 +47,12 @@ export function createIndoorFacility({ building, indoor, syncDoorState }) {
 
   function setHydroOnline(on) {
     indoor.facility.hydroOnline = on;
+    if (gameState) {
+      setHydroFacilityOnline(gameState, on, {
+        source: "facility",
+        actor: "system",
+      });
+    }
     applyEnablerAutoUnlock(
       indoor.doorState,
       building.value,

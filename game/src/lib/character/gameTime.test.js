@@ -19,8 +19,9 @@ function state() {
           id: "health", label: "Health", type: "meter", default: 100, min: 0, max: 100,
         },
         {
-          id: "hunger", label: "Hunger", type: "meter", default: 35, min: 0, max: 100,
-          drift: { perGameHour: { resting: 1.5, light: 3, moderate: 5, strenuous: 8 } },
+          id: "satiety", label: "Satiety", type: "meter", default: 35, min: 0, max: 100,
+          direction: "higher-is-better",
+          drift: { perGameHour: { resting: -1.5, light: -3, moderate: -5, strenuous: -8 } },
           thresholds: [{
             at: 40,
             effectsPerGameHour: [{ op: "stat.add", id: "health", value: -2 }],
@@ -36,7 +37,8 @@ describe("authored game time", () => {
   it("advances the clock and applies activity-specific drift", () => {
     const gameState = state();
     expect(advanceGameTime(gameState, 60, "moderate").ok).toBe(true);
-    expect(gameState.character.stats.hunger).toBeCloseTo(40);
+    expect(gameState.character.stats.satiety).toBeCloseTo(30);
+    expect(gameState.character.stats.health).toBeCloseTo(98);
     expect(gameState.clock).toMatchObject({ elapsedMinutes: 60, minuteOfDay: 780, day: 1 });
     expect(formatGameClock(gameState.clock)).toBe("Day 1 · 1:00 PM");
     expect(formatGameDate(gameState.clock)).toBe("Tuesday, July 2, 2126");
@@ -55,7 +57,7 @@ describe("authored game time", () => {
     for (let index = 0; index < 180; index += 1) {
       advanceGameTime(small, 1, "strenuous");
     }
-    expect(large.character.stats.hunger).toBeCloseTo(small.character.stats.hunger);
+    expect(large.character.stats.satiety).toBeCloseTo(small.character.stats.satiety);
     expect(large.character.stats.health).toBeCloseTo(small.character.stats.health);
     expect(large.clock).toEqual(small.clock);
   });

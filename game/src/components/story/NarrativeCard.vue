@@ -21,7 +21,7 @@ const paragraphs = computed(() => proseParagraphs(props.beat?.text));
 
 <style scoped>
 .narrative-card {
-  margin-bottom: 1rem;
+  margin-bottom: 0.55rem;
   padding: 1.1rem 1.25rem;
   border-radius: 12px;
   border: 1px solid #3a4558;

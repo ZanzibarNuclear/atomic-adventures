@@ -136,7 +136,6 @@ export function exteriorStepOutMoves(building, roomId, doorState, areaId) {
   const out = []
   const seen = new Set()
 
-  // Legacy schema: door-linked exits
   for (const exit of building.exits ?? []) {
     if (!exit.door || exit.room !== roomId || !exit.exteriorNode) continue
     if (!canPassDoor(doorState, areaId, exit.door)) continue

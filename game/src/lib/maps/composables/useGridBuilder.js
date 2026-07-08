@@ -792,6 +792,21 @@ function fmtPoint(p) {
   return `{ x: ${round2(p.x)}, y: ${round2(p.y)} }`
 }
 
+function serializeViews(views, indent) {
+  if (!views?.length) return []
+  const pad = ' '.repeat(indent)
+  const inner = ' '.repeat(indent + 2)
+  const lines = [`${pad}views:`]
+  for (const view of views) {
+    lines.push(`${inner}- id: ${view.id}`)
+    lines.push(`${inner}  kind: ${view.kind ?? 'image'}`)
+    if (view.src) lines.push(`${inner}  src: ${JSON.stringify(view.src)}`)
+    if (view.label) lines.push(`${inner}  label: ${JSON.stringify(view.label)}`)
+    if (view.alt) lines.push(`${inner}  alt: ${JSON.stringify(view.alt)}`)
+  }
+  return lines
+}
+
 function serializeRoom(room, indent) {
   const pad = ' '.repeat(indent)
   const inner = ' '.repeat(indent + 2)
@@ -819,6 +834,7 @@ function serializeRoom(room, indent) {
   if (room.feature) lines.push(`${inner}feature: ${room.feature}`)
   if (room.rollDoor) lines.push(`${inner}rollDoor: ${room.rollDoor}`)
   if (room.rollSpan != null) lines.push(`${inner}rollSpan: ${round2(room.rollSpan)}`)
+  lines.push(...serializeViews(room.views, indent + 2))
   if (room.defaultStand) lines.push(`${inner}defaultStand: ${room.defaultStand}`)
   if (room.stands?.length) {
     lines.push(`${inner}stands:`)
@@ -828,6 +844,7 @@ function serializeRoom(room, indent) {
       if (stand.label) lines.push(`${inner}    label: ${JSON.stringify(stand.label)}`)
       if (stand.pose) lines.push(`${inner}    pose: ${stand.pose}`)
       if (stand.interaction) lines.push(`${inner}    interaction: ${stand.interaction}`)
+      lines.push(...serializeViews(stand.views, indent + 6))
     }
   }
   return lines.join('\n')
@@ -898,7 +915,6 @@ function serializeExit(exit, indent) {
     if (exit.standAt) lines.push(`${inner}standAt: ${fmtStandAt(exit.standAt)}`)
     return lines.join('\n')
   }
-  // Legacy door-based map transition
   const lines = [`${pad}- door: ${exit.door}`]
   if (exit.room) lines.push(`${inner}room: ${exit.room}`)
   if (exit.exteriorNode) lines.push(`${inner}exteriorNode: ${exit.exteriorNode}`)

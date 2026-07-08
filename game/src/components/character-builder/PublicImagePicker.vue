@@ -184,14 +184,14 @@ watch(
   gap: 0.65rem;
   padding: 0.75rem;
   border: 1px solid #343d4d;
-  border-radius: 10px;
-  background: #181d25;
+  border-radius: 8px;
+  background: #1b2028;
 }
 label {
   display: grid;
-  gap: 0.3rem;
+  gap: 0.35rem;
   color: #bdc4ce;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
 }
 .picker-trigger {
   cursor: pointer;
@@ -203,8 +203,8 @@ label {
   width: min(100%, 10rem);
   padding: 0.65rem;
   border: 1px solid #3a4558;
-  border-radius: 10px;
-  background: #12161d;
+  border-radius: 8px;
+  background: #171b22;
   cursor: pointer;
 }
 .image-preview img {
@@ -235,7 +235,7 @@ label {
   padding: 1rem;
   border: 1px solid #465166;
   border-radius: 10px;
-  background: #202630;
+  background: #20252f;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
 }
 .picker-heading {
@@ -274,7 +274,7 @@ label {
   text-align: center;
   border: 1px solid #3a4558;
   border-radius: 8px;
-  background: #12161d;
+  background: #171b22;
   color: #c5d0e0;
 }
 .picker-option:hover,

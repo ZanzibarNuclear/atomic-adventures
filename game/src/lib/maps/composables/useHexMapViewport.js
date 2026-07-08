@@ -7,7 +7,6 @@ import {
   neighborsOf,
 } from './useHexGeometry.js'
 
-/** Migrate legacy save / prototype mode names. */
 export function normalizeMapMode(mode) {
   if (mode === 'full') return 'full'
   if (mode === 'gameplay') return 'gameplay'

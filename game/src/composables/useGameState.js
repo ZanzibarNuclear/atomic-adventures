@@ -11,12 +11,18 @@ import {
   applyCharacterState,
   captureCharacterState,
   createCharacterState,
-  migrateLegacyInventory,
   resetCharacterState,
 } from "./useCharacterState.js";
 import { createGameClock } from "../lib/character/gameTime.js";
+import {
+  createHydroState,
+  normalizeHydroState,
+} from "../lib/simulations/hydro/index.js";
 
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 12;
+export const DEFAULT_PLAY_MODE = "story";
+export const STORY_ARC_ID = "part-i-opener";
+const PLAY_MODES = new Set(["story", "open-world"]);
 
 /** Plain JSON-safe clone — structuredClone fails on Vue reactive proxies. */
 function clonePlain(value) {
@@ -33,6 +39,13 @@ export function createGameState({ mapData, buildingData, characterData = {} }) {
     endCardDismissed: false,
     clock: createGameClock(),
     character: createCharacterState(characterData, buildingData.holders ?? []),
+    lessons: {},
+    milestones: {},
+    facilities: {
+      hydro: createHydroState(),
+    },
+    playMode: null,
+    story: createStoryState(),
     _startHex: startHex,
     _buildingData: buildingData,
   });
@@ -49,10 +62,16 @@ export function captureSnapshot({ gameState, place, outdoor, indoor }) {
     endCardDismissed: gameState.endCardDismissed,
     clock: clonePlain(gameState.clock),
     character: captureCharacterState(gameState.character),
+    lessons: clonePlain(gameState.lessons ?? {}),
+    milestones: clonePlain(gameState.milestones ?? {}),
+    playMode: normalizePlayMode(gameState.playMode),
+    story: captureStoryState(gameState),
+    facilities: {
+      hydro: clonePlain(gameState.facilities?.hydro ?? createHydroState()),
+    },
     outdoor: {
       currentId: outdoor.state.currentId,
       previousId: outdoor.state.previousId ?? null,
-      localExit: outdoor.state.localExit ?? null,
       mapTransition: outdoor.state.mapTransition ?? null,
       transitionDirection: outdoor.state.transitionDirection ?? null,
       discovered: [...outdoor.state.discovered],
@@ -85,15 +104,12 @@ export function captureSnapshot({ gameState, place, outdoor, indoor }) {
 function applyOutdoorSnapshot(o, outdoor) {
   outdoor.state.currentId = o.currentId ?? outdoor.START;
   outdoor.state.previousId = o.previousId ?? null;
-  outdoor.state.localExit = o.localExit ?? null;
-  outdoor.state.mapTransition = o.mapTransition ?? o.localExit ?? null;
-  outdoor.state.transitionDirection = o.transitionDirection ?? (o.localExit ? "toRegional" : null);
+  outdoor.state.mapTransition = o.mapTransition ?? null;
+  outdoor.state.transitionDirection = o.transitionDirection ?? null;
   outdoor.state.discovered = [...(o.discovered ?? [outdoor.state.currentId])];
 
   if (o.stand) {
     outdoor.state.stand = { ...o.stand };
-  } else if (o.barrierStand) {
-    outdoor.state.stand = { ...o.barrierStand };
   } else {
     outdoor.state.stand = outdoor.defaultStandForHex(outdoor.state.currentId);
   }
@@ -113,11 +129,18 @@ export function applySnapshot(snapshot, { gameState, place, outdoor, indoor }) {
   gameState.storySeen = new Set(snapshot.storySeen ?? []);
   gameState.endCardDismissed = snapshot.endCardDismissed ?? false;
   gameState.clock = createGameClock(snapshot.clock);
-  if (snapshot.character) {
-    applyCharacterState(gameState.character, snapshot.character);
-  } else {
-    migrateLegacyInventory(gameState.character, snapshot.indoor?.inventory ?? []);
-  }
+  if (snapshot.character) applyCharacterState(gameState.character, snapshot.character);
+  gameState.lessons = plainObject(snapshot.lessons);
+  gameState.milestones = plainObject(snapshot.milestones);
+  gameState.playMode = normalizePlayMode(snapshot.playMode);
+  gameState.story = normalizeStoryState(snapshot.story, gameState.playMode);
+  gameState.facilities = {
+    hydro: normalizeHydroState(snapshot.facilities?.hydro ?? {
+      ...createHydroState(),
+      online: snapshot.indoor?.facility?.hydroOnline ?? false,
+      startupComplete: snapshot.indoor?.facility?.hydroOnline ?? false,
+    }),
+  };
 
   applyOutdoorSnapshot(snapshot.outdoor ?? {}, outdoor);
 
@@ -142,7 +165,7 @@ export function applySnapshot(snapshot, { gameState, place, outdoor, indoor }) {
   d.doorState = i.doorState ?? buildInitialDoorState(building.areaId, building);
   d.pickupsTaken = new Set(i.pickupsTaken ?? []);
   d.facility = {
-    hydroOnline: i.facility?.hydroOnline ?? false,
+    hydroOnline: gameState.facilities.hydro.online || (i.facility?.hydroOnline ?? false),
     manualMode: { ...(i.facility?.manualMode ?? {}) },
   };
   d.completedActions = new Set(i.completedActions ?? []);
@@ -160,8 +183,81 @@ export function resetGameState({ gameState, place, outdoor, indoor }) {
   gameState.endCardDismissed = false;
   gameState.clock = createGameClock();
   resetCharacterState(gameState.character);
+  gameState.lessons = {};
+  gameState.milestones = {};
+  gameState.playMode = null;
+  gameState.story = createStoryState();
+  gameState.facilities = {
+    hydro: createHydroState(),
+  };
 
   outdoor.resetPlayer();
   indoor.resetIndoor();
   place.value = "outdoors";
+}
+
+export function setPlayMode(gameState, mode, {
+  activeArcId = null,
+  activeBeatId = null,
+} = {}) {
+  gameState.playMode = normalizePlayMode(mode);
+  gameState.story = gameState.playMode === "story"
+    ? createStoryState({ activeArcId: activeArcId ?? STORY_ARC_ID, activeBeatId })
+    : null;
+}
+
+export function normalizePlayMode(mode) {
+  return PLAY_MODES.has(mode) ? mode : DEFAULT_PLAY_MODE;
+}
+
+export function createStoryState({
+  activeArcId = STORY_ARC_ID,
+  activeBeatId = null,
+  completedBeatIds = [],
+  enteredBeatIds = [],
+  seenSceneIds = [],
+} = {}) {
+  return {
+    activeArcId,
+    activeBeatId,
+    completedBeatIds: [...completedBeatIds],
+    enteredBeatIds: [...enteredBeatIds],
+    seenSceneIds: [...seenSceneIds],
+  };
+}
+
+function normalizeStoryState(value, playMode) {
+  if (playMode !== "story") return null;
+  return createStoryState({
+    activeArcId: value?.activeArcId || STORY_ARC_ID,
+    activeBeatId: value?.activeBeatId || null,
+    completedBeatIds: normalizeIdList(value?.completedBeatIds),
+    enteredBeatIds: normalizeIdList(value?.enteredBeatIds),
+    seenSceneIds: normalizeIdList(value?.seenSceneIds),
+  });
+}
+
+function captureStoryState(gameState) {
+  const mode = normalizePlayMode(gameState.playMode);
+  if (mode !== "story") return null;
+  const story = normalizeStoryState(gameState.story, mode);
+  return createStoryState({
+    activeArcId: story?.activeArcId ?? STORY_ARC_ID,
+    activeBeatId: story?.activeBeatId ?? null,
+    completedBeatIds: story?.completedBeatIds,
+    enteredBeatIds: story?.enteredBeatIds,
+    seenSceneIds: story?.seenSceneIds?.length ? story.seenSceneIds : [...(gameState.storySeen ?? [])],
+  });
+}
+
+function normalizeIdList(value) {
+  return Array.isArray(value)
+    ? value.map(String).filter(Boolean)
+    : [];
+}
+
+function plainObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? clonePlain(value)
+    : {};
 }

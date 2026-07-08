@@ -9,11 +9,12 @@ import { ContentReferenceService } from "./content-reference-service.js";
 export const OUTDOOR_WORLD_ID = "outdoor-main";
 
 export class WorldRepository {
-  constructor(db, { seedWorld, buildingData, storyRepository = null } = {}) {
+  constructor(db, { seedWorld, buildingData, storyRepository = null, storyArcRepository = null } = {}) {
     this.db = db;
     this.buildingData = buildingData;
     this.storyRepository = storyRepository;
-    this.references = new ContentReferenceService({ storyRepository });
+    this.storyArcRepository = storyArcRepository;
+    this.references = new ContentReferenceService({ storyRepository, storyArcRepository });
     this.documents = new WorldDocumentStore(db, { kind: "outdoor" });
     this.revisions = new RevisionStore(db, {
       table: "world_revisions",
@@ -26,6 +27,11 @@ export class WorldRepository {
   setStoryRepository(repository) {
     this.storyRepository = repository;
     this.references.setStoryRepository(repository);
+  }
+
+  setStoryArcRepository(repository) {
+    this.storyArcRepository = repository;
+    this.references.setStoryArcRepository(repository);
   }
 
   setBuildingData(buildingData) {

@@ -21,37 +21,48 @@
   </div>
 
   <section class="stage">
-    <HexMap
-      :map-data="outdoor.displayMapData"
-      :route-models="outdoor.routeModels"
-      :feature-models="outdoor.featureModels"
-      :current-hex="outdoor.state.currentId"
-      :discovered="auditEnabled ? allHexIds : outdoor.discoveredList"
-      :discovered-openings="outdoor.state.discoveredOpenings"
-      :passage-states="outdoor.passageMarkerStates"
-      :flags="outdoor.flags"
-      :mode="auditEnabled ? 'full' : outdoor.mode"
-      :stand-override="outdoor.standOverride"
-      :building-enterable="outdoor.atBuildingEntrance"
-      :clickable-hex-ids="outdoor.reachableHexIds"
-      :movement-audit-entries="visibleAuditEntries"
-      :avatar-instant="auditEnabled"
-      @hex-click="travelToHex"
-      @building-enter="enterBuilding" />
+    <LocationStageFrame
+      :media="locationMedia"
+      :mode="locationMediaMode"
+      :selected-index="locationMediaIndex"
+      :busy="outdoor.traveling"
+      @show-map="$emit('show-location-map')"
+      @show-image="$emit('show-location-image')"
+      @previous-image="$emit('previous-location-image')"
+      @next-image="$emit('next-location-image')">
+      <HexMap
+        :map-data="outdoor.displayMapData"
+        :route-models="outdoor.routeModels"
+        :feature-models="outdoor.featureModels"
+        :current-hex="outdoor.state.currentId"
+        :discovered="auditEnabled ? allHexIds : outdoor.discoveredList"
+        :discovered-openings="outdoor.state.discoveredOpenings"
+        :passage-states="outdoor.passageMarkerStates"
+        :flags="outdoor.flags"
+        :mode="auditEnabled ? 'full' : outdoor.mode"
+        :stand-override="outdoor.standOverride"
+        :building-enterable="buildingEnterable"
+        :clickable-hex-ids="clickableHexIds"
+        :movement-audit-entries="visibleAuditEntries"
+        :avatar-instant="auditEnabled"
+        @hex-click="travelToAllowedHex"
+        @building-enter="enterAllowedBuilding" />
+    </LocationStageFrame>
     <MapCaption :title="hexLabel(outdoor.currentHexData)" />
+    <p v-if="clock" class="game-timestamp">{{ formatGameTimestamp(clock) }}</p>
   </section>
 
   <NarrativeCard :beat="narrativeBeat" />
 
   <StatusLines :lines="statusLines" />
 
-  <PlayPanel v-if="actions.length">
-    <ActionOptions v-if="actions.length" label="Choose an Action">
+  <PlayPanel>
+    <ActionOptions label="Choose an Action">
       <button
-        v-for="item in actions"
+        v-for="item in filteredActions"
         :key="item.id"
         class="route-btn"
-        :class="item.kind ? 'k-' + item.kind : null"
+        :class="[item.kind ? 'k-' + item.kind : null, item.promptCategory ? 'p-' + item.promptCategory : null]"
         :disabled="outdoor.traveling || item.disabled"
         :title="item.hint ?? ''"
         @click="onAction(item.id)">
@@ -65,17 +76,26 @@
 import { computed, ref } from "vue";
 import { hexLabel } from "../../displayLabel.js";
 import HexMap from "../components/HexMap.vue";
+import LocationStageFrame from "../../../components/game-views/LocationStageFrame.vue";
 import PlayPanel from "../../../components/hud/PlayPanel.vue";
 import MapCaption from "../components/hud/MapCaption.vue";
 import ActionOptions from "../components/hud/ActionOptions.vue";
 import StatusLines from "../../../components/hud/StatusLines.vue";
 import NarrativeCard from "../../../components/story/NarrativeCard.vue";
+import { formatGameTimestamp } from "../../character/gameTime.js";
+import { hexDistance } from "../composables/useHexGeometry.js";
 import {
   buildOutdoorPlayActions,
   getMovementOptions,
   buildOutdoorStatusLines,
   handleOutdoorChooseAction,
 } from "../../../composables/usePlayPanel.js";
+import {
+  annotateActionPrompts,
+  filterAllowedActions,
+  isStoryForwardAction,
+  isDestinationAllowed,
+} from "../../../composables/storyActionAvailability.js";
 import {
   buildMapMovementAudit,
   movementAuditSummary,
@@ -86,13 +106,25 @@ const props = defineProps({
   indoor: { type: Object, required: true },
   narrativeBeat: { type: Object, default: null },
   pendingBeat: { type: Object, default: null },
+  clock: { type: Object, default: null },
   applyChoice: { type: Function, required: true },
   travelToHex: { type: Function, required: true },
   enterBuilding: { type: Function, required: true },
   auditEnabled: { type: Boolean, default: false },
+  actionPolicy: { type: Object, default: null },
+  wellbeingOverview: { type: Object, default: null },
+  locationMedia: { type: Object, default: null },
+  locationMediaMode: { type: String, default: "map" },
+  locationMediaIndex: { type: Number, default: 0 },
 });
 
-defineEmits(["hide-movement-audit"]);
+defineEmits([
+  "hide-movement-audit",
+  "show-location-map",
+  "show-location-image",
+  "previous-location-image",
+  "next-location-image",
+]);
 
 const devMode = import.meta.env.DEV;
 const auditState = ref("all");
@@ -117,14 +149,16 @@ const auditSummary = computed(() =>
 );
 
 const statusLines = computed(() =>
-  buildOutdoorStatusLines(props.outdoor, props.indoor),
+  buildOutdoorStatusLines(props.outdoor, props.indoor, props.wellbeingOverview),
 );
 
 const chooseActions = computed(() => {
   // Stand changes within a hex (passage crossings) must refresh travel options.
   void props.outdoor.state?.stand?.x;
   void props.outdoor.state?.stand?.y;
-  return getMovementOptions(props.outdoor, props.pendingBeat);
+  return getMovementOptions(props.outdoor, props.pendingBeat, {
+    suppressEnterBuilding: playActions.value.some((action) => action.id === "enter-building"),
+  });
 });
 
 const playActions = computed(() => {
@@ -132,25 +166,119 @@ const playActions = computed(() => {
   void props.outdoor.state?.stand?.x;
   void props.outdoor.state?.stand?.y;
   void props.outdoor.state?.discoveredOpenings?.length;
-  return buildOutdoorPlayActions(props.outdoor, props.pendingBeat);
+  return buildOutdoorPlayActions(props.outdoor, props.pendingBeat, props.indoor);
 });
 
 const actions = computed(() => [...chooseActions.value, ...playActions.value]);
+const allowedActions = computed(() =>
+  filterAllowedActions(actions.value, props.actionPolicy),
+);
+const suggestedActionId = computed(() =>
+  suggestedOutdoorStoryActionId(allowedActions.value, props.actionPolicy, props.outdoor),
+);
+const filteredActions = computed(() =>
+  annotateActionPrompts(allowedActions.value, props.actionPolicy)
+    .map((action) => action.id === suggestedActionId.value
+      ? { ...action, promptCategory: "story" }
+      : action)
+    .sort(actionSort),
+);
+const clickableHexIds = computed(() => new Set(
+  [...(props.outdoor.reachableHexIds ?? [])].filter((hexId) =>
+    isDestinationAllowed(props.actionPolicy, { type: "hex", id: hexId })
+  ),
+));
+const buildingEnterable = computed(() =>
+  props.outdoor.atBuildingEntrance &&
+  isDestinationAllowed(props.actionPolicy, { type: "transition", id: "building" }),
+);
 
 function onAction(id) {
+  if (!filteredActions.value.some((action) => action.id === id)) return;
   handleOutdoorChooseAction(
     props.outdoor,
     props.applyChoice,
     id,
     props.travelToHex,
+    enterAllowedBuilding,
   );
+}
+
+function travelToAllowedHex(hexId) {
+  if (!isDestinationAllowed(props.actionPolicy, { type: "hex", id: hexId })) return;
+  props.travelToHex(hexId);
+}
+
+function enterAllowedBuilding() {
+  if (!buildingEnterable.value) return;
+  props.enterBuilding();
+}
+
+function actionSort(a, b) {
+  const priority = (action) => action.promptCategory === "story" ? 0 : 1;
+  return priority(a) - priority(b);
+}
+
+function suggestedOutdoorStoryActionId(actions, policy, outdoor) {
+  if (!policy || policy.unrestricted || policy.mode !== "story") return null;
+  const explicit = actions.find((action) => isStoryForwardAction(action, policy));
+  if (explicit?.id) return explicit.id;
+
+  const targets = storyTargetHexes(policy);
+  if (!targets.length) return null;
+  const hexById = Object.fromEntries((outdoor.displayMapData?.hexes ?? []).map((hex) => [hex.id, hex]));
+  const current = hexById[outdoor.state?.currentId];
+  if (!current) return null;
+  const candidates = actions.filter((action) => action.toHexId && hexById[action.toHexId]);
+  if (!candidates.length) return null;
+
+  const currentDistance = nearestTargetDistance(current, targets, hexById);
+  let best = null;
+  let bestDistance = Infinity;
+  for (const action of candidates) {
+    const distance = nearestTargetDistance(hexById[action.toHexId], targets, hexById);
+    if (!Number.isFinite(distance)) continue;
+    if (distance < bestDistance) {
+      best = action;
+      bestDistance = distance;
+    }
+  }
+  if (!best) return null;
+  return bestDistance <= currentDistance ? best.id : null;
+}
+
+function nearestTargetDistance(hex, targets, hexById) {
+  return targets.reduce((best, targetId) => {
+    const target = hexById[targetId];
+    if (!target) return best;
+    return Math.min(best, hexDistance(hex, target));
+  }, Infinity);
+}
+
+function storyTargetHexes(policy) {
+  const allowed = policy?.allowed ?? {};
+  const hexes = new Set(Array.isArray(allowed.movement?.hexes) ? allowed.movement.hexes : []);
+  for (const id of allowed.storyForwardActions ?? []) {
+    if (typeof id !== "string") continue;
+    if (id.startsWith("move-hex:")) hexes.add(id.slice("move-hex:".length));
+    if (id.startsWith("route:") || id.startsWith("barrier:")) hexes.add(id.slice(id.indexOf(":") + 1));
+  }
+  return [...hexes];
 }
 </script>
 
 <style scoped>
 .stage {
   display: block;
-  margin-bottom: 1rem;
+  margin-bottom: 0.65rem;
+}
+.game-timestamp {
+  margin: 0.35rem 0 0;
+  color: #9fb0c2;
+  font-size: 0.78rem;
+  letter-spacing: 0;
+  opacity: 0.82;
+  text-align: right;
 }
 .audit-controls {
   display: flex;

@@ -10,6 +10,7 @@ import {
   captureSnapshot,
   applySnapshot,
   createGameState,
+  setPlayMode,
 } from './useGameState.js'
 import { addItem, itemQuantity } from '../lib/character/holdings.js'
 
@@ -185,45 +186,7 @@ describe('useGameState save roundtrip', () => {
     expect(indoor.indoor.exteriorNode).toBeNull()
   })
 
-  it('migrates v1 barrierStand saves to stand', () => {
-    const { outdoor, indoor, gameState, place } = buildTestHarness()
-    const legacy = {
-      version: 1,
-      place: 'outdoors',
-      flags: [],
-      storySeen: [],
-      endCardDismissed: false,
-      outdoor: {
-        currentId: 'south-pines',
-        discovered: ['origin', 'south-pines'],
-        barrierStand: { x: -42, y: 38 },
-        lastBlocked: 'fence',
-        mode: 'explored',
-      },
-      indoor: {
-        currentRoom: null,
-        exteriorNode: indoor.building.exterior?.entry,
-        discovered: [],
-        revealed: [],
-        level: 'first',
-        viewLevel: 'first',
-        doorState: indoor.indoor.doorState,
-        inventory: [],
-        pickupsTaken: [],
-        facility: { hydroOnline: false, manualMode: {} },
-        completedActions: [],
-        avatarWaypoint: null,
-      },
-    }
-
-    const ok = applySnapshot(legacy, { gameState, place, outdoor, indoor })
-    expect(ok).toBe(true)
-    expect(outdoor.state.stand).toEqual({ x: -42, y: 38 })
-    expect(outdoor.state.lastBlocked).toBe('fence')
-    expect(outdoor.mode).toBe('gameplay')
-  })
-
-  it('persists global character holdings and migrates legacy indoor inventory', () => {
+  it('persists global character holdings', () => {
     const { outdoor, indoor, gameState, place } = buildTestHarness()
     addItem(gameState.character.holdings, gameState.character.definitions, 'lobby-exterior-key', 1, {
       validateDefinition: false,
@@ -239,20 +202,20 @@ describe('useGameState save roundtrip', () => {
     expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
     expect(itemQuantity(gameState.character.holdings, 'lobby-exterior-key')).toBe(1)
     expect(indoor.indoor.inventory).toBeNull()
+  })
 
-    const legacy = {
-      ...snapshot,
-      version: 2,
-      character: undefined,
-      indoor: {
-        ...snapshot.indoor,
-        inventory: ['hallway-small-bay-key'],
-      },
+  it('persists completed lesson progress separately from character knowledge', () => {
+    const { outdoor, indoor, gameState, place } = buildTestHarness()
+    gameState.lessons = {
+      'hydro-power-intro': { completedAt: 'lesson-passed' },
     }
-    gameState.character.holdings.stacks = {}
-    gameState.character.holdings.instances = {}
-    expect(applySnapshot(legacy, { gameState, place, outdoor, indoor })).toBe(true)
-    expect(itemQuantity(gameState.character.holdings, 'hallway-small-bay-key')).toBe(1)
+
+    const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
+    expect(snapshot.lessons['hydro-power-intro'].completedAt).toBe('lesson-passed')
+
+    gameState.lessons = {}
+    expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
+    expect(gameState.lessons['hydro-power-intro'].completedAt).toBe('lesson-passed')
   })
 
   it('round-trips authored game time without using wall-clock elapsed time', () => {
@@ -264,4 +227,109 @@ describe('useGameState save roundtrip', () => {
     expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
     expect(gameState.clock).toEqual({ elapsedMinutes: 185, minuteOfDay: 665, day: 2 })
   })
+
+  it('persists hydro generator facility state separately from indoor door state', () => {
+    const { outdoor, indoor, gameState, place } = buildTestHarness()
+    gameState.facilities.hydro = {
+      ...gameState.facilities.hydro,
+      online: true,
+      intakeClear: true,
+      intakeOpen: true,
+      startupComplete: true,
+      manualValves: {
+        upstreamOpen: true,
+        powerhouseOpen: true,
+      },
+      lastCheckpointElapsedMinutes: 44,
+      eventLog: [
+        {
+          eventId: 'hydro-event-0044-online',
+          plantId: 'upper-penstock',
+          elapsedMinutes: 44,
+          type: 'state-transition',
+          source: 'host',
+          actor: 'player',
+          label: 'Hydro generator online',
+          payload: { online: true },
+        },
+      ],
+      debrisFraction: 0,
+      leakageFraction: 0.1,
+    }
+
+    const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
+    expect(snapshot.facilities.hydro.online).toBe(true)
+    expect(snapshot.facilities.hydro.leakageFraction).toBe(0.1)
+
+    gameState.facilities.hydro.online = false
+    indoor.indoor.facility.hydroOnline = false
+
+    expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
+    expect(gameState.facilities.hydro.online).toBe(true)
+    expect(gameState.facilities.hydro.manualValves.powerhouseOpen).toBe(true)
+    expect(gameState.facilities.hydro.eventLog).toHaveLength(1)
+    expect(indoor.indoor.facility.hydroOnline).toBe(true)
+  })
+
+  it('persists play mode and story progress', () => {
+    const { outdoor, indoor, gameState, place } = buildTestHarness()
+    setPlayMode(gameState, 'story', {
+      activeArcId: 'part-i-station',
+      activeBeatId: 'understand-building',
+    })
+    gameState.story.completedBeatIds = ['solve-first-crisis']
+    gameState.storySeen = new Set(['control-room'])
+    gameState.milestones = { 'day1.complete': { completedAt: 'nightfall' } }
+
+    const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
+    expect(snapshot.version).toBe(SAVE_VERSION)
+    expect(snapshot.playMode).toBe('story')
+    expect(snapshot.milestones).toEqual({ 'day1.complete': { completedAt: 'nightfall' } })
+    expect(snapshot.story).toEqual({
+      activeArcId: 'part-i-station',
+      activeBeatId: 'understand-building',
+      completedBeatIds: ['solve-first-crisis'],
+      enteredBeatIds: [],
+      seenSceneIds: ['control-room'],
+    })
+    setPlayMode(gameState, 'open-world')
+    expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
+    expect(gameState.playMode).toBe('story')
+    expect(gameState.story.activeArcId).toBe('part-i-station')
+    expect(gameState.story.activeBeatId).toBe('understand-building')
+    expect(gameState.story.completedBeatIds).toEqual(['solve-first-crisis'])
+    expect(gameState.story.seenSceneIds).toEqual(['control-room'])
+    expect(gameState.milestones).toEqual({ 'day1.complete': { completedAt: 'nightfall' } })
+  })
+
+  it('normalizes older saves to story mode', () => {
+    const { outdoor, indoor, gameState, place } = buildTestHarness()
+    const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
+    delete snapshot.playMode
+
+    expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
+    expect(gameState.playMode).toBe('story')
+    expect(gameState.story).toEqual({
+      activeArcId: 'part-i-opener',
+      activeBeatId: null,
+      completedBeatIds: [],
+      enteredBeatIds: [],
+      seenSceneIds: [],
+    })
+  })
+
+  it('persists open-world mode without active story progress', () => {
+    const { outdoor, indoor, gameState, place } = buildTestHarness()
+    setPlayMode(gameState, 'open-world')
+
+    const snapshot = captureSnapshot({ gameState, place, outdoor, indoor })
+    expect(snapshot.playMode).toBe('open-world')
+    expect(snapshot.story).toBeNull()
+
+    setPlayMode(gameState, 'story', { activeBeatId: 'intro' })
+    expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
+    expect(gameState.playMode).toBe('open-world')
+    expect(gameState.story).toBeNull()
+  })
+
 })

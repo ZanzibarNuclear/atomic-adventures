@@ -138,6 +138,7 @@ const currentStand = computed(() =>
 <style scoped>
 .canvas-column {
   min-width: 0;
+  min-height: 0;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
   gap: 0.5rem;
@@ -200,6 +201,7 @@ const currentStand = computed(() =>
 
 .station-canvas {
   min-height: 0;
+  height: 100%;
   overflow: hidden;
   border: 1px solid #3b4655;
   border-radius: 11px;
@@ -207,8 +209,9 @@ const currentStand = computed(() =>
 
 .station-canvas :deep(.gridmap),
 .station-canvas :deep(.gridmap.builder-view:not(.expanded)) {
-  height: clamp(33rem, calc(100vh - 15.5rem), 54rem);
-  max-height: none;
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
 }
 
 .canvas-hint {

@@ -1,3 +1,8 @@
+import {
+  normalizeLocationViews,
+  validateLocationViews,
+} from "./location-media.js";
+
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const PASSAGE_KINDS = new Set(["gate", "hole", "bridge", "ford", "stair"]);
 export const ROUTE_KINDS = new Set(["road", "drive", "path", "trail"]);
@@ -28,6 +33,7 @@ export function normalizeWorld(input = {}) {
 
 function normalizeHexStands(hex) {
   if (!hex || typeof hex !== "object") return;
+  normalizeLocationViews(hex);
   const stands = Array.isArray(hex.stands) ? hex.stands : [];
   if (hex.standAt && !stands.length) {
     hex.stands = [{ id: "default", label: "Default stand", at: hex.standAt }];
@@ -36,6 +42,7 @@ function normalizeHexStands(hex) {
   } else {
     delete hex.stands;
   }
+  hex.stands?.forEach(normalizeLocationViews);
   delete hex.standAt;
 }
 
@@ -73,9 +80,11 @@ export function validateWorld(input) {
       if (coordinates.has(key)) add(`${base}.coordinates`, "Another hex already occupies these coordinates.");
       coordinates.add(key);
     }
+    validateLocationViews(hex, base, add, warn);
     const standIds = new Set();
     (hex.stands ?? []).forEach((stand, standIndex) => {
       const standBase = `${base}.stands.${standIndex}`;
+      validateLocationViews(stand, standBase, add, warn);
       stand.id = String(stand.id ?? "").trim();
       if (!ID_PATTERN.test(stand.id)) add(`${standBase}.id`, "Use a unique kebab-case stand ID.");
       if (standIds.has(stand.id)) add(`${standBase}.id`, "Stand IDs must be unique within a hex.");
@@ -243,6 +252,24 @@ function stringList(value) {
   return Array.isArray(value) ? value.map(String).map((item) => item.trim()).filter(Boolean) : [];
 }
 
+function renameMapFor(renames, domain) {
+  return new Map(
+    renames
+      .filter((rename) => rename?.domain === domain && rename.from && rename.to)
+      .map((rename) => [String(rename.from), String(rename.to)]),
+  );
+}
+
+function resolveRename(map, value) {
+  let current = value;
+  const seen = new Set();
+  while (map.has(current) && !seen.has(current)) {
+    seen.add(current);
+    current = map.get(current);
+  }
+  return current;
+}
+
 function text(value) {
   return value == null ? "" : String(value).trim();
 }
@@ -282,6 +309,16 @@ export function applyHexRenames(world, renames = []) {
       if (feature[key]?.hex) feature[key].hex = rename(feature[key].hex);
     }
     for (const point of feature.points ?? []) if (point.hex) point.hex = rename(point.hex);
+  }
+  return world;
+}
+
+export function applyWorldCharacterRenames(world, renames = []) {
+  const itemMap = renameMapFor(renames, "items");
+  if (!itemMap.size) return world;
+  const rename = (value) => resolveRename(itemMap, value);
+  for (const placement of world.artifactPlacements ?? []) {
+    if (placement.item) placement.item = rename(placement.item);
   }
   return world;
 }

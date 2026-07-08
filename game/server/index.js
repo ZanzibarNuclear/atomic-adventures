@@ -17,18 +17,24 @@ const {
   worldRepository,
   buildingRepository,
   characterRepository,
+  learningRepository,
+  storyArcRepository,
 } = createContentRepositories(db);
 assertContentDocuments({
   storyRepository: repository,
   worldRepository,
   buildingRepository,
   characterRepository,
+  learningRepository,
+  storyArcRepository,
 });
 const api = createApiHandler(
   repository,
   worldRepository,
   buildingRepository,
   characterRepository,
+  learningRepository,
+  storyArcRepository,
   { syncRuntimeContentOnMutation: !production },
 );
 

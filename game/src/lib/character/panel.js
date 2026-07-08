@@ -25,56 +25,52 @@ export function visibleCharacterStats(character) {
 }
 
 export function characterWellbeingOverview(character) {
-  const stats = visibleCharacterStats(character);
-  const byId = Object.fromEntries(stats.map((stat) => [stat.id, stat]));
+  const byId = Object.fromEntries(allCharacterStats(character).map((stat) => [stat.id, stat]));
+  const derivedHealth = derivedHealthVital(byId);
   return {
+    health: derivedHealth,
     vitals: [
-      vitalFromStat(byId.health, {
-        id: "health",
-        label: "Health",
+      vitalFromStat(byId.satiety ?? reserveFromPressureStat(byId.hunger, {
+        id: "satiety",
+        label: "Satiety",
         fallback: 100,
-        states: [
-          [80, "Healthy", "positive"],
-          [50, "Stable", "positive"],
-          [25, "Weak", "warning"],
-          [1, "Critical", "error"],
-          [0, "Collapsed", "error"],
-        ],
-      }),
-      reserveFromInverseStat(byId.hunger, {
+      }), {
         id: "satiety",
         label: "Satiety",
         fallback: 100,
         states: [
-          [80, "Sated", "positive"],
-          [50, "Fed", "positive"],
-          [25, "Hungry", "warning"],
-          [1, "Very hungry", "error"],
+          [90, "Stuffed", "positive"],
+          [55, "Full", "positive"],
+          [40, "Peckish", "warning"],
+          [10, "Hungry", "warning"],
           [0, "Starving", "error"],
         ],
       }),
-      reserveFromInverseStat(byId.thirst, {
+      vitalFromStat(byId.hydration ?? reserveFromPressureStat(byId.thirst, {
+        id: "hydration",
+        label: "Hydration",
+        fallback: 100,
+      }), {
         id: "hydration",
         label: "Hydration",
         fallback: 100,
         states: [
-          [80, "Hydrated", "positive"],
-          [50, "Okay", "positive"],
-          [25, "Thirsty", "warning"],
-          [1, "Dehydrated", "error"],
-          [0, "Severely dehydrated", "error"],
+          [60, "Hydrated", "positive"],
+          [30, "Thirsty", "warning"],
+          [10, "Parched", "error"],
+          [0, "Dehydrated", "error"],
         ],
       }),
-      vitalFromStat(byId.rested ?? byId.energy, {
-        id: "rested",
+      vitalFromStat(byId.energy, {
+        id: "energy",
         label: "Energy",
         fallback: 100,
         states: [
-          [80, "Rested", "positive"],
-          [50, "Tired", "warning"],
-          [25, "Exhausted", "error"],
-          [1, "Spent", "error"],
-          [0, "Asleep on feet", "error"],
+          [50, "Energized", "positive"],
+          [25, "Tired", "warning"],
+          [10, "Exhausted", "error"],
+          [1, "Dozing", "error"],
+          [0, "Spent", "error"],
         ],
       }),
       vitalFromStat(byId.composure, {
@@ -82,10 +78,10 @@ export function characterWellbeingOverview(character) {
         label: "Composure",
         fallback: 100,
         states: [
-          [80, "Calm", "positive"],
-          [50, "Alert", "positive"],
-          [25, "Nervous", "warning"],
-          [1, "Scared", "error"],
+          [60, "Calm", "positive"],
+          [40, "Concerned", "positive"],
+          [20, "Nervous", "warning"],
+          [5, "Scared", "error"],
           [0, "Panicked", "error"],
         ],
       }),
@@ -127,6 +123,11 @@ export function characterWellbeingOverview(character) {
       }),
     ],
   };
+}
+
+export function derivedHealthValue(character) {
+  const byId = Object.fromEntries(allCharacterStats(character).map((stat) => [stat.id, stat]));
+  return derivedHealthVital(byId).value;
 }
 
 export function visibleInventoryGroups(character) {
@@ -209,32 +210,104 @@ function vitalFromStat(stat, options) {
   const min = finiteNumber(stat?.min, 0);
   const max = finiteNumber(stat?.max, 100);
   const value = clamp(finiteNumber(stat?.value, options.fallback), min, max);
+  const displayStates = displayStatesForStat(stat, options.states);
   return {
     id: options.id,
     label: options.label,
     value,
     min,
     max,
-    ...stateForValue(value, options.states),
+    displayStates: displayStates.map(([at, state, tone]) => ({ at, state, tone })),
+    ...stateForValue(value, displayStates),
     description: stat?.description ?? null,
   };
 }
 
-function reserveFromInverseStat(stat, options) {
-  if (!stat) return vitalFromStat(null, options);
-  const min = finiteNumber(stat.min, 0);
-  const max = finiteNumber(stat.max, 100);
-  const pressure = clamp(finiteNumber(stat.value, stat.default ?? min), min, max);
-  const value = clamp(max - pressure + min, min, max);
+function derivedHealthVital(byId) {
+  const healthStat = byId.health;
+  const min = finiteNumber(healthStat?.min, 0);
+  const max = finiteNumber(healthStat?.max, 100);
+  const base = clamp(finiteNumber(healthStat?.value, healthStat?.default ?? max), min, max);
+  const value = clamp(base - derivedHealthPenalty(byId), min, max);
   return {
-    id: options.id,
-    label: options.label,
+    id: "health",
+    label: "Health",
     value,
     min,
     max,
-    ...stateForValue(value, options.states),
+    ...stateForValue(value, displayStatesForStat(healthStat, [
+      [80, "Healthy", "positive"],
+      [50, "Stable", "positive"],
+      [25, "Weak", "warning"],
+      [1, "Critical", "error"],
+      [0, "Collapsed", "error"],
+    ])),
+    description: healthStat?.description ??
+      "Overall physical condition calculated from survival pressures and injuries.",
+    derived: true,
+  };
+}
+
+function derivedHealthPenalty(byId) {
+  return reservePenalty(byId.hydration, [
+    [0, 100],
+    [5, 35],
+    [15, 15],
+  ]) +
+    reservePenalty(byId.satiety, [
+      [0, 100],
+      [5, 20],
+      [10, 8],
+    ]) +
+    conditionPenalty(byId.injured ?? byId.injury, 0.9) +
+    conditionPenalty(byId.poisoned ?? byId.poison, 1) +
+    conditionPenalty(byId.sick ?? byId.illness, 0.8);
+}
+
+function reservePenalty(stat, bands) {
+  if (!stat) return 0;
+  const min = finiteNumber(stat.min, 0);
+  const max = finiteNumber(stat.max, 100);
+  const value = clamp(finiteNumber(stat.value, stat.default ?? max), min, max);
+  for (const [at, penalty] of bands) {
+    if (value <= at) return penalty;
+  }
+  return 0;
+}
+
+function conditionPenalty(stat, multiplier) {
+  if (!stat) return 0;
+  const value = Math.max(0, finiteNumber(stat.value, stat.default ?? 0));
+  return value * multiplier;
+}
+
+function reserveFromPressureStat(stat, options) {
+  if (!stat) return null;
+  const min = finiteNumber(stat.min, 0);
+  const max = finiteNumber(stat.max, 100);
+  const pressure = clamp(finiteNumber(stat.value, stat.default ?? min), min, max);
+  return {
+    id: options.id,
+    label: options.label,
+    type: "meter",
+    min,
+    max,
+    value: max - (pressure - min),
+    default: options.fallback,
     description: stat.description ?? null,
   };
+}
+
+function displayStatesForStat(stat, fallback) {
+  const states = (stat?.displayStates ?? [])
+    .map((state) => [
+      Number(state.at),
+      String(state.state ?? "").trim(),
+      String(state.tone ?? "positive").trim() || "positive",
+    ])
+    .filter(([at, state]) => Number.isFinite(at) && state)
+    .sort((a, b) => b[0] - a[0]);
+  return states.length ? states : fallback;
 }
 
 function conditionFromStat(stat, options) {
@@ -279,6 +352,14 @@ function visibleDefinition(definition, acquired) {
   if (definition.visible === "hidden") return false;
   if (["when-acquired", "when-started"].includes(definition.visible)) return acquired;
   return true;
+}
+
+function allCharacterStats(character) {
+  return ordered(character.definitions?.stats)
+    .map((definition) => ({
+      ...definition,
+      value: character.stats?.[definition.id] ?? definition.default ?? null,
+    }));
 }
 
 function ordered(items = []) {

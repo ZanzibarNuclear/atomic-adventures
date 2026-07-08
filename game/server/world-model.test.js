@@ -69,6 +69,31 @@ describe("world model", () => {
     expect(result.errors["artifactPlacements.0.stand"]).toBeDefined();
   });
 
+  it("validates hex and stand location image views", () => {
+    const world = loadWorld();
+    const yard = world.hexes.find((hex) => hex.id === "utility-yard");
+    yard.views = [{
+      id: "yard",
+      kind: "image",
+      src: "views/garage-large-bay.png",
+      alt: "The utility yard.",
+    }];
+    yard.stands[0].views = [{
+      id: "doorway",
+      kind: "image",
+      src: "views/conference-room-cool-doorway.png",
+      alt: "A doorway view.",
+    }];
+    expect(validateWorld(world).valid).toBe(true);
+
+    const yardIndex = world.hexes.findIndex((hex) => hex.id === "utility-yard");
+    yard.views = [{ id: "bad path", kind: "image", src: "items/field-backpack.png" }];
+    const result = validateWorld(world);
+    expect(result.valid).toBe(false);
+    expect(result.errors[`hexes.${yardIndex}.views.0.id`]).toBeDefined();
+    expect(result.errors[`hexes.${yardIndex}.views.0.src`]).toBeDefined();
+  });
+
   it("validates river cascade ranges", () => {
     const world = loadWorld();
     const river = world.features.find((feature) => feature.kind === "river");

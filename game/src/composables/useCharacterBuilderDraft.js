@@ -1,6 +1,11 @@
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, toRaw } from "vue";
 import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import { storyApi } from "../lib/storyApi.js";
+import {
+  addItem,
+  createHoldings,
+  itemQuantity,
+} from "../lib/character/holdings.js";
 
 const characterCatalogs = [
   { id: "stats", label: "Stats" },
@@ -12,9 +17,36 @@ const artifactCatalogs = [
   { id: "items", label: "Items" },
   { id: "documents", label: "Documents" },
 ];
+const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export const tabOptions = ["overview", "inventory", "knowledge", "skills", "quests", "documents"];
 export const visibilityOptions = ["always", "when-acquired", "when-started", "hidden"];
+export const previewBarLevelOptions = [
+  { id: "authored", label: "Authored defaults" },
+  { id: "full", label: "Full (100%)" },
+  { id: "high", label: "High (80%)" },
+  { id: "middle", label: "Middle (50%)" },
+  { id: "low", label: "Low (25%)" },
+  { id: "critical", label: "Critical (5%)" },
+  { id: "empty", label: "Empty (0%)" },
+];
+
+const previewBarLevelValues = {
+  full: 100,
+  high: 80,
+  middle: 50,
+  low: 25,
+  critical: 5,
+  empty: 0,
+};
+
+const previewWellbeingStats = [
+  { id: "health", label: "Health", default: 100 },
+  { id: "satiety", label: "Satiety", default: 100 },
+  { id: "hydration", label: "Hydration", default: 100 },
+  { id: "energy", label: "Energy", default: 100 },
+  { id: "composure", label: "Composure", default: 100 },
+];
 
 export function useCharacterBuilderDraft() {
   const router = useRouter();
@@ -23,14 +55,17 @@ export function useCharacterBuilderDraft() {
   const baseline = ref("");
   const version = ref(0);
   const status = ref("");
+  const statusTone = ref("info");
   const errors = ref({});
   const warnings = ref([]);
   const selectedCatalog = ref("stats");
   const selectedId = ref("");
   const workspaceMode = ref("character");
   const previewMode = ref("early");
+  const previewBarLevel = ref("authored");
   const revisions = ref([]);
   const showHistory = ref(false);
+  const pendingRenames = ref([]);
   const pendingRoute = ref("");
   const navigationPromptVisible = ref(false);
   const savingBeforeNavigation = ref(false);
@@ -47,7 +82,10 @@ export function useCharacterBuilderDraft() {
       messages.map((message) => `${path}: ${message}`),
     ),
   );
-  const previewCharacter = computed(() => buildPreviewCharacter(draft.value, previewMode.value));
+  const previewCharacter = computed(() =>
+    buildPreviewCharacter(draft.value, previewMode.value, previewBarLevel.value));
+  const previewContentSummary = computed(() =>
+    summarizePreviewContent(previewCharacter.value));
 
   const warnBeforeUnload = (event) => {
     if (!dirty.value) return;
@@ -73,6 +111,7 @@ export function useCharacterBuilderDraft() {
       applyLoaded(result);
     } catch (error) {
       status.value = error.message;
+      statusTone.value = "error";
     }
   }
 
@@ -83,6 +122,8 @@ export function useCharacterBuilderDraft() {
     warnings.value = result.warnings ?? [];
     errors.value = {};
     status.value = "";
+    statusTone.value = "info";
+    pendingRenames.value = [];
     applyRouteSelection();
   }
 
@@ -100,7 +141,7 @@ export function useCharacterBuilderDraft() {
 
   function selectWorkspace(mode) {
     workspaceMode.value = mode;
-    if (mode === "preview" || mode === "options") return;
+    if (mode === "preview" || mode === "options" || mode === "lessons") return;
     const catalogs = mode === "artifacts" ? artifactCatalogs : characterCatalogs;
     if (!catalogs.some((catalog) => catalog.id === selectedCatalog.value)) {
       selectCatalog(catalogs[0].id);
@@ -111,10 +152,10 @@ export function useCharacterBuilderDraft() {
 
   function applyRouteSelection() {
     const mode = queryText(route.query.mode);
-    if (["character", "artifacts", "options", "preview"].includes(mode)) {
+    if (["character", "artifacts", "options", "preview", "lessons"].includes(mode)) {
       workspaceMode.value = mode;
     }
-    if (workspaceMode.value === "preview" || workspaceMode.value === "options") return;
+    if (workspaceMode.value === "preview" || workspaceMode.value === "options" || workspaceMode.value === "lessons") return;
     const catalogs = workspaceMode.value === "artifacts" ? artifactCatalogs : characterCatalogs;
     const catalog = queryText(route.query.catalog);
     if (catalogs.some((item) => item.id === catalog)) {
@@ -127,6 +168,10 @@ export function useCharacterBuilderDraft() {
       selectedId.value = id;
     } else {
       ensureSelection();
+    }
+    if (route.query.duplicate === "1" && selectedEntry.value) {
+      const copy = duplicateEntry();
+      clearDuplicateRoute(copy?.id);
     }
   }
 
@@ -152,17 +197,29 @@ export function useCharacterBuilderDraft() {
     const id = uniqueId(`new-${selectedCatalog.value.replace(/s$/, "")}`, entries);
     entries.push(entryDefaults(selectedCatalog.value, id, entries.length));
     selectedId.value = id;
+    status.value = `Added ${id}.`;
+    statusTone.value = "info";
   }
 
   function duplicateEntry() {
-    if (!selectedEntry.value) return;
+    if (!selectedEntry.value) {
+      status.value = "Choose an entry before duplicating.";
+      statusTone.value = "error";
+      return null;
+    }
     const entries = draft.value[selectedCatalog.value];
-    const copy = structuredClone(selectedEntry.value);
-    copy.id = uniqueId(`${copy.id}-copy`, entries);
-    if (copy.label) copy.label += " copy";
-    if (copy.title) copy.title += " copy";
+    const copy = duplicateCatalogEntry(selectedEntry.value, entries);
     entries.push(copy);
     selectedId.value = copy.id;
+    status.value = `Duplicated ${copy.label ?? copy.title ?? copy.id}.`;
+    statusTone.value = "success";
+    return copy;
+  }
+
+  function clearDuplicateRoute(id = selectedId.value) {
+    const query = { ...route.query, id };
+    delete query.duplicate;
+    void router.replace({ query });
   }
 
   function moveEntry(delta) {
@@ -175,18 +232,31 @@ export function useCharacterBuilderDraft() {
     entries.forEach((item, order) => { item.order = order; });
   }
 
-  async function renameEntry() {
+  function renameEntry() {
     const entry = selectedEntry.value;
     if (!entry) return;
-    const next = window.prompt("New stable ID", entry.id)?.trim();
+    const next = window.prompt(`Rename "${entry.id}" to:`, entry.id)?.trim();
     if (!next || next === entry.id) return;
-    const references = await loadReferences(selectedCatalog.value, entry.id);
-    if (references.length) {
-      status.value = `Cannot rename ${entry.id}; it has ${references.length} authored reference(s).`;
+    if (!ID_PATTERN.test(next)) {
+      status.value = "IDs must use kebab-case.";
+      statusTone.value = "error";
       return;
     }
+    const entries = draft.value[selectedCatalog.value] ?? [];
+    if (entries.some((candidate) => candidate.id === next)) {
+      status.value = `Cannot rename ${entry.id}; ${next} already exists.`;
+      statusTone.value = "error";
+      return;
+    }
+    pendingRenames.value.push({
+      domain: selectedCatalog.value,
+      from: entry.id,
+      to: next,
+    });
     entry.id = next;
     selectedId.value = next;
+    status.value = `Renamed ${pendingRenames.value.at(-1).from} to ${next}. Save to cascade references.`;
+    statusTone.value = "info";
   }
 
   async function deleteEntry() {
@@ -195,7 +265,8 @@ export function useCharacterBuilderDraft() {
     const references = await loadReferences(selectedCatalog.value, entry.id);
     if (references.length) {
       status.value = `Cannot delete ${entry.id}; referenced by ${references
-        .map((reference) => reference.path).join(", ")}.`;
+        .map(referenceLabel).join(", ")}.`;
+      statusTone.value = "error";
       return;
     }
     if (!window.confirm(`Delete "${entry.label ?? entry.title ?? entry.id}"?`)) return;
@@ -207,22 +278,26 @@ export function useCharacterBuilderDraft() {
   async function saveDraft() {
     errors.value = {};
     status.value = "Saving...";
+    statusTone.value = "info";
     try {
       const result = await storyApi("/api/character", {
         method: "PUT",
         body: JSON.stringify({
           character: draft.value,
           expectedVersion: version.value,
+          renames: pendingRenames.value,
         }),
       });
       applyLoaded(result);
       status.value = `Saved character version ${result.version}.`;
+      statusTone.value = "success";
       return true;
     } catch (error) {
       errors.value = error.errors ?? {};
       status.value = error.status === 409
         ? "Content changed elsewhere. Reload before saving."
-        : error.message;
+        : formatSaveError(error, errors.value);
+      statusTone.value = "error";
       return false;
     }
   }
@@ -231,6 +306,8 @@ export function useCharacterBuilderDraft() {
     draft.value = JSON.parse(baseline.value);
     errors.value = {};
     status.value = "";
+    statusTone.value = "info";
+    pendingRenames.value = [];
     ensureSelection();
   }
 
@@ -260,8 +337,10 @@ export function useCharacterBuilderDraft() {
     try {
       target[key] = JSON.parse(event.target.value || JSON.stringify(fallback));
       status.value = "";
+      statusTone.value = "info";
     } catch (error) {
       status.value = `Invalid JSON for ${key}: ${error.message}`;
+      statusTone.value = "error";
     }
   }
 
@@ -290,12 +369,14 @@ export function useCharacterBuilderDraft() {
   return {
     draft,
     status,
+    statusTone,
     errors,
     warnings,
     selectedCatalog,
     selectedId,
     workspaceMode,
     previewMode,
+    previewBarLevel,
     revisions,
     showHistory,
     navigationPromptVisible,
@@ -305,6 +386,7 @@ export function useCharacterBuilderDraft() {
     selectedEntry,
     errorMessages,
     previewCharacter,
+    previewContentSummary,
     loadCharacter,
     selectCatalog,
     selectWorkspace,
@@ -336,8 +418,20 @@ async function loadReferences(domain, id) {
   );
 }
 
-export function buildPreviewCharacter(draft, previewMode) {
-  const definitions = draft ?? {
+function referenceLabel(reference) {
+  if (reference.kind === "storyArc") {
+    return `story arc ${reference.arcId}/${reference.beatId}: ${reference.path}`;
+  }
+  if (reference.kind === "story") {
+    return `${reference.areaId}/${reference.beatId}: ${reference.path}`;
+  }
+  return reference.path;
+}
+
+export function buildPreviewCharacter(draft, previewMode, previewBarLevel = "authored") {
+  const definitions = draft
+    ? { ...draft, stats: [...(draft.stats ?? [])] }
+    : {
     profile: {},
     panel: {},
     items: [],
@@ -347,19 +441,18 @@ export function buildPreviewCharacter(draft, previewMode) {
     quests: [],
     documents: [],
   };
+  if (previewBarLevel in previewBarLevelValues) ensurePreviewWellbeingStats(definitions);
   const populated = previewMode === "populated";
   const early = previewMode === "early";
   const include = (index) => populated || (early && index === 0);
+  const stats = Object.fromEntries(
+    definitions.stats.map((stat) => [stat.id, previewStatValue(stat, previewBarLevel)]),
+  );
+  const holdings = createPreviewHoldings(definitions, include);
   return {
     definitions,
-    holdings: {
-      items: Object.fromEntries(
-        definitions.items.map((item, index) => include(index)
-          ? [item.id, { quantity: item.carrying === "stack" ? 3 : 1 }]
-          : null).filter(Boolean),
-      ),
-    },
-    stats: Object.fromEntries(definitions.stats.map((stat) => [stat.id, stat.default ?? 0])),
+    holdings,
+    stats,
     knowledge: Object.fromEntries(
       definitions.knowledge.map((entry, index) => include(index)
         ? [entry.id, { acquiredAt: "preview" }]
@@ -383,6 +476,80 @@ export function buildPreviewCharacter(draft, previewMode) {
   };
 }
 
+export function summarizePreviewContent(character) {
+  const definitions = character?.definitions ?? {};
+  return [
+    {
+      id: "inventory",
+      label: "Inventory",
+      acquired: (definitions.items ?? [])
+        .filter((item) => itemQuantity(character?.holdings, item.id) > 0).length,
+      total: definitions.items?.length ?? 0,
+    },
+    previewCount("knowledge", definitions.knowledge, character?.knowledge),
+    previewCount("skills", definitions.skills, character?.skills),
+    previewCount("quests", definitions.quests, character?.quests),
+    previewCount("documents", definitions.documents, character?.documents),
+  ];
+}
+
+function createPreviewHoldings(definitions, include) {
+  const holdings = createHoldings(definitions.profile?.id ?? "player");
+  for (const [index, item] of (definitions.items ?? []).entries()) {
+    if (!include(index)) continue;
+    addItem(holdings, definitions, item.id, previewItemQuantity(item), {
+      validateDefinition: false,
+    });
+  }
+  return holdings;
+}
+
+function previewItemQuantity(item) {
+  if (item.carrying !== "stack") return 1;
+  const maxQuantity = Number(item.maxQuantity);
+  return Number.isFinite(maxQuantity) ? Math.max(1, Math.min(3, maxQuantity)) : 3;
+}
+
+function previewCount(id, definitions = [], state = {}) {
+  return {
+    id,
+    label: labelize(id),
+    acquired: Object.keys(state ?? {}).length,
+    total: definitions.length,
+  };
+}
+
+function ensurePreviewWellbeingStats(definitions) {
+  const stats = definitions.stats ??= [];
+  const existing = new Set(stats.map((stat) => stat.id));
+  for (const stat of previewWellbeingStats) {
+    if (existing.has(stat.id)) continue;
+    stats.push({
+      ...stat,
+      type: "meter",
+      min: 0,
+      max: 100,
+      direction: "higher-is-better",
+      visible: "always",
+      order: 1000 + stats.length,
+    });
+  }
+}
+
+function previewStatValue(stat, previewBarLevel) {
+  if (!(previewBarLevel in previewBarLevelValues) || !isPreviewWellbeingStat(stat)) {
+    return stat.default ?? 0;
+  }
+  const min = finiteNumber(stat.min, 0);
+  const max = finiteNumber(stat.max, 100);
+  const reserve = min + ((max - min) * previewBarLevelValues[previewBarLevel]) / 100;
+  return clamp(reserve, min, max);
+}
+
+function isPreviewWellbeingStat(stat) {
+  return stat.type === "meter" || previewWellbeingStats.some((previewStat) => previewStat.id === stat.id);
+}
+
 function entryDefaults(catalog, id, order) {
   return {
     items: {
@@ -392,7 +559,7 @@ function entryDefaults(catalog, id, order) {
     },
     stats: {
       id, label: labelize(id), type: "integer", group: null, order,
-      visible: "always", default: 0,
+      visible: "always", default: 0, direction: "higher-is-better",
     },
     knowledge: {
       id, label: labelize(id), description: null, order,
@@ -422,10 +589,36 @@ function uniqueId(base, entries) {
   return id;
 }
 
+export function duplicateCatalogEntry(entry, entries) {
+  const copy = structuredClone(toRaw(entry));
+  copy.id = uniqueId(`${copy.id}-copy`, entries);
+  if (copy.label) copy.label += " copy";
+  if (copy.title) copy.title += " copy";
+  return copy;
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function finiteNumber(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
 function labelize(id) {
   return id.split("-").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
 }
 
 function queryText(value) {
   return Array.isArray(value) ? String(value[0] ?? "") : String(value ?? "");
+}
+
+export function formatSaveError(error, errors = {}) {
+  const messages = Object.entries(errors)
+    .flatMap(([path, values]) => (values ?? []).map((message) => `${path}: ${message}`));
+  if (!messages.length) return error.message;
+  const summary = messages.slice(0, 3).join(" | ");
+  const remaining = messages.length - 3;
+  return `${error.message}: ${summary}${remaining > 0 ? ` (+${remaining} more)` : ""}`;
 }

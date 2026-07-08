@@ -1,7 +1,7 @@
 /**
  * Barrier features for hex travel (fence, river, cliff, ravine, …).
- * Inter-hex movement never uses passage openings — those are for in-hex
- * `crossPassage` only. See docs/contracts/hex-crawling.md.
+ * Direct inter-hex movement never uses passage openings. Authored routes may
+ * opt into currently available openings when the route path crosses at one.
  */
 
 
@@ -182,7 +182,11 @@ export function resolveMove({
   ctx,
   hexAtPoint,
   size,
+  allowOpenings = false,
 }) {
+  const travelCtx = allowOpenings
+    ? { ...ctx, allowOpenings: true, allowOpeningHexId: fromHex?.id ?? null }
+    : ctx
   const walkPath = path ?? [fromPos, toPos]
   const fallbackHexId = toHex?.id ?? fromHex?.id
 
@@ -200,7 +204,7 @@ export function resolveMove({
     fromPos,
     toPos,
     walkPath,
-    ctx,
+    ctx: travelCtx,
     hexAtPoint,
     size,
   })
@@ -223,7 +227,7 @@ export function resolveMove({
     fromPos,
     toPos,
     walkPath,
-    ctx,
+    ctx: travelCtx,
     hexAtPoint,
     size,
   })
@@ -249,6 +253,7 @@ export function canEnterNeighbor({
   ctx,
   hexAtPoint,
   size,
+  allowOpenings = false,
 }) {
   const result = resolveMove({
     fromHex,
@@ -259,6 +264,7 @@ export function canEnterNeighbor({
     ctx,
     hexAtPoint,
     size,
+    allowOpenings,
   })
   return result.activeHexId === toHex.id
 }

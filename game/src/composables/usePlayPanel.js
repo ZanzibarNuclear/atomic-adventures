@@ -11,6 +11,12 @@ import {
 } from "../lib/maps/composables/useDoors.js";
 import { searchActionLabel } from "../lib/maps/composables/useBarrierOpenings.js";
 import { barrierHintAtStand } from "../lib/maps/composables/useBarrierStand.js";
+import {
+  characterHolderId,
+  holdingRecords,
+  transferHolding,
+} from "../lib/character/holdings.js";
+import { markCharacterChanged } from "./useCharacterState.js";
 
 function actionButtonLabel(action) {
   if (action.verb) return cleanActionLabel(`${action.verb} ${withArticle(action.label)}`);
@@ -42,17 +48,20 @@ export function isVisibleAction(action) {
 
 /**
  * Story choice buttons for the play panel (prose stays in NarrativeCard).
- * Story choices with go_hex use the same enterability predicate as movement options.
+ * Story movement choices are authored prompts, so action policy and choice
+ * application own validity; do not hide them during button construction.
  */
-export function buildStoryChoices(pendingBeat, canReachHex = () => true) {
+export function buildStoryChoices(pendingBeat) {
   if (!pendingBeat?.choices?.length) return [];
   return pendingBeat.choices
     .map((choice, index) => ({ choice, index }))
     .filter(({ choice }) => !choice.disabled)
-    .filter(({ choice }) => !choice.go_hex || canReachHex(choice.go_hex))
     .map(({ choice, index }) => ({
       id: `story:${index}`,
       toHexId: choice.go_hex ?? null,
+      toRoomId: choice.go_room ?? null,
+      toExteriorNode: choice.go_exterior_node ?? null,
+      enterBuilding: choice.enter ?? null,
       label: choice.text,
     }));
 }
@@ -70,21 +79,25 @@ export function defaultMovementLabel(move) {
 export function storyChoiceDestinations(pendingBeat) {
   const hexes = new Set();
   const rooms = new Set();
+  const exteriorNodes = new Set();
   for (const choice of pendingBeat?.choices ?? []) {
+    if (choice.disabled) continue;
     if (choice.go_hex) hexes.add(choice.go_hex);
     if (choice.go_room) rooms.add(choice.go_room);
+    if (choice.go_exterior_node) exteriorNodes.add(choice.go_exterior_node);
     if (choice.enter) hexes.add("__enter__");
   }
-  return { hexes, rooms };
+  return { hexes, rooms, exteriorNodes };
 }
 
 export function buildOutdoorSearchActions(outdoor) {
   if (!outdoor.canSearchHere?.()) return [];
+  if ((outdoor.passageCrossings ?? []).length > 0) return [];
   const label = searchActionLabel({
     openings: outdoor.searchableOpenings?.() ?? [],
-    atBarrier: outdoor.barrierCutsCurrentHex?.("fence")
-      ? "fence"
-      : outdoor.state.atBarrier,
+    atBarrier: outdoor.state.atBarrier ??
+      outdoor.state.lastBlocked ??
+      (outdoor.barrierCutsCurrentHex?.("fence") ? "fence" : null),
     lastBlocked: outdoor.state.lastBlocked,
   });
   return [{ id: "search:barrier", label, kind: "search" }];
@@ -117,6 +130,16 @@ export function buildOutdoorPassageToggleActions(outdoor) {
   }));
 }
 
+export function buildOutdoorEnterBuildingActions(outdoor, indoor) {
+  if (!outdoor.atBuildingEntrance || !indoor?.building?.label) return [];
+  return [{
+    id: "enter-building",
+    label: "Take a closer look",
+    enterBuilding: true,
+    kind: "transition",
+  }];
+}
+
 function directionPhrase(direction, style = "to") {
   if (!direction) return style === "along" ? "onward" : "onward";
   return style === "along" ? direction : `to the ${direction}`;
@@ -136,9 +159,10 @@ function barrierName(kind) {
 }
 
 export function buildOutdoorRouteActions(outdoor, pendingBeat = null) {
-  const storyDests = storyChoiceDestinations(pendingBeat).hexes;
+  const storyDests = storyChoiceDestinations(pendingBeat);
   return (outdoor.moves ?? [])
-    .filter((move) => move.routeId && !storyDests.has(move.toHexId))
+    .filter((move) => move.routeId)
+    .filter((move) => !storyDests.hexes.has(move.toHexId))
     .map((move) => ({
       id: `route:${move.toHexId}`,
       toHexId: move.toHexId,
@@ -148,6 +172,7 @@ export function buildOutdoorRouteActions(outdoor, pendingBeat = null) {
 }
 
 export function buildOutdoorBarrierFollowActions(outdoor, pendingBeat = null) {
+  const storyDests = storyChoiceDestinations(pendingBeat);
   const currentBarrier =
     outdoor.barrierHintAtStand?.() ??
     outdoor.state?.atBarrier ??
@@ -155,9 +180,8 @@ export function buildOutdoorBarrierFollowActions(outdoor, pendingBeat = null) {
     null;
   if (!currentBarrier) return [];
 
-  const storyDests = storyChoiceDestinations(pendingBeat).hexes;
   return (outdoor.directMoves ?? [])
-    .filter((move) => !storyDests.has(move.toHexId))
+    .filter((move) => !storyDests.hexes.has(move.toHexId))
     .filter((move) => {
       const preview = outdoor.previewMove?.(move.toHexId);
       if (!preview || preview.result?.activeHexId !== move.toHexId) return false;
@@ -177,10 +201,32 @@ export function buildOutdoorBarrierFollowActions(outdoor, pendingBeat = null) {
     }));
 }
 
-export function buildOutdoorPlayActions(outdoor, pendingBeat = null) {
+export function buildOutdoorDirectMovementActions(outdoor, pendingBeat = null) {
+  const storyDests = storyChoiceDestinations(pendingBeat);
+  const routeDests = new Set((outdoor.moves ?? [])
+    .filter((move) => move.routeId)
+    .map((move) => move.toHexId));
+  const barrierDests = new Set(buildOutdoorBarrierFollowActions(outdoor, pendingBeat)
+    .map((action) => action.toHexId));
+
+  return (outdoor.directMoves ?? [])
+    .filter((move) => !routeDests.has(move.toHexId))
+    .filter((move) => !barrierDests.has(move.toHexId))
+    .filter((move) => !storyDests.hexes.has(move.toHexId))
+    .map((move) => ({
+      id: `move-hex:${move.toHexId}`,
+      toHexId: move.toHexId,
+      label: defaultMovementLabel(move),
+      kind: "move",
+    }));
+}
+
+export function buildOutdoorPlayActions(outdoor, pendingBeat = null, indoor = null) {
   return [
     ...buildOutdoorRouteActions(outdoor, pendingBeat),
     ...buildOutdoorBarrierFollowActions(outdoor, pendingBeat),
+    ...buildOutdoorDirectMovementActions(outdoor, pendingBeat),
+    ...buildOutdoorEnterBuildingActions(outdoor, indoor),
     ...buildOutdoorSearchActions(outdoor),
     ...buildOutdoorPassageUnlockActions(outdoor),
     ...buildOutdoorPassageToggleActions(outdoor),
@@ -188,9 +234,13 @@ export function buildOutdoorPlayActions(outdoor, pendingBeat = null) {
   ].filter(isVisibleAction);
 }
 
-export function getMovementOptions(outdoor, pendingBeat) {
-  const canReach = (hexId) => outdoor.canReachHex?.(hexId) ?? true;
-  return buildStoryChoices(pendingBeat, canReach);
+export function getMovementOptions(outdoor, pendingBeat, options = {}) {
+  void outdoor;
+  const actions = buildStoryChoices(pendingBeat);
+  if (options.suppressEnterBuilding) {
+    return actions.filter((action) => !action.enterBuilding);
+  }
+  return actions;
 }
 
 export function handleOutdoorChooseAction(
@@ -198,7 +248,12 @@ export function handleOutdoorChooseAction(
   applyChoice,
   actionId,
   travelToHex = (hexId) => outdoor.moveTo(hexId),
+  enterBuilding = () => {},
 ) {
+  if (actionId === "enter-building") {
+    enterBuilding();
+    return;
+  }
   if (actionId === "search:barrier") {
     outdoor.searchBarrier?.();
     return;
@@ -217,6 +272,10 @@ export function handleOutdoorChooseAction(
   }
   if (actionId.startsWith("route:") || actionId.startsWith("barrier:")) {
     travelToHex(actionId.slice(actionId.indexOf(":") + 1));
+    return;
+  }
+  if (actionId.startsWith("move-hex:")) {
+    travelToHex(actionId.slice("move-hex:".length));
     return;
   }
   if (actionId.startsWith("story:")) {
@@ -263,6 +322,13 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
     items.push({
       id: `pickup:${pickup.id}`,
       label: `Pick up ${withArticle(pickup.label)}`,
+    });
+  }
+
+  for (const record of nearbyPortableHoldings(indoor)) {
+    items.push({
+      id: `holding-pickup:${record.type}:${record.id}`,
+      label: `Pick up ${withArticle(record.label)}`,
     });
   }
 
@@ -441,20 +507,12 @@ function isDescendingStairs(indoor, move) {
 }
 
 export function buildIndoorMovementActions(indoor, pendingBeat = null) {
-  const moves = indoor.indoorMoves ?? [];
   const storyDests = storyChoiceDestinations(pendingBeat);
-  const exteriorNodes = new Set(
-    (pendingBeat?.choices ?? [])
-      .map((choice) => choice.go_exterior_node)
-      .filter(Boolean),
-  );
+  const moves = indoor.indoorMoves ?? [];
   return moves
     .filter((move) => move.toExteriorNode || move.toStandId || move.toRoomId)
-    .filter((move) => {
-      if (move.toRoomId && storyDests.rooms.has(move.toRoomId)) return false;
-      if (move.toExteriorNode && exteriorNodes.has(move.toExteriorNode)) return false;
-      return true;
-    })
+    .filter((move) => !move.toRoomId || !storyDests.rooms.has(move.toRoomId))
+    .filter((move) => !move.toExteriorNode || !storyDests.exteriorNodes.has(move.toExteriorNode))
     .map((move) => {
       if (move.toExteriorNode) {
         return {
@@ -495,9 +553,11 @@ export function handleIndoorPlayAction(indoor, actionId) {
     indoor.tryPickup(actionId.slice("pickup:".length));
     return;
   }
+  if (actionId.startsWith("holding-pickup:")) {
+    return pickupNearbyHolding(indoor, actionId.slice("holding-pickup:".length));
+  }
   if (actionId.startsWith("action:")) {
-    indoor.performAction(actionId.slice("action:".length));
-    return;
+    return indoor.performAction(actionId.slice("action:".length));
   }
   if (actionId.startsWith("door-break:")) {
     indoor.tryBreakLock(actionId.slice("door-break:".length));
@@ -528,16 +588,127 @@ export function handleIndoorPlayAction(indoor, actionId) {
   }
 }
 
-export function buildIndoorStatusLines(indoor) {
-  const lines = [];
+function nearbyPortableHoldings(indoor) {
+  const character = indoor.character;
+  if (!character?.holdings) return [];
+  const holders = nearbyFixedHolderIds(indoor);
+  return holdingRecords(character.holdings, character.definitions, holders)
+    .filter((record) => record.definition?.portable !== false)
+    .map((record) => ({
+      ...record,
+      label: record.definition?.label ?? record.item,
+    }));
+}
+
+function nearbyFixedHolderIds(indoor) {
+  const currentRoom = indoor.indoor?.currentRoom ?? null;
+  const currentStand = indoor.indoor?.currentStand ?? null;
+  const exteriorNode = indoor.indoor?.exteriorNode ?? null;
+  return Object.values(indoor.character?.holdings?.holders ?? {})
+    .filter((holder) => holder.kind === "fixed" || holder.kind === "vehicle")
+    .filter((holder) => {
+      const location = holder.location ?? {};
+      if (currentRoom && location.room === currentRoom) {
+        return !location.stand || location.stand === currentStand;
+      }
+      if (exteriorNode && location.exteriorNode === exteriorNode) {
+        return !location.stand || location.stand === currentStand;
+      }
+      return false;
+    })
+    .map((holder) => holder.id);
+}
+
+function pickupNearbyHolding(indoor, encoded) {
+  const character = indoor.character;
+  if (!character?.holdings) return { ok: false, error: "Character holdings are unavailable." };
+  const [type, ...idParts] = String(encoded).split(":");
+  const id = idParts.join(":");
+  const record = nearbyPortableHoldings(indoor)
+    .find((entry) => entry.type === type && entry.id === id);
+  if (!record) return { ok: false, error: "Holding is not available." };
+  try {
+    transferHolding(character.holdings, character.definitions, {
+      type,
+      id,
+      quantity: record.quantity ?? 1,
+      toHolder: characterHolderId(character.holdings),
+    });
+    markCharacterChanged(character);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+}
+
+export function buildIndoorStatusLines(indoor, wellbeingOverview = null) {
+  const lines = buildWellbeingStatusLines(wellbeingOverview);
   if (indoor.powerOn) {
     lines.push("Station power is on.");
+    lines.push(...poweredObjectStatusLines(indoor));
   }
   return lines;
 }
 
-export function buildOutdoorStatusLines(outdoor, indoor) {
-  const lines = [];
+export function buildWellbeingStatusLines(wellbeingOverview) {
+  if (!wellbeingOverview) return [];
+  const indicators = [
+    wellbeingOverview.health,
+    ...(wellbeingOverview.vitals ?? []),
+    ...(wellbeingOverview.conditions ?? []).filter((condition) => condition.active),
+  ].filter(Boolean);
+  const phrases = indicators
+    .filter((indicator) => indicator.tone !== "positive")
+    .map(wellbeingStatusPhrase)
+    .filter(Boolean);
+  const isPhrases = phrases.filter((phrase) => phrase.verb === "is").map((phrase) => phrase.text);
+  const hasPhrases = phrases.filter((phrase) => phrase.verb === "has").map((phrase) => phrase.text);
+  return [
+    isPhrases.length ? `Zanzibar is ${formatSentenceList(isPhrases)}.` : null,
+    hasPhrases.length ? `Zanzibar has ${formatSentenceList(hasPhrases)}.` : null,
+  ].filter(Boolean);
+}
+
+function wellbeingStatusPhrase(indicator) {
+  const state = String(indicator.state ?? "").trim();
+  if (!state) return null;
+  const normalized = state.toLowerCase();
+  if (indicator.id === "health" && normalized === "critical") {
+    return { verb: "is", text: "in critical condition" };
+  }
+  if (indicator.id === "health" && normalized === "collapsed") {
+    return { verb: "has", text: "collapsed" };
+  }
+  if (["injured", "injury"].includes(indicator.id)) {
+    return { verb: "has", text: injuryPhrase(normalized) };
+  }
+  return { verb: "is", text: normalized };
+}
+
+function injuryPhrase(state) {
+  if (/^(minor|moderate|severe) injury$/.test(state)) return `a ${state}`;
+  return state;
+}
+
+function formatSentenceList(items) {
+  if (items.length <= 1) return items[0] ?? "";
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
+}
+
+function poweredObjectStatusLines(indoor) {
+  const roomId = indoor.indoor?.currentRoom ?? indoor.playerRoomId ?? null;
+  const standId = indoor.indoor?.currentStand ?? null;
+  if (!roomId) return [];
+  return (indoor.building?.poweredObjects ?? [])
+    .filter((object) => object.room === roomId)
+    .filter((object) => !object.stand || object.stand === standId)
+    .map((object) => object.activeLine || `${object.label} is powered.`)
+    .filter(Boolean);
+}
+
+export function buildOutdoorStatusLines(outdoor, indoor, wellbeingOverview = null) {
+  const lines = buildWellbeingStatusLines(wellbeingOverview);
   for (const action of outdoor.lockedPassageActions ?? []) {
     if (action.status) lines.push(action.status);
   }

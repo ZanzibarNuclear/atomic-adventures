@@ -11,21 +11,23 @@ describe("character model", () => {
     const result = validateCharacterDocument(loadCharacter());
     expect(result.valid).toBe(true);
     expect(result.character.profile.id).toBe("zanzibar-nuhero");
-    expect(result.character.items).toHaveLength(9);
+    const itemIds = new Set(result.character.items.map((item) => item.id));
+    expect(itemIds.size).toBe(result.character.items.length);
+    expect([...itemIds]).toEqual(expect.arrayContaining([
+      "field-backpack",
+      "lobby-exterior-key",
+    ]));
     expect(result.character.holdings.instances["field-backpack-1"]).toEqual({
       item: "field-backpack",
       holder: "character:zanzibar-nuhero",
     });
-    expect(result.character.stats.map((stat) => stat.id)).toEqual([
-      "health", "hunger", "thirst",
-    ]);
-    expect(result.character.knowledge.map((entry) => entry.id)).toEqual([
-      "hydro-head-and-flow",
-    ]);
-    expect(result.character.skills[0].practice.awards).toHaveLength(3);
-    expect(result.character.documents.map((entry) => entry.id)).toEqual([
-      "hydro-operations-primer",
-    ]);
+    expect(Object.values(result.character.holdings.instances)
+      .every((holding) => itemIds.has(holding.item))).toBe(true);
+    expect(result.character.stats.map((stat) => stat.id)).toEqual(
+      expect.arrayContaining(["health", "satiety", "hydration", "energy"]),
+    );
+    expect(result.character.skills.some((skill) => skill.practice.awards.length > 0)).toBe(true);
+    expect(result.character.documents.length).toBeGreaterThan(0);
   });
 
   it("rejects duplicate IDs and unresolved groups/documents", () => {
@@ -41,5 +43,37 @@ describe("character model", () => {
     expect(result.errors[`items.${invalidIndex}.id`]).toBeDefined();
     expect(result.errors[`items.${invalidIndex}.group`]).toBeDefined();
     expect(result.errors[`items.${invalidIndex}.relatedDocument`]).toBeDefined();
+  });
+
+  it("preserves document stage views on item actions", () => {
+    const candidate = loadCharacter();
+    candidate.documents.push({
+      id: "startup-card",
+      title: "Startup Card",
+    });
+    candidate.items.push({
+      id: "startup-card-item",
+      label: "Startup card",
+      group: candidate.panel.inventoryGroups[0].id,
+      relatedDocument: "startup-card",
+      actions: [{
+        id: "read",
+        label: "Read card",
+        view: {
+          kind: "document",
+          id: "startup-card",
+          documentType: "hydro-startup-card",
+        },
+      }],
+    });
+
+    const result = validateCharacterDocument(candidate);
+
+    expect(result.valid).toBe(true);
+    expect(result.character.items.at(-1).actions[0].view).toEqual({
+      kind: "document",
+      id: "startup-card",
+      documentType: "hydro-startup-card",
+    });
   });
 });

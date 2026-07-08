@@ -5,6 +5,7 @@ export function commitGameActivity(gameState, {
   effects = [],
   timeMinutes = 0,
   activity = "light",
+  now,
 } = {}) {
   const minutes = Number(timeMinutes);
   if (!Number.isFinite(minutes) || minutes < 0) {
@@ -16,6 +17,7 @@ export function commitGameActivity(gameState, {
   const result = applyEffectsAtomically(effects, {
     character: gameState.character,
     flags: gameState.flags,
+    now,
   });
   if (!result.ok) return result;
   return minutes > 0

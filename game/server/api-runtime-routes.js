@@ -5,6 +5,7 @@ export async function handleRuntimeRoutes(req, res, url, {
   repository,
   worldRepository,
   characterRepository,
+  learningRepository,
   clients,
 }) {
   if (req.method === "GET" && url.pathname === "/api/story") {
@@ -16,6 +17,7 @@ export async function handleRuntimeRoutes(req, res, url, {
       areas: repository.listAreas(),
       world: publicWorldCatalog(worldRepository.getCatalog()),
       character: characterRepository?.getDocument()?.character ?? null,
+      learning: learningRepository?.getDocument()?.learning ?? null,
     });
   }
 
@@ -29,6 +31,7 @@ export async function handleRuntimeRoutes(req, res, url, {
       storyRevision: repository.getGlobalRevision(),
       worldRevision: worldRepository.getGlobalRevision(),
       characterRevision: characterRepository?.getGlobalRevision() ?? 0,
+      learningRevision: learningRepository?.getGlobalRevision() ?? 0,
     })}\n\n`);
     clients.add(res);
     req.on("close", () => clients.delete(res));

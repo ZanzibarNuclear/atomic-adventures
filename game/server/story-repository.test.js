@@ -19,11 +19,11 @@ function createRepository() {
   dirs.push(dir);
   const path = join(dir, "test.sqlite");
   const db = openDatabase(path);
-  const { world, building, character } = loadContentDocuments();
+  const { world, building, character, learning } = loadContentDocuments();
   return {
     db,
     path,
-    repository: new StoryRepository(db, buildWorldCatalog(world, building), character),
+    repository: new StoryRepository(db, buildWorldCatalog(world, building), character, learning),
   };
 }
 
@@ -59,7 +59,7 @@ describe("StoryRepository", () => {
     expect(repository.getRuntimeStory().areas["part-i"].beats.intro.heading).toBe("Lost in the woods");
     db.close();
     const reopened = openDatabase(path);
-    expect(reopened.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get().count).toBe(10);
+    expect(reopened.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get().count).toBe(15);
     reopened.close();
   });
 
@@ -196,9 +196,9 @@ describe("StoryRepository", () => {
     db.close();
   });
 
-  it("strips legacy story requirement and choice character fields", () => {
+  it("rejects unsupported story requirement and choice effect fields", () => {
     const { db, repository } = createRepository();
-    repository.createBeat("test-area", sampleBeat({
+    expect(() => repository.createBeat("test-area", sampleBeat({
       require: { items: ["lobby-exterior-key"] },
       choices: [{
         text: "Continue",
@@ -208,12 +208,8 @@ describe("StoryRepository", () => {
           { op: "flag.set", id: "test.done" },
         ],
       }],
-    }));
-
-    const beat = repository.getBeat("test-area", "test-beat");
-    expect(beat.require).toBeUndefined();
-    expect(beat.choices[0].require).toBeUndefined();
-    expect(beat.choices[0].effects).toBeUndefined();
+    }))).toThrow(ValidationError);
+    expect(repository.listBeats("test-area")).toEqual([]);
     db.close();
   });
 
@@ -230,6 +226,41 @@ describe("StoryRepository", () => {
     expect(beat.choices[0].view).toEqual({ kind: "inventory" });
     expect(repository.getRuntimeStory().areas["test-area"].beats["test-beat"].choices[0].view)
       .toEqual({ kind: "inventory" });
+    db.close();
+  });
+
+  it("round-trips story choice lesson view actions", () => {
+    const { db, repository } = createRepository();
+    repository.createBeat("test-area", sampleBeat({
+      choices: [{
+        text: "Load the hydro lesson",
+        view: { kind: "lesson", id: "hydro-power-intro" },
+      }],
+    }));
+
+    const beat = repository.getBeat("test-area", "test-beat");
+    expect(beat.choices[0].view).toEqual({
+      kind: "lesson",
+      id: "hydro-power-intro",
+    });
+    expect(repository.getRuntimeStory().areas["test-area"].beats["test-beat"].choices[0].view)
+      .toEqual({
+        kind: "lesson",
+        id: "hydro-power-intro",
+      });
+    db.close();
+  });
+
+  it("rejects story choice lesson view actions with stale lesson IDs", () => {
+    const { db, repository } = createRepository();
+
+    expect(() => repository.createBeat("test-area", sampleBeat({
+      choices: [{
+        text: "Load the missing lesson",
+        view: { kind: "lesson", id: "missing-lesson" },
+      }],
+    }))).toThrow(ValidationError);
+    expect(repository.listBeats("test-area")).toEqual([]);
     db.close();
   });
 
@@ -258,7 +289,6 @@ describe("StoryRepository", () => {
     const beat = repository.getBeat("test-area", "test-beat");
     expect(beat.match).toEqual({
       originHex: "the-flats",
-      localExit: null,
       mapTransition: null,
       transitionDirection: null,
     });
@@ -276,30 +306,11 @@ describe("StoryRepository", () => {
     const beat = repository.getBeat("test-area", "test-beat");
     expect(beat.match).toEqual({
       originHex: ["the-flats", "west-slope"],
-      localExit: null,
       mapTransition: null,
       transitionDirection: null,
     });
     expect(repository.getRuntimeStory().areas["test-area"].beats["test-beat"].match)
       .toEqual({ originHex: ["the-flats", "west-slope"] });
-    db.close();
-  });
-
-  it("round-trips legacy localExit beat matching", () => {
-    const { db, repository } = createRepository();
-    repository.createBeat("test-area", sampleBeat({
-      match: { localExit: "garage-exit" },
-    }));
-
-    const beat = repository.getBeat("test-area", "test-beat");
-    expect(beat.match).toEqual({
-      originHex: null,
-      localExit: "garage-exit",
-      mapTransition: null,
-      transitionDirection: null,
-    });
-    expect(repository.getRuntimeStory().areas["test-area"].beats["test-beat"].match)
-      .toEqual({ localExit: "garage-exit" });
     db.close();
   });
 
@@ -312,12 +323,29 @@ describe("StoryRepository", () => {
     const beat = repository.getBeat("test-area", "test-beat");
     expect(beat.match).toEqual({
       originHex: null,
-      localExit: null,
       mapTransition: "garage-exit",
       transitionDirection: "toRegional",
     });
     expect(repository.getRuntimeStory().areas["test-area"].beats["test-beat"].match)
       .toEqual({ mapTransition: "garage-exit", transitionDirection: "toRegional" });
+    db.close();
+  });
+
+  it("round-trips beat mode and story beat scoping", () => {
+    const { db, repository } = createRepository();
+    repository.createBeat("test-area", sampleBeat({
+      modes: ["story"],
+      storyBeat: "understand-building",
+    }));
+
+    const beat = repository.getBeat("test-area", "test-beat");
+    expect(beat.modes).toEqual(["story"]);
+    expect(beat.storyBeat).toBe("understand-building");
+    expect(repository.getRuntimeStory().areas["test-area"].beats["test-beat"])
+      .toEqual(expect.objectContaining({
+        modes: ["story"],
+        storyBeat: "understand-building",
+      }));
     db.close();
   });
 

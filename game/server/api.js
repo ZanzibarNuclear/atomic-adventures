@@ -1,6 +1,8 @@
 import { handleCharacterRoutes } from "./api-character-routes.js";
+import { handleLearningRoutes } from "./api-learning-routes.js";
 import { handleRuntimeRoutes } from "./api-runtime-routes.js";
 import { handleStoryRoutes } from "./api-story-routes.js";
+import { handleStoryArcRoutes } from "./api-story-arc-routes.js";
 import { json } from "./api-utils.js";
 import { handleWorldRoutes } from "./api-world-routes.js";
 import { writeRuntimeContent } from "./runtime-content-writer.js";
@@ -10,6 +12,8 @@ export function createApiHandler(
   worldRepository,
   buildingRepository = null,
   characterRepository = null,
+  learningRepository = null,
+  storyArcRepository = null,
   { syncRuntimeContentOnMutation = false } = {},
 ) {
   const clients = new Set();
@@ -41,7 +45,13 @@ export function createApiHandler(
   }
 
   function syncRuntimeContent() {
-    if (!syncRuntimeContentOnMutation || !buildingRepository || !characterRepository) {
+    if (
+      !syncRuntimeContentOnMutation ||
+      !buildingRepository ||
+      !characterRepository ||
+      !learningRepository ||
+      !storyArcRepository
+    ) {
       return;
     }
     writeRuntimeContent({
@@ -49,6 +59,8 @@ export function createApiHandler(
       worldRepository,
       buildingRepository,
       characterRepository,
+      learningRepository,
+      storyArcRepository,
     });
   }
 
@@ -57,12 +69,16 @@ export function createApiHandler(
     worldRepository,
     buildingRepository,
     characterRepository,
+    learningRepository,
+    storyArcRepository,
     clients,
     broadcast,
     syncRuntimeContent,
   };
   const routeHandlers = [
     handleRuntimeRoutes,
+    handleStoryArcRoutes,
+    handleLearningRoutes,
     handleCharacterRoutes,
     handleWorldRoutes,
     handleStoryRoutes,

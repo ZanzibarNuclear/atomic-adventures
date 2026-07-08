@@ -129,6 +129,10 @@ button.sm.muted {
 .route-btn.k-door {
   border-left-color: #c9b89a;
 }
+.route-btn.p-story {
+  border-color: #ffd166;
+  border-left-color: #ffd166;
+}
 .route-btn.off {
   border-left-color: #5a6270;
   color: #aeb4c0;

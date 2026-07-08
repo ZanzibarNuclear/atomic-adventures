@@ -12,16 +12,20 @@ const STAGE_VIEW_KINDS = new Set([
   "simulation",
 ]);
 const TRANSITION_DIRECTIONS = new Set(["toLocal", "toRegional"]);
+const PLAY_MODES = new Set(["story", "open-world"]);
 
 export function normalizeBeat(input = {}) {
   const trigger = input.trigger ?? {};
   return {
     id: String(input.id ?? "").trim(),
+    sortOrder: finiteNumber(input.sortOrder, 0),
     once: input.once !== false,
     eyebrow: nullableText(input.eyebrow),
     heading: nullableText(input.heading),
     text: String(input.text ?? ""),
     revisit: nullableText(input.revisit),
+    modes: stringList(input.modes).map(normalizePlayMode),
+    storyBeat: nullableText(input.storyBeat),
     trigger: {
       place: nullableText(trigger.place),
       hex: nullableText(trigger.hex),
@@ -50,12 +54,26 @@ export function normalizeBeat(input = {}) {
   };
 }
 
-export function validateBeat(input, world, character = null) {
+export function validateBeat(input, world, character = null, learning = null) {
   const beat = normalizeBeat(input);
   const errors = {};
   const add = (path, message) => {
     (errors[path] ??= []).push(message);
   };
+
+  if (Object.hasOwn(input ?? {}, "require")) {
+    add("require", "Story beat requirements are not part of the current schema.");
+  }
+  if (Array.isArray(input?.choices)) {
+    input.choices.forEach((choice, index) => {
+      if (Object.hasOwn(choice ?? {}, "require")) {
+        add(`choices.${index}.require`, "Story choice requirements are not part of the current schema.");
+      }
+      if (Object.hasOwn(choice ?? {}, "effects")) {
+        add(`choices.${index}.effects`, "Story choice effects are not part of the current schema.");
+      }
+    });
+  }
 
   if (!ID_PATTERN.test(beat.id)) add("id", "Use a kebab-case beat ID.");
   if (!beat.text.trim()) add("text", "Story text is required.");
@@ -94,12 +112,8 @@ export function validateBeat(input, world, character = null) {
       if (!world.hexIds.has(originHex)) add("match.originHex", "Choose existing origin hexes.");
     }
   }
-  if (beat.match.localExit) {
-    if (!beat.trigger.hex) add("match.localExit", "Map transition return matching is only supported for outdoor hex beats.");
-    if (!world.localExitIds?.has(beat.match.localExit)) add("match.localExit", "Choose an existing map transition.");
-  }
   if (beat.match.mapTransition) {
-    if (!world.localExitIds?.has(beat.match.mapTransition)) add("match.mapTransition", "Choose an existing map transition.");
+    if (!world.mapTransitionIds?.has(beat.match.mapTransition)) add("match.mapTransition", "Choose an existing map transition.");
     if (beat.match.transitionDirection === "toRegional" && !beat.trigger.hex) {
       add("match.mapTransition", "Regional map transition beats must use an outdoor hex trigger.");
     }
@@ -111,6 +125,15 @@ export function validateBeat(input, world, character = null) {
     add("match.transitionDirection", "Choose to local or to regional.");
   }
   validateBeatTime(beat.time, add);
+  beat.modes.forEach((mode, index) => {
+    if (!PLAY_MODES.has(mode)) add(`modes.${index}`, "Choose story or open-world.");
+  });
+  if (beat.storyBeat && !ID_PATTERN.test(beat.storyBeat)) {
+    add("storyBeat", "Use a kebab-case story beat ID.");
+  }
+  if (beat.storyBeat && beat.modes.length && !beat.modes.includes("story")) {
+    add("storyBeat", "Story beat scenes must be eligible in story mode.");
+  }
 
   beat.choices.forEach((choice, index) => {
     const base = `choices.${index}`;
@@ -132,6 +155,15 @@ export function validateBeat(input, world, character = null) {
     if (choice.view && !STAGE_VIEW_KINDS.has(choice.view.kind)) {
       add(`${base}.view.kind`, "Choose a supported stage view.");
     }
+    if (choice.view?.kind === "lesson") {
+      const lessonId = choice.view.id;
+      const lessonIds = new Set((learning?.lessons ?? []).map((lesson) => lesson.id));
+      if (!lessonId) {
+        add(`${base}.view.id`, "Choose a lesson.");
+      } else if (learning && !lessonIds.has(lessonId)) {
+        add(`${base}.view.id`, "Choose an existing lesson.");
+      }
+    }
     if (choice.timeMinutes < 0) add(`${base}.timeMinutes`, "Time cannot be negative.");
     if (choice.timeMinutes > 0 && choice.timeUntil) {
       add(`${base}.timeMinutes`, "Choose fixed minutes or sleep until, not both.");
@@ -147,10 +179,13 @@ export function validateBeat(input, world, character = null) {
 export function beatToRuntime(beat) {
   const match = compactObject(beat.match ?? {});
   const time = compactTime(beat.time ?? {});
+  const modes = stringList(beat.modes);
   return compactObject({
     eyebrow: beat.eyebrow ?? undefined,
     heading: beat.heading ?? undefined,
     trigger: compactObject(beat.trigger),
+    modes: modes.length ? modes : undefined,
+    storyBeat: beat.storyBeat ?? undefined,
     match: Object.keys(match).length ? match : undefined,
     time: Object.keys(time).length ? time : undefined,
     text: beat.text,
@@ -194,10 +229,8 @@ function normalizeStageView(value) {
 
 function normalizeMatch(value = {}) {
   const mapTransition = nullableText(value.mapTransition);
-  const localExit = nullableText(value.localExit);
   return {
     originHex: originHexValue(value.originHex),
-    localExit,
     mapTransition: mapTransition ?? null,
     transitionDirection: nullableText(value.transitionDirection),
   };
@@ -289,6 +322,10 @@ function stringList(value) {
   if (Array.isArray(value)) return value.map(String).map((item) => item.trim()).filter(Boolean);
   if (typeof value === "string") return value.split(",").map((item) => item.trim()).filter(Boolean);
   return [];
+}
+
+function normalizePlayMode(mode) {
+  return mode;
 }
 
 function finiteNumber(value, fallback) {

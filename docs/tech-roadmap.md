@@ -21,7 +21,7 @@ The project has moved past stack selection and scaffolding. The playable `game/`
 | Game app | **`game/`** is canonical | Gameplay, story, persistence, authoring, and player maps live in `game/`. |
 | Authored content store | **SQLite** (`game/content/atomic-adventures.sqlite`) | Story beats, outdoor world, building geometry, and character content are canonical in SQLite. YAML is explicit import/export snapshot material only. |
 | Indoor geometry | **SQLite document** (`utility-station`) | Edited in the Utility Station workspace under `/builder/world`; YAML snapshots can be imported/exported explicitly. |
-| Story runtime unit | **Beats**, not a full passage graph | Location/event triggers, requirements, flags, choices, revisit prose. Planned passage features (`go_to`, simulation gates) are not implemented yet. See [story-beats.md](contracts/story-beats.md). |
+| Story runtime unit | **Story arcs, story beats, and scenes** | `StoryArc` owns guided progression, `StoryBeat` owns choices/actions/completion/effects, and `Scene` owns prose variants. Planned passage features (`go_to`, simulation gates) are not implemented yet. See [story-beats.md](contracts/story-beats.md). |
 | Authoring | **Separate builder routes** | `/builder/story`, `/builder/world`, and `/builder/content`; local Node API + SSE live updates. Production excludes builders. See [world-authoring.md](contracts/world-authoring.md) and [character-inventory.md](contracts/character-inventory.md). |
 | Player persistence (now) | **localStorage** via `useSaveGame` | No accounts, no server-side saves. |
 | Production | **Static Vercel** | Build exports SQLite → `story.json` + `world.json`; no authoring server in prod. See [deployment.md](deployment.md). |
@@ -36,7 +36,7 @@ These systems are implemented and exercised by tests where noted:
 - **Playable shell** — `GameView`, save/load/reset, dev movement audit (dev builds only).
 - **Outdoor map** — Hex travel, barriers, passages, river crossings, compound gate gameplay, stand points. Contract: [hex-crawling.md](contracts/hex-crawling.md).
 - **Indoor map** — Grid rooms, doors, roll-ups, keys, facility state (`hydroOnline`, manual modes), hydro diagram overlay (visual only, fogged until discovery).
-- **Story engine** — Beat selection, acknowledgment, revisit prose, choice effects (flags + movement destinations). Wired through `NarrativeCard` and `usePlayPanel`.
+- **Story engine** — Scene selection, acknowledgment, revisit prose, choice effects (flags + movement destinations), and guided Story mode migration toward `useStoryArc`. Wired through `NarrativeCard` and `usePlayPanel`.
 - **Flags & inventory (minimal)** — Dot-scoped flags; inventory as a set of item ids (keys for doors; basic `InventoryPanel`). Serializable in save data.
 - **Content pipeline** — Story/world/content JSON API, SSE refresh, SQLite revisions, import/export CLI.
 - **Authoring** — Story builder (map-first beat editing), world builder (canvas-first outdoor geometry), and Content builder (character development plus artifact catalogs).
@@ -145,7 +145,7 @@ Inventory tab exposes explicit transfer controls for reachable holders.
 Remaining Part I work includes:
 
 - broader authored learning progression and quest content beyond the wired
-  Restore Station Power objective chain;
+  Restore Station Power chain;
 - final badge artwork and simulation-owned evidence outcomes;
 - close-up views for room detail, holo-reader lessons and videos, buggy rides,
   and simulations;
@@ -203,14 +203,14 @@ Map and beat infrastructure support Part I, but the **full beat spine** — fore
 | Story & world builders + SQLite pipeline | **Done** |
 | Static production deploy | **Done** |
 | Simulation gates in story engine | **Not started** |
-| Hydro startup sim (Level 1) | **Not started** |
-| Hydro operations sim (Level 2+) | **Not started** |
-| Control room console | **Not started** |
-| Holo-reader | **Not started** |
+| Hydro startup sim (Level 1) | **Alpha implemented** |
+| Hydro operations sim (Level 2+) | **Partial** (monitoring/history; full ops rounds still ahead) |
+| Control room console | **Alpha implemented** |
+| Holo-reader | **Partial** |
 | eBuggy driving sim | **Not started** |
 | Close-up room inspection | **Not started** |
 | Character stats, progression, inventory & items | **Partial** |
-| In-game calendar / ops pacing | **Partial** (flags only) |
+| In-game calendar / ops pacing | **Partial** |
 | Part I content spine authored & gated | **In progress** |
 
 ---

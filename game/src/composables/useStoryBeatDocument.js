@@ -7,10 +7,11 @@ function clonePlain(value) {
 
 function ensureEditableBeat(value) {
   const next = clonePlain(value);
-  next.match ??= { originHex: null, localExit: null };
+  next.modes = stringList(next.modes);
+  next.storyBeat ??= null;
+  next.match ??= { originHex: null, mapTransition: null, transitionDirection: null };
   next.match.originHex = stringList(next.match.originHex);
-  next.match.localExit ??= null;
-  next.match.mapTransition ??= next.match.localExit ?? null;
+  next.match.mapTransition ??= null;
   next.match.transitionDirection ??= null;
   next.time ??= {};
   next.time.days ??= [];
@@ -68,6 +69,8 @@ function normalizeForDirty(value) {
     heading: nullableText(beat.heading),
     text: String(beat.text ?? ""),
     revisit: nullableText(beat.revisit),
+    modes: stringList(beat.modes),
+    storyBeat: nullableText(beat.storyBeat),
     trigger: {
       place: nullableText(trigger.place),
       hex: nullableText(trigger.hex),
@@ -78,7 +81,6 @@ function normalizeForDirty(value) {
     },
     match: {
       originHex: stringList(beat.match?.originHex),
-      localExit: nullableText(beat.match?.localExit),
       mapTransition: nullableText(beat.match?.mapTransition),
       transitionDirection: nullableText(beat.match?.transitionDirection),
     },
@@ -288,15 +290,12 @@ export function useStoryBeatDocument({
       isNew.value = false;
       const submittedOrigin = stringList(submitted.match?.originHex);
       const savedOrigin = stringList(result.beat.match?.originHex);
-      const submittedLocalExit = submitted.match?.localExit ?? null;
-      const savedLocalExit = result.beat.match?.localExit ?? null;
       const submittedMapTransition = submitted.match?.mapTransition ?? null;
       const savedMapTransition = result.beat.match?.mapTransition ?? null;
       const submittedDirection = submitted.match?.transitionDirection ?? null;
       const savedDirection = result.beat.match?.transitionDirection ?? null;
       if (
         JSON.stringify(submittedOrigin) !== JSON.stringify(savedOrigin) ||
-        submittedLocalExit !== savedLocalExit ||
         submittedMapTransition !== savedMapTransition ||
         submittedDirection !== savedDirection
       ) {
@@ -305,7 +304,6 @@ export function useStoryBeatDocument({
         editable.match = {
           ...(editable.match ?? {}),
           originHex: submittedOrigin,
-          localExit: submittedLocalExit,
           mapTransition: submittedMapTransition,
           transitionDirection: submittedDirection,
         };

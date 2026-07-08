@@ -149,6 +149,9 @@ function onFixtureClick(f) {
   fill: transparent;
   stroke: none;
 }
+.fixture:not(.stair-clickable):not(.builder-selectable) .stair-hit {
+  pointer-events: none;
+}
 .fixture-hit {
   fill: transparent;
   stroke: none;

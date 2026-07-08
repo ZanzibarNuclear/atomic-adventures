@@ -1,5 +1,6 @@
 <script setup>
 import { setRoomLabel } from "../../../lib/maps/composables/useGridBuilder.js";
+import LocationViewsEditor from "../LocationViewsEditor.vue";
 
 defineProps({
   draft: { type: Object, required: true },
@@ -32,6 +33,11 @@ defineProps({
       <label>Height<input v-model.number="selection.entity.h" type="number" min=".5" step=".5" /></label>
     </div>
   </section>
+
+  <LocationViewsEditor
+    :owner="selection.entity"
+    title="Room views"
+  />
 </template>
 
 <style scoped>

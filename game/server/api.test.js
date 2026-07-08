@@ -23,6 +23,8 @@ function setup() {
     worldRepository,
     buildingRepository,
     characterRepository,
+    learningRepository,
+    storyArcRepository,
   } = createContentRepositories(db);
   return {
     db,
@@ -31,10 +33,14 @@ function setup() {
       worldRepository,
       buildingRepository,
       characterRepository,
+      learningRepository,
+      storyArcRepository,
     ),
     worldRepository,
     buildingRepository,
     characterRepository,
+    learningRepository,
+    storyArcRepository,
   };
 }
 
@@ -65,7 +71,7 @@ function request(method, url, body) {
 
 describe("story API", () => {
   it("publishes the character catalog and protects referenced definitions", async () => {
-    const { db, api, characterRepository } = setup();
+    const { db, api, characterRepository, storyArcRepository } = setup();
 
     const catalogRes = responseCapture();
     await api.handle(request("GET", "/api/catalog"), catalogRes);
@@ -81,11 +87,84 @@ describe("story API", () => {
     expect(references.some((reference) => reference.path.includes("lock.key"))).toBe(true);
     expect(references.some((reference) => reference.path.includes("pickups"))).toBe(true);
 
+    const learningCharacterReferencesRes = responseCapture();
+    await api.handle(
+      request("GET", "/api/character/references?domain=knowledge&id=hydro-head-and-flow"),
+      learningCharacterReferencesRes,
+    );
+    const learningCharacterReferences = JSON.parse(learningCharacterReferencesRes.chunks.join(""));
+    expect(learningCharacterReferences).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: "learning",
+        learningId: "learning-main",
+        lessonId: "hydro-power-intro",
+        path: expect.stringContaining("completion.effects"),
+      }),
+    ]));
+
+    const createLessonChoiceRes = responseCapture();
+    await api.handle(request("POST", "/api/story/areas/test/beats", {
+      id: "lesson-choice-ref",
+      text: "Lesson choice reference.",
+      trigger: { place: "indoors", room: "library" },
+      choices: [{
+        text: "Study hydro power",
+        view: { kind: "lesson", id: "hydro-power-intro", source: "library-holo-reader" },
+      }],
+    }), createLessonChoiceRes);
+    expect(createLessonChoiceRes.status).toBe(201);
+
+    const lessonReferencesRes = responseCapture();
+    await api.handle(
+      request("GET", "/api/learning/references?id=hydro-power-intro"),
+      lessonReferencesRes,
+    );
+    const lessonReferences = JSON.parse(lessonReferencesRes.chunks.join(""));
+    expect(lessonReferences).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: "story",
+        areaId: "test",
+        beatId: "lesson-choice-ref",
+        path: "choices.0.view.id",
+      }),
+    ]));
+
     const imagesRes = responseCapture();
     await api.handle(request("GET", "/api/character/public-images?folder=items"), imagesRes);
     const images = JSON.parse(imagesRes.chunks.join(""));
     expect(imagesRes.status).toBe(200);
     expect(images.images).toContain("items/field-backpack.png");
+
+    const viewImagesRes = responseCapture();
+    await api.handle(request("GET", "/api/character/public-images?folder=views"), viewImagesRes);
+    const viewImages = JSON.parse(viewImagesRes.chunks.join(""));
+    expect(viewImagesRes.status).toBe(200);
+    expect(viewImages.images).toContain("views/conference-room-cool-doorway.png");
+
+    const storyArcDocumentRes = responseCapture();
+    await api.handle(request("GET", "/api/story-arcs/document"), storyArcDocumentRes);
+    const storyArcDocument = JSON.parse(storyArcDocumentRes.chunks.join(""));
+    expect(storyArcDocumentRes.status).toBe(200);
+    expect(storyArcDocument.storyArcDocument.id).toBe("story-main");
+    expect(storyArcDocument.storyArcDocument.storyArcs[0]).toEqual(expect.objectContaining({
+      id: "part-i-opener",
+      defaultMode: "story",
+      startBeat: "survive-in-the-woods",
+    }));
+    expect(storyArcDocument.storyArcDocument.storyArcs[1]).toEqual(expect.objectContaining({
+      id: "part-i-station",
+      startBeat: "find-a-way-past-fence",
+    }));
+    expect(storyArcRepository.validate(storyArcDocument.storyArcDocument).valid).toBe(true);
+
+    const storyArcsRes = responseCapture();
+    await api.handle(request("GET", "/api/story-arcs"), storyArcsRes);
+    const storyArcs = JSON.parse(storyArcsRes.chunks.join(""));
+    expect(storyArcsRes.status).toBe(200);
+    expect(storyArcs.story.storyArcs[0]).toEqual(expect.objectContaining({
+      id: "part-i-opener",
+      startBeat: "survive-in-the-woods",
+    }));
 
     const current = characterRepository.getDocument();
     const removeRes = responseCapture();
@@ -101,6 +180,181 @@ describe("story API", () => {
       Object.keys(JSON.parse(removeRes.chunks.join("")).errors)
         .some((path) => path.startsWith("building.") && path.endsWith(".lock.key")),
     ).toBe(true);
+    db.close();
+  });
+
+  it("cascades character item ID renames through authored building references", async () => {
+    const { db, api, characterRepository, buildingRepository } = setup();
+    const current = characterRepository.getDocument();
+    const character = structuredClone(current.character);
+    const item = character.items.find((entry) => entry.id === "lobby-exterior-key");
+    item.id = "lobby-side-door-key";
+
+    const renameRes = responseCapture();
+    await api.handle(request("PUT", "/api/character", {
+      character,
+      expectedVersion: current.version,
+      renames: [{
+        domain: "items",
+        from: "lobby-exterior-key",
+        to: "lobby-side-door-key",
+      }],
+    }), renameRes);
+
+    expect(renameRes.status).toBe(200);
+    const building = buildingRepository.getDocument().building;
+    expect(building.doors.some((door) => door.lock?.key === "lobby-side-door-key")).toBe(true);
+    expect(building.pickups.some((pickup) => pickup.item === "lobby-side-door-key")).toBe(true);
+    db.close();
+  });
+
+  it("cascades item renames through building action effects", async () => {
+    const { db, api, characterRepository, buildingRepository } = setup();
+    const buildingDocument = buildingRepository.getDocument();
+    const building = structuredClone(buildingDocument.building);
+    building.actions.push({
+      id: "grant-test-key",
+      room: "library",
+      label: "Grant test key",
+      effects: [{ op: "item.add", id: "lobby-exterior-key", quantity: 1 }],
+    });
+    buildingRepository.save(building.id, building, buildingDocument.version);
+
+    const current = characterRepository.getDocument();
+    const character = structuredClone(current.character);
+    const item = character.items.find((entry) => entry.id === "lobby-exterior-key");
+    item.id = "lobby-side-door-key";
+
+    const renameRes = responseCapture();
+    await api.handle(request("PUT", "/api/character", {
+      character,
+      expectedVersion: current.version,
+      renames: [{
+        domain: "items",
+        from: "lobby-exterior-key",
+        to: "lobby-side-door-key",
+      }],
+    }), renameRes);
+
+    expect(renameRes.status).toBe(200);
+    const action = buildingRepository.getDocument().building.actions
+      .find((candidate) => candidate.id === "grant-test-key");
+    expect(action.effects[0]).toEqual(expect.objectContaining({
+      op: "item.add",
+      id: "lobby-side-door-key",
+    }));
+    db.close();
+  });
+
+  it("infers and cascades an item rename when the client saves the renamed draft", async () => {
+    const { db, api, characterRepository, buildingRepository } = setup();
+    const buildingDocument = buildingRepository.getDocument();
+    const building = structuredClone(buildingDocument.building);
+    building.actions.push({
+      id: "grant-test-key",
+      room: "library",
+      label: "Grant test key",
+      effects: [{ op: "item.add", id: "lobby-exterior-key", quantity: 1 }],
+    });
+    buildingRepository.save(building.id, building, buildingDocument.version);
+
+    const current = characterRepository.getDocument();
+    const character = structuredClone(current.character);
+    const item = character.items.find((entry) => entry.id === "lobby-exterior-key");
+    item.id = "lobby-side-door-key";
+
+    const renameRes = responseCapture();
+    await api.handle(request("PUT", "/api/character", {
+      character,
+      expectedVersion: current.version,
+    }), renameRes);
+
+    expect(renameRes.status).toBe(200);
+    const action = buildingRepository.getDocument().building.actions
+      .find((candidate) => candidate.id === "grant-test-key");
+    expect(action.effects[0].id).toBe("lobby-side-door-key");
+    db.close();
+  });
+
+  it("cascades character ID renames for every content catalog", async () => {
+    const { db, api, characterRepository, buildingRepository } = setup();
+    const buildingDocument = buildingRepository.getDocument();
+    const building = structuredClone(buildingDocument.building);
+    building.actions.push({
+      id: "all-catalog-refs",
+      room: "library",
+      label: "All catalog references",
+      require: {
+        items: { all: ["lobby-exterior-key"] },
+        stats: [{ id: "health", op: "gte", value: 1 }],
+        knowledge: { all: ["hydro-head-and-flow"] },
+        skills: [{ id: "hydro-operations", op: "gte", value: 1 }],
+        quests: [{ id: "restore-hydro", op: "started" }],
+        documents: { all: ["hydro-operations-primer"] },
+      },
+      effects: [
+        { op: "item.add", id: "lobby-exterior-key", quantity: 1 },
+        { op: "stat.add", id: "health", value: 1 },
+        { op: "knowledge.acquire", id: "hydro-head-and-flow" },
+        { op: "skill.add-evidence", id: "hydro-operations", evidence: "operating-days", value: 1 },
+        { op: "quest.start", id: "restore-hydro" },
+        { op: "document.discover", id: "hydro-operations-primer" },
+      ],
+    });
+    buildingRepository.save(building.id, building, buildingDocument.version);
+
+    const current = characterRepository.getDocument();
+    const character = structuredClone(current.character);
+    const renames = [
+      ["items", "lobby-exterior-key", "lobby-side-door-key"],
+      ["stats", "health", "body-condition"],
+      ["knowledge", "hydro-head-and-flow", "hydro-water-power"],
+      ["skills", "hydro-operations", "hydro-plant-ops"],
+      ["quests", "restore-hydro", "restart-hydro"],
+      ["documents", "hydro-operations-primer", "hydro-ops-primer"],
+    ].map(([domain, from, to]) => ({ domain, from, to }));
+    for (const { domain, from, to } of renames) {
+      const entry = character[domain].find((candidate) => candidate.id === from);
+      entry.id = to;
+    }
+    character.items.find((item) => item.id === "lobby-side-door-key").relatedDocument = "hydro-operations-primer";
+
+    const renameRes = responseCapture();
+    await api.handle(request("PUT", "/api/character", {
+      character,
+      expectedVersion: current.version,
+      renames,
+    }), renameRes);
+
+    expect(renameRes.status).toBe(200);
+    const savedCharacter = JSON.parse(renameRes.chunks.join("")).character;
+    expect(savedCharacter.items.some((entry) => entry.id === "lobby-side-door-key")).toBe(true);
+    expect(savedCharacter.stats.some((entry) => entry.id === "body-condition")).toBe(true);
+    expect(savedCharacter.knowledge.some((entry) => entry.id === "hydro-water-power")).toBe(true);
+    expect(savedCharacter.skills.some((entry) => entry.id === "hydro-plant-ops")).toBe(true);
+    expect(savedCharacter.quests.some((entry) => entry.id === "restart-hydro")).toBe(true);
+    expect(savedCharacter.documents.some((entry) => entry.id === "hydro-ops-primer")).toBe(true);
+    expect(savedCharacter.items.find((item) => item.id === "lobby-side-door-key").relatedDocument)
+      .toBe("hydro-ops-primer");
+
+    const action = buildingRepository.getDocument().building.actions
+      .find((candidate) => candidate.id === "all-catalog-refs");
+    expect(action.require).toMatchObject({
+      items: { all: ["lobby-side-door-key"] },
+      stats: [expect.objectContaining({ id: "body-condition" })],
+      knowledge: { all: ["hydro-water-power"] },
+      skills: [expect.objectContaining({ id: "hydro-plant-ops" })],
+      quests: [expect.objectContaining({ id: "restart-hydro" })],
+      documents: { all: ["hydro-ops-primer"] },
+    });
+    expect(action.effects).toEqual(expect.arrayContaining([
+      expect.objectContaining({ op: "item.add", id: "lobby-side-door-key" }),
+      expect.objectContaining({ op: "stat.add", id: "body-condition" }),
+      expect.objectContaining({ op: "knowledge.acquire", id: "hydro-water-power" }),
+      expect.objectContaining({ op: "skill.add-evidence", id: "hydro-plant-ops" }),
+      expect.objectContaining({ op: "quest.start", id: "restart-hydro" }),
+      expect.objectContaining({ op: "document.discover", id: "hydro-ops-primer" }),
+    ]));
     db.close();
   });
 

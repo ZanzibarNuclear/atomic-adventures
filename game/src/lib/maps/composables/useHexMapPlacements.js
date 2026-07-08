@@ -116,7 +116,6 @@ export function useHexMapPlacements({
     })
   })
 
-  // Legacy alias — gate-only consumers
   const gateMarkers = passageMarkers
   const visibleGateMarkers = visiblePassageMarkersList
 

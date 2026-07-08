@@ -16,7 +16,7 @@ export function applyEffectsAtomically(effects = [], {
   } catch (error) {
     return { ok: false, error: error.message, effect: error.effect };
   }
-  applyCharacterState(character, draft);
+  applyCharacterState(character, draft, { mergeAuthored: false });
   flags.clear();
   for (const flag of draftFlags) flags.add(flag);
   return { ok: true };

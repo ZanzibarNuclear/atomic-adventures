@@ -89,10 +89,9 @@ contract below.
 Character and artifact definitions are currently stored as one ordered JSON
 document named `character-main` in `game/content/atomic-adventures.sqlite`.
 This follows the existing coarse-document model used for outdoor world and
-building content. The persisted name is retained for compatibility even though
-the authoring UI now presents the broader concept as Content. YAML may be
-exported for review or interchange, but direct YAML edits are not live until
-imported:
+building content. The authoring UI presents the broader concept as Content.
+YAML may be exported for review or interchange, but direct YAML edits are not
+live until imported:
 
 ```bash
 npm run character:export -w game -- /tmp/character-main.yaml
@@ -162,6 +161,9 @@ Story Builder and World Builder consume the catalog:
 - World Builder places catalog items and selects acquisition behavior.
 - Simulation configuration selects known stats, knowledge, skills, quests, and
   rewards.
+- Story arcs select artifacts, item actions, holders, lessons, documents,
+  completion conditions, and effects from the same known IDs; see
+  [play-modes-and-story-mode.md](play-modes-and-story-mode.md).
 
 Authors should not need to copy IDs manually for normal builder workflows.
 
@@ -399,21 +401,21 @@ suggested hunger effects from calories while still saving the explicit result.
 
 ## Stats
 
-Stats are authored character values suitable for health metrics, progression,
+Stats are authored character values suitable for wellbeing metrics, progression,
 reputation, experience, and similar quantities:
 
 ```yaml
 stats:
   - id: health
     label: Health
-    description: Zanzibar's current physical condition.
+    description: Base physical condition before derived wellbeing penalties.
     group: wellbeing
     type: meter
     default: 100
     min: 0
     max: 100
     format: percent
-    visible: always
+    visible: hidden
     order: 10
 
   - id: operator-level
@@ -438,10 +440,12 @@ Definitions provide defaults, bounds, display format, group, order, and
 visibility. Player saves store only current values. Numeric effects clamp to
 authored bounds.
 
-Derived formulas are not part of the first implementation. Simulations may
-calculate results in code and return ordinary stat effects. This keeps authored
-content declarative and prevents a second programming language from growing
-inside JSON.
+The runtime may derive display values from authored stats where the contract
+needs a calculated concept. Health is the first such display value: the visible
+health vital is calculated from hidden base health plus survival and condition
+penalties. Simulations may also calculate results in code and return ordinary
+stat effects. This keeps authored content declarative and prevents a second
+programming language from growing inside JSON.
 
 ### Time-Driven Needs and Wellbeing
 
@@ -449,46 +453,46 @@ Stats may opt into controlled change when the game clock advances:
 
 ```yaml
 stats:
-  - id: hunger
-    label: Hunger
+  - id: satiety
+    label: Satiety
     group: wellbeing
     type: meter
     default: 35
     min: 0
     max: 100
-    direction: lower-is-better
+    direction: higher-is-better
     drift:
       perGameHour:
-        resting: 1.5
-        light: 3
-        moderate: 5
-        strenuous: 8
+        resting: -0.8
+        light: -2.8
+        moderate: -4.5
+        strenuous: -7
     thresholds:
-      - at: 70
+      - at: 30
         state: hungry
-      - at: 90
+      - at: 10
         state: starving
         effectsPerGameHour:
           - { op: stat.add, id: health, value: -2 }
 
-  - id: thirst
-    label: Thirst
+  - id: hydration
+    label: Hydration
     group: wellbeing
     type: meter
-    default: 45
+    default: 35
     min: 0
     max: 100
-    direction: lower-is-better
+    direction: higher-is-better
     drift:
       perGameHour:
-        resting: 3
-        light: 6
-        moderate: 10
-        strenuous: 15
+        resting: -1.5
+        light: -5
+        moderate: -8
+        strenuous: -12
     thresholds:
-      - at: 65
+      - at: 35
         state: thirsty
-      - at: 85
+      - at: 15
         state: dehydrated
         effectsPerGameHour:
           - { op: stat.add, id: health, value: -4 }
@@ -509,9 +513,11 @@ Activity profiles are engine-defined; authors select among them and configure
 rates. Authors cannot add executable rate formulas. Weather or injuries may
 apply registered rate multipliers later if Part I demonstrates the need.
 
-`health`, `hunger`, and `thirst` remain independent authored stats. Hunger and
-thirst affect health only through explicit threshold effects, allowing
-balancing without hard-coding a survival model into the engine.
+`satiety`, `hydration`, `energy`, and `composure` are positive reserve stats.
+Visible health is calculated from authored inputs such as hidden base health,
+sustained low reserves, injury, poison, and sickness. Hunger and thirst should
+not be retained as parallel inverse meters unless they are being migrated to
+positive reserves.
 
 ## Knowledge
 
@@ -724,9 +730,8 @@ hidden or disabled with a hint. The default is disabled with a generated,
 non-spoiling explanation when the relevant definition is already known to the
 player.
 
-The existing shorthand `require: { all, any, not }` remains a flag alias during
-migration. Existing `require.items: [id]` is normalized to item requirements
-with quantity `1`.
+Flag requirements use `require: { all, any, not }`. Item requirements use
+`require.items`; a bare item ID means quantity `1`.
 
 ## Effects
 
@@ -761,10 +766,9 @@ atomic: validate all requirements, references, bounds, quantities, and state
 transitions first; then commit all effects and emit one player-state update.
 This prevents receiving a reward while failing to consume its required item.
 
-Legacy choice fields such as `sets` and `set_flags` normalize into flag
-effects. Existing building pickups normalize into an `item.add` effect.
-`item.add` places new items with the character unless the effect names another
-accessible holder.
+Choice effects use the operation list above. Existing building pickups
+normalize into an `item.add` effect. `item.add` places new items with the
+character unless the effect names another accessible holder.
 
 Item transfer is a state operation with source and destination holders:
 
@@ -798,8 +802,8 @@ Door locks use ordinary item requirements. Pickups, storage interactions, item
 transfers, and fixture interactions apply effects through the shared character
 service.
 
-The current building-local `items` catalog is migrated into `character-main`.
-Building documents retain only placements and references.
+Item definitions live in `character-main`. Building documents retain only
+placements and references.
 
 ### Simulations
 
@@ -833,8 +837,7 @@ result of the completed activity.
 Flags remain useful for hidden narrative facts and world state. A value that
 the player should understand and inspect belongs in a stat, knowledge entry,
 skill, quest, item, or document instead. Content should not maintain duplicate
-flag and character state unless integration with a legacy system requires it
-temporarily.
+flag and character state.
 
 ### Save/load
 
@@ -882,11 +885,8 @@ Player character state is global, not nested beneath the indoor map:
 }
 ```
 
-The save version must increase when this state replaces
-`indoor.inventory`. Migration converts each legacy inventory ID to a unique
-instance or quantity-one stack held by the character, according to its current
-definition. Invalid or unknown saved values load conservatively and produce a
-development warning rather than discarding the whole save.
+Invalid or unknown saved values load conservatively and produce a development
+warning rather than discarding the whole save.
 
 World save state also stores the contents and locations of vehicle holders,
 fixed containers, and runtime item placements. A save is internally invalid if
@@ -899,13 +899,14 @@ state:
 
 - changed labels, descriptions, grouping, and icons update immediately;
 - added definitions become available to content;
-- renamed IDs require an explicit reference-aware rename and save migration;
+- renamed IDs require an explicit reference-aware rename and player-save update
+  plan;
 - deletion is rejected while world, story, simulation, or authored content
   references the ID;
-- if a stale save contains an unknown ID, its state is retained as an orphan
-  but hidden from normal UI until the definition returns or a migration maps it.
+- if saved state contains an unknown ID, that state is preserved but hidden from
+  normal UI until the definition returns or an explicit update maps it.
 
-## Scenario Checks
+## Story Arc Checks
 
 The intended Part I cases map to the contract as follows:
 
@@ -993,8 +994,8 @@ Blocking validation includes:
 - attempts to delete or rename referenced definitions without a cascade plan.
 
 Reference-aware rename updates character definitions, story requirements and
-effects, world placements and locks, simulation configuration, and known save
-migrations in one transaction. Restoring history creates a new revision.
+effects, world placements and locks, simulation configuration, and planned
+save updates in one transaction. Restoring history creates a new revision.
 
 Warnings should identify:
 
@@ -1027,8 +1028,7 @@ Authored definitions remain separate from player/account rows.
 
 1. Add the `character-main` repository, validation, API, export, revisions,
    and builder route.
-2. Introduce a global character store and migrate legacy indoor inventory/save
-   data into holder-based state.
+2. Introduce a global character store backed by holder-based state.
 3. Move utility-station item definitions to the character catalog while
    retaining world pickup references.
 4. Implement shared requirement evaluation and atomic effects.

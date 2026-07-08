@@ -33,6 +33,16 @@ export async function handleStoryRoutes(req, res, url, {
     return json(res, 201, { ...result, yaml: exportBeatYaml(result.beat) });
   }
 
+  const reorderMatch = url.pathname.match(/^\/api\/story\/areas\/([^/]+)\/beats\/reorder$/);
+  if (reorderMatch && req.method === "PUT") {
+    const areaId = decodePathPart(reorderMatch[1]);
+    const body = await readJson(req);
+    const result = repository.reorderBeats(areaId, body.beatIds ?? body);
+    syncRuntimeContent?.();
+    broadcast("story.updated", { revision: result.revision, areaId, reordered: true });
+    return json(res, 200, result);
+  }
+
   const beatMatch = url.pathname.match(/^\/api\/story\/areas\/([^/]+)\/beats\/([^/]+)$/);
   if (beatMatch) {
     const areaId = decodePathPart(beatMatch[1]);

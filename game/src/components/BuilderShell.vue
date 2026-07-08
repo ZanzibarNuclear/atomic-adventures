@@ -40,8 +40,19 @@ import { RouterLink, RouterView } from "vue-router";
 }
 .authoring-header h1 { margin: 0; font-size: 1.05rem; }
 .authoring-header p { margin: 0 0 .15rem; }
-.authoring-actions, .builder-tabs { display: flex; align-items: center; gap: .5rem; }
+.authoring-actions,
 .builder-tabs {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  min-width: 0;
+}
+.authoring-actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.builder-tabs {
+  flex-wrap: wrap;
   padding: .2rem;
   border: 1px solid #3c4658;
   border-radius: 9px;
@@ -71,7 +82,9 @@ import { RouterLink, RouterView } from "vue-router";
   z-index: 50;
   top: calc(100% + .35rem);
   right: 0;
+  width: max-content;
   min-width: 10rem;
+  max-width: calc(100vw - 2rem);
   padding: .35rem;
   border: 1px solid #465166;
   border-radius: 8px;
@@ -90,7 +103,14 @@ import { RouterLink, RouterView } from "vue-router";
   cursor: pointer;
 }
 @media (max-width: 650px) {
-  .authoring-header { align-items: flex-start; }
+  .authoring-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
   .authoring-header h1 { display: none; }
+  .authoring-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 </style>

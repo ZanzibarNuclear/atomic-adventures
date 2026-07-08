@@ -3,7 +3,7 @@ import { extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"]);
-const ALLOWED_FOLDERS = new Set(["items", "characters"]);
+const ALLOWED_FOLDERS = new Set(["items", "characters", "views"]);
 
 const publicRoot = join(fileURLToPath(new URL("..", import.meta.url)), "public");
 

@@ -4,6 +4,7 @@ import FeatureInspector from "./FeatureInspector.vue";
 import HexInspector from "./HexInspector.vue";
 import LandmarkInspector from "./LandmarkInspector.vue";
 import LinePointsEditor from "./LinePointsEditor.vue";
+import LocationViewsSummary from "../LocationViewsSummary.vue";
 import PassageInspector from "./PassageInspector.vue";
 import RouteInspector from "./RouteInspector.vue";
 import StandInspector from "./StandInspector.vue";
@@ -67,6 +68,7 @@ const props = defineProps({
 const emit = defineEmits([
   "open-location-beat",
   "open-artifact",
+  "duplicate-artifact",
   "place-artifact",
   "remove-artifact-placement",
 ]);
@@ -114,7 +116,6 @@ function beatContextLabel(beat) {
   const details = [
     originHexPrefix(match.originHex),
     match.mapTransition ? `via ${match.mapTransition}` : "",
-    match.localExit ? `via ${match.localExit}` : "",
     match.transitionDirection || "",
   ].filter(Boolean);
   return details.join(" / ") || "Default hex beat";
@@ -159,6 +160,12 @@ const placedArtifacts = computed(() => {
 
 const currentStandOptions = computed(() =>
   props.selectedType === "hex" ? props.selected?.stands ?? [] : [],
+);
+
+const selectedLocationViews = computed(() =>
+  props.selectedType === "stand"
+    ? props.standEditDraft?.views ?? []
+    : props.selected?.views ?? [],
 );
 
 function artifactLabel(id) {
@@ -271,6 +278,9 @@ const summaryRows = computed(() => {
           <span>{{ label }}</span>
           <strong>{{ value || "None" }}</strong>
         </div>
+        <LocationViewsSummary
+          :views="selectedLocationViews"
+        />
         <div v-if="locationBeatTarget" class="beat-associations">
           <div>
             <p class="label">{{ locationBeatTarget.label }}</p>
@@ -338,6 +348,13 @@ const summaryRows = computed(() => {
                   <p v-if="placement.stand" class="placement-meta">Standpoint: {{ standLabel(placement.stand) }}</p>
                   <div class="row-actions placement-actions">
                     <button type="button" class="sm muted" @click="editPlacement(placement.id)">Edit</button>
+                    <button
+                      type="button"
+                      class="sm muted"
+                      @click="emit('duplicate-artifact', { catalog: 'items', id: placement.item })"
+                    >
+                      Duplicate
+                    </button>
                     <button type="button" class="sm danger-outline" @click="removePlacement(placement.id)">Remove</button>
                   </div>
                 </template>
@@ -386,7 +403,7 @@ const summaryRows = computed(() => {
         </template>
         <template v-else>
           <button class="sm muted" @click="renameSelected">Rename</button>
-          <button class="sm muted" @click="duplicateSelected">Duplicate</button>
+          <button class="sm muted" @click="duplicateSelected">Duplicate object</button>
         </template>
         <button class="sm danger-outline" @click="deleteSelected">Delete</button>
       </div>

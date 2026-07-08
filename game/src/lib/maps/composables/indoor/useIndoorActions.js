@@ -3,6 +3,7 @@ import { hasFlag, requireSatisfied, setFlags } from "../useFlags.js";
 import { evaluateRequirements } from "../../../character/requirements.js";
 import { applyEffectsAtomically } from "../../../character/effects.js";
 import { advanceGameTime } from "../../../character/gameTime.js";
+import { applyHydroStartupAction } from "../../../../composables/useHydroFacility.js";
 
 export function createIndoorActions({
   building,
@@ -28,7 +29,11 @@ export function createIndoorActions({
         return false;
       }
       return character
-        ? evaluateRequirements(action.require, { character, flags: indoor.flags }).ok
+        ? evaluateRequirements(action.require, {
+            character,
+            flags: indoor.flags,
+            nearbyHolderIds: nearbyHolderIds(character, indoor),
+          }).ok
         : requireSatisfied(action.require, indoor.flags);
     });
   });
@@ -44,8 +49,10 @@ export function createIndoorActions({
 
   function performAction(actionId) {
     const action = (building.value.actions ?? []).find((a) => a.id === actionId);
-    if (!action) return;
-    if (!availableActions.value.some((a) => a.id === actionId)) return;
+    if (!action) return { ok: false, error: "Unknown indoor action." };
+    if (!availableActions.value.some((a) => a.id === actionId)) {
+      return { ok: false, error: "Indoor action is not available." };
+    }
 
     if (character) {
       const effects = [
@@ -57,18 +64,24 @@ export function createIndoorActions({
         character,
         flags: indoor.flags,
       });
-      if (!result.ok) return;
+      if (!result.ok) return result;
     } else {
       setFlags(indoor.flags, action.sets);
       setFlags(indoor.flags, action.set_flags);
     }
-    if (action.powerOn) setHydroOnline(true);
     if (gameState && Number(action.timeMinutes) > 0) {
-      advanceGameTime(gameState, Number(action.timeMinutes), action.activity ?? "light");
+      const timeResult = advanceGameTime(gameState, Number(action.timeMinutes), action.activity ?? "light");
+      if (!timeResult.ok) return timeResult;
     }
+    applyHydroStartupAction(gameState, action.id);
+    if (action.powerOn) setHydroOnline(true);
     if (action.once !== false) {
       indoor.completedActions.add(actionId);
     }
+    return {
+      ok: true,
+      view: action.view && typeof action.view === "object" ? { ...action.view } : null,
+    };
   }
 
   function resetActions() {
@@ -85,4 +98,23 @@ export function createIndoorActions({
     performAction,
     resetActions,
   };
+}
+
+function nearbyHolderIds(character, indoor) {
+  const currentRoom = indoor.currentRoom ?? null;
+  const currentStand = indoor.currentStand ?? null;
+  const exteriorNode = indoor.exteriorNode ?? null;
+  return Object.values(character?.holdings?.holders ?? {})
+    .filter((holder) => holder.kind === "fixed" || holder.kind === "vehicle" || holder.kind === "world")
+    .filter((holder) => {
+      const location = holder.location ?? {};
+      if (currentRoom && location.room === currentRoom) {
+        return !location.stand || location.stand === currentStand;
+      }
+      if (exteriorNode && location.exteriorNode === exteriorNode) {
+        return !location.stand || location.stand === currentStand;
+      }
+      return false;
+    })
+    .map((holder) => holder.id);
 }

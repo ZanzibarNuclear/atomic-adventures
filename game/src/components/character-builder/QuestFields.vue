@@ -6,19 +6,22 @@ defineProps({
 </script>
 
 <template>
-  <label class="check-field">
-    <input v-model="entry.autoComplete" type="checkbox">
-    Complete quest when every objective is complete
-  </label>
-  <label>Objectives (JSON)
-    <textarea
-      :value="JSON.stringify(entry.objectives, null, 2)"
-      rows="10"
-      @change="setJson(entry, 'objectives', $event, [])"></textarea>
-  </label>
+  <section class="field-panel">
+    <div class="section-heading">
+      <h4>Quest rules</h4>
+      <code>{{ entry.objectives?.length ?? 0 }} objectives</code>
+    </div>
+    <label class="check-field">
+      <input v-model="entry.autoComplete" type="checkbox">
+      Complete quest when every objective is complete
+    </label>
+    <label>Objectives (JSON)
+      <textarea
+        :value="JSON.stringify(entry.objectives, null, 2)"
+        rows="10"
+        @change="setJson(entry, 'objectives', $event, [])"></textarea>
+    </label>
+  </section>
 </template>
 
-<style scoped>
-label { display: grid; gap: .3rem; color: #bdc4ce; font-size: .82rem; }
-.check-field { display: flex; align-items: center; }
-</style>
+<style scoped></style>

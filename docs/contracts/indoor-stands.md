@@ -49,11 +49,17 @@ rooms:
 Stand IDs are kebab-case and unique within their room. Coordinates must lie
 inside the room rectangle. `defaultStand` references an authored stand. If it
 is absent, the first authored stand is the default; a room with no authored
-stands falls back to its existing computed center or stair position.
+stands uses its computed center or stair position.
 
-`pose` and `interaction` are retained semantic metadata. In this increment,
+`pose` and `interaction` are semantic metadata. In this increment,
 `pose` does not change avatar art and `interaction` does not automatically
 create an action.
+
+Authored stands may define ordered `views` for stand-specific image close-ups.
+When present, stand views override room-level views while the player is at that
+stand. This lets the same room show a table, doorway, console, window, or other
+fixture image without creating a new logical room or changing room-level story
+triggers. See [location-media.md](location-media.md).
 
 ## Derived Door Thresholds
 
@@ -102,7 +108,7 @@ Stair fixtures produce implicit endpoint stands:
 - descending moves the avatar from the upper endpoint to the lower endpoint and
   changes `level`;
 - connector travel must never place the avatar at the visual center of the
-  stair/elevator fixture as a fallback.
+  stair/elevator fixture.
 
 Door actions near a connector endpoint are controlled by proximity metadata,
 not by reusing the door threshold as the connector stand. For example, the top
@@ -154,9 +160,9 @@ specific door threshold.
 
 ## Persistence and Live Updates
 
-`currentStand` is saved beneath the indoor snapshot. Older saves without it
-load at the room's default stand. On live building refresh, the current stand
-is preserved when it still exists; otherwise it falls back to the room default.
+`currentStand` is saved beneath the indoor snapshot. On live building refresh,
+the current stand is preserved when it still exists; otherwise the room default
+becomes the current stand.
 
 ## World Builder
 
@@ -167,7 +173,8 @@ Derived door and stair thresholds are visible on the canvas for orientation but
 are not stored or directly editable.
 
 Validation rejects malformed IDs, duplicate stand IDs in a room, out-of-room
-coordinates, and invalid `defaultStand` references.
+coordinates, invalid `defaultStand` references, duplicate view IDs within a
+stand, and malformed stand view entries.
 
 ## Later Expansion
 

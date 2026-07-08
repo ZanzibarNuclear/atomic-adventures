@@ -1,10 +1,10 @@
 import { reactive, toRaw } from "vue";
 import {
-  addItem,
   createHoldings,
   holdingRecords,
   itemQuantity,
   normalizeHoldings,
+  totalItemQuantity,
 } from "../lib/character/holdings.js";
 
 export function createCharacterState(definitions = {}, holderDefinitions = []) {
@@ -36,6 +36,7 @@ export function syncCharacterDefinitions(state, definitions = {}) {
   const previousOrphans = new Set(state.orphanItemIds);
   state.definitions = cloneDefinitions(definitions);
   initializeDefinitionDefaults(state);
+  mergeAuthoredHoldings(state);
   refreshOrphanItems(state);
   markCharacterChanged(state);
   if (import.meta.env.DEV) {
@@ -91,7 +92,9 @@ export function captureCharacterState(state) {
   };
 }
 
-export function applyCharacterState(state, snapshot = {}) {
+export function applyCharacterState(state, snapshot = {}, {
+  mergeAuthored = true,
+} = {}) {
   const definitions = cloneDefinitions(state.definitions);
   state.definitions = definitions;
   initializeDefinitionDefaults(state);
@@ -100,6 +103,7 @@ export function applyCharacterState(state, snapshot = {}) {
     definitions,
     state.holderDefinitions,
   );
+  if (mergeAuthored) mergeAuthoredHoldings(state);
   state.stats = plainObject(snapshot.stats);
   state.knowledge = plainObject(snapshot.knowledge);
   state.skills = plainObject(snapshot.skills);
@@ -107,20 +111,6 @@ export function applyCharacterState(state, snapshot = {}) {
   state.documents = plainObject(snapshot.documents);
   refreshOrphanItems(state);
   markCharacterChanged(state);
-}
-
-export function migrateLegacyInventory(state, ids = []) {
-  state.holdings = createHoldings(
-    state.definitions.profile?.id,
-    state.holderDefinitions,
-  );
-  for (const id of ids) {
-    if (!id) continue;
-    addItem(state.holdings, state.definitions, id, 1, {
-      validateDefinition: false,
-    });
-  }
-  syncCharacterDefinitions(state, state.definitions);
 }
 
 export function characterItems(state, fallbackCatalog = {}, { includeOrphans = false } = {}) {
@@ -148,6 +138,39 @@ function initializeDefinitionDefaults(state) {
       state.stats[stat.id] = structuredClone(stat.default);
     }
   }
+}
+
+function mergeAuthoredHoldings(state) {
+  const authored = state.definitions?.holdings;
+  if (!authored || !state.holdings) return;
+  const next = normalizeHoldings(state.holdings, state.definitions, state.holderDefinitions);
+  let changed = false;
+
+  for (const [id, holder] of Object.entries(authored.holders ?? {})) {
+    if (next.holders[id]) continue;
+    next.holders[id] = clonePlain(holder);
+    changed = true;
+  }
+
+  for (const [id, stack] of Object.entries(authored.stacks ?? {})) {
+    if (next.stacks[id]) continue;
+    if (!next.holders[stack.holder]) continue;
+    if (totalItemQuantity(next, stack.item) > 0) continue;
+    next.stacks[id] = clonePlain(stack);
+    changed = true;
+  }
+
+  for (const [id, instance] of Object.entries(authored.instances ?? {})) {
+    if (next.instances[id]) continue;
+    if (!next.holders[instance.holder]) continue;
+    if (totalItemQuantity(next, instance.item) > 0) continue;
+    next.instances[id] = clonePlain(instance);
+    changed = true;
+  }
+
+  if (!changed) return;
+  next.nextId = Math.max(Number(next.nextId) || 1, Number(authored.nextId) || 1);
+  state.holdings = normalizeHoldings(next, state.definitions, state.holderDefinitions);
 }
 
 function itemDefinitionById(state) {

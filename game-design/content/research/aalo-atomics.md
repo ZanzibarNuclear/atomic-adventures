@@ -114,7 +114,7 @@ Part III **party reunion** aligns with real ops needs: Aalo trains **ex-Navy nuc
 
 1. **Rename teaching scope** from "SFR only" to **sodium-cooled reactors** with Aalo as default **thermal LMR** anchor.
 2. **Remove "no moderator"** as universal rule — Aalo uses **graphite**.
-3. **Extension pack:** Natrium / SFR as post-game add-on — see [reactor-catalog.md](reactor-catalog.md).
+3. **Extension pack:** Natrium / SFR as post-game add-on — see [reactor-catalog.md](../reactor-catalog.md).
 4. **Sim parameters** — start with table above; 3–5 player-facing controls (rod position, primary flow, secondary flow / steam pressure, load setpoint, decay-heat path).
 5. **Molten salt** remains a **separate** future pack — not Aalo.
 

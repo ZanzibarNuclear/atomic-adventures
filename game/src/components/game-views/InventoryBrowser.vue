@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from "vue";
+import { isActionAllowed } from "../../composables/storyActionAvailability.js";
 
 const props = defineProps({
   holders: { type: Array, required: true },
@@ -7,6 +8,8 @@ const props = defineProps({
   selectedHoldingId: { type: String, default: null },
   transferTargets: { type: Array, required: true },
   publicAssetPath: { type: Function, required: true },
+  actionPolicy: { type: Object, default: null },
+  actionFeedback: { type: String, default: "" },
 });
 
 const emit = defineEmits(["select-holding", "transfer-item", "use-item"]);
@@ -24,7 +27,7 @@ const isHeldDirectly = computed(() =>
 );
 
 const isWithinReach = computed(() =>
-  props.selectedHolding?.holder?.kind === "world",
+  ["fixed", "vehicle", "world"].includes(props.selectedHolding?.holder?.kind),
 );
 
 const isContainerItem = computed(() =>
@@ -62,9 +65,24 @@ const detailImage = computed(() => {
   return null;
 });
 
-const visibleActions = computed(() =>
-  isHeldDirectly.value ? (props.selectedHolding?.actions ?? []) : [],
-);
+const visibleActions = computed(() => {
+  if (!isHeldDirectly.value) return [];
+  return (props.selectedHolding?.actions ?? [])
+    .filter((action) =>
+      isActionAllowed(`item-action:${props.selectedHolding.item}.${action.id}`, props.actionPolicy, {
+        itemId: props.selectedHolding.item,
+        actionId: action.id,
+      }))
+    .flatMap((action) => {
+      const options = action.consumeOptions ?? [];
+      if (!options.length) return [{ ...action, buttonLabel: action.label }];
+      return options.map((option) => ({
+        ...action,
+        optionId: option.id,
+        buttonLabel: option.label || action.label,
+      }));
+    });
+});
 
 const availableTransferTargets = computed(() => {
   const currentHolderId = props.selectedHolding?.holder?.id;
@@ -166,6 +184,7 @@ function closeToContainer() {
     </div>
 
     <aside class="item-detail" aria-live="polite">
+      <p v-if="actionFeedback" class="action-feedback">{{ actionFeedback }}</p>
       <template v-if="selectedHolding">
         <div class="detail-top">
           <p class="label">Item Details</p>
@@ -231,6 +250,9 @@ function closeToContainer() {
             <p v-if="selectedHolding.quantity !== 1" class="detail-meta">
               Quantity: {{ selectedHolding.quantity }}
             </p>
+            <p v-if="selectedHolding.remaining != null" class="detail-meta">
+              Remaining: {{ Math.round(Number(selectedHolding.remaining) * 100) }}%
+            </p>
           </div>
         </div>
 
@@ -283,8 +305,14 @@ function closeToContainer() {
               :key="action.id"
               type="button"
               class="sm"
-              @click="$emit('use-item', { itemId: selectedHolding.item, actionId: action.id })">
-              {{ action.label }}
+              @click="$emit('use-item', {
+                itemId: selectedHolding.item,
+                actionId: action.id,
+                optionId: action.optionId ?? null,
+                recordId: selectedHolding.id,
+                holderId: selectedHolding.holder?.id,
+              })">
+              {{ action.buttonLabel }}
             </button>
           </div>
         </div>
@@ -391,6 +419,15 @@ function closeToContainer() {
   border-radius: 12px;
   background: rgba(18, 24, 36, 0.78);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.action-feedback {
+  margin: 0 0 0.85rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid rgba(128, 190, 154, 0.42);
+  border-radius: 8px;
+  background: rgba(65, 110, 82, 0.2);
+  color: #d8f2df;
+  font-size: 0.92rem;
 }
 .detail-top {
   display: flex;

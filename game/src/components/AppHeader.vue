@@ -24,18 +24,34 @@
                 @click="showMovementAudit">
                 {{ movementAuditVisible ? "Movement audit shown" : "Show movement audit" }}
               </button>
+              <button
+                type="button"
+                class="dev-menu-item"
+                @click="showDevSettings">
+                Settings
+              </button>
             </div>
           </details>
           <button
+            v-if="playMode"
             type="button"
-            class="sm view-toggle"
-            :aria-pressed="activeGameView === 'character'"
-            @click="$emit(activeGameView === 'character' ? 'show-map' : 'show-character')">
-            {{ activeGameView === "character" ? "Map" : "Player Stats" }}
+            class="sm player-health"
+            @click="$emit('show-health')">
+            Health
+          </button>
+          <button
+            v-if="playMode"
+            type="button"
+            class="sm player-inventory"
+            @click="$emit('show-inventory')">
+            Inventory
           </button>
           <details ref="gameMenu" class="game-menu">
             <summary class="sm">Game</summary>
             <div class="game-menu-popover">
+              <p v-if="playModeLabel" class="menu-label mode-menu-label">
+                {{ playModeLabel }}
+              </p>
               <button type="button" class="menu-item success" @click="handleSave">Save</button>
               <p v-if="showSaveHint" class="menu-label">
                 Last saved {{ formattedSavedAt }}
@@ -48,7 +64,6 @@
             </div>
           </details>
         </div>
-        <p v-if="clock" class="game-timestamp">{{ formatGameTimestamp(clock) }}</p>
         <p v-if="loadError" class="error-hint">{{ loadError }}</p>
       </div>
     </div>
@@ -61,24 +76,23 @@
 <script setup>
 import { computed, ref } from "vue";
 import CreditsDialog from "./CreditsDialog.vue";
-import { formatGameTimestamp } from "../lib/character/gameTime.js";
 
 const props = defineProps({
   hasSave: { type: Boolean, default: false },
   lastSavedAt: { type: String, default: null },
   loadError: { type: String, default: null },
   movementAuditVisible: { type: Boolean, default: false },
-  activeGameView: { type: String, default: "map" },
-  clock: { type: Object, default: null },
+  playMode: { type: String, default: null },
 });
 
 const emit = defineEmits([
   "save",
   "new-game",
   "reset",
+  "show-dev-settings",
   "show-movement-audit",
-  "show-character",
-  "show-map",
+  "show-health",
+  "show-inventory",
 ]);
 const devMode = import.meta.env.DEV;
 const devMenu = ref(null);
@@ -94,9 +108,19 @@ const formattedSavedAt = computed(() => {
 });
 
 const showSaveHint = computed(() => formattedSavedAt.value.length > 0);
+const playModeLabel = computed(() => {
+  if (props.playMode === "story") return "Story mode";
+  if (props.playMode === "open-world") return "Open-world mode";
+  return "";
+});
 
 function showMovementAudit() {
   emit("show-movement-audit");
+  if (devMenu.value) devMenu.value.open = false;
+}
+
+function showDevSettings() {
+  emit("show-dev-settings");
   if (devMenu.value) devMenu.value.open = false;
 }
 
@@ -155,23 +179,12 @@ header {
   align-items: flex-end;
   gap: 0.35rem;
 }
-.game-timestamp {
-  margin: 0;
-  color: #9fb0c2;
-  font-size: 0.78rem;
-  letter-spacing: 0;
-  opacity: 0.82;
-}
 .game-controls {
   display: flex;
   align-items: flex-start;
   gap: 0.4rem;
   flex-wrap: wrap;
   justify-content: flex-end;
-}
-.view-toggle[aria-pressed="true"] {
-  background: #49624f;
-  border-color: #6f9b79;
 }
 .dev-menu,
 .game-menu {
@@ -249,6 +262,9 @@ header {
   font-size: 0.76rem;
   line-height: 1.35;
   white-space: nowrap;
+}
+.mode-menu-label {
+  color: #c7d4e2;
 }
 .dev-menu-item:hover:not(:disabled),
 .menu-item:hover:not(:disabled) {

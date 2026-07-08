@@ -24,11 +24,15 @@ export function useOutdoorBarrierSearch({
       state.discoveredOpenings,
     );
     if (!hidden.length) return [];
-    const barrier = state.atBarrier ?? state.lastBlocked;
+    const barrier = currentBarrierKind();
     if (barrier) {
       return hidden.filter((f) => barrierKindForOpening(f.kind) === barrier);
     }
     return hidden;
+  }
+
+  function currentBarrierKind() {
+    return state.atBarrier ?? state.lastBlocked ?? null;
   }
 
   function barrierCutsCurrentHex(kind) {
@@ -63,8 +67,11 @@ export function useOutdoorBarrierSearch({
   }
 
   function canSearchHere() {
+    const barrier = currentBarrierKind();
     return (
       searchableOpenings().length > 0 ||
+      barrier === "fence" ||
+      barrier === "river" ||
       (barrierCutsCurrentHex("fence") && !discoveredFenceOpeningInCurrentHex())
     );
   }
@@ -74,9 +81,9 @@ export function useOutdoorBarrierSearch({
     for (const f of found) {
       markOpeningDiscovered(f.id);
     }
-    const kind = barrierCutsCurrentHex("fence")
-      ? "fence"
-      : found.map((f) => barrierKindForOpening(f.kind)).find(Boolean) ?? null;
+    const kind = currentBarrierKind() ??
+      found.map((f) => barrierKindForOpening(f.kind)).find(Boolean) ??
+      (barrierCutsCurrentHex("fence") ? "fence" : null);
     state.lastSearch = {
       kind,
       found: found.map((f) => f.id),

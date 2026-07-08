@@ -5,6 +5,7 @@ import DoorInspector from "./DoorInspector.vue";
 import ExteriorNodeInspector from "./ExteriorNodeInspector.vue";
 import FixtureInspector from "./FixtureInspector.vue";
 import LinkInspector from "./LinkInspector.vue";
+import LocationViewsSummary from "../LocationViewsSummary.vue";
 import PathInspector from "./PathInspector.vue";
 import RoomInspector from "./RoomInspector.vue";
 import RoomStandInspector from "./RoomStandInspector.vue";
@@ -31,6 +32,7 @@ const emit = defineEmits([
   "open-location-beat",
   "open-transition-beat",
   "open-artifact",
+  "duplicate-artifact",
   "move-selected",
   "rename-selected",
   "duplicate-selected",
@@ -86,11 +88,8 @@ function selectionTitle(selection) {
 
 function transitionBeatMatches(beat, transitionId, direction) {
   const match = beat.match ?? {};
-  const beatTransition = match.mapTransition ?? match.localExit;
-  if (beatTransition !== transitionId) return false;
-  if (!match.transitionDirection) {
-    return direction === "toRegional" && Boolean(match.localExit);
-  }
+  if (match.mapTransition !== transitionId) return false;
+  if (!match.transitionDirection) return false;
   return match.transitionDirection === direction;
 }
 
@@ -109,7 +108,6 @@ function beatContextLabel(beat) {
   const details = [
     originHexPrefix(match.originHex),
     match.mapTransition ? `via ${match.mapTransition}` : "",
-    match.localExit ? `via ${match.localExit}` : "",
     match.transitionDirection || "",
   ].filter(Boolean);
   return details.join(" / ") || "Default location beat";
@@ -363,6 +361,9 @@ function removePlacement(placementId) {
           <span>{{ label }}</span>
           <strong>{{ value || "None" }}</strong>
         </div>
+        <LocationViewsSummary
+          :views="selection.entity?.views ?? []"
+        />
         <template v-if="selection.source === 'exits'">
           <div class="beat-associations">
             <div>
@@ -504,6 +505,13 @@ function removePlacement(placementId) {
                   <p v-if="placement.stand" class="placement-meta">Standpoint: {{ standLabel(placement.stand) }}</p>
                   <div class="row-actions placement-actions">
                     <button type="button" class="sm muted" @click="editPlacement(placement.id)">Edit</button>
+                    <button
+                      type="button"
+                      class="sm muted"
+                      @click="emit('duplicate-artifact', { catalog: 'items', id: placement.item })"
+                    >
+                      Duplicate
+                    </button>
                     <button type="button" class="sm danger-outline" @click="removePlacement(placement.id)">Remove</button>
                   </div>
                 </template>
@@ -540,7 +548,7 @@ function removePlacement(placementId) {
       <div v-if="editing" class="edit-toolbar">
         <div class="row-actions object-actions">
           <button class="sm muted" :disabled="fixedSelectionSources.has(selection.source)" @click="emit('rename-selected')">Rename</button>
-          <button class="sm muted" :disabled="fixedSelectionSources.has(selection.source)" @click="emit('duplicate-selected')">Duplicate</button>
+          <button class="sm muted" :disabled="fixedSelectionSources.has(selection.source)" @click="emit('duplicate-selected')">Duplicate object</button>
           <button class="sm danger-outline" :disabled="['fixtures', 'walls'].includes(selection.source)" @click="emit('delete-selected')">Delete</button>
         </div>
       </div>

@@ -44,8 +44,8 @@ function originHexPrefix(value) {
       <strong>{{ beat.heading || beat.id }}</strong>
       <span>{{ beat.id }}</span>
       <small v-if="originHexPrefix(beat.match?.originHex)">{{ originHexPrefix(beat.match.originHex) }}</small>
-      <small v-if="beat.match?.mapTransition || beat.match?.localExit">
-        map transition {{ beat.match.mapTransition || beat.match.localExit }}
+      <small v-if="beat.match?.mapTransition">
+        map transition {{ beat.match.mapTransition }}
       </small>
       <small v-if="beat.match?.transitionDirection">
         {{ beat.match.transitionDirection === "toLocal" ? "to local map" : "to regional map" }}

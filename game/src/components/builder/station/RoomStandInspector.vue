@@ -1,4 +1,6 @@
 <script setup>
+import LocationViewsEditor from "../LocationViewsEditor.vue";
+
 defineProps({
   draft: { type: Object, required: true },
   selection: { type: Object, required: true },
@@ -47,6 +49,11 @@ defineProps({
       Default room stand
     </label>
   </section>
+
+  <LocationViewsEditor
+    :owner="selection.entity"
+    title="Stand views"
+  />
 </template>
 
 <style scoped>

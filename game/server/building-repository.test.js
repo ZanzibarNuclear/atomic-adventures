@@ -29,6 +29,13 @@ describe("BuildingRepository", () => {
     const { db, building } = setup();
     const document = building.getDocument();
     expect(document.building.rooms.some((room) => room.id === "large-bay")).toBe(true);
+    expect(document.building.rooms.find((room) => room.id === "conference")?.views).toEqual([
+      expect.objectContaining({
+        id: "doorway",
+        kind: "image",
+        src: "views/conference-room-cool-doorway.png",
+      }),
+    ]);
     expect(building.listRevisions().length).toBeGreaterThan(0);
     db.close();
   });
@@ -112,6 +119,48 @@ describe("BuildingRepository", () => {
     room.stands = [{ id: "outside", at: { x: 99, y: 99 } }];
     room.defaultStand = "missing";
     expect(() => building.save("utility-station", candidate, before.version))
+      .toThrow(ValidationError);
+    db.close();
+  });
+
+  it("validates room and stand location image views", () => {
+    const { db, building } = setup();
+    const before = building.getDocument();
+    const candidate = structuredClone(before.building);
+    const room = candidate.rooms.find((item) => item.id === "large-bay");
+    room.views = [{
+      id: "tools",
+      kind: "image",
+      src: "views/garage-large-bay.png",
+      label: "Large bay",
+      alt: "The large bay garage.",
+    }];
+    room.stands = [
+      ...(room.stands ?? []),
+      {
+        id: "tool-rack",
+        label: "Tool rack",
+        at: { x: room.x + 0.5, y: room.y + 0.5 },
+        views: [{
+          id: "rack",
+          kind: "image",
+          src: "views/garage-small-bay-buggy.png",
+          label: "Rack view",
+          alt: "Tools near the garage bay.",
+        }],
+      },
+    ];
+    const saved = building.save("utility-station", candidate, before.version);
+    expect(saved.building.rooms.find((item) => item.id === "large-bay").views[0].src)
+      .toBe("views/garage-large-bay.png");
+    expect(saved.building.rooms.find((item) => item.id === "large-bay").stands.at(-1).views[0].src)
+      .toBe("views/garage-small-bay-buggy.png");
+
+    const invalid = structuredClone(saved.building);
+    invalid.rooms.find((item) => item.id === "large-bay").views = [
+      { id: "bad path", kind: "image", src: "items/field-backpack.png" },
+    ];
+    expect(() => building.save("utility-station", invalid, saved.version))
       .toThrow(ValidationError);
     db.close();
   });

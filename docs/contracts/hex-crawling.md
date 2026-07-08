@@ -58,7 +58,7 @@ Barriers block path segments that strictly cross them. Walking parallel to a bar
 
 **Local passages** are authored openings in a barrier inside a cell: gate, hole, bridge, ford, stair, and future equivalents. A passage can allow the avatar to cross that local barrier when the passage is available and the avatar is close enough or otherwise eligible to use it. After crossing any passage type, the avatar should stand near the passage on the far side, separated from the barrier by a consistent inset that is large enough for the player to see that the avatar is through the passage.
 
-Inter-hex travel should not treat openings as vague global exemptions. If a move crosses a barrier at a passage, the path must actually go through that passage in the same cell. In Part I, the player-facing model is explicit: crossing a barrier at a gate, bridge, ford, or hole is normally its own local movement action, after which adjacent movement is evaluated from the new stand. A future route may combine passage use and border movement into one authored route move, but it must still respect the same local-passage rule.
+Inter-hex travel should not treat openings as vague global exemptions. If a move crosses a barrier at a passage, the path must actually go through that passage in the same cell. In Part I, the player-facing model is usually explicit: crossing a barrier at a gate, bridge, ford, or hole is a local movement action, after which adjacent movement is evaluated from the new stand. An authored route may combine passage use and border movement into one route move when its route polyline actually crosses a currently available passage, such as the open compound gate on the main road. Direct non-route movement still must not use passage openings implicitly.
 
 ### Destination Stand Priority
 
@@ -66,9 +66,9 @@ When the player chooses an adjacent move, first determine the reachable entry po
 
 1. **Route stand.** If following a marked route, stand on the route where it naturally places the avatar inside the destination cell: an authored route target, route endpoint, or stable point along the route in that cell.
 2. **Authored stand point in the entered sub-area.** If the destination cell has one or more authored preferred stand points, choose the best one that is reachable from the entry border without crossing a barrier and has safe barrier clearance. A stand point on the other side of a barrier does not apply to this arrival.
-3. **Barrier-side area stand.** If a barrier divides the destination cell, this is a special case handled before the generic center fallback. Choose a stable point roughly central to the entered sub-area formed by the barrier and cell borders, with safe visible clearance from the barrier. This may be an authored point, a computed interior point, or a point beside the barrier when the movement naturally ends there.
+3. **Barrier-side area stand.** If a barrier divides the destination cell, this is a special case handled before the generic center default. Choose a stable point roughly central to the entered sub-area formed by the barrier and cell borders, with safe visible clearance from the barrier. This may be an authored point, a computed interior point, or a point beside the barrier when the movement naturally ends there.
 4. **Barrier-adjacent stop.** If the intended path or preferred target meets a barrier, standing near the relevant barrier segment on the entered side is acceptable, inset by the normal visible gap. Do not place the avatar directly on the intersection or barrier line.
-5. **Hex center fallback.** In a cell that is not divided by a barrier, or when the center is clearly inside the entered sub-area with safe barrier clearance, the center is the generic fallback. “Default” means the final common case after route, authored, and barrier-side conditions have been considered; it does not mean “try the center first.”
+5. **Hex center default.** In a cell that is not divided by a barrier, or when the center is clearly inside the entered sub-area with safe barrier clearance, the center is the final common stand after route, authored, and barrier-side conditions have been considered. It does not mean “try the center first.”
 6. **Border entry.** If no better stable stand can be found, stand just inside the destination cell at the reachable border entry, adjusted as needed to preserve barrier clearance.
 
 The presence of a barrier through a cell is itself a special condition. The resolver must not accept the center merely because the center is technically reachable or because a path to it does not register a strict crossing. A center that lies on, touches, or crowds a river, fence, cliff, or ravine is not a valid stand.
@@ -145,7 +145,7 @@ correct route.
 | `currentId`          | Active hex                                                                             |
 | `stand` `{ x, y }`   | Avatar position in world pixels                                                        |
 | `discovered`         | Hexes revealed on the map (fog)                                                        |
-| `mode`               | Map view mode: `gameplay` (default) or `full` — see [map-viewport.md](map-viewport.md) |
+| `mode`               | Map view mode: `gameplay` (default) or `full`                                          |
 | `discoveredOpenings` | Hidden openings revealed by search                                                     |
 | `lastBlocked`        | Barrier kind that blocked the last failed move                                         |
 | `atBarrier`          | Barrier kind the avatar is considered “at” (status lines, search, crossings)           |
@@ -204,10 +204,10 @@ All checks use `interHexTravelCtx(ctx)` which sets `openings: []`. In the curren
 
 The resolver first detects barriers that intersect the destination cell. Route and authored targets are accepted only when they are reachable from the entry point and have the normal visible barrier clearance.
 
-- **Barrier-free cell:** route/authored target → requested target → center → interior fallback.
-- **Barrier-divided cell:** route/authored target in the entered sub-area → requested target when safe → reachable interior candidates ranked by clearance from both barriers and cell borders → barrier-adjacent fallback → center only when it is genuinely safe and reachable in the entered sub-area → border entry.
+- **Barrier-free cell:** route/authored target → requested target → center → best interior candidate.
+- **Barrier-divided cell:** route/authored target in the entered sub-area → requested target when safe → reachable interior candidates ranked by clearance from both barriers and cell borders → barrier-adjacent stop → center only when it is genuinely safe and reachable in the entered sub-area → border entry.
 
-This is a sampled approximation of the entered sub-area rather than an explicit polygon decomposition. It deliberately treats the hex center as a fallback, not the first successful point in a barrier-divided cell.
+This is a sampled approximation of the entered sub-area rather than an explicit polygon decomposition. It deliberately treats the hex center as a late candidate, not the first successful point in a barrier-divided cell.
 
 `standInDestinationHex` rejects targets outside the destination hex (via `pixelToHex` + hex coord map).
 
@@ -381,7 +381,7 @@ These are the remaining movement tasks. Completed work and standing maintenance 
 
 ### Geometry and stands
 
-1. **As needed: replace sampled local search with explicit reachable sub-areas.** Try this when authored geometry exposes a failure that the current resolver cannot handle reliably, such as a U-shaped barrier, three or more barrier-bounded areas in one cell, a narrow corridor, an endpoint-connected enclosure, or an approach-dependent stand that requires walking around a barrier end. The upgrade should determine the entry-side sub-area, use it for border reachability and stand selection, prefer the barrier-midpoint fallback described above, and make endpoint blocking topological rather than sample-dependent. Do not undertake this deeper rewrite without a concrete failing map case or content requirement. **Implementation plan:** [reachable-sub-areas.md](../plans/reachable-sub-areas.md).
+1. **As needed: replace sampled local search with explicit reachable sub-areas.** Try this when authored geometry exposes a failure that the current resolver cannot handle reliably, such as a U-shaped barrier, three or more barrier-bounded areas in one cell, a narrow corridor, an endpoint-connected enclosure, or an approach-dependent stand that requires walking around a barrier end. The upgrade should determine the entry-side sub-area, use it for border reachability and stand selection, prefer the barrier-side stand described above, and make endpoint blocking topological rather than sample-dependent. Do not undertake this deeper rewrite without a concrete failing map case or content requirement.
 
 ---
 
