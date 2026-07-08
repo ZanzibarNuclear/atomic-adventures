@@ -209,6 +209,18 @@ function stairFixtureForRoom(building, stairRoom) {
   return (building.fixtures ?? []).find((fixture) => fixture.id === stairRoom.feature) ?? null
 }
 
+function rotatePointAround(point, center, angleRad) {
+  if (!angleRad) return point
+  const dx = point.x - center.x
+  const dy = point.y - center.y
+  const cos = Math.cos(angleRad)
+  const sin = Math.sin(angleRad)
+  return {
+    x: center.x + dx * cos - dy * sin,
+    y: center.y + dx * sin + dy * cos,
+  }
+}
+
 function stairEndpointPoint(fixture, end) {
   if (!fixture) return null
   if (fixture.kind === 'straight-stairs' && fixture.rect) {
@@ -222,7 +234,12 @@ function stairEndpointPoint(fixture, end) {
       : { x: x + w / 2, y: y + h }
     const high = fixture.ascend === 'start' ? start : finish
     const low = fixture.ascend === 'start' ? finish : start
-    return end === 'high' ? high : low
+    const point = end === 'high' ? high : low
+    return rotatePointAround(
+      point,
+      { x: x + w / 2, y: y + h / 2 },
+      ((fixture.angleDegrees ?? 0) * Math.PI) / 180,
+    )
   }
   if (fixture.kind === 'spiral-stairs' && fixture.at) {
     const point = spiralExitPoint(

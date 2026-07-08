@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { mapData } from '../../testing/content.js'
+import { filterAllowedActions } from '../../../composables/storyActionAvailability.js'
+import {
+  buildOutdoorPlayActions,
+  handleOutdoorChooseAction,
+} from '../../../composables/usePlayPanel.js'
 import { resolveStandPoint } from '../composables/useAvatarStand.js'
 import {
   barrierBlocksReach,
@@ -64,5 +69,37 @@ describe('landmark reachability', () => {
     outdoor.state.stand = outdoor.defaultStandForHex('the-flats')
     gameplayMoveTo(outdoor, 'utility-yard')
     expect(outdoor.atBuildingEntrance).toBe(true)
+  })
+
+  it('offers the utility station transition action after taking the fence-hole shortcut', () => {
+    const { outdoor } = buildGameplayWorld(mapData, { startHex: 'south-pines' })
+    const indoor = { building: { label: 'Utility Station' } }
+
+    gameplayMoveTo(outdoor, 'utility-yard')
+    const actions = buildOutdoorPlayActions(outdoor, null, indoor)
+    const enter = actions.find((action) => action.id === 'enter-building')
+
+    expect(outdoor.atBuildingEntrance).toBe(true)
+    expect(enter).toMatchObject({
+      label: 'Enter the Utility Station',
+      enterBuilding: true,
+    })
+    expect(filterAllowedActions(actions, { mode: 'story', allowed: {} })).toContain(enter)
+  })
+
+  it('routes the enter-building action through the building transition handler', () => {
+    let entered = false
+
+    handleOutdoorChooseAction(
+      {},
+      () => {},
+      'enter-building',
+      () => {},
+      () => {
+        entered = true
+      },
+    )
+
+    expect(entered).toBe(true)
   })
 })

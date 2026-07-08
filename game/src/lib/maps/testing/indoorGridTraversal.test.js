@@ -9,6 +9,7 @@ import {
   isFixtureMapped,
   mapVisibilityCtx,
   movesFrom,
+  stairStandForRoom,
 } from "../composables/useGrid.js";
 import {
   buildInitialDoorState,
@@ -109,6 +110,20 @@ describe("utility station grid traversal contract", () => {
     });
     expect(isFixtureMapped(fixture, visibility)).toBe(true);
     expect(isFixtureFogged(fixture, visibility)).toBe(false);
+  });
+
+  it("aligns garage stair stands with the rotated stair fixture endpoints", () => {
+    const fixture = building.fixtures.find((item) => item.id === "garage-stair");
+    const bottom = stairStandForRoom(building, "large-bay", "garage-stair", "first");
+    const top = stairStandForRoom(building, "conference", "garage-stair", "second");
+
+    expect(fixture).toMatchObject({
+      kind: "straight-stairs",
+      angleDegrees: expect.closeTo(180, 0.25),
+    });
+    expect(bottom.at.x).toBeGreaterThan(top.at.x);
+    expect(bottom.at.x).toBeCloseTo(fixture.rect.x + fixture.rect.w, 1);
+    expect(top.at.x).toBeCloseTo(fixture.rect.x, 1);
   });
 
   it("reaches every standable room when authored doors are open", () => {

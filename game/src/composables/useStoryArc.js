@@ -96,10 +96,40 @@ export function useStoryArc(storyData, {
       const arc = activeArc.value;
       if (!beat || !arc) return;
       if (!applyEnterEffects(beat)) return;
-      if (!isCompletionConditionMet(beat.completesWhen, { gameState, place, outdoor, indoor })) return;
+      if (!isCompletionConditionMet(beat.completesWhen, { gameState, place, outdoor, indoor })) {
+        if (recoverForwardToLocation(arc, beat)) {
+          advances += 1;
+          continue;
+        }
+        return;
+      }
       completeBeat(arc, beat);
       advances += 1;
     }
+  }
+
+  function recoverForwardToLocation(arc, beat) {
+    if (activeScene.value) return false;
+    const beats = arc.beats ?? [];
+    const startIndex = beats.findIndex((candidate) => candidate.id === beat.id);
+    if (startIndex < 0) return false;
+    const context = {
+      playMode: gameState.playMode,
+      location: locationContext.value,
+      flags: gameState.flags,
+      milestones: gameState.milestones,
+      clock: gameState.clock,
+    };
+    for (const candidate of beats.slice(startIndex + 1)) {
+      if (
+        selectSceneForBeat(candidate, context) ||
+        isCompletionConditionMet(candidate.completesWhen, { gameState, place, outdoor, indoor })
+      ) {
+        gameState.story.activeBeatId = candidate.id;
+        return true;
+      }
+    }
+    return false;
   }
 
   function applyEnterEffects(beat) {

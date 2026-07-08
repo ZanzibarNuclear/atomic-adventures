@@ -130,6 +130,16 @@ export function buildOutdoorPassageToggleActions(outdoor) {
   }));
 }
 
+export function buildOutdoorEnterBuildingActions(outdoor, indoor) {
+  if (!outdoor.atBuildingEntrance || !indoor?.building?.label) return [];
+  return [{
+    id: "enter-building",
+    label: `Enter ${withArticle(indoor.building.label)}`,
+    enterBuilding: true,
+    kind: "transition",
+  }];
+}
+
 function directionPhrase(direction, style = "to") {
   if (!direction) return style === "along" ? "onward" : "onward";
   return style === "along" ? direction : `to the ${direction}`;
@@ -211,11 +221,12 @@ export function buildOutdoorDirectMovementActions(outdoor, pendingBeat = null) {
     }));
 }
 
-export function buildOutdoorPlayActions(outdoor, pendingBeat = null) {
+export function buildOutdoorPlayActions(outdoor, pendingBeat = null, indoor = null) {
   return [
     ...buildOutdoorRouteActions(outdoor, pendingBeat),
     ...buildOutdoorBarrierFollowActions(outdoor, pendingBeat),
     ...buildOutdoorDirectMovementActions(outdoor, pendingBeat),
+    ...buildOutdoorEnterBuildingActions(outdoor, indoor),
     ...buildOutdoorSearchActions(outdoor),
     ...buildOutdoorPassageUnlockActions(outdoor),
     ...buildOutdoorPassageToggleActions(outdoor),
@@ -233,7 +244,12 @@ export function handleOutdoorChooseAction(
   applyChoice,
   actionId,
   travelToHex = (hexId) => outdoor.moveTo(hexId),
+  enterBuilding = () => {},
 ) {
+  if (actionId === "enter-building") {
+    enterBuilding();
+    return;
+  }
   if (actionId === "search:barrier") {
     outdoor.searchBarrier?.();
     return;

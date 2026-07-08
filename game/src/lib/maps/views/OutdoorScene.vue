@@ -142,7 +142,7 @@ const playActions = computed(() => {
   void props.outdoor.state?.stand?.x;
   void props.outdoor.state?.stand?.y;
   void props.outdoor.state?.discoveredOpenings?.length;
-  return buildOutdoorPlayActions(props.outdoor, props.pendingBeat);
+  return buildOutdoorPlayActions(props.outdoor, props.pendingBeat, props.indoor);
 });
 
 const actions = computed(() => [...chooseActions.value, ...playActions.value]);
@@ -166,6 +166,7 @@ function onAction(id) {
     props.applyChoice,
     id,
     props.travelToHex,
+    enterAllowedBuilding,
   );
 }
 

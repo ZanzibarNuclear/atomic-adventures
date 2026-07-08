@@ -44,8 +44,9 @@ export function isActionAllowed(action, policy, context = {}) {
       actionMatchesMovement(action, allowed.movement) ||
       Boolean(action?.enterBuilding);
   }
+  if (action?.enterBuilding) return true;
   if (actionId.startsWith("route:") || actionId.startsWith("barrier:") || actionId.startsWith("move-hex:")) {
-    return true;
+    return actionMatchesMovement(action, allowed.movement);
   }
   if (actionId.startsWith("move-room:")) return true;
   if (actionId.startsWith("move-exterior:")) return true;
