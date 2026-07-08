@@ -21,7 +21,7 @@
         v-for="item in filteredActions"
         :key="item.id"
         class="route-btn"
-        :class="item.kind ? 'k-' + item.kind : null"
+        :class="[item.kind ? 'k-' + item.kind : null, item.promptCategory ? 'p-' + item.promptCategory : null]"
         :disabled="indoor.indoor.moving || item.disabled"
         :title="item.hint ?? ''"
         @click="onAction(item.id)">
@@ -98,8 +98,14 @@ const actions = computed(() => [
   ...playActions.value,
 ]);
 const filteredActions = computed(() =>
-  annotateActionPrompts(filterAllowedActions(actions.value, props.actionPolicy), props.actionPolicy),
+  annotateActionPrompts(filterAllowedActions(actions.value, props.actionPolicy), props.actionPolicy)
+    .sort(actionSort),
 );
+
+function actionSort(a, b) {
+  const priority = (action) => action.promptCategory === "story" ? 0 : 1;
+  return priority(a) - priority(b);
+}
 
 function onAction(id) {
   if (!filteredActions.value.some((action) => action.id === id)) return;

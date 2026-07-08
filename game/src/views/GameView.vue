@@ -124,6 +124,7 @@ const {
   activeArc,
   activeBeat,
   displayScene,
+  displayBeat,
   activeChoices,
   storyActions,
   applyStoryAction,
@@ -162,14 +163,15 @@ const pendingBeat = computed(() => activeBeat.value
   : gameState.playMode === "open-world"
     ? openWorldStory.activeBeat.value
     : null);
+const actionBeat = computed(() => displayBeat.value ?? activeBeat.value);
 const showEndCard = computed(
   () => gameState.flags.has("day1.complete") && !gameState.endCardDismissed,
 );
 const storyActionAvailability = computed(() => ({
   mode: gameState.playMode === "story" ? "story" : "open-world",
-  beatId: activeBeat.value?.id ?? null,
-  allowed: activeBeat.value?.allowed ?? null,
-  unrestricted: gameState.playMode !== "story" || !activeBeat.value,
+  beatId: actionBeat.value?.id ?? null,
+  allowed: actionBeat.value?.allowed ?? null,
+  unrestricted: gameState.playMode !== "story" || !actionBeat.value,
 }));
 const wellbeingItemActionIds = computed(() => itemActionIdsForWellbeing(gameState.character));
 

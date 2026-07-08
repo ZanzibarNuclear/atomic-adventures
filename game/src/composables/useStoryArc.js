@@ -61,6 +61,12 @@ export function useStoryArc(storyData, {
     if (gameState.playMode !== "story") return null;
     return displayScene.value;
   });
+  const displayBeat = computed(() => {
+    if (gameState.playMode !== "story") return null;
+    const sceneBeatId = displayScene.value?.storyBeatId;
+    if (!sceneBeatId) return activeBeat.value;
+    return activeArc.value?.beats?.find((beat) => beat.id === sceneBeatId) ?? activeBeat.value;
+  });
   const activeChoices = computed(() => {
     if (gameState.playMode !== "story" || !activeBeat.value) return [];
     return activeScene.value?.choices ?? [];
@@ -290,6 +296,7 @@ export function useStoryArc(storyData, {
     activeScene,
     ambientScene,
     displayScene: visibleScene,
+    displayBeat,
     activeChoices,
     storyActions,
     applyStoryAction,
