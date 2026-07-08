@@ -4,6 +4,7 @@ import FeatureInspector from "./FeatureInspector.vue";
 import HexInspector from "./HexInspector.vue";
 import LandmarkInspector from "./LandmarkInspector.vue";
 import LinePointsEditor from "./LinePointsEditor.vue";
+import LocationViewsSummary from "../LocationViewsSummary.vue";
 import PassageInspector from "./PassageInspector.vue";
 import RouteInspector from "./RouteInspector.vue";
 import StandInspector from "./StandInspector.vue";
@@ -161,6 +162,12 @@ const currentStandOptions = computed(() =>
   props.selectedType === "hex" ? props.selected?.stands ?? [] : [],
 );
 
+const selectedLocationViews = computed(() =>
+  props.selectedType === "stand"
+    ? props.standEditDraft?.views ?? []
+    : props.selected?.views ?? [],
+);
+
 function artifactLabel(id) {
   const item = props.characterCatalog.items.find((candidate) => candidate.id === id);
   return item?.label || id;
@@ -271,6 +278,9 @@ const summaryRows = computed(() => {
           <span>{{ label }}</span>
           <strong>{{ value || "None" }}</strong>
         </div>
+        <LocationViewsSummary
+          :views="selectedLocationViews"
+        />
         <div v-if="locationBeatTarget" class="beat-associations">
           <div>
             <p class="label">{{ locationBeatTarget.label }}</p>

@@ -120,9 +120,12 @@ const showingImage = computed(() => props.mode === "image" && Boolean(activeView
   z-index: 5;
   display: grid;
   place-items: center;
+  box-sizing: border-box;
+  padding: 0;
   border: 1px solid rgba(232, 238, 244, .55);
   background: rgba(16, 21, 28, .72);
   color: #f4f7fa;
+  line-height: 1;
   box-shadow: 0 0.2rem 0.65rem rgba(0, 0, 0, .28);
 }
 .stage-mode-toggle:hover:not(:disabled),
@@ -137,8 +140,10 @@ const showingImage = computed(() => props.mode === "image" && Boolean(activeView
   border-radius: 999px;
 }
 .stage-mode-toggle svg {
+  grid-area: 1 / 1;
   width: 1.28rem;
   height: 1.28rem;
+  flex: none;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.8;
@@ -155,8 +160,10 @@ const showingImage = computed(() => props.mode === "image" && Boolean(activeView
 .carousel-btn.previous { left: .65rem; }
 .carousel-btn.next { right: .65rem; }
 .carousel-btn svg {
+  grid-area: 1 / 1;
   width: 1.7rem;
   height: 1.7rem;
+  flex: none;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.9;

@@ -343,7 +343,13 @@ function duplicateArtifact(payload) {
 </template>
 
 <style scoped>
-.station-builder { padding: .85rem; }
+.station-builder {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  padding: .85rem;
+}
 .tool-group, .canvas-toolbar, .row-actions {
   display: flex;
   align-items: center;
@@ -353,17 +359,17 @@ function duplicateArtifact(payload) {
 }
 .inspector h3 { margin: 0; }
 .station-workspace {
+  flex: 1 1 auto;
   display: grid;
   grid-template-columns: minmax(220px, 270px) minmax(440px, 1fr) minmax(290px, 350px);
   gap: .75rem;
-  height: calc(100vh - 13rem);
-  min-height: 560px;
+  min-height: 0;
   margin-top: .75rem;
 }
 .station-workspace.left-collapsed { grid-template-columns: minmax(440px, 1fr) minmax(290px, 350px); }
 .station-workspace.right-collapsed { grid-template-columns: minmax(220px, 270px) minmax(440px, 1fr); }
 .station-workspace.left-collapsed.right-collapsed { grid-template-columns: 1fr; }
-.panel { min-width: 0; border: 1px solid #343d4d; border-radius: 10px; background: #20252f; padding: .75rem; }
+.panel { min-width: 0; min-height: 0; border: 1px solid #343d4d; border-radius: 10px; background: #20252f; padding: .75rem; }
 .inspector { overflow: auto; }
 .inspector input, .inspector textarea, .inspector select {
   width: 100%;
@@ -397,9 +403,10 @@ button.active { background: #49624f; border-color: #6f9b79; }
 .unsaved-dialog h2 { margin: .25rem 0 .65rem; font-size: 1.15rem; }
 @media (max-width: 1050px) {
   .station-workspace, .station-workspace.left-collapsed, .station-workspace.right-collapsed {
-    grid-template-columns: 220px minmax(420px, 1fr); height: auto;
+    grid-template-columns: 220px minmax(420px, 1fr);
+    overflow: auto;
   }
-  .inspector { grid-column: 1 / -1; }
+  .inspector { grid-column: 1 / -1; min-height: 28rem; }
 }
 @media (max-width: 720px) {
   .station-workspace, .station-workspace.left-collapsed, .station-workspace.right-collapsed { grid-template-columns: 1fr; }

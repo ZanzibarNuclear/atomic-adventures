@@ -5,6 +5,7 @@ import DoorInspector from "./DoorInspector.vue";
 import ExteriorNodeInspector from "./ExteriorNodeInspector.vue";
 import FixtureInspector from "./FixtureInspector.vue";
 import LinkInspector from "./LinkInspector.vue";
+import LocationViewsSummary from "../LocationViewsSummary.vue";
 import PathInspector from "./PathInspector.vue";
 import RoomInspector from "./RoomInspector.vue";
 import RoomStandInspector from "./RoomStandInspector.vue";
@@ -360,6 +361,9 @@ function removePlacement(placementId) {
           <span>{{ label }}</span>
           <strong>{{ value || "None" }}</strong>
         </div>
+        <LocationViewsSummary
+          :views="selection.entity?.views ?? []"
+        />
         <template v-if="selection.source === 'exits'">
           <div class="beat-associations">
             <div>
