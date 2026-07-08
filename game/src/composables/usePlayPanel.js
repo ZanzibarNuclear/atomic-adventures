@@ -234,9 +234,13 @@ export function buildOutdoorPlayActions(outdoor, pendingBeat = null, indoor = nu
   ].filter(isVisibleAction);
 }
 
-export function getMovementOptions(outdoor, pendingBeat) {
+export function getMovementOptions(outdoor, pendingBeat, options = {}) {
   void outdoor;
-  return buildStoryChoices(pendingBeat);
+  const actions = buildStoryChoices(pendingBeat);
+  if (options.suppressEnterBuilding) {
+    return actions.filter((action) => !action.enterBuilding);
+  }
+  return actions;
 }
 
 export function handleOutdoorChooseAction(

@@ -3,6 +3,7 @@ import { mapData } from '../../testing/content.js'
 import { filterAllowedActions } from '../../../composables/storyActionAvailability.js'
 import {
   buildOutdoorPlayActions,
+  getMovementOptions,
   handleOutdoorChooseAction,
 } from '../../../composables/usePlayPanel.js'
 import { resolveStandPoint } from '../composables/useAvatarStand.js'
@@ -85,6 +86,42 @@ describe('landmark reachability', () => {
       enterBuilding: true,
     })
     expect(filterAllowedActions(actions, { mode: 'story', allowed: {} })).toContain(enter)
+  })
+
+  it.each(['driveway', 'upstream-corner', 'man-door', 'lobby-entrance'])(
+    'uses the station enter action at the %s approach',
+    (standId) => {
+      const { outdoor } = buildGameplayWorld(mapData, { startHex: 'utility-yard' })
+      const indoor = { building: { label: 'Utility Station' } }
+
+      outdoor.state.stand = expectedStand(standId)
+      const actions = buildOutdoorPlayActions(outdoor, null, indoor)
+
+      expect(outdoor.atBuildingEntrance).toBe(true)
+      expect(actions.find((action) => action.id === 'enter-building')).toMatchObject({
+        label: 'Enter the Utility Station',
+        enterBuilding: true,
+      })
+    },
+  )
+
+  it('hides the generic local-map story choice when the station enter action is present', () => {
+    const { outdoor } = buildGameplayWorld(mapData, { startHex: 'utility-yard' })
+    const indoor = { building: { label: 'Utility Station' } }
+    const pendingBeat = {
+      choices: [{
+        text: 'Open the local map',
+        enter: 'building',
+      }],
+    }
+
+    const playActions = buildOutdoorPlayActions(outdoor, pendingBeat, indoor)
+    const chooseActions = getMovementOptions(outdoor, pendingBeat, {
+      suppressEnterBuilding: playActions.some((action) => action.id === 'enter-building'),
+    })
+
+    expect(playActions.map((action) => action.label)).toContain('Enter the Utility Station')
+    expect(chooseActions.map((action) => action.label)).not.toContain('Open the local map')
   })
 
   it('routes the enter-building action through the building transition handler', () => {

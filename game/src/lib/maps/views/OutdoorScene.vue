@@ -134,7 +134,9 @@ const chooseActions = computed(() => {
   // Stand changes within a hex (passage crossings) must refresh travel options.
   void props.outdoor.state?.stand?.x;
   void props.outdoor.state?.stand?.y;
-  return getMovementOptions(props.outdoor, props.pendingBeat);
+  return getMovementOptions(props.outdoor, props.pendingBeat, {
+    suppressEnterBuilding: playActions.value.some((action) => action.id === "enter-building"),
+  });
 });
 
 const playActions = computed(() => {
