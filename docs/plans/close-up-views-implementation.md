@@ -1,6 +1,6 @@
 # Close-Up Views Implementation Plan
 
-**Status:** Partially implemented
+**Status:** Phase 2 implemented; later close-up categories remain planned
 **Last updated:** 2026-07-08
 **Primary contracts:** [Stage Views](../contracts/stage-views.md), [Location Media and Image Close-Ups](../contracts/location-media.md), [Character, Artifacts, and Inventory Management](../contracts/character-inventory.md), [Story Beats And Scenes](../contracts/story-beats.md)
 **Quality checklist:** [Character, Inventory, and Game-View Regression Checklist](../quality/character-inventory-regression-checklist.md)
@@ -88,22 +88,27 @@ movement map and authored images for any room, hex, or stand point.
       location `views` on supported owners, sourcing images from
       `game/public/views` the same way artifact images are sourced from
       `game/public/items`.
-- [ ] Open an eBuggy close-up from the garage without changing logical location.
-- [~] Add fixture-triggered close-up entry points for at least one utility
-      station object.
-- [ ] Support authored available actions inside a close-up.
-- [ ] Keep Character view access consistent unless a modal view explicitly
-      blocks leaving.
+- [x] Open an eBuggy/garage image close-up without changing logical location.
+- [x] Keep location and scene actions independent of whether the map or a
+      location image is showing.
+- [x] Keep Character, inventory, health, document, lesson, and information-card
+      detours independent of location image state, restoring the remembered
+      map/image mode when returning.
 - [~] Add focused behavior tests that fail when map/image switching, carousel
       navigation, non-movement restoration, movement reset, builder validation,
       blocked exits, repeated open/return cycles, keyboard navigation, or save
-      behavior around fixture views is broken.
+      behavior around location image views is broken.
 
 **Exit criterion:** Any authored room, hex, or stand point can show its
 authored images from the map stage. The conference room proves the vertical
 slice by showing its image, returning to the map, surviving
 inventory/health/document detours with the selected display mode intact, and
 resetting to the map after leaving the represented location.
+
+**Status:** Complete for location image close-ups. The conference room and
+garage/eBuggy examples both use the same room/hex/stand media capability.
+Fixture-specific component close-ups, ride presentations, and simulations are
+tracked in later phases rather than as Phase 2 blockers.
 
 ## Phase 3 - Holo-Reader Lessons and Videos
 
@@ -202,8 +207,8 @@ Legend: `[x]` implemented, `[~]` partially implemented, `[ ]` not yet implemente
   explicitly specified or tested against this plan.
 - Utility-station fixture actions exist as map/room actions, and the
   holo-reader and hydro console can open focused views from authored/runtime
-  actions. A generic fixture close-up vertical slice, such as eBuggy inspection
-  or a service-bench detail view, is not implemented.
+  actions. Location image close-ups are implemented for rooms, hexes, and
+  stands; custom fixture component close-ups remain future work.
 - Story mode action availability can allow or block stage views, but the
   available builder UI only authors a small subset of supported stage-view
   kinds.
@@ -211,8 +216,9 @@ Legend: `[x]` implemented, `[~]` partially implemented, `[ ]` not yet implemente
 ### Not Yet Implemented
 
 - No `video` or `ride` runtime stage-view kind.
-- No generic `closeup` component, eBuggy close-up, room-detail close-up, or
-  authored close-up action set.
+- No generic `closeup` component or custom authored fixture close-up action
+  set beyond the implemented location image close-ups and existing scene
+  actions.
 - No component registry for known close-up IDs, no stale authored-reference
   tests at the registry boundary, and no common descriptor shape beyond
   `kind`/`payload`/`blocking`.
