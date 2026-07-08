@@ -244,13 +244,19 @@ export const storyArcSeed = {
               ]
             },
             "storyForwardActions": [
+              "door-open:conference-garage-stair",
+              "door-open:conference-kitchen",
               "move-room:kitchen",
               "action:eat-rations",
               "action:purify-water",
+              "door-open:library-hallway",
               "move-room:library",
               "action:rest-in-library"
             ],
             "indoorActions": [
+              "door-open:conference-garage-stair",
+              "door-open:conference-kitchen",
+              "door-open:library-hallway",
               "eat-rations",
               "purify-water",
               "rest-in-library"
