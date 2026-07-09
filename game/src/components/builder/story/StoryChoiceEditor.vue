@@ -136,6 +136,26 @@ function flattenTree(nodes, depth = 0) {
       <p v-for="message in errors[`choices.${index}.timeMinutes`] ?? []" :key="message" class="field-error">{{ message }}</p>
       <p v-for="message in errors[`choices.${index}.timeUntil.minuteOfDay`] ?? []" :key="message" class="field-error">{{ message }}</p>
     </details>
+    <details>
+      <summary>Progression effects</summary>
+      <div class="field-grid">
+        <label>Grant milestones
+          <input
+            :value="(choice.grantMilestones ?? []).join(', ')"
+            @input="$emit('set-csv', { choice, key: 'grantMilestones', event: $event })"
+          />
+        </label>
+        <label>Open passage
+          <input v-model="choice.openPassage" placeholder="compound-gate" />
+        </label>
+        <label>Close passage
+          <input v-model="choice.closePassage" placeholder="compound-gate" />
+        </label>
+        <label>Cross passage
+          <input v-model="choice.crossPassage" placeholder="compound-gate" />
+        </label>
+      </div>
+    </details>
     <label>Action
       <select
         :value="destinationType(choice)"

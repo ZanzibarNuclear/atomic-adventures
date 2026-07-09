@@ -168,7 +168,7 @@ function selectBestScene(scenes, context = {}) {
     if (!modeMatches(scene, context)) continue;
     if (!timeMatches(scene, context)) continue;
     if (!flagMatches(scene, context)) continue;
-    const score = matchScore(scene, loc, action) + timeScore(scene);
+    const score = matchScore(scene, loc, action) + timeScore(scene) + flagScore(scene);
     if (score < 0 || score <= selectedScore) continue;
     selected = scene;
     selectedScore = score;
@@ -181,7 +181,7 @@ function sceneSelectionScore(scene, context = {}) {
   const loc = context.location ?? {};
   const event = context.event ?? null;
   const action = context.actionContext ?? sceneActionContext(loc, event);
-  return matchScore(scene, loc, action) + timeScore(scene);
+  return matchScore(scene, loc, action) + timeScore(scene) + flagScore(scene);
 }
 
 function ambientOrderScore(index, total) {
@@ -276,7 +276,21 @@ function flagMatches(scene, context) {
   if (triggerFlag && !hasValue(flags, triggerFlag)) return false;
   const conditions = scene.conditions ?? {};
   if (conditions.flag && !hasValue(flags, conditions.flag)) return false;
+  const requiredFlags = normalizeStringArray(conditions.flags?.all ?? conditions.flags);
+  const absentFlags = normalizeStringArray(conditions.flags?.not);
+  if (requiredFlags.some((flag) => !hasValue(flags, flag))) return false;
+  if (absentFlags.some((flag) => hasValue(flags, flag))) return false;
   return true;
+}
+
+function flagScore(scene) {
+  const conditions = scene.conditions ?? {};
+  let score = 0;
+  if (scene.trigger?.flag) score += 1;
+  if (conditions.flag) score += 1;
+  score += normalizeStringArray(conditions.flags?.all ?? conditions.flags).length;
+  score += normalizeStringArray(conditions.flags?.not).length;
+  return score;
 }
 
 function timeMatches(scene, context) {

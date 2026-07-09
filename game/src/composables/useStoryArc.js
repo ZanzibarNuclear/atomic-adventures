@@ -205,6 +205,7 @@ export function useStoryArc(storyData, {
       const timeResult = advanceGameTime(gameState, duration, choice.activity ?? "light");
       if (!timeResult.ok) return false;
     }
+    if (choice.sets) setFlags(gameState.flags, choice.sets);
     if (choice.set_flags) setFlags(gameState.flags, choice.set_flags);
     if (choice.effects?.length) {
       const result = applyEffectsAtomically(choice.effects, {
@@ -213,8 +214,16 @@ export function useStoryArc(storyData, {
       });
       if (!result.ok) return false;
     }
+    grantMilestones(gameState, choice.grantMilestones, choice.id);
+    if (choice.openPassage && !outdoor?.setPassageOpen?.(choice.openPassage, true)) return false;
+    if (choice.closePassage && !outdoor?.setPassageOpen?.(choice.closePassage, false)) return false;
     markActiveSceneSeen();
     if (choice.view) return Boolean(openStageView(choice.view));
+    if (choice.crossPassage) {
+      outdoor?.crossPassage?.(choice.crossPassage);
+      tick();
+      return true;
+    }
     if (choice.go_hex) return moveChoiceDestination(choice, () => moveHex(choice.go_hex, { suppressDefaultTime: duration > 0 }));
     if (choice.go_room) return moveChoiceDestination(choice, () => moveRoom(choice.go_room));
     if (choice.go_exterior_node) return moveChoiceDestination(choice, () => moveExterior(choice.go_exterior_node));
@@ -320,6 +329,14 @@ export function applyBeatEffect(effect, { gameState, place, outdoor, indoor, ope
     });
     if (!result.ok) return result;
   }
+  grantMilestones(gameState, effect.grantMilestones, effect.source);
+  if (effect.openPassage && !outdoor?.setPassageOpen?.(effect.openPassage, true)) {
+    return { ok: false, error: `Could not open passage "${effect.openPassage}".` };
+  }
+  if (effect.closePassage && !outdoor?.setPassageOpen?.(effect.closePassage, false)) {
+    return { ok: false, error: `Could not close passage "${effect.closePassage}".` };
+  }
+  if (effect.crossPassage) outdoor?.crossPassage?.(effect.crossPassage);
   if (effect.move?.hex && place.value === "outdoors") outdoor?.moveTo?.(effect.move.hex);
   if (effect.move?.room) {
     if (place.value !== "indoors") place.value = "indoors";
@@ -331,6 +348,26 @@ export function applyBeatEffect(effect, { gameState, place, outdoor, indoor, ope
   }
   if (effect.view) openStageView(effect.view, { force: true });
   return { ok: true };
+}
+
+export function grantMilestones(gameState, milestoneIds = [], source = null) {
+  const ids = Array.isArray(milestoneIds)
+    ? milestoneIds
+    : milestoneIds
+      ? [milestoneIds]
+      : [];
+  if (!ids.length) return;
+  gameState.milestones ??= {};
+  for (const id of ids.map(String).filter(Boolean)) {
+    if (gameState.milestones[id]) continue;
+    gameState.milestones[id] = {
+      id,
+      day: gameState.clock?.day ?? null,
+      minuteOfDay: gameState.clock?.minuteOfDay ?? null,
+      elapsedMinutes: gameState.clock?.elapsedMinutes ?? null,
+      source: source ?? null,
+    };
+  }
 }
 
 export function isCompletionConditionMet(condition, ctx) {

@@ -115,8 +115,12 @@ function normalizeStoryChoice(input = {}) {
     nextBeat: nullableText(input.nextBeat),
     timeMinutes: nullableNumber(input.timeMinutes),
     activity: nullableText(input.activity),
+    grantMilestones: stringList(input.grantMilestones),
     set_flags: stringList(input.set_flags),
     effects: array(input.effects).map((effect) => structuredClone(effect)),
+    openPassage: nullableText(input.openPassage),
+    closePassage: nullableText(input.closePassage),
+    crossPassage: nullableText(input.crossPassage),
     view: normalizeStageView(input.view),
   });
 }
@@ -155,6 +159,7 @@ function normalizeCompletion(input = {}) {
       id: nullableText(input.lesson?.id),
       status: nullableText(input.lesson?.status),
     }),
+    milestone: nullableText(input.milestone),
   });
 }
 
@@ -162,9 +167,13 @@ function normalizeBeatEffect(input = {}) {
   if (!input || typeof input !== "object") return null;
   return compactObject({
     setFlags: stringList(input.setFlags),
+    grantMilestones: stringList(input.grantMilestones),
     effects: array(input.effects).map((effect) => structuredClone(effect)),
     timeMinutes: nullableNumber(input.timeMinutes),
     activity: nullableText(input.activity),
+    openPassage: nullableText(input.openPassage),
+    closePassage: nullableText(input.closePassage),
+    crossPassage: nullableText(input.crossPassage),
     move: normalizeLocation(input.move),
     view: normalizeStageView(input.view),
   });
@@ -233,10 +242,11 @@ function validateAllowed(allowed, path, add, { world }) {
 
 function validateCompletion(completion, path, add, { world, character, learning }) {
   if (!completion) return;
-  const families = ["flag", "facility", "location", "holding", "lesson"]
+  const families = ["flag", "facility", "location", "holding", "lesson", "milestone"]
     .filter((key) => hasCompletionValue(completion[key]));
   if (families.length !== 1) add(path, "Choose exactly one completion condition.");
   if (completion.flag && !FLAG_PATTERN.test(completion.flag)) add(`${path}.flag`, "Use a valid flag ID.");
+  if (completion.milestone && !FLAG_PATTERN.test(completion.milestone)) add(`${path}.milestone`, "Use a valid milestone ID.");
   if (completion.location) validateLocation(completion.location, `${path}.location`, add, { world });
   if (completion.holding) {
     if (!completion.holding.item) add(`${path}.holding.item`, "Choose an item.");
@@ -258,6 +268,9 @@ function validateBeatEffect(effect, path, add, { world, character }) {
   if (!effect) return;
   effect.setFlags?.forEach((flag, index) => {
     if (!FLAG_PATTERN.test(flag)) add(`${path}.setFlags.${index}`, "Use a valid flag ID.");
+  });
+  effect.grantMilestones?.forEach((milestone, index) => {
+    if (!FLAG_PATTERN.test(milestone)) add(`${path}.grantMilestones.${index}`, "Use a valid milestone ID.");
   });
   if (effect.timeMinutes != null && effect.timeMinutes < 0) add(`${path}.timeMinutes`, "Time cannot be negative.");
   if (effect.activity && !ACTIVITIES.has(effect.activity)) add(`${path}.activity`, "Choose a supported activity.");

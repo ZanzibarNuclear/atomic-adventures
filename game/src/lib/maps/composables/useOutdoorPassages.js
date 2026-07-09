@@ -163,6 +163,18 @@ export function useOutdoorPassages({
     return true;
   }
 
+  function setPassageOpen(openingId, open = true) {
+    const opening = getTravelBarrierCtx().allOpenings.find(
+      (candidate) => candidate.id === openingId,
+    );
+    if (!opening || !isGatePassage(opening)) return false;
+    state.passageStates = {
+      ...state.passageStates,
+      [openingId]: Boolean(open),
+    };
+    return true;
+  }
+
   return {
     isPassageAvailable,
     passageCrossings,
@@ -171,6 +183,7 @@ export function useOutdoorPassages({
     passageMarkerStates,
     unlockPassage,
     togglePassage,
+    setPassageOpen,
     crossPassage,
   };
 }

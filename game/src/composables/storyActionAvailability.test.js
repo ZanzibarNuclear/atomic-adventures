@@ -37,17 +37,37 @@ function storyArc(arcId) {
 }
 
 describe("story action availability", () => {
-  it("keeps traversal affordances available in story mode", () => {
+  it("keeps base traversal affordances available in story mode", () => {
     const actions = [
       { id: "exit-world:garage-exit", label: "Travel world map" },
       { id: "door-open:garage-roll-up", label: "Open the garage door" },
       { id: "door-break:large-bay-man", label: "Break the lock" },
       { id: "switch:large-bay-roll", label: "Release the larger garage door manually" },
-      { id: "passage-toggle:compound-gate", label: "Open the gate" },
-      { id: "passage-unlock:service-bridge", label: "Unlock the bridge" },
     ];
 
     expect(filterAllowedActions(actions, { mode: "story", allowed: {} })).toEqual(actions);
+  });
+
+  it("requires authored permission for searches and passage controls in story mode", () => {
+    const actions = [
+      { id: "search:barrier", label: "Inspect the fence" },
+      { id: "passage-toggle:compound-gate", label: "Open the gate" },
+      { id: "passage-unlock:service-bridge", label: "Unlock the bridge" },
+      { id: "passage:compound-gate", label: "Walk through the gate" },
+    ];
+
+    expect(filterAllowedActions(actions, { mode: "story", allowed: {} })).toEqual([]);
+    expect(filterAllowedActions(actions, {
+      mode: "story",
+      allowed: {
+        outdoorActions: ["search:barrier", "passage-toggle:compound-gate"],
+        storyForwardActions: ["passage:compound-gate"],
+      },
+    })).toEqual([
+      { id: "search:barrier", label: "Inspect the fence" },
+      { id: "passage-toggle:compound-gate", label: "Open the gate" },
+      { id: "passage:compound-gate", label: "Walk through the gate" },
+    ]);
   });
 
   it("allows the required conference-room door during the first shelter beat", () => {
@@ -80,10 +100,6 @@ describe("story action availability", () => {
         id: `switch:${sw.door}`,
         label: sw.label,
       })),
-      { id: "passage-toggle:compound-gate", label: "Open the gate" },
-      { id: "passage-unlock:compound-gate", label: "Unlock the gate" },
-      { id: "passage:south-pines-hole", label: "Go through the hole" },
-      { id: "search:barrier", label: "Inspect the fence" },
       { id: "exit-world:garage-exit", label: "Travel world map" },
     ];
 

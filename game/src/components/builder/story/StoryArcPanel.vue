@@ -435,6 +435,14 @@ function sceneLocation(scene) {
   if (trigger.event) return `Event: ${trigger.event}`;
   return "No location trigger";
 }
+
+function sceneFlagCriteria(scene) {
+  const flags = scene?.conditions?.flags ?? {};
+  const labels = [];
+  if (Array.isArray(flags.all) && flags.all.length) labels.push(`requires ${flags.all.join(", ")}`);
+  if (Array.isArray(flags.not) && flags.not.length) labels.push(`absent ${flags.not.join(", ")}`);
+  return labels.join(" / ");
+}
 </script>
 
 <template>
@@ -554,6 +562,7 @@ function sceneLocation(scene) {
                 <button type="button" class="scene-select" @click="selectScene(scene)">
                   <strong>{{ scene.heading || scene.id }}</strong>
                   <span>{{ sceneLocation(scene) }}</span>
+                  <small v-if="sceneFlagCriteria(scene)">{{ sceneFlagCriteria(scene) }}</small>
                 </button>
                 <div class="scene-row-actions">
                   <button

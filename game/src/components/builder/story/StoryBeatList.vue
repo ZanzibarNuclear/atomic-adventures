@@ -23,6 +23,14 @@ function originHexPrefix(value) {
   const label = originHexLabel(value);
   return label ? `from ${label}` : "";
 }
+
+function flagCriteriaLabel(beat) {
+  const flags = beat?.conditions?.flags ?? {};
+  const labels = [];
+  if (Array.isArray(flags.all) && flags.all.length) labels.push(`requires ${flags.all.join(", ")}`);
+  if (Array.isArray(flags.not) && flags.not.length) labels.push(`absent ${flags.not.join(", ")}`);
+  return labels.join(" / ");
+}
 </script>
 
 <template>
@@ -50,6 +58,7 @@ function originHexPrefix(value) {
       <small v-if="beat.match?.transitionDirection">
         {{ beat.match.transitionDirection === "toLocal" ? "to local map" : "to regional map" }}
       </small>
+      <small v-if="flagCriteriaLabel(beat)">{{ flagCriteriaLabel(beat) }}</small>
     </button>
     <p v-if="!beats.length" class="empty-note">No beats are attached here yet.</p>
     <p v-for="warning in warnings" :key="warning" class="builder-warning">{{ warning }}</p>

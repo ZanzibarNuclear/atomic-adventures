@@ -180,7 +180,7 @@ function collectFlagIds(value, flags) {
   if (typeof value !== "object") return;
 
   for (const [key, item] of Object.entries(value)) {
-    if (key === "set_flags" || key === "setFlags") {
+    if (key === "set_flags" || key === "setFlags" || key === "definedFlags") {
       stringList(item).forEach((flag) => flags.add(flag));
       continue;
     }
@@ -589,6 +589,7 @@ function emptyBeat() {
     storyBeat: null,
     trigger,
     match: { originHex: null, mapTransition: null, transitionDirection: null },
+    conditions: { flags: { all: [], not: [] } },
     time: {
       days: [],
       dayFrom: null,

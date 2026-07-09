@@ -70,7 +70,7 @@ export function isActionAllowed(action, policy, context = {}) {
     actionId.startsWith("passage-unlock:") ||
     actionId.startsWith("passage-toggle:")
   ) {
-    return true;
+    return false;
   }
   if (actionId.includes(":")) {
     return listIncludes(allowed.indoorActions, actionId) ||

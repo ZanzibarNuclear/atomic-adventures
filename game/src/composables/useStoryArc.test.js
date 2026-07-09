@@ -83,4 +83,147 @@ describe("story arc visible actions", () => {
     expect(labels(story.storyActions.value)).toEqual([]);
   });
 
+  it("grants milestones and opens passages from authored story choices", () => {
+    const place = ref("outdoors");
+    const passageStates = {};
+    const outdoor = reactive({
+      state: {
+        currentId: "gate-woods",
+        previousId: null,
+        mapTransition: null,
+        transitionDirection: null,
+      },
+      setPassageOpen(id, open) {
+        passageStates[id] = open;
+        return true;
+      },
+    });
+    const indoor = reactive({ indoor: { currentRoom: null, exteriorNode: null } });
+    const gameState = reactive({
+      playMode: "story",
+      story: {
+        activeArcId: "part-i-opener",
+        activeBeatId: "open-compound-gate",
+        enteredBeatIds: [],
+        completedBeatIds: [],
+        seenSceneIds: [],
+      },
+      flags: new Set(),
+      milestones: {},
+      facilities: {},
+      lessons: {},
+      clock: { day: 1, minuteOfDay: 900, elapsedMinutes: 420 },
+      character: null,
+    });
+    const storyData = computed(() => normalizeStoryArcContent({
+      storyArcs: [{
+        id: "part-i-opener",
+        startBeat: "open-compound-gate",
+        beats: [
+          {
+            id: "open-compound-gate",
+            completesWhen: { milestone: "gate-unlocked" },
+            next: "walk-through-open-gate",
+            scenes: [{
+              id: "gate-vines-untangled",
+              trigger: { place: "outdoors", hex: "gate-woods" },
+              prose: "The vines are loose now.",
+              choices: [{
+                id: "open-the-gate",
+                text: "Open the gate",
+                openPassage: "compound-gate",
+                grantMilestones: ["gate-unlocked"],
+              }],
+            }],
+          },
+          {
+            id: "walk-through-open-gate",
+            scenes: [{
+              id: "gate-open",
+              trigger: { place: "outdoors", hex: "gate-woods" },
+              prose: "The gate stands open.",
+            }],
+          },
+        ],
+      }],
+    }));
+
+    const story = useStoryArc(storyData, { gameState, place, outdoor, indoor });
+
+    expect(story.applyStoryAction("story:open-the-gate")).toBe(true);
+    expect(passageStates["compound-gate"]).toBe(true);
+    expect(gameState.milestones["gate-unlocked"]).toMatchObject({
+      id: "gate-unlocked",
+      day: 1,
+      minuteOfDay: 900,
+      elapsedMinutes: 420,
+      source: "open-the-gate",
+    });
+    expect(gameState.story.completedBeatIds).toContain("open-compound-gate");
+    expect(gameState.story.activeBeatId).toBe("walk-through-open-gate");
+  });
+
+  it("selects flag-specific scenes over default scenes after story choices set flags", () => {
+    const place = ref("outdoors");
+    const outdoor = reactive({
+      state: {
+        currentId: "gate-woods",
+        previousId: null,
+        mapTransition: null,
+        transitionDirection: null,
+      },
+    });
+    const indoor = reactive({ indoor: { currentRoom: null, exteriorNode: null } });
+    const gameState = reactive({
+      playMode: "story",
+      story: {
+        activeArcId: "part-i-opener",
+        activeBeatId: "inspect-gate",
+        enteredBeatIds: [],
+        completedBeatIds: [],
+        seenSceneIds: [],
+      },
+      flags: new Set(),
+      milestones: {},
+      facilities: {},
+      lessons: {},
+      clock: null,
+      character: null,
+    });
+    const storyData = computed(() => normalizeStoryArcContent({
+      storyArcs: [{
+        id: "part-i-opener",
+        startBeat: "inspect-gate",
+        beats: [{
+          id: "inspect-gate",
+          completesWhen: { flag: "gate.vines-untangled" },
+          scenes: [
+            {
+              id: "gate-first-look",
+              trigger: { place: "outdoors", hex: "gate-woods" },
+              prose: "A closed gate blocks the road.",
+              choices: [{
+                id: "inspect-the-gate",
+                text: "Inspect the gate",
+                set_flags: ["gate.inspected"],
+              }],
+            },
+            {
+              id: "gate-inspected",
+              trigger: { place: "outdoors", hex: "gate-woods" },
+              conditions: { flags: { all: ["gate.inspected"] } },
+              prose: "The gate is only held by vines.",
+            },
+          ],
+        }],
+      }],
+    }));
+
+    const story = useStoryArc(storyData, { gameState, place, outdoor, indoor });
+
+    expect(story.displayScene.value.id).toBe("gate-first-look");
+    expect(story.applyStoryAction("story:inspect-the-gate")).toBe(true);
+    expect(story.displayScene.value.id).toBe("gate-inspected");
+  });
+
 });
