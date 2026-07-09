@@ -70,6 +70,58 @@ function request(method, url, body) {
 }
 
 describe("story API", () => {
+  it("splits scene membership and the story arc document atomically", async () => {
+    const { db, api, storyArcRepository } = setup();
+    const current = storyArcRepository.getDocument();
+    const storyArcDocument = structuredClone(current.storyArcDocument);
+    const arc = storyArcDocument.storyArcs.find((item) => item.id === "part-i-station");
+    const sourceIndex = arc.beats.findIndex((beat) => beat.id === "find-a-way-past-fence");
+    const source = arc.beats[sourceIndex];
+    const oldNext = source.next;
+    const newBeat = {
+      id: "cross-the-fence",
+      title: "Cross the fence",
+      scene: "west-slope",
+      choices: [],
+      allowed: {
+        movement: { mode: null, hexes: [], rooms: [], exteriorNodes: [], transitions: [] },
+        storyForwardActions: [], optionalActions: [], storyChoices: [], stageViews: [],
+        indoorActions: [], outdoorActions: [], itemActions: [], developerActions: [],
+      },
+      completesWhen: null, onEnter: null, onComplete: null,
+      next: oldNext, nextArc: null,
+    };
+    source.next = newBeat.id;
+    source.nextArc = null;
+    arc.beats.splice(sourceIndex + 1, 0, newBeat);
+    const sceneBefore = db.prepare("SELECT story_beat, version FROM story_beats WHERE area_id = ? AND id = ?").get("part-i", "west-slope");
+
+    const response = responseCapture();
+    await api.handle(request("POST", "/api/story-arcs/document/split-beat", {
+      areaId: "part-i",
+      beatId: "find-a-way-past-fence",
+      newBeatId: newBeat.id,
+      storyArcDocument,
+      sceneIds: ["west-slope"],
+      sceneVersions: { "west-slope": sceneBefore.version },
+      expectedVersion: current.version,
+    }), response);
+
+    expect(response.status).toBe(200);
+    const saved = JSON.parse(response.chunks.join(""));
+    expect(saved.storyArcDocument.storyArcs.find((item) => item.id === "part-i-station").beats.map((beat) => beat.id)).toContain("cross-the-fence");
+    expect(db.prepare("SELECT story_beat FROM story_beats WHERE area_id = ? AND id = ?").get("part-i", "west-slope").story_beat).toBe("cross-the-fence");
+
+    const staleResponse = responseCapture();
+    await api.handle(request("POST", "/api/story-arcs/document/split-beat", {
+      areaId: "part-i", beatId: "find-a-way-past-fence", newBeatId: "another-beat",
+      storyArcDocument, sceneIds: ["the-gate"], sceneVersions: { "the-gate": 0 }, expectedVersion: current.version,
+    }), staleResponse);
+    expect(staleResponse.status).toBe(409);
+    expect(db.prepare("SELECT story_beat FROM story_beats WHERE area_id = ? AND id = ?").get("part-i", "the-gate").story_beat).toBe("find-a-way-past-fence");
+    db.close();
+  });
+
   it("publishes the character catalog and protects referenced definitions", async () => {
     const { db, api, characterRepository, storyArcRepository } = setup();
 

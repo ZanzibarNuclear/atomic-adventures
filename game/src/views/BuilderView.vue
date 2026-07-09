@@ -563,6 +563,35 @@ async function reorderStoryBeatScenes({ sceneIds = [] } = {}) {
   }
 }
 
+async function splitStoryBeatScenes({ beatId, newBeatId, storyArcDocument, sceneIds = [], sceneVersions = {} } = {}) {
+  storyArcErrors.value = {};
+  storyArcStatus.value = "Splitting story beat...";
+  try {
+    const result = await storyApi("/api/story-arcs/document/split-beat", {
+      method: "POST",
+      body: JSON.stringify({
+        areaId: STORY_AREA_ID,
+        beatId,
+        newBeatId,
+        storyArcDocument,
+        sceneIds,
+        sceneVersions,
+        expectedVersion: storyArcVersion.value,
+      }),
+    });
+    storyArcVersion.value = result.version;
+    storyArcDocumentText.value = JSON.stringify(result.storyArcDocument, null, 2);
+    storyArcBaselineText.value = storyArcDocumentText.value;
+    await loadBeats();
+    storyArcStatus.value = `Created story beat ${newBeatId} and moved ${sceneIds.length} scene${sceneIds.length === 1 ? "" : "s"}.`;
+  } catch (error) {
+    storyArcErrors.value = error.errors ?? {};
+    storyArcStatus.value = error.status === 409
+      ? "Story arc or scene content changed elsewhere. Reload before splitting."
+      : error.message;
+  }
+}
+
 async function selectSceneLocation(scene) {
   const trigger = scene.trigger ?? {};
   if (trigger.hex) {
@@ -774,6 +803,7 @@ async function applyStoryRouteQuery() {
       @reload="loadStoryArcDocument"
       @add-scene="newSceneForStoryBeat"
       @select-scene="openStoryBeatScene"
+      @split-beat="splitStoryBeatScenes"
       @remove-scene="removeStoryBeatScene"
       @reorder-scenes="reorderStoryBeatScenes"
     />

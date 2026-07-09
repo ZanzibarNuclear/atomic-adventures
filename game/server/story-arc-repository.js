@@ -123,6 +123,60 @@ export class StoryArcRepository {
     });
   }
 
+  splitBeatScenes({ areaId, beatId, newBeatId, sceneIds, storyArcDocument, expectedVersion, sceneVersions = {} }) {
+    const existing = this.getDocument();
+    if (!existing) throw new NotFoundError("Story arc content not found.");
+    if (Number(expectedVersion) !== existing.version) {
+      throw new ConflictError("Story arc content changed in another window.", existing);
+    }
+    const ids = [...new Set((sceneIds ?? []).map(String).filter(Boolean))];
+    if (!ids.length) throw new ValidationError({ sceneIds: ["Choose at least one scene to move."] });
+    const scenes = ids.map((id) => this.storyRepository?.getBeat(areaId, id));
+    const missing = ids.filter((id, index) => !scenes[index]);
+    if (missing.length) throw new ValidationError({ sceneIds: [`Unknown scene IDs: ${missing.join(", ")}`] });
+    const wrongBeat = scenes.filter((scene) => scene.storyBeat !== beatId);
+    if (wrongBeat.length) throw new ValidationError({ sceneIds: ["Every moved scene must belong to the source beat."] });
+    for (const scene of scenes) {
+      if (Number(sceneVersions[scene.id]) !== scene.version) {
+        throw new ConflictError(`Scene ${scene.id} changed in another window.`, scene);
+      }
+    }
+    const validation = this.validate(storyArcDocument);
+    if (!validation.valid) throw new ValidationError(validation.errors);
+    const newBeatExists = validation.storyArcDocument.storyArcs.some((arc) =>
+      arc.beats.some((beat) => beat.id === newBeatId),
+    );
+    if (!newBeatExists) throw new ValidationError({ newBeatId: ["The new story beat is missing from the submitted document."] });
+
+    return transaction(this.db, () => {
+      const now = new Date().toISOString();
+      const updateScene = this.db.prepare(`
+        UPDATE story_beats SET story_beat = ?, version = ?, updated_at = ?
+        WHERE area_id = ? AND id = ?
+      `);
+      for (const scene of scenes) {
+        updateScene.run(newBeatId, scene.version + 1, now, areaId, scene.id);
+        const saved = this.storyRepository.getBeat(areaId, scene.id);
+        this.storyRepository.revisions.record([areaId, scene.id], "update", saved);
+      }
+      const storyRevision = this.storyRepository.revisions.incrementGlobalRevision();
+      const nextVersion = existing.version + 1;
+      this.db.prepare(`
+        UPDATE story_arc_documents SET document_json = ?, version = ?, updated_at = ? WHERE id = ?
+      `).run(JSON.stringify(validation.storyArcDocument), nextVersion, now, STORY_ARC_DOCUMENT_ID);
+      this.revisions.record(STORY_ARC_DOCUMENT_ID, "update", validation.storyArcDocument);
+      const revision = this.revisions.incrementGlobalRevision();
+      return {
+        storyArcDocument: validation.storyArcDocument,
+        version: nextVersion,
+        revision,
+        storyRevision,
+        scenes: scenes.map((scene) => this.storyRepository.getBeat(areaId, scene.id)),
+        warnings: validation.warnings,
+      };
+    });
+  }
+
   listRevisions() {
     return this.revisions.list(STORY_ARC_DOCUMENT_ID);
   }

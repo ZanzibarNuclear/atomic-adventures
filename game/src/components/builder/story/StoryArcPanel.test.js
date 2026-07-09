@@ -4,6 +4,18 @@ import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
 import StoryArcPanel from "./StoryArcPanel.vue";
 
+const hiddenRuntimeFields = {
+  choices: [{ id: "continue", label: "Continue" }],
+  allowed: {
+    movement: { mode: "unrestricted", hexes: ["center-pines"], rooms: [], exteriorNodes: [], transitions: [] },
+    storyForwardActions: ["move-hex:center-pines"], optionalActions: [], storyChoices: [], stageViews: [],
+    indoorActions: [], outdoorActions: [], itemActions: [], developerActions: [],
+  },
+  completesWhen: { location: { place: "outdoors", hex: "center-pines" } },
+  onEnter: { setFlags: ["story.entered"] },
+  onComplete: { timeMinutes: 5 },
+};
+
 const documentText = JSON.stringify({
   storyArcs: [{
     id: "part-i",
@@ -13,14 +25,7 @@ const documentText = JSON.stringify({
       id: "reach-the-gate",
       title: "Reach the gate",
       scene: "center-pines",
-      allowed: {
-        movement: { hexes: [], rooms: [], exteriorNodes: [], transitions: [] },
-        storyForwardActions: [],
-        optionalActions: [],
-      },
-      completesWhen: null,
-      onEnter: null,
-      onComplete: null,
+      ...hiddenRuntimeFields,
       next: null,
       nextArc: null,
     }],
@@ -28,20 +33,8 @@ const documentText = JSON.stringify({
 }, null, 2);
 
 const beats = [
-  {
-    id: "center-pines",
-    storyBeat: "reach-the-gate",
-    heading: "The fence line",
-    text: "The fence starts here.",
-    trigger: { place: "outdoors", hex: "center-pines" },
-  },
-  {
-    id: "south-pines",
-    storyBeat: "reach-the-gate",
-    heading: "Blocking the way",
-    text: "The fence continues downhill.",
-    trigger: { place: "outdoors", hex: "south-pines" },
-  },
+  { id: "center-pines", storyBeat: "reach-the-gate", heading: "The fence line", text: "The fence starts here.", trigger: { place: "outdoors", hex: "center-pines" } },
+  { id: "south-pines", storyBeat: "reach-the-gate", heading: "Blocking the way", text: "The fence continues downhill.", trigger: { place: "outdoors", hex: "south-pines" } },
 ];
 
 function mountPanel() {
@@ -49,44 +42,56 @@ function mountPanel() {
     props: {
       documentText,
       beats,
-      catalog: {
-        world: {
-          hexes: [
-            { id: "center-pines", label: "Center Pines" },
-            { id: "south-pines", label: "South Pines" },
-          ],
-          rooms: [],
-          exteriorNodes: [],
-          mapTransitions: [],
-        },
-        character: { documents: [], items: [] },
-        learning: { lessons: [] },
-      },
+      catalog: { world: { hexes: [{ id: "center-pines", label: "Center Pines" }, { id: "south-pines", label: "South Pines" }], rooms: [], exteriorNodes: [] } },
     },
   });
 }
 
-describe("StoryArcPanel scene selection", () => {
-  it("previews a linked scene without mutating the story arc document", async () => {
+async function selectBeat(wrapper) {
+  await wrapper.find(".beat-select").trigger("click");
+}
+
+describe("StoryArcPanel focused authoring", () => {
+  it("selects an arc without automatically opening its first beat", () => {
     const wrapper = mountPanel();
+
+    expect(wrapper.text()).toContain("Starting beat");
+    expect(wrapper.text()).not.toContain("Linked content");
+  });
+
+  it("opens linked scenes without mutating the story arc document", async () => {
+    const wrapper = mountPanel();
+    await selectBeat(wrapper);
     const sceneButtons = wrapper.findAll(".scene-select");
 
     await sceneButtons[1].trigger("click");
 
-    expect(wrapper.emitted("select-scene")).toBeTruthy();
+    expect(wrapper.emitted("select-scene")?.[0]?.[0].sceneId).toBe("south-pines");
     expect(wrapper.emitted("update:documentText")).toBeUndefined();
-    expect(wrapper.text()).toContain("The fence continues downhill.");
   });
 
-  it("only updates the document when making a linked scene primary", async () => {
+  it("does not render runtime-policy or JSON editor cards", async () => {
     const wrapper = mountPanel();
-    const makePrimaryButtons = wrapper.findAll(".scene-row-actions button")
-      .filter((button) => button.text() === "Make primary");
+    await selectBeat(wrapper);
 
-    await makePrimaryButtons[1].trigger("click");
+    expect(wrapper.text()).not.toContain("Movement references");
+    expect(wrapper.text()).not.toContain("Authored actions and views");
+    expect(wrapper.text()).not.toContain("Completion condition");
+    expect(wrapper.text()).not.toContain("Beat effects");
+    expect(wrapper.text()).not.toContain("Active beat preview");
+    expect(wrapper.text()).not.toContain("Document JSON");
+  });
 
-    const updates = wrapper.emitted("update:documentText");
-    expect(updates).toHaveLength(1);
-    expect(JSON.parse(updates[0][0]).storyArcs[0].beats[0].scene).toBe("south-pines");
+  it("preserves hidden runtime fields when editing a beat title", async () => {
+    const wrapper = mountPanel();
+    await selectBeat(wrapper);
+    await wrapper.find(".detail-actions button").trigger("click");
+    await wrapper.find(".title-editor input").setValue("A better title");
+    await wrapper.find(".title-editor").trigger("submit");
+
+    const update = JSON.parse(wrapper.emitted("update:documentText")[0][0]);
+    const updatedBeat = update.storyArcs[0].beats[0];
+    expect(updatedBeat.title).toBe("A better title");
+    for (const [key, value] of Object.entries(hiddenRuntimeFields)) expect(updatedBeat[key]).toEqual(value);
   });
 });
