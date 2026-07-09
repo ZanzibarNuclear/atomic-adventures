@@ -215,7 +215,7 @@ function setModeEnabled(mode, enabled) {
           :aria-selected="activeTab === 'story'"
           @click="activeTab = 'story'"
         >
-          Story
+          Scene
         </button>
         <button
           type="button"
