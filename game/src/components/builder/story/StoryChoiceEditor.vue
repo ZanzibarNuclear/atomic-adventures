@@ -1,5 +1,5 @@
 <script setup>
-import { computed, defineComponent, ref } from "vue";
+import { computed, ref } from "vue";
 
 const props = defineProps({
   choice: { type: Object, required: true },
@@ -45,6 +45,8 @@ const flagTree = computed(() => {
   return mapChildren(root);
 });
 
+const flagRows = computed(() => flattenTree(flagTree.value));
+
 function mapChildren(node, prefix = "") {
   return [...node.children.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
@@ -59,21 +61,12 @@ function mapChildren(node, prefix = "") {
     });
 }
 
-const FlagTreeItem = defineComponent({
-  name: "FlagTreeItem",
-  props: {
-    node: { type: Object, required: true },
-  },
-  template: `
-    <li>
-      <code :title="node.id">{{ node.label }}</code>
-      <span v-if="node.terminal" class="flag-leaf" title="Complete flag ID">flag</span>
-      <ul v-if="node.children.length">
-        <FlagTreeItem v-for="child in node.children" :key="child.id" :node="child" />
-      </ul>
-    </li>
-  `,
-});
+function flattenTree(nodes, depth = 0) {
+  return nodes.flatMap((node) => [
+    { ...node, depth },
+    ...flattenTree(node.children, depth + 1),
+  ]);
+}
 </script>
 
 <template>
@@ -99,9 +92,16 @@ const FlagTreeItem = defineComponent({
           {{ showingFlags ? "Hide flags" : "Browse flags" }}
         </button>
         <div v-if="showingFlags" class="flag-popover" role="dialog" aria-label="Defined story flags">
-          <p v-if="!flagTree.length" class="empty-inline">No flags defined yet.</p>
+          <p v-if="!flagRows.length" class="empty-inline">No flags defined yet.</p>
           <ul v-else class="flag-tree">
-            <FlagTreeItem v-for="node in flagTree" :key="node.id" :node="node" />
+            <li
+              v-for="node in flagRows"
+              :key="node.id"
+              :style="{ paddingLeft: `${node.depth * 0.85}rem` }"
+            >
+              <code :title="node.id">{{ node.label }}</code>
+              <span v-if="node.terminal" class="flag-leaf" title="Complete flag ID">flag</span>
+            </li>
           </ul>
         </div>
       </div>
@@ -261,17 +261,12 @@ label {
   box-shadow: 0 18px 45px rgb(0 0 0 / 0.35);
 }
 
-.flag-tree,
-.flag-tree ul {
+.flag-tree {
   display: grid;
   gap: 0.35rem;
   margin: 0;
-  padding-left: 1rem;
-  list-style: none;
-}
-
-.flag-tree {
   padding-left: 0;
+  list-style: none;
 }
 
 .flag-tree code {
