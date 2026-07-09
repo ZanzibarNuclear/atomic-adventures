@@ -47,6 +47,25 @@ describe("story arc beat operations", () => {
     expect(result.conflicts[0]).toContain("already points");
   });
 
+  it("moves a beat into an empty arc and makes it the start beat", () => {
+    const original = document();
+    original.storyArcs.push({ id: "empty", title: "Empty", startBeat: "", beats: [] });
+    const result = moveStoryBeat(original, { beatId: "d", fromArcId: "two", toArcId: "empty", toIndex: 0 });
+
+    expect(result.ok).toBe(true);
+    expect(result.document.storyArcs[2]).toMatchObject({ startBeat: "d", beats: [expect.objectContaining({ id: "d" })] });
+  });
+
+  it("inserts a beat between a sequential pair and rewires both sides", () => {
+    const original = document();
+    const result = moveStoryBeat(original, { beatId: "d", fromArcId: "two", toArcId: "one", toIndex: 1 });
+
+    expect(result.ok).toBe(true);
+    expect(result.document.storyArcs[0].beats.map(({ id }) => id)).toEqual(["a", "d", "b"]);
+    expect(result.document.storyArcs[0].beats[0].next).toBe("d");
+    expect(result.document.storyArcs[0].beats[1].next).toBe("b");
+  });
+
   it("splits a scene suffix into a new beat without changing the original hidden fields", () => {
     const original = document();
     const hidden = structuredClone(original.storyArcs[0].beats[0]);

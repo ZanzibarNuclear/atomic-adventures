@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { mount } from "@vue/test-utils";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import StoryArcPanel from "./StoryArcPanel.vue";
 
 const hiddenRuntimeFields = {
@@ -93,5 +93,34 @@ describe("StoryArcPanel focused authoring", () => {
     const updatedBeat = update.storyArcs[0].beats[0];
     expect(updatedBeat.title).toBe("A better title");
     for (const [key, value] of Object.entries(hiddenRuntimeFields)) expect(updatedBeat[key]).toEqual(value);
+  });
+
+  it("protects an in-progress title edit when selection changes", async () => {
+    const wrapper = mountPanel();
+    await selectBeat(wrapper);
+    await wrapper.find(".detail-actions button").trigger("click");
+    await wrapper.find(".title-editor input").setValue("Unsaved title");
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    await wrapper.find(".outline-select").trigger("click");
+
+    expect(confirm).toHaveBeenCalled();
+    expect(wrapper.find(".title-editor input").element.value).toBe("Unsaved title");
+    confirm.mockRestore();
+  });
+
+  it("emits an atomic split request with hidden fields retained on the original beat", async () => {
+    const wrapper = mountPanel();
+    await selectBeat(wrapper);
+    const split = wrapper.findAll(".detail-actions button").find((button) => button.text() === "Split scenes");
+    await split.trigger("click");
+    await wrapper.find(".dialog").trigger("submit");
+
+    const payload = wrapper.emitted("split-beat")[0][0];
+    const original = payload.storyArcDocument.storyArcs[0].beats[0];
+    const created = payload.storyArcDocument.storyArcs[0].beats[1];
+    expect(payload.sceneIds).toEqual(["south-pines"]);
+    for (const [key, value] of Object.entries(hiddenRuntimeFields)) expect(original[key]).toEqual(value);
+    expect(created).toMatchObject({ scene: "south-pines", completesWhen: null, onEnter: null, onComplete: null });
   });
 });

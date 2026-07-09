@@ -323,17 +323,30 @@ authored Story mode arc.
 
 ## Builder Responsibilities
 
-Story Builder presents Story mode authoring as:
+Story Builder separates story structure from scene and runtime-policy
+authoring:
 
-1. Choose a story arc.
-2. Edit its ordered story beats.
-3. For each beat, edit:
-   - title;
-   - scene variants and prose;
-   - choices and authored actions;
-   - completion condition;
-   - enter and complete effects;
-   - next beat or next arc.
+1. The Story Arc workspace shows arcs and their ordered beats as an expandable
+   outline.
+2. Selecting an arc or beat opens one read-only detail view. Editing is an
+   explicit action.
+3. The Story Arc workspace edits arc and beat titles, scene membership, beat
+   order, cross-arc movement, and arc boundaries.
+4. Selecting a linked scene opens the existing map-first Area or Utility
+   Station scene editor for prose, triggers, conditions, and choices.
+
+The Story Arc workspace does not display or edit `allowed` movement/action
+policy, `completesWhen`, `onEnter`, or `onComplete`. Those fields remain part of
+the canonical StoryBeat data and runtime contract. Structural edits must
+round-trip them unchanged. Moving a beat carries them with that beat. Splitting
+a beat leaves them unchanged on the original beat and does not silently copy
+them to the new beat.
+
+Cross-arc moves update affected `startBeat`, `next`, and `nextArc` handoffs as
+one story-arc document change. A non-linear handoff that cannot be rewired
+safely stops the operation. Splitting a beat updates the story-arc document and
+the moved scenes' `storyBeat` references in one database transaction with
+optimistic version checks; a conflict leaves both stores unchanged.
 
 World Builder and Content Builder remain separate. They provide referenced
 locations, rooms, exterior nodes, transitions, items, lessons, documents,

@@ -1,6 +1,6 @@
 # Story Arc Builder Simplification Plan
 
-**Status:** Proposed
+**Status:** Implemented
 **Last updated:** 2026-07-09
 **Primary contracts:** [Play Modes and Story Mode](../contracts/play-modes-and-story-mode.md), [Story Beats and Scenes](../contracts/story-beats.md), [World Authoring](../contracts/world-authoring.md)
 
@@ -185,20 +185,21 @@ This is the acceptance workflow for the initial redesign.
 
 ### Phase 1 — Read-Only Selection and Progressive Disclosure
 
-- [ ] Replace the always-editable `StoryArcPanel` form with explicit selection
+- [x] Replace the always-editable `StoryArcPanel` form with explicit selection
       state for either an arc or a beat.
-- [ ] Stop auto-selecting the first beat when an arc is selected.
-- [ ] Build separate `StoryArcDetail` and `StoryBeatDetail` read-only views.
-- [ ] Add explicit Edit/Cancel/Save states scoped to the selected object.
-- [ ] Reduce the outline cards to compact expandable rows.
-- [ ] Remove Active beat preview and Document JSON.
-- [ ] Remove embedded scene prose preview; link scene rows to the existing
+- [x] Stop auto-selecting the first beat when an arc is selected.
+- [x] Build separate arc-detail and beat-detail read-only views within the
+      focused panel.
+- [x] Add explicit Edit/Cancel/Save states scoped to the selected object.
+- [x] Reduce the outline cards to compact expandable rows.
+- [x] Remove Active beat preview and Document JSON.
+- [x] Remove embedded scene prose preview; link scene rows to the existing
       map-first editor.
-- [ ] Remove movement references, authored actions and views, completion
+- [x] Remove movement references, authored actions and views, completion
       conditions, and beat effects from the rendered UI, including summaries.
-- [ ] Map validation paths to the affected arc, beat, scene, or field and show
+- [x] Map validation paths to the affected arc, beat, scene, or field and show
       warning badges in the outline.
-- [ ] Add component tests for arc-only selection, beat selection, view/edit
+- [x] Add component tests for arc-only selection, beat selection, view/edit
       transitions, unsaved-change protection, conditional summaries, scene
       navigation, and absence of JSON controls.
 
@@ -207,16 +208,16 @@ one read-only detail view, with no low-level empty forms.
 
 ### Phase 2 — Safe Beat Reorganization
 
-- [ ] Add pure domain operations for reorder within an arc and move across arcs.
-- [ ] Define sequential-flow rewiring rules and detect non-linear conflicts.
-- [ ] Add drag-and-drop plus keyboard/menu alternatives in the outline.
-- [ ] Add a move confirmation showing source, destination, insertion position,
+- [x] Add pure domain operations for reorder within an arc and move across arcs.
+- [x] Define sequential-flow rewiring rules and detect non-linear conflicts.
+- [x] Add drag-and-drop plus keyboard/menu alternatives in the outline.
+- [x] Add a move confirmation showing source, destination, insertion position,
       and resulting handoffs.
-- [ ] Treat the move as one story-arc document update and preserve optimistic
+- [x] Treat the move as one story-arc document update and preserve optimistic
       version checking and revision history.
-- [ ] Replace the current Move up/Move down mutations with the shared domain
+- [x] Replace the current Move up/Move down mutations with the shared domain
       operation.
-- [ ] Add tests for first, middle, and last beat moves; empty source/destination
+- [x] Add tests for first, middle, and last beat moves; empty source/destination
       arcs; start-beat changes; cross-arc handoffs; and rejected branching
       conflicts.
 
@@ -225,19 +226,19 @@ arc without manually editing IDs or links.
 
 ### Phase 3 — Split Scenes into a New Beat
 
-- [ ] Add a split-beat dialog driven by linked scene order.
-- [ ] Add a preview/review step for titles, IDs, primary scenes, scene
+- [x] Add a split-beat dialog driven by linked scene order.
+- [x] Add a preview/review step for titles, IDs, primary scenes, scene
       membership, and outgoing structural flow.
-- [ ] Preserve hidden runtime fields on the original beat, leave them empty on
+- [x] Preserve hidden runtime fields on the original beat, leave them empty on
       the new beat, and warn when the split requires a separate runtime-content
       adjustment.
-- [ ] Add a server command or transaction boundary that updates scene
+- [x] Add a server command or transaction boundary that updates scene
       `storyBeat` links and the story-arc document atomically.
-- [ ] Preserve version checks for both the story area and story-arc document;
+- [x] Preserve version checks for both the story area and story-arc document;
       return a conflict without partial writes.
-- [ ] Refresh the outline and select the newly created beat after success.
-- [ ] Add server and component tests using the real scene/reference shape.
-- [ ] Verify failure rollback by forcing invalid scene and arc references.
+- [x] Refresh the outline and select the newly created beat after success.
+- [x] Add server and component tests using the real scene/reference shape.
+- [x] Verify failure rollback by forcing invalid scene and arc references.
 
 **Exit criterion:** An author can split the first beat of one arc and move its
 first scenes to the preceding arc in a single understandable workflow with no
@@ -245,33 +246,33 @@ partial persistence.
 
 ### Phase 4 — Hidden-Data Preservation Verification
 
-- [ ] Add a round-trip component test proving that editing an arc title or beat
+- [x] Add a round-trip component test proving that editing an arc title or beat
       title preserves `allowed`, `completesWhen`, `onEnter`, and `onComplete`
       byte-for-byte in the submitted structured document.
-- [ ] Add move/reorder tests proving those fields travel unchanged with their
+- [x] Add move/reorder tests proving those fields travel unchanged with their
       owning beat.
-- [ ] Add split tests proving the original beat's fields remain unchanged and
+- [x] Add split tests proving the original beat's fields remain unchanged and
       the operation never silently copies, clears, or redistributes them.
-- [ ] Verify validation, canonical SQLite persistence, revision history,
+- [x] Verify validation, canonical SQLite persistence, revision history,
       import/export, production JSON, reference-aware renames, and runtime
       behavior are untouched by removal of the UI cards.
-- [ ] Keep the cards absent even when a selected beat has populated values.
+- [x] Keep the cards absent even when a selected beat has populated values.
 
 **Exit criterion:** The cards are gone, while all existing data and runtime
 behavior remain unchanged and are protected by regression tests.
 
 ### Phase 5 — Workflow Verification and Documentation
 
-- [ ] Exercise the actual requested Part I boundary adjustment on a disposable
+- [x] Exercise the actual requested Part I boundary adjustment on a disposable
       revision before changing canonical content.
-- [ ] Verify live refresh in an open game window preserves player state.
-- [ ] Run the full test suite and production build checks.
-- [ ] Update the Story Builder section of the Story Mode contract to describe
+- [x] Verify live refresh in an open game window preserves player state.
+- [x] Run the full test suite and production build checks.
+- [x] Update the Story Builder section of the Story Mode contract to describe
       the outline/detail workflow and division of responsibility with scene
       editing.
-- [ ] Add a short first-use guide centered on select → inspect → edit/move/split
+- [x] Add a short first-use guide centered on select → inspect → edit/move/split
       → review → save.
-- [ ] Check keyboard navigation, focus restoration after dialogs, screen-reader
+- [x] Check keyboard navigation, focus restoration after dialogs, screen-reader
       labels, narrow-window behavior, and long titles.
 
 **Exit criterion:** A first-time author can complete the boundary-change task

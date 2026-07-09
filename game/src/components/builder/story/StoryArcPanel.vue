@@ -38,6 +38,7 @@ const editTitle = ref("");
 const moveDialog = ref(null);
 const operationError = ref("");
 const splitDialog = ref(null);
+const draggedBeat = ref(null);
 
 const selectedStoryArc = computed(() =>
   storyArcs.value.find((arc) => arc.id === selection.value.arcId) ?? null,
@@ -78,10 +79,14 @@ watch([selectedStoryArc, selectedStoryBeat], () => {
 });
 
 function selectArc(arcId) {
+  if (editing.value && !window.confirm("Discard the title edit?")) return;
+  editing.value = false;
   selection.value = { kind: "arc", arcId, beatId: "" };
 }
 
 function selectBeat(arcId, beatId) {
+  if (editing.value && !window.confirm("Discard the title edit?")) return;
+  editing.value = false;
   selection.value = { kind: "beat", arcId, beatId };
 }
 
@@ -183,6 +188,17 @@ function requestMove() {
   operationError.value = "";
 }
 
+function beginDrag(arcId, beatId) {
+  draggedBeat.value = { fromArcId: arcId, beatId };
+}
+
+function dropBeat(toArcId, toIndex) {
+  if (!draggedBeat.value) return;
+  moveDialog.value = { ...draggedBeat.value, toArcId, toIndex };
+  draggedBeat.value = null;
+  operationError.value = "";
+}
+
 function destinationPositions(arcId) {
   const arc = storyArcs.value.find((item) => item.id === arcId);
   const count = arc?.beats?.length ?? 0;
@@ -235,6 +251,8 @@ function applySplit() {
     sceneIds: result.movedSceneIds,
     sceneVersions: Object.fromEntries(linkedScenes.value.map((scene) => [scene.id, scene.version])),
   });
+  selectBeat(splitDialog.value.arcId, splitDialog.value.newBeatId);
+  expandedArcIds.value = new Set([...expandedArcIds.value, splitDialog.value.arcId]);
   splitDialog.value = null;
 }
 
@@ -303,7 +321,7 @@ function uniqueId(base, existingIds = []) {
       <p v-if="status" class="builder-status">{{ status }}</p>
       <p v-if="parseError" class="field-error">{{ parseError }}</p>
       <ol v-if="storyArcs.length" class="arc-list">
-        <li v-for="(arc, arcIndex) in storyArcs" :key="arc.id" class="arc-row">
+        <li v-for="(arc, arcIndex) in storyArcs" :key="arc.id" class="arc-row" @dragover.prevent @drop="dropBeat(arc.id, arc.beats?.length ?? 0)">
           <div class="arc-row-main" :class="{ selected: selection.kind === 'arc' && selection.arcId === arc.id }">
             <button type="button" class="disclosure" :aria-expanded="expandedArcIds.has(arc.id)" @click="toggleArc(arc.id)">
               {{ expandedArcIds.has(arc.id) ? "▾" : "▸" }}
@@ -315,12 +333,15 @@ function uniqueId(base, existingIds = []) {
             <span v-if="errorCountFor(arcIndex)" class="warning-badge">{{ errorCountFor(arcIndex) }}</span>
           </div>
           <ol v-if="expandedArcIds.has(arc.id)" class="beat-list">
-            <li v-for="(beat, beatIndex) in arc.beats ?? []" :key="beat.id">
+            <li v-for="(beat, beatIndex) in arc.beats ?? []" :key="beat.id" @dragover.prevent.stop @drop.stop="dropBeat(arc.id, beatIndex)">
               <button
                 type="button"
                 class="beat-select"
+                draggable="true"
                 :class="{ selected: selection.kind === 'beat' && selection.arcId === arc.id && selection.beatId === beat.id }"
                 @click="selectBeat(arc.id, beat.id)"
+                @dragstart="beginDrag(arc.id, beat.id)"
+                @dragend="draggedBeat = null"
               >
                 <span class="beat-position">{{ beatIndex + 1 }}</span>
                 <span class="beat-copy"><strong>{{ beat.title || beat.id }}</strong><small>{{ beat.id }}</small></span>
