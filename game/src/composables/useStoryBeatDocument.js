@@ -92,7 +92,6 @@ function normalizeForDirty(value) {
       timeMinutes: finiteNumber(choice.timeMinutes, 0),
       timeUntil: normalizeTimeUntil(choice.timeUntil),
       activity: nullableText(choice.activity) ?? "light",
-      sets: stringList(choice.sets),
       set_flags: stringList(choice.set_flags),
       go_hex: nullableText(choice.go_hex),
       go_room: nullableText(choice.go_room),

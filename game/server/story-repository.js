@@ -586,15 +586,15 @@ export class StoryRepository {
       INSERT INTO story_choices(
         id, area_id, beat_id, sort_order, text, require_json, effects_json,
         time_minutes, time_until_json, activity,
-        sets_json, set_flags_json, go_hex, go_room, go_exterior_node,
+        set_flags_json, go_hex, go_room, go_exterior_node,
         enter_building, view_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     choices.forEach((choice, index) => statement.run(
       choice.id || randomUUID(), areaId, beatId, choice.order ?? index, choice.text,
       JSON.stringify({}), JSON.stringify([]),
       choice.timeMinutes, JSON.stringify(compactObject(choice.timeUntil ?? {})), choice.activity,
-      JSON.stringify(choice.sets), JSON.stringify(choice.set_flags),
+      JSON.stringify(choice.set_flags),
       choice.go_hex, choice.go_room, choice.go_exterior_node,
       choice.enter, JSON.stringify(choice.view ?? {}),
     ));
@@ -629,7 +629,7 @@ export class StoryRepository {
     if (includeChoices) {
       beat.choices = this.db.prepare(`
         SELECT id, sort_order, text, require_json, effects_json, time_minutes, time_until_json, activity,
-          sets_json, set_flags_json, go_hex, go_room, go_exterior_node,
+          set_flags_json, go_hex, go_room, go_exterior_node,
           enter_building, view_json
         FROM story_choices
         WHERE area_id = ? AND beat_id = ?
@@ -641,7 +641,6 @@ export class StoryRepository {
         timeMinutes: choice.time_minutes,
         timeUntil: parseNullableJson(choice.time_until_json),
         activity: choice.activity,
-        sets: JSON.parse(choice.sets_json),
         set_flags: JSON.parse(choice.set_flags_json),
         go_hex: choice.go_hex,
         go_room: choice.go_room,

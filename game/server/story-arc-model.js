@@ -115,7 +115,6 @@ function normalizeStoryChoice(input = {}) {
     nextBeat: nullableText(input.nextBeat),
     timeMinutes: nullableNumber(input.timeMinutes),
     activity: nullableText(input.activity),
-    sets: stringList(input.sets),
     set_flags: stringList(input.set_flags),
     effects: array(input.effects).map((effect) => structuredClone(effect)),
     view: normalizeStageView(input.view),

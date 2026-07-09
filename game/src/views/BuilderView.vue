@@ -153,8 +153,68 @@ const originHexOptions = computed(() => {
   );
   return options;
 });
+const flagIds = computed(() => {
+  const flags = new Set();
+  collectFlagIds(beats.value, flags);
+  collectFlagIds(draft.value, flags);
+  collectFlagIds(worldData.value, flags);
+  collectFlagIds(buildingData.value, flags);
+  milestones.value.map((milestone) => milestone.id).filter(isFlagId).forEach((flag) => flags.add(flag));
+  try {
+    collectFlagIds(JSON.parse(storyArcDocumentText.value), flags);
+  } catch {
+    // Ignore while the story-arc JSON editor contains an incomplete draft.
+  }
+  return [...flags].sort((a, b) => a.localeCompare(b));
+});
 const selectedRoom = computed(() => locationMode.value === "rooms" ? selectedLocation.value : "");
 const selectedExterior = computed(() => locationMode.value === "exterior" ? selectedLocation.value : null);
+
+function collectFlagIds(value, flags) {
+  if (!value) return;
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectFlagIds(item, flags));
+    return;
+  }
+  if (typeof value === "string") return;
+  if (typeof value !== "object") return;
+
+  for (const [key, item] of Object.entries(value)) {
+    if (key === "set_flags" || key === "setFlags") {
+      stringList(item).forEach((flag) => flags.add(flag));
+      continue;
+    }
+    if (key === "flag" && typeof item === "string" && isFlagId(item)) {
+      flags.add(item);
+      continue;
+    }
+    if ((key === "require" || key === "flags") && item && typeof item === "object") {
+      collectRequirementFlagGroups(item, flags);
+    }
+    if (key === "effects" && Array.isArray(item)) {
+      item
+        .filter((effect) => ["flag.set", "flag.clear"].includes(effect?.op) && isFlagId(effect.id))
+        .forEach((effect) => flags.add(effect.id));
+    }
+    collectFlagIds(item, flags);
+  }
+}
+
+function collectRequirementFlagGroups(value, flags) {
+  for (const key of ["all", "any", "not"]) {
+    stringList(value[key]).filter(isFlagId).forEach((flag) => flags.add(flag));
+  }
+}
+
+function isFlagId(value) {
+  return /^[a-z0-9_]+(?:[.-][a-z0-9_]+)*$/.test(value);
+}
+
+function stringList(value) {
+  if (Array.isArray(value)) return value.map(String).map((item) => item.trim()).filter(Boolean);
+  return [];
+}
+
 onMounted(async () => {
   try {
     catalog.value = await storyApi("/api/catalog");
@@ -682,6 +742,7 @@ async function applyStoryRouteQuery() {
         :destination-type="destinationType"
         :selected-location="selectedLocation"
         :origin-hex-options="originHexOptions"
+        :flag-ids="flagIds"
         @save="saveBeat"
         @revert="revertDraft"
         @duplicate="newBeat"

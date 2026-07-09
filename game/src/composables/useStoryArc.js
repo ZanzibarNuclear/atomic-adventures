@@ -205,7 +205,6 @@ export function useStoryArc(storyData, {
       const timeResult = advanceGameTime(gameState, duration, choice.activity ?? "light");
       if (!timeResult.ok) return false;
     }
-    if (choice.sets) setFlags(gameState.flags, choice.sets);
     if (choice.set_flags) setFlags(gameState.flags, choice.set_flags);
     if (choice.effects?.length) {
       const result = applyEffectsAtomically(choice.effects, {

@@ -64,7 +64,7 @@ export const storyArcSeed = {
               "text": "Continue west",
               "timeMinutes": 15,
               "activity": "moderate",
-              "sets": [
+              "set_flags": [
                 "story.east-pines"
               ],
               "go_hex": "center-pines"

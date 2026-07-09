@@ -46,7 +46,7 @@ function sampleBeat(overrides = {}) {
     heading: "Test",
     text: "Original text.",
     trigger: { place: "outdoors", hex: "origin" },
-    choices: [{ text: "Continue", sets: ["test.done"], go_hex: "east-pines" }],
+    choices: [{ text: "Continue", set_flags: ["test.done"], go_hex: "east-pines" }],
     ...overrides,
   };
 }
@@ -59,7 +59,7 @@ describe("StoryRepository", () => {
     expect(repository.getRuntimeStory().areas["part-i"].beats.intro.heading).toBe("Lost in the woods");
     db.close();
     const reopened = openDatabase(path);
-    expect(reopened.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get().count).toBe(15);
+    expect(reopened.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get().count).toBe(18);
     reopened.close();
   });
 

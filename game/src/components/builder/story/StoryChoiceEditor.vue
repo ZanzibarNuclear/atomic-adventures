@@ -1,10 +1,13 @@
 <script setup>
-defineProps({
+import { computed, defineComponent, ref } from "vue";
+
+const props = defineProps({
   choice: { type: Object, required: true },
   index: { type: Number, required: true },
   catalog: { type: Object, required: true },
   errors: { type: Object, default: () => ({}) },
   destinationType: { type: Function, required: true },
+  flagIds: { type: Array, default: () => [] },
 });
 
 defineEmits([
@@ -24,6 +27,53 @@ function enableTimeUntil(choice) {
 function disableTimeUntil(choice) {
   choice.timeUntil = null;
 }
+
+const showingFlags = ref(false);
+
+const flagTree = computed(() => {
+  const root = { children: new Map(), terminal: false };
+  for (const id of props.flagIds) {
+    const parts = String(id).split(".").map((part) => part.trim()).filter(Boolean);
+    if (!parts.length) continue;
+    let node = root;
+    for (const part of parts) {
+      if (!node.children.has(part)) node.children.set(part, { children: new Map(), terminal: false });
+      node = node.children.get(part);
+    }
+    node.terminal = true;
+  }
+  return mapChildren(root);
+});
+
+function mapChildren(node, prefix = "") {
+  return [...node.children.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([label, child]) => {
+      const id = prefix ? `${prefix}.${label}` : label;
+      return {
+        id,
+        label,
+        terminal: child.terminal,
+        children: mapChildren(child, id),
+      };
+    });
+}
+
+const FlagTreeItem = defineComponent({
+  name: "FlagTreeItem",
+  props: {
+    node: { type: Object, required: true },
+  },
+  template: `
+    <li>
+      <code :title="node.id">{{ node.label }}</code>
+      <span v-if="node.terminal" class="flag-leaf" title="Complete flag ID">flag</span>
+      <ul v-if="node.children.length">
+        <FlagTreeItem v-for="child in node.children" :key="child.id" :node="child" />
+      </ul>
+    </li>
+  `,
+});
 </script>
 
 <template>
@@ -38,18 +88,23 @@ function disableTimeUntil(choice) {
     </div>
     <label>Label<input v-model="choice.text" /></label>
     <div class="field-grid">
-      <label>Sets
-        <input
-          :value="choice.sets.join(', ')"
-          @input="$emit('set-csv', { choice, key: 'sets', event: $event })"
-        />
-      </label>
       <label>Set flags
         <input
           :value="choice.set_flags.join(', ')"
           @input="$emit('set-csv', { choice, key: 'set_flags', event: $event })"
         />
       </label>
+      <div class="flag-browser">
+        <button type="button" class="link-button" @click="showingFlags = !showingFlags">
+          {{ showingFlags ? "Hide flags" : "Browse flags" }}
+        </button>
+        <div v-if="showingFlags" class="flag-popover" role="dialog" aria-label="Defined story flags">
+          <p v-if="!flagTree.length" class="empty-inline">No flags defined yet.</p>
+          <ul v-else class="flag-tree">
+            <FlagTreeItem v-for="node in flagTree" :key="node.id" :node="node" />
+          </ul>
+        </div>
+      </div>
     </div>
     <details>
       <summary>Time cost</summary>
@@ -159,6 +214,7 @@ function disableTimeUntil(choice) {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.7rem;
+  align-items: end;
 }
 
 label {
@@ -174,6 +230,59 @@ label {
 
 .inline-check input {
   width: auto;
+}
+
+.flag-browser {
+  position: relative;
+  min-height: 2.4rem;
+}
+
+.link-button {
+  border: 0;
+  padding: 0;
+  color: #8ebeff;
+  background: transparent;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.flag-popover {
+  position: absolute;
+  z-index: 20;
+  right: 0;
+  top: 1.8rem;
+  width: min(26rem, 80vw);
+  max-height: 22rem;
+  overflow: auto;
+  border: 1px solid #4a5568;
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: #10141b;
+  box-shadow: 0 18px 45px rgb(0 0 0 / 0.35);
+}
+
+.flag-tree,
+.flag-tree ul {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding-left: 1rem;
+  list-style: none;
+}
+
+.flag-tree {
+  padding-left: 0;
+}
+
+.flag-tree code {
+  color: #e7edf7;
+  font-size: 0.82rem;
+}
+
+.flag-leaf {
+  margin-left: 0.35rem;
+  color: #98d6b3;
+  font-size: 0.72rem;
 }
 
 input,

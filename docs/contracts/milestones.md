@@ -259,7 +259,7 @@ Validation should reject:
 | --- | --- |
 | Clock-derived day, minute, phase filters | `game/src/composables/useStory.js` |
 | Story `afterMilestone` / `beforeMilestone` bridge | `game/src/composables/useStory.js`, currently via flags |
-| Story choice milestone-like grants | `sets` / `set_flags` in story choices |
+| Story choice milestone-like grants | `set_flags` in story choices |
 | Story choice time and milestone commit boundary | `game/src/composables/useStory.js` |
 | Skill evidence and award rules | `game/src/lib/character/` |
 | Player save flags bridge | `game/src/composables/useGameState.js` |

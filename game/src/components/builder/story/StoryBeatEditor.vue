@@ -17,6 +17,7 @@ const props = defineProps({
   selectedLocation: { type: String, default: "" },
   originHexOptions: { type: Array, default: () => [] },
   milestones: { type: Array, default: () => [] },
+  flagIds: { type: Array, default: () => [] },
 });
 
 defineEmits([
@@ -451,6 +452,7 @@ function setModeEnabled(mode, enabled) {
             :catalog="catalog"
             :errors="errors"
             :destination-type="destinationType"
+            :flag-ids="flagIds"
             @move="$emit('move-choice', { index, delta: $event })"
             @remove="$emit('remove-choice', index)"
             @set-csv="$emit('set-csv', $event)"
