@@ -56,8 +56,28 @@ describe("StoryArcPanel focused authoring", () => {
   it("selects an arc without automatically opening its first beat", () => {
     const wrapper = mountPanel();
 
-    expect(wrapper.text()).toContain("Starting beat");
+    expect(wrapper.find(".metadata").text()).toBe("IDpart-i");
     expect(wrapper.text()).not.toContain("Linked content");
+  });
+
+  it("edits an arc ID and label while updating arc handoff references", async () => {
+    const source = JSON.parse(documentText);
+    source.storyArcs.push({
+      id: "part-ii",
+      title: "Part II",
+      startBeat: "arrival",
+      beats: [{ ...source.storyArcs[0].beats[0], id: "arrival", scene: null, nextArc: "part-i" }],
+    });
+    const wrapper = mount(StoryArcPanel, { props: { documentText: JSON.stringify(source), beats, catalog: {} } });
+    await wrapper.find(".detail-actions button").trigger("click");
+
+    await wrapper.find(".arc-id-input").setValue("opening-arc");
+    await wrapper.find(".title-editor input:not(.arc-id-input)").setValue("Opening Arc");
+    await wrapper.find(".title-editor").trigger("submit");
+
+    const update = JSON.parse(wrapper.emitted("update:documentText")[0][0]);
+    expect(update.storyArcs[0]).toMatchObject({ id: "opening-arc", title: "Opening Arc" });
+    expect(update.storyArcs[1].beats[0].nextArc).toBe("opening-arc");
   });
 
   it("opens linked scenes without mutating the story arc document", async () => {

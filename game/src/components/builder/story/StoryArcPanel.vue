@@ -36,6 +36,8 @@ const selection = ref({ kind: "arc", arcId: "", beatId: "" });
 const expandedArcIds = ref(new Set());
 const editing = ref(false);
 const editTitle = ref("");
+const editId = ref("");
+const editError = ref("");
 const moveDialog = ref(null);
 const operationError = ref("");
 const splitDialog = ref(null);
@@ -58,10 +60,6 @@ const linkedScenes = computed(() => {
     scene.id === selectedStoryBeat.value.scene || scene.storyBeat === selectedStoryBeat.value.id,
   );
 });
-const selectedArcIndex = computed(() => storyArcs.value.findIndex((arc) => arc.id === selectedStoryArc.value?.id));
-const previousArc = computed(() => storyArcs.value[selectedArcIndex.value - 1] ?? null);
-const nextArc = computed(() => storyArcs.value[selectedArcIndex.value + 1] ?? null);
-const outgoingBeat = computed(() => selectedStoryArc.value?.beats?.at(-1) ?? null);
 const validationEntries = computed(() => errorEntries(props.errors));
 const attachableScenes = computed(() => {
   const linkedIds = new Set(linkedScenes.value.map((scene) => scene.id));
@@ -107,20 +105,44 @@ function beginEdit() {
   const item = selectedStoryBeat.value ?? selectedStoryArc.value;
   if (!item) return;
   editTitle.value = item.title ?? "";
+  editId.value = item.id ?? "";
+  editError.value = "";
   editing.value = true;
 }
 
 function cancelEdit() {
   editing.value = false;
   editTitle.value = "";
+  editId.value = "";
+  editError.value = "";
 }
 
-function applyTitle() {
+function applyEdit() {
   const ids = { arcId: selectedStoryArc.value?.id, beatId: selectedStoryBeat.value?.id };
+  const nextId = editId.value.trim();
+  if (!ids.beatId) {
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(nextId)) {
+      editError.value = "Use a kebab-case ID containing lowercase letters, numbers, and hyphens.";
+      return;
+    }
+    if (storyArcs.value.some((arc) => arc.id === nextId && arc.id !== ids.arcId)) {
+      editError.value = "That story arc ID already exists.";
+      return;
+    }
+  }
   updateDocument((document) => {
     const arc = document.storyArcs?.find((item) => item.id === ids.arcId);
     const target = ids.beatId ? arc?.beats?.find((item) => item.id === ids.beatId) : arc;
     if (target) target.title = editTitle.value.trim();
+    if (!ids.beatId && arc && nextId !== ids.arcId) {
+      arc.id = nextId;
+      for (const storyArc of document.storyArcs ?? []) {
+        for (const beat of storyArc.beats ?? []) {
+          if (beat.nextArc === ids.arcId) beat.nextArc = nextId;
+        }
+      }
+      selection.value = { kind: "arc", arcId: nextId, beatId: "" };
+    }
   });
   cancelEdit();
 }
@@ -392,19 +414,17 @@ function uniqueId(base, existingIds = []) {
       </header>
 
       <template v-if="selectedStoryArc">
-        <form v-if="editing" class="title-editor" @submit.prevent="applyTitle">
-          <label>Title <input v-model="editTitle" autofocus></label>
+        <form v-if="editing" class="title-editor" @submit.prevent="applyEdit">
+          <label v-if="!selectedStoryBeat">ID <input v-model="editId" class="arc-id-input" autofocus></label>
+          <label>{{ selectedStoryBeat ? "Title" : "Label" }} <input v-model="editTitle" :autofocus="Boolean(selectedStoryBeat)"></label>
+          <p v-if="editError" class="field-error">{{ editError }}</p>
           <div class="toolbar"><button type="button" class="sm muted" @click="cancelEdit">Cancel</button><button class="sm">Apply</button></div>
         </form>
 
         <article v-else-if="!selectedStoryBeat" class="object-detail">
           <div class="detail-actions"><button type="button" class="sm" @click="beginEdit">Edit arc</button><button type="button" class="sm muted" @click="addStoryBeat">Add beat</button></div>
           <dl class="metadata">
-            <div><dt>Stable ID</dt><dd>{{ selectedStoryArc.id }}</dd></div>
-            <div><dt>Starting beat</dt><dd>{{ selectedStoryArc.startBeat || "None" }}</dd></div>
-            <div><dt>Beat count</dt><dd>{{ selectedStoryArc.beats?.length ?? 0 }}</dd></div>
-            <div><dt>Previous arc</dt><dd>{{ previousArc?.title || "None" }}</dd></div>
-            <div><dt>Next arc</dt><dd>{{ outgoingBeat?.nextArc ? (storyArcs.find(arc => arc.id === outgoingBeat.nextArc)?.title || outgoingBeat.nextArc) : (nextArc?.title || "None") }}</dd></div>
+            <div><dt>ID</dt><dd>{{ selectedStoryArc.id }}</dd></div>
           </dl>
         </article>
 
