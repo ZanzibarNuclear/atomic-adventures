@@ -35,9 +35,9 @@ movement or invalid interaction possible.
 | Term | Meaning |
 | --- | --- |
 | `StoryArc` | A major authored story problem and resolution, such as the Part I opener. |
-| `StoryBeat` | The active unit of canonical progression inside a story arc. |
-| `Scene` | The prose presentation for a story beat under particular circumstances. |
-| `Choice` | An authored player-facing action attached to a story beat. |
+| `StoryBeat` | The active organizing unit for canonical progression inside a story arc. |
+| `Scene` | A contextual move within a story beat, selected for a location and circumstances. |
+| `Choice` | An authored player-facing action attached to a scene. |
 | `authoredActions` | Stable action references a beat wants to add, enrich, or emphasize. |
 | `CompletionCondition` | A typed condition that proves the active story beat is complete. |
 | `BeatEffect` | Enter or complete effects for flags, time, validated state changes, movement, or stage views. |
@@ -65,10 +65,9 @@ normalized during migration, but they are not permanent design concepts.
   the prose layer may show ambient information for the current location while
   the active story beat waits for an explicit completion condition, choice, or
   effect to reconnect progression.
-- **Choices live on story beats.** Scenes are prose variants. Choices and
-  authored actions belong to the active `StoryBeat` so the player-facing action
-  set remains stable while prose varies by location, time, flags, milestones,
-  or seen state.
+- **Choices live on scenes.** A scene presents what happens and what can be
+  chosen at the current location and circumstances. Beat-wide authored actions
+  remain stable while scene prose and contextual choices may vary.
 - **Typed conditions beat scripts.** Completion conditions and beat effects
   should stay small and validated. Do not add a general scripting language
   until a concrete authored sequence proves the need.
@@ -158,10 +157,10 @@ beats:
         trigger: { place: outdoors, hex: eastern-pines }
         prose: Zanzibar pushes through wet pines with an empty stomach and one clear thought: keep moving.
         revisitProse: The slope and pines are already becoming landmarks.
-    choices:
-      - id: follow-fence-uphill
-        label: Follow the fence uphill
-        action: { kind: move, hex: east-pines }
+        choices:
+          - id: follow-fence-uphill
+            label: Follow the fence uphill
+            action: { kind: move, hex: east-pines }
     authoredActions:
       - id: move-hex:east-pines
         kind: move
@@ -188,8 +187,7 @@ Story beat meanings:
 | --- | --- |
 | `id` | Stable beat ID. |
 | `title` | Author-facing beat title. |
-| `scenes` | Prose variants for different triggers and conditions. |
-| `choices` | Authored player-facing actions for the beat. |
+| `scenes` | Contextual moves with prose, criteria, and choices for different locations and conditions. |
 | `authoredActions` | Story-specific action references to add, enrich, or emphasize. |
 | `completesWhen` | Typed completion condition. |
 | `onEnter` | Optional beat effects when the beat starts. |
@@ -232,7 +230,7 @@ controls, validation, tests, and this contract together.
 `useStoryArc` combines three sources into one visible action set:
 
 1. engine-provided possible actions from the current physical state;
-2. choices and authored actions from the active story beat;
+2. choices from the active scene and authored actions from the active story beat;
 3. current character, inventory, facility, wellbeing, milestone, and discovery
    state.
 
@@ -306,7 +304,7 @@ The standalone objective UI has been removed from the target Story mode model.
 Player guidance should come from:
 
 - the active scene's prose and revisit prose;
-- choices on the active story beat;
+- choices on the active scene;
 - visible story actions merged with engine actions;
 - survival and wellbeing warnings;
 - physical world affordances;
