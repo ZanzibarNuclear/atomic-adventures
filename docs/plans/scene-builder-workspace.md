@@ -1,6 +1,6 @@
 # First-Class Scene Builder Workspace Implementation Plan
 
-**Status:** Ready for implementation
+**Status:** Needs rethinking
 **Last updated:** 2026-07-09
 **Primary design:** [Story Mode Technical Design](story-mode-technical-design.md)
 **Primary contracts:** [Story Beats and Scenes](../contracts/story-beats.md), [Play Modes and Story Mode](../contracts/play-modes-and-story-mode.md)
