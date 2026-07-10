@@ -17,6 +17,7 @@ const emit = defineEmits([
   "revert",
   "reload",
   "add-scene",
+  "attach-scene",
   "select-scene",
   "move-beat",
   "split-beat",
@@ -39,6 +40,7 @@ const moveDialog = ref(null);
 const operationError = ref("");
 const splitDialog = ref(null);
 const draggedBeat = ref(null);
+const attachDialog = ref(null);
 
 const selectedStoryArc = computed(() =>
   storyArcs.value.find((arc) => arc.id === selection.value.arcId) ?? null,
@@ -61,6 +63,10 @@ const previousArc = computed(() => storyArcs.value[selectedArcIndex.value - 1] ?
 const nextArc = computed(() => storyArcs.value[selectedArcIndex.value + 1] ?? null);
 const outgoingBeat = computed(() => selectedStoryArc.value?.beats?.at(-1) ?? null);
 const validationEntries = computed(() => errorEntries(props.errors));
+const attachableScenes = computed(() => {
+  const linkedIds = new Set(linkedScenes.value.map((scene) => scene.id));
+  return props.beats.filter((scene) => !linkedIds.has(scene.id));
+});
 
 watch(storyArcs, (arcs) => {
   if (!arcs.length) {
@@ -176,6 +182,22 @@ function addScene() {
     beatId: selectedStoryBeat.value?.id,
     primarySceneId: selectedStoryBeat.value?.scene ?? null,
   });
+}
+
+function requestAttachScene() {
+  attachDialog.value = { sceneId: attachableScenes.value[0]?.id ?? "" };
+}
+
+function applyAttachScene() {
+  if (!attachDialog.value?.sceneId) return;
+  const scene = props.beats.find((item) => item.id === attachDialog.value.sceneId);
+  emit("attach-scene", {
+    arcId: selectedStoryArc.value?.id,
+    beatId: selectedStoryBeat.value?.id,
+    sceneId: scene.id,
+    scene,
+  });
+  attachDialog.value = null;
 }
 
 function requestMove() {
@@ -390,16 +412,13 @@ function uniqueId(base, existingIds = []) {
           <div class="detail-actions">
             <button type="button" class="sm" @click="beginEdit">Edit title</button>
             <button type="button" class="sm muted" @click="requestMove">Move beat</button>
-            <button type="button" class="sm muted" :disabled="linkedScenes.length < 2" @click="requestSplit">Split scenes</button>
+            <button type="button" class="sm muted" :disabled="linkedScenes.length < 2" @click="requestSplit">Split beat</button>
+            <button type="button" class="sm muted" :disabled="!attachableScenes.length" @click="requestAttachScene">Attach scene</button>
             <button type="button" class="sm muted" @click="addScene">Add scene</button>
             <button type="button" class="sm danger" @click="removeStoryBeat">Delete beat</button>
           </div>
           <dl class="metadata">
-            <div><dt>Stable ID</dt><dd>{{ selectedStoryBeat.id }}</dd></div>
-            <div><dt>Arc</dt><dd>{{ selectedStoryArc.title || selectedStoryArc.id }}</dd></div>
-            <div><dt>Position</dt><dd>{{ selectedBeatIndex + 1 }} of {{ selectedStoryArc.beats?.length ?? 0 }}</dd></div>
-            <div><dt>Previous</dt><dd>{{ selectedStoryArc.beats?.[selectedBeatIndex - 1]?.title || previousArc?.title || "None" }}</dd></div>
-            <div><dt>Next</dt><dd>{{ selectedStoryArc.beats?.[selectedBeatIndex + 1]?.title || (selectedStoryBeat.nextArc && storyArcs.find(arc => arc.id === selectedStoryBeat.nextArc)?.title) || "End of arc" }}</dd></div>
+            <div><dt>ID</dt><dd>{{ selectedStoryBeat.id }}</dd></div>
           </dl>
           <section class="scenes-section">
             <header><div><p class="label">Linked content</p><h3>Scenes</h3></div><span>{{ linkedScenes.length }}</span></header>
@@ -409,6 +428,7 @@ function uniqueId(base, existingIds = []) {
                   <strong>{{ scene.heading || scene.id }}</strong>
                   <span>{{ sceneLocation(scene) }}</span>
                   <p>{{ scene.text }}</p>
+                  <small>Open in scene editor</small>
                 </button>
               </li>
             </ol>
@@ -461,6 +481,21 @@ function uniqueId(base, existingIds = []) {
         <div class="toolbar"><button type="button" class="sm muted" @click="splitDialog = null">Cancel</button><button class="sm">Split beat</button></div>
       </form>
     </div>
+    <div v-if="attachDialog" class="dialog-backdrop" @click.self="attachDialog = null">
+      <form class="dialog" role="dialog" aria-modal="true" aria-labelledby="attach-dialog-title" @submit.prevent="applyAttachScene">
+        <p class="label">Existing content</p>
+        <h2 id="attach-dialog-title">Attach scene</h2>
+        <label>Scene
+          <select v-model="attachDialog.sceneId" class="attach-scene-select">
+            <option v-for="scene in attachableScenes" :key="scene.id" :value="scene.id">
+              {{ scene.heading || scene.id }} — {{ sceneLocation(scene) }}{{ scene.storyBeat ? ` (currently ${scene.storyBeat})` : " (unattached)" }}
+            </option>
+          </select>
+        </label>
+        <p class="dialog-note">Attaching changes this scene's story beat. Its prose, trigger, choices, and other scene details stay unchanged.</p>
+        <div class="toolbar"><button type="button" class="sm muted" @click="attachDialog = null">Cancel</button><button class="sm" :disabled="!attachDialog.sceneId">Attach scene</button></div>
+      </form>
+    </div>
   </section>
 </template>
 
@@ -501,6 +536,7 @@ h2, h3, p { margin: 0; }
 .scene-select { display: grid; gap: .3rem; width: 100%; padding: .85rem; }
 .scene-select span { color: #9ba4b2; font-size: .8rem; }
 .scene-select p { color: #c7cdd7; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.scene-select small { color: #d9a441; font-size: .74rem; }
 .validation-list { margin-top: 1rem; }
 .field-error { color: #f3a69d; margin-top: .4rem; }
 .danger { color: #ffc0b8; }

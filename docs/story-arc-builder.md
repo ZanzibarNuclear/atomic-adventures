@@ -9,7 +9,8 @@ Station scene editor to change prose, triggers, conditions, and choices.
 2. Select an arc name to see its starting beat, beat count, and neighboring
    handoffs.
 3. Expand the arc and select a beat to see its position and linked scenes.
-4. Select a scene to open it in the existing map-first scene editor.
+4. Select a scene to open it for editing in the existing map-first scene
+   editor.
 
 Selection is read-only. Use **Edit arc** or **Edit title** when you intend to
 change a title, then use **Save all** to publish the story-arc document.
@@ -37,6 +38,17 @@ the original beat and are not copied to the new beat.
 To move the opening portion of one arc to the previous arc, split at the first
 scene that should remain in the later arc, select the original first portion,
 and move it to the end of the previous arc.
+
+## Attach or Add a Scene
+
+Use **Attach scene** when the scene already exists. The picker shows available
+scenes, their locations, and any story beat they currently belong to. Attaching
+changes only the scene's story-beat association; its prose, trigger, choices,
+and other content stay unchanged.
+
+Use **Add scene** when writing a new scene. It opens a blank scene draft in the
+map-first editor with the selected story beat already assigned. It does not
+copy an existing scene. Complete the scene details there and save it normally.
 
 ## Save and Resolve Conflicts
 

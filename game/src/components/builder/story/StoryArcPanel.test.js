@@ -35,6 +35,7 @@ const documentText = JSON.stringify({
 const beats = [
   { id: "center-pines", storyBeat: "reach-the-gate", heading: "The fence line", text: "The fence starts here.", trigger: { place: "outdoors", hex: "center-pines" } },
   { id: "south-pines", storyBeat: "reach-the-gate", heading: "Blocking the way", text: "The fence continues downhill.", trigger: { place: "outdoors", hex: "south-pines" } },
+  { id: "unlinked-scene", storyBeat: null, heading: "An unused scene", text: "Waiting to be attached.", trigger: { place: "outdoors", hex: "south-pines" } },
 ];
 
 function mountPanel() {
@@ -82,6 +83,37 @@ describe("StoryArcPanel focused authoring", () => {
     expect(wrapper.text()).not.toContain("Document JSON");
   });
 
+  it("keeps beat details to the ID and linked scenes", async () => {
+    const wrapper = mountPanel();
+    await selectBeat(wrapper);
+
+    const metadata = wrapper.find(".metadata").text();
+    expect(metadata).toContain("ID");
+    expect(metadata).not.toContain("Stable ID");
+    expect(metadata).not.toContain("Arc");
+    expect(metadata).not.toContain("Position");
+    expect(metadata).not.toContain("Previous");
+    expect(metadata).not.toContain("Next");
+    expect(wrapper.findAll(".detail-actions button").map((button) => button.text())).toEqual([
+      "Edit title", "Move beat", "Split beat", "Attach scene", "Add scene", "Delete beat",
+    ]);
+  });
+
+  it("attaches an existing scene through a picker", async () => {
+    const wrapper = mountPanel();
+    await selectBeat(wrapper);
+    const attach = wrapper.findAll(".detail-actions button").find((button) => button.text() === "Attach scene");
+    await attach.trigger("click");
+    await wrapper.find(".attach-scene-select").setValue("unlinked-scene");
+    await wrapper.find(".dialog").trigger("submit");
+
+    expect(wrapper.emitted("attach-scene")?.[0]?.[0]).toMatchObject({
+      arcId: "part-i",
+      beatId: "reach-the-gate",
+      sceneId: "unlinked-scene",
+    });
+  });
+
   it("preserves hidden runtime fields when editing a beat title", async () => {
     const wrapper = mountPanel();
     await selectBeat(wrapper);
@@ -112,7 +144,7 @@ describe("StoryArcPanel focused authoring", () => {
   it("emits an atomic split request with hidden fields retained on the original beat", async () => {
     const wrapper = mountPanel();
     await selectBeat(wrapper);
-    const split = wrapper.findAll(".detail-actions button").find((button) => button.text() === "Split scenes");
+    const split = wrapper.findAll(".detail-actions button").find((button) => button.text() === "Split beat");
     await split.trigger("click");
     await wrapper.find(".dialog").trigger("submit");
 

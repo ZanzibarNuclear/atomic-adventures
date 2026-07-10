@@ -334,6 +334,10 @@ authoring:
    order, cross-arc movement, and arc boundaries.
 4. Selecting a linked scene opens the existing map-first Area or Utility
    Station scene editor for prose, triggers, conditions, and choices.
+5. **Attach scene** associates an existing scene with the selected story beat
+   without changing the scene's other content. **Add scene** creates a blank
+   scene draft pre-associated with the selected story beat; it must not clone a
+   linked scene implicitly.
 
 The Story Arc workspace does not display or edit `allowed` movement/action
 policy, `completesWhen`, `onEnter`, or `onComplete`. Those fields remain part of

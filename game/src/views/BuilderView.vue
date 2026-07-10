@@ -514,17 +514,35 @@ function newBeat(copy = null) {
 function newSceneForStoryBeat({ beatId, primarySceneId = null } = {}) {
   void requestContextChange(async () => {
     activeWorkspace.value = locationMode.value === "outdoors" ? "outdoors" : "rooms";
-    const sourceScene = primarySceneId
-      ? beats.value.find((beat) => beat.id === primarySceneId)
-      : null;
-    beginNewBeat(sourceScene);
+    void primarySceneId;
+    beginNewBeat();
     if (!draft.value) return;
     draft.value.storyBeat = beatId ?? null;
     draft.value.modes = ["story"];
-    draft.value.heading = sourceScene?.heading ? `${sourceScene.heading} variant` : "New scene";
-    draft.value.text = sourceScene?.text ?? "";
-    status.value = "Drafted a new scene for this story beat.";
+    draft.value.heading = "New scene";
+    draft.value.text = "";
+    status.value = "Drafted a blank scene already associated with this story beat. Add its details, then save.";
   });
+}
+
+async function attachSceneToStoryBeat({ beatId, scene } = {}) {
+  if (!beatId || !scene?.id) return;
+  storyArcStatus.value = `Attaching scene ${scene.id}...`;
+  try {
+    await storyApi(`/api/story/areas/${STORY_AREA_ID}/beats/${encodeURIComponent(scene.id)}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        beat: { ...scene, storyBeat: beatId },
+        expectedVersion: scene.version,
+      }),
+    });
+    await loadBeats();
+    storyArcStatus.value = `Attached scene ${scene.id} to ${beatId}.`;
+  } catch (error) {
+    storyArcStatus.value = error.status === 409
+      ? "That scene changed elsewhere. Reload before attaching it."
+      : error.message;
+  }
 }
 
 function openStoryBeatScene({ sceneId } = {}) {
@@ -802,6 +820,7 @@ async function applyStoryRouteQuery() {
       @revert="revertStoryArcDocument"
       @reload="loadStoryArcDocument"
       @add-scene="newSceneForStoryBeat"
+      @attach-scene="attachSceneToStoryBeat"
       @select-scene="openStoryBeatScene"
       @split-beat="splitStoryBeatScenes"
       @remove-scene="removeStoryBeatScene"
