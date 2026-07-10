@@ -548,8 +548,10 @@ async function attachSceneToStoryBeat({ beatId, scene } = {}) {
 function openStoryBeatScene({ sceneId } = {}) {
   const scene = beats.value.find((beat) => beat.id === sceneId);
   if (!scene) return;
+  if (!confirmStoryArcNavigation()) return;
   void requestContextChange(async () => {
     await selectSceneLocation(scene);
+    activeWorkspace.value = scene.trigger?.hex ? "outdoors" : "rooms";
     await loadBeat(scene.id);
   });
 }
