@@ -4,7 +4,7 @@ import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
 import InventoryBrowser from "./InventoryBrowser.vue";
 
-function mountBrowser({ selectedHolding, holders, transferTargets }) {
+function mountBrowser({ selectedHolding, holders, transferTargets, actionFeedback = "" }) {
   return mount(InventoryBrowser, {
     props: {
       holders,
@@ -13,6 +13,7 @@ function mountBrowser({ selectedHolding, holders, transferTargets }) {
       transferTargets,
       publicAssetPath: (path) => path,
       actionPolicy: { unrestricted: true },
+      actionFeedback,
     },
   });
 }
@@ -27,6 +28,25 @@ const consoleHolder = {
 };
 
 describe("InventoryBrowser transfers", () => {
+  it("does not reveal numeric wellbeing changes in item details", () => {
+    const selectedHolding = {
+      type: "catalog",
+      id: "energy-bar",
+      item: "energy-bar",
+      label: "Energy bar",
+      quantity: 1,
+      holder: carriedHolder,
+    };
+    const wrapper = mountBrowser({
+      selectedHolding,
+      holders: [{ ...carriedHolder, records: [selectedHolding] }],
+      transferTargets: [carriedHolder],
+      actionFeedback: "Energy +30 (40 → 70)",
+    });
+
+    expect(wrapper.text()).not.toContain("Energy +30 (40 → 70)");
+  });
+
   it("offers to put carried items down at the current location", async () => {
     const selectedHolding = {
       type: "instance",

@@ -12,16 +12,13 @@ const wellbeing = computed(() => characterWellbeingOverview(props.character));
 <template>
   <div class="overview-grid">
     <section class="panel-card">
-      <h3>Vitals</h3>
+      <h3>Health</h3>
       <dl class="stat-list">
         <div v-for="vital in wellbeing.vitals" :key="vital.id">
           <dt>{{ vital.label }}</dt>
           <dd>
             <span class="measure-detail" :class="vital.tone">
-              <meter
-                :min="vital.min"
-                :max="vital.max"
-                :value="vital.value">
+              <meter :min="vital.min" :max="vital.max" :value="vital.value">
                 {{ vital.state }}
               </meter>
               <span>{{ vital.state }}</span>
@@ -42,7 +39,6 @@ const wellbeing = computed(() => characterWellbeingOverview(props.character));
         </li>
       </ul>
     </section>
-
   </div>
 </template>
 
@@ -58,7 +54,9 @@ const wellbeing = computed(() => characterWellbeingOverview(props.character));
   border-radius: 10px;
   background: rgba(24, 29, 37, 0.72);
 }
-h3 { margin: 0; }
+h3 {
+  margin: 0;
+}
 .section-heading {
   margin-top: 1.15rem;
 }

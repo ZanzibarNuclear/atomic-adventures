@@ -9,7 +9,6 @@ const props = defineProps({
   transferTargets: { type: Array, required: true },
   publicAssetPath: { type: Function, required: true },
   actionPolicy: { type: Object, default: null },
-  actionFeedback: { type: String, default: "" },
 });
 
 const emit = defineEmits(["select-holding", "transfer-item", "use-item"]);
@@ -198,7 +197,6 @@ function closeToContainer() {
     </div>
 
     <aside class="item-detail" aria-live="polite">
-      <p v-if="actionFeedback" class="action-feedback">{{ actionFeedback }}</p>
       <template v-if="selectedHolding">
         <div class="detail-top">
           <p class="label">Item Details</p>
@@ -428,15 +426,6 @@ function closeToContainer() {
   border-radius: 12px;
   background: rgba(18, 24, 36, 0.78);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-.action-feedback {
-  margin: 0 0 0.85rem;
-  padding: 0.7rem 0.85rem;
-  border: 1px solid rgba(128, 190, 154, 0.42);
-  border-radius: 8px;
-  background: rgba(65, 110, 82, 0.2);
-  color: #d8f2df;
-  font-size: 0.92rem;
 }
 .detail-top {
   display: flex;
