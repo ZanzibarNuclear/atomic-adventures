@@ -30,6 +30,12 @@ describe("character model", () => {
     expect(result.character.documents.length).toBeGreaterThan(0);
   });
 
+  it("does not retain unused artifact tags", () => {
+    const result = validateCharacterDocument(loadCharacter());
+
+    expect(result.character.items.every((item) => !("tags" in item))).toBe(true);
+  });
+
   it("rejects duplicate IDs and unresolved groups/documents", () => {
     const candidate = loadCharacter();
     candidate.items.push({

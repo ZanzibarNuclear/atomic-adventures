@@ -44,7 +44,6 @@ export function normalizeCharacterDocument(input = {}) {
       kind: text(item.kind) || "item",
       group: nullableText(item.group),
       icon: nullableText(item.icon),
-      tags: stringList(item.tags),
       carrying: item.carrying === "stack" ? "stack" : "unique",
       maxQuantity: finiteNumber(item.maxQuantity, item.carrying === "stack" ? 99 : 1),
       massKg: item.massKg == null ? null : finiteNumber(item.massKg, 0),

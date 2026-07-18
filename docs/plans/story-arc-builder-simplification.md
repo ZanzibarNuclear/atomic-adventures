@@ -35,10 +35,11 @@ The first proof workflow is:
 - Arc boundaries are defined by ordered membership plus the outgoing handoff
   from the last beat. Authors should not have to manually repair `startBeat`,
   `next`, and `nextArc` for ordinary reorder, move, and split operations.
-- Runtime movement policy, authored-action lists, completion conditions, and
+- Story-guidance references, authored-action lists, completion conditions, and
   beat effects are not shown or edited in the Story Arc Builder. Their fields,
   canonical values, validation, persistence, exports, and runtime behavior stay
-  unchanged.
+  unchanged. Guidance can emphasize an action, never serve as a permission
+  policy that hides choices or physically valid actions.
 - Raw document JSON is removed from the UI. Validation errors are translated
   into object- and field-level messages.
 - There is no “active beat preview” in the authoring panel. Runtime behavior is
@@ -54,8 +55,8 @@ otherwise changing the persisted data or its runtime meaning.
 
 | Current section | Runtime purpose | Simplified treatment |
 | --- | --- | --- |
-| Movement references | A per-beat list of movement destinations that Story mode currently surfaces in addition to physical movement rules. The canonical Part I data does populate these lists on every beat. | Remove only the editor card. Preserve every `allowed.movement` value and all related runtime behavior. |
-| Authored actions and views | Additional per-beat action IDs and stage views used by the current runtime. These are distinct from choices in the present model, although both can contribute player actions. The canonical Part I data populates story-forward actions on most beats. | Remove only the editor card. Preserve every `allowed` value and all related runtime behavior. Choices continue to be edited in the existing scene builder. |
+| Movement references | A per-beat list of destinations Story mode can use to identify or emphasize a story-continuing direction. It supplements physical movement rules; it never restricts them. The canonical Part I data does populate these lists on every beat. | Remove only the editor card. Preserve every `allowed.movement` value as guidance. |
+| Authored actions and views | Additional per-beat action IDs and stage views the runtime can add, enrich, or emphasize. They are distinct from scene choices, and they are not permissions. The canonical Part I data populates story-forward actions on most beats. | Remove only the editor card. Preserve every `allowed` value as guidance. Choices continue to be edited in the existing scene builder and are never filtered through beat guidance. |
 | Completion condition | A condition on an individual beat—not an arc—that currently tells the runtime when to advance. Canonical beats use location, flag, or facility conditions. | Remove only the editor card. Preserve every `completesWhen` value, its validation, and automatic beat progression. |
 | Beat effects | Per-beat changes the runtime can perform on entry or completion. Current canonical content uses an enter effect on `check-console`; most beats have none. | Remove only the editor card. Preserve every `onEnter` and `onComplete` value and its runtime behavior. |
 | Active beat preview | A derived list of movement and authored action IDs, not a preview of the scene or player experience. | Remove it. It duplicates the noisy action data and its name promises a fidelity it does not provide. |
@@ -120,7 +121,7 @@ existing Area or Utility Station scene editor at that scene. The arc panel does
 not include an embedded prose editor or scene preview.
 
 Beat edit mode contains the beat title and structural scene/flow operations
-only. It has no advanced runtime-policy editor.
+only. It has no advanced runtime-guidance editor.
 
 ## Boundary Editing Operations
 
@@ -303,7 +304,7 @@ explicit domain commands. Serialization remains at the API boundary.
   or beat effects, even as read-only summaries or advanced sections.
 - Showing a simulated player action list as a preview.
 - Exposing every story-arc schema field on initial selection.
-- Preserving the current `allowed` UI as a legacy advanced mode.
+- Preserving a beat-guidance editor as a legacy advanced mode.
 - Adding a general graph editor before ordinary ordered arc boundaries work.
 - Changing canonical Part I arc content as part of the UI implementation. The
   content boundary change is a separate authoring action performed after the
@@ -314,7 +315,7 @@ explicit domain commands. Serialization remains at the API boundary.
 1. Selecting “Part I Station” shows arc information only; none of its beat
    fields are editable until Edit is chosen.
 2. Selecting `find-a-way-past-fence` shows that beat and its linked scenes, but
-   no movement, action-policy, completion-condition, or beat-effect fields.
+   no movement, action-guidance, completion-condition, or beat-effect fields.
 3. Clicking a linked scene opens it in the existing map-first Story Builder.
 4. Moving a whole beat to “Part I Opener” updates both arc boundaries and
    leaves all linked scenes attached.

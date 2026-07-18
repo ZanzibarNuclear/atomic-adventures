@@ -48,26 +48,23 @@ describe("story action availability", () => {
     expect(filterAllowedActions(actions, { mode: "story", allowed: {} })).toEqual(actions);
   });
 
-  it("requires authored permission for searches and passage controls in story mode", () => {
+  it("does not use a beat policy to hide scene choices or ordinary world actions", () => {
     const actions = [
+      { id: "story:0", label: "Sleep" },
       { id: "search:barrier", label: "Inspect the fence" },
       { id: "passage-toggle:compound-gate", label: "Open the gate" },
       { id: "passage-unlock:service-bridge", label: "Unlock the bridge" },
       { id: "passage:compound-gate", label: "Walk through the gate" },
     ];
 
-    expect(filterAllowedActions(actions, { mode: "story", allowed: {} })).toEqual([]);
+    expect(filterAllowedActions(actions, { mode: "story", allowed: {} })).toEqual(actions);
     expect(filterAllowedActions(actions, {
       mode: "story",
       allowed: {
         outdoorActions: ["search:barrier", "passage-toggle:compound-gate"],
         storyForwardActions: ["passage:compound-gate"],
       },
-    })).toEqual([
-      { id: "search:barrier", label: "Inspect the fence" },
-      { id: "passage-toggle:compound-gate", label: "Open the gate" },
-      { id: "passage:compound-gate", label: "Walk through the gate" },
-    ]);
+    })).toEqual(actions);
   });
 
   it("allows the required conference-room door during the first shelter beat", () => {

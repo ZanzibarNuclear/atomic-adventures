@@ -3,6 +3,7 @@ import { mapData } from '../../testing/content.js'
 import { filterAllowedActions } from '../../../composables/storyActionAvailability.js'
 import {
   buildOutdoorPlayActions,
+  buildOutdoorStatusLines,
   getMovementOptions,
   handleOutdoorChooseAction,
 } from '../../../composables/usePlayPanel.js'
@@ -138,5 +139,39 @@ describe('landmark reachability', () => {
     )
 
     expect(entered).toBe(true)
+  })
+
+  it('lists and retrieves portable items left at an outdoor location', () => {
+    const { outdoor } = buildGameplayWorld(mapData, { startHex: 'utility-yard' })
+    const holdings = [{
+      type: 'instance',
+      id: 'field-backpack-1',
+      label: 'field backpack',
+    }]
+    const actions = buildOutdoorPlayActions(outdoor, null, null, holdings)
+    const statusLines = buildOutdoorStatusLines(
+      outdoor,
+      { building: { label: 'Utility Station' } },
+      null,
+      holdings,
+    )
+    let pickedUp = null
+
+    handleOutdoorChooseAction(
+      outdoor,
+      () => {},
+      'holding-pickup:instance:field-backpack-1',
+      () => {},
+      () => {},
+      (encoded) => { pickedUp = encoded },
+    )
+
+    expect(actions).toContainEqual({
+      id: 'holding-pickup:instance:field-backpack-1',
+      label: 'Pick up the field backpack',
+      kind: 'pickup',
+    })
+    expect(statusLines).toContain('On the ground: field backpack.')
+    expect(pickedUp).toBe('instance:field-backpack-1')
   })
 })

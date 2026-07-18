@@ -27,7 +27,7 @@ canonical constraints.
 
 World and facility systems remain the source of truth for physical
 possibility, movement, safety, and survival pressure. Story mode can surface,
-sort, enrich, or hide story-sensitive actions, but it cannot make an impossible
+sort, and enrich story-sensitive actions, but it cannot make an impossible
 movement or invalid interaction possible.
 
 ## Vocabulary
@@ -65,6 +65,10 @@ normalized during migration, but they are not permanent design concepts.
   the prose layer may show ambient information for the current location while
   the active story beat waits for an explicit completion condition, choice, or
   effect to reconnect progression.
+- **Guidance is not permission.** A beat can add, enrich, sort, or emphasize
+  actions, but it does not hide a selected scene's choices or otherwise decide
+  whether a physically valid world, item, door, passage, or stage action is
+  allowed. The world and wellbeing systems remain the authority for that.
 - **Choices live on scenes.** A scene presents what happens and what can be
   chosen at the current location and circumstances. Beat-wide authored actions
   remain stable while scene prose and contextual choices may vary.
@@ -237,6 +241,12 @@ controls, validation, tests, and this contract together.
 The resulting actions should look like ordinary player actions. Story mode
 does not need to visually label which action is canonical.
 
+The selected scene's choices are always presented. Beat guidance may mark a
+story-continuing action or make it easier to find, but it is not a permission
+list for choices or engine actions. A scene choice can still be unavailable
+when the underlying world cannot perform it—for example, when its movement
+destination is unreachable—but no separate story-arc policy may hide it.
+
 Authored action references should describe player intent in stable IDs, not
 component implementation details:
 
@@ -321,7 +331,7 @@ authored Story mode arc.
 
 ## Builder Responsibilities
 
-Story Builder separates story structure from scene and runtime-policy
+Story Builder separates story structure from scene and runtime-guidance
 authoring:
 
 1. The Story Arc workspace shows arcs and their ordered beats as an expandable
@@ -337,9 +347,10 @@ authoring:
    scene draft pre-associated with the selected story beat; it must not clone a
    linked scene implicitly.
 
-The Story Arc workspace does not display or edit `allowed` movement/action
-policy, `completesWhen`, `onEnter`, or `onComplete`. Those fields remain part of
-the canonical StoryBeat data and runtime contract. Structural edits must
+The Story Arc workspace does not display or edit the beat's story-guidance
+references, `completesWhen`, `onEnter`, or `onComplete`. Those fields remain
+part of the canonical StoryBeat data and runtime contract. Guidance references
+may affect emphasis, but never action availability. Structural edits must
 round-trip them unchanged. Moving a beat carries them with that beat. Splitting
 a beat leaves them unchanged on the original beat and does not silently copy
 them to the new beat.
@@ -423,8 +434,9 @@ This behavior requires tests for:
 - scene selection by trigger, location match, time, milestones, mode, and seen
   state;
 - story-continuing action visibility in Story mode;
-- ordinary movement remaining available in Story mode when physically valid;
-- story-sensitive action hiding or blocking outside the active beat;
+- scene choices and ordinary engine actions remaining available in Story mode
+  when physically valid;
+- story guidance affecting emphasis without hiding or blocking an action;
 - map clicks and play-panel movement sharing the same physical movement rules;
 - forced movement, forced time passage, forced stage views, and beat effects;
 - beat stability when ordinary movement does not satisfy completion;

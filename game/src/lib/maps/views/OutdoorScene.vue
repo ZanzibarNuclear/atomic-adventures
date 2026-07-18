@@ -113,6 +113,8 @@ const props = defineProps({
   auditEnabled: { type: Boolean, default: false },
   actionPolicy: { type: Object, default: null },
   wellbeingOverview: { type: Object, default: null },
+  nearbyHoldings: { type: Array, default: () => [] },
+  pickupHolding: { type: Function, required: true },
   locationMedia: { type: Object, default: null },
   locationMediaMode: { type: String, default: "map" },
   locationMediaIndex: { type: Number, default: 0 },
@@ -149,7 +151,12 @@ const auditSummary = computed(() =>
 );
 
 const statusLines = computed(() =>
-  buildOutdoorStatusLines(props.outdoor, props.indoor, props.wellbeingOverview),
+  buildOutdoorStatusLines(
+    props.outdoor,
+    props.indoor,
+    props.wellbeingOverview,
+    props.nearbyHoldings,
+  ),
 );
 
 const chooseActions = computed(() => {
@@ -166,7 +173,12 @@ const playActions = computed(() => {
   void props.outdoor.state?.stand?.x;
   void props.outdoor.state?.stand?.y;
   void props.outdoor.state?.discoveredOpenings?.length;
-  return buildOutdoorPlayActions(props.outdoor, props.pendingBeat, props.indoor);
+  return buildOutdoorPlayActions(
+    props.outdoor,
+    props.pendingBeat,
+    props.indoor,
+    props.nearbyHoldings,
+  );
 });
 
 const actions = computed(() => [...chooseActions.value, ...playActions.value]);
@@ -201,6 +213,7 @@ function onAction(id) {
     id,
     props.travelToHex,
     enterAllowedBuilding,
+    props.pickupHolding,
   );
 }
 

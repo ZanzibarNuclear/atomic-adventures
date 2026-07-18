@@ -17,67 +17,14 @@ export function annotateActionPrompts(actions = [], policy) {
 export function isStoryForwardAction(action, policy) {
   if (!policy || policy.unrestricted || policy.mode !== "story") return false;
   const actionId = typeof action === "string" ? action : action?.id;
-  const allowed = policy.allowed ?? {};
-  return actionIdMatchesAllowed(actionId, allowed.storyForwardActions) ||
-    actionMatchesMovement(action, allowed.movement);
-}
-
-export function isOptionalAction(action, policy) {
-  if (!policy || policy.unrestricted || policy.mode !== "story") return false;
-  const actionId = typeof action === "string" ? action : action?.id;
-  return actionIdMatchesAllowed(actionId, policy.allowed?.optionalActions);
+  const guidance = policy.allowed ?? {};
+  return actionIdMatchesAllowed(actionId, guidance.storyForwardActions) ||
+    actionMatchesMovement(action, guidance.movement);
 }
 
 export function isActionAllowed(action, policy, context = {}) {
   if (policy?.mustRest) return isRestAction(action, context);
-  if (!policy || policy.unrestricted || policy.mode !== "story") return true;
-  const actionId = typeof action === "string" ? action : action?.id;
-  if (!actionId) return false;
-  const allowed = policy.allowed ?? {};
-  if (isExplicitlyAllowed(actionId, allowed)) return true;
-  if (isStageViewAllowed(policy, action)) return true;
-
-  if (actionId.startsWith("story:")) {
-    return listIncludes(allowed.storyChoices, actionId) ||
-      isMovementChoice(action) ||
-      actionMatchesMovement(action, allowed.movement) ||
-      Boolean(action?.enterBuilding);
-  }
-  if (action?.enterBuilding) return true;
-  if (actionId.startsWith("route:") || actionId.startsWith("barrier:") || actionId.startsWith("move-hex:")) return true;
-  if (actionId.startsWith("move-room:")) return true;
-  if (actionId.startsWith("move-exterior:")) return true;
-  if (actionId.startsWith("move-stand:")) return true;
-  if (actionId.startsWith("exit-world:")) return true;
-  if (actionId.startsWith("door-") || actionId.startsWith("switch:")) return true;
-  if (actionId.startsWith("action:")) {
-    const raw = actionId.slice("action:".length);
-    return listIncludes(allowed.indoorActions, raw) || listIncludes(allowed.indoorActions, actionId);
-  }
-  if (actionId.startsWith("pickup:")) {
-    const raw = actionId.slice("pickup:".length);
-    return listIncludes(allowed.indoorActions, raw) || listIncludes(allowed.indoorActions, actionId);
-  }
-  if (actionId.startsWith("holding-pickup:")) return listIncludes(allowed.indoorActions, actionId);
-  if (actionId.startsWith("item-action:")) {
-    const raw = actionId.slice("item-action:".length);
-    return listIncludes(allowed.itemActions, raw) || listIncludes(allowed.itemActions, actionId);
-  }
-  if (context.itemId && context.actionId) return itemActionAllowed(allowed, context.itemId, context.actionId);
-  if (
-    actionId === "search:barrier" ||
-    actionId.startsWith("passage:") ||
-    actionId.startsWith("passage-unlock:") ||
-    actionId.startsWith("passage-toggle:")
-  ) {
-    return false;
-  }
-  if (actionId.includes(":")) {
-    return listIncludes(allowed.indoorActions, actionId) ||
-      listIncludes(allowed.outdoorActions, actionId) ||
-      listIncludes(allowed.developerActions, actionId);
-  }
-  return false;
+  return true;
 }
 
 export function isDestinationAllowed(policy, destination) {
@@ -87,22 +34,9 @@ export function isDestinationAllowed(policy, destination) {
 }
 
 export function isStageViewAllowed(policy, viewOrAction) {
-  if (!policy || policy.unrestricted || policy.mode !== "story") return true;
-  const allowed = policy.allowed ?? {};
-  const view = stageViewFor(viewOrAction);
-  if (!view?.kind) return false;
-  return (allowed.stageViews ?? []).some((candidate) => {
-    if (candidate.kind !== view.kind) return false;
-    if (candidate.id && candidate.id !== view.id) return false;
-    if (candidate.focus && candidate.focus !== view.focus) return false;
-    if (candidate.tab && candidate.tab !== view.tab) return false;
-    return true;
-  });
-}
-
-function isMovementChoice(action) {
-  if (!action || typeof action === "string") return false;
-  return Boolean(action.toHexId || action.toRoomId || action.toExteriorNode || action.enterBuilding);
+  void policy;
+  void viewOrAction;
+  return true;
 }
 
 function isRestAction(action, context = {}) {
@@ -110,30 +44,6 @@ function isRestAction(action, context = {}) {
   const label = typeof action === "string" ? "" : action?.label;
   const haystack = `${actionId ?? ""} ${label ?? ""} ${context.actionId ?? ""}`.toLowerCase();
   return haystack.includes("rest") || haystack.includes("sleep");
-}
-
-function stageViewFor(viewOrAction) {
-  if (!viewOrAction) return null;
-  if (viewOrAction.kind) return viewOrAction;
-  if (viewOrAction.id === "hydro-console:open") return { kind: "console", id: "hydro" };
-  if (viewOrAction.id === "holo-reader:open" || viewOrAction.id === "holo-reader:library") return { kind: "lesson" };
-  return null;
-}
-
-function isExplicitlyAllowed(actionId, allowed) {
-  return listIncludes(allowed.indoorActions, actionId) ||
-    listIncludes(allowed.outdoorActions, actionId) ||
-    listIncludes(allowed.storyChoices, actionId) ||
-    listIncludes(allowed.itemActions, actionId) ||
-    listIncludes(allowed.developerActions, actionId) ||
-    actionIdMatchesAllowed(actionId, allowed.storyForwardActions) ||
-    actionIdMatchesAllowed(actionId, allowed.optionalActions);
-}
-
-function itemActionAllowed(allowed, itemId, actionId) {
-  return listIncludes(allowed.itemActions, `${itemId}.${actionId}`) ||
-    listIncludes(allowed.itemActions, `item-action:${itemId}.${actionId}`) ||
-    listIncludes(allowed.itemActions, actionId);
 }
 
 function actionIdMatchesAllowed(actionId, allowedIds = []) {

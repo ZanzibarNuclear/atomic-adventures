@@ -58,7 +58,6 @@ const inventoryHolders = computed(() => {
       kind: record.definition?.kind ?? "item",
       icon: record.definition?.icon ?? null,
       actions: record.definition?.actions ?? [],
-      relatedDocument: record.definition?.relatedDocument ?? null,
     })),
   }));
 });
@@ -68,6 +67,7 @@ const transferTargets = computed(() => inventoryHolders.value
     id: holder.id,
     label: holder.label ?? holder.id,
     kind: holder.kind,
+    accepts: holder.accepts ?? null,
   })));
 const selectedHolding = computed(() =>
   inventoryHolders.value.flatMap((holder) =>

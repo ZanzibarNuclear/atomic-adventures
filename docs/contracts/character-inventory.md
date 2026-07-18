@@ -185,7 +185,6 @@ items:
     kind: tool
     group: tools
     icon: items/intake-toolkit.webp
-    tags: [hydro, maintenance]
     carrying: unique
     maxQuantity: 1
     portable: true
@@ -205,7 +204,6 @@ Supported fields are:
 | `kind` | Semantic type such as `key`, `tool`, `book`, `consumable`, `part`, or `quest` |
 | `group` | Inventory group configured for the panel |
 | `icon` | Optional asset reference |
-| `tags` | Author labels for filtering and future rules; tags do not execute behavior |
 | `carrying` | `unique` or `stack` |
 | `maxQuantity` | Maximum carried quantity; `1` for unique items |
 | `portable` | Whether the item can move between holders |
@@ -351,6 +349,13 @@ The player may transfer items between currently accessible holders when
 capacity and acceptance rules permit it. Leaving an item in the world creates
 or updates a stable placement at the current location. Items cannot teleport
 between inaccessible holders.
+
+When the player puts down a carried item, the inventory prefers a compatible
+fixed holder at the active stand. One available surface produces a direct
+action such as `Put down on Conference table`; several surfaces are offered as
+separate named choices alongside the floor; and no suitable surface leaves the
+ordinary `Put down` action as the floor fallback. Nearby items may be picked
+up, but are not moved directly between world holders from the inventory.
 
 An item is destroyed or consumed only when an explicit action applies a
 removal effect. Quest-critical items should ordinarily be non-consumable.

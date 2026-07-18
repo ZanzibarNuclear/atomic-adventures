@@ -289,6 +289,12 @@ of scene may change both prose and choices without advancing the StoryBeat.
 Actions that should remain available throughout a beat belong in the beat's
 authored-action set or come from the engine's physically possible actions.
 
+Once a scene is selected, its choices are not filtered through a separate
+story-beat permission list. The active beat provides guidance and progression,
+not an iron-clad action gate. World reachability, item requirements, facility
+state, and wellbeing rules still determine whether an underlying action can
+actually be performed.
+
 Choices are optional. If a scene has no choices, its visible actions may come
 entirely from engine-provided possible actions and beat-authored action
 references.
@@ -306,8 +312,8 @@ A choice contains:
 | `nextBeat` | Optional explicit beat advance when cleaner than a condition |
 
 Movement choices obey the same reachability checks as ordinary map movement.
-An unreachable story choice is hidden or disabled rather than allowing
-narrative data to bypass barriers.
+An unreachable story choice is hidden or disabled by that physical check rather
+than allowing narrative data to bypass barriers.
 
 Flag changes, validated effects, and optional time costs are committed before
 movement. If applying a time cost or effect fails, the player does not move and

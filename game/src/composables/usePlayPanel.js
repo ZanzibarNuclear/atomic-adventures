@@ -221,7 +221,12 @@ export function buildOutdoorDirectMovementActions(outdoor, pendingBeat = null) {
     }));
 }
 
-export function buildOutdoorPlayActions(outdoor, pendingBeat = null, indoor = null) {
+export function buildOutdoorPlayActions(
+  outdoor,
+  pendingBeat = null,
+  indoor = null,
+  nearbyHoldings = [],
+) {
   return [
     ...buildOutdoorRouteActions(outdoor, pendingBeat),
     ...buildOutdoorBarrierFollowActions(outdoor, pendingBeat),
@@ -231,6 +236,11 @@ export function buildOutdoorPlayActions(outdoor, pendingBeat = null, indoor = nu
     ...buildOutdoorPassageUnlockActions(outdoor),
     ...buildOutdoorPassageToggleActions(outdoor),
     ...buildOutdoorPassageActions(outdoor),
+    ...nearbyHoldings.map((record) => ({
+      id: `holding-pickup:${record.type}:${record.id}`,
+      label: `Pick up ${withArticle(record.label)}`,
+      kind: "pickup",
+    })),
   ].filter(isVisibleAction);
 }
 
@@ -249,6 +259,7 @@ export function handleOutdoorChooseAction(
   actionId,
   travelToHex = (hexId) => outdoor.moveTo(hexId),
   enterBuilding = () => {},
+  pickupHolding = () => {},
 ) {
   if (actionId === "enter-building") {
     enterBuilding();
@@ -268,6 +279,10 @@ export function handleOutdoorChooseAction(
   }
   if (actionId.startsWith("passage:")) {
     outdoor.crossPassage?.(actionId.slice("passage:".length));
+    return;
+  }
+  if (actionId.startsWith("holding-pickup:")) {
+    pickupHolding(actionId.slice("holding-pickup:".length));
     return;
   }
   if (actionId.startsWith("route:") || actionId.startsWith("barrier:")) {
@@ -707,8 +722,16 @@ function poweredObjectStatusLines(indoor) {
     .filter(Boolean);
 }
 
-export function buildOutdoorStatusLines(outdoor, indoor, wellbeingOverview = null) {
+export function buildOutdoorStatusLines(
+  outdoor,
+  indoor,
+  wellbeingOverview = null,
+  nearbyHoldings = [],
+) {
   const lines = buildWellbeingStatusLines(wellbeingOverview);
+  if (nearbyHoldings.length) {
+    lines.push(`On the ground: ${formatSentenceList(nearbyHoldings.map((record) => record.label))}.`);
+  }
   for (const action of outdoor.lockedPassageActions ?? []) {
     if (action.status) lines.push(action.status);
   }

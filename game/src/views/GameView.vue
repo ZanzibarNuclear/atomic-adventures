@@ -27,6 +27,7 @@ import { applyOutdoorWorldUpdate } from "../composables/worldRuntime.js";
 import { performItemAction } from "../lib/character/itemActions.js";
 import {
   accessibleHolderIds,
+  characterHolderId,
   ensureWorldHolder,
   holdingRecords,
   transferHolding,
@@ -291,7 +292,6 @@ function inventoryHolderViews(ids) {
       kind: record.definition?.kind ?? "item",
       icon: record.definition?.icon ?? null,
       actions: record.definition?.actions ?? [],
-      relatedDocument: record.definition?.relatedDocument ?? null,
     })),
   }));
 }
@@ -304,6 +304,19 @@ const inventoryHolders = computed(() => {
   )];
   return inventoryHolderViews(ids);
 });
+const outdoorGroundHoldings = computed(() => {
+  if (place.value !== "outdoors") return [];
+  return holdingRecords(
+    gameState.character.holdings,
+    gameState.character.definitions,
+    [currentWorldHolderId()],
+  )
+    .filter((record) => record.definition?.portable !== false)
+    .map((record) => ({
+      ...record,
+      label: record.definition?.label ?? record.item,
+    }));
+});
 const playerInventoryHolders = computed(() =>
   inventoryHolderViews([...accessibleHolderIds(gameState.character.holdings, "carried")]),
 );
@@ -313,6 +326,7 @@ const transferTargets = computed(() => inventoryHolders.value
     id: holder.id,
     label: holder.label ?? holder.id,
     kind: holder.kind,
+    accepts: holder.accepts ?? null,
   })));
 const stageSelectedHolding = computed(() =>
   inventoryHolders.value.flatMap((holder) =>
@@ -715,6 +729,26 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
   }
 }
 
+function handlePickupOutdoorHolding(encoded) {
+  const [type, ...idParts] = String(encoded).split(":");
+  const id = idParts.join(":");
+  const record = outdoorGroundHoldings.value
+    .find((entry) => entry.type === type && entry.id === id);
+  if (!record) return;
+  try {
+    transferHolding(gameState.character.holdings, gameState.character.definitions, {
+      type,
+      id,
+      quantity: record.quantity ?? 1,
+      toHolder: characterHolderId(gameState.character.holdings),
+    });
+    markCharacterChanged(gameState.character);
+    refreshStoryMoment();
+  } catch (error) {
+    console.warn(error);
+  }
+}
+
 function openInventoryDialog() {
   itemActionFeedback.value = "";
   inventoryDialogVisible.value = true;
@@ -855,6 +889,8 @@ function openInventoryDialog() {
       :audit-enabled="movementAuditVisible"
       :action-policy="wellbeingAvailableActions"
       :wellbeing-overview="wellbeingOverview"
+      :nearby-holdings="outdoorGroundHoldings"
+      :pickup-holding="handlePickupOutdoorHolding"
       :location-media="currentLocationMedia"
       :location-media-mode="locationMediaMode"
       :location-media-index="locationMediaIndex"
