@@ -57,7 +57,9 @@ describe('landmark reachability', () => {
   })
 
   it('offers enter only when the landmark is reachable (gameplay)', () => {
-    const { outdoor } = buildGameplayWorld(mapData)
+    const { outdoor } = buildGameplayWorld(mapData, {
+      flags: ['story.gate.inspected'],
+    })
     for (const h of ['east-pines', 'center-pines', 'north-bend', 'gate-woods']) {
       gameplayMoveTo(outdoor, h)
     }

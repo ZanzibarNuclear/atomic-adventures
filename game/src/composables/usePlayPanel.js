@@ -93,6 +93,7 @@ export function storyChoiceDestinations(pendingBeat) {
 
 export function buildOutdoorSearchActions(outdoor) {
   if (!outdoor.canSearchHere?.()) return [];
+  if (outdoor.hasObviousPassageAtStand) return [];
   if ((outdoor.passageCrossings ?? []).length > 0) return [];
   const label = searchActionLabel({
     openings: outdoor.searchableOpenings?.() ?? [],

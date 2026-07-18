@@ -71,6 +71,35 @@ function request(method, url, body) {
 }
 
 describe("story API", () => {
+  it("preserves an authored arc completion card through the save API", async () => {
+    const { db, api, storyArcRepository } = setup();
+    const current = storyArcRepository.getDocument();
+    const storyArcDocument = structuredClone(current.storyArcDocument);
+    const [sourceArc, destinationArc] = storyArcDocument.storyArcs;
+    sourceArc.completion = {
+      nextArc: destinationArc.id,
+      card: {
+        eyebrow: "Day 1 complete",
+        heading: "Shelter at last",
+        description: "A quiet night in the library.",
+        note: "More tomorrow.",
+        actionLabel: "Continue",
+      },
+    };
+
+    const response = responseCapture();
+    await api.handle(request("PUT", "/api/story-arcs/document", {
+      storyArcDocument,
+      expectedVersion: current.version,
+    }), response);
+
+    expect(response.status).toBe(200);
+    const saved = JSON.parse(response.chunks.join(""));
+    expect(saved.storyArcDocument.storyArcs[0].completion).toEqual(sourceArc.completion);
+    expect(storyArcRepository.getDocument().storyArcDocument.storyArcs[0].completion).toEqual(sourceArc.completion);
+    db.close();
+  });
+
   it("splits scene membership and the story arc document atomically", async () => {
     const { db, api, storyArcRepository, repository } = setup();
     const current = storyArcRepository.getDocument();

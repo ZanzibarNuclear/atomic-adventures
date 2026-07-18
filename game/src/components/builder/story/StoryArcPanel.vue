@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref, watch } from "vue";
 import { moveStoryBeat, splitStoryBeat } from "../../../lib/story/storyArcOperations.js";
+import StoryCompletionCard from "../../story/StoryCompletionCard.vue";
 
 const props = defineProps({
   documentText: { type: String, default: "" },
@@ -243,6 +244,16 @@ function cancelCompletionEdit() {
   completionEditing.value = false;
   completionDraft.value = null;
   completionError.value = "";
+}
+
+function addCompletionCard() {
+  if (!completionDraft.value) return;
+  completionDraft.value.showCard = true;
+}
+
+function removeCompletionCard() {
+  if (!completionDraft.value) return;
+  completionDraft.value.showCard = false;
 }
 
 function applyCompletionEdit() {
@@ -530,7 +541,20 @@ function uniqueId(base, existingIds = []) {
                   <option v-for="arc in storyArcs.filter(arc => arc.id !== selectedStoryArc.id)" :key="arc.id" :value="arc.id">{{ arc.title || arc.id }}</option>
                 </select>
               </label>
-              <label class="check-row"><input v-model="completionDraft.showCard" type="checkbox"> Show a transition card</label>
+              <button
+                v-if="completionDraft.showCard"
+                type="button"
+                class="sm muted"
+                @click="removeCompletionCard">
+                Remove completion card
+              </button>
+              <button
+                v-else
+                type="button"
+                class="sm muted"
+                @click="addCompletionCard">
+                Add completion card
+              </button>
               <template v-if="completionDraft.showCard">
                 <label>Day or chapter label <input v-model="completionDraft.eyebrow"></label>
                 <label>Heading <input v-model="completionDraft.heading"></label>
@@ -544,11 +568,10 @@ function uniqueId(base, existingIds = []) {
           </template>
           <template v-else>
             <div class="detail-actions"><button type="button" class="sm" @click="beginCompletionEdit">Edit completion</button></div>
-            <dl class="metadata">
-              <div><dt>Next arc</dt><dd>{{ selectedStoryArc.completion?.nextArc || "End of story" }}</dd></div>
-              <div><dt>Transition card</dt><dd>{{ selectedStoryArc.completion?.card?.heading || "Not shown" }}</dd></div>
-            </dl>
-            <p class="dialog-note">The final beat determines when this arc ends. Add a card only when the player should pause and acknowledge the transition.</p>
+            <div v-if="selectedStoryArc.completion?.card" class="completion-preview">
+              <StoryCompletionCard :card="selectedStoryArc.completion.card" />
+            </div>
+            <p v-else class="empty-note">No transition card is shown.</p>
           </template>
         </article>
 
@@ -697,6 +720,7 @@ h2, h3, p { margin: 0; }
 .metadata div { border: 1px solid #343d4d; border-radius: 7px; padding: .7rem; }
 .metadata dt { color: #8e96a3; font-size: .75rem; }
 .metadata dd { margin: .25rem 0 0; }
+.completion-preview { display: grid; justify-items: center; margin-top: 1rem; }
 .scenes-section { border-top: 1px solid #343d4d; padding-top: 1rem; }
 .scene-list { display: grid; gap: .65rem; }
 .scene-list li { border: 1px solid #343d4d; border-radius: 8px; overflow: hidden; }

@@ -218,6 +218,7 @@ function sceneFromProseBeat(id, beat) {
   return {
     id,
     trigger: beat.trigger ?? {},
+    conditions: beat.conditions ?? null,
     modes: beat.modes ?? [],
     match: beat.match ?? {},
     time: beat.time ?? {},

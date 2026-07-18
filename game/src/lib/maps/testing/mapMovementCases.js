@@ -354,7 +354,12 @@ export const MAP_MOVEMENT_CASES = [
 ]
 
 export function createMovementCaseWorld(mapData, movementCase) {
-  const { outdoor, gameState } = buildGameplayWorld(mapData)
+  // These map-geometry states include both sides of the compound gate. The
+  // authored inspection prerequisite belongs to story progression, not the
+  // movement cases being audited here.
+  const { outdoor, gameState } = buildGameplayWorld(mapData, {
+    flags: ['story.gate.inspected'],
+  })
   movementCase.setup(outdoor, gameState)
   return { outdoor, gameState }
 }

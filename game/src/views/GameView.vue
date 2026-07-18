@@ -886,6 +886,7 @@ function openInventoryDialog() {
       :wellbeing-overview="wellbeingOverview"
       :nearby-holdings="outdoorGroundHoldings"
       :pickup-holding="handlePickupOutdoorHolding"
+      :refresh-story="refreshStoryMoment"
       :location-media="currentLocationMedia"
       :location-media-mode="locationMediaMode"
       :location-media-index="locationMediaIndex"

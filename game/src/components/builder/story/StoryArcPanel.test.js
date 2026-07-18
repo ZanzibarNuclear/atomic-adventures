@@ -74,13 +74,13 @@ describe("StoryArcPanel focused authoring", () => {
     await wrapper.findAll(".completion-select")[0].trigger("click");
     await wrapper.find(".detail-actions button").trigger("click");
     await wrapper.find(".completion-editor select").setValue("part-ii");
-    await wrapper.find(".completion-editor .check-row input").setValue(true);
+    await wrapper.find(".completion-editor button").trigger("click");
     const inputs = wrapper.findAll(".completion-editor input");
-    await inputs[1].setValue("Day 1 complete");
-    await inputs[2].setValue("Shelter at last");
+    await inputs[0].setValue("Day 1 complete");
+    await inputs[1].setValue("Shelter at last");
     await wrapper.find(".completion-editor textarea").setValue("A quiet night in the library.");
-    await inputs[3].setValue("More tomorrow.");
-    await inputs[4].setValue("Continue");
+    await inputs[2].setValue("More tomorrow.");
+    await inputs[3].setValue("Continue");
     await wrapper.find(".completion-editor").trigger("submit");
 
     const update = JSON.parse(wrapper.emitted("update:documentText")[0][0]);
@@ -94,6 +94,32 @@ describe("StoryArcPanel focused authoring", () => {
         actionLabel: "Continue",
       },
     });
+  });
+
+  it("previews the transition card before editing", async () => {
+    const source = JSON.parse(documentText);
+    source.storyArcs[0].completion = {
+      nextArc: "part-ii",
+      card: {
+        eyebrow: "Day 1 complete",
+        heading: "Shelter at last",
+        description: "A quiet night in the library.",
+        note: "More tomorrow.",
+        actionLabel: "Continue",
+      },
+    };
+    const wrapper = mount(StoryArcPanel, { props: { documentText: JSON.stringify(source), beats, catalog: {} } });
+
+    await wrapper.find(".completion-select").trigger("click");
+
+    const preview = wrapper.find(".completion-preview");
+    expect(preview.text()).toContain("Day 1 complete");
+    expect(preview.text()).toContain("Shelter at last");
+    expect(preview.text()).toContain("A quiet night in the library.");
+    expect(preview.text()).toContain("More tomorrow.");
+    expect(preview.text()).toContain("Continue");
+    expect(wrapper.text()).not.toContain("Next story arc");
+    expect(wrapper.text()).not.toContain("Add a card only when the player should pause");
   });
 
   it("edits an arc ID and label while updating arc handoff references", async () => {
