@@ -71,6 +71,14 @@ export function useStoryArc(storyData, {
     if (gameState.playMode !== "story" || !activeBeat.value) return [];
     return activeScene.value?.choices ?? [];
   });
+  const pendingCompletion = computed(() => {
+    if (gameState.playMode !== "story") return null;
+    const completed = new Set(gameState.story?.completedArcIds ?? []);
+    const dismissed = new Set(gameState.story?.dismissedCompletionArcIds ?? []);
+    return [...storyArcs.value].reverse().find((arc) =>
+      completed.has(arc.id) && !dismissed.has(arc.id) && arc.completion?.card,
+    ) ?? null;
+  });
   const storyError = computed(() => {
     if (gameState.playMode !== "story") return "";
     if (!activeArc.value) return "Story mode has no active story arc.";
@@ -91,6 +99,16 @@ export function useStoryArc(storyData, {
     if (gameState.playMode !== "story") return;
     const arc = activeArc.value;
     if (!arc) return;
+    const activeBeatId = gameState.story?.activeBeatId;
+    if (activeBeatId && !arc.beats?.some((beat) => beat.id === activeBeatId)) {
+      const movedBeatArc = storyArcs.value.find((candidate) =>
+        candidate.beats?.some((beat) => beat.id === activeBeatId),
+      );
+      if (movedBeatArc && gameState.story) {
+        gameState.story.activeArcId = movedBeatArc.id;
+        return;
+      }
+    }
     if (!gameState.story || gameState.story.activeArcId !== arc.id) {
       gameState.story = createStoryState({
         activeArcId: arc.id,
@@ -98,6 +116,8 @@ export function useStoryArc(storyData, {
         completedBeatIds: gameState.story?.completedBeatIds ?? [],
         enteredBeatIds: gameState.story?.enteredBeatIds ?? [],
         seenSceneIds: gameState.story?.seenSceneIds ?? [],
+        completedArcIds: gameState.story?.completedArcIds ?? [],
+        dismissedCompletionArcIds: gameState.story?.dismissedCompletionArcIds ?? [],
       });
     }
   }
@@ -159,8 +179,10 @@ export function useStoryArc(storyData, {
       completed.add(beat.id);
       gameState.story.completedBeatIds = [...completed];
     }
-    const nextArc = beat.nextArc
-      ? storyArcs.value.find((candidate) => candidate.id === beat.nextArc) ?? null
+    const isFinalBeat = !beat.next;
+    if (isFinalBeat) markArcCompleted(arc.id);
+    const nextArc = isFinalBeat && arc.completion?.nextArc
+      ? storyArcs.value.find((candidate) => candidate.id === arc.completion.nextArc) ?? null
       : null;
     const nextBeat = nextArc
       ? nextArc.beats?.find((candidate) => candidate.id === nextArc.startBeat) ?? null
@@ -169,6 +191,20 @@ export function useStoryArc(storyData, {
         : null;
     if (nextArc) gameState.story.activeArcId = nextArc.id;
     gameState.story.activeBeatId = nextBeat?.id ?? null;
+  }
+
+  function markArcCompleted(arcId) {
+    const completed = new Set(gameState.story?.completedArcIds ?? []);
+    if (completed.has(arcId)) return;
+    completed.add(arcId);
+    gameState.story.completedArcIds = [...completed];
+  }
+
+  function dismissCompletion(arcId = pendingCompletion.value?.id) {
+    if (!arcId || !gameState.story) return;
+    const dismissed = new Set(gameState.story.dismissedCompletionArcIds ?? []);
+    dismissed.add(arcId);
+    gameState.story.dismissedCompletionArcIds = [...dismissed];
   }
 
   function markActiveSceneSeen() {
@@ -306,8 +342,10 @@ export function useStoryArc(storyData, {
     displayScene: visibleScene,
     displayBeat,
     activeChoices,
+    pendingCompletion,
     storyActions,
     applyStoryAction,
+    dismissCompletion,
     storyError,
     tick,
     isCompletionConditionMet: (condition = activeBeat.value?.completesWhen) =>

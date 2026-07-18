@@ -45,6 +45,7 @@ export function validateStoryArcDocument(input, {
     if (!arc.beats.length) add(`${base}.beats`, "Add at least one story beat.");
     const beatIds = validateIds(arc.beats, `${base}.beats`, add);
     if (!beatIds.has(arc.startBeat)) add(`${base}.startBeat`, "Choose an existing start beat.");
+    validateArcCompletion(arc.completion, `${base}.completion`, add, { arcIds, arcId: arc.id });
 
     arc.beats.forEach((beat, beatIndex) => {
       const beatBase = `${base}.beats.${beatIndex}`;
@@ -53,10 +54,6 @@ export function validateStoryArcDocument(input, {
         add(`${beatBase}.scene`, "Choose an existing scene.");
       }
       if (beat.next && !beatIds.has(beat.next)) add(`${beatBase}.next`, "Choose an existing next beat.");
-      if (beat.next && beat.nextArc) add(`${beatBase}.next`, "Choose either a next beat or next story arc, not both.");
-      if (beat.nextArc && !arcIds.has(beat.nextArc)) {
-        add(`${beatBase}.nextArc`, "Choose an existing next story arc.");
-      }
       validateAllowed(beat.allowed, `${beatBase}.allowed`, add, { world });
       validateCompletion(beat.completesWhen, `${beatBase}.completesWhen`, add, {
         world,
@@ -83,7 +80,25 @@ function normalizeStoryArc(input = {}, index = 0) {
     defaultMode: normalizePlayMode(text(input.defaultMode)) || "story",
     startBeat: text(input.startBeat),
     beats: array(input.beats).map((beat, beatIndex) => normalizeStoryBeat(beat, beatIndex)),
+    completion: normalizeArcCompletion(input.completion),
   };
+}
+
+function normalizeArcCompletion(input = {}) {
+  if (!input || typeof input !== "object") return null;
+  const card = input.card && typeof input.card === "object"
+    ? compactObject({
+      eyebrow: nullableText(input.card.eyebrow),
+      heading: nullableText(input.card.heading),
+      description: nullableText(input.card.description),
+      note: nullableText(input.card.note),
+      actionLabel: nullableText(input.card.actionLabel),
+    })
+    : null;
+  return compactObject({
+    nextArc: nullableText(input.nextArc),
+    card,
+  });
 }
 
 function normalizeStoryBeat(input = {}, index = 0) {
@@ -97,8 +112,19 @@ function normalizeStoryBeat(input = {}, index = 0) {
     onEnter: normalizeBeatEffect(input.onEnter),
     onComplete: normalizeBeatEffect(input.onComplete),
     next: nullableText(input.next),
-    nextArc: nullableText(input.nextArc),
   };
+}
+
+function validateArcCompletion(completion, path, add, { arcIds, arcId }) {
+  if (!completion) return;
+  if (completion.nextArc && !arcIds.has(completion.nextArc)) {
+    add(`${path}.nextArc`, "Choose an existing next story arc.");
+  }
+  if (completion.nextArc === arcId) add(`${path}.nextArc`, "Choose a different next story arc.");
+  if (!completion.card) return;
+  for (const field of ["eyebrow", "heading", "description", "actionLabel"]) {
+    if (!completion.card[field]) add(`${path}.card.${field}`, "This transition-card field is required.");
+  }
 }
 
 function normalizeStoryChoice(input = {}) {

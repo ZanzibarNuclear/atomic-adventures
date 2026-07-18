@@ -184,6 +184,7 @@ Field meanings:
 | `protagonist` | Optional point-of-view character metadata. |
 | `startBeat` | First story beat for a new playthrough of this arc. |
 | `beats` | Ordered or referenced story beats. |
+| `completion` | Optional arc transition: its next arc and the card shown after the final beat. |
 
 Story beat meanings:
 
@@ -197,7 +198,13 @@ Story beat meanings:
 | `onEnter` | Optional beat effects when the beat starts. |
 | `onComplete` | Optional beat effects after completion. |
 | `next` | Next beat ID, or null for arc completion. |
+
+Arc completion fields:
+
+| Field | Meaning |
+| --- | --- |
 | `nextArc` | Optional handoff to another arc's `startBeat`. |
+| `card` | Optional acknowledgement card with `eyebrow`, `heading`, `description`, optional `note`, and `actionLabel`. |
 
 ## Completion Conditions
 
@@ -339,7 +346,7 @@ authoring:
 2. Selecting an arc or beat opens one read-only detail view. Editing is an
    explicit action.
 3. The Story Arc workspace edits arc and beat titles, scene membership, beat
-   order, cross-arc movement, and arc boundaries.
+   order, cross-arc movement, arc boundaries, and each arc's completion node.
 4. Selecting a linked scene opens the existing map-first Area or Utility
    Station scene editor for prose, triggers, conditions, and choices.
 5. **Attach scene** associates an existing scene with the selected story beat
@@ -355,9 +362,10 @@ round-trip them unchanged. Moving a beat carries them with that beat. Splitting
 a beat leaves them unchanged on the original beat and does not silently copy
 them to the new beat.
 
-Cross-arc moves update affected `startBeat`, `next`, and `nextArc` handoffs as
-one story-arc document change. A non-linear handoff that cannot be rewired
-safely stops the operation. Splitting a beat updates the story-arc document and
+Cross-arc moves update affected `startBeat` and `next` links while the
+destination arc retains its completion handoff. An arc's `nextArc` belongs only
+to its completion node. A non-linear handoff that cannot be rewired safely
+stops the operation. Splitting a beat updates the story-arc document and
 the moved scenes' `storyBeat` references in one database transaction with
 optimistic version checks; a conflict leaves both stores unchanged.
 

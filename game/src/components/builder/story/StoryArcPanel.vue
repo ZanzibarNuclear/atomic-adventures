@@ -43,6 +43,11 @@ const operationError = ref("");
 const splitDialog = ref(null);
 const draggedBeat = ref(null);
 const attachDialog = ref(null);
+const attachRoomFilter = ref("");
+const attachUnattachedOnly = ref(true);
+const completionEditing = ref(false);
+const completionDraft = ref(null);
+const completionError = ref("");
 
 const selectedStoryArc = computed(() =>
   storyArcs.value.find((arc) => arc.id === selection.value.arcId) ?? null,
@@ -51,6 +56,9 @@ const selectedStoryBeat = computed(() => {
   if (selection.value.kind !== "beat") return null;
   return selectedStoryArc.value?.beats?.find((beat) => beat.id === selection.value.beatId) ?? null;
 });
+const isSelectingCompletion = computed(() =>
+  selection.value.kind === "completion" && Boolean(selectedStoryArc.value),
+);
 const selectedBeatIndex = computed(() =>
   selectedStoryArc.value?.beats?.findIndex((beat) => beat.id === selectedStoryBeat.value?.id) ?? -1,
 );
@@ -65,6 +73,16 @@ const attachableScenes = computed(() => {
   const linkedIds = new Set(linkedScenes.value.map((scene) => scene.id));
   return props.beats.filter((scene) => !linkedIds.has(scene.id));
 });
+const attachRoomOptions = computed(() =>
+  [...new Set(attachableScenes.value.map((scene) => scene.trigger?.room).filter(Boolean))]
+    .sort()
+    .map((id) => ({ id, label: labelFor(props.catalog?.world?.rooms, id) })),
+);
+const filteredAttachableScenes = computed(() =>
+  attachableScenes.value
+    .filter((scene) => !attachRoomFilter.value || scene.trigger?.room === attachRoomFilter.value)
+    .filter((scene) => !attachUnattachedOnly.value || !scene.storyBeat),
+);
 
 watch(storyArcs, (arcs) => {
   if (!arcs.length) {
@@ -82,6 +100,18 @@ watch([selectedStoryArc, selectedStoryBeat], () => {
   editTitle.value = "";
 });
 
+watch(selection, () => {
+  completionEditing.value = false;
+  completionDraft.value = null;
+  completionError.value = "";
+});
+
+watch(filteredAttachableScenes, (scenes) => {
+  if (!attachDialog.value) return;
+  if (scenes.some((scene) => scene.id === attachDialog.value.sceneId)) return;
+  attachDialog.value.sceneId = scenes[0]?.id ?? "";
+});
+
 function selectArc(arcId) {
   if (editing.value && !window.confirm("Discard the title edit?")) return;
   editing.value = false;
@@ -92,6 +122,12 @@ function selectBeat(arcId, beatId) {
   if (editing.value && !window.confirm("Discard the title edit?")) return;
   editing.value = false;
   selection.value = { kind: "beat", arcId, beatId };
+}
+
+function selectCompletion(arcId) {
+  if (editing.value && !window.confirm("Discard the title edit?")) return;
+  editing.value = false;
+  selection.value = { kind: "completion", arcId, beatId: "" };
 }
 
 function toggleArc(arcId) {
@@ -137,9 +173,7 @@ function applyEdit() {
     if (!ids.beatId && arc && nextId !== ids.arcId) {
       arc.id = nextId;
       for (const storyArc of document.storyArcs ?? []) {
-        for (const beat of storyArc.beats ?? []) {
-          if (beat.nextArc === ids.arcId) beat.nextArc = nextId;
-        }
+        if (storyArc.completion?.nextArc === ids.arcId) storyArc.completion.nextArc = nextId;
       }
       selection.value = { kind: "arc", arcId: nextId, beatId: "" };
     }
@@ -184,6 +218,58 @@ function addStoryBeat() {
   });
 }
 
+function completionSummary(arc) {
+  if (arc.completion?.card?.heading) return arc.completion.card.heading;
+  return arc.completion?.nextArc ? `Continue to ${arc.completion.nextArc}` : "No transition card";
+}
+
+function beginCompletionEdit() {
+  const completion = selectedStoryArc.value?.completion ?? {};
+  const card = completion.card ?? {};
+  completionDraft.value = {
+    nextArc: completion.nextArc ?? "",
+    showCard: Boolean(completion.card),
+    eyebrow: card.eyebrow ?? "",
+    heading: card.heading ?? "",
+    description: card.description ?? "",
+    note: card.note ?? "",
+    actionLabel: card.actionLabel ?? "Continue",
+  };
+  completionError.value = "";
+  completionEditing.value = true;
+}
+
+function cancelCompletionEdit() {
+  completionEditing.value = false;
+  completionDraft.value = null;
+  completionError.value = "";
+}
+
+function applyCompletionEdit() {
+  const arcId = selectedStoryArc.value?.id;
+  const draft = completionDraft.value;
+  if (!arcId || !draft) return;
+  const fields = ["eyebrow", "heading", "description", "actionLabel"];
+  if (draft.showCard && fields.some((field) => !draft[field].trim())) {
+    completionError.value = "Fill in the day label, heading, description, and button label.";
+    return;
+  }
+  updateDocument((document) => {
+    const arc = document.storyArcs?.find((item) => item.id === arcId);
+    if (!arc) return;
+    const nextArc = draft.nextArc || null;
+    const card = draft.showCard ? {
+      eyebrow: draft.eyebrow.trim(),
+      heading: draft.heading.trim(),
+      description: draft.description.trim(),
+      note: draft.note.trim() || null,
+      actionLabel: draft.actionLabel.trim(),
+    } : null;
+    arc.completion = nextArc || card ? { nextArc, card } : null;
+  });
+  cancelCompletionEdit();
+}
+
 function removeStoryBeat() {
   const arcId = selectedStoryArc.value?.id;
   const beatId = selectedStoryBeat.value?.id;
@@ -207,12 +293,15 @@ function addScene() {
 }
 
 function requestAttachScene() {
-  attachDialog.value = { sceneId: attachableScenes.value[0]?.id ?? "" };
+  attachRoomFilter.value = "";
+  attachUnattachedOnly.value = true;
+  attachDialog.value = { sceneId: filteredAttachableScenes.value[0]?.id ?? "" };
 }
 
 function applyAttachScene() {
   if (!attachDialog.value?.sceneId) return;
-  const scene = props.beats.find((item) => item.id === attachDialog.value.sceneId);
+  const scene = filteredAttachableScenes.value.find((item) => item.id === attachDialog.value.sceneId);
+  if (!scene) return;
   emit("attach-scene", {
     arcId: selectedStoryArc.value?.id,
     beatId: selectedStoryBeat.value?.id,
@@ -342,7 +431,6 @@ function createStoryBeat(id) {
     onEnter: null,
     onComplete: null,
     next: null,
-    nextArc: null,
   };
 }
 
@@ -393,6 +481,17 @@ function uniqueId(base, existingIds = []) {
                 <span v-if="errorCountFor(arcIndex, beatIndex)" class="warning-badge">{{ errorCountFor(arcIndex, beatIndex) }}</span>
               </button>
             </li>
+            <li class="completion-row">
+              <button
+                type="button"
+                class="completion-select"
+                :class="{ selected: selection.kind === 'completion' && selection.arcId === arc.id }"
+                @click="selectCompletion(arc.id)">
+                <span class="beat-position">✓</span>
+                <span class="beat-copy"><strong>Arc completion</strong><small>{{ completionSummary(arc) }}</small></span>
+                <span class="scene-count">transition</span>
+              </button>
+            </li>
           </ol>
         </li>
       </ol>
@@ -402,8 +501,8 @@ function uniqueId(base, existingIds = []) {
     <main class="detail panel">
       <header class="panel-heading">
         <div>
-          <p class="label">{{ selectedStoryBeat ? "Story beat" : "Story arc" }}</p>
-          <h2>{{ selectedStoryBeat?.title || selectedStoryArc?.title || "Select an arc" }}</h2>
+          <p class="label">{{ selectedStoryBeat ? "Story beat" : isSelectingCompletion ? "Arc completion" : "Story arc" }}</p>
+          <h2>{{ selectedStoryBeat?.title || (isSelectingCompletion ? `${selectedStoryArc?.title || "Story arc"} completion` : selectedStoryArc?.title) || "Select an arc" }}</h2>
         </div>
         <div class="toolbar">
           <span v-if="dirty" class="dirty-pill">Unsaved</span>
@@ -420,6 +519,38 @@ function uniqueId(base, existingIds = []) {
           <p v-if="editError" class="field-error">{{ editError }}</p>
           <div class="toolbar"><button type="button" class="sm muted" @click="cancelEdit">Cancel</button><button class="sm">Apply</button></div>
         </form>
+
+        <article v-else-if="isSelectingCompletion" class="object-detail">
+          <template v-if="completionEditing && completionDraft">
+            <form class="completion-editor" @submit.prevent="applyCompletionEdit">
+              <p class="dialog-note">The final beat determines when this arc ends. This node chooses the next arc and what the player sees at the transition.</p>
+              <label>Next story arc
+                <select v-model="completionDraft.nextArc">
+                  <option value="">End the story here</option>
+                  <option v-for="arc in storyArcs.filter(arc => arc.id !== selectedStoryArc.id)" :key="arc.id" :value="arc.id">{{ arc.title || arc.id }}</option>
+                </select>
+              </label>
+              <label class="check-row"><input v-model="completionDraft.showCard" type="checkbox"> Show a transition card</label>
+              <template v-if="completionDraft.showCard">
+                <label>Day or chapter label <input v-model="completionDraft.eyebrow"></label>
+                <label>Heading <input v-model="completionDraft.heading"></label>
+                <label>Description <textarea v-model="completionDraft.description" rows="4"></textarea></label>
+                <label>Closing line <input v-model="completionDraft.note"></label>
+                <label>Button label <input v-model="completionDraft.actionLabel"></label>
+              </template>
+              <p v-if="completionError" class="field-error">{{ completionError }}</p>
+              <div class="toolbar"><button type="button" class="sm muted" @click="cancelCompletionEdit">Cancel</button><button class="sm">Apply completion</button></div>
+            </form>
+          </template>
+          <template v-else>
+            <div class="detail-actions"><button type="button" class="sm" @click="beginCompletionEdit">Edit completion</button></div>
+            <dl class="metadata">
+              <div><dt>Next arc</dt><dd>{{ selectedStoryArc.completion?.nextArc || "End of story" }}</dd></div>
+              <div><dt>Transition card</dt><dd>{{ selectedStoryArc.completion?.card?.heading || "Not shown" }}</dd></div>
+            </dl>
+            <p class="dialog-note">The final beat determines when this arc ends. Add a card only when the player should pause and acknowledge the transition.</p>
+          </template>
+        </article>
 
         <article v-else-if="!selectedStoryBeat" class="object-detail">
           <div class="detail-actions"><button type="button" class="sm" @click="beginEdit">Edit arc</button><button type="button" class="sm muted" @click="addStoryBeat">Add beat</button></div>
@@ -505,9 +636,22 @@ function uniqueId(base, existingIds = []) {
       <form class="dialog" role="dialog" aria-modal="true" aria-labelledby="attach-dialog-title" @submit.prevent="applyAttachScene">
         <p class="label">Existing content</p>
         <h2 id="attach-dialog-title">Attach scene</h2>
+        <div class="attach-scene-filters">
+          <label>Room
+            <select v-model="attachRoomFilter" class="attach-room-filter">
+              <option value="">Any room or location</option>
+              <option v-for="room in attachRoomOptions" :key="room.id" :value="room.id">{{ room.label }}</option>
+            </select>
+          </label>
+          <label class="check-row attach-unattached-filter">
+            <input v-model="attachUnattachedOnly" type="checkbox">
+            Only unattached scenes
+          </label>
+        </div>
+        <p class="dialog-note">{{ filteredAttachableScenes.length }} matching scene{{ filteredAttachableScenes.length === 1 ? "" : "s" }}.</p>
         <label>Scene
-          <select v-model="attachDialog.sceneId" class="attach-scene-select">
-            <option v-for="scene in attachableScenes" :key="scene.id" :value="scene.id">
+          <select v-model="attachDialog.sceneId" class="attach-scene-select" :disabled="!filteredAttachableScenes.length">
+            <option v-for="scene in filteredAttachableScenes" :key="scene.id" :value="scene.id">
               {{ scene.heading || scene.id }} — {{ sceneLocation(scene) }}{{ scene.storyBeat ? ` (currently ${scene.storyBeat})` : " (unattached)" }}
             </option>
           </select>
@@ -529,23 +673,26 @@ h2, h3, p { margin: 0; }
 .arc-list, .beat-list, .scene-list { list-style: none; margin: .8rem 0 0; padding: 0; }
 .arc-row { border-top: 1px solid #343d4d; padding: .35rem 0; }
 .arc-row-main { display: grid; grid-template-columns: 2rem 1fr auto; align-items: center; border-radius: 7px; }
-.arc-row-main.selected, .beat-select.selected { background: #323b4a; box-shadow: inset 3px 0 #d9a441; }
-.disclosure, .outline-select, .beat-select, .scene-select { border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.arc-row-main.selected, .beat-select.selected, .completion-select.selected { background: #323b4a; box-shadow: inset 3px 0 #d9a441; }
+.disclosure, .outline-select, .beat-select, .completion-select, .scene-select { border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
 .disclosure { padding: .65rem; }
 .outline-select { display: flex; justify-content: space-between; gap: .5rem; padding: .7rem .35rem; width: 100%; }
 .outline-select span, .scene-count { color: #9ba4b2; font-size: .78rem; }
 .beat-list { margin: .15rem 0 .4rem 1.4rem; border-left: 1px solid #3b4555; }
 .beat-select { width: 100%; display: grid; grid-template-columns: 1.8rem 1fr auto auto; align-items: center; gap: .5rem; padding: .65rem .6rem; border-radius: 6px; }
+.completion-row { border-top: 1px dashed #4a5668; margin-top: .25rem; padding-top: .25rem; }
+.completion-select { width: 100%; display: grid; grid-template-columns: 1.8rem 1fr auto; align-items: center; gap: .5rem; padding: .65rem .6rem; border-radius: 6px; }
 .beat-position { color: #8e96a3; font-variant-numeric: tabular-nums; }
 .beat-copy { display: grid; gap: .16rem; }
 .beat-copy small { color: #8e96a3; }
 .warning-badge { margin-right: .5rem; min-width: 1.35rem; border-radius: 99px; background: #8d4b42; color: white; text-align: center; font-size: .72rem; padding: .15rem .35rem; }
 .builder-status, .empty-note { color: #aeb6c3; margin-top: .75rem; }
 .dirty-pill { border-radius: 99px; background: #705826; color: #f5d98f; padding: .2rem .55rem; font-size: .75rem; }
-.object-detail, .title-editor { margin-top: 1rem; }
-.title-editor { display: grid; gap: .8rem; max-width: 42rem; }
-.title-editor label { display: grid; gap: .4rem; }
-.title-editor input { width: 100%; }
+.object-detail, .title-editor, .completion-editor { margin-top: 1rem; }
+.title-editor, .completion-editor { display: grid; gap: .8rem; max-width: 42rem; }
+.title-editor label, .completion-editor label { display: grid; gap: .4rem; }
+.title-editor input, .completion-editor input, .completion-editor select, .completion-editor textarea { width: 100%; }
+.check-row { display: flex !important; align-items: center; gap: .5rem !important; }
 .metadata { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; margin: 1rem 0; }
 .metadata div { border: 1px solid #343d4d; border-radius: 7px; padding: .7rem; }
 .metadata dt { color: #8e96a3; font-size: .75rem; }
@@ -561,8 +708,11 @@ h2, h3, p { margin: 0; }
 .field-error { color: #f3a69d; margin-top: .4rem; }
 .danger { color: #ffc0b8; }
 .dialog-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 1rem; background: rgb(8 11 16 / .72); }
-.dialog { width: min(32rem, 100%); display: grid; gap: .85rem; border: 1px solid #566175; border-radius: 10px; background: #20252f; padding: 1.2rem; box-shadow: 0 18px 60px rgb(0 0 0 / .45); }
-.dialog label { display: grid; gap: .35rem; }
+.dialog { width: min(32rem, 100%); max-height: calc(100vh - 2rem); overflow: auto; display: grid; gap: .85rem; border: 1px solid #566175; border-radius: 10px; background: #20252f; padding: 1.2rem; box-shadow: 0 18px 60px rgb(0 0 0 / .45); }
+.dialog label { display: grid; min-width: 0; gap: .35rem; }
+.dialog select { width: 100%; min-width: 0; }
+.attach-scene-filters { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: .75rem; }
+.attach-unattached-filter { grid-template-columns: auto 1fr !important; align-items: center; padding-bottom: .45rem; }
 .dialog-note { color: #aeb6c3; font-size: .86rem; }
 .split-preview { display: grid; gap: .45rem; border: 1px solid #343d4d; border-radius: 7px; padding: .7rem; color: #c7cdd7; }
 @media (max-width: 900px) { .arc-panel { grid-template-columns: 1fr; height: auto; } .panel { max-height: none; } .metadata { grid-template-columns: 1fr; } }

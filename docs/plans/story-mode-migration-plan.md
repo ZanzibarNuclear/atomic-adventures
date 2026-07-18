@@ -116,7 +116,8 @@ new internal model.
       valid engine-provided world/system actions.
 - [x] Apply choices and story actions through the same movement/effects/stage
       view boundaries as today.
-- [x] Evaluate completion conditions and advance to `next` or `nextArc`.
+- [x] Evaluate completion conditions and advance to `next`; after the final
+      beat, use the arc completion node for any cross-arc handoff.
 - [x] Expose one UI-facing object: `activeArc`, `activeBeat`, `activeScene`,
       `storyActions`, `applyStoryAction`, and `storyError`.
 - [x] Add focused tests for beat stability: ordinary movement should not

@@ -226,4 +226,73 @@ describe("story arc visible actions", () => {
     expect(story.displayScene.value.id).toBe("gate-inspected");
   });
 
+  it("shows an authored completion card while handing off to the next story arc", () => {
+    const place = ref("indoors");
+    const outdoor = reactive({ state: { currentId: null, previousId: null, mapTransition: null, transitionDirection: null } });
+    const indoor = reactive({ indoor: { currentRoom: "library", exteriorNode: null } });
+    const gameState = reactive({
+      playMode: "story",
+      story: {
+        activeArcId: "day-one",
+        activeBeatId: "sleep",
+        enteredBeatIds: [],
+        completedBeatIds: [],
+        seenSceneIds: [],
+        completedArcIds: [],
+        dismissedCompletionArcIds: [],
+      },
+      flags: new Set(), milestones: {}, facilities: {}, lessons: {}, clock: null, character: null,
+    });
+    const storyData = computed(() => normalizeStoryArcContent({
+      storyArcs: [
+        {
+          id: "day-one",
+          startBeat: "sleep",
+          completion: {
+            nextArc: "day-two",
+            card: {
+              eyebrow: "Day 1 complete", heading: "Shelter at last", description: "A quiet night.", actionLabel: "Continue",
+            },
+          },
+          beats: [{ id: "sleep", completesWhen: { flag: "library.sleep-1" }, scenes: [] }],
+        },
+        { id: "day-two", startBeat: "explore", beats: [{ id: "explore", scenes: [] }] },
+      ],
+    }));
+    const story = useStoryArc(storyData, { gameState, place, outdoor, indoor });
+
+    gameState.flags.add("library.sleep-1");
+    story.tick();
+
+    expect(gameState.story.activeArcId).toBe("day-two");
+    expect(gameState.story.activeBeatId).toBe("explore");
+    expect(gameState.story.completedArcIds).toContain("day-one");
+    expect(story.pendingCompletion.value?.id).toBe("day-one");
+
+    story.dismissCompletion();
+
+    expect(story.pendingCompletion.value).toBeNull();
+  });
+
+  it("follows a beat when an author moves it into a newly split arc", () => {
+    const place = ref("indoors");
+    const outdoor = reactive({ state: { currentId: null, previousId: null, mapTransition: null, transitionDirection: null } });
+    const indoor = reactive({ indoor: { currentRoom: "library", exteriorNode: null } });
+    const gameState = reactive({
+      playMode: "story",
+      story: { activeArcId: "day-one", activeBeatId: "explore", enteredBeatIds: [], completedBeatIds: [], seenSceneIds: [] },
+      flags: new Set(), milestones: {}, facilities: {}, lessons: {}, clock: null, character: null,
+    });
+    const storyData = computed(() => normalizeStoryArcContent({
+      storyArcs: [
+        { id: "day-one", startBeat: "sleep", beats: [{ id: "sleep", scenes: [] }] },
+        { id: "day-two", startBeat: "explore", beats: [{ id: "explore", scenes: [] }] },
+      ],
+    }));
+    useStoryArc(storyData, { gameState, place, outdoor, indoor });
+
+    expect(gameState.story.activeArcId).toBe("day-two");
+    expect(gameState.story.activeBeatId).toBe("explore");
+  });
+
 });

@@ -6,6 +6,9 @@ export const storyArcSeed = {
       "title": "Part I Opener",
       "defaultMode": "story",
       "startBeat": "survive-in-the-woods",
+      "completion": {
+        "nextArc": "part-i-station"
+      },
       "beats": [
         {
           "id": "survive-in-the-woods",
@@ -141,8 +144,7 @@ export const storyArcSeed = {
             }
           },
           "title": "Follow the fence. Find where it leads.",
-          "scene": "center-pines",
-          "nextArc": "part-i-station"
+          "scene": "center-pines"
         }
       ]
     },

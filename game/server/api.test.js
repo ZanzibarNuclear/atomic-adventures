@@ -102,11 +102,10 @@ describe("story API", () => {
         indoorActions: [], outdoorActions: [], itemActions: [], developerActions: [],
       },
       completesWhen: null, onEnter: null, onComplete: null,
-      next: oldNext, nextArc: null,
+      next: oldNext,
     };
     source.scene = retainedScene.id;
     source.next = newBeat.id;
-    source.nextArc = null;
     arc.beats.splice(sourceIndex + 1, 0, newBeat);
     const sceneBefore = db.prepare("SELECT story_beat, version FROM story_beats WHERE area_id = ? AND id = ?").get(sourceLink.areaId, movedScene.id);
 

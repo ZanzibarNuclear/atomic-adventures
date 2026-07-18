@@ -278,6 +278,8 @@ describe('useGameState save roundtrip', () => {
       activeBeatId: 'understand-building',
     })
     gameState.story.completedBeatIds = ['solve-first-crisis']
+    gameState.story.completedArcIds = ['part-i-station']
+    gameState.story.dismissedCompletionArcIds = ['part-i-opener']
     gameState.storySeen = new Set(['control-room'])
     gameState.milestones = { 'day1.complete': { completedAt: 'nightfall' } }
 
@@ -291,6 +293,8 @@ describe('useGameState save roundtrip', () => {
       completedBeatIds: ['solve-first-crisis'],
       enteredBeatIds: [],
       seenSceneIds: ['control-room'],
+      completedArcIds: ['part-i-station'],
+      dismissedCompletionArcIds: ['part-i-opener'],
     })
     setPlayMode(gameState, 'open-world')
     expect(applySnapshot(snapshot, { gameState, place, outdoor, indoor })).toBe(true)
@@ -298,6 +302,8 @@ describe('useGameState save roundtrip', () => {
     expect(gameState.story.activeArcId).toBe('part-i-station')
     expect(gameState.story.activeBeatId).toBe('understand-building')
     expect(gameState.story.completedBeatIds).toEqual(['solve-first-crisis'])
+    expect(gameState.story.completedArcIds).toEqual(['part-i-station'])
+    expect(gameState.story.dismissedCompletionArcIds).toEqual(['part-i-opener'])
     expect(gameState.story.seenSceneIds).toEqual(['control-room'])
     expect(gameState.milestones).toEqual({ 'day1.complete': { completedAt: 'nightfall' } })
   })
@@ -315,6 +321,8 @@ describe('useGameState save roundtrip', () => {
       completedBeatIds: [],
       enteredBeatIds: [],
       seenSceneIds: [],
+      completedArcIds: [],
+      dismissedCompletionArcIds: [],
     })
   })
 

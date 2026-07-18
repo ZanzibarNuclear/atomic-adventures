@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import { moveStoryBeat, reorderStoryBeat, splitStoryBeat } from "./storyArcOperations.js";
 
 function beat(id, fields = {}) {
-  return { id, title: id, scene: `${id}-scene`, allowed: { movement: { hexes: [id] } }, completesWhen: { flag: id }, onEnter: null, onComplete: null, next: null, nextArc: null, ...fields };
+  return { id, title: id, scene: `${id}-scene`, allowed: { movement: { hexes: [id] } }, completesWhen: { flag: id }, onEnter: null, onComplete: null, next: null, ...fields };
 }
 
 function document() {
   return { storyArcs: [
-    { id: "one", title: "One", startBeat: "a", beats: [beat("a", { next: "b" }), beat("b", { nextArc: "two" })] },
+    { id: "one", title: "One", startBeat: "a", completion: { nextArc: "two" }, beats: [beat("a", { next: "b" }), beat("b")] },
     { id: "two", title: "Two", startBeat: "c", beats: [beat("c", { next: "d" }), beat("d")] },
   ] };
 }
@@ -32,8 +32,9 @@ describe("story arc beat operations", () => {
     expect(result.document.storyArcs[0].beats.map(({ id }) => id)).toEqual(["a", "b", "c"]);
     expect(result.document.storyArcs[1].beats.map(({ id }) => id)).toEqual(["d"]);
     expect(result.document.storyArcs[1].startBeat).toBe("d");
-    expect(result.document.storyArcs[0].beats[1]).toMatchObject({ next: "c", nextArc: null });
-    expect(result.document.storyArcs[0].beats[2]).toMatchObject({ next: null, nextArc: "two" });
+    expect(result.document.storyArcs[0].beats[1]).toMatchObject({ next: "c" });
+    expect(result.document.storyArcs[0].beats[2]).toMatchObject({ next: null });
+    expect(result.document.storyArcs[0].completion).toEqual({ nextArc: "two" });
     expect(result.document.storyArcs[0].beats[2].allowed).toEqual(hidden.allowed);
     expect(result.document.storyArcs[0].beats[2].completesWhen).toEqual(hidden.completesWhen);
   });

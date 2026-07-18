@@ -134,8 +134,10 @@ const {
   displayScene,
   displayBeat,
   activeChoices,
+  pendingCompletion,
   storyActions,
   applyStoryAction,
+  dismissCompletion,
   storyError,
   tick: tickStoryArc,
 } = useStoryArc(storyArcData, {
@@ -172,9 +174,6 @@ const pendingBeat = computed(() => activeBeat.value
     ? openWorldStory.activeBeat.value
     : null);
 const actionBeat = computed(() => displayBeat.value ?? activeBeat.value);
-const showEndCard = computed(
-  () => gameState.flags.has("day1.complete") && !gameState.endCardDismissed,
-);
 const storyActionAvailability = computed(() => ({
   mode: gameState.playMode === "story" ? "story" : "open-world",
   beatId: actionBeat.value?.id ?? null,
@@ -237,10 +236,6 @@ function travelToRoom(roomId) {
     return;
   }
   indoor.moveToRoom(roomId);
-}
-
-function dismissEndCard() {
-  gameState.endCardDismissed = true;
 }
 
 function refreshStoryMoment() {
@@ -979,8 +974,8 @@ function openInventoryDialog() {
 
     <StoryOverlay
       v-if="gameState.playMode && !gameFailed && isMapView"
-      :show-end-card="showEndCard"
-      @dismiss-end="dismissEndCard" />
+      :completion="pendingCompletion"
+      @dismiss-completion="dismissCompletion" />
   </main>
 </template>
 

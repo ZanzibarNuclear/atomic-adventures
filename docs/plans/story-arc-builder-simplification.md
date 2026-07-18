@@ -27,14 +27,16 @@ The first proof workflow is:
 
 - The left pane is the story outline. It shows arcs and their ordered beats and
   owns selection and reorganization.
-- The detail pane shows exactly one selected object: an arc or a beat.
+- The detail pane shows exactly one selected object: an arc, beat, or arc
+  completion.
 - Selection opens read-only view mode. Editing is an explicit action.
 - Arc editing and beat editing are separate forms with separate actions.
 - Scene prose, triggers, conditions, and choices continue to be edited in the
   existing map-first scene builder.
-- Arc boundaries are defined by ordered membership plus the outgoing handoff
-  from the last beat. Authors should not have to manually repair `startBeat`,
-  `next`, and `nextArc` for ordinary reorder, move, and split operations.
+- Arc boundaries are defined by ordered membership plus the arc completion
+  node after the last beat. Authors should not have to manually repair
+  `startBeat` or sequential `next` links for ordinary reorder, move, and split
+  operations.
 - Story-guidance references, authored-action lists, completion conditions, and
   beat effects are not shown or edited in the Story Arc Builder. Their fields,
   canonical values, validation, persistence, exports, and runtime behavior stay
@@ -133,7 +135,8 @@ position. On confirmation the command:
 1. removes the beat from its source arc;
 2. inserts it into the destination arc;
 3. recalculates each affected arc's `startBeat` when necessary;
-4. rewires sequential `next` and `nextArc` handoffs for both boundaries;
+4. rewires sequential `next` links for both boundaries while preserving each
+   arc's completion handoff;
 5. preserves the moved beat's scene links and all hidden runtime fields without
    modifying or displaying them;
 6. validates the complete document and reports the change as a readable diff;

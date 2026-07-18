@@ -23,8 +23,8 @@ export function moveStoryBeat(document, { beatId, fromArcId, toArcId, toIndex })
 
   const destinationNext = destination.beats[insertionIndex] ?? null;
   const destinationPrevious = destination.beats[insertionIndex - 1] ?? null;
-  const oldDestinationHandoff = insertionIndex === destination.beats.length
-    ? { next: destinationPrevious?.next ?? null, nextArc: destinationPrevious?.nextArc ?? null }
+  const oldDestinationNext = insertionIndex === destination.beats.length
+    ? destinationPrevious?.next ?? null
     : null;
 
   const conflicts = [];
@@ -39,7 +39,6 @@ export function moveStoryBeat(document, { beatId, fromArcId, toArcId, toIndex })
   const sourcePrevious = source.beats[sourceIndex - 1] ?? null;
   if (sourcePrevious?.next === beat.id) {
     sourcePrevious.next = beat.next;
-    sourcePrevious.nextArc = beat.next ? null : beat.nextArc;
   }
   if (source.startBeat === beat.id) source.startBeat = source.beats[0]?.id ?? "";
 
@@ -48,14 +47,11 @@ export function moveStoryBeat(document, { beatId, fromArcId, toArcId, toIndex })
 
   if (destinationPrevious) {
     destinationPrevious.next = beat.id;
-    destinationPrevious.nextArc = null;
   }
   if (destinationNext) {
     beat.next = destinationNext.id;
-    beat.nextArc = null;
   } else {
-    beat.next = oldDestinationHandoff?.next ?? null;
-    beat.nextArc = oldDestinationHandoff?.nextArc ?? null;
+    beat.next = oldDestinationNext;
   }
 
   return {
@@ -89,10 +85,8 @@ export function splitStoryBeat(document, { arcId, beatId, newBeatId, newBeatTitl
   const newBeat = emptyStoryBeat(id, title);
   newBeat.scene = movedSceneIds[0] ?? null;
   newBeat.next = original.next;
-  newBeat.nextArc = original.nextArc;
   original.scene = retainedSceneIds.includes(original.scene) ? original.scene : retainedSceneIds[0] ?? null;
   original.next = id;
-  original.nextArc = null;
   arc.beats.splice(beatIndex + 1, 0, newBeat);
   return {
     ok: true,
@@ -111,7 +105,7 @@ function emptyStoryBeat(id, title) {
       storyForwardActions: [], optionalActions: [], storyChoices: [], stageViews: [],
       indoorActions: [], outdoorActions: [], itemActions: [], developerActions: [],
     },
-    completesWhen: null, onEnter: null, onComplete: null, next: null, nextArc: null,
+    completesWhen: null, onEnter: null, onComplete: null, next: null,
   };
 }
 

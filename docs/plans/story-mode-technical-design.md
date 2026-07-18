@@ -59,6 +59,7 @@ classDiagram
     protagonist
     startBeat
     beats[]
+    completion
   }
 
   class StoryBeat {
@@ -70,7 +71,6 @@ classDiagram
     onEnter
     onComplete
     next
-    nextArc
   }
 
   class Scene {
@@ -199,7 +199,8 @@ actions, completion, and effects.
 - beat-wide story actions;
 - completion condition;
 - enter and complete effects;
-- `next` beat or `nextArc` handoff.
+- `next` beat; the arc completion node owns any cross-arc handoff and
+  acknowledgement card.
 
 The Story mode controller should point to one active beat. The player-facing
 experience should not be an emergent result of one controller advancing a step

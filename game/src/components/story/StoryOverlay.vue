@@ -1,30 +1,25 @@
 <script setup>
 defineProps({
-  showEndCard: { type: Boolean, default: false },
+  completion: { type: Object, default: null },
 });
 
-defineEmits(["dismiss-end"]);
+defineEmits(["dismiss-completion"]);
 </script>
 
 <template>
   <div
-    v-if="showEndCard"
+    v-if="completion?.card"
     class="story-overlay"
     role="dialog"
     aria-modal="true">
     <div class="story-panel">
-      <p class="story-eyebrow">Day 1 complete</p>
-      <h2 class="story-title">Shelter at last</h2>
-      <p class="story-text">
-        Zanzibar sleeps in the library while the cascade murmurs outside.
-        Tomorrow holds answers — and perhaps a way to turn the lights back on.
-      </p>
-      <p class="story-note">
-        To be continued — hydro power, the e-Buggy, and discoveries below.
-      </p>
+      <p v-if="completion.card.eyebrow" class="story-eyebrow">{{ completion.card.eyebrow }}</p>
+      <h2 class="story-title">{{ completion.card.heading }}</h2>
+      <p class="story-text">{{ completion.card.description }}</p>
+      <p v-if="completion.card.note" class="story-note">{{ completion.card.note }}</p>
       <div class="story-actions">
-        <button class="primary" @click="$emit('dismiss-end')">
-          Continue exploring
+        <button class="primary" @click="$emit('dismiss-completion')">
+          {{ completion.card.actionLabel }}
         </button>
       </div>
     </div>

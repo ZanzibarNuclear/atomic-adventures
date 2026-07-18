@@ -8,6 +8,7 @@ import {
   isEnablerLock,
   isManualEnablerActive,
   isSelfClosingDoor,
+  lockFreeFromRoom,
 } from "../lib/maps/composables/useDoors.js";
 import { searchActionLabel } from "../lib/maps/composables/useBarrierOpenings.js";
 import { barrierHintAtStand } from "../lib/maps/composables/useBarrierStand.js";
@@ -360,7 +361,7 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
   const inventory = indoor.character ?? indoor.indoor.inventory;
   const playerRoomId = indoor.playerRoomId;
 
-  for (const d of indoor.nearbyDoors ?? []) {
+  for (const d of doorActionsAvailableHere(indoor)) {
     const door = building.doorById[d.doorId];
     if (!door) continue;
     const state = indoor.doorStateFor(d.doorId);
@@ -422,6 +423,29 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
   }
 
   return items.filter(isVisibleAction);
+}
+
+function doorActionsAvailableHere(indoor) {
+  const doors = [...(indoor.nearbyDoors ?? [])];
+  const playerRoomId = indoor.playerRoomId;
+  if (!playerRoomId) return doors;
+
+  const knownDoorIds = new Set(doors.map((door) => door.doorId));
+  for (const door of indoor.building?.doors ?? []) {
+    if (knownDoorIds.has(door.id) || lockFreeFromRoom(door) !== playerRoomId) continue;
+    const link = (indoor.building?.links ?? []).find((candidate) =>
+      candidate.door === door.id &&
+      (candidate.from === playerRoomId || candidate.to === playerRoomId),
+    );
+    const toRoomId = link?.from === playerRoomId ? link.to : link?.from ?? null;
+    const room = toRoomId ? indoor.building?.roomById?.[toRoomId] : null;
+    doors.push({
+      doorId: door.id,
+      toRoomId,
+      toName: room?.label ?? null,
+    });
+  }
+  return doors;
 }
 
 function contextualDoorLabel(indoor, nearbyDoor) {

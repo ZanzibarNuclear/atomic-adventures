@@ -27,7 +27,6 @@ const documentText = JSON.stringify({
       scene: "center-pines",
       ...hiddenRuntimeFields,
       next: null,
-      nextArc: null,
     }],
   }],
 }, null, 2);
@@ -36,6 +35,8 @@ const beats = [
   { id: "center-pines", storyBeat: "reach-the-gate", heading: "The fence line", text: "The fence starts here.", trigger: { place: "outdoors", hex: "center-pines" } },
   { id: "south-pines", storyBeat: "reach-the-gate", heading: "Blocking the way", text: "The fence continues downhill.", trigger: { place: "outdoors", hex: "south-pines" } },
   { id: "unlinked-scene", storyBeat: null, heading: "An unused scene", text: "Waiting to be attached.", trigger: { place: "outdoors", hex: "south-pines" } },
+  { id: "library-draft", storyBeat: null, heading: "Library draft", text: "A library scene.", trigger: { place: "indoors", room: "library" } },
+  { id: "attached-library", storyBeat: "another-beat", heading: "Attached library scene", text: "Already linked elsewhere.", trigger: { place: "indoors", room: "library" } },
 ];
 
 function mountPanel() {
@@ -60,13 +61,49 @@ describe("StoryArcPanel focused authoring", () => {
     expect(wrapper.text()).not.toContain("Linked content");
   });
 
+  it("edits the completion transition listed after an arc's final beat", async () => {
+    const source = JSON.parse(documentText);
+    source.storyArcs.push({
+      id: "part-ii",
+      title: "Part II",
+      startBeat: "arrival",
+      beats: [{ ...source.storyArcs[0].beats[0], id: "arrival", scene: null, next: null }],
+    });
+    const wrapper = mount(StoryArcPanel, { props: { documentText: JSON.stringify(source), beats, catalog: {} } });
+
+    await wrapper.findAll(".completion-select")[0].trigger("click");
+    await wrapper.find(".detail-actions button").trigger("click");
+    await wrapper.find(".completion-editor select").setValue("part-ii");
+    await wrapper.find(".completion-editor .check-row input").setValue(true);
+    const inputs = wrapper.findAll(".completion-editor input");
+    await inputs[1].setValue("Day 1 complete");
+    await inputs[2].setValue("Shelter at last");
+    await wrapper.find(".completion-editor textarea").setValue("A quiet night in the library.");
+    await inputs[3].setValue("More tomorrow.");
+    await inputs[4].setValue("Continue");
+    await wrapper.find(".completion-editor").trigger("submit");
+
+    const update = JSON.parse(wrapper.emitted("update:documentText")[0][0]);
+    expect(update.storyArcs[0].completion).toEqual({
+      nextArc: "part-ii",
+      card: {
+        eyebrow: "Day 1 complete",
+        heading: "Shelter at last",
+        description: "A quiet night in the library.",
+        note: "More tomorrow.",
+        actionLabel: "Continue",
+      },
+    });
+  });
+
   it("edits an arc ID and label while updating arc handoff references", async () => {
     const source = JSON.parse(documentText);
     source.storyArcs.push({
       id: "part-ii",
       title: "Part II",
       startBeat: "arrival",
-      beats: [{ ...source.storyArcs[0].beats[0], id: "arrival", scene: null, nextArc: "part-i" }],
+      completion: { nextArc: "part-i" },
+      beats: [{ ...source.storyArcs[0].beats[0], id: "arrival", scene: null }],
     });
     const wrapper = mount(StoryArcPanel, { props: { documentText: JSON.stringify(source), beats, catalog: {} } });
     await wrapper.find(".detail-actions button").trigger("click");
@@ -77,7 +114,7 @@ describe("StoryArcPanel focused authoring", () => {
 
     const update = JSON.parse(wrapper.emitted("update:documentText")[0][0]);
     expect(update.storyArcs[0]).toMatchObject({ id: "opening-arc", title: "Opening Arc" });
-    expect(update.storyArcs[1].beats[0].nextArc).toBe("opening-arc");
+    expect(update.storyArcs[1].completion.nextArc).toBe("opening-arc");
   });
 
   it("opens linked scenes without mutating the story arc document", async () => {
@@ -132,6 +169,21 @@ describe("StoryArcPanel focused authoring", () => {
       beatId: "reach-the-gate",
       sceneId: "unlinked-scene",
     });
+  });
+
+  it("filters attachable scenes by room and unattached state", async () => {
+    const wrapper = mountPanel();
+    await selectBeat(wrapper);
+    const attach = wrapper.findAll(".detail-actions button").find((button) => button.text() === "Attach scene");
+    await attach.trigger("click");
+    await wrapper.find(".attach-room-filter").setValue("library");
+
+    const sceneOptions = () => wrapper.find(".attach-scene-select").findAll("option")
+      .map((option) => option.element.value);
+    expect(sceneOptions()).toEqual(["library-draft"]);
+
+    await wrapper.find(".attach-unattached-filter input").setValue(false);
+    expect(sceneOptions()).toEqual(["library-draft", "attached-library"]);
   });
 
   it("preserves hidden runtime fields when editing a beat title", async () => {
