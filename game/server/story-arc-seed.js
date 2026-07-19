@@ -6,22 +6,32 @@ export const storyArcSeed = {
       "title": "Part I Opener",
       "defaultMode": "story",
       "startBeat": "survive-in-the-woods",
-      "completion": {
-        "nextArc": "part-i-station"
-      },
       "beats": [
         {
           "id": "survive-in-the-woods",
+          "title": "Keep moving. Find something that can help you survive.",
+          "scene": "intro",
+          "choices": [],
           "allowed": {
             "movement": {
               "mode": "unrestricted",
               "hexes": [
                 "east-pines"
-              ]
+              ],
+              "rooms": [],
+              "exteriorNodes": [],
+              "transitions": []
             },
             "storyForwardActions": [
               "move-hex:east-pines"
-            ]
+            ],
+            "optionalActions": [],
+            "storyChoices": [],
+            "stageViews": [],
+            "indoorActions": [],
+            "outdoorActions": [],
+            "itemActions": [],
+            "developerActions": []
           },
           "completesWhen": {
             "location": {
@@ -29,30 +39,12 @@ export const storyArcSeed = {
               "hex": "east-pines"
             }
           },
-          "next": "keep-moving-west",
-          "title": "Keep moving. Find something that can help you survive.",
-          "scene": "intro"
+          "onEnter": null,
+          "onComplete": null,
+          "next": "keep-moving-west"
         },
         {
           "id": "keep-moving-west",
-          "allowed": {
-            "movement": {
-              "mode": "unrestricted",
-              "hexes": [
-                "center-pines"
-              ]
-            },
-            "storyForwardActions": [
-              "move-hex:center-pines"
-            ]
-          },
-          "completesWhen": {
-            "location": {
-              "place": "outdoors",
-              "hex": "center-pines"
-            }
-          },
-          "next": "reach-the-gate",
           "title": "Keep moving. Stay across the slope.",
           "scene": "east-pines",
           "choices": [
@@ -78,22 +70,65 @@ export const storyArcSeed = {
               "activity": "moderate",
               "go_hex": "lower-stand"
             }
-          ]
+          ],
+          "allowed": {
+            "movement": {
+              "mode": "unrestricted",
+              "hexes": [
+                "center-pines"
+              ],
+              "rooms": [],
+              "exteriorNodes": [],
+              "transitions": []
+            },
+            "storyForwardActions": [
+              "move-hex:center-pines"
+            ],
+            "optionalActions": [],
+            "storyChoices": [],
+            "stageViews": [],
+            "indoorActions": [],
+            "outdoorActions": [],
+            "itemActions": [],
+            "developerActions": []
+          },
+          "completesWhen": {
+            "location": {
+              "place": "outdoors",
+              "hex": "center-pines"
+            }
+          },
+          "onEnter": null,
+          "onComplete": null,
+          "next": "reach-the-gate"
         },
         {
           "id": "far-pines",
+          "title": "Choose a way back across the slope.",
+          "scene": "far-pines",
+          "choices": [],
           "allowed": {
             "movement": {
               "mode": "unrestricted",
               "hexes": [
                 "north-bend",
                 "center-pines"
-              ]
+              ],
+              "rooms": [],
+              "exteriorNodes": [],
+              "transitions": []
             },
             "storyForwardActions": [
               "move-hex:north-bend",
               "move-hex:center-pines"
-            ]
+            ],
+            "optionalActions": [],
+            "storyChoices": [],
+            "stageViews": [],
+            "indoorActions": [],
+            "outdoorActions": [],
+            "itemActions": [],
+            "developerActions": []
           },
           "completesWhen": {
             "location": {
@@ -104,12 +139,15 @@ export const storyArcSeed = {
               ]
             }
           },
-          "next": "reach-the-gate",
-          "title": "Choose a way back across the slope.",
-          "scene": "far-pines"
+          "onEnter": null,
+          "onComplete": null,
+          "next": "reach-the-gate"
         },
         {
           "id": "reach-the-gate",
+          "title": "Follow the fence. Find where it leads.",
+          "scene": "center-pines",
+          "choices": [],
           "allowed": {
             "movement": {
               "mode": "unrestricted",
@@ -118,7 +156,10 @@ export const storyArcSeed = {
                 "gate-woods",
                 "south-pines",
                 "utility-yard"
-              ]
+              ],
+              "rooms": [],
+              "exteriorNodes": [],
+              "transitions": []
             },
             "storyForwardActions": [
               "move-hex:north-bend",
@@ -129,33 +170,32 @@ export const storyArcSeed = {
               "passage:south-pines-hole",
               "move-hex:utility-yard"
             ],
+            "optionalActions": [],
+            "storyChoices": [],
+            "stageViews": [],
+            "indoorActions": [],
+            "outdoorActions": [],
             "itemActions": [
               "half-eaten-energy-bar.eat",
               "half-full-water-bottle.drink"
-            ]
+            ],
+            "developerActions": []
           },
           "completesWhen": {
             "location": {
               "place": "outdoors",
-              "hex": [
-                "gate-woods",
-                "utility-yard"
-              ]
+              "hex": "gate-woods"
             }
           },
-          "title": "Follow the fence. Find where it leads.",
-          "scene": "center-pines"
-        }
-      ]
-    },
-    {
-      "id": "part-i-station",
-      "title": "Part I Station",
-      "defaultMode": "story",
-      "startBeat": "find-a-way-past-fence",
-      "beats": [
+          "onEnter": null,
+          "onComplete": null,
+          "next": "find-a-way-past-fence"
+        },
         {
           "id": "find-a-way-past-fence",
+          "title": "Catch your breath. Eat or drink if you need to, then find a way past the fence.",
+          "scene": "the-gate",
+          "choices": [],
           "allowed": {
             "movement": {
               "mode": "unrestricted",
@@ -163,7 +203,10 @@ export const storyArcSeed = {
                 "south-pines",
                 "west-slope",
                 "utility-yard"
-              ]
+              ],
+              "rooms": [],
+              "exteriorNodes": [],
+              "transitions": []
             },
             "storyForwardActions": [
               "passage-toggle:compound-gate",
@@ -175,6 +218,10 @@ export const storyArcSeed = {
               "move-hex:utility-yard",
               "barrier:utility-yard"
             ],
+            "optionalActions": [],
+            "storyChoices": [],
+            "stageViews": [],
+            "indoorActions": [],
             "outdoorActions": [
               "search:barrier",
               "passage-toggle:compound-gate",
@@ -184,23 +231,117 @@ export const storyArcSeed = {
             "itemActions": [
               "half-eaten-energy-bar.eat",
               "half-full-water-bottle.drink"
-            ]
+            ],
+            "developerActions": []
           },
           "completesWhen": {
-            "location": {
-              "place": "outdoors",
-              "hex": "utility-yard"
-            }
+            "flag": "compound.gate-passed"
           },
-          "next": "look-for-shelter",
-          "title": "Catch your breath. Eat or drink if you need to, then find a way past the fence.",
-          "scene": "the-gate"
-        },
+          "onEnter": null,
+          "onComplete": null,
+          "next": null
+        }
+      ],
+      "completion": {
+        "nextArc": "part-i-station",
+        "card": {
+          "eyebrow": "Inside the fence",
+          "heading": "A way through",
+          "description": "The gate yields. Beyond it, a road and the sound of water — shelter has to be close.",
+          "actionLabel": "Continue"
+        }
+      }
+    },
+    {
+      "id": "part-i-fence-hole",
+      "title": "Through the Fence",
+      "defaultMode": "story",
+      "startBeat": "approach-side-entrance",
+      "beats": [
         {
-          "id": "look-for-shelter",
+          "id": "approach-side-entrance",
+          "title": "You're past the fence. Find shelter before dark.",
+          "scene": "side-entrance",
+          "choices": [],
           "allowed": {
             "movement": {
               "mode": "local-area",
+              "hexes": [
+                "utility-yard",
+                "west-slope",
+                "south-pines"
+              ],
+              "rooms": [],
+              "exteriorNodes": [
+                "large-bay-man-front",
+                "garage-front-entrance",
+                "south-east-corner-entrance"
+              ],
+              "transitions": [
+                "garage-exit",
+                "man-door-path",
+                "southeast-corner"
+              ]
+            },
+            "storyForwardActions": [
+              "move-hex:utility-yard",
+              "move-exterior:large-bay-man-front",
+              "door-break:large-bay-man",
+              "door-open:large-bay-man",
+              "move-room:large-bay"
+            ],
+            "optionalActions": [],
+            "storyChoices": [],
+            "stageViews": [],
+            "indoorActions": [
+              "door-break:large-bay-man",
+              "door-open:large-bay-man"
+            ],
+            "outdoorActions": [],
+            "itemActions": [
+              "half-eaten-energy-bar.eat",
+              "half-full-water-bottle.drink"
+            ],
+            "developerActions": []
+          },
+          "completesWhen": {
+            "location": {
+              "place": "indoors",
+              "room": "large-bay"
+            }
+          },
+          "onEnter": null,
+          "onComplete": null,
+          "next": null
+        }
+      ],
+      "completion": {
+        "nextArc": "part-i-station",
+        "nextBeat": "solve-first-crisis",
+        "card": {
+          "eyebrow": "Inside",
+          "heading": "A side door",
+          "description": "The man door gives way. Better cover than the trees.",
+          "actionLabel": "Continue"
+        }
+      }
+    },
+    {
+      "id": "part-i-station",
+      "title": "Part I Station",
+      "defaultMode": "story",
+      "startBeat": "look-for-shelter",
+      "beats": [
+        {
+          "id": "look-for-shelter",
+          "title": "Look for shelter before you run out of light.",
+          "scene": "large-bay-man-front",
+          "choices": [],
+          "allowed": {
+            "movement": {
+              "mode": "local-area",
+              "hexes": [],
+              "rooms": [],
               "exteriorNodes": [
                 "garage-front-entrance",
                 "large-bay-man-front",
@@ -218,10 +359,16 @@ export const storyArcSeed = {
               "door-open:large-bay-man",
               "move-room:large-bay"
             ],
+            "optionalActions": [],
+            "storyChoices": [],
+            "stageViews": [],
             "indoorActions": [
               "door-break:large-bay-man",
               "door-open:large-bay-man"
-            ]
+            ],
+            "outdoorActions": [],
+            "itemActions": [],
+            "developerActions": []
           },
           "completesWhen": {
             "location": {
@@ -229,61 +376,98 @@ export const storyArcSeed = {
               "room": "large-bay"
             }
           },
-          "next": "solve-first-crisis",
-          "title": "Look for shelter before you run out of light.",
-          "scene": "large-bay-man-front"
+          "onEnter": null,
+          "onComplete": null,
+          "next": "solve-first-crisis"
         },
         {
           "id": "solve-first-crisis",
+          "title": "Find food, water, and somewhere safe to rest.",
+          "scene": "large-bay",
+          "choices": [],
           "allowed": {
             "movement": {
               "mode": "local-area",
+              "hexes": [],
               "rooms": [
                 "garage-stair",
                 "conference",
                 "kitchen",
                 "library"
-              ]
+              ],
+              "exteriorNodes": [],
+              "transitions": []
             },
             "storyForwardActions": [
-              "door-open:conference-garage-stair",
+              "door-open:library-hallway",
               "door-open:conference-kitchen",
+              "door-open:conference-garage-stair",
               "move-room:kitchen",
               "action:eat-rations",
               "action:purify-water",
-              "door-open:library-hallway",
               "move-room:library",
               "action:rest-in-library"
             ],
+            "optionalActions": [],
+            "storyChoices": [],
+            "stageViews": [],
             "indoorActions": [
-              "door-open:conference-garage-stair",
-              "door-open:conference-kitchen",
               "door-open:library-hallway",
+              "door-open:conference-kitchen",
+              "door-open:conference-garage-stair",
               "eat-rations",
               "purify-water",
               "rest-in-library"
-            ]
+            ],
+            "outdoorActions": [],
+            "itemActions": [],
+            "developerActions": []
           },
           "completesWhen": {
-            "flag": "day1.complete"
+            "flag": "library.sleep-1"
           },
-          "next": "understand-building",
-          "title": "Find food, water, and somewhere safe to rest.",
-          "scene": "large-bay"
-        },
+          "onEnter": null,
+          "onComplete": null,
+          "next": null
+        }
+      ],
+      "completion": {
+        "nextArc": "understand-building",
+        "card": {
+          "eyebrow": "Morning",
+          "heading": "Food and rest",
+          "description": "A full stomach and a night under a roof. Daylight will make the building easier to read.",
+          "actionLabel": "Continue"
+        }
+      }
+    },
+    {
+      "id": "understand-building",
+      "title": "Understand the building",
+      "defaultMode": "story",
+      "startBeat": "understand-building",
+      "beats": [
         {
           "id": "understand-building",
+          "title": "Figure out what this building was for.",
+          "scene": "control-room",
+          "choices": [],
           "allowed": {
             "movement": {
               "mode": "local-area",
+              "hexes": [],
               "rooms": [
                 "control-room"
-              ]
+              ],
+              "exteriorNodes": [],
+              "transitions": []
             },
             "storyForwardActions": [
               "move-room:control-room",
               "action:read-hydro-startup-card"
             ],
+            "optionalActions": [],
+            "storyChoices": [],
             "stageViews": [
               {
                 "kind": "document",
@@ -293,34 +477,48 @@ export const storyArcSeed = {
             "indoorActions": [
               "read-hydro-startup-card"
             ],
+            "outdoorActions": [],
             "itemActions": [
               "hydro-startup-instruction-card.read"
-            ]
+            ],
+            "developerActions": []
           },
           "completesWhen": {
             "flag": "hydro.startup_card_read"
           },
-          "next": "inspect-intake",
-          "title": "Figure out what this building was for.",
-          "scene": "control-room"
+          "onEnter": null,
+          "onComplete": null,
+          "next": "inspect-intake"
         },
         {
           "id": "inspect-intake",
+          "title": "Trace the water path outside.",
+          "scene": "intake-entrance",
+          "choices": [],
           "allowed": {
             "movement": {
               "mode": "local-area",
               "hexes": [
                 "utility-yard"
               ],
+              "rooms": [],
               "exteriorNodes": [
                 "upstream-bank",
                 "intake-entrance"
-              ]
+              ],
+              "transitions": []
             },
             "storyForwardActions": [
               "move-exterior:upstream-bank",
               "move-exterior:intake-entrance"
-            ]
+            ],
+            "optionalActions": [],
+            "storyChoices": [],
+            "stageViews": [],
+            "indoorActions": [],
+            "outdoorActions": [],
+            "itemActions": [],
+            "developerActions": []
           },
           "completesWhen": {
             "location": {
@@ -328,92 +526,144 @@ export const storyArcSeed = {
               "exteriorNode": "upstream-bank"
             }
           },
-          "next": "clear-open-intake",
-          "title": "Trace the water path outside.",
-          "scene": "intake-entrance"
+          "onEnter": null,
+          "onComplete": null,
+          "next": "clear-open-intake"
         },
         {
           "id": "clear-open-intake",
+          "title": "Clear debris and open the intake.",
+          "scene": "intake-entrance",
+          "choices": [],
           "allowed": {
             "movement": {
-              "mode": "local-area"
+              "mode": "local-area",
+              "hexes": [],
+              "rooms": [],
+              "exteriorNodes": [],
+              "transitions": []
             },
             "storyForwardActions": [
               "action:clear-intake-debris",
               "action:open-intake"
             ],
+            "optionalActions": [],
+            "storyChoices": [],
+            "stageViews": [],
             "indoorActions": [
               "clear-intake-debris",
               "open-intake"
-            ]
+            ],
+            "outdoorActions": [],
+            "itemActions": [],
+            "developerActions": []
           },
           "completesWhen": {
             "facility": {
               "hydro.intakeOpen": true
             }
           },
-          "next": "align-diversion-valve",
-          "title": "Clear debris and open the intake.",
-          "scene": "intake-entrance"
+          "onEnter": null,
+          "onComplete": null,
+          "next": "align-diversion-valve"
         },
         {
           "id": "align-diversion-valve",
+          "title": "Align the upstream diversion valve.",
+          "scene": "midstream-bank",
+          "choices": [],
           "allowed": {
             "movement": {
-              "mode": "local-area"
+              "mode": "local-area",
+              "hexes": [],
+              "rooms": [],
+              "exteriorNodes": [],
+              "transitions": []
             },
             "storyForwardActions": [
               "move-exterior:midstream-bank",
               "action:align-pipeflow"
             ],
+            "optionalActions": [],
+            "storyChoices": [],
+            "stageViews": [],
             "indoorActions": [
               "align-pipeflow"
-            ]
+            ],
+            "outdoorActions": [],
+            "itemActions": [],
+            "developerActions": []
           },
           "completesWhen": {
             "facility": {
               "hydro.manualValves.upstreamOpen": true
             }
           },
-          "next": "open-turbine-valve",
-          "title": "Align the upstream diversion valve.",
-          "scene": "midstream-bank"
+          "onEnter": null,
+          "onComplete": null,
+          "next": "open-turbine-valve"
         },
         {
           "id": "open-turbine-valve",
+          "title": "Open the powerhouse pipe valve.",
+          "scene": "downstream-bank",
+          "choices": [],
           "allowed": {
             "movement": {
-              "mode": "local-area"
+              "mode": "local-area",
+              "hexes": [],
+              "rooms": [],
+              "exteriorNodes": [],
+              "transitions": []
             },
             "storyForwardActions": [
               "move-exterior:downstream-bank",
               "action:open-turbine-valve"
             ],
+            "optionalActions": [],
+            "storyChoices": [],
+            "stageViews": [],
             "indoorActions": [
               "open-turbine-valve"
-            ]
+            ],
+            "outdoorActions": [],
+            "itemActions": [],
+            "developerActions": []
           },
           "completesWhen": {
             "facility": {
               "hydro.manualValves.powerhouseOpen": true
             }
           },
-          "next": "return-control-room",
-          "title": "Open the powerhouse pipe valve.",
-          "scene": "downstream-bank"
+          "onEnter": null,
+          "onComplete": null,
+          "next": "return-control-room"
         },
         {
           "id": "return-control-room",
+          "title": "Return to the control room.",
+          "scene": "control-room",
+          "choices": [],
           "allowed": {
             "movement": {
               "mode": "local-area",
+              "hexes": [],
               "rooms": [
                 "control-room"
-              ]
+              ],
+              "exteriorNodes": [],
+              "transitions": []
             },
             "storyForwardActions": [
               "move-room:control-room"
-            ]
+            ],
+            "optionalActions": [],
+            "storyChoices": [],
+            "stageViews": [],
+            "indoorActions": [],
+            "outdoorActions": [],
+            "itemActions": [],
+            "developerActions": []
           },
           "completesWhen": {
             "location": {
@@ -421,47 +671,78 @@ export const storyArcSeed = {
               "room": "control-room"
             }
           },
-          "next": "connect-power",
-          "title": "Return to the control room.",
-          "scene": "control-room"
+          "onEnter": null,
+          "onComplete": null,
+          "next": "connect-power"
         },
         {
           "id": "connect-power",
+          "title": "Connect station power.",
+          "scene": "control-room",
+          "choices": [],
           "allowed": {
             "movement": {
-              "mode": "current-location-only"
+              "mode": "current-location-only",
+              "hexes": [],
+              "rooms": [],
+              "exteriorNodes": [],
+              "transitions": []
             },
             "storyForwardActions": [
               "action:connect-power"
             ],
+            "optionalActions": [],
+            "storyChoices": [],
+            "stageViews": [],
             "indoorActions": [
               "connect-power"
-            ]
+            ],
+            "outdoorActions": [],
+            "itemActions": [],
+            "developerActions": []
           },
           "completesWhen": {
             "facility": {
               "hydro.online": true
             }
           },
-          "next": "check-console",
-          "title": "Connect station power.",
-          "scene": "control-room"
+          "onEnter": null,
+          "onComplete": null,
+          "next": "check-console"
         },
         {
           "id": "check-console",
+          "title": "Check the generator console.",
+          "scene": "control-room",
+          "choices": [],
           "allowed": {
             "movement": {
-              "mode": "current-location-only"
+              "mode": "current-location-only",
+              "hexes": [],
+              "rooms": [],
+              "exteriorNodes": [],
+              "transitions": []
             },
             "storyForwardActions": [
               "hydro-console:open"
             ],
+            "optionalActions": [],
+            "storyChoices": [],
             "stageViews": [
               {
                 "kind": "console",
                 "id": "hydro"
               }
-            ]
+            ],
+            "indoorActions": [],
+            "outdoorActions": [],
+            "itemActions": [],
+            "developerActions": []
+          },
+          "completesWhen": {
+            "facility": {
+              "hydro.online": true
+            }
           },
           "onEnter": {
             "view": {
@@ -470,32 +751,42 @@ export const storyArcSeed = {
               "focus": "generation"
             }
           },
-          "completesWhen": {
-            "facility": {
-              "hydro.online": true
-            }
-          },
-          "next": "complete-startup",
-          "title": "Check the generator console.",
-          "scene": "control-room"
+          "onComplete": null,
+          "next": "complete-startup"
         },
         {
           "id": "complete-startup",
+          "title": "Bring the hydro generator online.",
+          "scene": "control-room",
+          "choices": [],
           "allowed": {
             "movement": {
-              "mode": "unrestricted"
-            }
+              "mode": "unrestricted",
+              "hexes": [],
+              "rooms": [],
+              "exteriorNodes": [],
+              "transitions": []
+            },
+            "storyForwardActions": [],
+            "optionalActions": [],
+            "storyChoices": [],
+            "stageViews": [],
+            "indoorActions": [],
+            "outdoorActions": [],
+            "itemActions": [],
+            "developerActions": []
           },
           "completesWhen": {
             "facility": {
               "hydro.startupComplete": true
             }
           },
-          "next": null,
-          "title": "Bring the hydro generator online.",
-          "scene": "control-room"
+          "onEnter": null,
+          "onComplete": null,
+          "next": null
         }
-      ]
+      ],
+      "completion": null
     }
   ]
 };

@@ -295,4 +295,137 @@ describe("story arc visible actions", () => {
     expect(gameState.story.activeBeatId).toBe("explore");
   });
 
+  it("branches from the opener into the fence-hole arc after crossing the gap", () => {
+    const place = ref("outdoors");
+    const outdoor = reactive({
+      state: { currentId: "utility-yard", previousId: "south-pines", mapTransition: null, transitionDirection: null },
+    });
+    const indoor = reactive({ indoor: { currentRoom: null, exteriorNode: null } });
+    const gameState = reactive({
+      playMode: "story",
+      story: {
+        activeArcId: "part-i-opener",
+        activeBeatId: "find-a-way-past-fence",
+        enteredBeatIds: [],
+        completedBeatIds: [],
+        seenSceneIds: [],
+        completedArcIds: [],
+        dismissedCompletionArcIds: [],
+      },
+      flags: new Set(),
+      milestones: {},
+      facilities: {},
+      lessons: {},
+      clock: null,
+      character: null,
+    });
+    const storyData = computed(() => normalizeStoryArcContent({
+      storyArcs: [
+        {
+          id: "part-i-opener",
+          startBeat: "find-a-way-past-fence",
+          beats: [{ id: "find-a-way-past-fence", completesWhen: { flag: "compound.gate-passed" }, scenes: [] }],
+        },
+        {
+          id: "part-i-fence-hole",
+          startBeat: "approach-side-entrance",
+          beats: [{
+            id: "approach-side-entrance",
+            completesWhen: { location: { place: "indoors", room: "large-bay" } },
+            scenes: [],
+          }],
+          completion: {
+            nextArc: "part-i-station",
+            nextBeat: "solve-first-crisis",
+            card: {
+              eyebrow: "Inside",
+              heading: "A side door",
+              description: "Shelter.",
+              actionLabel: "Continue",
+            },
+          },
+        },
+        {
+          id: "part-i-station",
+          startBeat: "look-for-shelter",
+          beats: [
+            { id: "look-for-shelter", completesWhen: { location: { place: "indoors", room: "large-bay" } }, scenes: [] },
+            { id: "solve-first-crisis", completesWhen: { flag: "library.sleep-1" }, scenes: [] },
+          ],
+        },
+      ],
+    }));
+    const story = useStoryArc(storyData, { gameState, place, outdoor, indoor });
+
+    gameState.flags.add("compound.fence-hole-passed");
+    story.tick();
+
+    expect(gameState.story.activeArcId).toBe("part-i-fence-hole");
+    expect(gameState.story.activeBeatId).toBe("approach-side-entrance");
+  });
+
+  it("merges a completed fence-hole arc into a mid-station beat", () => {
+    const place = ref("indoors");
+    const outdoor = reactive({
+      state: { currentId: null, previousId: null, mapTransition: null, transitionDirection: null },
+    });
+    const indoor = reactive({ indoor: { currentRoom: "large-bay", exteriorNode: null } });
+    const gameState = reactive({
+      playMode: "story",
+      story: {
+        activeArcId: "part-i-fence-hole",
+        activeBeatId: "approach-side-entrance",
+        enteredBeatIds: [],
+        completedBeatIds: [],
+        seenSceneIds: [],
+        completedArcIds: [],
+        dismissedCompletionArcIds: [],
+      },
+      flags: new Set(["compound.fence-hole-passed"]),
+      milestones: {},
+      facilities: {},
+      lessons: {},
+      clock: null,
+      character: null,
+    });
+    const storyData = computed(() => normalizeStoryArcContent({
+      storyArcs: [
+        {
+          id: "part-i-fence-hole",
+          startBeat: "approach-side-entrance",
+          beats: [{
+            id: "approach-side-entrance",
+            completesWhen: { location: { place: "indoors", room: "large-bay" } },
+            scenes: [],
+          }],
+          completion: {
+            nextArc: "part-i-station",
+            nextBeat: "solve-first-crisis",
+            card: {
+              eyebrow: "Inside",
+              heading: "A side door",
+              description: "Shelter.",
+              actionLabel: "Continue",
+            },
+          },
+        },
+        {
+          id: "part-i-station",
+          startBeat: "look-for-shelter",
+          beats: [
+            { id: "look-for-shelter", completesWhen: { location: { place: "indoors", room: "large-bay" } }, scenes: [] },
+            { id: "solve-first-crisis", completesWhen: { flag: "library.sleep-1" }, scenes: [] },
+          ],
+        },
+      ],
+    }));
+    const story = useStoryArc(storyData, { gameState, place, outdoor, indoor });
+    story.tick();
+
+    expect(gameState.story.activeArcId).toBe("part-i-station");
+    expect(gameState.story.activeBeatId).toBe("solve-first-crisis");
+    expect(gameState.story.completedArcIds).toContain("part-i-fence-hole");
+    expect(story.pendingCompletion.value?.id).toBe("part-i-fence-hole");
+  });
+
 });
