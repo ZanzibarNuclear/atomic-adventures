@@ -922,7 +922,7 @@ function openInventoryDialog() {
       @return-to-map="handleReturnToMap" />
 
     <StoryOverlay
-      v-if="gameState.playMode && !gameFailed && isMapView"
+      v-if="gameState.playMode && !gameFailed && pendingCompletion"
       :completion="pendingCompletion"
       @dismiss-completion="dismissCompletion" />
   </main>

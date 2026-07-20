@@ -151,24 +151,32 @@ export function useStoryArc(storyData, {
 
   /**
    * Canonical opener uses the compound gate. The fence-hole path is a separate
-   * arc that branches when the player crosses south-pines-hole, then merges back
-   * into part-i-station after the side garage door.
+   * arc that branches when the player crosses south-pines-hole, then merges into
+   * part-i-station at look-for-shelter (backside man door / large-bay-man-front-2).
+   *
+   * Branch from *any* opener beat once the hole is used — players can reach the
+   * hole without first completing reach-the-gate (e.g. east-pines → lower-stand
+   * → south-pines while still on keep-moving-west).
    */
   function recoverBranchToFenceHoleArc() {
     if (!hasFlag(gameState.flags, "compound.fence-hole-passed")) return false;
     const holeArc = storyArcs.value.find((candidate) => candidate.id === "part-i-fence-hole");
     if (!holeArc?.beats?.length) return false;
     if (gameState.story?.activeArcId === holeArc.id) return false;
+    // Already past the alternate path — do not yank the player back into it.
+    if ((gameState.story?.completedArcIds ?? []).includes(holeArc.id)) return false;
 
-    const openerBranchBeats = new Set(["reach-the-gate", "find-a-way-past-fence"]);
-    if (!openerBranchBeats.has(gameState.story?.activeBeatId)) return false;
+    const openerArc = storyArcs.value.find((candidate) => candidate.id === "part-i-opener");
+    const onOpenerArc = gameState.story?.activeArcId === "part-i-opener"
+      || (!gameState.story?.activeArcId && openerArc);
+    const onOpenerBeat = Boolean(
+      openerArc?.beats?.some((beat) => beat.id === gameState.story?.activeBeatId),
+    );
+    if (!onOpenerArc && !onOpenerBeat) return false;
 
-    const alreadyInLargeBay = place.value === "indoors" && indoor?.indoor?.currentRoom === "large-bay";
-    const targetBeatId = alreadyInLargeBay
-      ? holeArc.beats[holeArc.beats.length - 1]?.id
-      : holeArc.beats.find((beat) => beat.id === "approach-side-entrance")?.id
-        ?? holeArc.startBeat
-        ?? holeArc.beats[0]?.id;
+    const targetBeatId = holeArc.startBeat
+      ?? holeArc.beats.find((beat) => beat.id === "approach-side-entrance")?.id
+      ?? holeArc.beats[0]?.id;
     if (!targetBeatId) return false;
 
     gameState.story.activeArcId = holeArc.id;
@@ -366,6 +374,9 @@ export function useStoryArc(storyData, {
       outdoor?.state?.previousId,
       outdoor?.state?.mapTransition,
       outdoor?.state?.transitionDirection,
+      // Hole/gate crosses often keep the same hex and only move the stand + flags.
+      outdoor?.state?.stand?.x,
+      outdoor?.state?.stand?.y,
       indoor?.indoor?.currentRoom,
       indoor?.indoor?.exteriorNode,
       [...(gameState.flags ?? [])].join("\0"),

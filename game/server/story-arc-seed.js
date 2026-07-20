@@ -260,7 +260,7 @@ export const storyArcSeed = {
       "beats": [
         {
           "id": "approach-side-entrance",
-          "title": "You're past the fence. Find shelter before dark.",
+          "title": "You're past the fence. Follow the building around to the east side.",
           "scene": "side-entrance",
           "choices": [],
           "allowed": {
@@ -286,17 +286,12 @@ export const storyArcSeed = {
             "storyForwardActions": [
               "move-hex:utility-yard",
               "move-exterior:large-bay-man-front",
-              "door-break:large-bay-man",
-              "door-open:large-bay-man",
-              "move-room:large-bay"
+              "exit-world:man-door-path"
             ],
             "optionalActions": [],
             "storyChoices": [],
             "stageViews": [],
-            "indoorActions": [
-              "door-break:large-bay-man",
-              "door-open:large-bay-man"
-            ],
+            "indoorActions": [],
             "outdoorActions": [],
             "itemActions": [
               "half-eaten-energy-bar.eat",
@@ -305,10 +300,20 @@ export const storyArcSeed = {
             "developerActions": []
           },
           "completesWhen": {
-            "location": {
-              "place": "indoors",
-              "room": "large-bay"
-            }
+            "anyOf": [
+              {
+                "location": {
+                  "place": "indoors",
+                  "exteriorNode": "large-bay-man-front"
+                }
+              },
+              {
+                "location": {
+                  "place": "indoors",
+                  "room": "large-bay"
+                }
+              }
+            ]
           },
           "onEnter": null,
           "onComplete": null,
@@ -317,11 +322,11 @@ export const storyArcSeed = {
       ],
       "completion": {
         "nextArc": "part-i-station",
-        "nextBeat": "solve-first-crisis",
+        "nextBeat": "look-for-shelter",
         "card": {
-          "eyebrow": "Inside",
-          "heading": "A side door",
-          "description": "The man door gives way. Better cover than the trees.",
+          "eyebrow": "East side",
+          "heading": "Back of the building",
+          "description": "A man door faces the trees. Shelter is one stubborn lock away — the same door any traveler would try.",
           "actionLabel": "Continue"
         }
       }

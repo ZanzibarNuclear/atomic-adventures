@@ -92,7 +92,7 @@ Gate and hole are both valid Story-mode routes. They rejoin when Zanzibar is ins
 | Step | Do | Expect | Notes |
 | --- | --- | --- | --- |
 | 1.A1 | From fence, go to `south-pines`, search/discover hole, cross `south-pines-hole` | Flag `compound.fence-hole-passed`; active arc → **`part-i-fence-hole`**, beat `approach-side-entrance` | Does not require gate inspect/open |
-| 1.A2 | Reach man door, enter `large-bay` | Hole arc completes; short card; merge to **`part-i-station`** beat **`solve-first-crisis`** | Skips `look-for-shelter` because already inside |
+| 1.A2 | Reach east/back man door (`large-bay-man-front`, ideally via `man-door-path`) | Hole arc completes; **completion card**; merge to **`part-i-station`** beat **`look-for-shelter`** | Join at backside scene (`large-bay-man-front-2`), then open door into bay like the gate path |
 
 **Canonical outdoor hex spine:**  
 `origin` → `east-pines` → `center-pines` → (`north-bend` or `south-pines`) → `gate-woods` → (cross gate) → `west-slope` / `utility-yard`

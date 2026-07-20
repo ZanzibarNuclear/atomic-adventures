@@ -186,6 +186,12 @@ function normalizeAllowed(input = {}) {
 
 function normalizeCompletion(input = {}) {
   if (!input || typeof input !== "object") return null;
+  if (Array.isArray(input.anyOf)) {
+    const anyOf = input.anyOf
+      .map((candidate) => normalizeCompletion(candidate))
+      .filter(Boolean);
+    return anyOf.length ? { anyOf } : null;
+  }
   return compactObject({
     flag: nullableText(input.flag),
     facility: normalizeRecord(input.facility),
@@ -281,6 +287,13 @@ function validateAllowed(allowed, path, add, { world }) {
 
 function validateCompletion(completion, path, add, { world, character, learning }) {
   if (!completion) return;
+  if (Array.isArray(completion.anyOf)) {
+    if (!completion.anyOf.length) add(path, "Add at least one completion option.");
+    completion.anyOf.forEach((candidate, index) => {
+      validateCompletion(candidate, `${path}.anyOf.${index}`, add, { world, character, learning });
+    });
+    return;
+  }
   const families = ["flag", "facility", "location", "holding", "lesson", "milestone"]
     .filter((key) => hasCompletionValue(completion[key]));
   if (families.length !== 1) add(path, "Choose exactly one completion condition.");

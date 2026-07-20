@@ -261,7 +261,14 @@ describe("story API", () => {
     )).toBe(true);
     expect(arcsById["part-i-fence-hole"].completion).toEqual(expect.objectContaining({
       nextArc: "part-i-station",
-      nextBeat: "solve-first-crisis",
+      nextBeat: "look-for-shelter",
+    }));
+    expect(arcsById["part-i-fence-hole"].beats[0]?.completesWhen).toEqual(expect.objectContaining({
+      anyOf: expect.arrayContaining([
+        expect.objectContaining({
+          location: expect.objectContaining({ exteriorNode: "large-bay-man-front" }),
+        }),
+      ]),
     }));
     expect(storyArcRepository.validate(storyArcDocument.storyArcDocument).valid).toBe(true);
 
