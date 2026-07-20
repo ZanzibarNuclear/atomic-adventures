@@ -24,6 +24,7 @@
     "learning:export": "node server/learning-cli.js export",
     "test": "vitest run",
     "browser:smoke": "node scripts/browser-smoke.mjs",
+    "playtest:alpha-smoke": "node scripts/alpha-play-smoke.mjs",
     "test:movement": "MOVEMENT_AUDIT_REPORT=1 vitest run src/lib/maps/testing/mapMovementAudit.test.js --reporter=verbose",
     "test:watch": "vitest"
   },

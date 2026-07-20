@@ -1,332 +1,257 @@
 # Getting to Alpha
 
-**Status:** In progress
-**Last updated:** 2026-07-06
-**Primary contracts:** [Play Modes And Story Mode Control](../contracts/play-modes-and-story-mode.md), [Story Beats And Scenes](../contracts/story-beats.md), [Stage Views](../contracts/stage-views.md), [Holo-Reader](../contracts/holo-reader.md), [Control Panel](../contracts/control-panel.md), [Hydro Simulator](../contracts/hydro-simulator.md), [Character, Artifacts, and Inventory Management](../contracts/character-inventory.md)
+**Status:** In progress — pillars shipped; end-to-end Story pass and polish remain  
+**Last updated:** 2026-07-20  
+**Public reference build:** https://fun.atomicambitions.com (main deploy)  
+**Playtest script:** [alpha-story-mode-playtest.md](alpha-story-mode-playtest.md)  
 **Quality checklist:** [Character, Inventory, and Game-View Regression Checklist](../quality/character-inventory-regression-checklist.md)
+
+**Primary contracts:** [Play Modes And Story Mode](../contracts/play-modes-and-story-mode.md), [Story Beats And Scenes](../contracts/story-beats.md), [Stage Views](../contracts/stage-views.md), [Holo-Reader](../contracts/holo-reader.md), [Control Panel](../contracts/control-panel.md), [Hydro Simulator](../contracts/hydro-simulator.md), [Character, Artifacts, and Inventory Management](../contracts/character-inventory.md)
+
+---
 
 ## Goal
 
-Move the current hydro vertical slice from a promising first cut to an alpha
-experience that a new player can understand, follow, and complete.
+Ship a hydro vertical slice that a new player can understand, follow, and
+complete in **Story mode**: woods survival → compound → first night → laminated
+startup card → field hydro actions → station power online → readable console
+and (at least once) the beginner hydro lesson.
 
-The hydro runtime, facility state, startup actions, beginner lesson, visual
-startup card, simplified console, and dual play-mode structure are now in
-place. The remaining alpha gap is mostly end-to-end polish: make sure the
-survival-to-hydro story path reads cleanly, electrical affordances are
-consistent once power comes online, and the final build/test loop stays green.
-
-Alpha should feel like:
-
-1. Zanzibar can learn the basic idea of hydro power without prior knowledge.
-2. Zanzibar can inspect a clear laminated instruction card before doing field
-   work.
-3. Zanzibar can bring the generator online and read a simpler control-room
-   console.
-4. The player chooses between guided Story mode and experimental Open-world
-   mode before play begins.
-
-## Alpha Scope
-
-The original four alpha pillars are implemented:
-
-- beginner-friendly hydro lesson;
-- visual laminated instruction card;
-- simplified hydro console;
-- explicit Story mode versus Open-world mode.
-
-Remaining alpha work should be limited to polish and verification needed to
-make those pillars coherent in one playable run. The later stages below are
-important, but they should not expand alpha unless a missing piece blocks the
+Alpha is **not** a general simulation platform, eBuggy campaign, AI assistant,
+or full electrical model. Those stay post-alpha unless a hole appears in the
 survival-to-hydro loop.
 
-## Decisions
+### Alpha should feel like
 
-- Treat alpha as a guided experience first. Open-world exploration is valuable,
-  but it should be an explicit alternate mode, not the default assumption for a
-  story beat.
-- Teach hydro power from everyday references: waterwheels, flowing streams,
-  dams, Hoover Dam, pipes, turbines, generators, and electricity.
-- Assume most players have never heard the word `penstock`.
-- Prefer images and diagrams over text-only explanations.
-- Keep the first lesson compact. This is internal scoping guidance only, not
-  lesson metadata and not player-facing text.
-- Keep quiz questions short and distributed throughout the lesson rather than
-  saving all assessment for the end.
-- Present the instruction card as an object, not as ordinary prose in the story
-  panel.
-- Keep the alpha console focused on the few things a beginner needs:
-  prerequisites, station power state, pressure, turbine speed, flow, output,
-  warnings, and what to do next.
-- Defer AI-assisted station operation, full electrical-system modeling, buggy
-  driving simulation, and battery/fleet modeling until after alpha.
+1. Zanzibar can learn the basic idea of hydro power without prior knowledge.
+2. Zanzibar can inspect a clear laminated instruction card before field work.
+3. Zanzibar can bring the generator online and read a simpler control-room console.
+4. The player chooses Story mode (recommended) or experimental Open-world mode
+   before play begins.
 
-## Wave 1 - Hydro Lesson Rewrite
+---
 
-**Purpose:** Make the hydro lesson approachable for a beginning player.
+## Shipped pillars (do not re-open unless broken)
 
-The current hydro learning path needs to explain the basics to someone who has
-seen a waterwheel or a picture of Hoover Dam, but has not thought about how
-water becomes electricity.
+These were the original four alpha pillars. Treat them as done unless a
+playtest or bug proves otherwise.
 
-- [x] Rewrite the hydro lesson for beginners.
-- [x] Split the lesson into multiple pages so each idea is small.
-- [x] Add visual-first explanations for: - water stored high or flowing downhill; - gravity and height difference; - flow rate; - intake; - penstock as a pressure pipe; - turbine; - generator; - tailrace or water leaving the plant; - why debris, closed valves, and leaks reduce power.
-- [x] Add frequent images or diagrams. The lesson should feel illustrated, not
-      like a textbook page.
-- [x] Add short quiz questions throughout the lesson.
-- [x] Keep the full lesson compact without player-facing time estimates.
-- [x] Award the existing hydro knowledge/progression effects only after the
-      player completes the lesson or required checks.
-- [x] Test lesson selection, completion, idempotent awards, save/load, and
-      return-to-map behavior.
+| Pillar | Where it lives |
+| --- | --- |
+| Beginner hydro lesson (multi-page, illustrated, quizzes) | Learning content + holo-reader stage view |
+| Laminated startup instruction card (artifact, front checklist + back mini-map) | Document stage view + control-room console stand |
+| Simplified hydro console | Hydro console stage view + facility runtime |
+| Story mode vs Open-world mode | Mode chooser, `useStoryArc` / open-world controller, saves |
 
-**Exit criterion:** A new player can explain, in plain language, that water
-falls or flows through a pipe, spins a turbine, turns a generator, and makes
-electricity, and can connect that idea to the actions Zanzibar must perform.
+Related plumbing that is also in place for the alpha loop:
 
-### Wave 1 Addendum - Lesson Page/Frame Expansion
+- Hydro facility state and startup actions (clear/open intake, valves, connect power).
+- Powered-object consistency when station power is online (lights, outlets, holo-reader, console, stove, EV charger hooks).
+- Fence-hole alternate Story arc (`part-i-fence-hole`) merging back into station arc.
+- Completion cards for arc handoffs (opener, hole, station).
 
-The beginner hydro rewrite uses the holo-reader page/frame/block shape: lessons
-contain pages, pages contain framed learning objects, and frames contain ordered
-mixed content blocks such as paragraphs, images, diagrams, formulas, and quiz
-frames.
+---
 
-Implementation sequence:
+## Definition of done
 
-- [x] Extend the learning model to normalize authored `pages`.
-- [x] Update `LessonRenderer` to render one page at a time, with Back/Next
-      controls, page progress, and frames containing ordered blocks. Keep quiz
-      completion behavior equivalent to the current all-required-checks model.
-- [x] Update the Content Builder so authors can add, remove, reorder, and preview
-      pages, frames, blocks, and quiz frames. Builder editing should expose
-      multiple paragraph blocks inside one frame.
-- [x] Migrate `hydro-power-stream-to-socket` into a shorter multi-page lesson with a
-      few mixed-content frames per page.
-- [x] Upgrade the original hydro lesson to authored pages and remove the
-      compatibility path.
+Alpha is ready when **all** of the following are true:
 
-## Wave 2 - Laminated Instruction Card
+- [ ] A new player can finish **survival → hydro online** in Story mode without a soft-lock.
+- [ ] Scene prose order and actions agree with the card/console model (no contradictory procedures).
+- [ ] Food/water and first-night paths complete the station arc and apply understandable wellbeing effects (or intentional, labeled alternatives).
+- [ ] After power, electrical affordances do not claim to be active when the station is offline.
+- [ ] Player can open the beginner hydro lesson after power (pillar 1 exercised at least once in the run).
+- [ ] Save/load preserves mode, arc/beat, inventory, flags, and hydro facility state at mid-path checkpoints.
+- [ ] Hands-on browser pass logged (manual findings section below).
+- [ ] `npm run test` and `npm run build:game` still pass from repo root (see also test-effectiveness work item).
+- [ ] Prioritized punchlist below is empty of P0 items (P1/P2 optional for alpha call).
 
-**Purpose:** Turn the startup directions into a visual carried artifact.
+---
 
-The instruction card should temporarily replace the map viewing area, like the
-holo-reader does, but with a different look: a laminated front-and-back card
-that Zanzibar can inspect.
+## Working punchlist (seed — sort after manual testing)
 
-- [x] Define an instruction-card focused view or document-style close-up.
-- [x] Let the card open from the authored instruction artifact or relevant
-      story/action.
-- [x] Show the card large in the viewing area.
-- [x] Present a front side with the startup checklist: 1. Clear debris and open the intake. 2. Align the upstream/diversion valve. 3. Open the turbine valve or powerhouse pipe valve. 4. Return to the control room. 5. Connect station power. 6. Check the console.
-- [x] Present a back side with a mini-map of the hydro system. the mini map
-      shows the numbers of the steps on the front, making it clear to the
-      player where to go for each step.
-- [x] Use visual labels for the intake, valve locations, powerhouse, control
-      room, and water path.
-- [x] The card is an artifact. It starts out placed on the console. The control
-      room has a 'console' stand. As with any artifact, the card can be held or
-      placed inside the backpack. Make sure everything is set up correctly
-      for this to work.
-- [x] Reading the card impacts the game state for the player. However, the player
-      has to take the actions the card describes if he wants to make progress.
-      The action do not happen automatically just by reading the card.
-- [x] Test opening, flipping, returning to map, carrying/access from inventory,
-      save/load, and stale/missing content handling.
+Priorities will be reordered after manual findings are in. **Do not treat this
+list as closed.** Items marked *audit* came from content/runtime review, not
+yet confirmed in browser.
 
-**Exit criterion:** Before doing field work, a player can inspect a visual
-artifact that tells them what to do and where the hydro system pieces are.
+### P0 — Likely blockers or trust breakers
 
-## Wave 3 - Simplified Alpha Console
+| ID | Source | Item | Notes |
+| --- | --- | --- | --- |
+| P0-1 | audit F4 | End-of-hydro console beat can auto-skip | `connect-power` sets `online` **and** `startupComplete`. Beats `check-console` and `complete-startup` both complete on those, so “check the console” may not require a real player step (console may flash via `onEnter`). |
+| P0-2 | audit F6 | Food/water dual path | Kitchen choice **Eat and drink** only sets flags. Real satiety/hydration actions require `story.the-garage` (garage-front scene). Man-door-only path may “complete” night without real recovery. |
+| P0-3 | process | Full manual Story mode browser pass | Gate path + hole path + sleep + field + power + lesson + save/load. Script: [alpha-story-mode-playtest.md](alpha-story-mode-playtest.md). |
+| P0-4 | process | Automated play path coverage | Playwright/smoke path that exercises mode select → early story → (later) key gates. Unit suite alone is not trusted as path proof. |
 
-**Purpose:** Keep the control-room console useful without overwhelming a new
-player.
+### P1 — Confusing path / prose that undermines alpha
 
-The current console proves the technical loop, but alpha should reduce the
-display to the few signals a beginner can act on.
+| ID | Source | Item | Notes |
+| --- | --- | --- | --- |
+| P1-1 | audit F7 | Control-room revisit is 7 steps | Includes leak check, 60 PSI, electrical panel language that does not match the alpha 6-step card + real actions. |
+| P1-2 | audit F8 | Library Day 2 monologue vs location | `library-explore` narrates bathroom/breakfast/stairs while player is still in the library. |
+| P1-3 | audit F10 | Lesson not on critical path | Beginner lesson is power-gated via holo-reader, not a story beat. Arc can finish before any lesson; still need a deliberate post-power lesson visit for pillar 1. |
+| P1-4 | audit | Soft Story action gating | Runtime mainly *prompts* story-forward actions; hard-hide of out-of-order mutations is limited (`mustRest` is the main hard stop). Detours can feel aimless. |
 
-- [x] Review the current console layout after hands-on play.
-- [x] Identify which readouts are required for alpha and which should move to
-      an advanced/details view.
-- [x] Keep a clear system status area: - station power online/offline; - intake ready/not ready; - valves ready/not ready; - generator online/offline; - next recommended action.
-- [x] Keep three core telemetry readings visible: - pressure; - turbine speed; - power output.
-- [x] Decide whether flow and net head stay visible in alpha or become
-      expandable details.
-- [x] Reduce graph count if the console feels busy.
-- [x] Keep diagnostics in plain language.
-- [x] Keep historical event markers on the live graphs, and move the separate
-      report/event-list panels out of the alpha console.
-- [x] Test online/offline, missing prerequisites, warning/fault cases, return
-      to map, and save/load while the console is open or recently closed.
+### P2 — Polish and hygiene
 
-**Exit criterion:** The console answers three beginner questions quickly:
-`Is the station powered?`, `What is happening right now?`, and `What should I
-do next?`
+| ID | Source | Item | Notes |
+| --- | --- | --- | --- |
+| P2-1 | audit F9 | Typos / tone | e.g. “Partical Physics”, “Quantum Machanics”, “somem time”, “Get you water here”. |
+| P2-2 | audit | Stale production JSON snapshot | Checked-in `game/public/content/utility-station.json` lagged SQLite for `rest-in-library` flags; confirm build export path and live site after deploy. |
+| P2-3 | process | Verify and improve effectiveness of automated tests | Hypothesis: many tests pin content existence or incidental structure, not player-facing invariants. Audit suite; keep invariant tests; delete or replace misleading ones. |
+| P2-4 | docs | Refresh stale `feature-gaps.md` and contract status labels | Gaps still list shipped work (mode select, StoryArc, holo MVP, etc.). Misleads alpha triage. |
+| P2-5 | browser-confirm | Fixed items need human confirm | F1 hole arc, F2 rest/sleep flags, F3 station start beat, F5 completion card copy. |
 
-## Wave 4 - Story Mode and Open-World Mode
+### Explicitly post-alpha (do not expand alpha unless loop is blocked)
 
-**Purpose:** Stop asking one interface to carry two incompatible experiences.
+- Detailed plug/unplug/turn-off and brownout/load modeling.
+- eBuggy battery, charge range, gauge panel, driving simulation.
+- AI station assistant.
+- Part I battery bank location/capacity story beyond the hidden buffer assumption.
+- Interactive hydro field close-ups (intake/valve/turbine) beyond stills + actions.
+- Scene Builder full rename / first-class Scenes workspace (`scene-builder-workspace.md`).
+- Holo-reader author validation warnings and richer completion rules.
+- Close-up rides, video kinds, simulation outcome sandbox (beyond current console/lesson/document).
 
-Open access to rooms, outdoor nodes, and many actions made it too easy for a
-player to lose the authored story thread. The current playable slice now has an
-explicit split:
+---
 
-- **Story mode** — the player is Zanzibar in the canonical story. Scenes,
-  choices, visible story actions, and consequences guide the current concern
-  while ordinary valid movement remains available.
-- **Open-world mode** — the player explores freely, defines their own goals,
-  and tries to figure things out without following the canonical story.
+## Findings from manual testing
 
-The implementation contract for this split is
-[Play Modes And Story Mode Control](../contracts/play-modes-and-story-mode.md).
-Story arcs own guided progression, story beats own choices, actions,
-completion, and effects, and scenes own prose variants.
+Use this section as a **raw capture log**. Do not prioritize here during the
+run — dump observations, then we sort into the punchlist.
 
-### Story Mode Requirements
+**How to log**
 
-- [x] Add an explicit mode selection or new-game choice.
-- [x] Make Story mode the default/recommended new-game choice.
-- [x] In Story mode, gate or hide nonmovement actions that would reveal or
-      mutate future story state out of order.
-- [x] Allow forced movement, forced time passage, stage views, and limited
-      action sets where the story requires them.
-- [x] Remove the standalone objective UI and guide with scenes, choices, and
-      visible actions.
-- [x] Preserve Zanzibar's authored voice and canonical story beats.
-- [x] Keep ordinary valid movement and detours available, with survival pressure
-      providing consequence.
-- [x] Prevent optional exploration from obscuring critical hydro startup steps.
-- [x] Test opening movement, valid detours, the canonical gate path, the
-      noncanonical fence-hole shortcut, and hydro startup with mode gates active.
+- Date, build (local commit or public URL), Story vs Open-world.
+- Where you were (hex / room / exterior node), what you did, what you expected, what happened.
+- Soft-lock, confusion, prose contradiction, missing action, wrong flag, save bug, UI dead-end.
+- Optional: severity guess (`blocker` / `confusing` / `polish`).
 
-### Open-World Mode Requirements
+### Session template
 
-- [x] Let open-world mode expose broad room, map, and action access.
-- [x] Keep safety rails for impossible or invalid state, but do not force the
-      canonical story sequence.
-- [x] Make it clear that open-world mode is experimental/freeform and may not
-      follow the authored narrative.
-- [x] Preserve save/load, inventory, flags, character state, and facility state.
-- [x] Test starting in open-world mode and hydro facility actions remaining
-      broad while facility rules still determine availability.
+```
+### YYYY-MM-DD — <name> — <local | fun.atomicambitions.com> — <commit or “main”>
 
-**Exit criterion:** A player knows whether they are following Zanzibar's story
-or freely experimenting, and the UI behavior matches that choice.
+- Context: Story mode, new game (or load from …)
+- Path: gate | hole | mixed
 
-## Current Stage - Electrical Affordances
+#### Findings
+1. [blocker|confusing|polish] <short title>
+   - Where:
+   - Did:
+   - Expected:
+   - Saw:
+   - Notes:
 
-**Purpose:** Make station power matter broadly now that the official hydro
-startup path can bring the utility station online.
+#### Pass notes (what felt fine)
+-
+```
 
-Once station power is online, anything electrical should have a consistent way
-to express that it can be powered, switched, charged, plugged in, unplugged, or
-otherwise used.
+### Sessions
 
-- [x] Define a simple powered-object model for authored utility-station items.
-- [x] Treat room lights and outlets as active once station power is online.
-- [x] Keep the holo-reader, generator console, stove, and EV charger connected
-      to station power.
-- [x] Keep these affordances connected to facility state, not ad hoc flags.
-- [ ] Add detailed `turn off`, `plug in`, `unplug`, and `charge` behaviors where
-      they matter for later puzzles.
-- [ ] Add brownout/load behavior when battery and load modeling exists.
+<!-- Add new sessions above this line, newest first -->
 
-**Alpha note:** Detailed plug/unplug and brownout behavior can remain post-alpha
-unless the final story loop needs one of those interactions. The alpha
-requirement is consistency: powered objects should not contradict the station
-power state.
+### YYYY-MM-DD — (template reserved)
 
-## Future Stage - eBuggy Charging and Driving
+_No sessions logged yet. First pass in progress._
 
-**Purpose:** Make the buggy a key reward for restoring power.
+---
 
-Charging the eBuggy should open more of the hex map and eventually introduce a
-vehicle dashboard or gauge panel.
+## Odds and ends from other plans
 
-- [ ] Define the eBuggy battery state.
-- [ ] Add a charge action that depends on station power.
-- [ ] Decide how charged range maps to hex movement.
-- [ ] Add expanded reachable hexes once the buggy is charged.
-- [ ] Create a first buggy gauge panel or close-up.
-- [ ] Defer full driving simulation until after the alpha story loop is stable.
+Reviewed `docs/plans/*` against code and contracts (2026-07-20). Items below
+are leftovers to consider with manual notes — not automatic alpha scope.
 
-## Future Stage - AI Station Assistant
+| Plan | Status | Alpha relevance | Action |
+| --- | --- | --- | --- |
+| [alpha-story-mode-playtest.md](alpha-story-mode-playtest.md) | Script + audit; browser open | **Primary** acceptance instrument | Keep until browser log green |
+| [close-up-views-implementation.md](close-up-views-implementation.md) | Phase 2 (location images) done; rides/sims later | Low for loop if lesson/console/card work | Keep as roadmap; fold done pieces into contracts over time |
+| [holo-reader-follow-ups.md](holo-reader-follow-ups.md) | Player MVP done; author warnings open | Player path is alpha; Wave 3 warnings are not | Keep until warnings → `holo-reader` / `feature-gaps` |
+| [scene-builder-workspace.md](scene-builder-workspace.md) | Needs rethinking; mostly unfinished | Authoring only | Keep; **post-alpha** for player ship |
+| story-arc-builder-simplification | Implemented; absorbed by play-modes contract | None | **Deleted** 2026-07-20 |
+| story-mode-migration-plan | Runtime migration complete | None | **Deleted** 2026-07-20; remaining naming debt lives in scene-builder plan |
+| story-mode-technical-design | Superseded by contracts | None | **Deleted** 2026-07-20 |
 
-**Purpose:** Explore a control-room assistant without making it an alpha
-dependency.
+### Contract / docs hygiene (consider with punchlist)
 
-The idea of a chatbot or agent connected to the control-room console is
-promising, but it should wait until the basic station model, console, and story
-flow are stable.
+- `docs/contracts/feature-gaps.md` is **stale**: still lists mode selection, StoryArc runtime, holo MVP, and other shipped work as open.
+- `location-media.md` status still says Planned while location image close-ups ship.
+- `play-modes-and-story-mode.md` still labeled “Target” though the model is live.
+- `stage-views.md` mentions `video` / `ride` kinds not present in runtime.
 
-- [ ] Define what the assistant can know: telemetry, event log, facility state,
-      lesson content, and current story context.
-- [ ] Define what the assistant cannot do: bypass field actions, mutate story
-      state directly, or solve challenges without player consent.
-- [ ] Prototype only after alpha needs are met.
+### Automated playtesting note
 
-## Future Stage - Part I Batteries and Hidden Storage
+Manual browser play remains the source of truth for prose and confusion.
+Automated path smokes (Playwright against local or public) should prove:
 
-**Purpose:** Resolve the power-buffer story and simulation model.
+1. Mode chooser appears for a new game.
+2. Story mode starts into the opener scene/map.
+3. Later: gate/hole, sleep, card, field chain, power, console, lesson.
 
-The current hydro generator assumes a hidden battery/inverter buffer. Part I
-needs an authored explanation for where those batteries are and how much they
-matter.
+**Existing short smoke** (already in the game package):
 
-- [ ] Decide the station battery location.
-- [ ] Decide whether the battery bank is visible, hidden, or discovered later.
-- [ ] Decide whether the eBuggy is one vehicle or part of a small fleet.
-- [ ] Set rough battery capacities for the station buffer and buggy.
-- [ ] Decide whether battery charge is simulated numerically in Part I or kept
-      as coarse states.
+```bash
+# with dev server on :5173
+npm run browser:smoke -w game
+```
 
-## Future Stage - Close-Up Visuals for Hydro Actions
+Covers: Story + Open-world mode select, Origin → East Pines, no objective UI.
 
-**Purpose:** Make field work tactile and place-specific.
+**Extensible alpha smoke** (screenshots + findings log):
 
-Each hydro action would ideally open a close-up visual that temporarily
-replaces the map:
+```bash
+npm run playtest:alpha-smoke -w game
+# or: BASE_URL=https://fun.atomicambitions.com node game/scripts/alpha-play-smoke.mjs
+```
 
-- intake close-up for clearing debris and opening the intake;
-- diversion/upstream valve close-up for turning the valve;
-- pressure gauge and powerhouse pipe valve close-up;
-- powerhouse/turbine peek showing spinning machinery and flowing water.
+Artifacts: `game/tmp/playtest-artifacts/` (gitignored).
 
-For alpha, still images plus story beats may be enough. Later, these can become
-interactive close-ups with stateful controls.
+| Date | Target | Script | Result |
+| --- | --- | --- | --- |
+| 2026-07-20 | local `:5173` | `browser:smoke` | ok — Story/Open-world, Origin→East Pines |
+| 2026-07-20 | local `:5173` | `playtest:alpha-smoke` | **7 pass / 0 fail** — mode chooser, Story, opener prose, first choice |
 
-- [ ] Choose a best-effort still-image approach for the first pass.
-- [ ] Add close-up entry points from relevant actions or story beats.
-- [ ] Keep field action effects host-owned and validated.
-- [ ] Test opening/returning, action completion, repeated views, save/load, and
-      missing asset handling.
+These only cover the **opening minutes**. Extending toward gate / sleep / card / power is punchlist **P0-4**.
 
-## Alpha Acceptance Checklist
+Unit/integration tests remain useful only where they protect **named
+invariants** (see AGENTS.md). Effectiveness audit is punchlist **P2-3**.
 
-- [x] A beginner-friendly hydro lesson exists.
-- [x] The lesson uses enough images/diagrams that the core idea is visible
-      before it is technical.
-- [x] The instruction card opens as a visual focused view and includes a
-      checklist plus mini-map.
-- [x] The instruction card can be carried or accessed from inventory/backpack.
-- [x] The console is simplified for alpha and gives a clear next action.
-- [x] The game explicitly supports Story mode and Open-world mode.
-- [x] The hydro startup path works end to end in Story mode.
-- [x] Save/load preserves lesson, card, mode, inventory, hydro facility state,
-      and console behavior.
-- [ ] The full survival-to-hydro Story mode run has one final hands-on browser
-      pass for scene prose order and confusing affordances.
-- [x] `npm run test` passes from the repository root.
-- [x] `npm run build:game` passes from the repository root.
+---
 
-## Implementation Notes
+## Decisions (still current)
 
-- Keep authored lesson/card content in the canonical SQLite/content pipeline.
-- Use generated or searched bitmap images for lesson and card visuals when
-  helpful; avoid turning the beginner lesson into text-only exposition.
-- Do not make builder support a prerequisite unless the content cannot be
-  authored safely without it.
-- Prefer a clear alpha path over a fully general system. Generalize only when a
-  second or third concrete object proves the abstraction.
-- Update tests and contracts when mode behavior changes story or action
-  availability.
+- Guided Story mode first; Open-world is explicit and experimental.
+- Teach hydro from everyday references (waterwheels, streams, dams, pipes, turbines, generators). Assume players have never heard `penstock`.
+- Prefer images/diagrams over text-only lessons.
+- Keep the first lesson compact (internal scoping only — not player-facing time estimates).
+- Quiz questions short and distributed through the lesson.
+- Instruction card is an object (stage view), not only story-panel prose.
+- Alpha console: prerequisites, station power, pressure, turbine speed, flow/output as needed, warnings, next action.
+- Defer AI station ops, full electrical modeling, buggy driving, battery/fleet modeling until after alpha.
+
+---
+
+## Related playtest script phases (quick map)
+
+| Phase | Focus |
+| --- | --- |
+| 0 | Mode selection |
+| 1 | Woods → fence (gate canonical; hole alternate) |
+| 2 | Shelter, food/water, library sleep |
+| 3 | Instruction card |
+| 4 | Field startup + connect power + console |
+| 5 | Powered world + beginner lesson |
+| 6 | Save/load checkpoints |
+| 7 | Acceptance ticks |
+
+Full tables and expected flags: [alpha-story-mode-playtest.md](alpha-story-mode-playtest.md).
+
+---
+
+## Implementation notes
+
+- Canonical content: `game/content/atomic-adventures.sqlite`. YAML is snapshot import/export only.
+- Production reads exported `/content/*.json` from the build pipeline; do not trust stale checked-in public snapshots without re-export.
+- Prefer a clear alpha path over a fully general system; generalize when a second concrete object demands it.
+- Update contracts and tests when behavior changes; delete obsolete plans once contracts absorb them.
+)

@@ -2,8 +2,8 @@
 
 **Status:** Needs rethinking
 **Last updated:** 2026-07-09
-**Primary design:** [Story Mode Technical Design](story-mode-technical-design.md)
 **Primary contracts:** [Story Beats and Scenes](../contracts/story-beats.md), [Play Modes and Story Mode](../contracts/play-modes-and-story-mode.md)
+**Note:** Earlier Story Mode technical design / migration plans were completed and removed; contracts are the source of truth for the runtime model.
 
 ## Goal
 
