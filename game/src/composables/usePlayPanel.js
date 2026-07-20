@@ -8,6 +8,7 @@ import {
   isEnablerLock,
   isManualEnablerActive,
   isSelfClosingDoor,
+  lockFreeFromRoom,
 } from "../lib/maps/composables/useDoors.js";
 import { searchActionLabel } from "../lib/maps/composables/useBarrierOpenings.js";
 import { barrierHintAtStand } from "../lib/maps/composables/useBarrierStand.js";
@@ -92,6 +93,7 @@ export function storyChoiceDestinations(pendingBeat) {
 
 export function buildOutdoorSearchActions(outdoor) {
   if (!outdoor.canSearchHere?.()) return [];
+  if (outdoor.hasObviousPassageAtStand) return [];
   if ((outdoor.passageCrossings ?? []).length > 0) return [];
   const label = searchActionLabel({
     openings: outdoor.searchableOpenings?.() ?? [],
@@ -134,7 +136,7 @@ export function buildOutdoorEnterBuildingActions(outdoor, indoor) {
   if (!outdoor.atBuildingEntrance || !indoor?.building?.label) return [];
   return [{
     id: "enter-building",
-    label: "Take a closer look",
+    label: "Switch to station map",
     enterBuilding: true,
     kind: "transition",
   }];
@@ -221,7 +223,12 @@ export function buildOutdoorDirectMovementActions(outdoor, pendingBeat = null) {
     }));
 }
 
-export function buildOutdoorPlayActions(outdoor, pendingBeat = null, indoor = null) {
+export function buildOutdoorPlayActions(
+  outdoor,
+  pendingBeat = null,
+  indoor = null,
+  nearbyHoldings = [],
+) {
   return [
     ...buildOutdoorRouteActions(outdoor, pendingBeat),
     ...buildOutdoorBarrierFollowActions(outdoor, pendingBeat),
@@ -231,6 +238,11 @@ export function buildOutdoorPlayActions(outdoor, pendingBeat = null, indoor = nu
     ...buildOutdoorPassageUnlockActions(outdoor),
     ...buildOutdoorPassageToggleActions(outdoor),
     ...buildOutdoorPassageActions(outdoor),
+    ...nearbyHoldings.map((record) => ({
+      id: `holding-pickup:${record.type}:${record.id}`,
+      label: `Pick up ${withArticle(record.label)}`,
+      kind: "pickup",
+    })),
   ].filter(isVisibleAction);
 }
 
@@ -249,6 +261,7 @@ export function handleOutdoorChooseAction(
   actionId,
   travelToHex = (hexId) => outdoor.moveTo(hexId),
   enterBuilding = () => {},
+  pickupHolding = () => {},
 ) {
   if (actionId === "enter-building") {
     enterBuilding();
@@ -268,6 +281,10 @@ export function handleOutdoorChooseAction(
   }
   if (actionId.startsWith("passage:")) {
     outdoor.crossPassage?.(actionId.slice("passage:".length));
+    return;
+  }
+  if (actionId.startsWith("holding-pickup:")) {
+    pickupHolding(actionId.slice("holding-pickup:".length));
     return;
   }
   if (actionId.startsWith("route:") || actionId.startsWith("barrier:")) {
@@ -345,7 +362,7 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
   const inventory = indoor.character ?? indoor.indoor.inventory;
   const playerRoomId = indoor.playerRoomId;
 
-  for (const d of indoor.nearbyDoors ?? []) {
+  for (const d of doorActionsAvailableHere(indoor)) {
     const door = building.doorById[d.doorId];
     if (!door) continue;
     const state = indoor.doorStateFor(d.doorId);
@@ -407,6 +424,29 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
   }
 
   return items.filter(isVisibleAction);
+}
+
+function doorActionsAvailableHere(indoor) {
+  const doors = [...(indoor.nearbyDoors ?? [])];
+  const playerRoomId = indoor.playerRoomId;
+  if (!playerRoomId) return doors;
+
+  const knownDoorIds = new Set(doors.map((door) => door.doorId));
+  for (const door of indoor.building?.doors ?? []) {
+    if (knownDoorIds.has(door.id) || lockFreeFromRoom(door) !== playerRoomId) continue;
+    const link = (indoor.building?.links ?? []).find((candidate) =>
+      candidate.door === door.id &&
+      (candidate.from === playerRoomId || candidate.to === playerRoomId),
+    );
+    const toRoomId = link?.from === playerRoomId ? link.to : link?.from ?? null;
+    const room = toRoomId ? indoor.building?.roomById?.[toRoomId] : null;
+    doors.push({
+      doorId: door.id,
+      toRoomId,
+      toName: room?.label ?? null,
+    });
+  }
+  return doors;
 }
 
 function contextualDoorLabel(indoor, nearbyDoor) {
@@ -707,8 +747,16 @@ function poweredObjectStatusLines(indoor) {
     .filter(Boolean);
 }
 
-export function buildOutdoorStatusLines(outdoor, indoor, wellbeingOverview = null) {
+export function buildOutdoorStatusLines(
+  outdoor,
+  indoor,
+  wellbeingOverview = null,
+  nearbyHoldings = [],
+) {
   const lines = buildWellbeingStatusLines(wellbeingOverview);
+  if (nearbyHoldings.length) {
+    lines.push(`On the ground: ${formatSentenceList(nearbyHoldings.map((record) => record.label))}.`);
+  }
   for (const action of outdoor.lockedPassageActions ?? []) {
     if (action.status) lines.push(action.status);
   }

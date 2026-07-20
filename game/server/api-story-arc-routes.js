@@ -50,6 +50,16 @@ export async function handleStoryArcRoutes(req, res, url, {
     return json(res, 200, result);
   }
 
+  if (req.method === "POST" && url.pathname === "/api/story-arcs/document/split-beat") {
+    if (!storyArcRepository) return json(res, 404, { message: "Story arc content not found." });
+    const body = await readJson(req);
+    const result = storyArcRepository.splitBeatScenes(body);
+    syncRuntimeContent?.();
+    broadcast("story.updated", { revision: result.storyRevision, areaId: body.areaId, splitBeat: body.beatId });
+    broadcast("story-arcs.updated", { revision: result.revision, splitBeat: body.beatId });
+    return json(res, 200, result);
+  }
+
   if (req.method === "GET" && url.pathname === "/api/story-arcs/document/revisions") {
     if (!storyArcRepository) return json(res, 404, { message: "Story arc content not found." });
     return json(res, 200, storyArcRepository.listRevisions());

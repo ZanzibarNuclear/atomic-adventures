@@ -7,37 +7,54 @@ defineProps({
 defineEmits(["close", "set-station-power", "set-vital", "adjust-vital"]);
 
 function vitalPresets(vital) {
-  const states = [...(vital.displayStates ?? [])]
-    .sort((a, b) => Number(b.at) - Number(a.at));
+  const states = [...(vital.displayStates ?? [])].sort(
+    (a, b) => Number(b.at) - Number(a.at),
+  );
   if (!states.length) return [];
-  return states.map((state, index) => {
-    const upper = index === 0 ? Number(vital.max ?? 100) : Number(states[index - 1].at) - 1;
-    const lower = Math.max(Number(vital.min ?? 0), Number(state.at));
-    const boundedUpper = Math.max(lower, upper);
-    return {
-      label: state.state,
-      lower,
-      upper: boundedUpper,
-      value: Math.round((lower + boundedUpper) / 2),
-    };
-  }).reverse();
+  return states
+    .map((state, index) => {
+      const upper =
+        index === 0
+          ? Number(vital.max ?? 100)
+          : Number(states[index - 1].at) - 1;
+      const lower = Math.max(Number(vital.min ?? 0), Number(state.at));
+      const boundedUpper = Math.max(lower, upper);
+      return {
+        label: state.state,
+        lower,
+        upper: boundedUpper,
+        value: Math.round((lower + boundedUpper) / 2),
+      };
+    })
+    .reverse();
 }
 
 function isActivePreset(vital, preset) {
   const value = Number(vital.value);
-  return Number.isFinite(value) && value >= preset.lower && value <= preset.upper;
+  return (
+    Number.isFinite(value) && value >= preset.lower && value <= preset.upper
+  );
 }
 </script>
 
 <template>
-  <div class="dev-settings-backdrop" role="presentation" @click.self="$emit('close')">
-    <section class="dev-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="dev-settings-title">
+  <div
+    class="dev-settings-backdrop"
+    role="presentation"
+    @click.self="$emit('close')">
+    <section
+      class="dev-settings-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="dev-settings-title">
       <header class="dialog-header">
         <div>
           <p class="label">Developer overrides</p>
           <h2 id="dev-settings-title">Settings</h2>
         </div>
-        <button type="button" class="sm muted" @click="$emit('close')">Close</button>
+        <button type="button" class="sm muted" @click="$emit('close')">
+          Close
+        </button>
       </header>
 
       <section class="setting-group">
@@ -46,23 +63,25 @@ function isActivePreset(vital, preset) {
           <input
             type="checkbox"
             :checked="stationPowerOn"
-            @change="$emit('set-station-power', $event.target.checked)">
+            @change="$emit('set-station-power', $event.target.checked)" />
           <span>
             <strong>Station power</strong>
-            <small>Sets `hub.hydro_online` and the indoor facility power state.</small>
+            <small
+              >Sets `hub.hydro_online` and the indoor facility power
+              state.</small
+            >
           </span>
         </label>
       </section>
 
       <section class="setting-group">
-        <h3>Vitals</h3>
-        <article
-          v-for="vital in vitals"
-          :key="vital.id"
-          class="vital-control">
+        <h3>Health</h3>
+        <article v-for="vital in vitals" :key="vital.id" class="vital-control">
           <div class="vital-control-heading">
             <strong>{{ vital.label }}</strong>
-            <span>{{ Math.round(vital.value) }} / {{ Math.round(vital.max) }}</span>
+            <span
+              >{{ Math.round(vital.value) }} / {{ Math.round(vital.max) }}</span
+            >
           </div>
           <input
             type="range"
@@ -71,7 +90,12 @@ function isActivePreset(vital, preset) {
             :step="1"
             :value="vital.value"
             :aria-label="`${vital.label} value`"
-            @input="$emit('set-vital', { id: vital.id, value: Number($event.target.value) })">
+            @input="
+              $emit('set-vital', {
+                id: vital.id,
+                value: Number($event.target.value),
+              })
+            " />
           <div class="vital-buttons">
             <button
               v-for="preset in vitalPresets(vital)"
@@ -80,7 +104,9 @@ function isActivePreset(vital, preset) {
               class="sm muted"
               :class="{ active: isActivePreset(vital, preset) }"
               :aria-pressed="isActivePreset(vital, preset)"
-              @click="$emit('set-vital', { id: vital.id, value: preset.value })">
+              @click="
+                $emit('set-vital', { id: vital.id, value: preset.value })
+              ">
               {{ preset.label }}
             </button>
           </div>

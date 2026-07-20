@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { existsSync, mkdtempSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openDatabase } from "./db.js";
@@ -9,6 +9,9 @@ import { parseStoryYaml } from "./story-yaml.js";
 import { loadContentDocuments } from "./test-content.js";
 
 const dirs = [];
+const migrationCount = readdirSync(new URL("./migrations", import.meta.url))
+  .filter((name) => name.endsWith(".sql"))
+  .length;
 
 afterEach(() => {
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
@@ -46,7 +49,7 @@ function sampleBeat(overrides = {}) {
     heading: "Test",
     text: "Original text.",
     trigger: { place: "outdoors", hex: "origin" },
-    choices: [{ text: "Continue", sets: ["test.done"], go_hex: "east-pines" }],
+    choices: [{ text: "Continue", set_flags: ["test.done"], go_hex: "east-pines" }],
     ...overrides,
   };
 }
@@ -59,7 +62,7 @@ describe("StoryRepository", () => {
     expect(repository.getRuntimeStory().areas["part-i"].beats.intro.heading).toBe("Lost in the woods");
     db.close();
     const reopened = openDatabase(path);
-    expect(reopened.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get().count).toBe(15);
+    expect(reopened.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get().count).toBe(migrationCount);
     reopened.close();
   });
 
@@ -80,6 +83,48 @@ describe("StoryRepository", () => {
     }]);
     expect(repository.listMilestones("test-area")[0].id).toBe("hydro.online");
     expect(repository.getRuntimeStory().areas["test-area"].milestones[0].kind).toBe("operations");
+    db.close();
+  });
+
+  it("stores scene flag criteria for runtime selection", () => {
+    const { db, repository } = createRepository();
+    const saved = repository.createBeat("part-i", {
+      ...sampleBeat(),
+      conditions: { flags: { all: ["gate.inspected"], not: ["gate.opened"] } },
+    });
+    const runtimeBeat = repository.getRuntimeStory().areas["part-i"].beats[saved.beat.id];
+
+    expect(runtimeBeat.conditions).toEqual({
+      flags: {
+        all: ["gate.inspected"],
+        not: ["gate.opened"],
+      },
+    });
+    db.close();
+  });
+
+  it("includes choice-defined flags in story beat summaries for authoring", () => {
+    const { db, repository } = createRepository();
+    repository.createBeat("part-i", sampleBeat({
+      id: "summary-gate-inspect",
+      choices: [
+        { text: "Inspect the gate", set_flags: ["story.gate.inspected"] },
+        { text: "Remember the latch", effects: [{ op: "flag.set", id: "story.gate.latch-found" }] },
+      ],
+    }));
+    repository.createBeat("part-i", sampleBeat({
+      id: "summary-gate-untangle",
+      choices: [
+        { text: "Untangle the vine from the gate", set_flags: ["story.gate.untangled"] },
+      ],
+    }));
+
+    const summaries = repository.listBeats("part-i");
+
+    expect(summaries.find((beat) => beat.id === "summary-gate-inspect").definedFlags)
+      .toEqual(["story.gate.inspected", "story.gate.latch-found"]);
+    expect(summaries.find((beat) => beat.id === "summary-gate-untangle").definedFlags)
+      .toEqual(["story.gate.untangled"]);
     db.close();
   });
 

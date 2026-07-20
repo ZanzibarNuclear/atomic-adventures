@@ -28,10 +28,31 @@ export function normalizeStoryArc(source = {}, index = 0, proseBeats = {}) {
     protagonist: text(source.protagonist) || null,
     startBeat,
     beats: rawBeats.map((beat, beatIndex) => normalizeStoryBeat(beat, beatIndex, proseBeats)),
+    completion: normalizeArcCompletion(source.completion),
+  };
+}
+
+function normalizeArcCompletion(source = {}) {
+  if (!source || typeof source !== "object") return null;
+  const card = source.card && typeof source.card === "object"
+    ? {
+      eyebrow: text(source.card.eyebrow),
+      heading: text(source.card.heading),
+      description: text(source.card.description),
+      note: text(source.card.note),
+      actionLabel: text(source.card.actionLabel),
+    }
+    : null;
+  return {
+    nextArc: text(source.nextArc) || null,
+    // Optional merge target on the next arc (defaults to that arc's startBeat).
+    nextBeat: text(source.nextBeat) || null,
+    card,
   };
 }
 
 export function normalizeStoryBeat(source = {}, index = 0, proseBeats = {}) {
+  const { nextArc: _ignoredLegacyArcHandoff, ...beatSource } = source;
   const proseBeatId = text(source.scene);
   const proseBeat = proseBeatId ? proseBeats[proseBeatId] : null;
   const id = text(source.id) || `story-beat-${index + 1}`;
@@ -52,7 +73,7 @@ export function normalizeStoryBeat(source = {}, index = 0, proseBeats = {}) {
   const normalizedChoices = choices.map((choice, choiceIndex) => normalizeChoice(choice, choiceIndex));
 
   return {
-    ...source,
+    ...beatSource,
     id,
     title: text(source.title) || id,
     scenes: scenes.map((scene, sceneIndex) =>
@@ -68,7 +89,6 @@ export function normalizeStoryBeat(source = {}, index = 0, proseBeats = {}) {
     onEnter: source.onEnter ?? null,
     onComplete: source.onComplete ?? null,
     next: text(source.next) || null,
-    nextArc: text(source.nextArc) || null,
   };
 }
 
@@ -168,7 +188,7 @@ function selectBestScene(scenes, context = {}) {
     if (!modeMatches(scene, context)) continue;
     if (!timeMatches(scene, context)) continue;
     if (!flagMatches(scene, context)) continue;
-    const score = matchScore(scene, loc, action) + timeScore(scene);
+    const score = matchScore(scene, loc, action) + timeScore(scene) + flagScore(scene);
     if (score < 0 || score <= selectedScore) continue;
     selected = scene;
     selectedScore = score;
@@ -181,7 +201,7 @@ function sceneSelectionScore(scene, context = {}) {
   const loc = context.location ?? {};
   const event = context.event ?? null;
   const action = context.actionContext ?? sceneActionContext(loc, event);
-  return matchScore(scene, loc, action) + timeScore(scene);
+  return matchScore(scene, loc, action) + timeScore(scene) + flagScore(scene);
 }
 
 function ambientOrderScore(index, total) {
@@ -200,6 +220,7 @@ function sceneFromProseBeat(id, beat) {
   return {
     id,
     trigger: beat.trigger ?? {},
+    conditions: beat.conditions ?? null,
     modes: beat.modes ?? [],
     match: beat.match ?? {},
     time: beat.time ?? {},
@@ -276,7 +297,21 @@ function flagMatches(scene, context) {
   if (triggerFlag && !hasValue(flags, triggerFlag)) return false;
   const conditions = scene.conditions ?? {};
   if (conditions.flag && !hasValue(flags, conditions.flag)) return false;
+  const requiredFlags = normalizeStringArray(conditions.flags?.all ?? conditions.flags);
+  const absentFlags = normalizeStringArray(conditions.flags?.not);
+  if (requiredFlags.some((flag) => !hasValue(flags, flag))) return false;
+  if (absentFlags.some((flag) => hasValue(flags, flag))) return false;
   return true;
+}
+
+function flagScore(scene) {
+  const conditions = scene.conditions ?? {};
+  let score = 0;
+  if (scene.trigger?.flag) score += 1;
+  if (conditions.flag) score += 1;
+  score += normalizeStringArray(conditions.flags?.all ?? conditions.flags).length;
+  score += normalizeStringArray(conditions.flags?.not).length;
+  return score;
 }
 
 function timeMatches(scene, context) {
@@ -294,8 +329,8 @@ function timeMatches(scene, context) {
   if (time.elapsedFrom != null && elapsedMinutes < Number(time.elapsedFrom)) return false;
   if (time.elapsedTo != null && elapsedMinutes > Number(time.elapsedTo)) return false;
   if (!minuteWindowMatches(time, minuteOfDay)) return false;
-  if (time.afterMilestone && !hasValue(context.milestones ?? context.flags, time.afterMilestone)) return false;
-  if (time.beforeMilestone && hasValue(context.milestones ?? context.flags, time.beforeMilestone)) return false;
+  if (time.afterMilestone && !hasMilestoneOrFlag(context, time.afterMilestone)) return false;
+  if (time.beforeMilestone && hasMilestoneOrFlag(context, time.beforeMilestone)) return false;
   return true;
 }
 
@@ -384,6 +419,10 @@ function hasValue(collection, value) {
   if (collection instanceof Set) return collection.has(value);
   if (Array.isArray(collection)) return collection.includes(value);
   return Boolean(collection[value]);
+}
+
+function hasMilestoneOrFlag(context, value) {
+  return hasValue(context.milestones, value) || hasValue(context.flags, value);
 }
 
 function normalizeStringArray(value) {

@@ -22,3 +22,8 @@ export function applyPassageCrossEffects(passage, flags) {
   if (!flags || !passage?.on_cross?.set_flags?.length) return
   setFlags(flags, passage.on_cross.set_flags)
 }
+
+export function applyPassageOpenEffects(passage, flags) {
+  if (!flags || !passage?.on_open?.set_flags?.length) return
+  setFlags(flags, passage.on_open.set_flags)
+}

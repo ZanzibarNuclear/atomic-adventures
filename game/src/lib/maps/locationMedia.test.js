@@ -95,6 +95,27 @@ describe("location media resolution", () => {
     });
   });
 
+  it("selects a location image that matches the gate's open state", () => {
+    const outdoor = {
+      size: 44,
+      state: { stand: { x: 0, y: 0 } },
+      passageMarkerStates: { "compound-gate": true },
+      currentHexData: {
+        id: "gate-woods",
+        q: 0,
+        r: 0,
+        views: [
+          { id: "closed", kind: "image", src: "views/closed.png", when: { passage: "compound-gate", open: false } },
+          { id: "open", kind: "image", src: "views/open.png", when: { passage: "compound-gate", open: true } },
+        ],
+      },
+    };
+
+    expect(resolveOutdoorLocationMedia(outdoor)).toMatchObject({
+      views: [{ id: "open" }],
+    });
+  });
+
   it("ignores non-image and source-less views", () => {
     const indoor = {
       indoor: { currentRoom: "library", currentStand: null },

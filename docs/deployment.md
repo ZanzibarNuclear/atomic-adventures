@@ -147,6 +147,12 @@ Check that:
   redirects to `/`.
 - A saved local game still loads and the opening story/map render correctly.
 
+For a GA release, consider compressing the committed SQLite content artifact by
+removing authoring revision snapshots after the final content audit. The release
+build uses the current story/world/building/character/learning documents, not
+the revision tables, so history can be pruned deliberately when rollback is
+covered by Git tags and release branches.
+
 The production build runs `game/server/verify-production-build.js`
 automatically. It fails the Vercel deployment if runtime JSON is absent, content
 is empty, builder chunks are emitted, or the browser bundle still depends on

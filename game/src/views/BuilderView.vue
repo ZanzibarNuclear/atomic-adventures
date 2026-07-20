@@ -153,8 +153,68 @@ const originHexOptions = computed(() => {
   );
   return options;
 });
+const flagIds = computed(() => {
+  const flags = new Set();
+  collectFlagIds(beats.value, flags);
+  collectFlagIds(draft.value, flags);
+  collectFlagIds(worldData.value, flags);
+  collectFlagIds(buildingData.value, flags);
+  milestones.value.map((milestone) => milestone.id).filter(isFlagId).forEach((flag) => flags.add(flag));
+  try {
+    collectFlagIds(JSON.parse(storyArcDocumentText.value), flags);
+  } catch {
+    // Ignore while the story-arc JSON editor contains an incomplete draft.
+  }
+  return [...flags].sort((a, b) => a.localeCompare(b));
+});
 const selectedRoom = computed(() => locationMode.value === "rooms" ? selectedLocation.value : "");
 const selectedExterior = computed(() => locationMode.value === "exterior" ? selectedLocation.value : null);
+
+function collectFlagIds(value, flags) {
+  if (!value) return;
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectFlagIds(item, flags));
+    return;
+  }
+  if (typeof value === "string") return;
+  if (typeof value !== "object") return;
+
+  for (const [key, item] of Object.entries(value)) {
+    if (key === "set_flags" || key === "setFlags" || key === "definedFlags") {
+      stringList(item).forEach((flag) => flags.add(flag));
+      continue;
+    }
+    if (key === "flag" && typeof item === "string" && isFlagId(item)) {
+      flags.add(item);
+      continue;
+    }
+    if ((key === "require" || key === "flags") && item && typeof item === "object") {
+      collectRequirementFlagGroups(item, flags);
+    }
+    if (key === "effects" && Array.isArray(item)) {
+      item
+        .filter((effect) => ["flag.set", "flag.clear"].includes(effect?.op) && isFlagId(effect.id))
+        .forEach((effect) => flags.add(effect.id));
+    }
+    collectFlagIds(item, flags);
+  }
+}
+
+function collectRequirementFlagGroups(value, flags) {
+  for (const key of ["all", "any", "not"]) {
+    stringList(value[key]).filter(isFlagId).forEach((flag) => flags.add(flag));
+  }
+}
+
+function isFlagId(value) {
+  return /^[a-z0-9_]+(?:[.-][a-z0-9_]+)*$/.test(value);
+}
+
+function stringList(value) {
+  if (Array.isArray(value)) return value.map(String).map((item) => item.trim()).filter(Boolean);
+  return [];
+}
+
 onMounted(async () => {
   try {
     catalog.value = await storyApi("/api/catalog");
@@ -454,24 +514,44 @@ function newBeat(copy = null) {
 function newSceneForStoryBeat({ beatId, primarySceneId = null } = {}) {
   void requestContextChange(async () => {
     activeWorkspace.value = locationMode.value === "outdoors" ? "outdoors" : "rooms";
-    const sourceScene = primarySceneId
-      ? beats.value.find((beat) => beat.id === primarySceneId)
-      : null;
-    beginNewBeat(sourceScene);
+    void primarySceneId;
+    beginNewBeat();
     if (!draft.value) return;
     draft.value.storyBeat = beatId ?? null;
     draft.value.modes = ["story"];
-    draft.value.heading = sourceScene?.heading ? `${sourceScene.heading} variant` : "New scene";
-    draft.value.text = sourceScene?.text ?? "";
-    status.value = "Drafted a new scene for this story beat.";
+    draft.value.heading = "New scene";
+    draft.value.text = "";
+    status.value = "Drafted a blank scene already associated with this story beat. Add its details, then save.";
   });
+}
+
+async function attachSceneToStoryBeat({ beatId, scene } = {}) {
+  if (!beatId || !scene?.id) return;
+  storyArcStatus.value = `Attaching scene ${scene.id}...`;
+  try {
+    await storyApi(`/api/story/areas/${STORY_AREA_ID}/beats/${encodeURIComponent(scene.id)}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        beat: { ...scene, storyBeat: beatId },
+        expectedVersion: scene.version,
+      }),
+    });
+    await loadBeats();
+    storyArcStatus.value = `Attached scene ${scene.id} to ${beatId}.`;
+  } catch (error) {
+    storyArcStatus.value = error.status === 409
+      ? "That scene changed elsewhere. Reload before attaching it."
+      : error.message;
+  }
 }
 
 function openStoryBeatScene({ sceneId } = {}) {
   const scene = beats.value.find((beat) => beat.id === sceneId);
   if (!scene) return;
+  if (!confirmStoryArcNavigation()) return;
   void requestContextChange(async () => {
     await selectSceneLocation(scene);
+    activeWorkspace.value = scene.trigger?.hex ? "outdoors" : "rooms";
     await loadBeat(scene.id);
   });
 }
@@ -503,6 +583,35 @@ async function reorderStoryBeatScenes({ sceneIds = [] } = {}) {
   }
 }
 
+async function splitStoryBeatScenes({ beatId, newBeatId, storyArcDocument, sceneIds = [], sceneVersions = {} } = {}) {
+  storyArcErrors.value = {};
+  storyArcStatus.value = "Splitting story beat...";
+  try {
+    const result = await storyApi("/api/story-arcs/document/split-beat", {
+      method: "POST",
+      body: JSON.stringify({
+        areaId: STORY_AREA_ID,
+        beatId,
+        newBeatId,
+        storyArcDocument,
+        sceneIds,
+        sceneVersions,
+        expectedVersion: storyArcVersion.value,
+      }),
+    });
+    storyArcVersion.value = result.version;
+    storyArcDocumentText.value = JSON.stringify(result.storyArcDocument, null, 2);
+    storyArcBaselineText.value = storyArcDocumentText.value;
+    await loadBeats();
+    storyArcStatus.value = `Created story beat ${newBeatId} and moved ${sceneIds.length} scene${sceneIds.length === 1 ? "" : "s"}.`;
+  } catch (error) {
+    storyArcErrors.value = error.errors ?? {};
+    storyArcStatus.value = error.status === 409
+      ? "Story arc or scene content changed elsewhere. Reload before splitting."
+      : error.message;
+  }
+}
+
 async function selectSceneLocation(scene) {
   const trigger = scene.trigger ?? {};
   if (trigger.hex) {
@@ -529,6 +638,7 @@ function emptyBeat() {
     storyBeat: null,
     trigger,
     match: { originHex: null, mapTransition: null, transitionDirection: null },
+    conditions: { flags: { all: [], not: [] } },
     time: {
       days: [],
       dayFrom: null,
@@ -682,6 +792,7 @@ async function applyStoryRouteQuery() {
         :destination-type="destinationType"
         :selected-location="selectedLocation"
         :origin-hex-options="originHexOptions"
+        :flag-ids="flagIds"
         @save="saveBeat"
         @revert="revertDraft"
         @duplicate="newBeat"
@@ -711,7 +822,9 @@ async function applyStoryRouteQuery() {
       @revert="revertStoryArcDocument"
       @reload="loadStoryArcDocument"
       @add-scene="newSceneForStoryBeat"
+      @attach-scene="attachSceneToStoryBeat"
       @select-scene="openStoryBeatScene"
+      @split-beat="splitStoryBeatScenes"
       @remove-scene="removeStoryBeatScene"
       @reorder-scenes="reorderStoryBeatScenes"
     />

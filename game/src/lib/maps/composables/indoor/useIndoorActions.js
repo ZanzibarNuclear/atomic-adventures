@@ -57,7 +57,6 @@ export function createIndoorActions({
     if (character) {
       const effects = [
         ...(action.effects ?? []),
-        ...(action.sets ?? []).map((id) => ({ op: "flag.set", id })),
         ...(action.set_flags ?? []).map((id) => ({ op: "flag.set", id })),
       ];
       const result = applyEffectsAtomically(effects, {
@@ -66,7 +65,6 @@ export function createIndoorActions({
       });
       if (!result.ok) return result;
     } else {
-      setFlags(indoor.flags, action.sets);
       setFlags(indoor.flags, action.set_flags);
     }
     if (gameState && Number(action.timeMinutes) > 0) {

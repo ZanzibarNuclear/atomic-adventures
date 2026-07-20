@@ -62,7 +62,6 @@ defineEmits([
         :draft="draft"
         :entry="selectedEntry"
         :visibility-options="visibilityOptions"
-        :set-csv="setCsv"
         :set-json="setJson" />
 
       <StatFields

@@ -224,7 +224,7 @@ choices:
         dayOffset: 1
         minuteOfDay: 420 # 7:00 AM
       activity: resting
-    sets: [day-1.sleep, day-2.started]
+    set_flags: [day-1.sleep, day-2.started]
 ```
 
 The current choice schema supports `timeMinutes` and `activity`; `sleep until`
@@ -252,7 +252,7 @@ library-arrival:
         dayOffset: 1
         minuteOfDay: 420 # 7:00 AM
       activity: resting
-      sets: [library.sleep-1, day-2.started]
+      set_flags: [library.sleep-1, day-2.started]
 
 library-wakeup:
   trigger: { place: indoors, room: library }

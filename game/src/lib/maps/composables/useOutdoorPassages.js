@@ -6,6 +6,7 @@ import {
 } from "./usePassageCrossing.js";
 import {
   applyPassageCrossEffects,
+  applyPassageOpenEffects,
   applyPassageUnlock,
   passageRequirementSatisfied,
 } from "./usePassageState.js";
@@ -37,7 +38,9 @@ export function useOutdoorPassages({
   }
 
   function isPassageAvailable(opening) {
-    if (isGatePassage(opening)) return isPassageOpen(opening);
+    if (isGatePassage(opening)) {
+      return isPassageOpen(opening) && passageRequirementSatisfied(opening, gameState?.flags);
+    }
     return passageRequirementSatisfied(opening, gameState?.flags);
   }
 
@@ -97,12 +100,27 @@ export function useOutdoorPassages({
     return ctx.allOpenings
       .filter((opening) => opening.hex === state.currentId)
       .filter((opening) => isGatePassage(opening))
+      .filter((opening) => passageRequirementSatisfied(opening, gameState?.flags))
       .filter((opening) => shouldOfferPassageCrossing(opening, fromPos, ctx, atBarrier))
       .map((opening) => ({
         openingId: opening.id,
         label: isPassageOpen(opening) ? "Close the gate" : "Open the gate",
         open: isPassageOpen(opening),
       }));
+  });
+
+  const hasObviousPassageAtStand = computed(() => {
+    const ctx = getTravelBarrierCtx();
+    const fromPos = getAvatarFromPos();
+    const atBarrier =
+      barrierHintAtStand(fromPos, ctx.barriers) ??
+      state.atBarrier ??
+      state.lastBlocked;
+    return ctx.allOpenings.some((opening) =>
+      opening.hex === state.currentId &&
+      opening.visibility === "obvious" &&
+      shouldOfferPassageCrossing(opening, fromPos, ctx, atBarrier),
+    );
   });
 
   function crossPassage(openingId) {
@@ -156,9 +174,25 @@ export function useOutdoorPassages({
       (candidate) => candidate.openingId === openingId,
     );
     if (!action) return false;
+    const opening = getTravelBarrierCtx().allOpenings.find(
+      (candidate) => candidate.id === openingId,
+    );
     state.passageStates = {
       ...state.passageStates,
       [openingId]: !action.open,
+    };
+    if (!action.open) applyPassageOpenEffects(opening, gameState?.flags);
+    return true;
+  }
+
+  function setPassageOpen(openingId, open = true) {
+    const opening = getTravelBarrierCtx().allOpenings.find(
+      (candidate) => candidate.id === openingId,
+    );
+    if (!opening || !isGatePassage(opening)) return false;
+    state.passageStates = {
+      ...state.passageStates,
+      [openingId]: Boolean(open),
     };
     return true;
   }
@@ -168,9 +202,11 @@ export function useOutdoorPassages({
     passageCrossings,
     lockedPassageActions,
     passageToggleActions,
+    hasObviousPassageAtStand,
     passageMarkerStates,
     unlockPassage,
     togglePassage,
+    setPassageOpen,
     crossPassage,
   };
 }

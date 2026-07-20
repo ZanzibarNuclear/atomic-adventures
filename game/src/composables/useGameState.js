@@ -36,7 +36,6 @@ export function createGameState({ mapData, buildingData, characterData = {} }) {
   return reactive({
     flags: createFlags(),
     storySeen: new Set(),
-    endCardDismissed: false,
     clock: createGameClock(),
     character: createCharacterState(characterData, buildingData.holders ?? []),
     lessons: {},
@@ -59,7 +58,6 @@ export function captureSnapshot({ gameState, place, outdoor, indoor }) {
     place: place.value,
     flags: [...gameState.flags],
     storySeen: [...gameState.storySeen],
-    endCardDismissed: gameState.endCardDismissed,
     clock: clonePlain(gameState.clock),
     character: captureCharacterState(gameState.character),
     lessons: clonePlain(gameState.lessons ?? {}),
@@ -127,7 +125,6 @@ export function applySnapshot(snapshot, { gameState, place, outdoor, indoor }) {
   gameState.flags = createFlags(snapshot.flags ?? []);
   indoor.indoor.flags = gameState.flags;
   gameState.storySeen = new Set(snapshot.storySeen ?? []);
-  gameState.endCardDismissed = snapshot.endCardDismissed ?? false;
   gameState.clock = createGameClock(snapshot.clock);
   if (snapshot.character) applyCharacterState(gameState.character, snapshot.character);
   gameState.lessons = plainObject(snapshot.lessons);
@@ -180,7 +177,6 @@ export function resetGameState({ gameState, place, outdoor, indoor }) {
   gameState.flags = createFlags();
   indoor.indoor.flags = gameState.flags;
   gameState.storySeen = new Set();
-  gameState.endCardDismissed = false;
   gameState.clock = createGameClock();
   resetCharacterState(gameState.character);
   gameState.lessons = {};
@@ -216,6 +212,8 @@ export function createStoryState({
   completedBeatIds = [],
   enteredBeatIds = [],
   seenSceneIds = [],
+  completedArcIds = [],
+  dismissedCompletionArcIds = [],
 } = {}) {
   return {
     activeArcId,
@@ -223,6 +221,8 @@ export function createStoryState({
     completedBeatIds: [...completedBeatIds],
     enteredBeatIds: [...enteredBeatIds],
     seenSceneIds: [...seenSceneIds],
+    completedArcIds: [...completedArcIds],
+    dismissedCompletionArcIds: [...dismissedCompletionArcIds],
   };
 }
 
@@ -234,6 +234,8 @@ function normalizeStoryState(value, playMode) {
     completedBeatIds: normalizeIdList(value?.completedBeatIds),
     enteredBeatIds: normalizeIdList(value?.enteredBeatIds),
     seenSceneIds: normalizeIdList(value?.seenSceneIds),
+    completedArcIds: normalizeIdList(value?.completedArcIds),
+    dismissedCompletionArcIds: normalizeIdList(value?.dismissedCompletionArcIds),
   });
 }
 
@@ -247,6 +249,8 @@ function captureStoryState(gameState) {
     completedBeatIds: story?.completedBeatIds,
     enteredBeatIds: story?.enteredBeatIds,
     seenSceneIds: story?.seenSceneIds?.length ? story.seenSceneIds : [...(gameState.storySeen ?? [])],
+    completedArcIds: story?.completedArcIds,
+    dismissedCompletionArcIds: story?.dismissedCompletionArcIds,
   });
 }
 

@@ -20,6 +20,7 @@ export function normalizeLocationViews(owner) {
       src: normalizePublicAssetPath(view.src),
       label: text(view.label),
       alt: text(view.alt),
+      when: normalizeViewWhen(view.when),
     }));
   if (!owner.views.length) delete owner.views;
 }
@@ -43,7 +44,16 @@ export function validateLocationViews(owner, path, add, warn) {
       warn(`${base}.src`, `Image "${view.src}" was not found under game/public.`);
     }
     if (!view.alt) warn(`${base}.alt`, "Add alt text before production release.");
+    if (view.when && (!ID_PATTERN.test(view.when.passage) || typeof view.when.open !== "boolean")) {
+      add(`${base}.when`, "Use a passage ID and an open or closed state for a conditional view.");
+    }
   }
+}
+
+function normalizeViewWhen(value) {
+  if (!value || typeof value !== "object") return null;
+  const passage = text(value.passage);
+  return passage && typeof value.open === "boolean" ? { passage, open: value.open } : null;
 }
 
 export function normalizePublicAssetPath(value) {

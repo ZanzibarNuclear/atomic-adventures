@@ -27,7 +27,7 @@ canonical constraints.
 
 World and facility systems remain the source of truth for physical
 possibility, movement, safety, and survival pressure. Story mode can surface,
-sort, enrich, or hide story-sensitive actions, but it cannot make an impossible
+sort, and enrich story-sensitive actions, but it cannot make an impossible
 movement or invalid interaction possible.
 
 ## Vocabulary
@@ -35,9 +35,9 @@ movement or invalid interaction possible.
 | Term | Meaning |
 | --- | --- |
 | `StoryArc` | A major authored story problem and resolution, such as the Part I opener. |
-| `StoryBeat` | The active unit of canonical progression inside a story arc. |
-| `Scene` | The prose presentation for a story beat under particular circumstances. |
-| `Choice` | An authored player-facing action attached to a story beat. |
+| `StoryBeat` | The active organizing unit for canonical progression inside a story arc. |
+| `Scene` | A contextual move within a story beat, selected for a location and circumstances. |
+| `Choice` | An authored player-facing action attached to a scene. |
 | `authoredActions` | Stable action references a beat wants to add, enrich, or emphasize. |
 | `CompletionCondition` | A typed condition that proves the active story beat is complete. |
 | `BeatEffect` | Enter or complete effects for flags, time, validated state changes, movement, or stage views. |
@@ -65,10 +65,13 @@ normalized during migration, but they are not permanent design concepts.
   the prose layer may show ambient information for the current location while
   the active story beat waits for an explicit completion condition, choice, or
   effect to reconnect progression.
-- **Choices live on story beats.** Scenes are prose variants. Choices and
-  authored actions belong to the active `StoryBeat` so the player-facing action
-  set remains stable while prose varies by location, time, flags, milestones,
-  or seen state.
+- **Guidance is not permission.** A beat can add, enrich, sort, or emphasize
+  actions, but it does not hide a selected scene's choices or otherwise decide
+  whether a physically valid world, item, door, passage, or stage action is
+  allowed. The world and wellbeing systems remain the authority for that.
+- **Choices live on scenes.** A scene presents what happens and what can be
+  chosen at the current location and circumstances. Beat-wide authored actions
+  remain stable while scene prose and contextual choices may vary.
 - **Typed conditions beat scripts.** Completion conditions and beat effects
   should stay small and validated. Do not add a general scripting language
   until a concrete authored sequence proves the need.
@@ -158,10 +161,10 @@ beats:
         trigger: { place: outdoors, hex: eastern-pines }
         prose: Zanzibar pushes through wet pines with an empty stomach and one clear thought: keep moving.
         revisitProse: The slope and pines are already becoming landmarks.
-    choices:
-      - id: follow-fence-uphill
-        label: Follow the fence uphill
-        action: { kind: move, hex: east-pines }
+        choices:
+          - id: follow-fence-uphill
+            label: Follow the fence uphill
+            action: { kind: move, hex: east-pines }
     authoredActions:
       - id: move-hex:east-pines
         kind: move
@@ -181,6 +184,7 @@ Field meanings:
 | `protagonist` | Optional point-of-view character metadata. |
 | `startBeat` | First story beat for a new playthrough of this arc. |
 | `beats` | Ordered or referenced story beats. |
+| `completion` | Optional arc transition: its next arc and the card shown after the final beat. |
 
 Story beat meanings:
 
@@ -188,14 +192,19 @@ Story beat meanings:
 | --- | --- |
 | `id` | Stable beat ID. |
 | `title` | Author-facing beat title. |
-| `scenes` | Prose variants for different triggers and conditions. |
-| `choices` | Authored player-facing actions for the beat. |
+| `scenes` | Contextual moves with prose, criteria, and choices for different locations and conditions. |
 | `authoredActions` | Story-specific action references to add, enrich, or emphasize. |
 | `completesWhen` | Typed completion condition. |
 | `onEnter` | Optional beat effects when the beat starts. |
 | `onComplete` | Optional beat effects after completion. |
 | `next` | Next beat ID, or null for arc completion. |
+
+Arc completion fields:
+
+| Field | Meaning |
+| --- | --- |
 | `nextArc` | Optional handoff to another arc's `startBeat`. |
+| `card` | Optional acknowledgement card with `eyebrow`, `heading`, `description`, optional `note`, and `actionLabel`. |
 
 ## Completion Conditions
 
@@ -232,12 +241,18 @@ controls, validation, tests, and this contract together.
 `useStoryArc` combines three sources into one visible action set:
 
 1. engine-provided possible actions from the current physical state;
-2. choices and authored actions from the active story beat;
+2. choices from the active scene and authored actions from the active story beat;
 3. current character, inventory, facility, wellbeing, milestone, and discovery
    state.
 
 The resulting actions should look like ordinary player actions. Story mode
 does not need to visually label which action is canonical.
+
+The selected scene's choices are always presented. Beat guidance may mark a
+story-continuing action or make it easier to find, but it is not a permission
+list for choices or engine actions. A scene choice can still be unavailable
+when the underlying world cannot perform it—for example, when its movement
+destination is unreachable—but no separate story-arc policy may hide it.
 
 Authored action references should describe player intent in stable IDs, not
 component implementation details:
@@ -306,7 +321,7 @@ The standalone objective UI has been removed from the target Story mode model.
 Player guidance should come from:
 
 - the active scene's prose and revisit prose;
-- choices on the active story beat;
+- choices on the active scene;
 - visible story actions merged with engine actions;
 - survival and wellbeing warnings;
 - physical world affordances;
@@ -323,17 +338,36 @@ authored Story mode arc.
 
 ## Builder Responsibilities
 
-Story Builder presents Story mode authoring as:
+Story Builder separates story structure from scene and runtime-guidance
+authoring:
 
-1. Choose a story arc.
-2. Edit its ordered story beats.
-3. For each beat, edit:
-   - title;
-   - scene variants and prose;
-   - choices and authored actions;
-   - completion condition;
-   - enter and complete effects;
-   - next beat or next arc.
+1. The Story Arc workspace shows arcs and their ordered beats as an expandable
+   outline.
+2. Selecting an arc or beat opens one read-only detail view. Editing is an
+   explicit action.
+3. The Story Arc workspace edits arc and beat titles, scene membership, beat
+   order, cross-arc movement, arc boundaries, and each arc's completion node.
+4. Selecting a linked scene opens the existing map-first Area or Utility
+   Station scene editor for prose, triggers, conditions, and choices.
+5. **Attach scene** associates an existing scene with the selected story beat
+   without changing the scene's other content. **Add scene** creates a blank
+   scene draft pre-associated with the selected story beat; it must not clone a
+   linked scene implicitly.
+
+The Story Arc workspace does not display or edit the beat's story-guidance
+references, `completesWhen`, `onEnter`, or `onComplete`. Those fields remain
+part of the canonical StoryBeat data and runtime contract. Guidance references
+may affect emphasis, but never action availability. Structural edits must
+round-trip them unchanged. Moving a beat carries them with that beat. Splitting
+a beat leaves them unchanged on the original beat and does not silently copy
+them to the new beat.
+
+Cross-arc moves update affected `startBeat` and `next` links while the
+destination arc retains its completion handoff. An arc's `nextArc` belongs only
+to its completion node. A non-linear handoff that cannot be rewired safely
+stops the operation. Splitting a beat updates the story-arc document and
+the moved scenes' `storyBeat` references in one database transaction with
+optimistic version checks; a conflict leaves both stores unchanged.
 
 World Builder and Content Builder remain separate. They provide referenced
 locations, rooms, exterior nodes, transitions, items, lessons, documents,
@@ -408,8 +442,9 @@ This behavior requires tests for:
 - scene selection by trigger, location match, time, milestones, mode, and seen
   state;
 - story-continuing action visibility in Story mode;
-- ordinary movement remaining available in Story mode when physically valid;
-- story-sensitive action hiding or blocking outside the active beat;
+- scene choices and ordinary engine actions remaining available in Story mode
+  when physically valid;
+- story guidance affecting emphasis without hiding or blocking an action;
 - map clicks and play-panel movement sharing the same physical movement rules;
 - forced movement, forced time passage, forced stage views, and beat effects;
 - beat stability when ordinary movement does not satisfy completion;

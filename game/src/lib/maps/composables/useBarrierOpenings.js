@@ -118,6 +118,8 @@ export function travelOpenings(
         require: f.require ?? null,
         unlock: f.unlock ?? null,
         on_cross: f.on_cross ?? null,
+        on_open: f.on_open ?? null,
+        visibility: openingVisibility(f),
       }
     })
     .filter(Boolean)

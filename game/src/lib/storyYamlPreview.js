@@ -16,7 +16,6 @@ export function storyBeatYaml(beat) {
       timeMinutes: choice.timeMinutes || undefined,
       timeUntil: choice.timeUntil || undefined,
       activity: choice.timeMinutes || choice.timeUntil ? choice.activity : undefined,
-      sets: list(choice.sets),
       set_flags: list(choice.set_flags),
       go_hex: optional(choice.go_hex),
       go_room: optional(choice.go_room),

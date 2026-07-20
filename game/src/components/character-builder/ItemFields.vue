@@ -6,7 +6,6 @@ const props = defineProps({
   draft: { type: Object, required: true },
   entry: { type: Object, required: true },
   visibilityOptions: { type: Array, required: true },
-  setCsv: { type: Function, required: true },
   setJson: { type: Function, required: true },
 });
 
@@ -27,7 +26,7 @@ function ensureConsumptionAction(entry) {
   entry.actions ??= [];
   let action = consumptionActions(entry)[0];
   if (action) return action;
-  const water = (entry.tags ?? []).includes("water") || /water|bottle/i.test(entry.label ?? entry.id);
+  const water = /water|bottle/i.test(entry.label ?? entry.id);
   action = {
     id: water ? "drink" : "eat",
     label: water ? "Drink" : "Eat",
@@ -148,9 +147,6 @@ function removeConsumeOption(action, index) {
         placeholder="items/..."
         @update:model-value="entry.icon = $event || null" />
 
-      <label>Tags
-        <input :value="entry.tags.join(', ')" @input="setCsv(entry, 'tags', $event)">
-      </label>
       <label class="check-field"><input v-model="entry.portable" type="checkbox"> Portable</label>
 
       <section v-if="entry.kind === 'consumable'" class="consumable-panel">

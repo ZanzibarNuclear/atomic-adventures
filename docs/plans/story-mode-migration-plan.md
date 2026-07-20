@@ -1,6 +1,7 @@
 # Story Mode Model Migration Plan
 
-**Status:** Complete
+**Status:** Runtime migration complete; scene authoring and canonical naming
+continue in [First-Class Scene Builder Workspace](scene-builder-workspace.md)
 **Last updated:** 2026-07-07
 **Primary design:** [Story Mode Technical Design](story-mode-technical-design.md)
 **Impacted areas:** playable game, Story Builder, content API, SQLite content,
@@ -22,6 +23,13 @@ in [Story Mode Technical Design](story-mode-technical-design.md):
 This should happen over multiple safe sessions. Keep the game playable after
 each phase.
 
+This plan records the completed runtime-model migration. It previously
+overstated completion of the prose-record builder and storage rename: those
+records are still called beats in several UI, API, repository, and SQLite
+boundaries even though they are Scenes. The remaining work is authoritative in
+[scene-builder-workspace.md](scene-builder-workspace.md). The settled choice
+ownership is Scene, not StoryBeat.
+
 ## Ground Rules
 
 - Do not preserve old terminology as permanent compatibility concepts.
@@ -38,7 +46,8 @@ each phase.
 
 **Purpose:** Record the settled design decisions before changing storage.
 
-- [x] Choices live on `StoryBeat`; `Scene` owns prose variants.
+- [x] Choices live on `Scene`; `StoryBeat` owns arc progression and beat-wide
+      actions, completion, effects, and handoffs.
 - [x] Story mode combines beat-authored actions with engine-provided possible
       actions. The engine remains the final guard rail for physical possibility.
 - [x] Significant actions produce meaningful state changes or milestones. Most
@@ -103,11 +112,12 @@ new internal model.
 - [x] Read and update milestone completion through game state.
 - [x] Apply beat enter effects once.
 - [x] Select active scene through the pure scene-selection helper.
-- [x] Build story actions from beat choices, beat-authored actions, and valid
-      engine-provided world/system actions.
+- [x] Build story actions from active-scene choices, beat-authored actions, and
+      valid engine-provided world/system actions.
 - [x] Apply choices and story actions through the same movement/effects/stage
       view boundaries as today.
-- [x] Evaluate completion conditions and advance to `next` or `nextArc`.
+- [x] Evaluate completion conditions and advance to `next`; after the final
+      beat, use the arc completion node for any cross-arc handoff.
 - [x] Expose one UI-facing object: `activeArc`, `activeBeat`, `activeScene`,
       `storyActions`, `applyStoryAction`, and `storyError`.
 - [x] Add focused tests for beat stability: ordinary movement should not
@@ -164,7 +174,9 @@ controller.
 - [x] Rename Scenario panel to Story Arc panel.
 - [x] Rename scenario list, labels, buttons, validation messages, and tests.
 - [x] Rename Step editing UI to Story Beat editing UI.
-- [x] Move prose-scene authoring under each Story Beat.
+- [x] Make prose Scenes reachable from Story Beats. A common first-class Scene
+      workspace is the remaining target rather than physically nesting the
+      editor under each beat.
 - [x] Let authors add, remove, reorder, and preview Scenes for a beat.
 - [x] Replace allowed-policy bucket editing with authored-action editing.
 - [x] Keep reference pickers for hexes, rooms, exterior nodes, transitions,

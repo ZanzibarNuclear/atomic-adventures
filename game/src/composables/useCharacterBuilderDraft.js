@@ -554,7 +554,7 @@ function entryDefaults(catalog, id, order) {
   return {
     items: {
       id, label: labelize(id), description: null, kind: "item", group: null,
-      icon: null, tags: [], carrying: "unique", maxQuantity: 1, portable: true,
+      icon: null, carrying: "unique", maxQuantity: 1, portable: true,
       visible: "when-acquired", relatedDocument: null,
     },
     stats: {

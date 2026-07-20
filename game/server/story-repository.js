@@ -110,7 +110,10 @@ export class StoryRepository {
     `).all(areaId);
     return rows.map((row) => {
       const beat = this.#rowToBeat(row, full);
-      if (!full) delete beat.choices;
+      if (!full) {
+        delete beat.choices;
+        beat.definedFlags = this.#choiceFlagIds(row.area_id, row.id);
+      }
       return beat;
     });
   }
@@ -565,7 +568,7 @@ export class StoryRepository {
       JSON.stringify([]),
       JSON.stringify([]),
       JSON.stringify([]),
-      JSON.stringify({}),
+      JSON.stringify(beat.conditions ?? {}),
       JSON.stringify(beat.modes ?? []),
       beat.storyBeat,
       JSON.stringify(compactObject(beat.match ?? {})),
@@ -586,17 +589,18 @@ export class StoryRepository {
       INSERT INTO story_choices(
         id, area_id, beat_id, sort_order, text, require_json, effects_json,
         time_minutes, time_until_json, activity,
-        sets_json, set_flags_json, go_hex, go_room, go_exterior_node,
-        enter_building, view_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        set_flags_json, go_hex, go_room, go_exterior_node,
+        enter_building, view_json, grant_milestones_json, open_passage, close_passage, cross_passage
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     choices.forEach((choice, index) => statement.run(
       choice.id || randomUUID(), areaId, beatId, choice.order ?? index, choice.text,
-      JSON.stringify({}), JSON.stringify([]),
+      JSON.stringify({}), JSON.stringify(choice.effects ?? []),
       choice.timeMinutes, JSON.stringify(compactObject(choice.timeUntil ?? {})), choice.activity,
-      JSON.stringify(choice.sets), JSON.stringify(choice.set_flags),
+      JSON.stringify(choice.set_flags),
       choice.go_hex, choice.go_room, choice.go_exterior_node,
       choice.enter, JSON.stringify(choice.view ?? {}),
+      JSON.stringify(choice.grantMilestones ?? []), choice.openPassage, choice.closePassage, choice.crossPassage,
     ));
   }
 
@@ -622,6 +626,7 @@ export class StoryRepository {
       },
       match: parseMatchJson(row.match_json),
       time: parseNullableJson(row.time_json) ?? {},
+      conditions: parseNullableJson(row.require_json) ?? {},
       version: row.version,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -629,8 +634,8 @@ export class StoryRepository {
     if (includeChoices) {
       beat.choices = this.db.prepare(`
         SELECT id, sort_order, text, require_json, effects_json, time_minutes, time_until_json, activity,
-          sets_json, set_flags_json, go_hex, go_room, go_exterior_node,
-          enter_building, view_json
+          set_flags_json, go_hex, go_room, go_exterior_node,
+          enter_building, view_json, grant_milestones_json, open_passage, close_passage, cross_passage
         FROM story_choices
         WHERE area_id = ? AND beat_id = ?
         ORDER BY sort_order, id
@@ -641,8 +646,12 @@ export class StoryRepository {
         timeMinutes: choice.time_minutes,
         timeUntil: parseNullableJson(choice.time_until_json),
         activity: choice.activity,
-        sets: JSON.parse(choice.sets_json),
         set_flags: JSON.parse(choice.set_flags_json),
+        effects: JSON.parse(choice.effects_json),
+        grantMilestones: JSON.parse(choice.grant_milestones_json),
+        openPassage: choice.open_passage,
+        closePassage: choice.close_passage,
+        crossPassage: choice.cross_passage,
         go_hex: choice.go_hex,
         go_room: choice.go_room,
         go_exterior_node: choice.go_exterior_node,
@@ -651,6 +660,26 @@ export class StoryRepository {
       }));
     }
     return beat;
+  }
+
+  #choiceFlagIds(areaId, beatId) {
+    const flags = new Set();
+    const rows = this.db.prepare(`
+      SELECT set_flags_json, effects_json
+      FROM story_choices
+      WHERE area_id = ? AND beat_id = ?
+    `).all(areaId, beatId);
+    for (const row of rows) {
+      for (const flag of parseNullableJson(row.set_flags_json) ?? []) {
+        if (typeof flag === "string" && flag) flags.add(flag);
+      }
+      for (const effect of parseNullableJson(row.effects_json) ?? []) {
+        if (["flag.set", "flag.clear"].includes(effect?.op) && effect.id) {
+          flags.add(effect.id);
+        }
+      }
+    }
+    return [...flags].sort((a, b) => a.localeCompare(b));
   }
 
   #renameRevisionHistory(areaId, fromBeatId, toBeatId) {

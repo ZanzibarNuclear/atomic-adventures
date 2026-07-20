@@ -27,6 +27,7 @@ import { applyOutdoorWorldUpdate } from "../composables/worldRuntime.js";
 import { performItemAction } from "../lib/character/itemActions.js";
 import {
   accessibleHolderIds,
+  characterHolderId,
   ensureWorldHolder,
   holdingRecords,
   transferHolding,
@@ -69,7 +70,6 @@ const movementAuditVisible = ref(false);
 const developerSettingsVisible = ref(false);
 const vitalsDialogVisible = ref(false);
 const inventoryDialogVisible = ref(false);
-const itemActionFeedback = ref("");
 const locationMediaMode = ref("map");
 const locationMediaIndex = ref(0);
 const locationMediaKey = ref(null);
@@ -133,8 +133,10 @@ const {
   displayScene,
   displayBeat,
   activeChoices,
+  pendingCompletion,
   storyActions,
   applyStoryAction,
+  dismissCompletion,
   storyError,
   tick: tickStoryArc,
 } = useStoryArc(storyArcData, {
@@ -171,9 +173,6 @@ const pendingBeat = computed(() => activeBeat.value
     ? openWorldStory.activeBeat.value
     : null);
 const actionBeat = computed(() => displayBeat.value ?? activeBeat.value);
-const showEndCard = computed(
-  () => gameState.flags.has("day1.complete") && !gameState.endCardDismissed,
-);
 const storyActionAvailability = computed(() => ({
   mode: gameState.playMode === "story" ? "story" : "open-world",
   beatId: actionBeat.value?.id ?? null,
@@ -238,10 +237,6 @@ function travelToRoom(roomId) {
   indoor.moveToRoom(roomId);
 }
 
-function dismissEndCard() {
-  gameState.endCardDismissed = true;
-}
-
 function refreshStoryMoment() {
   tickStoryArc();
   openWorldStory.refreshScene();
@@ -291,7 +286,6 @@ function inventoryHolderViews(ids) {
       kind: record.definition?.kind ?? "item",
       icon: record.definition?.icon ?? null,
       actions: record.definition?.actions ?? [],
-      relatedDocument: record.definition?.relatedDocument ?? null,
     })),
   }));
 }
@@ -304,6 +298,19 @@ const inventoryHolders = computed(() => {
   )];
   return inventoryHolderViews(ids);
 });
+const outdoorGroundHoldings = computed(() => {
+  if (place.value !== "outdoors") return [];
+  return holdingRecords(
+    gameState.character.holdings,
+    gameState.character.definitions,
+    [currentWorldHolderId()],
+  )
+    .filter((record) => record.definition?.portable !== false)
+    .map((record) => ({
+      ...record,
+      label: record.definition?.label ?? record.item,
+    }));
+});
 const playerInventoryHolders = computed(() =>
   inventoryHolderViews([...accessibleHolderIds(gameState.character.holdings, "carried")]),
 );
@@ -313,6 +320,7 @@ const transferTargets = computed(() => inventoryHolders.value
     id: holder.id,
     label: holder.label ?? holder.id,
     kind: holder.kind,
+    accepts: holder.accepts ?? null,
   })));
 const stageSelectedHolding = computed(() =>
   inventoryHolders.value.flatMap((holder) =>
@@ -344,29 +352,6 @@ const wellbeingAvailableActions = computed(() => ({
   ),
   mustRest: mustRest.value,
 }));
-const wellbeingAlerts = computed(() =>
-  wellbeingOverview.value.vitals
-    .map((vital) => ({
-      id: vital.id,
-      label: vital.label,
-      state: vital.state,
-      tone: vital.tone,
-      status: vitalPillStatus(vital),
-    })),
-);
-
-function vitalPillStatus(vital) {
-  if (vital.tone === "error") {
-    return Number(vital.value) <= Number(vital.min ?? 0) ? "worst" : "warning";
-  }
-  if (vital.tone === "warning") return "caution";
-  const min = Number(vital.min ?? 0);
-  const max = Number(vital.max ?? 100);
-  const value = Number(vital.value ?? max);
-  const span = max - min;
-  if (span > 0 && (value - min) / span < 0.8) return "fine";
-  return "good";
-}
 const catastrophicVitals = computed(() =>
   [wellbeingOverview.value.health].filter((vital) =>
     Number(vital.value) <= Number(vital.min ?? 0),
@@ -668,35 +653,11 @@ function handleUseItem({ itemId, actionId, holderId = null, recordId = null, opt
     itemId,
     actionId,
   })) return;
-  const beforeStats = { ...(gameState.character.stats ?? {}) };
   const result = performItemAction(gameState, itemId, actionId, { holderId, recordId, optionId });
   if (result.ok) {
-    itemActionFeedback.value = itemActionResultLine(beforeStats, gameState.character.stats);
     refreshStoryMoment();
     if (result.view) openStageView(result.view);
   }
-}
-
-function itemActionResultLine(beforeStats, afterStats = {}) {
-  const changes = (gameState.character.definitions.stats ?? [])
-    .filter((stat) => WELLBEING_STAT_IDS.has(stat.id))
-    .map((stat) => {
-      const before = Number(beforeStats?.[stat.id]);
-      const after = Number(afterStats?.[stat.id]);
-      if (!Number.isFinite(before) || !Number.isFinite(after) || before === after) return null;
-      const delta = after - before;
-      return `${stat.label ?? stat.id} ${delta > 0 ? "+" : ""}${formatStatChange(delta)} (${formatStatChange(before)} -> ${formatStatChange(after)})`;
-    })
-    .filter(Boolean);
-  return changes.length ? changes.join(", ") : "Nothing changes.";
-}
-
-function formatStatChange(value) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return String(value);
-  return new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: 1,
-  }).format(number);
 }
 
 function handleTransferItem({ type, recordId, quantity, toHolder }) {
@@ -715,8 +676,27 @@ function handleTransferItem({ type, recordId, quantity, toHolder }) {
   }
 }
 
+function handlePickupOutdoorHolding(encoded) {
+  const [type, ...idParts] = String(encoded).split(":");
+  const id = idParts.join(":");
+  const record = outdoorGroundHoldings.value
+    .find((entry) => entry.type === type && entry.id === id);
+  if (!record) return;
+  try {
+    transferHolding(gameState.character.holdings, gameState.character.definitions, {
+      type,
+      id,
+      quantity: record.quantity ?? 1,
+      toHolder: characterHolderId(gameState.character.holdings),
+    });
+    markCharacterChanged(gameState.character);
+    refreshStoryMoment();
+  } catch (error) {
+    console.warn(error);
+  }
+}
+
 function openInventoryDialog() {
-  itemActionFeedback.value = "";
   inventoryDialogVisible.value = true;
   if (stageSelectedHolding.value) return;
   const firstHolding = inventoryHolders.value
@@ -755,7 +735,7 @@ function openInventoryDialog() {
 
     <VitalsDialog
       v-if="vitalsDialogVisible"
-      :alerts="wellbeingAlerts"
+      :vitals="wellbeingOverview.vitals"
       @close="vitalsDialogVisible = false" />
 
     <InventoryDialog
@@ -766,7 +746,6 @@ function openInventoryDialog() {
       :transfer-targets="transferTargets"
       :public-asset-path="publicAssetPath"
       :action-policy="wellbeingAvailableActions"
-      :action-feedback="itemActionFeedback"
       @select-holding="stageSelectedHoldingId = $event"
       @use-item="handleUseItem"
       @transfer-item="handleTransferItem"
@@ -855,6 +834,9 @@ function openInventoryDialog() {
       :audit-enabled="movementAuditVisible"
       :action-policy="wellbeingAvailableActions"
       :wellbeing-overview="wellbeingOverview"
+      :nearby-holdings="outdoorGroundHoldings"
+      :pickup-holding="handlePickupOutdoorHolding"
+      :refresh-story="refreshStoryMoment"
       :location-media="currentLocationMedia"
       :location-media-mode="locationMediaMode"
       :location-media-index="locationMediaIndex"
@@ -895,7 +877,6 @@ function openInventoryDialog() {
       :transfer-targets="transferTargets"
       :public-asset-path="publicAssetPath"
       :action-policy="wellbeingAvailableActions"
-      :action-feedback="itemActionFeedback"
       @select-holding="stageSelectedHoldingId = $event"
       @use-item="handleUseItem"
       @transfer-item="handleTransferItem"
@@ -914,7 +895,6 @@ function openInventoryDialog() {
       :nearby-holder-ids="[...nearbyHolderIds, currentWorldHolderId()]"
       :initial-tab="activeView.payload?.tab"
       :action-policy="wellbeingAvailableActions"
-      :action-feedback="itemActionFeedback"
       @use-item="handleUseItem"
       @transfer-item="handleTransferItem"
       @return-to-map="handleReturnToMap" />
@@ -942,9 +922,9 @@ function openInventoryDialog() {
       @return-to-map="handleReturnToMap" />
 
     <StoryOverlay
-      v-if="gameState.playMode && !gameFailed && isMapView"
-      :show-end-card="showEndCard"
-      @dismiss-end="dismissEndCard" />
+      v-if="gameState.playMode && !gameFailed && pendingCompletion"
+      :completion="pendingCompletion"
+      @dismiss-completion="dismissCompletion" />
   </main>
 </template>
 

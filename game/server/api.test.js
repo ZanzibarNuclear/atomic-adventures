@@ -40,6 +40,7 @@ function setup() {
     buildingRepository,
     characterRepository,
     learningRepository,
+    repository,
     storyArcRepository,
   };
 }
@@ -70,6 +71,99 @@ function request(method, url, body) {
 }
 
 describe("story API", () => {
+  it("preserves an authored arc completion card through the save API", async () => {
+    const { db, api, storyArcRepository } = setup();
+    const current = storyArcRepository.getDocument();
+    const storyArcDocument = structuredClone(current.storyArcDocument);
+    const [sourceArc, destinationArc] = storyArcDocument.storyArcs;
+    sourceArc.completion = {
+      nextArc: destinationArc.id,
+      card: {
+        eyebrow: "Day 1 complete",
+        heading: "Shelter at last",
+        description: "A quiet night in the library.",
+        note: "More tomorrow.",
+        actionLabel: "Continue",
+      },
+    };
+
+    const response = responseCapture();
+    await api.handle(request("PUT", "/api/story-arcs/document", {
+      storyArcDocument,
+      expectedVersion: current.version,
+    }), response);
+
+    expect(response.status).toBe(200);
+    const saved = JSON.parse(response.chunks.join(""));
+    expect(saved.storyArcDocument.storyArcs[0].completion).toEqual(sourceArc.completion);
+    expect(storyArcRepository.getDocument().storyArcDocument.storyArcs[0].completion).toEqual(sourceArc.completion);
+    db.close();
+  });
+
+  it("splits scene membership and the story arc document atomically", async () => {
+    const { db, api, storyArcRepository, repository } = setup();
+    const current = storyArcRepository.getDocument();
+    const storyArcDocument = structuredClone(current.storyArcDocument);
+    const sourceLink = db.prepare(`
+      SELECT area_id AS areaId, story_beat AS storyBeat
+      FROM story_beats
+      WHERE story_beat IS NOT NULL
+      GROUP BY area_id, story_beat
+      HAVING COUNT(*) >= 2
+      ORDER BY story_beat
+      LIMIT 1
+    `).get();
+    const arc = storyArcDocument.storyArcs.find((item) => item.beats.some((beat) => beat.id === sourceLink.storyBeat));
+    const sourceIndex = arc.beats.findIndex((beat) => beat.id === sourceLink.storyBeat);
+    const source = arc.beats[sourceIndex];
+    const linkedScenes = repository.listBeats(sourceLink.areaId, { full: true }).filter((scene) => scene.storyBeat === source.id);
+    const movedScene = linkedScenes.at(-1);
+    const retainedScene = linkedScenes.find((scene) => scene.id !== movedScene.id);
+    const oldNext = source.next;
+    const newBeat = {
+      id: `${source.id}-split-test`,
+      title: `${source.title} split test`,
+      scene: movedScene.id,
+      choices: [],
+      allowed: {
+        movement: { mode: null, hexes: [], rooms: [], exteriorNodes: [], transitions: [] },
+        storyForwardActions: [], optionalActions: [], storyChoices: [], stageViews: [],
+        indoorActions: [], outdoorActions: [], itemActions: [], developerActions: [],
+      },
+      completesWhen: null, onEnter: null, onComplete: null,
+      next: oldNext,
+    };
+    source.scene = retainedScene.id;
+    source.next = newBeat.id;
+    arc.beats.splice(sourceIndex + 1, 0, newBeat);
+    const sceneBefore = db.prepare("SELECT story_beat, version FROM story_beats WHERE area_id = ? AND id = ?").get(sourceLink.areaId, movedScene.id);
+
+    const response = responseCapture();
+    await api.handle(request("POST", "/api/story-arcs/document/split-beat", {
+      areaId: sourceLink.areaId,
+      beatId: source.id,
+      newBeatId: newBeat.id,
+      storyArcDocument,
+      sceneIds: [movedScene.id],
+      sceneVersions: { [movedScene.id]: sceneBefore.version },
+      expectedVersion: current.version,
+    }), response);
+
+    expect(response.status).toBe(200);
+    const saved = JSON.parse(response.chunks.join(""));
+    expect(saved.storyArcDocument.storyArcs.find((item) => item.id === arc.id).beats.map((beat) => beat.id)).toContain(newBeat.id);
+    expect(db.prepare("SELECT story_beat FROM story_beats WHERE area_id = ? AND id = ?").get(sourceLink.areaId, movedScene.id).story_beat).toBe(newBeat.id);
+
+    const staleResponse = responseCapture();
+    await api.handle(request("POST", "/api/story-arcs/document/split-beat", {
+      areaId: sourceLink.areaId, beatId: source.id, newBeatId: "another-beat",
+      storyArcDocument, sceneIds: [retainedScene.id], sceneVersions: { [retainedScene.id]: 0 }, expectedVersion: current.version,
+    }), staleResponse);
+    expect(staleResponse.status).toBe(409);
+    expect(db.prepare("SELECT story_beat FROM story_beats WHERE area_id = ? AND id = ?").get(sourceLink.areaId, retainedScene.id).story_beat).toBe(source.id);
+    db.close();
+  });
+
   it("publishes the character catalog and protects referenced definitions", async () => {
     const { db, api, characterRepository, storyArcRepository } = setup();
 
@@ -151,9 +245,30 @@ describe("story API", () => {
       defaultMode: "story",
       startBeat: "survive-in-the-woods",
     }));
-    expect(storyArcDocument.storyArcDocument.storyArcs[1]).toEqual(expect.objectContaining({
+    const arcsById = Object.fromEntries(
+      storyArcDocument.storyArcDocument.storyArcs.map((arc) => [arc.id, arc]),
+    );
+    expect(arcsById["part-i-fence-hole"]).toEqual(expect.objectContaining({
+      id: "part-i-fence-hole",
+      startBeat: "approach-side-entrance",
+    }));
+    expect(arcsById["part-i-station"]).toEqual(expect.objectContaining({
       id: "part-i-station",
-      startBeat: "find-a-way-past-fence",
+      startBeat: "look-for-shelter",
+    }));
+    expect(arcsById["part-i-station"].beats.some(
+      (beat) => beat.id === arcsById["part-i-station"].startBeat,
+    )).toBe(true);
+    expect(arcsById["part-i-fence-hole"].completion).toEqual(expect.objectContaining({
+      nextArc: "part-i-station",
+      nextBeat: "look-for-shelter",
+    }));
+    expect(arcsById["part-i-fence-hole"].beats[0]?.completesWhen).toEqual(expect.objectContaining({
+      anyOf: expect.arrayContaining([
+        expect.objectContaining({
+          location: expect.objectContaining({ exteriorNode: "large-bay-man-front" }),
+        }),
+      ]),
     }));
     expect(storyArcRepository.validate(storyArcDocument.storyArcDocument).valid).toBe(true);
 

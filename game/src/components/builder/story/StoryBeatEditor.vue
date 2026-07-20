@@ -17,6 +17,7 @@ const props = defineProps({
   selectedLocation: { type: String, default: "" },
   originHexOptions: { type: Array, default: () => [] },
   milestones: { type: Array, default: () => [] },
+  flagIds: { type: Array, default: () => [] },
 });
 
 defineEmits([
@@ -39,6 +40,7 @@ defineEmits([
 const activeTab = ref("story");
 const selectedOriginHex = ref("");
 const editingLocationCriteria = ref(false);
+const editingFlagCriteria = ref(false);
 const editingTimeCriteria = ref(false);
 
 const selectedOriginHexes = computed(() =>
@@ -85,6 +87,15 @@ const timeCriteriaSummary = computed(() => {
   return summary;
 });
 
+const flagCriteriaSummary = computed(() => {
+  if (!props.draft) return [];
+  const flags = props.draft.conditions?.flags ?? {};
+  const summary = [];
+  if (Array.isArray(flags.all) && flags.all.length) summary.push(`Requires: ${flags.all.join(", ")}`);
+  if (Array.isArray(flags.not) && flags.not.length) summary.push(`Absent: ${flags.not.join(", ")}`);
+  return summary;
+});
+
 const modeCriteriaSummary = computed(() => {
   if (!props.draft) return [];
   const summary = [];
@@ -100,6 +111,7 @@ watch(
     activeTab.value = "story";
     selectedOriginHex.value = "";
     editingLocationCriteria.value = false;
+    editingFlagCriteria.value = false;
     editingTimeCriteria.value = false;
   },
 );
@@ -109,6 +121,7 @@ watch(
   () => {
     selectedOriginHex.value = "";
     editingLocationCriteria.value = false;
+    editingFlagCriteria.value = false;
     editingTimeCriteria.value = false;
   },
 );
@@ -122,6 +135,15 @@ function setDayList(event) {
     .split(",")
     .map((item) => Number(item.trim()))
     .filter((item) => Number.isFinite(item));
+}
+
+function setFlagList(group, event) {
+  props.draft.conditions ??= {};
+  props.draft.conditions.flags ??= { all: [], not: [] };
+  props.draft.conditions.flags[group] = event.target.value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function milestoneLabel(id) {
@@ -214,7 +236,7 @@ function setModeEnabled(mode, enabled) {
           :aria-selected="activeTab === 'story'"
           @click="activeTab = 'story'"
         >
-          Story
+          Scene
         </button>
         <button
           type="button"
@@ -366,6 +388,54 @@ function setModeEnabled(mode, enabled) {
 
         <section class="criteria-card">
           <div class="criteria-card-header">
+            <h3>Flag based</h3>
+            <button
+              type="button"
+              class="sm muted"
+              @click="editingFlagCriteria = !editingFlagCriteria"
+            >
+              {{ editingFlagCriteria ? "Done" : "Edit" }}
+            </button>
+          </div>
+
+          <div v-if="!editingFlagCriteria" class="criteria-readonly">
+            <span
+              v-for="item in flagCriteriaSummary"
+              :key="item"
+              class="summary-chip"
+            >
+              {{ item }}
+            </span>
+            <p v-if="!flagCriteriaSummary.length" class="empty-origin-list">No flag criteria.</p>
+          </div>
+
+          <div v-else class="field-grid">
+            <label>Required flags
+              <input
+                :value="(draft.conditions?.flags?.all ?? []).join(', ')"
+                list="story-flag-ids"
+                placeholder="gate.inspected"
+                @input="setFlagList('all', $event)"
+              />
+              <span v-if="fieldError('conditions.flags.all')" class="field-error">{{ fieldError("conditions.flags.all") }}</span>
+            </label>
+            <label>Absent flags
+              <input
+                :value="(draft.conditions?.flags?.not ?? []).join(', ')"
+                list="story-flag-ids"
+                placeholder="gate.opened"
+                @input="setFlagList('not', $event)"
+              />
+              <span v-if="fieldError('conditions.flags.not')" class="field-error">{{ fieldError("conditions.flags.not") }}</span>
+            </label>
+            <datalist id="story-flag-ids">
+              <option v-for="flag in flagIds" :key="flag" :value="flag" />
+            </datalist>
+          </div>
+        </section>
+
+        <section class="criteria-card">
+          <div class="criteria-card-header">
             <h3>Time based</h3>
             <button
               type="button"
@@ -451,6 +521,7 @@ function setModeEnabled(mode, enabled) {
             :catalog="catalog"
             :errors="errors"
             :destination-type="destinationType"
+            :flag-ids="flagIds"
             @move="$emit('move-choice', { index, delta: $event })"
             @remove="$emit('remove-choice', index)"
             @set-csv="$emit('set-csv', $event)"

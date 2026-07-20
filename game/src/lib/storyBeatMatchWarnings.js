@@ -8,7 +8,8 @@ export function buildStoryBeatMatchWarnings(beats, { locationMode, selectedLocat
     const mapTransition = beat.match?.mapTransition ?? "";
     const direction = beat.match?.transitionDirection ?? "";
     const time = timeCriteriaParts(beat.time).join(":");
-    const key = `${locationMode}:${selectedLocation}:origin=${origin}:mapTransition=${mapTransition}:direction=${direction}:time=${time}`;
+    const flags = flagCriteriaParts(beat.conditions).join(":");
+    const key = `${locationMode}:${selectedLocation}:origin=${origin}:mapTransition=${mapTransition}:direction=${direction}:time=${time}:flags=${flags}`;
     const group = groups.get(key) ?? [];
     group.push(beat);
     groups.set(key, group);
@@ -26,6 +27,7 @@ export function buildStoryBeatMatchWarnings(beats, { locationMode, selectedLocat
         mapTransition ? `map transition ${mapTransition}` : "",
         direction ? (direction === "toLocal" ? "to local map" : "to regional map") : "",
         timeCriteriaLabel(group[0].time),
+        flagCriteriaLabel(group[0].conditions),
       ].filter(Boolean).join(", ") || "default/no origin or map transition";
       return `Multiple beats use ${label}: ${group.map((beat) => beat.id).join(", ")}. The first sorted beat wins.`;
     });
@@ -113,6 +115,19 @@ function timeCriteriaParts(time = {}) {
   return parts;
 }
 
+function flagCriteriaParts(conditions = {}) {
+  const flags = conditions?.flags ?? {};
+  const parts = [];
+  if (Array.isArray(flags.all) && flags.all.length) {
+    parts.push(`all=${[...flags.all].sort().join("|")}`);
+  }
+  if (Array.isArray(flags.not) && flags.not.length) {
+    parts.push(`not=${[...flags.not].sort().join("|")}`);
+  }
+  if (conditions?.flag) parts.push(`flag=${conditions.flag}`);
+  return parts;
+}
+
 function timeCriteriaLabel(time = {}) {
   const labels = [];
   if (Array.isArray(time.days) && time.days.length) labels.push(`Day #: ${time.days.join(", ")}`);
@@ -125,5 +140,14 @@ function timeCriteriaLabel(time = {}) {
   if (time.elapsedTo != null) labels.push(`elapsed to ${time.elapsedTo}`);
   if (time.afterMilestone) labels.push(`after ${time.afterMilestone}`);
   if (time.beforeMilestone) labels.push(`before ${time.beforeMilestone}`);
+  return labels.join(", ");
+}
+
+function flagCriteriaLabel(conditions = {}) {
+  const labels = [];
+  const flags = conditions?.flags ?? {};
+  if (Array.isArray(flags.all) && flags.all.length) labels.push(`requires ${flags.all.join(", ")}`);
+  if (Array.isArray(flags.not) && flags.not.length) labels.push(`absent ${flags.not.join(", ")}`);
+  if (conditions?.flag) labels.push(`requires ${conditions.flag}`);
   return labels.join(", ");
 }

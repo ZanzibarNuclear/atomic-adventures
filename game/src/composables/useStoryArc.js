@@ -71,6 +71,14 @@ export function useStoryArc(storyData, {
     if (gameState.playMode !== "story" || !activeBeat.value) return [];
     return activeScene.value?.choices ?? [];
   });
+  const pendingCompletion = computed(() => {
+    if (gameState.playMode !== "story") return null;
+    const completed = new Set(gameState.story?.completedArcIds ?? []);
+    const dismissed = new Set(gameState.story?.dismissedCompletionArcIds ?? []);
+    return [...storyArcs.value].reverse().find((arc) =>
+      completed.has(arc.id) && !dismissed.has(arc.id) && arc.completion?.card,
+    ) ?? null;
+  });
   const storyError = computed(() => {
     if (gameState.playMode !== "story") return "";
     if (!activeArc.value) return "Story mode has no active story arc.";
@@ -91,6 +99,16 @@ export function useStoryArc(storyData, {
     if (gameState.playMode !== "story") return;
     const arc = activeArc.value;
     if (!arc) return;
+    const activeBeatId = gameState.story?.activeBeatId;
+    if (activeBeatId && !arc.beats?.some((beat) => beat.id === activeBeatId)) {
+      const movedBeatArc = storyArcs.value.find((candidate) =>
+        candidate.beats?.some((beat) => beat.id === activeBeatId),
+      );
+      if (movedBeatArc && gameState.story) {
+        gameState.story.activeArcId = movedBeatArc.id;
+        return;
+      }
+    }
     if (!gameState.story || gameState.story.activeArcId !== arc.id) {
       gameState.story = createStoryState({
         activeArcId: arc.id,
@@ -98,6 +116,8 @@ export function useStoryArc(storyData, {
         completedBeatIds: gameState.story?.completedBeatIds ?? [],
         enteredBeatIds: gameState.story?.enteredBeatIds ?? [],
         seenSceneIds: gameState.story?.seenSceneIds ?? [],
+        completedArcIds: gameState.story?.completedArcIds ?? [],
+        dismissedCompletionArcIds: gameState.story?.dismissedCompletionArcIds ?? [],
       });
     }
   }
@@ -109,6 +129,10 @@ export function useStoryArc(storyData, {
 
     let advances = 0;
     while (advances < MAX_ADVANCES_PER_TICK) {
+      if (recoverBranchToFenceHoleArc()) {
+        advances += 1;
+        continue;
+      }
       const beat = activeBeat.value;
       const arc = activeArc.value;
       if (!beat || !arc) return;
@@ -123,6 +147,41 @@ export function useStoryArc(storyData, {
       completeBeat(arc, beat);
       advances += 1;
     }
+  }
+
+  /**
+   * Canonical opener uses the compound gate. The fence-hole path is a separate
+   * arc that branches when the player crosses south-pines-hole, then merges into
+   * part-i-station at look-for-shelter (backside man door / large-bay-man-front-2).
+   *
+   * Branch from *any* opener beat once the hole is used — players can reach the
+   * hole without first completing reach-the-gate (e.g. east-pines → lower-stand
+   * → south-pines while still on keep-moving-west).
+   */
+  function recoverBranchToFenceHoleArc() {
+    if (!hasFlag(gameState.flags, "compound.fence-hole-passed")) return false;
+    const holeArc = storyArcs.value.find((candidate) => candidate.id === "part-i-fence-hole");
+    if (!holeArc?.beats?.length) return false;
+    if (gameState.story?.activeArcId === holeArc.id) return false;
+    // Already past the alternate path — do not yank the player back into it.
+    if ((gameState.story?.completedArcIds ?? []).includes(holeArc.id)) return false;
+
+    const openerArc = storyArcs.value.find((candidate) => candidate.id === "part-i-opener");
+    const onOpenerArc = gameState.story?.activeArcId === "part-i-opener"
+      || (!gameState.story?.activeArcId && openerArc);
+    const onOpenerBeat = Boolean(
+      openerArc?.beats?.some((beat) => beat.id === gameState.story?.activeBeatId),
+    );
+    if (!onOpenerArc && !onOpenerBeat) return false;
+
+    const targetBeatId = holeArc.startBeat
+      ?? holeArc.beats.find((beat) => beat.id === "approach-side-entrance")?.id
+      ?? holeArc.beats[0]?.id;
+    if (!targetBeatId) return false;
+
+    gameState.story.activeArcId = holeArc.id;
+    gameState.story.activeBeatId = targetBeatId;
+    return true;
   }
 
   function recoverForwardToLocation(arc, beat) {
@@ -159,16 +218,48 @@ export function useStoryArc(storyData, {
       completed.add(beat.id);
       gameState.story.completedBeatIds = [...completed];
     }
-    const nextArc = beat.nextArc
-      ? storyArcs.value.find((candidate) => candidate.id === beat.nextArc) ?? null
+    const isFinalBeat = !beat.next;
+    if (isFinalBeat) markArcCompleted(arc.id);
+    const nextArc = isFinalBeat && arc.completion?.nextArc
+      ? storyArcs.value.find((candidate) => candidate.id === arc.completion.nextArc) ?? null
       : null;
     const nextBeat = nextArc
-      ? nextArc.beats?.find((candidate) => candidate.id === nextArc.startBeat) ?? null
+      ? nextArc.beats?.find((candidate) =>
+        candidate.id === (arc.completion?.nextBeat || nextArc.startBeat),
+      ) ?? nextArc.beats?.find((candidate) => candidate.id === nextArc.startBeat) ?? null
       : beat.next
-        ? arc.beats?.find((candidate) => candidate.id === beat.next) ?? null
+        ? resolveBeatAcrossArcs(beat.next, arc)
         : null;
     if (nextArc) gameState.story.activeArcId = nextArc.id;
+    else if (nextBeat && nextBeat.arcId && nextBeat.arcId !== arc.id) {
+      gameState.story.activeArcId = nextBeat.arcId;
+    }
     gameState.story.activeBeatId = nextBeat?.id ?? null;
+  }
+
+  function resolveBeatAcrossArcs(beatId, preferredArc = null) {
+    if (!beatId) return null;
+    const inPreferred = preferredArc?.beats?.find((candidate) => candidate.id === beatId);
+    if (inPreferred) return { ...inPreferred, arcId: preferredArc.id };
+    for (const candidateArc of storyArcs.value) {
+      const found = candidateArc.beats?.find((candidate) => candidate.id === beatId);
+      if (found) return { ...found, arcId: candidateArc.id };
+    }
+    return null;
+  }
+
+  function markArcCompleted(arcId) {
+    const completed = new Set(gameState.story?.completedArcIds ?? []);
+    if (completed.has(arcId)) return;
+    completed.add(arcId);
+    gameState.story.completedArcIds = [...completed];
+  }
+
+  function dismissCompletion(arcId = pendingCompletion.value?.id) {
+    if (!arcId || !gameState.story) return;
+    const dismissed = new Set(gameState.story.dismissedCompletionArcIds ?? []);
+    dismissed.add(arcId);
+    gameState.story.dismissedCompletionArcIds = [...dismissed];
   }
 
   function markActiveSceneSeen() {
@@ -214,8 +305,16 @@ export function useStoryArc(storyData, {
       });
       if (!result.ok) return false;
     }
+    grantMilestones(gameState, choice.grantMilestones, choice.id);
+    if (choice.openPassage && !outdoor?.setPassageOpen?.(choice.openPassage, true)) return false;
+    if (choice.closePassage && !outdoor?.setPassageOpen?.(choice.closePassage, false)) return false;
     markActiveSceneSeen();
     if (choice.view) return Boolean(openStageView(choice.view));
+    if (choice.crossPassage) {
+      outdoor?.crossPassage?.(choice.crossPassage);
+      tick();
+      return true;
+    }
     if (choice.go_hex) return moveChoiceDestination(choice, () => moveHex(choice.go_hex, { suppressDefaultTime: duration > 0 }));
     if (choice.go_room) return moveChoiceDestination(choice, () => moveRoom(choice.go_room));
     if (choice.go_exterior_node) return moveChoiceDestination(choice, () => moveExterior(choice.go_exterior_node));
@@ -275,6 +374,9 @@ export function useStoryArc(storyData, {
       outdoor?.state?.previousId,
       outdoor?.state?.mapTransition,
       outdoor?.state?.transitionDirection,
+      // Hole/gate crosses often keep the same hex and only move the stand + flags.
+      outdoor?.state?.stand?.x,
+      outdoor?.state?.stand?.y,
       indoor?.indoor?.currentRoom,
       indoor?.indoor?.exteriorNode,
       [...(gameState.flags ?? [])].join("\0"),
@@ -298,8 +400,10 @@ export function useStoryArc(storyData, {
     displayScene: visibleScene,
     displayBeat,
     activeChoices,
+    pendingCompletion,
     storyActions,
     applyStoryAction,
+    dismissCompletion,
     storyError,
     tick,
     isCompletionConditionMet: (condition = activeBeat.value?.completesWhen) =>
@@ -321,6 +425,14 @@ export function applyBeatEffect(effect, { gameState, place, outdoor, indoor, ope
     });
     if (!result.ok) return result;
   }
+  grantMilestones(gameState, effect.grantMilestones, effect.source);
+  if (effect.openPassage && !outdoor?.setPassageOpen?.(effect.openPassage, true)) {
+    return { ok: false, error: `Could not open passage "${effect.openPassage}".` };
+  }
+  if (effect.closePassage && !outdoor?.setPassageOpen?.(effect.closePassage, false)) {
+    return { ok: false, error: `Could not close passage "${effect.closePassage}".` };
+  }
+  if (effect.crossPassage) outdoor?.crossPassage?.(effect.crossPassage);
   if (effect.move?.hex && place.value === "outdoors") outdoor?.moveTo?.(effect.move.hex);
   if (effect.move?.room) {
     if (place.value !== "indoors") place.value = "indoors";
@@ -332,6 +444,26 @@ export function applyBeatEffect(effect, { gameState, place, outdoor, indoor, ope
   }
   if (effect.view) openStageView(effect.view, { force: true });
   return { ok: true };
+}
+
+export function grantMilestones(gameState, milestoneIds = [], source = null) {
+  const ids = Array.isArray(milestoneIds)
+    ? milestoneIds
+    : milestoneIds
+      ? [milestoneIds]
+      : [];
+  if (!ids.length) return;
+  gameState.milestones ??= {};
+  for (const id of ids.map(String).filter(Boolean)) {
+    if (gameState.milestones[id]) continue;
+    gameState.milestones[id] = {
+      id,
+      day: gameState.clock?.day ?? null,
+      minuteOfDay: gameState.clock?.minuteOfDay ?? null,
+      elapsedMinutes: gameState.clock?.elapsedMinutes ?? null,
+      source: source ?? null,
+    };
+  }
 }
 
 export function isCompletionConditionMet(condition, ctx) {

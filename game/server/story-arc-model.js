@@ -37,6 +37,7 @@ export function validateStoryArcDocument(input, {
   if (storyArcDocument.id !== "story-main") add("id", 'Story arc document ID must be "story-main".');
   if (!storyArcDocument.storyArcs.length) add("storyArcs", "Add at least one story arc.");
   const arcIds = validateIds(storyArcDocument.storyArcs, "storyArcs", add);
+  const arcsById = new Map(storyArcDocument.storyArcs.map((arc) => [arc.id, arc]));
 
   storyArcDocument.storyArcs.forEach((arc, arcIndex) => {
     const base = `storyArcs.${arcIndex}`;
@@ -45,6 +46,7 @@ export function validateStoryArcDocument(input, {
     if (!arc.beats.length) add(`${base}.beats`, "Add at least one story beat.");
     const beatIds = validateIds(arc.beats, `${base}.beats`, add);
     if (!beatIds.has(arc.startBeat)) add(`${base}.startBeat`, "Choose an existing start beat.");
+    validateArcCompletion(arc.completion, `${base}.completion`, add, { arcIds, arcId: arc.id, arcsById });
 
     arc.beats.forEach((beat, beatIndex) => {
       const beatBase = `${base}.beats.${beatIndex}`;
@@ -53,10 +55,6 @@ export function validateStoryArcDocument(input, {
         add(`${beatBase}.scene`, "Choose an existing scene.");
       }
       if (beat.next && !beatIds.has(beat.next)) add(`${beatBase}.next`, "Choose an existing next beat.");
-      if (beat.next && beat.nextArc) add(`${beatBase}.next`, "Choose either a next beat or next story arc, not both.");
-      if (beat.nextArc && !arcIds.has(beat.nextArc)) {
-        add(`${beatBase}.nextArc`, "Choose an existing next story arc.");
-      }
       validateAllowed(beat.allowed, `${beatBase}.allowed`, add, { world });
       validateCompletion(beat.completesWhen, `${beatBase}.completesWhen`, add, {
         world,
@@ -83,7 +81,26 @@ function normalizeStoryArc(input = {}, index = 0) {
     defaultMode: normalizePlayMode(text(input.defaultMode)) || "story",
     startBeat: text(input.startBeat),
     beats: array(input.beats).map((beat, beatIndex) => normalizeStoryBeat(beat, beatIndex)),
+    completion: normalizeArcCompletion(input.completion),
   };
+}
+
+function normalizeArcCompletion(input = {}) {
+  if (!input || typeof input !== "object") return null;
+  const card = input.card && typeof input.card === "object"
+    ? compactObject({
+      eyebrow: nullableText(input.card.eyebrow),
+      heading: nullableText(input.card.heading),
+      description: nullableText(input.card.description),
+      note: nullableText(input.card.note),
+      actionLabel: nullableText(input.card.actionLabel),
+    })
+    : null;
+  return compactObject({
+    nextArc: nullableText(input.nextArc),
+    nextBeat: nullableText(input.nextBeat),
+    card,
+  });
 }
 
 function normalizeStoryBeat(input = {}, index = 0) {
@@ -97,8 +114,30 @@ function normalizeStoryBeat(input = {}, index = 0) {
     onEnter: normalizeBeatEffect(input.onEnter),
     onComplete: normalizeBeatEffect(input.onComplete),
     next: nullableText(input.next),
-    nextArc: nullableText(input.nextArc),
   };
+}
+
+function validateArcCompletion(completion, path, add, { arcIds, arcId, arcsById }) {
+  if (!completion) return;
+  if (completion.nextArc && !arcIds.has(completion.nextArc)) {
+    add(`${path}.nextArc`, "Choose an existing next story arc.");
+  }
+  if (completion.nextArc === arcId) add(`${path}.nextArc`, "Choose a different next story arc.");
+  if (completion.nextBeat) {
+    if (!completion.nextArc) {
+      add(`${path}.nextBeat`, "Set nextArc when choosing a merge beat.");
+    } else {
+      const nextArc = arcsById?.get(completion.nextArc);
+      const beatIds = new Set((nextArc?.beats ?? []).map((beat) => beat.id));
+      if (!beatIds.has(completion.nextBeat)) {
+        add(`${path}.nextBeat`, "Choose a beat on the next story arc.");
+      }
+    }
+  }
+  if (!completion.card) return;
+  for (const field of ["eyebrow", "heading", "description", "actionLabel"]) {
+    if (!completion.card[field]) add(`${path}.card.${field}`, "This transition-card field is required.");
+  }
 }
 
 function normalizeStoryChoice(input = {}) {
@@ -115,9 +154,12 @@ function normalizeStoryChoice(input = {}) {
     nextBeat: nullableText(input.nextBeat),
     timeMinutes: nullableNumber(input.timeMinutes),
     activity: nullableText(input.activity),
-    sets: stringList(input.sets),
+    grantMilestones: stringList(input.grantMilestones),
     set_flags: stringList(input.set_flags),
     effects: array(input.effects).map((effect) => structuredClone(effect)),
+    openPassage: nullableText(input.openPassage),
+    closePassage: nullableText(input.closePassage),
+    crossPassage: nullableText(input.crossPassage),
     view: normalizeStageView(input.view),
   });
 }
@@ -144,6 +186,12 @@ function normalizeAllowed(input = {}) {
 
 function normalizeCompletion(input = {}) {
   if (!input || typeof input !== "object") return null;
+  if (Array.isArray(input.anyOf)) {
+    const anyOf = input.anyOf
+      .map((candidate) => normalizeCompletion(candidate))
+      .filter(Boolean);
+    return anyOf.length ? { anyOf } : null;
+  }
   return compactObject({
     flag: nullableText(input.flag),
     facility: normalizeRecord(input.facility),
@@ -156,6 +204,7 @@ function normalizeCompletion(input = {}) {
       id: nullableText(input.lesson?.id),
       status: nullableText(input.lesson?.status),
     }),
+    milestone: nullableText(input.milestone),
   });
 }
 
@@ -163,9 +212,13 @@ function normalizeBeatEffect(input = {}) {
   if (!input || typeof input !== "object") return null;
   return compactObject({
     setFlags: stringList(input.setFlags),
+    grantMilestones: stringList(input.grantMilestones),
     effects: array(input.effects).map((effect) => structuredClone(effect)),
     timeMinutes: nullableNumber(input.timeMinutes),
     activity: nullableText(input.activity),
+    openPassage: nullableText(input.openPassage),
+    closePassage: nullableText(input.closePassage),
+    crossPassage: nullableText(input.crossPassage),
     move: normalizeLocation(input.move),
     view: normalizeStageView(input.view),
   });
@@ -234,10 +287,18 @@ function validateAllowed(allowed, path, add, { world }) {
 
 function validateCompletion(completion, path, add, { world, character, learning }) {
   if (!completion) return;
-  const families = ["flag", "facility", "location", "holding", "lesson"]
+  if (Array.isArray(completion.anyOf)) {
+    if (!completion.anyOf.length) add(path, "Add at least one completion option.");
+    completion.anyOf.forEach((candidate, index) => {
+      validateCompletion(candidate, `${path}.anyOf.${index}`, add, { world, character, learning });
+    });
+    return;
+  }
+  const families = ["flag", "facility", "location", "holding", "lesson", "milestone"]
     .filter((key) => hasCompletionValue(completion[key]));
   if (families.length !== 1) add(path, "Choose exactly one completion condition.");
   if (completion.flag && !FLAG_PATTERN.test(completion.flag)) add(`${path}.flag`, "Use a valid flag ID.");
+  if (completion.milestone && !FLAG_PATTERN.test(completion.milestone)) add(`${path}.milestone`, "Use a valid milestone ID.");
   if (completion.location) validateLocation(completion.location, `${path}.location`, add, { world });
   if (completion.holding) {
     if (!completion.holding.item) add(`${path}.holding.item`, "Choose an item.");
@@ -259,6 +320,9 @@ function validateBeatEffect(effect, path, add, { world, character }) {
   if (!effect) return;
   effect.setFlags?.forEach((flag, index) => {
     if (!FLAG_PATTERN.test(flag)) add(`${path}.setFlags.${index}`, "Use a valid flag ID.");
+  });
+  effect.grantMilestones?.forEach((milestone, index) => {
+    if (!FLAG_PATTERN.test(milestone)) add(`${path}.grantMilestones.${index}`, "Use a valid milestone ID.");
   });
   if (effect.timeMinutes != null && effect.timeMinutes < 0) add(`${path}.timeMinutes`, "Time cannot be negative.");
   if (effect.activity && !ACTIVITIES.has(effect.activity)) add(`${path}.activity`, "Choose a supported activity.");

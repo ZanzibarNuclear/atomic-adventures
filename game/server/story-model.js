@@ -36,6 +36,7 @@ export function normalizeBeat(input = {}) {
     },
     match: normalizeMatch(input.match),
     time: normalizeBeatTime(input.time),
+    conditions: normalizeConditions(input.conditions ?? input.require),
     choices: (input.choices ?? []).map((choice, index) => ({
       id: choice.id || randomUUID(),
       order: Number.isFinite(Number(choice.order)) ? Number(choice.order) : index,
@@ -43,8 +44,12 @@ export function normalizeBeat(input = {}) {
       timeMinutes: finiteNumber(choice.timeMinutes, 0),
       timeUntil: normalizeTimeUntil(choice.timeUntil),
       activity: nullableText(choice.activity) ?? "light",
-      sets: stringList(choice.sets),
       set_flags: stringList(choice.set_flags),
+      effects: Array.isArray(choice.effects) ? structuredClone(choice.effects) : [],
+      grantMilestones: stringList(choice.grantMilestones),
+      openPassage: nullableText(choice.openPassage),
+      closePassage: nullableText(choice.closePassage),
+      crossPassage: nullableText(choice.crossPassage),
       go_hex: nullableText(choice.go_hex),
       go_room: nullableText(choice.go_room),
       go_exterior_node: nullableText(choice.go_exterior_node),
@@ -68,9 +73,6 @@ export function validateBeat(input, world, character = null, learning = null) {
     input.choices.forEach((choice, index) => {
       if (Object.hasOwn(choice ?? {}, "require")) {
         add(`choices.${index}.require`, "Story choice requirements are not part of the current schema.");
-      }
-      if (Object.hasOwn(choice ?? {}, "effects")) {
-        add(`choices.${index}.effects`, "Story choice effects are not part of the current schema.");
       }
     });
   }
@@ -134,6 +136,7 @@ export function validateBeat(input, world, character = null, learning = null) {
   if (beat.storyBeat && beat.modes.length && !beat.modes.includes("story")) {
     add("storyBeat", "Story beat scenes must be eligible in story mode.");
   }
+  validateConditions(beat.conditions, add);
 
   beat.choices.forEach((choice, index) => {
     const base = `choices.${index}`;
@@ -188,6 +191,7 @@ export function beatToRuntime(beat) {
     storyBeat: beat.storyBeat ?? undefined,
     match: Object.keys(match).length ? match : undefined,
     time: Object.keys(time).length ? time : undefined,
+    conditions: Object.keys(beat.conditions ?? {}).length ? beat.conditions : undefined,
     text: beat.text,
     revisit: beat.revisit ?? undefined,
     choices: beat.choices.map((choice) => compactObject({
@@ -195,14 +199,43 @@ export function beatToRuntime(beat) {
       timeMinutes: choice.timeMinutes || undefined,
       timeUntil: compactTimeUntil(choice.timeUntil),
       activity: choice.timeMinutes || choice.timeUntil ? choice.activity : undefined,
-      sets: choice.sets.length ? choice.sets : undefined,
       set_flags: choice.set_flags.length ? choice.set_flags : undefined,
+      effects: choice.effects.length ? choice.effects : undefined,
+      grantMilestones: choice.grantMilestones.length ? choice.grantMilestones : undefined,
+      openPassage: choice.openPassage ?? undefined,
+      closePassage: choice.closePassage ?? undefined,
+      crossPassage: choice.crossPassage ?? undefined,
       go_hex: choice.go_hex ?? undefined,
       go_room: choice.go_room ?? undefined,
       go_exterior_node: choice.go_exterior_node ?? undefined,
       enter: choice.enter ?? undefined,
       view: choice.view ?? undefined,
     })),
+  });
+}
+
+function normalizeConditions(input = {}) {
+  if (!input || typeof input !== "object") return {};
+  const flags = {
+    all: stringList(input.flags?.all ?? input.all ?? input.flag),
+    not: stringList(input.flags?.not ?? input.not),
+  };
+  return compactObject({
+    flag: nullableText(input.flag),
+    flags: compactObject(flags),
+  });
+}
+
+function validateConditions(conditions, add) {
+  const flagIds = [
+    conditions?.flag,
+    ...(conditions?.flags?.all ?? []),
+    ...(conditions?.flags?.not ?? []),
+  ].filter(Boolean);
+  flagIds.forEach((flag, index) => {
+    if (!/^[a-z0-9_]+(?:[.-][a-z0-9_]+)*$/.test(flag)) {
+      add(`conditions.flags.${index}`, "Use valid flag IDs.");
+    }
   });
 }
 

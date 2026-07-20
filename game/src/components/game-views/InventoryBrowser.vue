@@ -9,7 +9,6 @@ const props = defineProps({
   transferTargets: { type: Array, required: true },
   publicAssetPath: { type: Function, required: true },
   actionPolicy: { type: Object, default: null },
-  actionFeedback: { type: String, default: "" },
 });
 
 const emit = defineEmits(["select-holding", "transfer-item", "use-item"]);
@@ -95,35 +94,49 @@ const availableTransferTargets = computed(() => {
       .map((target) => ({ ...target, takeOut: true }));
   }
 
-  const targets = props.transferTargets
-    .filter((target) => target.id !== currentHolderId)
-    .map((target) => {
-      if (target.kind === "world") return { ...target, putDown: true };
-      if (target.kind === "character" && isWithinReach.value) return { ...target, pickUp: true };
-      return target;
-    });
-
-  if (isHeldDirectly.value) {
-    const containers = props.holders
-      .filter((holder) => holder.kind === "container" && holder.instance !== selectedId)
-      .map((holder) => ({
-        id: holder.id,
-        label: containerItemLabel(holder) ?? holder.label ?? holder.id,
-        kind: "container",
-        putIn: true,
-      }));
-    return [...targets, ...containers];
+  const targets = props.transferTargets.filter((target) => target.id !== currentHolderId);
+  if (!isHeldDirectly.value) {
+    if (!isWithinReach.value) return [];
+    return targets
+      .filter((target) => target.kind === "character")
+      .map((target) => ({ ...target, pickUp: true }));
   }
 
-  return targets;
+  const surfaces = targets
+    .filter((target) => target.kind === "fixed")
+    .filter((target) => acceptsItemKind(target, props.selectedHolding?.kind))
+    .map((target) => ({ ...target, putOnSurface: true }));
+  const includeFloor = surfaces.length !== 1;
+  const ordinaryTargets = targets
+    .filter((target) => target.kind !== "fixed")
+    .filter((target) => includeFloor || target.kind !== "world")
+    .map((target) => {
+      if (target.kind === "world") return { ...target, putDown: true };
+      return target;
+    });
+  const containers = props.holders
+    .filter((holder) => holder.kind === "container" && holder.instance !== selectedId)
+    .map((holder) => ({
+      id: holder.id,
+      label: containerItemLabel(holder) ?? holder.label ?? holder.id,
+      kind: "container",
+      putIn: true,
+    }));
+  return [...surfaces, ...ordinaryTargets, ...containers];
 });
 
 function transferLabel(target) {
   if (target.takeOut) return "Take out";
   if (target.pickUp) return "Pick up";
   if (target.putIn) return `Put in ${target.label}`;
+  if (target.putOnSurface) return `Put down on ${target.label}`;
   if (target.putDown) return "Put down";
   return `Move to ${target.label}`;
+}
+
+function acceptsItemKind(target, itemKind) {
+  const kinds = target.accepts?.kinds ?? [];
+  return !kinds.length || kinds.includes(itemKind);
 }
 
 function containerItemLabel(holder) {
@@ -184,7 +197,6 @@ function closeToContainer() {
     </div>
 
     <aside class="item-detail" aria-live="polite">
-      <p v-if="actionFeedback" class="action-feedback">{{ actionFeedback }}</p>
       <template v-if="selectedHolding">
         <div class="detail-top">
           <p class="label">Item Details</p>
@@ -255,10 +267,6 @@ function closeToContainer() {
             </p>
           </div>
         </div>
-
-        <p v-if="selectedHolding.relatedDocument" class="related-document">
-          Related document: {{ selectedHolding.relatedDocument }}
-        </p>
 
         <div
           v-if="availableTransferTargets.length || visibleActions.length"
@@ -407,7 +415,6 @@ function closeToContainer() {
 }
 .item-card small,
 .empty-state,
-.related-document,
 .detail-meta {
   color: #93a3bc;
 }
@@ -419,15 +426,6 @@ function closeToContainer() {
   border-radius: 12px;
   background: rgba(18, 24, 36, 0.78);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-.action-feedback {
-  margin: 0 0 0.85rem;
-  padding: 0.7rem 0.85rem;
-  border: 1px solid rgba(128, 190, 154, 0.42);
-  border-radius: 8px;
-  background: rgba(65, 110, 82, 0.2);
-  color: #d8f2df;
-  font-size: 0.92rem;
 }
 .detail-top {
   display: flex;
@@ -512,12 +510,18 @@ function closeToContainer() {
 }
 .focus-actions {
   margin-top: 0.9rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
 }
 .focus-actions .item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
   margin-top: 0;
 }
 .focus-actions .item-actions + .item-actions {
-  margin-top: 0.45rem;
+  margin-top: 0;
 }
 .container-contents {
   margin-top: 1rem;

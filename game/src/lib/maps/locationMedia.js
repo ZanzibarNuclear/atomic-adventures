@@ -13,9 +13,10 @@ export function publicAssetPath(path) {
   return path.startsWith("/") ? path : `/${path.replace(/^\.?\//, "")}`;
 }
 
-export function imageLocationViews(views = []) {
+export function imageLocationViews(views = [], { passageStates = {} } = {}) {
   return (Array.isArray(views) ? views : [])
     .filter((view) => view?.kind === "image" && view.src)
+    .filter((view) => viewMatchesPassageState(view, passageStates))
     .map((view) => ({
       ...view,
       label: view.label || view.id || "Location view",
@@ -55,7 +56,9 @@ export function resolveOutdoorLocationMedia(outdoor) {
   const hex = outdoor?.currentHexData;
   if (!hex) return null;
   const stand = currentOutdoorStand(hex, outdoor.state?.stand, Number(outdoor.size ?? 0));
-  const standViews = imageLocationViews(stand?.views);
+  const standViews = imageLocationViews(stand?.views, {
+    passageStates: outdoor?.passageMarkerStates,
+  });
   if (standViews.length) {
     return {
       key: `outdoors:${hex.id}:stand:${stand.id}`,
@@ -64,7 +67,7 @@ export function resolveOutdoorLocationMedia(outdoor) {
       views: standViews,
     };
   }
-  const hexViews = imageLocationViews(hex.views);
+  const hexViews = imageLocationViews(hex.views, { passageStates: outdoor?.passageMarkerStates });
   if (!hexViews.length) return null;
   return {
     key: `outdoors:${hex.id}`,
@@ -72,6 +75,12 @@ export function resolveOutdoorLocationMedia(outdoor) {
     locationId: hex.id,
     views: hexViews,
   };
+}
+
+function viewMatchesPassageState(view, passageStates = {}) {
+  const when = view?.when;
+  if (!when?.passage || typeof when.open !== "boolean") return true;
+  return Boolean(passageStates?.[when.passage]) === when.open;
 }
 
 export function currentOutdoorStand(hex, point, size) {

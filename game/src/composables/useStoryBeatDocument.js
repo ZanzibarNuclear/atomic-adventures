@@ -85,6 +85,7 @@ function normalizeForDirty(value) {
       transitionDirection: nullableText(beat.match?.transitionDirection),
     },
     time: normalizeBeatTime(beat.time),
+    conditions: normalizeConditions(beat.conditions),
     choices: (beat.choices ?? []).map((choice, index) => ({
       id: choice.id ?? "",
       order: Number.isFinite(Number(choice.order)) ? Number(choice.order) : index,
@@ -92,14 +93,27 @@ function normalizeForDirty(value) {
       timeMinutes: finiteNumber(choice.timeMinutes, 0),
       timeUntil: normalizeTimeUntil(choice.timeUntil),
       activity: nullableText(choice.activity) ?? "light",
-      sets: stringList(choice.sets),
       set_flags: stringList(choice.set_flags),
+      effects: Array.isArray(choice.effects) ? clonePlain(choice.effects) : [],
+      grantMilestones: stringList(choice.grantMilestones),
+      openPassage: nullableText(choice.openPassage),
+      closePassage: nullableText(choice.closePassage),
+      crossPassage: nullableText(choice.crossPassage),
       go_hex: nullableText(choice.go_hex),
       go_room: nullableText(choice.go_room),
       go_exterior_node: nullableText(choice.go_exterior_node),
       enter: nullableText(choice.enter),
       view: normalizeStageView(choice.view),
     })),
+  };
+}
+
+function normalizeConditions(value = {}) {
+  return {
+    flags: {
+      all: stringList(value.flags?.all ?? value.all ?? value.flag),
+      not: stringList(value.flags?.not ?? value.not),
+    },
   };
 }
 

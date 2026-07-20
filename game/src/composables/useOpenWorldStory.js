@@ -44,7 +44,6 @@ export function useOpenWorldStory(storyData, {
       const result = advanceGameTime(gameState, duration, choice.activity ?? "light");
       if (!result.ok) return false;
     }
-    if (choice.sets) setFlags(gameState.flags, choice.sets);
     if (choice.set_flags) setFlags(gameState.flags, choice.set_flags);
     if (choice.view) {
       openStageView(choice.view);

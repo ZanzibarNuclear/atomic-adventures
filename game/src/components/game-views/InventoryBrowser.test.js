@@ -4,7 +4,7 @@ import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
 import InventoryBrowser from "./InventoryBrowser.vue";
 
-function mountBrowser({ selectedHolding, holders, transferTargets }) {
+function mountBrowser({ selectedHolding, holders, transferTargets, actionFeedback = "" }) {
   return mount(InventoryBrowser, {
     props: {
       holders,
@@ -13,14 +13,40 @@ function mountBrowser({ selectedHolding, holders, transferTargets }) {
       transferTargets,
       publicAssetPath: (path) => path,
       actionPolicy: { unrestricted: true },
+      actionFeedback,
     },
   });
 }
 
 const carriedHolder = { id: "character:zanzibar", kind: "character", label: "Holding" };
 const groundHolder = { id: "world:indoors:library:desk", kind: "world", label: "Within reach" };
+const consoleHolder = {
+  id: "fixed:control-room-console",
+  kind: "fixed",
+  label: "Control-room console",
+  accepts: { kinds: ["card"] },
+};
 
 describe("InventoryBrowser transfers", () => {
+  it("does not reveal numeric wellbeing changes in item details", () => {
+    const selectedHolding = {
+      type: "catalog",
+      id: "energy-bar",
+      item: "energy-bar",
+      label: "Energy bar",
+      quantity: 1,
+      holder: carriedHolder,
+    };
+    const wrapper = mountBrowser({
+      selectedHolding,
+      holders: [{ ...carriedHolder, records: [selectedHolding] }],
+      transferTargets: [carriedHolder],
+      actionFeedback: "Energy +30 (40 → 70)",
+    });
+
+    expect(wrapper.text()).not.toContain("Energy +30 (40 → 70)");
+  });
+
   it("offers to put carried items down at the current location", async () => {
     const selectedHolding = {
       type: "instance",
@@ -51,6 +77,98 @@ describe("InventoryBrowser transfers", () => {
     });
   });
 
+  it("puts a carried item on the only compatible fixture at the active stand", async () => {
+    const selectedHolding = {
+      type: "instance",
+      id: "laminated-card-1",
+      item: "laminated-card",
+      label: "Laminated card",
+      kind: "card",
+      quantity: 1,
+      holder: carriedHolder,
+    };
+    const wrapper = mountBrowser({
+      selectedHolding,
+      holders: [
+        { ...carriedHolder, records: [selectedHolding] },
+        { ...groundHolder, records: [] },
+        { ...consoleHolder, records: [] },
+      ],
+      transferTargets: [carriedHolder, groundHolder, consoleHolder],
+    });
+
+    const button = wrapper.findAll("button")
+      .find((candidate) => candidate.text() === "Put down on Control-room console");
+    expect(button?.exists()).toBe(true);
+    await button.trigger("click");
+    expect(wrapper.emitted("transfer-item")?.[0]?.[0]).toMatchObject({
+      recordId: "laminated-card-1",
+      toHolder: consoleHolder.id,
+    });
+    expect(wrapper.findAll("button").some((candidate) => candidate.text() === "Put down")).toBe(false);
+    expect(wrapper.text()).not.toContain("Move to Control-room console");
+  });
+
+  it("offers named surfaces and the floor when several fixtures accept a carried item", () => {
+    const tableHolder = {
+      id: "fixed:conference-table",
+      kind: "fixed",
+      label: "Conference table",
+      accepts: { kinds: ["card"] },
+    };
+    const counterHolder = {
+      id: "fixed:kitchen-counter",
+      kind: "fixed",
+      label: "Kitchen counter",
+      accepts: { kinds: ["card"] },
+    };
+    const selectedHolding = {
+      type: "instance",
+      id: "laminated-card-1",
+      item: "laminated-card",
+      label: "Laminated card",
+      kind: "card",
+      quantity: 1,
+      holder: carriedHolder,
+    };
+    const wrapper = mountBrowser({
+      selectedHolding,
+      holders: [
+        { ...carriedHolder, records: [selectedHolding] },
+        { ...groundHolder, records: [] },
+        { ...tableHolder, records: [] },
+        { ...counterHolder, records: [] },
+      ],
+      transferTargets: [carriedHolder, groundHolder, tableHolder, counterHolder],
+    });
+
+    const labels = wrapper.findAll("button").map((button) => button.text());
+    expect(labels).toEqual(expect.arrayContaining([
+      "Put down",
+      "Put down on Conference table",
+      "Put down on Kitchen counter",
+    ]));
+  });
+
+  it("does not repeat an item's related document in its details", () => {
+    const selectedHolding = {
+      type: "instance",
+      id: "laminated-card-1",
+      item: "laminated-card",
+      label: "Laminated card",
+      quantity: 1,
+      relatedDocument: "hydro-startup-instruction-card",
+      holder: carriedHolder,
+    };
+    const wrapper = mountBrowser({
+      selectedHolding,
+      holders: [{ ...carriedHolder, records: [selectedHolding] }],
+      transferTargets: [carriedHolder],
+    });
+
+    expect(wrapper.text()).not.toContain("Related document:");
+  });
+
   it("offers to pick up nearby items from the current location", async () => {
     const selectedHolding = {
       type: "instance",
@@ -65,8 +183,9 @@ describe("InventoryBrowser transfers", () => {
       holders: [
         { ...carriedHolder, records: [] },
         { ...groundHolder, records: [selectedHolding] },
+        { ...consoleHolder, records: [] },
       ],
-      transferTargets: [carriedHolder, groundHolder],
+      transferTargets: [carriedHolder, groundHolder, consoleHolder],
     });
 
     const button = wrapper.findAll("button").find((candidate) => candidate.text() === "Pick up");
@@ -79,5 +198,6 @@ describe("InventoryBrowser transfers", () => {
       quantity: 1,
       toHolder: carriedHolder.id,
     });
+    expect(wrapper.text()).not.toContain("Move to Control-room console");
   });
 });
