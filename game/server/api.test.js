@@ -245,10 +245,31 @@ describe("story API", () => {
       defaultMode: "story",
       startBeat: "survive-in-the-woods",
     }));
-    expect(storyArcDocument.storyArcDocument.storyArcs[1]).toEqual(expect.objectContaining({ id: "part-i-station" }));
-    expect(storyArcDocument.storyArcDocument.storyArcs[1].beats.some(
-      (beat) => beat.id === storyArcDocument.storyArcDocument.storyArcs[1].startBeat,
+    const arcsById = Object.fromEntries(
+      storyArcDocument.storyArcDocument.storyArcs.map((arc) => [arc.id, arc]),
+    );
+    expect(arcsById["part-i-fence-hole"]).toEqual(expect.objectContaining({
+      id: "part-i-fence-hole",
+      startBeat: "approach-side-entrance",
+    }));
+    expect(arcsById["part-i-station"]).toEqual(expect.objectContaining({
+      id: "part-i-station",
+      startBeat: "look-for-shelter",
+    }));
+    expect(arcsById["part-i-station"].beats.some(
+      (beat) => beat.id === arcsById["part-i-station"].startBeat,
     )).toBe(true);
+    expect(arcsById["part-i-fence-hole"].completion).toEqual(expect.objectContaining({
+      nextArc: "part-i-station",
+      nextBeat: "look-for-shelter",
+    }));
+    expect(arcsById["part-i-fence-hole"].beats[0]?.completesWhen).toEqual(expect.objectContaining({
+      anyOf: expect.arrayContaining([
+        expect.objectContaining({
+          location: expect.objectContaining({ exteriorNode: "large-bay-man-front" }),
+        }),
+      ]),
+    }));
     expect(storyArcRepository.validate(storyArcDocument.storyArcDocument).valid).toBe(true);
 
     const storyArcsRes = responseCapture();

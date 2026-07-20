@@ -129,6 +129,10 @@ export function useStoryArc(storyData, {
 
     let advances = 0;
     while (advances < MAX_ADVANCES_PER_TICK) {
+      if (recoverBranchToFenceHoleArc()) {
+        advances += 1;
+        continue;
+      }
       const beat = activeBeat.value;
       const arc = activeArc.value;
       if (!beat || !arc) return;
@@ -143,6 +147,41 @@ export function useStoryArc(storyData, {
       completeBeat(arc, beat);
       advances += 1;
     }
+  }
+
+  /**
+   * Canonical opener uses the compound gate. The fence-hole path is a separate
+   * arc that branches when the player crosses south-pines-hole, then merges into
+   * part-i-station at look-for-shelter (backside man door / large-bay-man-front-2).
+   *
+   * Branch from *any* opener beat once the hole is used — players can reach the
+   * hole without first completing reach-the-gate (e.g. east-pines → lower-stand
+   * → south-pines while still on keep-moving-west).
+   */
+  function recoverBranchToFenceHoleArc() {
+    if (!hasFlag(gameState.flags, "compound.fence-hole-passed")) return false;
+    const holeArc = storyArcs.value.find((candidate) => candidate.id === "part-i-fence-hole");
+    if (!holeArc?.beats?.length) return false;
+    if (gameState.story?.activeArcId === holeArc.id) return false;
+    // Already past the alternate path — do not yank the player back into it.
+    if ((gameState.story?.completedArcIds ?? []).includes(holeArc.id)) return false;
+
+    const openerArc = storyArcs.value.find((candidate) => candidate.id === "part-i-opener");
+    const onOpenerArc = gameState.story?.activeArcId === "part-i-opener"
+      || (!gameState.story?.activeArcId && openerArc);
+    const onOpenerBeat = Boolean(
+      openerArc?.beats?.some((beat) => beat.id === gameState.story?.activeBeatId),
+    );
+    if (!onOpenerArc && !onOpenerBeat) return false;
+
+    const targetBeatId = holeArc.startBeat
+      ?? holeArc.beats.find((beat) => beat.id === "approach-side-entrance")?.id
+      ?? holeArc.beats[0]?.id;
+    if (!targetBeatId) return false;
+
+    gameState.story.activeArcId = holeArc.id;
+    gameState.story.activeBeatId = targetBeatId;
+    return true;
   }
 
   function recoverForwardToLocation(arc, beat) {
@@ -185,12 +224,28 @@ export function useStoryArc(storyData, {
       ? storyArcs.value.find((candidate) => candidate.id === arc.completion.nextArc) ?? null
       : null;
     const nextBeat = nextArc
-      ? nextArc.beats?.find((candidate) => candidate.id === nextArc.startBeat) ?? null
+      ? nextArc.beats?.find((candidate) =>
+        candidate.id === (arc.completion?.nextBeat || nextArc.startBeat),
+      ) ?? nextArc.beats?.find((candidate) => candidate.id === nextArc.startBeat) ?? null
       : beat.next
-        ? arc.beats?.find((candidate) => candidate.id === beat.next) ?? null
+        ? resolveBeatAcrossArcs(beat.next, arc)
         : null;
     if (nextArc) gameState.story.activeArcId = nextArc.id;
+    else if (nextBeat && nextBeat.arcId && nextBeat.arcId !== arc.id) {
+      gameState.story.activeArcId = nextBeat.arcId;
+    }
     gameState.story.activeBeatId = nextBeat?.id ?? null;
+  }
+
+  function resolveBeatAcrossArcs(beatId, preferredArc = null) {
+    if (!beatId) return null;
+    const inPreferred = preferredArc?.beats?.find((candidate) => candidate.id === beatId);
+    if (inPreferred) return { ...inPreferred, arcId: preferredArc.id };
+    for (const candidateArc of storyArcs.value) {
+      const found = candidateArc.beats?.find((candidate) => candidate.id === beatId);
+      if (found) return { ...found, arcId: candidateArc.id };
+    }
+    return null;
   }
 
   function markArcCompleted(arcId) {
@@ -319,6 +374,9 @@ export function useStoryArc(storyData, {
       outdoor?.state?.previousId,
       outdoor?.state?.mapTransition,
       outdoor?.state?.transitionDirection,
+      // Hole/gate crosses often keep the same hex and only move the stand + flags.
+      outdoor?.state?.stand?.x,
+      outdoor?.state?.stand?.y,
       indoor?.indoor?.currentRoom,
       indoor?.indoor?.exteriorNode,
       [...(gameState.flags ?? [])].join("\0"),

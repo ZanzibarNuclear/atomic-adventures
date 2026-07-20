@@ -45,6 +45,8 @@ function normalizeArcCompletion(source = {}) {
     : null;
   return {
     nextArc: text(source.nextArc) || null,
+    // Optional merge target on the next arc (defaults to that arc's startBeat).
+    nextBeat: text(source.nextBeat) || null,
     card,
   };
 }
