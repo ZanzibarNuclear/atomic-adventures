@@ -36,12 +36,12 @@ survival-to-hydro loop.
 These were the original four alpha pillars. Treat them as done unless a
 playtest or bug proves otherwise.
 
-| Pillar | Where it lives |
-| --- | --- |
-| Beginner hydro lesson (multi-page, illustrated, quizzes) | Learning content + holo-reader stage view |
-| Laminated startup instruction card (artifact, front checklist + back mini-map) | Document stage view + control-room console stand |
-| Simplified hydro console | Hydro console stage view + facility runtime |
-| Story mode vs Open-world mode | Mode chooser, `useStoryArc` / open-world controller, saves |
+| Pillar                                                                         | Where it lives                                             |
+| ------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| Beginner hydro lesson (multi-page, illustrated, quizzes)                       | Learning content + holo-reader stage view                  |
+| Laminated startup instruction card (artifact, front checklist + back mini-map) | Document stage view + control-room console stand           |
+| Simplified hydro console                                                       | Hydro console stage view + facility runtime                |
+| Story mode vs Open-world mode                                                  | Mode chooser, `useStoryArc` / open-world controller, saves |
 
 Related plumbing that is also in place for the alpha loop:
 
@@ -71,36 +71,36 @@ Alpha is ready when **all** of the following are true:
 ## Working punchlist (seed — sort after manual testing)
 
 Priorities will be reordered after manual findings are in. **Do not treat this
-list as closed.** Items marked *audit* came from content/runtime review, not
+list as closed.** Items marked _audit_ came from content/runtime review, not
 yet confirmed in browser.
 
 ### P0 — Likely blockers or trust breakers
 
-| ID | Source | Item | Notes |
-| --- | --- | --- | --- |
+| ID   | Source   | Item                                    | Notes                                                                                                                                                                                                                      |
+| ---- | -------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | P0-1 | audit F4 | End-of-hydro console beat can auto-skip | `connect-power` sets `online` **and** `startupComplete`. Beats `check-console` and `complete-startup` both complete on those, so “check the console” may not require a real player step (console may flash via `onEnter`). |
-| P0-2 | audit F6 | Food/water dual path | Kitchen choice **Eat and drink** only sets flags. Real satiety/hydration actions require `story.the-garage` (garage-front scene). Man-door-only path may “complete” night without real recovery. |
-| P0-3 | process | Full manual Story mode browser pass | Gate path + hole path + sleep + field + power + lesson + save/load. Script: [alpha-story-mode-playtest.md](alpha-story-mode-playtest.md). |
-| P0-4 | process | Automated play path coverage | Playwright/smoke path that exercises mode select → early story → (later) key gates. Unit suite alone is not trusted as path proof. |
+| P0-2 | audit F6 | Food/water dual path                    | Kitchen choice **Eat and drink** only sets flags. Real satiety/hydration actions require `story.the-garage` (garage-front scene). Man-door-only path may “complete” night without real recovery.                           |
+| P0-3 | process  | Full manual Story mode browser pass     | Gate path + hole path + sleep + field + power + lesson + save/load. Script: [alpha-story-mode-playtest.md](alpha-story-mode-playtest.md).                                                                                  |
+| P0-4 | process  | Automated play path coverage            | Playwright/smoke path that exercises mode select → early story → (later) key gates. Unit suite alone is not trusted as path proof.                                                                                         |
 
 ### P1 — Confusing path / prose that undermines alpha
 
-| ID | Source | Item | Notes |
-| --- | --- | --- | --- |
-| P1-1 | audit F7 | Control-room revisit is 7 steps | Includes leak check, 60 PSI, electrical panel language that does not match the alpha 6-step card + real actions. |
-| P1-2 | audit F8 | Library Day 2 monologue vs location | `library-explore` narrates bathroom/breakfast/stairs while player is still in the library. |
-| P1-3 | audit F10 | Lesson not on critical path | Beginner lesson is power-gated via holo-reader, not a story beat. Arc can finish before any lesson; still need a deliberate post-power lesson visit for pillar 1. |
-| P1-4 | audit | Soft Story action gating | Runtime mainly *prompts* story-forward actions; hard-hide of out-of-order mutations is limited (`mustRest` is the main hard stop). Detours can feel aimless. |
+| ID   | Source    | Item                                | Notes                                                                                                                                                             |
+| ---- | --------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P1-1 | audit F7  | Control-room revisit is 7 steps     | Includes leak check, 60 PSI, electrical panel language that does not match the alpha 6-step card + real actions.                                                  |
+| P1-2 | audit F8  | Library Day 2 monologue vs location | `library-explore` narrates bathroom/breakfast/stairs while player is still in the library.                                                                        |
+| P1-3 | audit F10 | Lesson not on critical path         | Beginner lesson is power-gated via holo-reader, not a story beat. Arc can finish before any lesson; still need a deliberate post-power lesson visit for pillar 1. |
+| P1-4 | audit     | Soft Story action gating            | Runtime mainly _prompts_ story-forward actions; hard-hide of out-of-order mutations is limited (`mustRest` is the main hard stop). Detours can feel aimless.      |
 
 ### P2 — Polish and hygiene
 
-| ID | Source | Item | Notes |
-| --- | --- | --- | --- |
-| P2-1 | audit F9 | Typos / tone | e.g. “Partical Physics”, “Quantum Machanics”, “somem time”, “Get you water here”. |
-| P2-2 | audit | Stale production JSON snapshot | Checked-in `game/public/content/utility-station.json` lagged SQLite for `rest-in-library` flags; confirm build export path and live site after deploy. |
-| P2-3 | process | Verify and improve effectiveness of automated tests | Hypothesis: many tests pin content existence or incidental structure, not player-facing invariants. Audit suite; keep invariant tests; delete or replace misleading ones. |
-| P2-4 | docs | Refresh stale `feature-gaps.md` and contract status labels | Gaps still list shipped work (mode select, StoryArc, holo MVP, etc.). Misleads alpha triage. |
-| P2-5 | browser-confirm | Fixed items need human confirm | F1 hole arc, F2 rest/sleep flags, F3 station start beat, F5 completion card copy. |
+| ID   | Source          | Item                                                       | Notes                                                                                                                                                                     |
+| ---- | --------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P2-1 | audit F9        | Typos / tone                                               | e.g. “Partical Physics”, “Quantum Machanics”, “somem time”, “Get you water here”.                                                                                         |
+| P2-2 | audit           | Stale production JSON snapshot                             | Checked-in `game/public/content/utility-station.json` lagged SQLite for `rest-in-library` flags; confirm build export path and live site after deploy.                    |
+| P2-3 | process         | Verify and improve effectiveness of automated tests        | Hypothesis: many tests pin content existence or incidental structure, not player-facing invariants. Audit suite; keep invariant tests; delete or replace misleading ones. |
+| P2-4 | docs            | Refresh stale `feature-gaps.md` and contract status labels | Gaps still list shipped work (mode select, StoryArc, holo MVP, etc.). Misleads alpha triage.                                                                              |
+| P2-5 | browser-confirm | Fixed items need human confirm                             | F1 hole arc, F2 rest/sleep flags, F3 station start beat, F5 completion card copy.                                                                                         |
 
 ### Explicitly post-alpha (do not expand alpha unless loop is blocked)
 
@@ -127,33 +127,24 @@ run — dump observations, then we sort into the punchlist.
 - Soft-lock, confusion, prose contradiction, missing action, wrong flag, save bug, UI dead-end.
 - Optional: severity guess (`blocker` / `confusing` / `polish`).
 
-### Session template
+### 2026-07-20 — Dave — local - main
 
-```
-### YYYY-MM-DD — <name> — <local | fun.atomicambitions.com> — <commit or “main”>
-
-- Context: Story mode, new game (or load from …)
-- Path: gate | hole | mixed
-
-#### Findings
-1. [blocker|confusing|polish] <short title>
-   - Where:
-   - Did:
-   - Expected:
-   - Saw:
-   - Notes:
-
-#### Pass notes (what felt fine)
--
-```
-
-### Sessions
-
-<!-- Add new sessions above this line, newest first -->
-
-### YYYY-MM-DD — (template reserved)
-
-_No sessions logged yet. First pass in progress._
+- FINE TUNING: Need to start so that player will die in N days without food or drink to encourage forward progress; what's in backpack should be enough to sleep the first night; what's stored in the kitchen covers the next 30+ days for food, and infinite water, given the small river, purification tablets, and the ease of boiling water once the power is on.
+- Inventory: Looking at the backpack, we can see a list of items inside. There is a button to "take out" an item. If it is consumable, why not show the actions for consumption?
+- Actions for an item on the detailed view should be in a single, wrappable line.
+- Audit flags that are set.
+- Add a view of the active game status to dev tools.
+- Once at the guardhouse, if the player has not eaten or taken a sip of water yet, make the suggestion in the message area to do so.
+- The first time the player enters a space with a picture, explain how to see the view in the message area.
+- There is a third legitimate path the to utility station via the foot bridge at the gorge. Enable that alternate route.
+- When Zanzi inspects the gate and notices the vine, the action should say "Untangle the vines"
+- I'm through the gate. there should be an action to follow the road south (same actions that we see from west-slope).
+- Following the road should move the avatar along the road, tracing its path. When we get to utility-yard, the avatar should stop at the driveway fork (a new standpoint), and there should be an action to walk down the driveway. We have corresponding story beats for this.
+- In the future (end of Part I or starting from Part II) choosing a path from the driveway fork will be important, since the road to the south will open up once we have buggy access (or Zanzibar wants to pack a picnic and go exploring on foot).
+- Let's decide that this is a large stream, a major tributary of a downstream river. The area is fictional, but it needs to blend into the Maine mountainscape.
+- In the story builder, Delete Scene is a big button, easy to mistake for Save (aside from it being red).
+- Actions from utility-yard (hex) include "Search the riverbank". Should that take the player into the local map and move the avatar down the stairs? Or should the only action be to take a closer look (switch maps)?
+- I switch to the local map after traveling from the-flats. No scene, just one action to go south along footpath. That puts me on the path around the building. From there I can go north (back to the entry stand) or northeast (up the stone stairs). Would be better to mention the stairs. Would be better not to have a way back to the entry stand (or not to call that north). Would be better for the path to actually extend along the river bank on the local map. Ideas for future smoothing.
 
 ---
 
@@ -162,15 +153,15 @@ _No sessions logged yet. First pass in progress._
 Reviewed `docs/plans/*` against code and contracts (2026-07-20). Items below
 are leftovers to consider with manual notes — not automatic alpha scope.
 
-| Plan | Status | Alpha relevance | Action |
-| --- | --- | --- | --- |
-| [alpha-story-mode-playtest.md](alpha-story-mode-playtest.md) | Script + audit; browser open | **Primary** acceptance instrument | Keep until browser log green |
-| [close-up-views-implementation.md](close-up-views-implementation.md) | Phase 2 (location images) done; rides/sims later | Low for loop if lesson/console/card work | Keep as roadmap; fold done pieces into contracts over time |
-| [holo-reader-follow-ups.md](holo-reader-follow-ups.md) | Player MVP done; author warnings open | Player path is alpha; Wave 3 warnings are not | Keep until warnings → `holo-reader` / `feature-gaps` |
-| [scene-builder-workspace.md](scene-builder-workspace.md) | Needs rethinking; mostly unfinished | Authoring only | Keep; **post-alpha** for player ship |
-| story-arc-builder-simplification | Implemented; absorbed by play-modes contract | None | **Deleted** 2026-07-20 |
-| story-mode-migration-plan | Runtime migration complete | None | **Deleted** 2026-07-20; remaining naming debt lives in scene-builder plan |
-| story-mode-technical-design | Superseded by contracts | None | **Deleted** 2026-07-20 |
+| Plan                                                                 | Status                                           | Alpha relevance                               | Action                                                                    |
+| -------------------------------------------------------------------- | ------------------------------------------------ | --------------------------------------------- | ------------------------------------------------------------------------- |
+| [alpha-story-mode-playtest.md](alpha-story-mode-playtest.md)         | Script + audit; browser open                     | **Primary** acceptance instrument             | Keep until browser log green                                              |
+| [close-up-views-implementation.md](close-up-views-implementation.md) | Phase 2 (location images) done; rides/sims later | Low for loop if lesson/console/card work      | Keep as roadmap; fold done pieces into contracts over time                |
+| [holo-reader-follow-ups.md](holo-reader-follow-ups.md)               | Player MVP done; author warnings open            | Player path is alpha; Wave 3 warnings are not | Keep until warnings → `holo-reader` / `feature-gaps`                      |
+| [scene-builder-workspace.md](scene-builder-workspace.md)             | Needs rethinking; mostly unfinished              | Authoring only                                | Keep; **post-alpha** for player ship                                      |
+| story-arc-builder-simplification                                     | Implemented; absorbed by play-modes contract     | None                                          | **Deleted** 2026-07-20                                                    |
+| story-mode-migration-plan                                            | Runtime migration complete                       | None                                          | **Deleted** 2026-07-20; remaining naming debt lives in scene-builder plan |
+| story-mode-technical-design                                          | Superseded by contracts                          | None                                          | **Deleted** 2026-07-20                                                    |
 
 ### Contract / docs hygiene (consider with punchlist)
 
@@ -206,9 +197,9 @@ npm run playtest:alpha-smoke -w game
 
 Artifacts: `game/tmp/playtest-artifacts/` (gitignored).
 
-| Date | Target | Script | Result |
-| --- | --- | --- | --- |
-| 2026-07-20 | local `:5173` | `browser:smoke` | ok — Story/Open-world, Origin→East Pines |
+| Date       | Target        | Script                 | Result                                                                |
+| ---------- | ------------- | ---------------------- | --------------------------------------------------------------------- |
+| 2026-07-20 | local `:5173` | `browser:smoke`        | ok — Story/Open-world, Origin→East Pines                              |
 | 2026-07-20 | local `:5173` | `playtest:alpha-smoke` | **7 pass / 0 fail** — mode chooser, Story, opener prose, first choice |
 
 These only cover the **opening minutes**. Extending toward gate / sleep / card / power is punchlist **P0-4**.
@@ -233,16 +224,16 @@ invariants** (see AGENTS.md). Effectiveness audit is punchlist **P2-3**.
 
 ## Related playtest script phases (quick map)
 
-| Phase | Focus |
-| --- | --- |
-| 0 | Mode selection |
-| 1 | Woods → fence (gate canonical; hole alternate) |
-| 2 | Shelter, food/water, library sleep |
-| 3 | Instruction card |
-| 4 | Field startup + connect power + console |
-| 5 | Powered world + beginner lesson |
-| 6 | Save/load checkpoints |
-| 7 | Acceptance ticks |
+| Phase | Focus                                          |
+| ----- | ---------------------------------------------- |
+| 0     | Mode selection                                 |
+| 1     | Woods → fence (gate canonical; hole alternate) |
+| 2     | Shelter, food/water, library sleep             |
+| 3     | Instruction card                               |
+| 4     | Field startup + connect power + console        |
+| 5     | Powered world + beginner lesson                |
+| 6     | Save/load checkpoints                          |
+| 7     | Acceptance ticks                               |
 
 Full tables and expected flags: [alpha-story-mode-playtest.md](alpha-story-mode-playtest.md).
 
@@ -254,4 +245,4 @@ Full tables and expected flags: [alpha-story-mode-playtest.md](alpha-story-mode-
 - Production reads exported `/content/*.json` from the build pipeline; do not trust stale checked-in public snapshots without re-export.
 - Prefer a clear alpha path over a fully general system; generalize when a second concrete object demands it.
 - Update contracts and tests when behavior changes; delete obsolete plans once contracts absorb them.
-)
+  )
