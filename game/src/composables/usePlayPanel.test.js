@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildIndoorPlayActions } from "./usePlayPanel.js";
+import {
+  buildIndoorPlayActions,
+  formatNearbyReachableItemsMessage,
+  listNearbyReachableItems,
+} from "./usePlayPanel.js";
 
 describe("indoor door actions", () => {
   it("offers a keyless unlock from a door's authored free side", () => {
@@ -36,5 +40,45 @@ describe("indoor door actions", () => {
 
     expect(buildIndoorPlayActions(indoor).map((action) => action.id))
       .toContain("door-lock:hallway-small-bay");
+  });
+});
+
+function indoorWithReachable({ pickups = [] } = {}) {
+  return {
+    roomPickups: pickups,
+    character: null,
+    indoor: {
+      currentRoom: "large-bay",
+      currentStand: "service-area",
+      exteriorNode: null,
+    },
+  };
+}
+
+describe("nearby reachable item messages", () => {
+  it("lists stand pickups for discovery copy", () => {
+    const indoor = indoorWithReachable({
+      pickups: [{ id: "bolt-cutter-1", label: "bolt cutter", item: "bolt-cutter" }],
+    });
+    expect(listNearbyReachableItems(indoor)).toEqual([
+      { key: "pickup:bolt-cutter-1", label: "bolt cutter" },
+    ]);
+    expect(formatNearbyReachableItemsMessage(indoor)).toBe("There is a bolt cutter.");
+  });
+
+  it("joins multiple reachable labels", () => {
+    const indoor = indoorWithReachable({
+      pickups: [
+        { id: "a", label: "bolt cutter" },
+        { id: "b", label: "key ring" },
+      ],
+    });
+    expect(formatNearbyReachableItemsMessage(indoor)).toBe(
+      "There is a bolt cutter and a key ring.",
+    );
+  });
+
+  it("returns null when nothing is within reach", () => {
+    expect(formatNearbyReachableItemsMessage(indoorWithReachable())).toBe(null);
   });
 });

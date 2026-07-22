@@ -228,6 +228,9 @@ The workspace supports:
 - ordered image view authoring for rooms and authored room stands, using the
   same public image picker pattern as artifact images but pointed at
   `game/public/views`.
+- room lighting and (when implemented) room fixtures (stove, sink, purifier,
+  etc.) as room details — see [room-fixtures.md](room-fixtures.md) and
+  [station-electrical-grid.md](station-electrical-grid.md).
 
 Room and exterior-node renames cascade into story triggers and `go_room`
 destinations in the same transaction. Deletions that leave story or building

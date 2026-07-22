@@ -8,7 +8,8 @@ connection to a station bus, loads, wall switches, device demand ratings, load
 vs generation balance, and player-facing consequences  
 **Related:** [hydro-simulator.md](hydro-simulator.md),
 [control-panel.md](control-panel.md), [location-media.md](location-media.md),
-[indoor-stands.md](indoor-stands.md), [world-authoring.md](world-authoring.md),
+[indoor-stands.md](indoor-stands.md), [room-fixtures.md](room-fixtures.md),
+[world-authoring.md](world-authoring.md),
 [character-inventory.md](character-inventory.md)
 
 ---
@@ -50,12 +51,16 @@ plans implement the contract; they do not redefine it.
 | Console UI for generation and (later) load | [control-panel.md](control-panel.md) |
 | Room photos that depend on effective lights | [location-media.md](location-media.md) (`roomLights`, `stationPower`) |
 | Room geometry and stands | [indoor-stands.md](indoor-stands.md) |
+| Fixed room fixtures and appliances (stove, sink, purifier, …) | [room-fixtures.md](room-fixtures.md) |
 | Building document authoring | [world-authoring.md](world-authoring.md) |
-| Item/appliance effects, inventory | [character-inventory.md](character-inventory.md) |
+| Portable items, containers, tablets, meals | [character-inventory.md](character-inventory.md) |
 
 Hydro answers “how much can we generate right now?”  
 This contract answers “what is connected, what is drawing, and is demand within
-supply?”
+supply?”  
+Room fixtures own **how the player operates** a stove burner or induction pot;
+this contract owns **whether the bus can supply** that operation and how many
+watts it draws while running.
 
 ---
 
@@ -88,15 +93,15 @@ Electrical convention for wall switches matches ordinary wiring language:
 
 ```text
 Authored equipment (building content)
-  room.lighting, poweredObjects, appliance actions
+  room.lighting, room.fixtures / appliances, poweredObjects
         │
         ▼
 Runtime device state (save)
-  lightSwitches[roomId], appliance/run flags, hydro facility
+  lightSwitches[roomId], fixture control state (burners, flow, …), hydro facility
         │
         ▼
 Effective availability
-  bus energized? switch closed? device armed?
+  bus energized? switch closed? device level > off?
         │
         ▼
 Aggregate power (grid management)
@@ -169,10 +174,14 @@ truth for content and UI.
 | --- | --- | --- |
 | **Lighting** | Room LED fixtures | Room wall switch open/closed |
 | **Outlet-backed** | Generic “outlets active” status | Bus energized (no per-outlet switch required for Part I) |
-| **Appliances** | Electric stove | Bus + explicit on/off or “ready” action |
+| **Appliances** | Electric stove burners, induction hot pot | Bus + per-control level (see [room-fixtures.md](room-fixtures.md)) |
 | **Information equipment** | Holo-reader, generator console | Bus + location/stand access |
 | **Charging** | EV charge outlet | Bus + charge action |
 | **Process / future** | Pumps, heaters | Bus + process state |
+
+**Non-electrical fixtures** (sink flow, tablet purifier) are still room fixtures
+under [room-fixtures.md](room-fixtures.md). They do **not** contribute to bus
+load unless an authored electrical stage is added later.
 
 ### Authored load identity
 
@@ -183,6 +192,7 @@ Every load that can draw must be addressable for authoring and runtime:
 - human label
 - **load class** (lighting, outlet, appliance, terminal, console, charger, other)
 - **load rating** in watts when drawing (`loadW`, integer ≥ 0)
+- optional **per-level ratings** for multi-state controls (see below)
 - optional **critical** flag (prefer keep when shedding)
 - optional status lines for on / off / no-power cases
 
@@ -217,10 +227,36 @@ Rules:
    bus dead draws **0 W** (no phantom load unless a later standby rating is
    added).
 
-### Powered objects and appliances
+### Building fixtures as electrical loads
 
-Building `poweredObjects` and indoor actions may describe non-lighting loads
-(outlets, stove, holo-reader, console, EV charger). Supported rules:
+Fixed kitchen and lab equipment is **building structure**, not portable
+artifacts. Authoring and player control live in
+[room-fixtures.md](room-fixtures.md). For the grid:
+
+1. Each electrical fixture (or each independently controlled part, such as a
+   stove burner) is a load id when it can draw.
+2. Multi-level controls (burner `low|medium|high`, induction heat) map to
+   **drawing** only for levels other than `off`.
+3. Prefer authored **per-level** watts when levels exist; otherwise use a single
+   `loadW` for any non-off drawing state.
+4. Fixture interaction may be stand-scoped; grid math uses drawing state only,
+   not player stand.
+5. Actions that need the bus but fire while offline must not leave the fixture
+   in a “drawing” lie: either refuse, or arm the control and report no effect
+   (same spirit as a light switch flipped with power out—see room lighting and
+   fixture dead-bus notices).
+
+Illustrative stove load contribution:
+
+```text
+P_stove = sum over burners b of loadW_b[level_b]
+# level off → 0; low/medium/high → authored watts for that level
+```
+
+### Powered objects (status and simple loads)
+
+Building `poweredObjects` may still describe simple non-fixture loads and
+status lines (outlets, holo-reader, console, EV charger). Supported rules:
 
 1. Objects may require the bus energized for active status and for actions that
    consume power.
@@ -228,7 +264,10 @@ Building `poweredObjects` and indoor actions may describe non-lighting loads
    rules do not replace location rules.
 3. An appliance that is “on” or “charging” while the bus is energized **draws**
    its rating; off/idle draws 0 W unless a standby rating is authored later.
-4. Legacy `poweredObjects` with `kind: lights` may be accepted as a fallback
+4. **Do not** model multi-control kitchen equipment only as a single
+   poweredObject status line. Use room fixtures for stove, sink, purifier, and
+   induction pot.
+5. Legacy `poweredObjects` with `kind: lights` may be accepted as a fallback
    only until content uses `room.lighting`; new content must use room lighting.
 
 ---
@@ -246,8 +285,29 @@ Building `poweredObjects` and indoor actions may describe non-lighting loads
 | Condition | Contribution to bus load |
 | --- | --- |
 | Bus not energized | 0 |
-| Bus energized, load not armed / switch open / device off | 0 |
-| Bus energized and load drawing | `loadW` (full rating for the first increment) |
+| Bus energized, load not armed / switch open / control `off` | 0 |
+| Bus energized and load drawing at a discrete level | `loadW` or `loadWByLevel[level]` |
+| Bus energized and binary load fully on | `loadW` |
+
+### Multi-level drawing (supported)
+
+For fixtures with ordered levels (e.g. `off < low < medium < high`):
+
+```yaml
+loadWByLevel:
+  off: 0
+  low: 400
+  medium: 900
+  high: 1500
+```
+
+Rules:
+
+1. Missing level keys default to `0` for `off` and to `loadW` (or 0) for other
+   levels until authors fill ratings.
+2. Balance uses the **current** level only; it does not average or ramp.
+3. Shed may force a control to `off` (or step down later); first grid increment
+   may step straight to `off`.
 
 ### First-increment simplifications (supported)
 
@@ -259,8 +319,9 @@ Building `poweredObjects` and indoor actions may describe non-lighting loads
 
 ### Authoring defaults
 
-- Missing `loadW` on a drawing-capable load: treat as **0** for balance and
-  emit an authoring **warning** (not a hard error) until ratings are filled.
+- Missing `loadW` / `loadWByLevel` on a drawing-capable load: treat as **0** for
+  balance and emit an authoring **warning** (not a hard error) until ratings
+  are filled.
 - Critical infrastructure (e.g. control console) may use modest `loadW` and
   `critical: true` so shed policies can spare them.
 
@@ -336,21 +397,26 @@ should not depend on infinite free power after that point.
   lightSwitches: {
     [roomId]: true                // true = switch closed
   },
-  // Future:
-  // drawingDeviceIds or deviceRunState: { [loadId]: "off"|"drawing" }
+  // Fixture control state — see room-fixtures.md
+  // fixtures: {
+  //   "kitchen-stove": { burners: ["off","low","off","off"] },
+  //   "kitchen-sink": { flow: "off" },
+  //   "kitchen-purifier": { hasTablet: true, filled: true, stage: "idle" },
+  // }
   // storage: { energyWh, powerW }
 }
 ```
 
 Rules:
 
-1. Switch and device states are **player/runtime state**, not rebuilt from
-   content on every load except defaults for missing keys.
+1. Switch and fixture control states are **player/runtime state**, not rebuilt
+   from content on every load except defaults for missing keys.
 2. Default light switch state for a room with lighting: **open** (off).
-3. Save/load must preserve light switch map and any device drawing state once
-   modeled.
-4. Live authoring of `room.lighting` or load ratings must not wipe player
-   switch state for existing room ids.
+3. Default multi-level fixture controls: all levels **`off`** (or fixture-kind
+   default in [room-fixtures.md](room-fixtures.md)).
+4. Save/load must preserve light switches and fixture control state.
+5. Live authoring of `room.lighting`, fixtures, or load ratings must not wipe
+   player control state for existing ids.
 
 ### Host responsibilities
 
@@ -366,9 +432,13 @@ Rules:
 
 ### In rooms
 
-- Status lines for lights (on / off / switch on but no station power).
-- Actions: turn lights on/off (close/open switch) without stand requirement.
-- Optional later: appliance on/off and charge actions with clear power gating.
+- Status lines for lights (on / off when bus state is knowable).
+- Actions: turn lights on/off or flip switch when power is out (see lighting
+  rules above).
+- Fixture actions from [room-fixtures.md](room-fixtures.md): burners, sink
+  flow, purifier charge, induction heat—gated by stand reach where authored.
+- Dead-bus or empty-result fixture actions may post short notices on the play
+  message bus without mutating grid truth incorrectly.
 
 ### Console / control panel
 
@@ -393,6 +463,7 @@ Rules:
 | Surface | Fields |
 | --- | --- |
 | Room | `lighting` object (enable, style, labels, switch note, near door, `loadW`) |
+| Room | `fixtures` list (kinds, stands, control config, optional `loadW` / `loadWByLevel`) — see [room-fixtures.md](room-fixtures.md) |
 | Powered objects / devices | id, room, stand?, class, labels, `loadW`, critical? |
 | Hydro config | generation capability via hydro contract |
 
@@ -400,6 +471,8 @@ Rules:
 
 - Room lighting is edited as a **room detail** in World Builder (not only as a
   free-floating powered-object list).
+- Room fixtures (stove, sink, purifier, …) are edited as **room details** with
+  kind-specific fields (burner count, flow levels, etc.).
 - Authors can set load ratings without code changes.
 - Validation warns on missing `loadW` for enabled lighting and known drawing
   devices once balance is active; may remain soft during migration.
@@ -407,7 +480,8 @@ Rules:
 ### YAML / SQLite
 
 - Canonical store remains the building document in SQLite.
-- YAML import/export preserves `room.lighting` and device load fields.
+- YAML import/export preserves `room.lighting`, `room.fixtures`, and device
+  load fields.
 
 ---
 
@@ -455,15 +529,19 @@ A build satisfies this contract when:
 1. Bus energization is a single clear runtime truth for the station.
 2. Room lighting is room-authored; switches default open; effective lights need
    bus + closed switch.
-3. Drawing loads have stable ids and can carry `loadW`.
-4. When balance is enabled, \(P_{load}\) and \(P_{gen}\) are defined, and
+3. Drawing loads have stable ids and can carry `loadW` (and per-level watts for
+   multi-control fixtures).
+4. Electrical room fixtures report drawing only when bus is energized and
+   controls are above `off`.
+5. When balance is enabled, \(P_{load}\) and \(P_{gen}\) are defined, and
    deficit produces deterministic, player-visible shed or equivalent.
-5. Save/load preserves switch (and later device) state.
-6. Location media and status lines do not contradict bus or light state.
-7. Hydro remains the Part I generation source under its own contract.
+6. Save/load preserves light switches and fixture control state.
+7. Location media and status lines do not contradict bus or light state.
+8. Hydro remains the Part I generation source under its own contract.
 
-Until load ratings and balance ship, criteria 3–4 may be partial; criteria 1–2
-and 5–6 for lighting already apply to current work.
+Until load ratings and balance ship, criteria 3–5 may be partial; criteria 1–2
+and 6–7 for lighting already apply to current work. Kitchen fixture
+**interaction** completeness is owned by [room-fixtures.md](room-fixtures.md).
 
 ---
 
@@ -472,3 +550,5 @@ and 5–6 for lighting already apply to current work.
 - **2026-07-22** — Initial contract: station bus, room lighting switches, load
   ratings, aggregate balance, and brownout/shed policy. Captures intended
   direction before full grid-management implementation.
+- **2026-07-22** — Building fixtures as multi-level electrical loads; link to
+  room-fixtures contract for stove, sink, purifier, and kitchen play.

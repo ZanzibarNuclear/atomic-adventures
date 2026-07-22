@@ -19,6 +19,7 @@ import {
 } from "../lib/character/holdings.js";
 import { markCharacterChanged } from "./useCharacterState.js";
 import {
+  DEAD_LIGHT_SWITCH_NOTICE,
   lightFixtureForRoom,
   roomLightAction,
 } from "../lib/maps/composables/indoor/roomLights.js";
@@ -642,13 +643,25 @@ export function handleIndoorPlayAction(indoor, actionId) {
     indoor.toggleManualRelease(actionId.slice("switch:".length));
     return;
   }
-  if (actionId.startsWith("room-lights:on:")) {
-    return indoor.setRoomLights?.(actionId.slice("room-lights:on:".length), true)
+  if (actionId.startsWith("room-lights:flip:")) {
+    const roomId = actionId.slice("room-lights:flip:".length);
+    const result = indoor.toggleRoomLights?.(roomId)
       ?? { ok: false, error: "Light switches are unavailable." };
+    if (!result.ok) return result;
+    // Power is out (or unknown): flip still toggles the remembered switch state.
+    return { ok: true, notice: DEAD_LIGHT_SWITCH_NOTICE };
+  }
+  if (actionId.startsWith("room-lights:on:")) {
+    const result = indoor.setRoomLights?.(actionId.slice("room-lights:on:".length), true)
+      ?? { ok: false, error: "Light switches are unavailable." };
+    if (!result.ok) return result;
+    return { ok: true, notice: result.lit ? null : DEAD_LIGHT_SWITCH_NOTICE };
   }
   if (actionId.startsWith("room-lights:off:")) {
-    return indoor.setRoomLights?.(actionId.slice("room-lights:off:".length), false)
+    const result = indoor.setRoomLights?.(actionId.slice("room-lights:off:".length), false)
       ?? { ok: false, error: "Light switches are unavailable." };
+    if (!result.ok) return result;
+    return { ok: true };
   }
   if (actionId.startsWith("exit-world:")) {
     indoor.exitViaDoor(actionId.slice("exit-world:".length));
@@ -669,6 +682,60 @@ function nearbyPortableHoldings(indoor) {
       ...record,
       label: record.definition?.label ?? record.item,
     }));
+}
+
+/**
+ * Portable world items currently within reach (authored pickups + fixed holdings
+ * at this room/stand or exterior node).
+ */
+export function listNearbyReachableItems(indoor) {
+  const items = [];
+  for (const pickup of indoor.roomPickups ?? []) {
+    items.push({
+      key: `pickup:${pickup.id}`,
+      label: pickup.label || pickup.item || pickup.id,
+    });
+  }
+  for (const record of nearbyPortableHoldings(indoor)) {
+    items.push({
+      key: `holding:${record.type}:${record.id}`,
+      label: record.label || record.item || record.id,
+    });
+  }
+  return items;
+}
+
+/** Signature for watchers when nearby item set or stand changes. */
+export function nearbyReachableItemsSignature(indoor) {
+  const room = indoor.indoor?.currentRoom ?? null;
+  const stand = indoor.indoor?.currentStand ?? null;
+  const exterior = indoor.indoor?.exteriorNode ?? null;
+  const keys = listNearbyReachableItems(indoor).map((item) => item.key).sort();
+  return `${room ?? ""}|${stand ?? ""}|${exterior ?? ""}|${keys.join(",")}`;
+}
+
+/**
+ * Player-facing discovery line for items at the current stand, e.g.
+ * "There is a bolt cutter."
+ */
+export function formatNearbyReachableItemsMessage(indoor) {
+  const labels = listNearbyReachableItems(indoor)
+    .map((item) => String(item.label ?? "").trim())
+    .filter(Boolean);
+  if (!labels.length) return null;
+  const phrases = labels.map((label) => withIndefiniteArticle(label));
+  if (phrases.length === 1) return `There is ${phrases[0]}.`;
+  if (phrases.length === 2) return `There is ${phrases[0]} and ${phrases[1]}.`;
+  return `There is ${phrases.slice(0, -1).join(", ")}, and ${phrases.at(-1)}.`;
+}
+
+/** "bolt cutter" → "a bolt cutter"; preserves existing a/an/the. */
+function withIndefiniteArticle(label) {
+  const raw = String(label ?? "").trim();
+  if (!raw) return "";
+  if (/^(the|a|an)\s/i.test(raw)) return raw;
+  if (/^[aeiou]/i.test(raw)) return `an ${raw}`;
+  return `a ${raw}`;
 }
 
 function nearbyFixedHolderIds(indoor) {
@@ -778,15 +845,15 @@ function poweredObjectStatusLines(indoor) {
       ?? facility?.hydroOnline,
   );
   const lines = [];
+  // Only report light state when station power is on. While the bus is dead,
+  // switch position stays hidden so "Flip the light switch" stays ambiguous.
   const lightFixture = lightFixtureForRoom(indoor.building, roomId);
-  if (lightFixture) {
+  if (lightFixture && powerOn) {
     const switchClosed = Boolean(facility?.lightSwitches?.[roomId]);
-    if (powerOn && switchClosed) {
+    if (switchClosed) {
       lines.push(lightFixture.activeLine || `${lightFixture.label} are on.`);
-    } else if (powerOn && !switchClosed) {
+    } else {
       lines.push("The lights are off.");
-    } else if (!powerOn && switchClosed) {
-      lines.push("The light switch is on, but station power is out.");
     }
   }
   for (const object of indoor.building?.poweredObjects ?? []) {

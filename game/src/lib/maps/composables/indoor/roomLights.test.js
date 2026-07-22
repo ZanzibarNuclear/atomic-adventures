@@ -63,6 +63,19 @@ describe("room light switches", () => {
 
   it("toggles and builds play actions for rooms with lighting", () => {
     const facility = { lightSwitches: {} };
+    // Power out: ambiguous flip only — does not reveal switch position.
+    expect(roomLightAction(building, facility, "conference", false)).toMatchObject({
+      id: "room-lights:flip:conference",
+      label: "Flip the light switch",
+    });
+    toggleRoomLightSwitch(facility, "conference");
+    expect(roomLightAction(building, facility, "conference", false)).toMatchObject({
+      id: "room-lights:flip:conference",
+      label: "Flip the light switch",
+    });
+
+    // Power on: turn on / turn off based on effective lights.
+    setRoomLightSwitch(facility, "conference", false);
     expect(roomLightAction(building, facility, "conference", true)).toMatchObject({
       id: "room-lights:on:conference",
       label: "Turn on the lights",

@@ -114,29 +114,43 @@ export function normalizeLightSwitches(value = {}) {
   return next;
 }
 
+/**
+ * Play-panel action for the current room's wall switch.
+ *
+ * - Power out: one ambiguous action, "Flip the light switch" (does not reveal
+ *   open/closed). Performing it toggles the switch and should show a dead-switch
+ *   notice to the player.
+ * - Power on, switch open: "Turn on the lights"
+ * - Power on, switch closed (lights lit): "Turn off the lights"
+ */
 export function roomLightAction(building, facility, roomId, stationPowerOnline) {
   const fixture = lightFixtureForRoom(building, roomId);
   if (!fixture) return null;
+
+  if (!stationPowerOnline) {
+    return {
+      id: `room-lights:flip:${roomId}`,
+      label: "Flip the light switch",
+    };
+  }
+
   const closed = isRoomLightSwitchClosed(facility, roomId);
-  const lit = isRoomLightsOn(facility, roomId, stationPowerOnline);
-  const styleNote = lightStylePhrase(fixture.style);
   if (closed) {
     return {
       id: `room-lights:off:${roomId}`,
-      label: lit ? "Turn off the lights" : "Open the light switch",
-      hint: lit
-        ? `LED ${styleNote}are on.`
-        : "The switch is closed, but station power is out.",
+      label: "Turn off the lights",
     };
   }
   return {
     id: `room-lights:on:${roomId}`,
     label: "Turn on the lights",
-    hint: stationPowerOnline
-      ? (fixture.switchNote || `Close the wall switch for the ${styleNote || "room lights"}.`)
-      : "The switch will not light the room until station power is on.",
+    hint: fixture.switchNote || undefined,
   };
 }
+
+/** Result notice when flipping a switch with the bus dead. */
+export const DEAD_LIGHT_SWITCH_NOTICE =
+  "You flip the switch, but nothing happens.";
 
 function defaultLightLabel(room) {
   const name = room?.label || room?.id || "Room";

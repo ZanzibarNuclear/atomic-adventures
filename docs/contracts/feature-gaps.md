@@ -57,6 +57,17 @@ tests, implementation map, and this list in the same change.
 - Optional storage buffer state and discharge into the station bus.
 - See [station-electrical-grid.md](station-electrical-grid.md).
 
+## Room Fixtures (Kitchen First)
+
+- Author `rooms[].fixtures` (stove, sink, water-purifier, induction-hot-pot)
+  in World Builder with stand reach and kind-specific controls.
+- Runtime fixture state (burners, sink flow, purifier tablet/fill/stage).
+- Kitchen minimum: move meals/boxes in and out of cabinet holders; run sink
+  water; add tablet and fill purifier; grant purified water via effects.
+- Catalog: Tastee Tack meals, meal boxes (containers), utensils, purifier
+  tablets.
+- See [room-fixtures.md](room-fixtures.md).
+
 ## Holo-Reader Lessons
 
 - Add the `learning-main` content document, repository, validation, API,
