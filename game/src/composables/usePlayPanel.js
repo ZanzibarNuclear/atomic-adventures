@@ -18,6 +18,10 @@ import {
   transferHolding,
 } from "../lib/character/holdings.js";
 import { markCharacterChanged } from "./useCharacterState.js";
+import {
+  lightFixtureForRoom,
+  roomLightAction,
+} from "../lib/maps/composables/indoor/roomLights.js";
 
 function actionButtonLabel(action) {
   if (action.verb) return cleanActionLabel(`${action.verb} ${withArticle(action.label)}`);
@@ -423,7 +427,26 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
     });
   }
 
+  const lightAction = roomLightPlayAction(indoor);
+  if (lightAction) items.push(lightAction);
+
   return items.filter(isVisibleAction);
+}
+
+function roomLightPlayAction(indoor) {
+  const roomId = indoor.playerRoomId ?? indoor.indoor?.currentRoom ?? null;
+  if (!roomId) return null;
+  const powerOn = Boolean(
+    indoor.powerOn
+      ?? indoor.stationPowerOnline
+      ?? indoor.indoor?.facility?.hydroOnline,
+  );
+  return roomLightAction(
+    indoor.building,
+    indoor.indoor?.facility ?? indoor.facility,
+    roomId,
+    powerOn,
+  );
 }
 
 function doorActionsAvailableHere(indoor) {
@@ -619,6 +642,14 @@ export function handleIndoorPlayAction(indoor, actionId) {
     indoor.toggleManualRelease(actionId.slice("switch:".length));
     return;
   }
+  if (actionId.startsWith("room-lights:on:")) {
+    return indoor.setRoomLights?.(actionId.slice("room-lights:on:".length), true)
+      ?? { ok: false, error: "Light switches are unavailable." };
+  }
+  if (actionId.startsWith("room-lights:off:")) {
+    return indoor.setRoomLights?.(actionId.slice("room-lights:off:".length), false)
+      ?? { ok: false, error: "Light switches are unavailable." };
+  }
   if (actionId.startsWith("exit-world:")) {
     indoor.exitViaDoor(actionId.slice("exit-world:".length));
     return;
@@ -740,11 +771,32 @@ function poweredObjectStatusLines(indoor) {
   const roomId = indoor.indoor?.currentRoom ?? indoor.playerRoomId ?? null;
   const standId = indoor.indoor?.currentStand ?? null;
   if (!roomId) return [];
-  return (indoor.building?.poweredObjects ?? [])
-    .filter((object) => object.room === roomId)
-    .filter((object) => !object.stand || object.stand === standId)
-    .map((object) => object.activeLine || `${object.label} is powered.`)
-    .filter(Boolean);
+  const facility = indoor.indoor?.facility ?? indoor.facility;
+  const powerOn = Boolean(
+    indoor.powerOn
+      ?? indoor.stationPowerOnline
+      ?? facility?.hydroOnline,
+  );
+  const lines = [];
+  const lightFixture = lightFixtureForRoom(indoor.building, roomId);
+  if (lightFixture) {
+    const switchClosed = Boolean(facility?.lightSwitches?.[roomId]);
+    if (powerOn && switchClosed) {
+      lines.push(lightFixture.activeLine || `${lightFixture.label} are on.`);
+    } else if (powerOn && !switchClosed) {
+      lines.push("The lights are off.");
+    } else if (!powerOn && switchClosed) {
+      lines.push("The light switch is on, but station power is out.");
+    }
+  }
+  for (const object of indoor.building?.poweredObjects ?? []) {
+    if (object.room !== roomId) continue;
+    if (object.kind === "lights") continue; // room.lighting is canonical
+    if (object.stand && object.stand !== standId) continue;
+    if (!powerOn) continue;
+    lines.push(object.activeLine || `${object.label} is powered.`);
+  }
+  return lines.filter(Boolean);
 }
 
 export function buildOutdoorStatusLines(

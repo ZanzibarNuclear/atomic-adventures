@@ -46,6 +46,17 @@ tests, implementation map, and this list in the same change.
 - Expand close-up stage kinds for documents, lessons, consoles, and
   simulations as Part I content starts using them.
 
+## Station Electrical Grid
+
+- Author `loadW` (and optional critical flags) on room lighting and drawing
+  devices; warn when missing once balance is active.
+- Aggregate station load vs hydro (and later storage) available supply; expose
+  margin on the control panel.
+- Deterministic brownout/shed for deficit; player-visible warnings and forced
+  noncritical load off.
+- Optional storage buffer state and discharge into the station bus.
+- See [station-electrical-grid.md](station-electrical-grid.md).
+
 ## Holo-Reader Lessons
 
 - Add the `learning-main` content document, repository, validation, API,

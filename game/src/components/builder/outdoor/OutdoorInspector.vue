@@ -76,6 +76,7 @@ const editing = ref(false);
 const selectedArtifactItemId = ref("");
 const placementFormOpen = ref(false);
 const editingPlacementId = ref("");
+const nestedDrill = ref(false);
 
 watch(
   () => `${props.selectedType}:${props.selected?.id ?? ""}`,
@@ -84,6 +85,7 @@ watch(
     placementFormOpen.value = false;
     selectedArtifactItemId.value = "";
     editingPlacementId.value = "";
+    nestedDrill.value = false;
   },
 );
 
@@ -388,7 +390,7 @@ const summaryRows = computed(() => {
         </div>
       </section>
 
-      <div v-if="editing" class="edit-toolbar">
+      <div v-if="editing && !nestedDrill" class="edit-toolbar">
         <div class="row-actions">
           <button class="sm muted" @click="moveSelected(-1)">Move up</button>
           <button class="sm muted" @click="moveSelected(1)">Move down</button>
@@ -421,6 +423,7 @@ const summaryRows = computed(() => {
         :begin-add-stand="beginAddStand"
         :confirm-add-stand="confirmAddStand"
         :cancel-stand-draft="cancelStandDraft"
+        @drill-change="nestedDrill = $event"
       />
       <LandmarkInspector
         v-else-if="editing && selectedType === 'landmark' && landmarkEditDraft"
@@ -430,6 +433,7 @@ const summaryRows = computed(() => {
         v-else-if="editing && selectedType === 'stand' && standEditDraft"
         :selected="selected"
         :stand-edit-draft="standEditDraft"
+        @drill-change="nestedDrill = $event"
       />
       <RouteInspector
         v-else-if="editing && selectedType === 'route'"

@@ -180,10 +180,28 @@ const storyActionAvailability = computed(() => ({
   unrestricted: gameState.playMode !== "story" || !actionBeat.value,
 }));
 const wellbeingItemActionIds = computed(() => itemActionIdsForWellbeing(gameState.character));
+const locationMediaContext = computed(() => {
+  const facility = indoor.indoor?.facility ?? indoor.facility;
+  const stationPowerOnline = Boolean(
+    indoor.powerOn
+      || facility?.hydroOnline
+      || gameState.flags?.has?.("hub.hydro_online"),
+  );
+  const roomId = indoor.indoor?.currentRoom ?? null;
+  const roomLightsOn = Boolean(
+    stationPowerOnline && roomId && facility?.lightSwitches?.[roomId],
+  );
+  return {
+    flags: gameState.flags,
+    stationPowerOnline,
+    roomLightsOn,
+    passageStates: outdoor.state?.passageStates ?? outdoor.passageMarkerStates ?? {},
+  };
+});
 const currentLocationMedia = computed(() =>
   place.value === "indoors"
-    ? resolveIndoorLocationMedia(indoor)
-    : resolveOutdoorLocationMedia(outdoor),
+    ? resolveIndoorLocationMedia(indoor, locationMediaContext.value)
+    : resolveOutdoorLocationMedia(outdoor, locationMediaContext.value),
 );
 
 function applyChoice(index = 0) {

@@ -48,6 +48,10 @@ effect boundary described in [character-inventory.md](character-inventory.md).
 The panel can request commands and display outcome results, but it does not
 commit durable effects directly.
 
+Station load totals, margin, and brownout warnings (when implemented) follow
+[station-electrical-grid.md](station-electrical-grid.md); the panel presents
+those readouts and does not invent a separate power truth.
+
 Panel interactions may spend authored time according to [time.md](time.md),
 but real-time chart motion does not secretly advance the shared clock.
 

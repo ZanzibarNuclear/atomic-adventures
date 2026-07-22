@@ -18,6 +18,7 @@ import {
   createHydroState,
   normalizeHydroState,
 } from "../lib/simulations/hydro/index.js";
+import { normalizeLightSwitches } from "../lib/maps/composables/indoor/roomLights.js";
 
 export const SAVE_VERSION = 12;
 export const DEFAULT_PLAY_MODE = "story";
@@ -164,6 +165,7 @@ export function applySnapshot(snapshot, { gameState, place, outdoor, indoor }) {
   d.facility = {
     hydroOnline: gameState.facilities.hydro.online || (i.facility?.hydroOnline ?? false),
     manualMode: { ...(i.facility?.manualMode ?? {}) },
+    lightSwitches: normalizeLightSwitches(i.facility?.lightSwitches),
   };
   d.completedActions = new Set(i.completedActions ?? []);
   d.avatarWaypoint = null;

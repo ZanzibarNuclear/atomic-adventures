@@ -17,6 +17,7 @@ import {
   listAllGridEditable,
 } from "../lib/maps/composables/useGridBuilder.js";
 import { auditIndoorBuilding } from "../lib/maps/testing/indoorBuildingAudit.js";
+import { useResizableSplit } from "../composables/useResizableSplit.js";
 
 const router = useRouter();
 const emptyUtilityStation = {
@@ -36,6 +37,10 @@ const search = ref("");
 const viewportMode = ref("fit-all");
 const leftCollapsed = ref(false);
 const rightCollapsed = ref(false);
+const { ratio: inspectorRatio, onHandlePointerDown } = useResizableSplit({
+  storageKey: "builder.utility-station.inspectorRatio",
+  defaultRatio: 0.5,
+});
 const characterCatalog = ref({
   items: [], stats: [], knowledge: [], skills: [], quests: [], documents: [],
 });
@@ -277,56 +282,77 @@ function duplicateArtifact(payload) {
         @select="selectItem($event.source, $event.id)"
       />
 
-      <StationCanvasPanel
-        v-model:level="level"
-        v-model:viewport-mode="viewportMode"
-        v-model:selected-handle-id="selectedHandleId"
-        :loaded="loaded"
-        :building="building"
-        :selection="selection"
-        :all-room-ids="allRoomIds"
-        :all-exterior-ids="allExteriorIds"
-        :geometry-editing="geometryEditing"
-        :can-edit-geometry="canEditGeometry"
-        :door-states="doorStates"
-        :edit-mode="editMode"
-        :edit-handles="editHandles"
-        :add-mode="addMode"
-        :audit-result="auditResult"
-        @toggle-geometry-editing="toggleGeometryEditing"
-        @select-item="selectItem($event.source, $event.id)"
-        @grid-handle-move="onHandleMove"
-        @builder-map-click="onMapClick"
-        @stand-click="selectStand"
-        @run-traversal-audit="runIndoorAudit"
-      />
+      <div class="map-inspector-split">
+        <div
+          class="split-map"
+          :style="rightCollapsed
+            ? { flexGrow: 1, flexBasis: 0 }
+            : { flexGrow: 1 - inspectorRatio, flexBasis: 0 }"
+        >
+          <StationCanvasPanel
+            v-model:level="level"
+            v-model:viewport-mode="viewportMode"
+            v-model:selected-handle-id="selectedHandleId"
+            :loaded="loaded"
+            :building="building"
+            :selection="selection"
+            :all-room-ids="allRoomIds"
+            :all-exterior-ids="allExteriorIds"
+            :geometry-editing="geometryEditing"
+            :can-edit-geometry="canEditGeometry"
+            :door-states="doorStates"
+            :edit-mode="editMode"
+            :edit-handles="editHandles"
+            :add-mode="addMode"
+            :audit-result="auditResult"
+            @toggle-geometry-editing="toggleGeometryEditing"
+            @select-item="selectItem($event.source, $event.id)"
+            @grid-handle-move="onHandleMove"
+            @builder-map-click="onMapClick"
+            @stand-click="selectStand"
+            @run-traversal-audit="runIndoorAudit"
+          />
+        </div>
 
-      <StationInspector
-        v-if="!rightCollapsed"
-        :draft="draft"
-        :selection="selection"
-        :selected-handle-id="selectedHandleId"
-        :selected-path-node="selectedPathNode"
-        :roll-door-room="rollDoorRoom"
-        :add-mode="addMode"
-        :character-catalog="characterCatalog"
-        :errors="errors"
-        :warnings="warnings"
-        :story-beats="storyBeats"
-        :show-history="showHistory"
-        :revisions="revisions"
-        @move-selected="moveSelected"
-        @rename-selected="renameSelected"
-        @duplicate-selected="duplicateSelected"
-        @delete-selected="deleteSelected"
-        @open-location-beat="openLocationBeat"
-        @toggle-path-add-mode="togglePathAddMode"
-        @remove-selected-path-handle="removeSelectedPathHandle"
-        @open-transition-beat="openTransitionBeat"
-        @open-artifact="openArtifact"
-        @duplicate-artifact="duplicateArtifact"
-        @restore-revision="restoreRevision"
-      />
+        <div
+          v-if="!rightCollapsed"
+          class="split-handle"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize map and inspector"
+          tabindex="0"
+          @pointerdown="onHandlePointerDown"
+        />
+
+        <StationInspector
+          v-if="!rightCollapsed"
+          class="split-inspector"
+          :style="{ flexGrow: inspectorRatio, flexBasis: 0 }"
+          :draft="draft"
+          :selection="selection"
+          :selected-handle-id="selectedHandleId"
+          :selected-path-node="selectedPathNode"
+          :roll-door-room="rollDoorRoom"
+          :add-mode="addMode"
+          :character-catalog="characterCatalog"
+          :errors="errors"
+          :warnings="warnings"
+          :story-beats="storyBeats"
+          :show-history="showHistory"
+          :revisions="revisions"
+          @move-selected="moveSelected"
+          @rename-selected="renameSelected"
+          @duplicate-selected="duplicateSelected"
+          @delete-selected="deleteSelected"
+          @open-location-beat="openLocationBeat"
+          @toggle-path-add-mode="togglePathAddMode"
+          @remove-selected-path-handle="removeSelectedPathHandle"
+          @open-transition-beat="openTransitionBeat"
+          @open-artifact="openArtifact"
+          @duplicate-artifact="duplicateArtifact"
+          @restore-revision="restoreRevision"
+        />
+      </div>
     </div>
 
     <UnsavedChangesDialog
@@ -361,14 +387,49 @@ function duplicateArtifact(payload) {
 .station-workspace {
   flex: 1 1 auto;
   display: grid;
-  grid-template-columns: minmax(220px, 270px) minmax(440px, 1fr) minmax(290px, 350px);
+  grid-template-columns: 250px minmax(0, 1fr);
   gap: .75rem;
   min-height: 0;
   margin-top: .75rem;
 }
-.station-workspace.left-collapsed { grid-template-columns: minmax(440px, 1fr) minmax(290px, 350px); }
-.station-workspace.right-collapsed { grid-template-columns: minmax(220px, 270px) minmax(440px, 1fr); }
-.station-workspace.left-collapsed.right-collapsed { grid-template-columns: 1fr; }
+.station-workspace.left-collapsed { grid-template-columns: minmax(0, 1fr); }
+.station-workspace.right-collapsed .map-inspector-split { gap: 0; }
+.map-inspector-split {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+.split-map {
+  min-width: 12rem;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.split-map > :deep(*) {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+.split-inspector {
+  min-width: 16rem;
+  min-height: 0;
+}
+.split-handle {
+  flex: 0 0 8px;
+  margin: 0 2px;
+  border-radius: 999px;
+  background: #2c3442;
+  cursor: col-resize;
+  touch-action: none;
+  align-self: stretch;
+}
+.split-handle:hover,
+.split-handle:focus-visible {
+  background: #5b6f92;
+  outline: none;
+}
 .panel { min-width: 0; min-height: 0; border: 1px solid #343d4d; border-radius: 10px; background: #20252f; padding: .75rem; }
 .inspector { overflow: auto; }
 .inspector input, .inspector textarea, .inspector select {
@@ -402,14 +463,23 @@ button.active { background: #49624f; border-color: #6f9b79; }
 }
 .unsaved-dialog h2 { margin: .25rem 0 .65rem; font-size: 1.15rem; }
 @media (max-width: 1050px) {
-  .station-workspace, .station-workspace.left-collapsed, .station-workspace.right-collapsed {
-    grid-template-columns: 220px minmax(420px, 1fr);
+  .station-workspace, .station-workspace.left-collapsed {
+    grid-template-columns: 220px minmax(0, 1fr);
     overflow: auto;
   }
-  .inspector { grid-column: 1 / -1; min-height: 28rem; }
+  .map-inspector-split {
+    flex-direction: column;
+  }
+  .split-handle {
+    display: none;
+  }
+  .split-map,
+  .split-inspector {
+    flex: 1 1 auto;
+    min-height: 22rem;
+  }
 }
 @media (max-width: 720px) {
-  .station-workspace, .station-workspace.left-collapsed, .station-workspace.right-collapsed { grid-template-columns: 1fr; }
-  .inspector { grid-column: auto; }
+  .station-workspace, .station-workspace.left-collapsed { grid-template-columns: 1fr; }
 }
 </style>

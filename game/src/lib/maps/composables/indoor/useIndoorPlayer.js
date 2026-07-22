@@ -104,6 +104,8 @@ export function createIndoorPlayer(
     facility: {
       hydroOnline: false,
       manualMode: {},
+      /** roomId → true when wall light switch is closed (on). */
+      lightSwitches: {},
     },
     flags: sharedFlags ?? createFlags(),
     completedActions: new Set(),
@@ -320,6 +322,7 @@ export function createIndoorPlayer(
     indoor.pickupsTaken = new Set();
     indoor.facility.hydroOnline = false;
     indoor.facility.manualMode = {};
+    indoor.facility.lightSwitches = {};
     if (!flagsAreShared) {
       indoor.flags = createFlags();
     }

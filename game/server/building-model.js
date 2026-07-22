@@ -69,6 +69,8 @@ export function validateBuilding(input, {
   building.rooms.forEach((room, index) => {
     const base = `rooms.${index}`;
     normalizeLocationViews(room);
+    room.lighting = normalizeRoomLighting(room.lighting);
+    if (!room.lighting) delete room.lighting;
     const levels = room.levels ?? (room.level ? [room.level] : []);
     if (!levels.length) add(`${base}.level`, "Rooms must belong to at least one level.");
     levels.forEach((level) => {
@@ -163,6 +165,15 @@ export function validateBuilding(input, {
     }
     if (door.lock?.freeFrom && !roomIds.has(door.lock.freeFrom)) {
       add(`${base}.lock.freeFrom`, "Free side must reference an existing room.");
+    }
+  });
+
+  building.rooms.forEach((room, index) => {
+    if (room.lighting?.nearDoor && !doorIds.has(room.lighting.nearDoor)) {
+      add(
+        `rooms.${index}.lighting.nearDoor`,
+        "Light switch near-door must reference an existing door.",
+      );
     }
   });
 
@@ -454,6 +465,11 @@ export function applyBuildingRenames(building, renames = []) {
     item.room = rename("room", item.room);
     item.door = rename("door", item.door);
   }
+  for (const room of building.rooms ?? []) {
+    if (room.lighting?.nearDoor) {
+      room.lighting.nearDoor = rename("door", room.lighting.nearDoor);
+    }
+  }
   for (const action of building.actions ?? []) {
     if (action.room) action.room = rename("room", action.room);
     if (action.exteriorNode) action.exteriorNode = rename("exteriorNode", action.exteriorNode);
@@ -596,6 +612,31 @@ function validStandAt(point) {
     (point.dx == null || Number.isFinite(Number(point.dx))) &&
     (point.dy == null || Number.isFinite(Number(point.dy)))
   );
+}
+
+const LIGHT_STYLES = new Set(["recessed", "strip", "can", "directional", "mixed"]);
+
+/** Room lighting is authored on the room; runtime owns switch open/closed state. */
+function normalizeRoomLighting(input) {
+  if (!input || typeof input !== "object") return null;
+  if (input.enabled === false) return null;
+  let style = text(input.style).toLowerCase();
+  if (style === "cans") style = "can";
+  if (style === "strips") style = "strip";
+  if (style === "lamp" || style === "lamps") style = "directional";
+  if (!LIGHT_STYLES.has(style)) style = "recessed";
+  const label = text(input.label);
+  const activeLine = text(input.activeLine);
+  const switchNote = text(input.switchNote);
+  const nearDoor = text(input.nearDoor);
+  return {
+    enabled: true,
+    style,
+    ...(label ? { label } : {}),
+    ...(activeLine ? { activeLine } : {}),
+    ...(switchNote ? { switchNote } : {}),
+    ...(nearDoor ? { nearDoor } : {}),
+  };
 }
 
 function finiteNumber(value, fallback) {
