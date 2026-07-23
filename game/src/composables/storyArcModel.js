@@ -212,14 +212,32 @@ function locationSpecificityScore(scene) {
   return score;
 }
 
-function sceneSelectionScore(scene, context = {}) {
+export function sceneSelectionScore(scene, context = {}) {
+  if (!scene) return -1;
+  if (!triggerMatches(scene, context.location ?? {}, context.event ?? null)) return -1;
+  if (!modeMatches(scene, context)) return -1;
+  if (!timeMatches(scene, context)) return -1;
+  if (!flagMatches(scene, context)) return -1;
   const loc = context.location ?? {};
   const event = context.event ?? null;
   const action = context.actionContext ?? sceneActionContext(loc, event);
-  return matchScore(scene, loc, action)
+  const score = matchScore(scene, loc, action)
     + timeScore(scene)
     + flagScore(scene)
     + locationSpecificityScore(scene);
+  return score < 0 ? -1 : score;
+}
+
+/**
+ * Prefer the more location-specific match (e.g. stand over room) when both are eligible.
+ */
+export function preferMoreSpecificScene(primary, alternate, context = {}) {
+  if (!primary) return alternate ?? null;
+  if (!alternate) return primary;
+  const primaryScore = sceneSelectionScore(primary, context);
+  const alternateScore = sceneSelectionScore(alternate, context);
+  if (alternateScore > primaryScore) return alternate;
+  return primary;
 }
 
 function ambientOrderScore(index, total) {

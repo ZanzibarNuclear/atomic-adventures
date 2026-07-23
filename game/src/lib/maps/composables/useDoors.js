@@ -341,7 +341,27 @@ export function doorLabel(building, doorId, toName) {
     return `${roomLabel(room)} roll-up`
   }
   if (toName) return `Door to ${toName}`
-  return displayLabel({ id: doorId })
+  // Prefer a destination-style phrase over humanized IDs like "Conference Garage Stair".
+  const linked = (building.links ?? [])
+    .filter((link) => link.door === doorId)
+    .flatMap((link) => [link.from, link.to])
+  const destId = linked.find((id) => id && building.roomById?.[id])
+  const dest = destId ? building.roomById[destId] : null
+  if (dest) {
+    if (
+      dest.feature === 'spiral-stair' ||
+      dest.feature === 'winding-stairs' ||
+      /stair/i.test(dest.id ?? '') ||
+      /stair/i.test(dest.feature ?? '')
+    ) {
+      return 'stairway door'
+    }
+    const name = String(dest.label ?? dest.id ?? '')
+      .replace(/\s+room$/i, '')
+      .trim()
+    if (name) return `door to the ${name.toLowerCase()}`
+  }
+  return 'door'
 }
 
 function itemLabel(catalog, keyId) {

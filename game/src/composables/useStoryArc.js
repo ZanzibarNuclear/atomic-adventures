@@ -4,7 +4,11 @@ import { applyEffectsAtomically } from "../lib/character/effects.js";
 import { itemQuantity } from "../lib/character/holdings.js";
 import { hasFlag, setFlags } from "../lib/maps/composables/useFlags.js";
 import { createStoryState, STORY_ARC_ID } from "./useGameState.js";
-import { selectAmbientSceneForArc, selectSceneForBeat } from "./storyArcModel.js";
+import {
+  preferMoreSpecificScene,
+  selectAmbientSceneForArc,
+  selectSceneForBeat,
+} from "./storyArcModel.js";
 
 const MAX_ADVANCES_PER_TICK = 10;
 
@@ -53,11 +57,15 @@ export function useStoryArc(storyData, {
     if (gameState.playMode !== "story" || !activeBeat.value) return null;
     return selectSceneForBeat(activeBeat.value, sceneContext.value);
   });
+  // Always evaluate ambient/unattached scenes so stand-scoped prose can beat a
+  // room-wide scene still attached to the active story beat.
   const ambientScene = computed(() => {
-    if (gameState.playMode !== "story" || activeScene.value || !activeArc.value) return null;
+    if (gameState.playMode !== "story" || !activeArc.value) return null;
     return selectAmbientSceneForArc(activeArc.value, sceneContext.value, ambientScenes.value);
   });
-  const displayScene = computed(() => activeScene.value ?? ambientScene.value);
+  const displayScene = computed(() =>
+    preferMoreSpecificScene(activeScene.value, ambientScene.value, sceneContext.value),
+  );
   const visibleScene = computed(() => {
     if (gameState.playMode !== "story") return null;
     return displayScene.value;
@@ -70,7 +78,8 @@ export function useStoryArc(storyData, {
   });
   const activeChoices = computed(() => {
     if (gameState.playMode !== "story" || !activeBeat.value) return [];
-    return activeScene.value?.choices ?? [];
+    // Choices belong to the scene actually shown (may be a stand ambient scene).
+    return displayScene.value?.choices ?? activeScene.value?.choices ?? [];
   });
   const pendingCompletion = computed(() => {
     if (gameState.playMode !== "story") return null;
@@ -264,7 +273,7 @@ export function useStoryArc(storyData, {
   }
 
   function markActiveSceneSeen() {
-    const scene = activeScene.value;
+    const scene = displayScene.value ?? activeScene.value;
     if (!scene?.id || !gameState.story) return;
     const seen = new Set(gameState.story.seenSceneIds ?? []);
     seen.add(scene.id);

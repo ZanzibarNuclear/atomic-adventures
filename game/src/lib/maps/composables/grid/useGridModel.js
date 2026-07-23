@@ -168,6 +168,42 @@ function thresholdPointForRoom(room, point, inset = DOOR_STAND_INSET) {
   return at
 }
 
+/**
+ * Player-facing name for a derived door stand (`door:<door-id>`).
+ *
+ * Override order:
+ * 1. `door.standLabels[roomId]` — per-side stand name
+ * 2. `door.label` — shared door name (also used for open/close actions)
+ * 3. destination-based fallback ("door to the kitchen", "stairway door")
+ */
+export function resolveDoorStandLabel(building, roomId, door) {
+  if (!door) return 'door'
+  const sideLabel = door.standLabels?.[roomId]
+  if (sideLabel != null && String(sideLabel).trim()) return String(sideLabel).trim()
+  if (door.label != null && String(door.label).trim()) return String(door.label).trim()
+
+  const linked = linkedRoomIdsForDoor(building, door).filter((id) => id !== roomId)
+  const dest = linked[0] ? building?.roomById?.[linked[0]] : null
+  if (!dest) return 'door'
+
+  if (
+    dest.feature === 'spiral-stair' ||
+    dest.feature === 'winding-stairs' ||
+    /stair/i.test(dest.id ?? '') ||
+    /stair/i.test(dest.feature ?? '')
+  ) {
+    return 'stairway door'
+  }
+
+  const name = String(dest.label ?? dest.id ?? '')
+    .replace(/\s+room$/i, '')
+    .trim()
+    .toLowerCase()
+  if (!name) return 'door'
+  if (/^[aeiou]/i.test(name)) return `door to the ${name}`
+  return `door to the ${name}`
+}
+
 export function doorThresholdForRoom(building, roomId, doorId) {
   const room = building?.roomById?.[roomId]
   const door = building?.doorById?.[doorId]
@@ -187,7 +223,7 @@ export function doorThresholdForRoom(building, roomId, doorId) {
     room: roomId,
     door: doorId,
     at,
-    label: door.label ?? displayLabel({ id: doorId }),
+    label: resolveDoorStandLabel(building, roomId, door),
     kind: 'door',
   }
 }

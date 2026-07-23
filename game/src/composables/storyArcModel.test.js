@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { normalizeStoryArcContent, selectSceneForBeat } from "./storyArcModel.js";
+import {
+  normalizeStoryArcContent,
+  preferMoreSpecificScene,
+  selectAmbientSceneForArc,
+  selectSceneForBeat,
+} from "./storyArcModel.js";
 
 describe("story arc stand triggers", () => {
   it("prefers a stand-scoped kitchen scene over the room-wide scene", () => {
@@ -50,6 +55,49 @@ describe("story arc stand triggers", () => {
     });
 
     expect(scene?.id).toBe("kitchen-room");
+  });
+
+  it("lets an unattached stand scene override a room scene on the active beat", () => {
+    const context = {
+      playMode: "story",
+      location: { place: "indoors", room: "kitchen", stand: "cabinets" },
+      flags: new Set(),
+      milestones: {},
+      clock: null,
+    };
+    const story = normalizeStoryArcContent({
+      storyArcs: [{
+        id: "arc",
+        startBeat: "crisis",
+        beats: [{
+          id: "crisis",
+          scenes: [{
+            id: "kitchen-room",
+            trigger: { place: "indoors", room: "kitchen" },
+            modes: ["story"],
+            prose: "Kitchen overview.",
+          }],
+          choices: [],
+        }],
+      }],
+    }, {
+      storyData: {
+        beats: {
+          "food-in-cabinet": {
+            trigger: { place: "indoors", room: "kitchen", stand: "cabinets" },
+            modes: ["story"],
+            text: "Cabinets detail.",
+          },
+        },
+      },
+    });
+
+    const beatScene = selectSceneForBeat(story.storyArcs[0].beats[0], context);
+    const ambient = selectAmbientSceneForArc(story.storyArcs[0], context, story.ambientScenes);
+    const shown = preferMoreSpecificScene(beatScene, ambient, context);
+    expect(beatScene?.id).toBe("kitchen-room");
+    expect(ambient?.id).toBe("food-in-cabinet");
+    expect(shown?.id).toBe("food-in-cabinet");
   });
 });
 
