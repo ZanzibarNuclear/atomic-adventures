@@ -145,6 +145,7 @@ describe("item actions", () => {
 
     expect(result).toEqual({
       ok: true,
+      notice: null,
       view: {
         kind: "document",
         id: "startup-card",
@@ -220,6 +221,45 @@ describe("item actions", () => {
     expect(gameState.character.stats.hydration).toBe(50);
     expect(itemQuantity(gameState.character.holdings, "bottle")).toBe(0);
     expect(itemQuantity(gameState.character.holdings, "empty-bottle")).toBe(1);
+  });
+
+  it("lets the player nibble a stacked meal and leaves a partial meal instance", () => {
+    const gameState = state();
+    gameState.character.definitions.items.find((item) => item.id === "meal").actions = [{
+      id: "eat",
+      label: "Eat meal",
+      consume: 0,
+      consumeOptions: [
+        { id: "nibble", label: "Nibble", portion: 0.25 },
+        { id: "all", label: "Eat all remaining", remaining: true },
+      ],
+      timeMinutes: 0,
+      activity: "resting",
+      effects: [{ op: "stat.add", id: "satiety", value: 40, scaleBy: "portion" }],
+    }];
+    gameState.character.stats.satiety = 20;
+
+    expect(performItemAction(gameState, "meal", "eat", { optionId: "nibble" }).ok).toBe(true);
+    expect(itemQuantity(gameState.character.holdings, "meal")).toBe(2); // 1 whole + 1 partial
+    const partial = Object.values(gameState.character.holdings.instances)
+      .find((instance) => instance.item === "meal");
+    expect(partial?.remaining).toBeCloseTo(0.75);
+    expect(gameState.character.stats.satiety).toBeCloseTo(30);
+  });
+
+  it("refuses more food when already stuffed and reports why", () => {
+    const gameState = state();
+    gameState.character.definitions.stats.find((stat) => stat.id === "satiety").displayStates = [
+      { at: 90, state: "Stuffed", tone: "positive" },
+      { at: 0, state: "Hungry", tone: "warning" },
+    ];
+    gameState.character.stats.satiety = 95;
+
+    const result = performItemAction(gameState, "meal", "eat");
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/stuffed/i);
+    expect(itemQuantity(gameState.character.holdings, "meal")).toBe(2);
+    expect(gameState.character.stats.satiety).toBe(95);
   });
 
 });

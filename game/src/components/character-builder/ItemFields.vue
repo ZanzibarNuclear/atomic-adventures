@@ -1,6 +1,12 @@
 <script setup>
-import { ref } from "vue";
+import { computed, ref, watch } from "vue";
 import PublicImagePicker from "./PublicImagePicker.vue";
+import ContainerStockEditor from "./ContainerStockEditor.vue";
+import {
+  defaultContainerConfig,
+  isKnownItemKind,
+  ITEM_KIND_OPTIONS,
+} from "../../lib/character/itemKinds.js";
 
 const props = defineProps({
   draft: { type: Object, required: true },
@@ -11,6 +17,117 @@ const props = defineProps({
 
 const activeTab = ref("details");
 const wellbeingStatIds = new Set(["satiety", "hydration", "energy", "composure", "health"]);
+
+const kindOptions = computed(() => {
+  const kind = props.entry.kind;
+  if (kind && !isKnownItemKind(kind)) {
+    return [
+      ...ITEM_KIND_OPTIONS,
+      { id: kind, label: `${kind} (custom)`, description: "Existing custom kind from content." },
+    ];
+  }
+  return ITEM_KIND_OPTIONS;
+});
+
+const isContainer = computed(() =>
+  props.entry.kind === "container" || Boolean(props.entry.container),
+);
+
+const acceptedKinds = computed(() =>
+  props.entry.container?.accepts?.kinds ?? [],
+);
+
+const capacitySlots = computed({
+  get: () => props.entry.container?.capacity?.slots ?? null,
+  set: (value) => {
+    ensureContainerObject();
+    const slots = value === "" || value == null ? null : Number(value);
+    if (slots == null || !Number.isFinite(slots)) {
+      delete props.entry.container.capacity.slots;
+    } else {
+      props.entry.container.capacity.slots = Math.max(1, Math.floor(slots));
+    }
+  },
+});
+
+const capacityMassKg = computed({
+  get: () => props.entry.container?.capacity?.massKg ?? null,
+  set: (value) => {
+    ensureContainerObject();
+    const mass = value === "" || value == null ? null : Number(value);
+    if (mass == null || !Number.isFinite(mass) || mass <= 0) {
+      delete props.entry.container.capacity.massKg;
+    } else {
+      props.entry.container.capacity.massKg = mass;
+    }
+  },
+});
+
+const nestingEnabled = computed({
+  get: () => props.entry.container?.nesting === true,
+  set: (value) => {
+    ensureContainerObject();
+    props.entry.container.nesting = value === true;
+  },
+});
+
+watch(
+  () => props.entry.kind,
+  (kind, previous) => {
+    if (kind === "container" && previous !== "container") {
+      applyContainerDefaults();
+    }
+    if (kind !== "container" && !props.entry.container && activeTab.value === "stock") {
+      activeTab.value = "details";
+    }
+  },
+);
+
+function ensureContainerObject() {
+  if (!props.entry.container || typeof props.entry.container !== "object") {
+    props.entry.container = defaultContainerConfig();
+  }
+  props.entry.container.capacity ??= {};
+  props.entry.container.accepts ??= { kinds: [] };
+  props.entry.container.accepts.kinds ??= [];
+}
+
+function applyContainerDefaults() {
+  props.entry.carrying = "unique";
+  props.entry.maxQuantity = 1;
+  if (!props.entry.container) {
+    props.entry.container = defaultContainerConfig();
+  } else {
+    ensureContainerObject();
+  }
+}
+
+function onKindChange(event) {
+  const kind = event.target.value;
+  props.entry.kind = kind;
+  if (kind === "container") {
+    applyContainerDefaults();
+  }
+}
+
+function toggleAcceptedKind(kind, checked) {
+  ensureContainerObject();
+  const kinds = new Set(props.entry.container.accepts.kinds);
+  if (checked) kinds.add(kind);
+  else kinds.delete(kind);
+  props.entry.container.accepts.kinds = ITEM_KIND_OPTIONS
+    .map((option) => option.id)
+    .filter((id) => kinds.has(id))
+    .concat([...kinds].filter((id) => !isKnownItemKind(id)));
+}
+
+function clearContainer() {
+  if (!window.confirm("Remove container capacity from this item?")) return;
+  props.entry.container = null;
+  if (props.entry.kind === "container") {
+    props.entry.kind = "item";
+  }
+}
 
 function wellbeingStats() {
   return (props.draft.stats ?? []).filter((stat) => wellbeingStatIds.has(stat.id));
@@ -93,6 +210,13 @@ function removeConsumeOption(action, index) {
         Details
       </button>
       <button
+        v-if="isContainer"
+        type="button"
+        :class="{ active: activeTab === 'stock' }"
+        @click="activeTab = 'stock'">
+        Place in world
+      </button>
+      <button
         type="button"
         :class="{ active: activeTab === 'custom' }"
         @click="activeTab = 'custom'">
@@ -106,7 +230,17 @@ function removeConsumeOption(action, index) {
         <code>{{ entry.id }}</code>
       </div>
       <div class="field-grid">
-        <label>Kind<input v-model="entry.kind"></label>
+        <label>Kind
+          <select :value="entry.kind" @change="onKindChange">
+            <option
+              v-for="kind in kindOptions"
+              :key="kind.id"
+              :value="kind.id"
+              :title="kind.description">
+              {{ kind.label }}
+            </option>
+          </select>
+        </label>
         <label>Group
           <select v-model="entry.group">
             <option :value="null">No group</option>
@@ -140,6 +274,19 @@ function removeConsumeOption(action, index) {
           </select>
         </label>
       </div>
+      <p class="field-hint">
+        <template v-if="entry.kind === 'container'">
+          Containers should be <strong>unique</strong> with max quantity 1. Capacity (how many
+          meals fit) is set below — not by max quantity.
+        </template>
+        <template v-else-if="entry.carrying === 'stack'">
+          Max quantity is how many of this item may stack in inventory, not a container capacity.
+        </template>
+        <template v-else>
+          Kind controls acceptance filters (e.g. what a backpack allows). It does not by itself
+          unlock doors or actions.
+        </template>
+      </p>
 
       <PublicImagePicker
         :model-value="entry.icon ?? ''"
@@ -148,6 +295,50 @@ function removeConsumeOption(action, index) {
         @update:model-value="entry.icon = $event || null" />
 
       <label class="check-field"><input v-model="entry.portable" type="checkbox"> Portable</label>
+
+      <section v-if="entry.kind === 'container' || entry.container" class="container-panel">
+        <div class="section-heading">
+          <h4>Container capacity</h4>
+          <button
+            v-if="entry.container"
+            type="button"
+            class="sm muted"
+            @click="clearContainer">
+            Clear container
+          </button>
+        </div>
+        <p class="field-hint">
+          Slots count distinct stacks/items inside (e.g. 14 meal slots). Mass is optional.
+          Accepted kinds must include the kinds of items you stock (meals are usually
+          <code>consumable</code>).
+        </p>
+        <div class="field-grid">
+          <label>Slot capacity
+            <input v-model.number="capacitySlots" type="number" min="1" placeholder="e.g. 14">
+          </label>
+          <label>Mass capacity (kg)
+            <input v-model.number="capacityMassKg" type="number" min="0" step="0.1" placeholder="optional">
+          </label>
+        </div>
+        <label class="check-field">
+          <input v-model="nestingEnabled" type="checkbox">
+          Allow nested containers
+        </label>
+        <fieldset class="accepts-field">
+          <legend>Accepts kinds</legend>
+          <label
+            v-for="kind in ITEM_KIND_OPTIONS"
+            :key="kind.id"
+            class="check-field"
+            :title="kind.description">
+            <input
+              type="checkbox"
+              :checked="acceptedKinds.includes(kind.id)"
+              @change="toggleAcceptedKind(kind.id, $event.target.checked)">
+            {{ kind.label }}
+          </label>
+        </fieldset>
+      </section>
 
       <section v-if="entry.kind === 'consumable'" class="consumable-panel">
         <div class="section-heading">
@@ -222,13 +413,17 @@ function removeConsumeOption(action, index) {
       </section>
     </div>
 
+    <div v-else-if="activeTab === 'stock'" class="tab-panel">
+      <ContainerStockEditor :draft="draft" :entry="entry" />
+    </div>
+
     <div v-else class="tab-panel">
       <div class="section-heading">
         <h4>Advanced fields</h4>
         <code>JSON</code>
       </div>
       <p class="custom-intro">
-        Advanced JSON fields for containers, scripted actions, and extra properties.
+        Prefer the Details form for kind and container capacity. Use JSON only for unusual shapes.
       </p>
       <label>Container (JSON)
         <textarea
@@ -265,6 +460,7 @@ function removeConsumeOption(action, index) {
   border-radius: 9px;
   background: #171b22;
   width: fit-content;
+  flex-wrap: wrap;
 }
 .item-tabs button {
   border-color: transparent;
@@ -277,12 +473,18 @@ function removeConsumeOption(action, index) {
   background: #49624f;
   color: #eef7ef;
 }
-.custom-intro {
+.custom-intro,
+.field-hint {
   margin: 0;
   color: #8f98a6;
   font-size: 0.82rem;
   line-height: 1.45;
 }
+.field-hint code {
+  font-size: 0.78rem;
+  color: #b8c0cc;
+}
+.container-panel,
 .consumable-panel,
 .consume-action {
   display: grid;
@@ -291,6 +493,20 @@ function removeConsumeOption(action, index) {
   border: 1px solid #343d4d;
   border-radius: 8px;
   background: #151a22;
+}
+.accepts-field {
+  margin: 0;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #343d4d;
+  border-radius: 7px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem 0.6rem;
+}
+.accepts-field legend {
+  padding: 0 0.25rem;
+  color: #bdc4ce;
+  font-size: 0.78rem;
 }
 .consume-options {
   display: grid;
@@ -306,7 +522,8 @@ function removeConsumeOption(action, index) {
   align-items: end;
 }
 @media (max-width: 900px) {
-  .consume-option-row {
+  .consume-option-row,
+  .accepts-field {
     grid-template-columns: minmax(0, 1fr);
   }
 }

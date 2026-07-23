@@ -17,6 +17,18 @@ import {
   holdingRecords,
   transferHolding,
 } from "../lib/character/holdings.js";
+import {
+  addStartingInstance,
+  ensureContainerHolder,
+  ensureFixedHolderAt,
+} from "../lib/character/holdingsAuthoring.js";
+import {
+  containerContentsRecords,
+  containerGroupInspectLabel,
+  containerInstanceLabel,
+  contentFlavorLabel,
+  formatContainerGroupDiscovery,
+} from "../lib/character/containerLabels.js";
 import { markCharacterChanged } from "./useCharacterState.js";
 import {
   DEAD_LIGHT_SWITCH_NOTICE,
@@ -341,16 +353,58 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
   const items = buildIndoorMovementActions(indoor, pendingBeat);
 
   for (const pickup of indoor.roomPickups ?? []) {
+    const itemDef = itemDefinition(indoor, pickup.item);
+    const label = pickup.label || itemDef?.label || pickup.item;
+    // Container pickups support Look in (materializes a holdings instance at this stand).
+    if (itemDef?.container) {
+      items.push({
+        id: `pickup-look:${pickup.id}`,
+        label: `Look in ${withArticle(label)}`,
+      });
+    }
     items.push({
       id: `pickup:${pickup.id}`,
-      label: `Pick up ${withArticle(pickup.label)}`,
+      label: `Pick up ${withArticle(label)}`,
     });
   }
 
-  for (const record of nearbyPortableHoldings(indoor)) {
+  const nearbyHoldings = nearbyPortableHoldings(indoor);
+  const containerRecords = nearbyHoldings.filter((record) => isNearbyContainerRecord(indoor, record));
+  const nonContainerRecords = nearbyHoldings.filter((record) => !isNearbyContainerRecord(indoor, record));
+  const containersByItem = groupBy(containerRecords, (record) => record.item);
+
+  for (const [itemId, group] of containersByItem) {
+    const baseLabel = group[0]?.definition?.label || itemId;
+    if (group.length >= 2) {
+      items.push({
+        id: `holding-inspect-group:${itemId}`,
+        label: containerGroupInspectLabel(baseLabel, group.length),
+      });
+      for (const record of group) {
+        const label = holdingDisplayLabel(indoor, record);
+        items.push({
+          id: `holding-pickup:${record.type}:${record.id}`,
+          label: `Pick up ${withArticle(label)}`,
+        });
+      }
+      continue;
+    }
+    const record = group[0];
+    const label = holdingDisplayLabel(indoor, record);
+    items.push({
+      id: `holding-look:${record.type}:${record.id}`,
+      label: `Look in ${withArticle(label)}`,
+    });
     items.push({
       id: `holding-pickup:${record.type}:${record.id}`,
-      label: `Pick up ${withArticle(record.label)}`,
+      label: `Pick up ${withArticle(label)}`,
+    });
+  }
+
+  for (const record of nonContainerRecords) {
+    items.push({
+      id: `holding-pickup:${record.type}:${record.id}`,
+      label: `Pick up ${withArticle(holdingDisplayLabel(indoor, record))}`,
     });
   }
 
@@ -613,9 +667,18 @@ export function handleIndoorPlayAction(indoor, actionId) {
     indoor.moveToRoom(actionId.slice("move-room:".length));
     return;
   }
+  if (actionId.startsWith("pickup-look:")) {
+    return lookInBuildingPickup(indoor, actionId.slice("pickup-look:".length));
+  }
   if (actionId.startsWith("pickup:")) {
     indoor.tryPickup(actionId.slice("pickup:".length));
     return;
+  }
+  if (actionId.startsWith("holding-inspect-group:")) {
+    return inspectNearbyContainerGroup(indoor, actionId.slice("holding-inspect-group:".length));
+  }
+  if (actionId.startsWith("holding-look:")) {
+    return lookInNearbyHolding(indoor, actionId.slice("holding-look:".length));
   }
   if (actionId.startsWith("holding-pickup:")) {
     return pickupNearbyHolding(indoor, actionId.slice("holding-pickup:".length));
@@ -680,8 +743,196 @@ function nearbyPortableHoldings(indoor) {
     .filter((record) => record.definition?.portable !== false)
     .map((record) => ({
       ...record,
-      label: record.definition?.label ?? record.item,
+      label: holdingDisplayLabel(indoor, {
+        ...record,
+        label: record.definition?.label ?? record.item,
+      }),
     }));
+}
+
+function holdingDisplayLabel(indoor, record) {
+  const base = record.label || record.definition?.label || record.item;
+  if (!isNearbyContainerRecord(indoor, record) || record.type !== "instance") {
+    return base;
+  }
+  return containerInstanceLabel(
+    indoor.character?.holdings,
+    indoor.character?.definitions,
+    record.id,
+    {
+      baseLabel: record.definition?.label || base,
+      itemId: record.item,
+    },
+  );
+}
+
+function inspectNearbyContainerGroup(indoor, itemId) {
+  const character = indoor.character;
+  if (!character?.holdings) return { ok: false, error: "Character holdings are unavailable." };
+  const group = nearbyPortableHoldings(indoor)
+    .filter((record) => isNearbyContainerRecord(indoor, record))
+    .filter((record) => record.item === itemId);
+  if (!group.length) return { ok: false, error: "Those containers are not within reach." };
+
+  const baseLabel = group[0].definition?.label || itemId;
+  const entries = group.map((record) => {
+    const contents = containerContentsRecords(
+      character.holdings,
+      character.definitions,
+      record.id,
+    );
+    const detail = contents.length
+      ? contents
+        .map((entry) => {
+          const name = contentFlavorLabel(entry.definition?.label || entry.item);
+          const qty = Number(entry.quantity) || 1;
+          return qty > 1 ? `${name} ×${qty}` : name;
+        })
+        .join(", ")
+      : "Empty";
+    return {
+      id: record.id,
+      type: record.type,
+      item: record.item,
+      label: holdingDisplayLabel(indoor, record),
+      detail,
+      canPickUp: record.definition?.portable !== false,
+      key: `${record.type}:${record.id}`,
+    };
+  });
+
+  return {
+    ok: true,
+    inspectGroup: {
+      itemId,
+      title: containerGroupInspectLabel(baseLabel, entries.length),
+      intro: /tastee\s*tack/i.test(baseLabel)
+        ? "Shelf-stable Tastee Tack rations for station crews. Each box is a different meal."
+        : "Choose a container to open or take with you.",
+      entries,
+    },
+  };
+}
+
+function itemDefinition(indoor, itemId) {
+  return (indoor.character?.definitions?.items ?? []).find((item) => item.id === itemId) ?? null;
+}
+
+function groupBy(list, keyFn) {
+  const map = new Map();
+  for (const entry of list) {
+    const key = keyFn(entry);
+    const bucket = map.get(key) ?? [];
+    bucket.push(entry);
+    map.set(key, bucket);
+  }
+  return map;
+}
+
+function isNearbyContainerRecord(indoor, record) {
+  if (record?.type !== "instance") return false;
+  if (record.definition?.container) return true;
+  return Boolean(indoor.character?.holdings?.holders?.[`container:${record.id}`]);
+}
+
+/**
+ * Open the within-reach inventory focused on a container still in the world.
+ * Does not pick the container up.
+ */
+function lookInNearbyHolding(indoor, encoded) {
+  const character = indoor.character;
+  if (!character?.holdings) return { ok: false, error: "Character holdings are unavailable." };
+  const [type, ...idParts] = String(encoded).split(":");
+  const id = idParts.join(":");
+  const record = nearbyPortableHoldings(indoor)
+    .find((entry) => entry.type === type && entry.id === id);
+  if (!record) return { ok: false, error: "That is not within reach." };
+  if (!isNearbyContainerRecord(indoor, record)) {
+    return { ok: false, error: "There is nothing to look inside." };
+  }
+  return {
+    ok: true,
+    lookIn: { type, id, key: `${type}:${id}` },
+  };
+}
+
+/**
+ * Look into a building pickup that is a container item.
+ * Materializes a holdings instance on the room/stand if needed so contents can live there.
+ */
+function lookInBuildingPickup(indoor, pickupId) {
+  const character = indoor.character;
+  if (!character?.holdings) return { ok: false, error: "Character holdings are unavailable." };
+  const pickup = (indoor.building?.pickups ?? indoor.roomPickups ?? [])
+    .find((entry) => entry.id === pickupId)
+    ?? (indoor.roomPickups ?? []).find((entry) => entry.id === pickupId);
+  // Prefer full building pickups list when available for room/stand location.
+  const buildingPickup = (indoor.building?.pickups ?? []).find((entry) => entry.id === pickupId) ?? pickup;
+  if (!buildingPickup) return { ok: false, error: "That is not within reach." };
+  if (buildingPickup.room && indoor.indoor?.currentRoom && buildingPickup.room !== indoor.indoor.currentRoom) {
+    return { ok: false, error: "That is not within reach." };
+  }
+  if (
+    buildingPickup.stand
+    && indoor.indoor?.currentStand
+    && buildingPickup.stand !== indoor.indoor.currentStand
+  ) {
+    return { ok: false, error: "That is not within reach." };
+  }
+
+  const itemDef = itemDefinition(indoor, buildingPickup.item);
+  if (!itemDef?.container) {
+    return { ok: false, error: "There is nothing to look inside." };
+  }
+
+  const instanceId = ensureContainerInstanceAtLocation(character, itemDef, {
+    room: buildingPickup.room,
+    stand: buildingPickup.stand ?? null,
+    roomLabel: indoor.building?.roomById?.[buildingPickup.room]?.label,
+    standLabel: (indoor.building?.roomById?.[buildingPickup.room]?.stands ?? [])
+      .find((stand) => stand.id === buildingPickup.stand)?.label,
+  });
+  if (!instanceId) return { ok: false, error: "Could not open that container." };
+  markCharacterChanged(character);
+  return {
+    ok: true,
+    lookIn: { type: "instance", id: instanceId, key: `instance:${instanceId}` },
+  };
+}
+
+/**
+ * Ensure a container instance exists on a fixed holder at room/stand.
+ * Reuses an existing instance of the same item at that location when present.
+ */
+export function ensureContainerInstanceAtLocation(character, itemDefinition, {
+  room,
+  stand = null,
+  roomLabel = null,
+  standLabel = null,
+} = {}) {
+  if (!character?.holdings || !itemDefinition?.container) return null;
+  const holdings = character.holdings;
+  const holderId = ensureFixedHolderAt(holdings, {
+    room,
+    stand,
+    roomLabel,
+    standLabel,
+    acceptsKinds: [
+      "container",
+      ...(itemDefinition.container.accepts?.kinds ?? []),
+    ],
+    slots: Math.max(4, Number(itemDefinition.container.capacity?.slots) || 12),
+  });
+
+  const existing = Object.entries(holdings.instances ?? {}).find(
+    ([, instance]) => instance.item === itemDefinition.id && instance.holder === holderId,
+  );
+  if (existing) {
+    ensureContainerHolder(holdings, existing[0], itemDefinition);
+    return existing[0];
+  }
+
+  return addStartingInstance(holdings, itemDefinition, { holderId });
 }
 
 /**
@@ -694,12 +945,16 @@ export function listNearbyReachableItems(indoor) {
     items.push({
       key: `pickup:${pickup.id}`,
       label: pickup.label || pickup.item || pickup.id,
+      itemId: pickup.item,
+      isContainer: Boolean(itemDefinition(indoor, pickup.item)?.container),
     });
   }
   for (const record of nearbyPortableHoldings(indoor)) {
     items.push({
       key: `holding:${record.type}:${record.id}`,
       label: record.label || record.item || record.id,
+      itemId: record.item,
+      isContainer: isNearbyContainerRecord(indoor, record),
     });
   }
   return items;
@@ -717,16 +972,65 @@ export function nearbyReachableItemsSignature(indoor) {
 /**
  * Player-facing discovery line for items at the current stand, e.g.
  * "There is a bolt cutter."
+ * Multiple same-type containers with different contents are summarized by flavor.
  */
 export function formatNearbyReachableItemsMessage(indoor) {
-  const labels = listNearbyReachableItems(indoor)
-    .map((item) => String(item.label ?? "").trim())
-    .filter(Boolean);
-  if (!labels.length) return null;
-  const phrases = labels.map((label) => withIndefiniteArticle(label));
-  if (phrases.length === 1) return `There is ${phrases[0]}.`;
-  if (phrases.length === 2) return `There is ${phrases[0]} and ${phrases[1]}.`;
-  return `There is ${phrases.slice(0, -1).join(", ")}, and ${phrases.at(-1)}.`;
+  const items = listNearbyReachableItems(indoor);
+  if (!items.length) return null;
+
+  const containerGroups = new Map();
+  const otherLabels = [];
+  for (const item of items) {
+    if (item.isContainer && item.itemId) {
+      const group = containerGroups.get(item.itemId) ?? [];
+      group.push(item);
+      containerGroups.set(item.itemId, group);
+    } else {
+      otherLabels.push(String(item.label ?? "").trim());
+    }
+  }
+
+  const groupPhrases = [];
+  for (const group of containerGroups.values()) {
+    if (group.length >= 2) {
+      const summary = formatContainerGroupDiscovery(
+        itemDefinition(indoor, group[0].itemId)?.label || group[0].label,
+        group.map((entry) => entry.label),
+      );
+      if (summary) groupPhrases.push(summary.replace(/\.$/, ""));
+      continue;
+    }
+    otherLabels.push(String(group[0].label ?? "").trim());
+  }
+
+  const simplePhrases = otherLabels
+    .filter(Boolean)
+    .map((label) => withIndefiniteArticle(label));
+
+  if (!groupPhrases.length && !simplePhrases.length) return null;
+
+  // Only ordinary pickups: keep the original "There is A and B." style.
+  if (!groupPhrases.length) {
+    if (simplePhrases.length === 1) return `There is ${simplePhrases[0]}.`;
+    if (simplePhrases.length === 2) return `There is ${simplePhrases[0]} and ${simplePhrases[1]}.`;
+    return `There is ${simplePhrases.slice(0, -1).join(", ")}, and ${simplePhrases.at(-1)}.`;
+  }
+
+  // Container summaries already include "There are N boxes...".
+  const parts = [
+    ...groupPhrases,
+    ...simplePhrases.map((phrase) => `there is ${phrase}`),
+  ];
+  if (parts.length === 1) {
+    const line = parts[0];
+    return line.endsWith(".") ? line : `${line}.`;
+  }
+  const normalized = parts.map((phrase, index) => {
+    let text = phrase.replace(/\.$/, "");
+    if (index === 0) return text.charAt(0).toUpperCase() + text.slice(1);
+    return text.charAt(0).toLowerCase() + text.slice(1);
+  });
+  return `${normalized.slice(0, -1).join("; ")}; and ${normalized.at(-1)}.`;
 }
 
 /** "bolt cutter" → "a bolt cutter"; preserves existing a/an/the. */
@@ -766,10 +1070,14 @@ function pickupNearbyHolding(indoor, encoded) {
     .find((entry) => entry.type === type && entry.id === id);
   if (!record) return { ok: false, error: "Holding is not available." };
   try {
+    // Stacks default to one; take the whole stack only for unique-style single records.
+    const quantity = record.type === "stack"
+      ? 1
+      : (record.quantity ?? 1);
     transferHolding(character.holdings, character.definitions, {
       type,
       id,
-      quantity: record.quantity ?? 1,
+      quantity,
       toHolder: characterHolderId(character.holdings),
     });
     markCharacterChanged(character);

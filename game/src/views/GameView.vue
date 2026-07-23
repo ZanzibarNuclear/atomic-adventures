@@ -32,6 +32,7 @@ import {
   holdingRecords,
   transferHolding,
 } from "../lib/character/holdings.js";
+import { containerInstanceLabel } from "../lib/character/containerLabels.js";
 import AppHeader from "../components/AppHeader.vue";
 import CharacterView from "../components/game-views/CharacterView.vue";
 import CharacterStatsStageView from "../components/game-views/CharacterStatsStageView.vue";
@@ -39,6 +40,8 @@ import DeveloperSettingsDialog from "../components/dev/DeveloperSettingsDialog.v
 import HoloReaderView from "../components/game-views/HoloReaderView.vue";
 import HydroConsoleView from "../components/game-views/HydroConsoleView.vue";
 import InstructionCardView from "../components/game-views/InstructionCardView.vue";
+import ContainerContentsDialog from "../components/game-views/ContainerContentsDialog.vue";
+import ContainerGroupDialog from "../components/game-views/ContainerGroupDialog.vue";
 import InventoryDialog from "../components/game-views/InventoryDialog.vue";
 import InventoryStageView from "../components/game-views/InventoryStageView.vue";
 import VitalsDialog from "../components/game-views/VitalsDialog.vue";
@@ -70,6 +73,11 @@ const movementAuditVisible = ref(false);
 const developerSettingsVisible = ref(false);
 const vitalsDialogVisible = ref(false);
 const inventoryDialogVisible = ref(false);
+/** Focused look-in for a world/carried container instance id (without full inventory). */
+const lookInContainerInstanceId = ref(null);
+const lookInSelectedHoldingId = ref(null);
+const itemActionFeedback = ref("");
+const containerGroupInspect = ref(null);
 const locationMediaMode = ref("map");
 const locationMediaIndex = ref(0);
 const locationMediaKey = ref(null);
@@ -670,12 +678,19 @@ function handleUseItem({ itemId, actionId, holderId = null, recordId = null, opt
   if (!isActionAllowed(`item-action:${itemId}.${actionId}`, wellbeingAvailableActions.value, {
     itemId,
     actionId,
-  })) return;
-  const result = performItemAction(gameState, itemId, actionId, { holderId, recordId, optionId });
-  if (result.ok) {
-    refreshStoryMoment();
-    if (result.view) openStageView(result.view);
+  })) {
+    itemActionFeedback.value = "That action is not available right now.";
+    return;
   }
+  const result = performItemAction(gameState, itemId, actionId, { holderId, recordId, optionId });
+  if (!result.ok) {
+    itemActionFeedback.value = result.error || "That did not work.";
+    return;
+  }
+  itemActionFeedback.value = result.notice || "";
+  markCharacterChanged(gameState.character);
+  refreshStoryMoment();
+  if (result.view) openStageView(result.view);
 }
 
 function handleTransferItem({ type, recordId, quantity, toHolder }) {
@@ -701,10 +716,13 @@ function handlePickupOutdoorHolding(encoded) {
     .find((entry) => entry.type === type && entry.id === id);
   if (!record) return;
   try {
+    const quantity = record.type === "stack"
+      ? 1
+      : (record.quantity ?? 1);
     transferHolding(gameState.character.holdings, gameState.character.definitions, {
       type,
       id,
-      quantity: record.quantity ?? 1,
+      quantity,
       toHolder: characterHolderId(gameState.character.holdings),
     });
     markCharacterChanged(gameState.character);
@@ -714,15 +732,146 @@ function handlePickupOutdoorHolding(encoded) {
   }
 }
 
-function openInventoryDialog() {
+function openInventoryDialog(focusHoldingKey = null) {
+  if (focusHoldingKey) {
+    stageSelectedHoldingId.value = focusHoldingKey;
+  } else if (!stageSelectedHolding.value) {
+    const firstHolding = inventoryHolders.value
+      .flatMap((holder) => holder.records)
+      .at(0);
+    stageSelectedHoldingId.value = firstHolding
+      ? `${firstHolding.type}:${firstHolding.id}`
+      : null;
+  }
   inventoryDialogVisible.value = true;
-  if (stageSelectedHolding.value) return;
-  const firstHolding = inventoryHolders.value
-    .flatMap((holder) => holder.records)
-    .at(0);
-  stageSelectedHoldingId.value = firstHolding
-    ? `${firstHolding.type}:${firstHolding.id}`
-    : null;
+}
+
+const lookInContainerView = computed(() => {
+  const instanceId = lookInContainerInstanceId.value;
+  if (!instanceId) return null;
+  const containerHolder = inventoryHolders.value
+    .find((holder) => holder.id === `container:${instanceId}`);
+  if (!containerHolder) return null;
+
+  let containerRecord = null;
+  let locationLabel = "";
+  for (const holder of inventoryHolders.value) {
+    if (holder.kind === "container") continue;
+    const record = (holder.records ?? []).find(
+      (entry) => entry.type === "instance" && entry.id === instanceId,
+    );
+    if (!record) continue;
+    containerRecord = { ...record, holder };
+    if (holder.kind === "fixed" || holder.kind === "vehicle" || holder.kind === "world") {
+      const location = holder.location ?? {};
+      locationLabel = holder.label
+        || [location.room, location.stand].filter(Boolean).join(" · ")
+        || holder.id;
+    } else if (holder.kind === "character") {
+      locationLabel = "Carried";
+    }
+    break;
+  }
+
+  const contents = (containerHolder.records ?? []).map((record) => ({
+    ...record,
+    holder: containerHolder,
+  }));
+  const baseLabel = containerRecord?.label
+    ?? containerRecord?.definition?.label
+    ?? containerHolder.label
+    ?? "Container";
+  const label = containerInstanceLabel(
+    gameState.character.holdings,
+    gameState.character.definitions,
+    instanceId,
+    {
+      baseLabel,
+      itemId: containerRecord?.item ?? null,
+    },
+  );
+  return {
+    instanceId,
+    label,
+    locationLabel,
+    contents,
+    containerRecord,
+  };
+});
+
+const lookInSelectedHolding = computed(() => {
+  const view = lookInContainerView.value;
+  if (!view) return null;
+  const selectedId = lookInSelectedHoldingId.value;
+  const match = view.contents.find((record) => `${record.type}:${record.id}` === selectedId);
+  if (match) return match;
+  return view.contents[0] ?? null;
+});
+
+const lookInSelectedHoldingKey = computed(() => {
+  const holding = lookInSelectedHolding.value;
+  return holding ? `${holding.type}:${holding.id}` : null;
+});
+
+watch(lookInContainerView, (view) => {
+  if (!view) return;
+  const stillThere = view.contents.some(
+    (record) => `${record.type}:${record.id}` === lookInSelectedHoldingId.value,
+  );
+  if (!stillThere) {
+    lookInSelectedHoldingId.value = view.contents[0]
+      ? `${view.contents[0].type}:${view.contents[0].id}`
+      : null;
+  }
+});
+
+/** Look into a container without the full inventory (play-panel Look in). */
+function handleLookInHolding(lookIn) {
+  const instanceId = lookIn?.id
+    ?? (typeof lookIn?.key === "string" && lookIn.key.startsWith("instance:")
+      ? lookIn.key.slice("instance:".length)
+      : null);
+  if (!instanceId) return;
+  lookInContainerInstanceId.value = instanceId;
+  const holder = inventoryHolders.value.find((entry) => entry.id === `container:${instanceId}`);
+  const first = holder?.records?.[0];
+  lookInSelectedHoldingId.value = first ? `${first.type}:${first.id}` : null;
+}
+
+function closeLookInContainer() {
+  lookInContainerInstanceId.value = null;
+  lookInSelectedHoldingId.value = null;
+}
+
+function handleInspectContainerGroup(group) {
+  containerGroupInspect.value = group ?? null;
+}
+
+function closeContainerGroupInspect() {
+  containerGroupInspect.value = null;
+}
+
+function handleGroupLookIn(entry) {
+  if (!entry?.id) return;
+  containerGroupInspect.value = null;
+  handleLookInHolding({ type: entry.type || "instance", id: entry.id, key: entry.key });
+}
+
+function handleGroupPickUp(entry) {
+  if (!entry?.type || !entry?.id) return;
+  try {
+    transferHolding(gameState.character.holdings, gameState.character.definitions, {
+      type: entry.type,
+      id: entry.id,
+      quantity: 1,
+      toHolder: characterHolderId(gameState.character.holdings),
+    });
+    markCharacterChanged(gameState.character);
+    refreshStoryMoment();
+    containerGroupInspect.value = null;
+  } catch (error) {
+    console.warn(error);
+  }
 }
 </script>
 
@@ -764,10 +913,33 @@ function openInventoryDialog() {
       :transfer-targets="transferTargets"
       :public-asset-path="publicAssetPath"
       :action-policy="wellbeingAvailableActions"
-      @select-holding="stageSelectedHoldingId = $event"
+      :action-feedback="itemActionFeedback"
+      @select-holding="stageSelectedHoldingId = $event; itemActionFeedback = ''"
       @use-item="handleUseItem"
       @transfer-item="handleTransferItem"
-      @close="inventoryDialogVisible = false" />
+      @close="inventoryDialogVisible = false; itemActionFeedback = ''" />
+
+    <ContainerContentsDialog
+      v-if="lookInContainerView"
+      :container-label="lookInContainerView.label"
+      :location-label="lookInContainerView.locationLabel"
+      :contents="lookInContainerView.contents"
+      :selected-holding="lookInSelectedHolding"
+      :selected-holding-id="lookInSelectedHoldingKey"
+      :character-holder-id="characterHolderId(gameState.character.holdings)"
+      :public-asset-path="publicAssetPath"
+      @select-holding="lookInSelectedHoldingId = $event"
+      @transfer-item="handleTransferItem"
+      @close="closeLookInContainer" />
+
+    <ContainerGroupDialog
+      v-if="containerGroupInspect"
+      :title="containerGroupInspect.title"
+      :intro="containerGroupInspect.intro"
+      :entries="containerGroupInspect.entries"
+      @look-in="handleGroupLookIn"
+      @pick-up="handleGroupPickUp"
+      @close="closeContainerGroupInspect" />
 
     <div
       v-if="contentError || worldContentError || buildingContentError || characterContentError || learningContentError || storyArcContentError"
@@ -881,6 +1053,8 @@ function openInventoryDialog() {
       :location-media-index="locationMediaIndex"
       @extra-action="handleHoloReaderAction"
       @stage-view="openStageView"
+      @look-in-holding="handleLookInHolding"
+      @inspect-container-group="handleInspectContainerGroup"
       @show-location-map="showLocationMap"
       @show-location-image="showLocationImage"
       @previous-location-image="stepLocationImage(-1)"

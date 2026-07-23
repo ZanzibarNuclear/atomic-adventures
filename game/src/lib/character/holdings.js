@@ -351,6 +351,28 @@ function nextRecordId(holdings, prefix) {
   return id;
 }
 
+/**
+ * Create a partial-use instance (remaining 0..1) even for stack-defined items.
+ * Used when the player nibbles part of one meal from a stack.
+ */
+export function createPartialItemInstance(holdings, itemId, {
+  holderId = characterHolderId(holdings),
+  remaining = 1,
+} = {}) {
+  requireHolder(holdings, holderId);
+  const amount = Number(remaining);
+  if (!Number.isFinite(amount) || amount <= 0 || amount > 1) {
+    throw new Error("Partial remaining must be between 0 and 1.");
+  }
+  const id = nextRecordId(holdings, itemId);
+  holdings.instances[id] = {
+    item: itemId,
+    holder: holderId,
+    remaining: Number(amount.toFixed(4)),
+  };
+  return id;
+}
+
 function positiveQuantity(value) {
   const quantity = Number(value);
   if (!Number.isFinite(quantity) || quantity <= 0) {

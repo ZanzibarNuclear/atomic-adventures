@@ -64,10 +64,18 @@ button.sm {
   padding: 0.35rem 0.65rem;
   font-size: 0.82rem;
 }
-button.sm.muted {
-  background: #252a33;
-  border-color: #3a404a;
-  color: #9aa0ac;
+/* Secondary action — readable, not disabled-looking. :disabled still uses opacity. */
+button.sm.muted,
+button.muted {
+  background: #2a3342;
+  border-color: #5a6a82;
+  color: #e4eaf3;
+}
+button.sm.muted:hover:not(:disabled),
+button.muted:hover:not(:disabled) {
+  background: #354356;
+  border-color: #7a8eaa;
+  color: #ffffff;
 }
 
 .mode-pill {

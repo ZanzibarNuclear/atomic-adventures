@@ -92,6 +92,8 @@ const emit = defineEmits([
   "hide-movement-audit",
   "extra-action",
   "stage-view",
+  "look-in-holding",
+  "inspect-container-group",
   "show-location-map",
   "show-location-image",
   "previous-location-image",
@@ -178,6 +180,8 @@ function onAction(id) {
   const result = handleIndoorPlayAction(props.indoor, id);
   publishActionNotice(result);
   if (result?.view) emit("stage-view", result.view);
+  if (result?.lookIn) emit("look-in-holding", result.lookIn);
+  if (result?.inspectGroup) emit("inspect-container-group", result.inspectGroup);
 }
 
 const mapStageProps = computed(() => ({

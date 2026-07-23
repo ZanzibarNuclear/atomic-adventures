@@ -200,4 +200,108 @@ describe("InventoryBrowser transfers", () => {
     });
     expect(wrapper.text()).not.toContain("Move to Control-room console");
   });
+
+  it("lets the player take items from a container still on a fixed surface", async () => {
+    const cabinetsHolder = {
+      id: "fixed:kitchen-cabinets",
+      kind: "fixed",
+      label: "cabinets",
+    };
+    const boxHolder = {
+      id: "container:box-1",
+      kind: "container",
+      label: "Box of Tastee Tack meals",
+      instance: "box-1",
+    };
+    const boxInstance = {
+      type: "instance",
+      id: "box-1",
+      item: "tastee-tack-box",
+      label: "Box of Tastee Tack meals",
+      quantity: 1,
+      holder: cabinetsHolder,
+    };
+    const mealStack = {
+      type: "stack",
+      id: "stack-meal-1",
+      item: "tastee-tack-turkey-cranberry-meal",
+      label: "Tastee Tack: Turkey Cranberry Dinner",
+      quantity: 14,
+      holder: boxHolder,
+    };
+    const wrapper = mountBrowser({
+      selectedHolding: mealStack,
+      holders: [
+        { ...carriedHolder, records: [] },
+        { ...cabinetsHolder, records: [boxInstance] },
+        { ...boxHolder, records: [mealStack] },
+      ],
+      transferTargets: [carriedHolder],
+    });
+
+    expect(wrapper.text()).toContain("container stays put");
+    const takeOne = wrapper.findAll("button").find((candidate) => candidate.text().includes("Take one"));
+    expect(takeOne?.exists()).toBe(true);
+    await takeOne.trigger("click");
+    expect(wrapper.emitted("transfer-item")?.[0]?.[0]).toMatchObject({
+      type: "stack",
+      recordId: "stack-meal-1",
+      quantity: 1,
+      toHolder: carriedHolder.id,
+    });
+  });
+
+  it("takes one stack item out of a container by default, with take-all available", async () => {
+    const boxHolder = {
+      id: "container:box-1",
+      kind: "container",
+      label: "Tastee Tack box",
+      instance: "box-1",
+    };
+    const mealStack = {
+      type: "stack",
+      id: "stack-meal-1",
+      item: "tastee-tack-turkey-cranberry-meal",
+      label: "Tastee Tack: Turkey Cranberry Dinner",
+      quantity: 14,
+      holder: boxHolder,
+    };
+    const boxInstance = {
+      type: "instance",
+      id: "box-1",
+      item: "tastee-tack-box",
+      label: "Box of Tastee Tack meals",
+      quantity: 1,
+      holder: carriedHolder,
+    };
+    const wrapper = mountBrowser({
+      selectedHolding: mealStack,
+      holders: [
+        { ...carriedHolder, records: [boxInstance] },
+        { ...boxHolder, records: [mealStack] },
+      ],
+      transferTargets: [carriedHolder],
+    });
+
+    const takeOne = wrapper.findAll("button").find((candidate) => candidate.text().includes("Take one"));
+    const takeAll = wrapper.findAll("button").find((candidate) => candidate.text().includes("Take all (14)"));
+    expect(takeOne?.exists()).toBe(true);
+    expect(takeAll?.exists()).toBe(true);
+
+    await takeOne.trigger("click");
+    expect(wrapper.emitted("transfer-item")?.[0]?.[0]).toMatchObject({
+      type: "stack",
+      recordId: "stack-meal-1",
+      quantity: 1,
+      toHolder: carriedHolder.id,
+    });
+
+    await takeAll.trigger("click");
+    expect(wrapper.emitted("transfer-item")?.[1]?.[0]).toMatchObject({
+      type: "stack",
+      recordId: "stack-meal-1",
+      quantity: 14,
+      toHolder: carriedHolder.id,
+    });
+  });
 });
