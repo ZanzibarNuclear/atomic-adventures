@@ -16,7 +16,7 @@ import {
   riverSideAt,
 } from '../testing/mapMovementCases.js'
 
-const BARRIER_KINDS = ['fence', 'river', 'cliff', 'ravine']
+const BARRIER_KINDS = ['fence', 'stream', 'river', 'cliff', 'ravine']
 
 function staleAuditEntry(movementCase, destination, reason) {
   return {

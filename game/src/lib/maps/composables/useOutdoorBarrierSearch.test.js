@@ -17,12 +17,16 @@ function createSearch(overrides = {}) {
   const travelBarrierCtx = ref(overrides.ctx ?? {
     barriers: [{ kind: "fence", a: { x: -10, y: 0 }, b: { x: 10, y: 0 } }],
   });
+  const hexById = ref(overrides.hexById ?? {
+    origin: { id: "origin" },
+  });
   const search = useOutdoorBarrierSearch({
     state,
     editableFeatures,
     travelBarrierCtx,
     size: ref(44),
     hexAtPoint: overrides.hexAtPoint ?? (() => "origin"),
+    hexById,
   });
   return { state, search };
 }
@@ -51,5 +55,63 @@ describe("useOutdoorBarrierSearch", () => {
     expect(search.searchableOpenings()).toEqual([]);
     expect(search.canSearchHere()).toBe(true);
     expect(search.barrierCutsCurrentHex("fence")).toBe(true);
+  });
+
+  it("allows searching a stream that cuts the hex even when not standing at it", () => {
+    const { search, state } = createSearch({
+      features: [],
+      ctx: {
+        barriers: [{ kind: "stream", a: { x: -10, y: 0 }, b: { x: 10, y: 0 } }],
+      },
+      hexAtPoint: (point) => point.x >= -10 && point.x <= 10 ? "origin" : null,
+    });
+
+    expect(search.barrierCutsCurrentHex("stream")).toBe(true);
+    expect(search.availableSearchKinds()).toEqual(["stream"]);
+    expect(search.canSearchHere()).toBe(true);
+
+    search.searchBarrier("stream");
+    expect(state.lastSearch).toEqual({
+      kind: "stream",
+      found: [],
+      foundKinds: [],
+    });
+  });
+
+  it("offers fence and stream searches independently when both cut the hex", () => {
+    const { search } = createSearch({
+      features: [
+        { id: "hidden-ford", kind: "ford", hex: "origin", visibility: "hidden", at: { x: 0, y: 0 } },
+      ],
+      ctx: {
+        barriers: [
+          { kind: "fence", a: { x: -10, y: -5 }, b: { x: 10, y: -5 } },
+          { kind: "stream", a: { x: -10, y: 5 }, b: { x: 10, y: 5 } },
+        ],
+      },
+      hexAtPoint: () => "origin",
+    });
+
+    expect(search.availableSearchKinds()).toEqual(["fence", "stream"]);
+    expect(search.searchBarrier("stream")).toEqual(["hidden-ford"]);
+  });
+
+  it("suppresses automated barrier search when the hex opts out", () => {
+    const { search } = createSearch({
+      features: [
+        { id: "hidden-ford", kind: "ford", hex: "origin", visibility: "hidden", at: { x: 0, y: 0 } },
+      ],
+      state: { atBarrier: "stream" },
+      ctx: {
+        barriers: [{ kind: "stream", a: { x: -10, y: 0 }, b: { x: 10, y: 0 } }],
+      },
+      hexById: {
+        origin: { id: "origin", suppressBarrierSearch: true },
+      },
+      hexAtPoint: () => "origin",
+    });
+
+    expect(search.canSearchHere()).toBe(false);
+    expect(search.availableSearchKinds()).toEqual([]);
   });
 });

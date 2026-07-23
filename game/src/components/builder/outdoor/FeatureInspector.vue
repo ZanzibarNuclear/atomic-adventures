@@ -29,7 +29,7 @@ defineProps({
     <label class="check-field"><input v-model="selected.smooth" type="checkbox" /> Smooth line</label>
   </section>
 
-  <section v-if="selected.kind === 'river'" class="form-section">
+  <section v-if="selected.kind === 'stream' || selected.kind === 'river'" class="form-section">
     <div class="section-heading">
       <h4>Cascades</h4>
     </div>

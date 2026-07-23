@@ -1,5 +1,5 @@
 /**
- * Barrier features for hex travel (fence, river, cliff, ravine, …).
+ * Barrier features for hex travel (fence, stream, river, cliff, ravine, …).
  * Direct inter-hex movement never uses passage openings. Authored routes may
  * opt into currently available openings when the route path crosses at one.
  */
@@ -36,8 +36,10 @@ export {
   BARRIER_KINDS,
   BARRIER_OPENINGS,
   BARRIER_OPENING_KINDS,
+  WATER_BARRIER_KINDS,
   barrierSegments,
   fenceSegments,
+  isWaterBarrier,
   riverSegments,
 } from '../travel/barrierContext.js'
 /**

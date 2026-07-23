@@ -1,10 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
   buildIndoorPlayActions,
+  buildOutdoorSearchActions,
+  buildOutdoorStatusLines,
   formatNearbyReachableItemsMessage,
   handleIndoorPlayAction,
+  handleOutdoorChooseAction,
   listNearbyReachableItems,
 } from "./usePlayPanel.js";
+import {
+  clearPlayMessages,
+  playMessageLines,
+} from "./usePlayMessages.js";
+import { describeBarrierSearchResult } from "../lib/maps/composables/useBarrierOpenings.js";
 
 function threeFlavorBoxesIndoor() {
   return {
@@ -329,5 +337,84 @@ describe("nearby reachable item messages", () => {
 
   it("returns null when nothing is within reach", () => {
     expect(formatNearbyReachableItemsMessage(indoorWithReachable())).toBe(null);
+  });
+});
+
+describe("outdoor barrier search feedback", () => {
+  it("describes ford discovery and empty streambank searches", () => {
+    expect(describeBarrierSearchResult({
+      kind: "stream",
+      found: ["the-flats-ford"],
+      foundKinds: ["ford"],
+    })).toBe("You find a shallow ford across the stream.");
+    expect(describeBarrierSearchResult({
+      kind: "stream",
+      found: [],
+      foundKinds: [],
+    })).toBe("You search the streambank carefully, but find no safe place to cross.");
+  });
+
+  it("includes stream search results in status lines", () => {
+    const outdoor = {
+      state: {
+        lastSearch: {
+          kind: "stream",
+          found: ["the-flats-ford"],
+          foundKinds: ["ford"],
+        },
+        lastBlocked: null,
+      },
+      barrierHintAtStand: () => "stream",
+      barrierCutsCurrentHex: () => false,
+      lockedPassageActions: [],
+    };
+    expect(buildOutdoorStatusLines(outdoor, { building: { label: "Utility Station" } })).toContain(
+      "You find a shallow ford across the stream.",
+    );
+  });
+
+  it("mentions both fence and stream when both cut the hex", () => {
+    const outdoor = {
+      state: { lastSearch: null, lastBlocked: null },
+      barrierHintAtStand: () => null,
+      barrierCutsCurrentHex: (kind) => kind === "fence" || kind === "stream",
+      lockedPassageActions: [],
+    };
+    const lines = buildOutdoorStatusLines(outdoor, { building: { label: "x" } });
+    expect(lines).toContain("The fence line is here.");
+    expect(lines).toContain("The stream bank is here.");
+  });
+
+  it("offers separate fence and stream search actions when both are available", () => {
+    const outdoor = {
+      hasObviousPassageAtStand: false,
+      passageCrossings: [],
+      availableSearchKinds: () => ["fence", "stream"],
+      canSearchHere: () => true,
+    };
+    expect(buildOutdoorSearchActions(outdoor)).toEqual([
+      { id: "search:barrier:fence", label: "Inspect the fence", kind: "search", barrierKind: "fence" },
+      { id: "search:barrier:stream", label: "Search the streambank", kind: "search", barrierKind: "stream" },
+    ]);
+  });
+
+  it("pushes a play message when a barrier search finds a ford", () => {
+    clearPlayMessages();
+    const outdoor = {
+      state: { lastSearch: null },
+      searchBarrier(kind) {
+        expect(kind).toBe("stream");
+        outdoor.state.lastSearch = {
+          kind: "stream",
+          found: ["the-flats-ford"],
+          foundKinds: ["ford"],
+        };
+        return ["the-flats-ford"];
+      },
+    };
+    handleOutdoorChooseAction(outdoor, () => {}, "search:barrier:stream");
+    expect(playMessageLines()).toEqual([
+      "You find a shallow ford across the stream.",
+    ]);
   });
 });

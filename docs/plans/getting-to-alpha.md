@@ -130,19 +130,17 @@ run — dump observations, then we sort into the punchlist.
 ### 2026-07-20 — Dave — local - main
 
 - FINE TUNING: Need to start so that player will die in N days without food or drink to encourage forward progress; what's in backpack should be enough to sleep the first night; what's stored in the kitchen covers the next 30+ days for food, and infinite water, given the small river, purification tablets, and the ease of boiling water once the power is on.
-- Inventory: Looking at the backpack, we can see a list of items inside. There is a button to "take out" an item. If it is consumable, why not show the actions for consumption?
 - Actions for an item on the detailed view should be in a single, wrappable line.
 - Audit flags that are set.
 - Add a view of the active game status to dev tools.
 - Once at the guardhouse, if the player has not eaten or taken a sip of water yet, make the suggestion in the message area to do so.
 - The first time the player enters a space with a picture, explain how to see the view in the message area.
 - There is a third legitimate path the to utility station via the foot bridge at the gorge. Enable that alternate route.
-- When Zanzi inspects the gate and notices the vine, the action should say "Untangle the vines"
-- I'm through the gate. there should be an action to follow the road south (same actions that we see from west-slope).
+- When Zanzi inspects the gate and notices the vine, the action should say "Untangle the gate." Also, this action seems to be hard-coded, but it would be better to be authored.
 - Following the road should move the avatar along the road, tracing its path. When we get to utility-yard, the avatar should stop at the driveway fork (a new standpoint), and there should be an action to walk down the driveway. We have corresponding story beats for this.
 - In the future (end of Part I or starting from Part II) choosing a path from the driveway fork will be important, since the road to the south will open up once we have buggy access (or Zanzibar wants to pack a picnic and go exploring on foot).
 - Let's decide that this is a large stream, a major tributary of a downstream river. The area is fictional, but it needs to blend into the Maine mountainscape.
-- In the story builder, Delete Scene is a big button, easy to mistake for Save (aside from it being red).
+- In the story builder, Delete Scene is a big button, easy to mistake for Save (aside from it being red). Put a second Save button in the same spot.
 - Actions from utility-yard (hex) include "Search the riverbank". Should that take the player into the local map and move the avatar down the stairs? Or should the only action be to take a closer look (switch maps)?
 - I switch to the local map after traveling from the-flats. No scene, just one action to go south along footpath. That puts me on the path around the building. From there I can go north (back to the entry stand) or northeast (up the stone stairs). Would be better to mention the stairs. Would be better not to have a way back to the entry stand (or not to call that north). Would be better for the path to actually extend along the river bank on the local map. Ideas for future smoothing.
 

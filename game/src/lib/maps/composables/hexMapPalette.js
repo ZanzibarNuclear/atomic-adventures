@@ -20,6 +20,7 @@ export const TERRAIN_LABELS = {
 export const TERRAIN_ORDER = ['forest', 'clearing', 'gorge', 'rock', 'water']
 
 export const LINE_STYLE = {
+  stream: { label: 'Stream', stroke: '#4a90d9', width: 4, dash: '' },
   river: { label: 'River', stroke: '#4a90d9', width: 4, dash: '' },
   road: { label: 'Road', stroke: '#8a8073', width: 5, dash: '' },
   drive: { label: 'Driveway', stroke: '#9b917f', width: 4, dash: '' },
@@ -28,7 +29,7 @@ export const LINE_STYLE = {
   trail: { label: 'Trail', stroke: '#c9b97e', width: 3, dash: '2 5' },
 }
 
-export const LINE_ORDER = ['river', 'road', 'drive', 'fence', 'path', 'trail']
+export const LINE_ORDER = ['stream', 'river', 'road', 'drive', 'fence', 'path', 'trail']
 
 export const PASSAGE_LABELS = {
   gate: 'Gate',

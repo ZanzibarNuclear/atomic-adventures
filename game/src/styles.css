@@ -129,6 +129,7 @@ button.muted:hover:not(:disabled) {
 .route-btn.k-trail {
   border-left-color: #c9b97e;
 }
+.route-btn.k-stream,
 .route-btn.k-river {
   border-left-color: #4a90d9;
 }

@@ -24,7 +24,7 @@ import {
   riverSideAt,
 } from './mapMovementCases.js'
 
-const BARRIER_KINDS = ['fence', 'river', 'cliff', 'ravine']
+const BARRIER_KINDS = ['fence', 'stream', 'river', 'cliff', 'ravine']
 
 function sorted(values) {
   return [...values].sort()

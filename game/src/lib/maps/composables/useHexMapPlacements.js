@@ -55,6 +55,7 @@ const FEATURE_DRAW_ORDER = {
   drive: 0,
   path: 0,
   trail: 0,
+  stream: 1,
   river: 1,
   cliff: 2,
   ravine: 2,
@@ -137,7 +138,10 @@ export function useHexMapPlacements({
 
   const cascadeChevrons = computed(() => {
     const riverModels = featureModels.value.filter(
-      (model) => model.kind === 'river' && model.samples?.length && model.cascades?.length,
+      (model) =>
+        (model.kind === 'stream' || model.kind === 'river') &&
+        model.samples?.length &&
+        model.cascades?.length,
     )
     if (!riverModels.length) return []
     const { isRevealed, inView } = fogMaskOpts()

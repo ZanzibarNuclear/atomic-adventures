@@ -10,8 +10,12 @@ import {
   isSelfClosingDoor,
   lockFreeFromRoom,
 } from "../lib/maps/composables/useDoors.js";
-import { searchActionLabel } from "../lib/maps/composables/useBarrierOpenings.js";
+import {
+  describeBarrierSearchResult,
+  searchActionLabel,
+} from "../lib/maps/composables/useBarrierOpenings.js";
 import { barrierHintAtStand } from "../lib/maps/composables/useBarrierStand.js";
+import { pushPlayMessage } from "./usePlayMessages.js";
 import {
   characterHolderId,
   holdingRecords,
@@ -109,17 +113,33 @@ export function storyChoiceDestinations(pendingBeat) {
 }
 
 export function buildOutdoorSearchActions(outdoor) {
-  if (!outdoor.canSearchHere?.()) return [];
   if (outdoor.hasObviousPassageAtStand) return [];
   if ((outdoor.passageCrossings ?? []).length > 0) return [];
-  const label = searchActionLabel({
-    openings: outdoor.searchableOpenings?.() ?? [],
-    atBarrier: outdoor.state.atBarrier ??
-      outdoor.state.lastBlocked ??
-      (outdoor.barrierCutsCurrentHex?.("fence") ? "fence" : null),
-    lastBlocked: outdoor.state.lastBlocked,
-  });
-  return [{ id: "search:barrier", label, kind: "search" }];
+  const kinds = outdoor.availableSearchKinds?.() ?? [];
+  if (!kinds.length) {
+    if (!outdoor.canSearchHere?.()) return [];
+    // Fallback for older outdoor adapters without availableSearchKinds.
+    const label = searchActionLabel({
+      openings: outdoor.searchableOpenings?.() ?? [],
+      atBarrier: outdoor.state.atBarrier ??
+        outdoor.state.lastBlocked ??
+        (outdoor.barrierCutsCurrentHex?.("fence")
+          ? "fence"
+          : outdoor.barrierCutsCurrentHex?.("stream")
+            ? "stream"
+            : outdoor.barrierCutsCurrentHex?.("river")
+              ? "river"
+              : null),
+      lastBlocked: outdoor.state.lastBlocked,
+    });
+    return [{ id: "search:barrier", label, kind: "search" }];
+  }
+  return kinds.map((barrierKind) => ({
+    id: kinds.length === 1 ? "search:barrier" : `search:barrier:${barrierKind}`,
+    label: searchActionLabel(barrierKind),
+    kind: "search",
+    barrierKind,
+  }));
 }
 
 export function buildOutdoorPassageActions(outdoor) {
@@ -127,7 +147,10 @@ export function buildOutdoorPassageActions(outdoor) {
     id: `passage:${m.openingId}`,
     openingId: m.openingId,
     label: m.label,
-    kind: m.barrierKind === "river" ? "river" : "fence",
+    kind:
+      m.barrierKind === "stream" || m.barrierKind === "river"
+        ? m.barrierKind
+        : "fence",
   }));
 }
 
@@ -171,6 +194,7 @@ function routeActionLabel(move) {
 
 function barrierName(kind) {
   if (kind === "fence") return "fence line";
+  if (kind === "stream") return "stream";
   if (kind === "river") return "river";
   if (kind === "cliff") return "cliff edge";
   if (kind === "ravine") return "ravine";
@@ -284,8 +308,13 @@ export function handleOutdoorChooseAction(
     enterBuilding();
     return;
   }
-  if (actionId === "search:barrier") {
-    outdoor.searchBarrier?.();
+  if (actionId === "search:barrier" || actionId.startsWith("search:barrier:")) {
+    const barrierKind = actionId.startsWith("search:barrier:")
+      ? actionId.slice("search:barrier:".length)
+      : null;
+    outdoor.searchBarrier?.(barrierKind || undefined);
+    const message = describeBarrierSearchResult(outdoor.state?.lastSearch);
+    if (message) pushPlayMessage(message, { source: "action" });
     return;
   }
   if (actionId.startsWith("passage-unlock:")) {
@@ -1187,28 +1216,37 @@ export function buildOutdoorStatusLines(
   for (const action of outdoor.lockedPassageActions ?? []) {
     if (action.status) lines.push(action.status);
   }
-  if (
-    outdoor.state.lastSearch?.kind === "fence" &&
-    outdoor.state.lastSearch.foundKinds?.includes("hole")
-  ) {
-    lines.push("On closer inspection, you have found a hole in the fence.");
-  } else if (
-    outdoor.state.lastSearch?.kind === "fence" &&
-    !outdoor.state.lastSearch.found?.length
-  ) {
-    lines.push("You see a sturdy fence covered in ivy.");
-  }
+  const searchLine = describeBarrierSearchResult(outdoor.state.lastSearch);
+  if (searchLine) lines.push(searchLine);
+
+  const hint = outdoor.barrierHintAtStand?.() ?? null;
+  const fencePresent =
+    outdoor.state.lastBlocked === "fence" ||
+    hint === "fence" ||
+    outdoor.barrierCutsCurrentHex?.("fence");
+  const streamPresent =
+    outdoor.state.lastBlocked === "stream" ||
+    hint === "stream" ||
+    outdoor.barrierCutsCurrentHex?.("stream");
+  const riverPresent =
+    outdoor.state.lastBlocked === "river" ||
+    hint === "river" ||
+    outdoor.barrierCutsCurrentHex?.("river");
+
   if (outdoor.state.lastBlocked === "fence") {
     lines.push("A fence blocks the way.");
-  } else if (outdoor.state.lastBlocked === "river") {
+  } else if (fencePresent) {
+    lines.push("The fence line is here.");
+  }
+  if (outdoor.state.lastBlocked === "stream") {
+    lines.push("The stream blocks the way.");
+  } else if (streamPresent) {
+    lines.push("The stream bank is here.");
+  }
+  if (outdoor.state.lastBlocked === "river") {
     lines.push("The river blocks the way.");
-  } else {
-    const hint = outdoor.barrierHintAtStand?.() ?? null;
-    if (hint === "fence") {
-      lines.push("The fence line is here.");
-    } else if (hint === "river") {
-      lines.push("The river bank is here.");
-    }
+  } else if (riverPresent) {
+    lines.push("The river bank is here.");
   }
   if (outdoor.atBuildingEntrance) {
     lines.push(`You are at the ${indoor.building.label}.`);

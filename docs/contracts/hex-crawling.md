@@ -109,11 +109,20 @@ The stand rule is the same for every passage type:
 | Opening | Visibility | Passage                      | Notes                                          |
 | ------- | ---------- | ---------------------------- | ---------------------------------------------- |
 | Gate    | Obvious    | When opened                  | Compound gate: player open/close state         |
-| Bridge  | Obvious    | Always (when on river bank)  |                                                |
+| Bridge  | Obvious    | Always (when on stream bank) |                                                |
 | Hole    | Hidden     | After search reveals it      | Pre-cut breach at `south-pines`                |
-| Ford    | Hidden     | After search                 | Also demonstrates river crossing at `the-flats` |
+| Ford    | Hidden     | After search                 | Also demonstrates stream crossing at `the-flats` |
 
-River crossings require bank proximity (`isOnRiverBank`). All passage crossings use the same placement rule: near the opening, on the far side, with consistent visible separation from the barrier.
+Stream crossings require bank proximity (`isOnRiverBank`). All passage crossings use the same placement rule: near the opening, on the far side, with consistent visible separation from the barrier.
+
+**Watercourse kinds:** Part I uses feature kind `stream` (`mountain-stream`). Kind `river` remains valid for larger watercourses later and shares bridge/ford openings and bank geometry. Player-facing copy matches the kind (`stream` vs `river`).
+
+### Barrier search
+
+Automated barrier inspection is offered per barrier kind when the avatar is at that barrier, the barrier cuts the current hex, or a hidden opening of that kind remains undiscovered in the hex. Fence and stream may both be offered in the same cell.
+
+- **Result messaging:** every search produces a player message (and status line) for what was found — hole, ford, nothing useful, etc. Silent success is a bug.
+- **Hex suppress:** a hex may set `suppressBarrierSearch: true` to hide automated barrier search entirely. Use this when the cell has a local map for detailed discoveries and no outdoor ford/hole to find (`utility-yard`).
 
 ### Movement options the player sees
 
@@ -124,6 +133,7 @@ From the current hex, the play panel combines:
 3. **Passage crossings** — in-hex `crossPassage` actions (`availablePassageCrossings`).
 4. **Passage toggle actions** — open/close actions for gates at the current barrier.
 5. **Passage unlock actions** — optional authored actions for a passage whose requirements are not yet satisfied.
+6. **Barrier search** — inspect fence / search streambank when available (see above).
 
 **Deduping:** If a neighbor is reachable by route, it is omitted from direct moves.
 
@@ -132,7 +142,7 @@ Passage requirements affect whether the local crossing action is available. They
 Action button edge colors should reflect the same map feature kind and palette
 used by the map legend when the action corresponds to a visible terrain, route,
 barrier, or passage. For example, forest/open walking uses the forest green,
-roads use the road color, trails use the trail color, rivers use the river
+roads use the road color, trails use the trail color, streams use the stream
 color, and fences/gates use the fence color. Story choices should not get a
 special "preferred path" color; story text can suggest a best path, but the UI
 must preserve player agency by not visually marking story choices as the
