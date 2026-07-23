@@ -30,6 +30,7 @@ export function normalizeBeat(input = {}) {
       place: nullableText(trigger.place),
       hex: nullableText(trigger.hex),
       room: nullableText(trigger.room),
+      stand: nullableText(trigger.stand),
       exteriorNode: nullableText(trigger.exteriorNode),
       event: nullableText(trigger.event),
       flag: nullableText(trigger.flag),
@@ -103,6 +104,16 @@ export function validateBeat(input, world, character = null, learning = null) {
   }
   if (beat.trigger.room && !world.roomIds.has(beat.trigger.room)) {
     add("trigger.room", "Choose an existing room.");
+  }
+  if (beat.trigger.stand && !beat.trigger.room) {
+    add("trigger.stand", "Stand triggers require a room.");
+  }
+  if (beat.trigger.stand && beat.trigger.room) {
+    const standIds = world.standIdsByRoom?.get?.(beat.trigger.room)
+      ?? world.standIdsByRoom?.[beat.trigger.room];
+    if (standIds && !standIds.has(beat.trigger.stand)) {
+      add("trigger.stand", "Choose a stand that exists in the selected room.");
+    }
   }
   if (beat.trigger.exteriorNode && !world.exteriorNodeIds.has(beat.trigger.exteriorNode)) {
     add("trigger.exteriorNode", "Choose an existing exterior node.");

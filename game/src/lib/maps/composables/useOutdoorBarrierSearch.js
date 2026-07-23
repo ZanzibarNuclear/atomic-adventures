@@ -1,8 +1,13 @@
-import { BARRIER_OPENING_KINDS } from "../travel/barrierContext.js";
 import {
-  barrierKindForOpening,
+  BARRIER_OPENING_KINDS,
+  isWaterBarrier,
+} from "../travel/barrierContext.js";
+import {
   hiddenOpeningsInHex,
+  openingMatchesBarrierKind,
 } from "./useBarrierOpenings.js";
+
+const SEARCHABLE_BARRIER_KINDS = ["fence", "stream", "river"];
 
 export function useOutdoorBarrierSearch({
   state,
@@ -10,25 +15,21 @@ export function useOutdoorBarrierSearch({
   travelBarrierCtx,
   size,
   hexAtPoint,
+  hexById = null,
 }) {
   function markOpeningDiscovered(openingId) {
     if (!openingId || state.discoveredOpenings.includes(openingId)) return;
     state.discoveredOpenings = [...state.discoveredOpenings, openingId];
   }
 
-  function searchableOpenings() {
-    const hexId = state.currentId;
-    const hidden = hiddenOpeningsInHex(
-      editableFeatures.value,
-      hexId,
-      state.discoveredOpenings,
-    );
-    if (!hidden.length) return [];
-    const barrier = currentBarrierKind();
-    if (barrier) {
-      return hidden.filter((f) => barrierKindForOpening(f.kind) === barrier);
-    }
-    return hidden;
+  function currentHex() {
+    if (!hexById) return null;
+    const map = hexById.value ?? hexById;
+    return map?.[state.currentId] ?? null;
+  }
+
+  function barrierSearchSuppressed() {
+    return Boolean(currentHex()?.suppressBarrierSearch);
   }
 
   function currentBarrierKind() {
@@ -55,37 +56,71 @@ export function useOutdoorBarrierSearch({
     return false;
   }
 
-  function discoveredFenceOpeningInCurrentHex() {
+  function discoveredOpeningOfKindInCurrentHex(barrierKind) {
     const discovered = new Set(state.discoveredOpenings);
     return editableFeatures.value.some(
       (f) =>
         f.hex === state.currentId &&
         BARRIER_OPENING_KINDS.has(f.kind) &&
-        barrierKindForOpening(f.kind) === "fence" &&
+        openingMatchesBarrierKind(f.kind, barrierKind) &&
         discovered.has(f.id),
     );
   }
 
-  function canSearchHere() {
-    const barrier = currentBarrierKind();
-    return (
-      searchableOpenings().length > 0 ||
-      barrier === "fence" ||
-      barrier === "river" ||
-      (barrierCutsCurrentHex("fence") && !discoveredFenceOpeningInCurrentHex())
+  function searchableOpenings(kind = null) {
+    const hexId = state.currentId;
+    const hidden = hiddenOpeningsInHex(
+      editableFeatures.value,
+      hexId,
+      state.discoveredOpenings,
     );
+    const targetKind = kind ?? currentBarrierKind();
+    if (targetKind) {
+      return hidden.filter((f) => openingMatchesBarrierKind(f.kind, targetKind));
+    }
+    return hidden;
   }
 
-  function searchBarrier() {
-    const found = searchableOpenings();
+  function canSearchBarrierKind(kind) {
+    if (barrierSearchSuppressed()) return false;
+    if (!SEARCHABLE_BARRIER_KINDS.includes(kind)) return false;
+    if (currentBarrierKind() === kind) return true;
+    if (barrierCutsCurrentHex(kind) && !discoveredOpeningOfKindInCurrentHex(kind)) {
+      return true;
+    }
+    // Fence openings always enable a fence search in the hex.
+    if (kind === "fence" && searchableOpenings("fence").length > 0) return true;
+    // Water openings (ford/bridge) only enable the water kind that is present.
+    if (isWaterBarrier(kind) && searchableOpenings(kind).length > 0) {
+      return barrierCutsCurrentHex(kind) || currentBarrierKind() === kind;
+    }
+    return false;
+  }
+
+  function availableSearchKinds() {
+    if (barrierSearchSuppressed()) return [];
+    return SEARCHABLE_BARRIER_KINDS.filter((kind) => canSearchBarrierKind(kind));
+  }
+
+  function canSearchHere() {
+    return availableSearchKinds().length > 0;
+  }
+
+  function resolveSearchKind(kind = null) {
+    if (kind && SEARCHABLE_BARRIER_KINDS.includes(kind)) return kind;
+    const current = currentBarrierKind();
+    if (current && canSearchBarrierKind(current)) return current;
+    return availableSearchKinds()[0] ?? null;
+  }
+
+  function searchBarrier(kind = null) {
+    const searchKind = resolveSearchKind(kind);
+    const found = searchKind ? searchableOpenings(searchKind) : [];
     for (const f of found) {
       markOpeningDiscovered(f.id);
     }
-    const kind = currentBarrierKind() ??
-      found.map((f) => barrierKindForOpening(f.kind)).find(Boolean) ??
-      (barrierCutsCurrentHex("fence") ? "fence" : null);
     state.lastSearch = {
-      kind,
+      kind: searchKind,
       found: found.map((f) => f.id),
       foundKinds: found.map((f) => f.kind),
     };
@@ -95,6 +130,8 @@ export function useOutdoorBarrierSearch({
   return {
     markOpeningDiscovered,
     canSearchHere,
+    canSearchBarrierKind,
+    availableSearchKinds,
     searchBarrier,
     searchableOpenings,
     barrierCutsCurrentHex,

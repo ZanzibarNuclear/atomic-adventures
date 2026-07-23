@@ -1,20 +1,26 @@
 /**
- * Stand positions beside barriers — shared by fence stops, river banks, cliffs, ravines.
+ * Stand positions beside barriers — shared by fence stops, stream/river banks,
+ * cliffs, ravines.
  */
 
 /** Default pixel inset from a barrier line per kind. */
 export const BARRIER_STAND_INSET = {
   fence: 5,
+  stream: 8,
   river: 8,
   cliff: 5,
   ravine: 5,
 }
 
-/** Max distance from a barrier line to count as "at" a river bank (status / crossings). */
-export const RIVER_BANK_MAX_DIST = BARRIER_STAND_INSET.river * 3
+/** Max distance from a watercourse bank to count as "at" it (status / crossings). */
+export const RIVER_BANK_MAX_DIST = BARRIER_STAND_INSET.stream * 3
 
 /** Max distance from a fence segment to count as "at" the fence line. */
 export const FENCE_LINE_MAX_DIST = BARRIER_STAND_INSET.fence * 4
+
+function isWatercourseKind(kind) {
+  return kind === "stream" || kind === "river"
+}
 
 function distToSegment(px, py, ax, ay, bx, by) {
   const dx = bx - ax
@@ -24,6 +30,10 @@ function distToSegment(px, py, ax, ay, bx, by) {
   let t = ((px - ax) * dx + (py - ay) * dy) / lenSq
   t = Math.max(0, Math.min(1, t))
   return Math.hypot(px - (ax + t * dx), py - (ay + t * dy))
+}
+
+function maxDistForBarrierKind(kind) {
+  return isWatercourseKind(kind) ? RIVER_BANK_MAX_DIST : FENCE_LINE_MAX_DIST
 }
 
 /** Shortest distance from a point to any segment of `kind`. */
@@ -40,9 +50,7 @@ export function distToBarrierKind(pos, kind, barriers) {
 export function isNearBarrierKind(pos, kind, barriers, maxDist) {
   const d = distToBarrierKind(pos, kind, barriers)
   if (d == null) return false
-  const limit =
-    maxDist ??
-    (kind === 'river' ? RIVER_BANK_MAX_DIST : FENCE_LINE_MAX_DIST)
+  const limit = maxDist ?? maxDistForBarrierKind(kind)
   return d <= limit
 }
 
@@ -65,8 +73,8 @@ function nearFenceSegment(pos, seg, maxDist) {
  */
 export function barrierHintAtStand(stand, barriers) {
   let best = null
-  for (const kind of ['fence', 'river']) {
-    const maxDist = kind === 'river' ? RIVER_BANK_MAX_DIST : FENCE_LINE_MAX_DIST
+  for (const kind of ['fence', 'stream', 'river']) {
+    const maxDist = maxDistForBarrierKind(kind)
     let d = null
     for (const seg of barriers ?? []) {
       if (seg.kind !== kind) continue

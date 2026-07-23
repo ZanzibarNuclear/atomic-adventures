@@ -431,7 +431,7 @@ export function useOutdoorBuilderSelection({
   }
 
   function addCascade() {
-    if (selected.value?.kind !== "river") return;
+    if (selected.value?.kind !== "stream" && selected.value?.kind !== "river") return;
     selected.value.cascades ??= [];
     selected.value.cascades.push({
       id: uniqueId("new-cascade", selected.value.cascades),

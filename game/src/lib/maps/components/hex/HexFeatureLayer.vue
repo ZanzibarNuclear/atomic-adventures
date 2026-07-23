@@ -29,6 +29,7 @@ defineEmits(['select'])
   pointer-events: none;
 }
 .feature.selectable { pointer-events: stroke; cursor: pointer; }
+.feature-stream,
 .feature-river {
   stroke: #4a90d9;
   stroke-width: 5;

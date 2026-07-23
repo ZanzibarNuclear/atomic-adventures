@@ -46,6 +46,28 @@ tests, implementation map, and this list in the same change.
 - Expand close-up stage kinds for documents, lessons, consoles, and
   simulations as Part I content starts using them.
 
+## Station Electrical Grid
+
+- Author `loadW` (and optional critical flags) on room lighting and drawing
+  devices; warn when missing once balance is active.
+- Aggregate station load vs hydro (and later storage) available supply; expose
+  margin on the control panel.
+- Deterministic brownout/shed for deficit; player-visible warnings and forced
+  noncritical load off.
+- Optional storage buffer state and discharge into the station bus.
+- See [station-electrical-grid.md](station-electrical-grid.md).
+
+## Room Fixtures (Kitchen First)
+
+- Author `rooms[].fixtures` (stove, sink, water-purifier, induction-hot-pot)
+  in World Builder with stand reach and kind-specific controls.
+- Runtime fixture state (burners, sink flow, purifier tablet/fill/stage).
+- Kitchen minimum: move meals/boxes in and out of cabinet holders; run sink
+  water; add tablet and fill purifier; grant purified water via effects.
+- Catalog: Tastee Tack meals, meal boxes (containers), utensils, purifier
+  tablets.
+- See [room-fixtures.md](room-fixtures.md).
+
 ## Holo-Reader Lessons
 
 - Add the `learning-main` content document, repository, validation, API,

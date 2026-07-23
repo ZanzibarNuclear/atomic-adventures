@@ -100,7 +100,7 @@ export class StoryRepository {
   listBeats(areaId, { full = false } = {}) {
     const rows = this.db.prepare(`
       SELECT area_id, id, sort_order, trigger_place, trigger_hex, trigger_room,
-        trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
+        trigger_stand, trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
         eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json,
         modes_json, story_beat, match_json, time_json,
         version, created_at, updated_at
@@ -121,7 +121,7 @@ export class StoryRepository {
   getBeat(areaId, beatId) {
     const row = this.db.prepare(`
       SELECT area_id, id, sort_order, trigger_place, trigger_hex, trigger_room,
-        trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
+        trigger_stand, trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
         eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json,
         modes_json, story_beat, match_json, time_json,
         version, created_at, updated_at
@@ -555,14 +555,14 @@ export class StoryRepository {
     this.db.prepare(`
       INSERT INTO story_beats(
         area_id, id, sort_order, trigger_place, trigger_hex, trigger_room,
-        trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
+        trigger_stand, trigger_exterior_node, trigger_event, trigger_flag, once_value, acknowledge,
         eyebrow, heading, text, revisit, require_all, require_any, require_not, require_json,
         modes_json, story_beat, match_json, time_json,
         version, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       areaId, beat.id, Number.isFinite(Number(beat.sortOrder)) ? Number(beat.sortOrder) : 0, beat.trigger.place, beat.trigger.hex, beat.trigger.room,
-      beat.trigger.exteriorNode, beat.trigger.event, beat.trigger.flag,
+      beat.trigger.stand, beat.trigger.exteriorNode, beat.trigger.event, beat.trigger.flag,
       Number(beat.once), 1, beat.eyebrow, beat.heading,
       beat.text, beat.revisit,
       JSON.stringify([]),
@@ -620,6 +620,7 @@ export class StoryRepository {
         place: row.trigger_place,
         hex: row.trigger_hex,
         room: row.trigger_room,
+        stand: row.trigger_stand,
         exteriorNode: row.trigger_exterior_node,
         event: row.trigger_event,
         flag: row.trigger_flag,

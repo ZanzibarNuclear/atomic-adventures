@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from "vue";
-import { publicAssetPath } from "../../lib/maps/locationMedia.js";
+import { describeViewWhen, publicAssetPath } from "../../lib/maps/locationMedia.js";
 
 const props = defineProps({
   views: { type: Array, default: () => [] },
@@ -14,6 +14,7 @@ const imageViews = computed(() =>
       ...view,
       label: view.label || view.id || "Location view",
       alt: view.alt || view.label || view.id || "Location view",
+      whenLabel: describeViewWhen(view.when),
     })),
 );
 </script>
@@ -28,6 +29,7 @@ const imageViews = computed(() =>
           <div>
             <strong>{{ view.label }}</strong>
             <span>{{ view.id }} / {{ view.src }}</span>
+            <span class="when-line">{{ view.whenLabel }}</span>
             <p v-if="view.alt">{{ view.alt }}</p>
           </div>
         </article>
@@ -85,6 +87,9 @@ const imageViews = computed(() =>
   color: #9da7b5;
   font-size: .72rem;
   overflow-wrap: anywhere;
+}
+.location-view-card .when-line {
+  color: #b7c4a3;
 }
 .location-view-card p {
   color: #bdc4ce;

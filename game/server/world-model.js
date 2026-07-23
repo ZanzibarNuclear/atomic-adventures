@@ -44,6 +44,11 @@ function normalizeHexStands(hex) {
   }
   hex.stands?.forEach(normalizeLocationViews);
   delete hex.standAt;
+  if (hex.suppressBarrierSearch) {
+    hex.suppressBarrierSearch = true;
+  } else {
+    delete hex.suppressBarrierSearch;
+  }
 }
 
 export function validateWorld(input) {
@@ -186,7 +191,7 @@ function validateCollection(items, path, hexIds, errors, warnings, options = {})
         add(`${base}.points.${pointIndex}`, "Use either an existing hex anchor or numeric x/y coordinates.");
       }
     });
-    if (item.kind === "river") {
+    if (item.kind === "stream" || item.kind === "river") {
       (item.cascades ?? []).forEach((cascade, cascadeIndex) => {
         if (!cascade || typeof cascade !== "object") {
           add(`${base}.cascades.${cascadeIndex}`, "Cascade entries must be objects.");
@@ -208,7 +213,7 @@ function validateCollection(items, path, hexIds, errors, warnings, options = {})
         }
       });
     } else if (item.cascades?.length) {
-      add(`${base}.cascades`, "Only river features can have cascades.");
+      add(`${base}.cascades`, "Only stream and river features can have cascades.");
     }
     if (item.points?.length > 60) {
       warnings.push({ path: `${base}.points`, message: "This line has many control points and may be difficult to edit." });

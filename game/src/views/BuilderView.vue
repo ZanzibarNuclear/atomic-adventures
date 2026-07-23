@@ -624,7 +624,15 @@ async function selectSceneLocation(scene) {
 }
 
 function emptyBeat() {
-  const trigger = { place: null, hex: null, room: null, exteriorNode: null, event: null, flag: null };
+  const trigger = {
+    place: null,
+    hex: null,
+    room: null,
+    stand: null,
+    exteriorNode: null,
+    event: null,
+    flag: null,
+  };
   if (locationMode.value === "outdoors") Object.assign(trigger, { place: "outdoors", hex: selectedLocation.value });
   if (locationMode.value === "rooms") Object.assign(trigger, { place: "indoors", room: selectedLocation.value });
   if (locationMode.value === "exterior") Object.assign(trigger, { place: "indoors", exteriorNode: selectedLocation.value });

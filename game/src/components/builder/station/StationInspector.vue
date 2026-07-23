@@ -53,6 +53,7 @@ const editing = ref(false);
 const selectedArtifactItemId = ref("");
 const placementFormOpen = ref(false);
 const editingPlacementId = ref("");
+const nestedDrill = ref(false);
 
 watch(
   () => `${props.selection?.source ?? ""}:${props.selection?.id ?? ""}`,
@@ -61,6 +62,7 @@ watch(
     placementFormOpen.value = false;
     selectedArtifactItemId.value = "";
     editingPlacementId.value = "";
+    nestedDrill.value = false;
   },
 );
 
@@ -545,7 +547,7 @@ function removePlacement(placementId) {
         </div>
       </section>
 
-      <div v-if="editing" class="edit-toolbar">
+      <div v-if="editing && !nestedDrill" class="edit-toolbar">
         <div class="row-actions object-actions">
           <button class="sm muted" :disabled="fixedSelectionSources.has(selection.source)" @click="emit('rename-selected')">Rename</button>
           <button class="sm muted" :disabled="fixedSelectionSources.has(selection.source)" @click="emit('duplicate-selected')">Duplicate object</button>
@@ -557,6 +559,7 @@ function removePlacement(placementId) {
         v-if="editing && selection.source === 'rooms'"
         :draft="draft"
         :selection="selection"
+        @drill-change="nestedDrill = $event"
       />
 
       <DoorInspector
@@ -605,6 +608,7 @@ function removePlacement(placementId) {
         v-else-if="editing && selection.source === 'stands'"
         :draft="draft"
         :selection="selection"
+        @drill-change="nestedDrill = $event"
       />
 
       <SwitchInspector
@@ -616,7 +620,7 @@ function removePlacement(placementId) {
     <p v-else class="empty-note">Select a room, door, path, node, or transition.</p>
 
     <StationInventoryAuthoring
-      v-if="editing && selection?.source === 'rooms'"
+      v-if="editing && selection?.source === 'rooms' && !nestedDrill"
       :draft="draft"
       :character-catalog="characterCatalog"
       :selection="selection"

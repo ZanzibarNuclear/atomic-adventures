@@ -42,7 +42,7 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, onBeforeUnmount, watch } from "vue";
 import { displayLabel, roomLabel } from "../../displayLabel.js";
 import IndoorMapStage from "../components/IndoorMapStage.vue";
 import LocationStageFrame from "../../../components/game-views/LocationStageFrame.vue";
@@ -57,9 +57,15 @@ import {
   buildIndoorChooseActions,
   buildIndoorPlayActions,
   buildIndoorStatusLines,
+  formatNearbyReachableItemsMessage,
   handleIndoorChooseAction,
   handleIndoorPlayAction,
+  nearbyReachableItemsSignature,
 } from "../../../composables/usePlayPanel.js";
+import {
+  clearPlayMessages,
+  pushPlayMessage,
+} from "../../../composables/usePlayMessages.js";
 import {
   filterAllowedActions,
   isActionAllowed,
@@ -86,6 +92,8 @@ const emit = defineEmits([
   "hide-movement-audit",
   "extra-action",
   "stage-view",
+  "look-in-holding",
+  "inspect-container-group",
   "show-location-map",
   "show-location-image",
   "previous-location-image",
@@ -105,6 +113,30 @@ const chooseActions = computed(() =>
   buildIndoorChooseActions(props.indoor, props.pendingBeat),
 );
 
+watch(
+  () => props.indoor.indoor?.currentRoom ?? null,
+  () => {
+    clearPlayMessages("action");
+  },
+);
+
+watch(
+  () => nearbyReachableItemsSignature(props.indoor),
+  () => {
+    clearPlayMessages("nearby-items");
+    const message = formatNearbyReachableItemsMessage(props.indoor);
+    if (message) {
+      pushPlayMessage(message, { source: "nearby-items", tone: "notice" });
+    }
+  },
+  { immediate: true },
+);
+
+onBeforeUnmount(() => {
+  clearPlayMessages("action");
+  clearPlayMessages("nearby-items");
+});
+
 const statusLines = computed(() =>
   buildIndoorStatusLines(props.indoor, props.wellbeingOverview),
 );
@@ -122,6 +154,13 @@ const filteredActions = computed(() =>
   filterAllowedActions(actions.value, props.actionPolicy),
 );
 
+function publishActionNotice(result) {
+  clearPlayMessages("action");
+  if (result?.notice) {
+    pushPlayMessage(result.notice, { source: "action", tone: "notice" });
+  }
+}
+
 function onAction(id) {
   if (!filteredActions.value.some((action) => action.id === id)) return;
   if (props.extraActions.some((action) => action.id === id)) {
@@ -129,6 +168,7 @@ function onAction(id) {
     return;
   }
   if (id.startsWith("story:")) {
+    clearPlayMessages("action");
     handleIndoorChooseAction(
       props.indoor,
       props.applyChoice,
@@ -138,7 +178,10 @@ function onAction(id) {
     return;
   }
   const result = handleIndoorPlayAction(props.indoor, id);
+  publishActionNotice(result);
   if (result?.view) emit("stage-view", result.view);
+  if (result?.lookIn) emit("look-in-holding", result.lookIn);
+  if (result?.inspectGroup) emit("inspect-container-group", result.inspectGroup);
 }
 
 const mapStageProps = computed(() => ({

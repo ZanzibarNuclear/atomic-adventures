@@ -3,7 +3,7 @@
  */
 
 import { resolveWaypoint } from './useRoutes.js'
-import { BARRIER_OPENING_KINDS } from './useTravelBarriers.js'
+import { BARRIER_OPENING_KINDS, isWaterBarrier } from './useTravelBarriers.js'
 import { passageRequirementSatisfied } from './usePassageState.js'
 
 function distToSegment(px, py, ax, ay, bx, by) {
@@ -55,8 +55,17 @@ export function openingVisibility(feature) {
 
 export function barrierKindForOpening(kind) {
   if (kind === 'gate' || kind === 'hole') return 'fence'
-  if (kind === 'bridge' || kind === 'ford') return 'river'
+  // Canonical water association; stream and river share bridge/ford openings.
+  if (kind === 'bridge' || kind === 'ford') return 'stream'
   return null
+}
+
+/** True when an opening kind can cross the given barrier kind. */
+export function openingMatchesBarrierKind(openingKind, barrierKind) {
+  const mapped = barrierKindForOpening(openingKind)
+  if (!mapped || !barrierKind) return false
+  if (mapped === barrierKind) return true
+  return isWaterBarrier(mapped) && isWaterBarrier(barrierKind)
 }
 
 /** Barrier kind for a search action — from player state or hidden openings in hex. */
@@ -67,15 +76,43 @@ export function searchBarrierKind({ openings = [], atBarrier = null, lastBlocked
     openings.map((f) => barrierKindForOpening(f.kind)).filter(Boolean),
   )
   if (kinds.has('fence')) return 'fence'
+  if (kinds.has('stream')) return 'stream'
   if (kinds.has('river')) return 'river'
   return null
 }
 
 export function searchActionLabel(opts) {
-  const kind = searchBarrierKind(opts)
+  const kind = typeof opts === 'string' ? opts : searchBarrierKind(opts)
   if (kind === 'fence') return 'Inspect the fence'
+  if (kind === 'stream') return 'Search the streambank'
   if (kind === 'river') return 'Search the riverbank'
   return 'Search carefully'
+}
+
+/**
+ * Player-facing result line after an outdoor barrier search.
+ * Returns null when there is no recorded search to describe.
+ */
+export function describeBarrierSearchResult(lastSearch) {
+  if (!lastSearch?.kind) return null
+  const foundKinds = lastSearch.foundKinds ?? []
+  const waterName = lastSearch.kind === 'river' ? 'river' : 'stream'
+  if (foundKinds.includes('hole')) {
+    return 'On closer inspection, you have found a hole in the fence.'
+  }
+  if (foundKinds.includes('ford')) {
+    return `You find a shallow ford across the ${waterName}.`
+  }
+  if (foundKinds.includes('bridge')) {
+    return `You notice a bridge spanning the ${waterName}.`
+  }
+  if (lastSearch.kind === 'fence') {
+    return 'You see a sturdy fence covered in ivy.'
+  }
+  if (isWaterBarrier(lastSearch.kind)) {
+    return `You search the ${waterName}bank carefully, but find no safe place to cross.`
+  }
+  return 'You search carefully, but find nothing new.'
 }
 
 /** Resolve opening anchor to world pixels (hex-anchored or raw x/y). */

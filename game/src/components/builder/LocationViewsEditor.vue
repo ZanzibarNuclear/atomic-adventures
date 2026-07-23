@@ -1,19 +1,27 @@
 <script setup>
 import { computed, ref, watch } from "vue";
 import PublicImagePicker from "../character-builder/PublicImagePicker.vue";
-import { publicAssetPath } from "../../lib/maps/locationMedia.js";
+import {
+  describeViewWhen,
+  normalizeViewWhen,
+  publicAssetPath,
+} from "../../lib/maps/locationMedia.js";
 
 const props = defineProps({
   owner: { type: Object, required: true },
   title: { type: String, default: "Location views" },
+  /** Label used on the drill-out control, e.g. "Room" or "Hex". */
+  parentLabel: { type: String, default: "details" },
 });
+
+const emit = defineEmits(["drill-change"]);
 
 let nextEditorKey = 1;
 const editorKeys = new WeakMap();
 const editingIndex = ref(null);
 const editingDraft = ref(null);
 
-const editing = computed(() => editingDraft.value !== null);
+const drilledIn = computed(() => editingDraft.value !== null);
 const editingTitle = computed(() => {
   if (!editingDraft.value) return "Location view";
   return editingIndex.value === null
@@ -44,6 +52,50 @@ function uniqueViewId() {
   return id;
 }
 
+function defaultWhenDraft() {
+  return {
+    stationPower: "",
+    roomLights: "",
+    allText: "",
+    anyText: "",
+    notText: "",
+    passage: "",
+    open: true,
+  };
+}
+
+function whenToDraft(when) {
+  const normalized = normalizeViewWhen(when) ?? {};
+  return {
+    stationPower: normalized.stationPower ?? "",
+    roomLights: normalized.roomLights ?? "",
+    allText: (normalized.all ?? []).join(", "),
+    anyText: (normalized.any ?? []).join(", "),
+    notText: (normalized.not ?? []).join(", "),
+    passage: normalized.passage ?? "",
+    open: typeof normalized.open === "boolean" ? normalized.open : true,
+  };
+}
+
+function draftToWhen(draft) {
+  return normalizeViewWhen({
+    stationPower: draft.stationPower || null,
+    roomLights: draft.roomLights || null,
+    all: splitFlagList(draft.allText),
+    any: splitFlagList(draft.anyText),
+    not: splitFlagList(draft.notText),
+    passage: draft.passage || null,
+    open: draft.passage ? Boolean(draft.open) : null,
+  });
+}
+
+function splitFlagList(text) {
+  return String(text ?? "")
+    .split(/[\n,]+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
 function defaultViewDraft() {
   return {
     id: uniqueViewId(),
@@ -51,36 +103,57 @@ function defaultViewDraft() {
     src: "",
     label: "",
     alt: "",
+    whenDraft: defaultWhenDraft(),
   };
 }
 
 function cloneView(view) {
   return {
     ...defaultViewDraft(),
-    ...(view ?? {}),
+    id: view?.id || uniqueViewId(),
+    kind: view?.kind || "image",
+    src: view?.src || "",
+    label: view?.label || "",
+    alt: view?.alt || "",
+    whenDraft: whenToDraft(view?.when),
   };
+}
+
+function setDrilled(next) {
+  emit("drill-change", Boolean(next));
 }
 
 function addView() {
   editingIndex.value = null;
   editingDraft.value = defaultViewDraft();
+  setDrilled(true);
 }
 
-function editView(index) {
+function openView(index) {
   const view = props.owner.views?.[index];
   if (!view) return;
   editingIndex.value = index;
   editingDraft.value = cloneView(view);
+  setDrilled(true);
 }
 
 function cancelEdit() {
   editingIndex.value = null;
   editingDraft.value = null;
+  setDrilled(false);
 }
 
 function applyEdit() {
   if (!editingDraft.value) return;
-  const nextView = { ...editingDraft.value };
+  const when = draftToWhen(editingDraft.value.whenDraft);
+  const nextView = {
+    id: editingDraft.value.id,
+    kind: editingDraft.value.kind || "image",
+    src: editingDraft.value.src,
+    label: editingDraft.value.label,
+    alt: editingDraft.value.alt,
+    ...(when ? { when } : {}),
+  };
   if (editingIndex.value === null) {
     ensureViews().push(nextView);
   } else if (props.owner.views?.[editingIndex.value]) {
@@ -108,6 +181,10 @@ function moveView(index, delta) {
   else if (editingIndex.value === next) editingIndex.value = index;
 }
 
+function conditionLabel(view) {
+  return describeViewWhen(view?.when);
+}
+
 watch(
   () => props.owner,
   () => cancelEdit(),
@@ -115,11 +192,106 @@ watch(
 </script>
 
 <template>
-  <section class="form-section">
+  <!-- Drill-in: only the focused view fills the inspector -->
+  <section v-if="drilledIn" class="location-views-drill form-section">
+    <div class="drill-toolbar">
+      <button type="button" class="sm muted back-btn" @click="cancelEdit">
+        ← Back to {{ parentLabel }}
+      </button>
+    </div>
+    <header class="editor-heading">
+      <div>
+        <p class="label">{{ title }}</p>
+        <h3>{{ editingTitle }}</h3>
+      </div>
+    </header>
+
+    <form class="view-editor-panel" @submit.prevent="applyEdit">
+      <div class="field-grid">
+        <label>ID<input v-model="editingDraft.id" placeholder="conference-room-dark" /></label>
+        <label>Kind<input v-model="editingDraft.kind" placeholder="image" /></label>
+      </div>
+      <label>Label<input v-model="editingDraft.label" placeholder="Conference room (dark)" /></label>
+      <PublicImagePicker
+        v-model="editingDraft.src"
+        folder="views"
+        placeholder="views/..."
+        label="Image asset"
+      />
+      <label>Alt text<textarea v-model="editingDraft.alt" rows="2" /></label>
+
+      <fieldset class="when-fieldset">
+        <legend>Show when</legend>
+        <p class="help-note">
+          Leave blank to always include this image. All filled conditions must match.
+        </p>
+        <label>
+          Station power
+          <select v-model="editingDraft.whenDraft.stationPower">
+            <option value="">Any</option>
+            <option value="online">Online</option>
+            <option value="offline">Offline</option>
+          </select>
+        </label>
+        <label>
+          Room lights (power + switch)
+          <select v-model="editingDraft.whenDraft.roomLights">
+            <option value="">Any</option>
+            <option value="on">On (powered and switch closed)</option>
+            <option value="off">Off</option>
+          </select>
+        </label>
+        <label>
+          Flags required (all)
+          <input
+            v-model="editingDraft.whenDraft.allText"
+            placeholder="room.conference.lights-on, hub.example"
+          />
+        </label>
+        <label>
+          Flags any-of
+          <input
+            v-model="editingDraft.whenDraft.anyText"
+            placeholder="optional, comma-separated"
+          />
+        </label>
+        <label>
+          Flags excluded (not)
+          <input
+            v-model="editingDraft.whenDraft.notText"
+            placeholder="room.conference.lights-on"
+          />
+        </label>
+        <div class="field-grid">
+          <label>
+            Passage id (outdoor)
+            <input v-model="editingDraft.whenDraft.passage" placeholder="compound-gate" />
+          </label>
+          <label class="checkbox-label">
+            Passage open
+            <input v-model="editingDraft.whenDraft.open" type="checkbox" :disabled="!editingDraft.whenDraft.passage" />
+          </label>
+        </div>
+        <p class="when-preview">Preview: {{ describeViewWhen(draftToWhen(editingDraft.whenDraft)) }}</p>
+      </fieldset>
+
+      <div class="editor-actions">
+        <button type="button" class="sm muted" @click="cancelEdit">Cancel</button>
+        <button type="submit" class="sm">Apply</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- List mode: views as navigable sub-items of the parent entity -->
+  <section v-else class="form-section location-views-panel">
     <div class="section-heading">
       <h4>{{ title }}</h4>
       <button type="button" class="sm" @click="addView">Add view</button>
     </div>
+
+    <p class="help-note">
+      Click a view to open it alone. Conditions control when the image is available in play.
+    </p>
 
     <p v-if="!(owner.views ?? []).length" class="empty-note">
       No location images yet.
@@ -130,8 +302,8 @@ watch(
         v-for="(view, index) in owner.views ?? []"
         :key="editorKey(view)"
         class="view-row"
-        :class="{ active: editingIndex === index }">
-        <button type="button" class="view-summary" @click="editView(index)">
+      >
+        <button type="button" class="view-summary" @click="openView(index)">
           <span class="view-thumb">
             <img v-if="view.src" :src="publicAssetPath(view.src)" :alt="view.alt || view.label || view.id || 'Location view'">
             <span v-else>No image</span>
@@ -140,7 +312,9 @@ watch(
             <strong>{{ view.label || view.id || `View ${index + 1}` }}</strong>
             <span>{{ view.id || "No ID" }}</span>
             <span>{{ view.src || "No image asset" }}</span>
+            <span class="when-line">{{ conditionLabel(view) }}</span>
           </span>
+          <span class="drill-chevron" aria-hidden="true">›</span>
         </button>
         <div class="row-actions">
           <button type="button" class="sm muted" :disabled="index === 0" @click="moveView(index, -1)">Up</button>
@@ -152,59 +326,26 @@ watch(
           >
             Down
           </button>
-          <button type="button" class="sm muted" @click="editView(index)">Edit</button>
+          <button type="button" class="sm muted" @click="openView(index)">Open</button>
           <button type="button" class="sm danger-outline" @click="removeView(index)">Remove</button>
         </div>
       </li>
     </ul>
-
-    <Teleport to="body">
-      <div
-        v-if="editing"
-        class="view-editor-backdrop"
-        role="dialog"
-        aria-modal="true"
-        :aria-label="editingTitle"
-        @click.self="cancelEdit">
-        <form class="view-editor-dialog" @submit.prevent="applyEdit">
-          <header class="editor-heading">
-            <div>
-              <p class="label">{{ title }}</p>
-              <h3>{{ editingTitle }}</h3>
-            </div>
-            <button
-              type="button"
-              class="icon-btn close-btn"
-              aria-label="Cancel editing"
-              @click="cancelEdit">
-              ×
-            </button>
-          </header>
-
-          <div class="field-grid">
-            <label>ID<input v-model="editingDraft.id" placeholder="doorway" /></label>
-            <label>Kind<input v-model="editingDraft.kind" placeholder="image" /></label>
-          </div>
-          <label>Label<input v-model="editingDraft.label" placeholder="Conference room doorway" /></label>
-          <PublicImagePicker
-            v-model="editingDraft.src"
-            folder="views"
-            placeholder="views/..."
-            label="Image asset"
-          />
-          <label>Alt text<textarea v-model="editingDraft.alt" rows="3" /></label>
-
-          <div class="editor-actions">
-            <button type="button" class="sm muted" @click="cancelEdit">Cancel</button>
-            <button type="submit" class="sm">Apply</button>
-          </div>
-        </form>
-      </div>
-    </Teleport>
   </section>
 </template>
 
 <style scoped>
+.location-views-panel,
+.location-views-drill {
+  display: grid;
+  gap: .65rem;
+}
+.help-note {
+  margin: 0;
+  color: #8e96a3;
+  font-size: .78rem;
+  line-height: 1.4;
+}
 .view-list {
   display: grid;
   gap: .5rem;
@@ -220,14 +361,10 @@ watch(
   border-radius: 8px;
   background: #171b22;
 }
-.view-row.active {
-  border-color: #7186aa;
-  background: #1d2532;
-}
 .view-summary {
   width: 100%;
   display: grid;
-  grid-template-columns: 5.5rem minmax(0, 1fr);
+  grid-template-columns: 5.5rem minmax(0, 1fr) 1.25rem;
   gap: .65rem;
   align-items: center;
   padding: 0;
@@ -236,6 +373,9 @@ watch(
   color: inherit;
   text-align: left;
   cursor: pointer;
+}
+.view-summary:hover .view-meta strong {
+  color: #fff;
 }
 .view-thumb {
   display: grid;
@@ -269,26 +409,27 @@ watch(
   font-size: .72rem;
   overflow-wrap: anywhere;
 }
-.view-editor-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 80;
-  display: grid;
-  place-items: center;
-  padding: 1.25rem;
-  background: rgba(5, 8, 13, 0.72);
+.when-line {
+  color: #b7c4a3 !important;
 }
-.view-editor-dialog {
-  width: min(44rem, 100%);
-  max-height: min(90vh, 52rem);
-  overflow: auto;
+.drill-chevron {
+  color: #8e96a3;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+.drill-toolbar {
+  display: flex;
+  align-items: center;
+}
+.back-btn {
+  justify-self: start;
+}
+.view-editor-panel {
   display: grid;
-  gap: .75rem;
-  padding: .9rem;
-  border: 1px solid #3f4b60;
-  border-radius: 8px;
-  background: #171b22;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, .45);
+  gap: .7rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 .editor-heading,
 .editor-actions {
@@ -308,23 +449,18 @@ watch(
 .editor-actions {
   justify-content: flex-end;
 }
-.close-btn {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 999px;
-  border: 1px solid #3a4558;
-  background: #222a36;
-  color: #eef1f5;
-  cursor: pointer;
-}
-.view-editor-dialog label {
+.view-editor-panel label,
+.when-fieldset label {
   display: grid;
   gap: .35rem;
   color: #bdc4ce;
   font-size: .8rem;
 }
-.view-editor-dialog input,
-.view-editor-dialog textarea {
+.view-editor-panel input,
+.view-editor-panel textarea,
+.view-editor-panel select,
+.when-fieldset input,
+.when-fieldset select {
   width: 100%;
   padding: .5rem;
   border: 1px solid #3a4558;
@@ -333,15 +469,41 @@ watch(
   color: #eef1f5;
   font: inherit;
 }
-.view-editor-dialog textarea {
+.view-editor-panel textarea {
   resize: vertical;
 }
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; }
+.when-fieldset {
+  display: grid;
+  gap: .55rem;
+  margin: 0;
+  padding: .65rem;
+  border: 1px solid #343d4d;
+  border-radius: 8px;
+}
+.when-fieldset legend {
+  padding: 0 .35rem;
+  color: #d5dbe5;
+  font-size: .8rem;
+}
+.checkbox-label {
+  align-content: end;
+}
+.checkbox-label input {
+  width: auto;
+  justify-self: start;
+}
+.when-preview {
+  margin: 0;
+  color: #b7c4a3;
+  font-size: .75rem;
+}
 .empty-note { margin: 0; color: #8e96a3; font-size: .82rem; }
 @media (max-width: 720px) {
   .view-summary,
   .field-grid {
     grid-template-columns: 1fr;
   }
+  .drill-chevron { display: none; }
 }
 </style>

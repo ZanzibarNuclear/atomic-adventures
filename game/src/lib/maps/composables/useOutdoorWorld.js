@@ -114,6 +114,8 @@ export function useOutdoorWorld(mapData, gameState = null) {
   const {
     markOpeningDiscovered,
     canSearchHere,
+    canSearchBarrierKind,
+    availableSearchKinds,
     searchBarrier: searchBarrierWithoutTime,
     searchableOpenings,
     barrierCutsCurrentHex,
@@ -123,10 +125,11 @@ export function useOutdoorWorld(mapData, gameState = null) {
     travelBarrierCtx,
     size,
     hexAtPoint,
+    hexById,
   });
 
-  function searchBarrier() {
-    const result = searchBarrierWithoutTime();
+  function searchBarrier(kind = null) {
+    const result = searchBarrierWithoutTime(kind);
     if (gameState?.clock && gameState?.character) {
       advanceGameTime(gameState, 20, "moderate");
     }
@@ -312,6 +315,8 @@ export function useOutdoorWorld(mapData, gameState = null) {
     markDiscovered,
     markOpeningDiscovered,
     canSearchHere,
+    canSearchBarrierKind,
+    availableSearchKinds,
     searchBarrier,
     searchableOpenings,
     barrierCutsCurrentHex,

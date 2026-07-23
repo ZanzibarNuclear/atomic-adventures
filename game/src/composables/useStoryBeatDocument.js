@@ -75,6 +75,7 @@ function normalizeForDirty(value) {
       place: nullableText(trigger.place),
       hex: nullableText(trigger.hex),
       room: nullableText(trigger.room),
+      stand: nullableText(trigger.stand),
       exteriorNode: nullableText(trigger.exteriorNode),
       event: nullableText(trigger.event),
       flag: nullableText(trigger.flag),

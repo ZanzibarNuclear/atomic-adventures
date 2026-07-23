@@ -7,6 +7,7 @@ const HEX_FILL_RATIO = 0.58
 const MIN_SPACING_RATIO = 0.15
 
 const FEATURE_BUFFER = {
+  stream: 13,
   river: 13,
   road: 11,
   drive: 10,

@@ -51,7 +51,9 @@ export function useOutdoorWorldModel(mapData) {
   );
 
   const rivers = computed(() =>
-    barrierSegments(featureModels.value).filter((s) => s.kind === "river"),
+    barrierSegments(featureModels.value).filter(
+      (s) => s.kind === "stream" || s.kind === "river",
+    ),
   );
 
   const hexCoordMap = computed(

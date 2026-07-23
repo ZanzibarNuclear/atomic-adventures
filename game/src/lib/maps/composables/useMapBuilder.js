@@ -10,7 +10,7 @@ import {
   hasLandmarkMarker,
 } from './useAvatarStand.js'
 
-const LINE_KINDS = new Set(['river', 'road', 'drive', 'fence', 'path', 'trail'])
+const LINE_KINDS = new Set(['stream', 'river', 'road', 'drive', 'fence', 'path', 'trail'])
 
 function round2(n) {
   return Math.round(n * 100) / 100
@@ -213,7 +213,7 @@ function serializeLine(line, indent) {
   for (const p of line.points ?? []) {
     lines.push(`${inner}  - ${fmtWaypoint(p)}`)
   }
-  if (line.kind === 'river' && line.cascades?.length) {
+  if ((line.kind === 'stream' || line.kind === 'river') && line.cascades?.length) {
     lines.push(`${inner}cascades:`)
     for (const cascade of line.cascades) {
       const parts = []
@@ -412,6 +412,7 @@ export function placementHandleColor(role) {
 
 export function lineKindColor(kind) {
   const colors = {
+    stream: '#4a90d9',
     river: '#4a90d9',
     road: '#8a8073',
     drive: '#9b917f',

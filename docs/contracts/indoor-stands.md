@@ -14,9 +14,13 @@ currentRoom: large-bay
 currentStand: stair:garage-stair:bottom
 ```
 
-Room-level story triggers, discovery, inventory, and actions continue to use
-`currentRoom`. A stand refines where the avatar appears and which local
-destination the player may choose; it does not create a new story room.
+Room-level discovery, inventory, and actions continue to use `currentRoom` as
+the primary location. A stand refines where the avatar appears, which nearby
+holders and pickups are in reach, and which **stand-scoped story scenes** may
+fire. See [story-beats.md](story-beats.md) for `trigger.stand`.
+
+A stand does not create a new story room. Room-only scenes still match while
+the player is anywhere in the room; stand scenes override them when present.
 
 ## Authored Stands
 
@@ -71,10 +75,20 @@ room. The runtime derives its position from the door and room geometry:
 - each side of a shared door gets its own room-local threshold;
 - derived IDs use `door:<door-id>`.
 
-Derived thresholds are not stored in content and do not need duplicate
-authoring. They are shown differently from authored stands in the World
-Builder. A later extension may support authored threshold overrides if a real
-layout demonstrates the need.
+Derived thresholds are not stored as separate stand records. Player-facing
+names come from the **door** authoring fields:
+
+| Field | Use |
+| --- | --- |
+| `doors[].label` | Shared name for open/close/lock actions **and** both automatic door stands |
+| `doors[].standLabels.<roomId>` | Optional per-side stand name when the two sides need different wording |
+
+Without either field, the runtime invents a short destination phrase (for
+example `stairway door` or `door to the kitchen`) instead of humanizing the
+door id (`conference-garage-stair` → "Conference Garage Stair").
+
+Door labels are edited on the door in World Builder. Thresholds are still shown
+differently from authored stands on the canvas.
 
 Artifacts and actions may reference a derived door threshold by using the
 room-local stand ID `door:<door-id>`. The `room` field chooses which side of

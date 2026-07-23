@@ -24,6 +24,10 @@ story-level simulation gates remain future contract work.
 This contract owns the hydro model and its boundary with the game. It does not
 own the visual console layout, chart components, building connectivity map, or
 general panel navigation. Those concerns live in [control-panel.md](control-panel.md).
+Station bus energization, indoor loads, light switches, load ratings, and
+generation-vs-consumption balance are defined in
+[station-electrical-grid.md](station-electrical-grid.md). Hydro supplies
+available generation to that bus model.
 
 The model starts from the simplified hydro equation used by the sibling
 `../welcome` simulator:

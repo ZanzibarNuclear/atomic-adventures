@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  evaluateViewWhen,
+  normalizeViewWhen,
   resolveIndoorLocationMedia,
   resolveOutdoorLocationMedia,
 } from "./locationMedia.js";
@@ -98,7 +100,7 @@ describe("location media resolution", () => {
   it("selects a location image that matches the gate's open state", () => {
     const outdoor = {
       size: 44,
-      state: { stand: { x: 0, y: 0 } },
+      state: { stand: { x: 0, y: 0 }, passageStates: { "compound-gate": true } },
       passageMarkerStates: { "compound-gate": true },
       currentHexData: {
         id: "gate-woods",
@@ -114,6 +116,61 @@ describe("location media resolution", () => {
     expect(resolveOutdoorLocationMedia(outdoor)).toMatchObject({
       views: [{ id: "open" }],
     });
+  });
+
+  it("filters indoor room images by effective room lights (power + switch)", () => {
+    const room = {
+      id: "conference",
+      views: [
+        {
+          id: "dark",
+          kind: "image",
+          src: "views/conference-room-lights-out.jpg",
+          when: { roomLights: "off" },
+        },
+        {
+          id: "lit",
+          kind: "image",
+          src: "views/conference-room-lights-on.jpg",
+          when: { roomLights: "on" },
+        },
+      ],
+    };
+    const indoor = {
+      indoor: {
+        currentRoom: "conference",
+        currentStand: null,
+        facility: { hydroOnline: true, lightSwitches: {} },
+      },
+      facility: { hydroOnline: true, lightSwitches: {} },
+      flags: new Set(["hub.hydro_online"]),
+      building: { roomById: { conference: room } },
+    };
+
+    // Power on, switch open → dark
+    expect(resolveIndoorLocationMedia(indoor).views.map((view) => view.id)).toEqual(["dark"]);
+
+    indoor.facility.lightSwitches = { conference: true };
+    indoor.indoor.facility.lightSwitches = { conference: true };
+    expect(resolveIndoorLocationMedia(indoor).views.map((view) => view.id)).toEqual(["lit"]);
+
+    indoor.facility.hydroOnline = false;
+    indoor.indoor.facility.hydroOnline = false;
+    indoor.flags = new Set();
+    expect(resolveIndoorLocationMedia(indoor).views.map((view) => view.id)).toEqual(["dark"]);
+  });
+
+  it("normalizes legacy passage when and facility online aliases", () => {
+    expect(normalizeViewWhen({ passage: "compound-gate", open: false })).toEqual({
+      passage: "compound-gate",
+      open: false,
+    });
+    expect(normalizeViewWhen({ facility: { "hydro.online": true }, all: ["a"] })).toEqual({
+      all: ["a"],
+      stationPower: "online",
+    });
+    expect(evaluateViewWhen({ stationPower: "offline" }, { stationPowerOnline: false })).toBe(true);
+    expect(evaluateViewWhen({ stationPower: "offline" }, { stationPowerOnline: true })).toBe(false);
   });
 
   it("ignores non-image and source-less views", () => {

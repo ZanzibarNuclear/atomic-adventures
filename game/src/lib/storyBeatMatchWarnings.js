@@ -1,15 +1,32 @@
 const PLAY_MODES = ["story", "open-world"];
 const STORY_SCOPE_ANY = "*";
 
+/**
+ * Warn when multiple *scenes* at the same location share the same match criteria
+ * and could truly compete for the same player context.
+ *
+ * Stand is part of the location key: a room-wide scene and a cabinets scene are
+ * complementary (stand wins when present), not a false collision.
+ */
 export function buildStoryBeatMatchWarnings(beats, { locationMode, selectedLocation } = {}) {
   const groups = new Map();
   for (const beat of beats ?? []) {
     const origin = originHexLabel(beat.match?.originHex);
     const mapTransition = beat.match?.mapTransition ?? "";
     const direction = beat.match?.transitionDirection ?? "";
+    const stand = standKey(beat.trigger);
     const time = timeCriteriaParts(beat.time).join(":");
     const flags = flagCriteriaParts(beat.conditions).join(":");
-    const key = `${locationMode}:${selectedLocation}:origin=${origin}:mapTransition=${mapTransition}:direction=${direction}:time=${time}:flags=${flags}`;
+    const key = [
+      locationMode,
+      selectedLocation,
+      `stand=${stand}`,
+      `origin=${origin}`,
+      `mapTransition=${mapTransition}`,
+      `direction=${direction}`,
+      `time=${time}`,
+      `flags=${flags}`,
+    ].join(":");
     const group = groups.get(key) ?? [];
     group.push(beat);
     groups.set(key, group);
@@ -22,14 +39,16 @@ export function buildStoryBeatMatchWarnings(beats, { locationMode, selectedLocat
       const origin = originHexLabel(group[0].match?.originHex);
       const mapTransition = group[0].match?.mapTransition;
       const direction = group[0].match?.transitionDirection;
+      const stand = standKey(group[0].trigger);
       const label = [
+        stand ? `stand ${stand}` : "whole room / no stand",
         origin ? `origin ${origin}` : "",
         mapTransition ? `map transition ${mapTransition}` : "",
         direction ? (direction === "toLocal" ? "to local map" : "to regional map") : "",
         timeCriteriaLabel(group[0].time),
         flagCriteriaLabel(group[0].conditions),
-      ].filter(Boolean).join(", ") || "default/no origin or map transition";
-      return `Multiple beats use ${label}: ${group.map((beat) => beat.id).join(", ")}. The first sorted beat wins.`;
+      ].filter(Boolean).join(", ") || "default criteria";
+      return `Multiple scenes use ${label}: ${group.map((beat) => beat.id).join(", ")}. The first sorted scene wins.`;
     });
 }
 
@@ -42,6 +61,11 @@ export function originHexLabel(value) {
         ? [value]
         : [];
   return origins.join("|");
+}
+
+function standKey(trigger = {}) {
+  const stand = trigger?.stand == null ? "" : String(trigger.stand).trim();
+  return stand || "";
 }
 
 function overlappingModeGroups(beats) {

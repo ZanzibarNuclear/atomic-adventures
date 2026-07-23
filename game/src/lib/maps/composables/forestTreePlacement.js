@@ -9,6 +9,7 @@ const TARGET_MAX = 7
 const HEX_FILL_RATIO = 0.52
 
 const FEATURE_BUFFER = {
+  stream: 15,
   river: 15,
   road: 14,
   drive: 12,
@@ -156,7 +157,7 @@ function placeTreesInHex(hex, center, size, rng, linearFeatures, circles, ellips
 
 /**
  * Deterministic forest scatter: minimum tree spacing plus clearance from
- * roads, rivers, trails, fences, gates, and landmark footprints.
+ * roads, streams/rivers, trails, fences, gates, and landmark footprints.
  */
 export function buildForestTrees({
   visibleHexes,

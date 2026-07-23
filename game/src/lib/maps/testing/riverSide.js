@@ -2,7 +2,9 @@ import { barrierXAtY } from '../composables/useBarrierStand.js'
 
 function riverX(pos, barriers) {
   return barrierXAtY(
-    (barriers ?? []).filter((segment) => segment.kind === 'river'),
+    (barriers ?? []).filter(
+      (segment) => segment.kind === 'stream' || segment.kind === 'river',
+    ),
     pos.y,
   )
 }

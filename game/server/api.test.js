@@ -233,7 +233,8 @@ describe("story API", () => {
     await api.handle(request("GET", "/api/character/public-images?folder=views"), viewImagesRes);
     const viewImages = JSON.parse(viewImagesRes.chunks.join(""));
     expect(viewImagesRes.status).toBe(200);
-    expect(viewImages.images).toContain("views/conference-room-cool-doorway.png");
+    expect(viewImages.images).toContain("views/conference-room-lights-on.jpg");
+    expect(viewImages.images).toContain("views/conference-room-lights-out.jpg");
 
     const storyArcDocumentRes = responseCapture();
     await api.handle(request("GET", "/api/story-arcs/document"), storyArcDocumentRes);

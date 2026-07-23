@@ -9,6 +9,7 @@ const props = defineProps({
   transferTargets: { type: Array, required: true },
   publicAssetPath: { type: Function, required: true },
   actionPolicy: { type: Object, default: null },
+  actionFeedback: { type: String, default: "" },
 });
 
 const emit = defineEmits(["select-holding", "transfer-item", "use-item"]);
@@ -33,6 +34,27 @@ const isContainerItem = computed(() =>
   props.selectedHolding?.type === "instance" &&
   props.holders.some((holder) => holder.id === `container:${props.selectedHolding.id}`),
 );
+
+/** Container instance sitting in the world (or vehicle), not carried. */
+const isInPlaceContainer = computed(() =>
+  isContainerItem.value && isWithinReach.value,
+);
+
+/** Contents of a container that is still on a fixed/vehicle/world surface. */
+const isInsideInPlaceContainer = computed(() => {
+  if (!isInsideContainer.value) return false;
+  const instanceId = String(props.selectedHolding?.holder?.id ?? "")
+    .replace(/^container:/, "");
+  if (!instanceId) return false;
+  for (const holder of props.holders) {
+    if (holder.kind === "container") continue;
+    const owns = (holder.records ?? []).some(
+      (record) => record.type === "instance" && record.id === instanceId,
+    );
+    if (owns) return ["fixed", "vehicle", "world"].includes(holder.kind);
+  }
+  return false;
+});
 
 const containerContents = computed(() => {
   const selected = props.selectedHolding;
@@ -88,42 +110,96 @@ const availableTransferTargets = computed(() => {
   const selectedId = props.selectedHolding?.id;
   if (!currentHolderId) return [];
 
+  let targets = [];
   if (isInsideContainer.value) {
-    return props.transferTargets
+    targets = props.transferTargets
       .filter((target) => target.kind === "character")
       .map((target) => ({ ...target, takeOut: true }));
+  } else {
+    const candidates = props.transferTargets.filter((target) => target.id !== currentHolderId);
+    if (!isHeldDirectly.value) {
+      if (!isWithinReach.value) return [];
+      targets = candidates
+        .filter((target) => target.kind === "character")
+        .map((target) => ({ ...target, pickUp: true }));
+    } else {
+      const surfaces = candidates
+        .filter((target) => target.kind === "fixed")
+        .filter((target) => acceptsItemKind(target, props.selectedHolding?.kind))
+        .map((target) => ({ ...target, putOnSurface: true }));
+      const includeFloor = surfaces.length !== 1;
+      const ordinaryTargets = candidates
+        .filter((target) => target.kind !== "fixed")
+        .filter((target) => includeFloor || target.kind !== "world")
+        .map((target) => {
+          if (target.kind === "world") return { ...target, putDown: true };
+          return target;
+        });
+      const containers = props.holders
+        .filter((holder) => holder.kind === "container" && holder.instance !== selectedId)
+        .map((holder) => ({
+          id: holder.id,
+          label: containerItemLabel(holder) ?? holder.label ?? holder.id,
+          kind: "container",
+          putIn: true,
+        }));
+      targets = [...surfaces, ...ordinaryTargets, ...containers];
+    }
   }
 
-  const targets = props.transferTargets.filter((target) => target.id !== currentHolderId);
-  if (!isHeldDirectly.value) {
-    if (!isWithinReach.value) return [];
-    return targets
-      .filter((target) => target.kind === "character")
-      .map((target) => ({ ...target, pickUp: true }));
-  }
-
-  const surfaces = targets
-    .filter((target) => target.kind === "fixed")
-    .filter((target) => acceptsItemKind(target, props.selectedHolding?.kind))
-    .map((target) => ({ ...target, putOnSurface: true }));
-  const includeFloor = surfaces.length !== 1;
-  const ordinaryTargets = targets
-    .filter((target) => target.kind !== "fixed")
-    .filter((target) => includeFloor || target.kind !== "world")
-    .map((target) => {
-      if (target.kind === "world") return { ...target, putDown: true };
-      return target;
-    });
-  const containers = props.holders
-    .filter((holder) => holder.kind === "container" && holder.instance !== selectedId)
-    .map((holder) => ({
-      id: holder.id,
-      label: containerItemLabel(holder) ?? holder.label ?? holder.id,
-      kind: "container",
-      putIn: true,
-    }));
-  return [...surfaces, ...ordinaryTargets, ...containers];
+  return expandStackTransferActions(targets, props.selectedHolding);
 });
+
+/**
+ * Stack transfers default to one item for take-out / pick-up / put-in.
+ * Full-stack moves remain available as an explicit "all" action.
+ */
+function expandStackTransferActions(targets, holding) {
+  const quantity = Math.max(1, Number(holding?.quantity) || 1);
+  const stackSplit = holding?.type === "stack" && quantity > 1;
+  return targets.flatMap((target) => {
+    if (!stackSplit) {
+      return [{
+        ...target,
+        quantity,
+        actionKey: `${target.id}:full`,
+        buttonLabel: transferLabel(target),
+      }];
+    }
+    if (target.takeOut || target.pickUp || target.putIn) {
+      const oneLabel = target.takeOut
+        ? "Take one"
+        : target.pickUp
+          ? "Pick up one"
+          : `Put one in ${target.label}`;
+      const allLabel = target.takeOut
+        ? `Take all (${quantity})`
+        : target.pickUp
+          ? `Pick up all (${quantity})`
+          : `Put all (${quantity}) in ${target.label}`;
+      return [
+        {
+          ...target,
+          quantity: 1,
+          actionKey: `${target.id}:one`,
+          buttonLabel: oneLabel,
+        },
+        {
+          ...target,
+          quantity,
+          actionKey: `${target.id}:all`,
+          buttonLabel: allLabel,
+        },
+      ];
+    }
+    return [{
+      ...target,
+      quantity,
+      actionKey: `${target.id}:full`,
+      buttonLabel: transferLabel(target),
+    }];
+  });
+}
 
 function transferLabel(target) {
   if (target.takeOut) return "Take out";
@@ -265,6 +341,12 @@ function closeToContainer() {
             <p v-if="selectedHolding.remaining != null" class="detail-meta">
               Remaining: {{ Math.round(Number(selectedHolding.remaining) * 100) }}%
             </p>
+            <p v-if="isInPlaceContainer" class="detail-meta in-place-note">
+              Still in place. Open the items below to take them without picking up the container.
+            </p>
+            <p v-else-if="isInsideInPlaceContainer" class="detail-meta in-place-note">
+              Inside a container within reach. Take items out — the container stays put.
+            </p>
           </div>
         </div>
 
@@ -275,7 +357,7 @@ function closeToContainer() {
           <div v-if="availableTransferTargets.length" class="item-actions">
             <button
               v-for="target in availableTransferTargets"
-              :key="target.id"
+              :key="target.actionKey"
               type="button"
               class="sm transfer-btn"
               :class="{
@@ -287,7 +369,7 @@ function closeToContainer() {
                 type: selectedHolding.type,
                 recordId: selectedHolding.id,
                 itemId: selectedHolding.item,
-                quantity: selectedHolding.quantity,
+                quantity: target.quantity,
                 toHolder: target.id,
               })">
               <svg
@@ -303,14 +385,14 @@ function closeToContainer() {
                   stroke-linecap="round"
                   stroke-linejoin="round" />
               </svg>
-              {{ transferLabel(target) }}
+              {{ target.buttonLabel }}
             </button>
           </div>
 
           <div v-if="visibleActions.length" class="item-actions">
             <button
               v-for="action in visibleActions"
-              :key="action.id"
+              :key="`${action.id}:${action.optionId ?? 'default'}`"
               type="button"
               class="sm"
               @click="$emit('use-item', {
@@ -323,11 +405,18 @@ function closeToContainer() {
               {{ action.buttonLabel }}
             </button>
           </div>
+          <p
+            v-if="actionFeedback"
+            class="action-feedback"
+            role="status">
+            {{ actionFeedback }}
+          </p>
         </div>
 
-        <section v-if="containerContents.length" class="container-contents">
-          <h4>Inside</h4>
-          <ul class="contents-list">
+        <section v-if="isContainerItem" class="container-contents">
+          <h4>{{ isInPlaceContainer ? "Inside (leave container in place)" : "Inside" }}</h4>
+          <p v-if="!containerContents.length" class="empty-contents">Empty.</p>
+          <ul v-else class="contents-list">
             <li v-for="item in containerContents" :key="holdingKey(item)">
               <button
                 type="button"
@@ -415,8 +504,23 @@ function closeToContainer() {
 }
 .item-card small,
 .empty-state,
-.detail-meta {
+.detail-meta,
+.empty-contents {
   color: #93a3bc;
+}
+.in-place-note {
+  color: #b7d4a8;
+  line-height: 1.4;
+}
+.empty-contents {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+}
+.action-feedback {
+  margin: 0.55rem 0 0;
+  color: #e8c48a;
+  font-size: 0.88rem;
+  line-height: 1.4;
 }
 .item-detail {
   align-self: start;

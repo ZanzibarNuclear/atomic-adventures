@@ -4,12 +4,21 @@ import { segmentIntersection, sideOfLine } from "../geometry/segments.js";
 /** Which point-feature kinds allow crossing each barrier kind. */
 export const BARRIER_OPENINGS = {
   fence: ["gate", "hole"],
+  stream: ["bridge", "ford"],
+  /** Larger watercourses; same openings as stream for now. */
   river: ["bridge", "ford"],
   cliff: ["stair"],
   ravine: ["bridge"],
 };
 
 export const BARRIER_KINDS = Object.keys(BARRIER_OPENINGS);
+
+/** Watercourse barrier kinds (share bridge/ford openings and bank geometry). */
+export const WATER_BARRIER_KINDS = new Set(["stream", "river"]);
+
+export function isWaterBarrier(kind) {
+  return WATER_BARRIER_KINDS.has(kind);
+}
 
 /** Point features — not drawable / routable polylines. */
 export const BARRIER_OPENING_KINDS = new Set(
@@ -32,8 +41,9 @@ export function fenceSegments(featureModels) {
   return barrierSegments(featureModels).filter((segment) => segment.kind === "fence");
 }
 
+/** Stream + river segments (any watercourse barrier). */
 export function riverSegments(featureModels) {
-  return barrierSegments(featureModels).filter((segment) => segment.kind === "river");
+  return barrierSegments(featureModels).filter((segment) => isWaterBarrier(segment.kind));
 }
 
 export function barrierList(ctx) {

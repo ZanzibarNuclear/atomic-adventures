@@ -369,7 +369,9 @@ export function movementCasesForMap() {
 }
 
 export function riverSideAt(stand, barriers) {
-  const river = (barriers ?? []).filter((segment) => segment.kind === 'river')
+  const river = (barriers ?? []).filter(
+    (segment) => segment.kind === 'stream' || segment.kind === 'river',
+  )
   const x = barrierXAtY(river, stand.y)
   if (x == null) return null
   if (stand.x < x - 1) return 'west'

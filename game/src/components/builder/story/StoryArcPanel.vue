@@ -403,7 +403,10 @@ function applySplit() {
 function sceneLocation(scene) {
   const trigger = scene?.trigger ?? {};
   if (trigger.hex) return labelFor(props.catalog?.world?.hexes, trigger.hex);
-  if (trigger.room) return labelFor(props.catalog?.world?.rooms, trigger.room);
+  if (trigger.room) {
+    const roomLabel = labelFor(props.catalog?.world?.rooms, trigger.room);
+    return trigger.stand ? `${roomLabel} · ${trigger.stand}` : roomLabel;
+  }
   if (trigger.exteriorNode) return labelFor(props.catalog?.world?.exteriorNodes, trigger.exteriorNode);
   if (trigger.event) return `Event: ${trigger.event}`;
   return "No location trigger";

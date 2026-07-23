@@ -18,10 +18,11 @@ import { useOutdoorBuilderSelection } from "../composables/useOutdoorBuilderSele
 import { useOutdoorWorldBuilderDocument } from "../composables/useOutdoorWorldBuilderDocument.js";
 import { useWorldBuilderCamera } from "../composables/useWorldBuilderCamera.js";
 import { useWorldContent } from "../composables/useWorldContent.js";
+import { useResizableSplit } from "../composables/useResizableSplit.js";
 
 const PASSAGE_KINDS = new Set(["gate", "hole", "bridge", "ford", "stair"]);
 const ROUTE_KINDS = ["road", "drive", "path", "trail"];
-const FEATURE_LINE_KINDS = ["river", "fence", "cliff", "ravine"];
+const FEATURE_LINE_KINDS = ["stream", "river", "fence", "cliff", "ravine"];
 const TERRAIN_KINDS = ["forest", "clearing", "gorge", "rock", "water"];
 const { refresh: refreshSharedWorld } = useWorldContent();
 const builderFlags = new Set();
@@ -33,6 +34,10 @@ const tool = ref("select");
 const search = ref("");
 const leftCollapsed = ref(false);
 const rightCollapsed = ref(false);
+const { ratio: inspectorRatio, onHandlePointerDown } = useResizableSplit({
+  storageKey: "builder.outdoor.inspectorRatio",
+  defaultRatio: 0.5,
+});
 const canvasView = ref("map");
 const landmarkDraft = ref(null);
 const landmarkEditDraft = ref(null);
@@ -348,99 +353,120 @@ function removeArtifactPlacement({ id = "" } = {}) {
         @select="select($event.type, $event.id)"
       />
 
-      <OutdoorCanvasPanel
-        v-model:canvas-view="canvasView"
-        v-model:zoom-action="zoomAction"
-        v-model:selected-handle-id="selectedHandleId"
-        :loaded="Boolean(loaded)"
-        :selected="selected"
-        :selected-is-placement="selectedIsPlacement"
-        :selected-is-line="selectedIsLine"
-        :draft-start="draftMeta.start"
-        :outdoor="outdoor"
-        :all-hex-ids="allHexIds"
-        :all-hex-set="allHexSet"
-        :builder-flags="builderFlags"
-        :builder-edit="builderEdit"
-        :edit-mode="editMode"
-        :edit-handles="editHandles"
-        :tool="tool"
-        :view-box-string="viewBoxString"
-        :edit-handle-scale="editHandleScale"
-        :audit-entries="auditEntries"
-        :panning="Boolean(panning)"
-        :yaml-text="dirty ? dumpYaml(currentWorld) : yamlPreview"
-        @canvas-mounted="setMapHost"
-        @zoom-action="applyZoomAction"
-        @run-movement-audit="runMovementAudit()"
-        @wheel="onWheel"
-        @pointerdown="startPan"
-        @select="select($event.type, $event.id)"
-        @select-feature="selectFeature"
-        @waypoint-move="onHandleMove"
-        @builder-map-click="onBuilderMapClick"
-      />
+      <div class="map-inspector-split">
+        <div
+          class="split-map"
+          :style="rightCollapsed
+            ? { flexGrow: 1, flexBasis: 0 }
+            : { flexGrow: 1 - inspectorRatio, flexBasis: 0 }"
+        >
+          <OutdoorCanvasPanel
+            v-model:canvas-view="canvasView"
+            v-model:zoom-action="zoomAction"
+            v-model:selected-handle-id="selectedHandleId"
+            :loaded="Boolean(loaded)"
+            :selected="selected"
+            :selected-is-placement="selectedIsPlacement"
+            :selected-is-line="selectedIsLine"
+            :draft-start="draftMeta.start"
+            :outdoor="outdoor"
+            :all-hex-ids="allHexIds"
+            :all-hex-set="allHexSet"
+            :builder-flags="builderFlags"
+            :builder-edit="builderEdit"
+            :edit-mode="editMode"
+            :edit-handles="editHandles"
+            :tool="tool"
+            :view-box-string="viewBoxString"
+            :edit-handle-scale="editHandleScale"
+            :audit-entries="auditEntries"
+            :panning="Boolean(panning)"
+            :yaml-text="dirty ? dumpYaml(currentWorld) : yamlPreview"
+            @canvas-mounted="setMapHost"
+            @zoom-action="applyZoomAction"
+            @run-movement-audit="runMovementAudit()"
+            @wheel="onWheel"
+            @pointerdown="startPan"
+            @select="select($event.type, $event.id)"
+            @select-feature="selectFeature"
+            @waypoint-move="onHandleMove"
+            @builder-map-click="onBuilderMapClick"
+          />
+        </div>
 
-      <OutdoorInspector
-        v-if="!rightCollapsed"
-        :selected="selected"
-        :selected-type="selectedType"
-        :selected-is-line="selectedIsLine"
-        :selected-is-placement="selectedIsPlacement"
-        :landmark-draft="landmarkDraft"
-        :landmark-edit-draft="landmarkEditDraft"
-        :landmark-edit-dirty="landmarkEditDirty"
-        :stand-draft="standDraft"
-        :stand-edit-draft="standEditDraft"
-        :stand-edit-dirty="standEditDirty"
-        :tool="tool"
-        :terrain-kinds="TERRAIN_KINDS"
-        :route-kinds="ROUTE_KINDS"
-        :feature-line-kinds="FEATURE_LINE_KINDS"
-        :passage-kinds="[...PASSAGE_KINDS]"
-        :all-hex-ids="allHexIds"
-        :error-messages="errorMessages"
-        :audit-summary="auditSummary"
-        :invalid-audit-entries="invalidAuditEntries"
-        :warnings="warnings"
-        :story-beats="storyBeats"
-        :character-catalog="characterCatalog"
-        :artifact-placements="artifactPlacements"
-        :show-history="showHistory"
-        :revisions="revisions"
-        :select="select"
-        :move-selected="moveSelected"
-        :rename-selected="renameSelected"
-        :duplicate-selected="duplicateSelected"
-        :delete-selected="deleteSelected"
-        :save-landmark-edit="saveLandmarkEdit"
-        :back-to-hex-from-landmark="backToHexFromLandmark"
-        :save-stand-edit="saveStandEdit"
-        :back-to-hex-from-stand="backToHexFromStand"
-        :begin-add-landmark="beginAddLandmark"
-        :confirm-add-landmark="confirmAddLandmark"
-        :cancel-landmark-draft="cancelLandmarkDraft"
-        :begin-add-stand="beginAddStand"
-        :confirm-add-stand="confirmAddStand"
-        :cancel-stand-draft="cancelStandDraft"
-        :add-cascade="addCascade"
-        :remove-cascade="removeCascade"
-        :csv="csv"
-        :set-csv="setCsv"
-        :point-mode="pointMode"
-        :set-point-mode="setPointMode"
-        :remove-booth-at="removeBoothAt"
-        :ensure-booth-at="ensureBoothAt"
-        :toggle-add-point-mode="toggleAddPointMode"
-        :move-point="movePoint"
-        :remove-point="removePoint"
-        :restore-revision="restoreRevision"
-        @open-location-beat="openLocationBeat"
-        @open-artifact="openArtifact"
-        @duplicate-artifact="duplicateArtifact"
-        @place-artifact="placeArtifact"
-        @remove-artifact-placement="removeArtifactPlacement"
-      />
+        <div
+          v-if="!rightCollapsed"
+          class="split-handle"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize map and inspector"
+          tabindex="0"
+          @pointerdown="onHandlePointerDown"
+        />
+
+        <OutdoorInspector
+          v-if="!rightCollapsed"
+          class="split-inspector"
+          :style="{ flexGrow: inspectorRatio, flexBasis: 0 }"
+          :selected="selected"
+          :selected-type="selectedType"
+          :selected-is-line="selectedIsLine"
+          :selected-is-placement="selectedIsPlacement"
+          :landmark-draft="landmarkDraft"
+          :landmark-edit-draft="landmarkEditDraft"
+          :landmark-edit-dirty="landmarkEditDirty"
+          :stand-draft="standDraft"
+          :stand-edit-draft="standEditDraft"
+          :stand-edit-dirty="standEditDirty"
+          :tool="tool"
+          :terrain-kinds="TERRAIN_KINDS"
+          :route-kinds="ROUTE_KINDS"
+          :feature-line-kinds="FEATURE_LINE_KINDS"
+          :passage-kinds="[...PASSAGE_KINDS]"
+          :all-hex-ids="allHexIds"
+          :error-messages="errorMessages"
+          :audit-summary="auditSummary"
+          :invalid-audit-entries="invalidAuditEntries"
+          :warnings="warnings"
+          :story-beats="storyBeats"
+          :character-catalog="characterCatalog"
+          :artifact-placements="artifactPlacements"
+          :show-history="showHistory"
+          :revisions="revisions"
+          :select="select"
+          :move-selected="moveSelected"
+          :rename-selected="renameSelected"
+          :duplicate-selected="duplicateSelected"
+          :delete-selected="deleteSelected"
+          :save-landmark-edit="saveLandmarkEdit"
+          :back-to-hex-from-landmark="backToHexFromLandmark"
+          :save-stand-edit="saveStandEdit"
+          :back-to-hex-from-stand="backToHexFromStand"
+          :begin-add-landmark="beginAddLandmark"
+          :confirm-add-landmark="confirmAddLandmark"
+          :cancel-landmark-draft="cancelLandmarkDraft"
+          :begin-add-stand="beginAddStand"
+          :confirm-add-stand="confirmAddStand"
+          :cancel-stand-draft="cancelStandDraft"
+          :add-cascade="addCascade"
+          :remove-cascade="removeCascade"
+          :csv="csv"
+          :set-csv="setCsv"
+          :point-mode="pointMode"
+          :set-point-mode="setPointMode"
+          :remove-booth-at="removeBoothAt"
+          :ensure-booth-at="ensureBoothAt"
+          :toggle-add-point-mode="toggleAddPointMode"
+          :move-point="movePoint"
+          :remove-point="removePoint"
+          :restore-revision="restoreRevision"
+          @open-location-beat="openLocationBeat"
+          @open-artifact="openArtifact"
+          @duplicate-artifact="duplicateArtifact"
+          @place-artifact="placeArtifact"
+          @remove-artifact-placement="removeArtifactPlacement"
+        />
+      </div>
     </div>
 
     <UnsavedChangesDialog
@@ -457,29 +483,69 @@ function removeArtifactPlacement({ id = "" } = {}) {
 </template>
 
 <style scoped>
-.world-builder { padding: .85rem; }
+.world-builder {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  padding: .85rem;
+}
 .world-workspace {
+  flex: 1 1 auto;
   display: grid;
-  grid-template-columns: minmax(220px, 270px) minmax(440px, 1fr) minmax(290px, 350px);
+  grid-template-columns: 250px minmax(0, 1fr);
   gap: .75rem;
-  height: calc(100vh - 12rem);
-  min-height: 528px;
+  min-height: 0;
   margin-top: .75rem;
 }
-.world-workspace.left-collapsed { grid-template-columns: minmax(440px, 1fr) minmax(290px, 350px); }
-.world-workspace.right-collapsed { grid-template-columns: minmax(220px, 270px) minmax(440px, 1fr); }
-.world-workspace.left-collapsed.right-collapsed { grid-template-columns: 1fr; }
+.world-workspace.left-collapsed { grid-template-columns: minmax(0, 1fr); }
+.map-inspector-split {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+}
+.split-map {
+  min-width: 12rem;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.split-map > :deep(*) {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+.split-inspector {
+  min-width: 16rem;
+  min-height: 0;
+}
+.split-handle {
+  flex: 0 0 8px;
+  margin: 0 2px;
+  border-radius: 999px;
+  background: #2c3442;
+  cursor: col-resize;
+  touch-action: none;
+  align-self: stretch;
+}
+.split-handle:hover,
+.split-handle:focus-visible {
+  background: #5b6f92;
+  outline: none;
+}
 @media (max-width: 1050px) {
-  .world-workspace, .world-workspace.left-collapsed, .world-workspace.right-collapsed {
-    grid-template-columns: 220px minmax(420px, 1fr);
+  .world-workspace, .world-workspace.left-collapsed {
+    grid-template-columns: 220px minmax(0, 1fr);
     height: auto;
   }
-  .inspector { grid-column: 1 / -1; max-height: none; }
+  .map-inspector-split { flex-direction: column; }
+  .split-handle { display: none; }
+  .split-map, .split-inspector { flex: 1 1 auto; min-height: 22rem; }
 }
 @media (max-width: 720px) {
-  .world-workspace, .world-workspace.left-collapsed, .world-workspace.right-collapsed {
+  .world-workspace, .world-workspace.left-collapsed {
     grid-template-columns: 1fr;
   }
-  .inspector { grid-column: auto; }
 }
 </style>

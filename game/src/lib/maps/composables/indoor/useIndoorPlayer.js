@@ -9,7 +9,10 @@ import {
 import { buildInitialDoorState } from "../useDoors.js";
 import { createInventory } from "../useInventory.js";
 import { applyEffectsAtomically } from "../../../character/effects.js";
-import { characterItems } from "../../../../composables/useCharacterState.js";
+import {
+  characterItems,
+  markCharacterChanged,
+} from "../../../../composables/useCharacterState.js";
 import { createFlags } from "../useFlags.js";
 import {
   characterHolderId,
@@ -104,6 +107,8 @@ export function createIndoorPlayer(
     facility: {
       hydroOnline: false,
       manualMode: {},
+      /** roomId → true when wall light switch is closed (on). */
+      lightSwitches: {},
     },
     flags: sharedFlags ?? createFlags(),
     completedActions: new Set(),
@@ -188,15 +193,49 @@ export function createIndoorPlayer(
     if (pickup.room !== indoor.currentRoom) return;
     if (pickup.stand && pickup.stand !== indoor.currentStand) return;
     if (character) {
-      const result = applyEffectsAtomically(
-        [{ op: "item.add", id: pickup.item, quantity: 1 }],
-        { character, flags: indoor.flags },
-      );
-      if (!result.ok) return;
+      // Prefer transferring a holdings container already at this stand (stocked boxes).
+      const locationInstance = findContainerInstanceAtLocation(character, pickup.item, {
+        room: pickup.room,
+        stand: pickup.stand ?? null,
+      });
+      if (locationInstance) {
+        try {
+          transferHolding(character.holdings, character.definitions, {
+            type: "instance",
+            id: locationInstance,
+            quantity: 1,
+            toHolder: characterHolderId(character.holdings),
+          });
+          markCharacterChanged(character);
+        } catch {
+          return;
+        }
+      } else {
+        const result = applyEffectsAtomically(
+          [{ op: "item.add", id: pickup.item, quantity: 1 }],
+          { character, flags: indoor.flags },
+        );
+        if (!result.ok) return;
+      }
     } else {
       indoor.inventory.add(pickup.item);
     }
     indoor.pickupsTaken = new Set([...indoor.pickupsTaken, pickupId]);
+  }
+
+  function findContainerInstanceAtLocation(characterState, itemId, { room, stand = null } = {}) {
+    const holders = characterState?.holdings?.holders ?? {};
+    const holderId = Object.values(holders).find((holder) => {
+      if (holder.kind !== "fixed") return false;
+      const location = holder.location ?? {};
+      if (location.room !== room) return false;
+      return stand ? location.stand === stand : !location.stand;
+    })?.id;
+    if (!holderId) return null;
+    const found = Object.entries(characterState.holdings.instances ?? {}).find(
+      ([, instance]) => instance.item === itemId && instance.holder === holderId,
+    );
+    return found?.[0] ?? null;
   }
 
   function dropItem(itemId) {
@@ -320,6 +359,7 @@ export function createIndoorPlayer(
     indoor.pickupsTaken = new Set();
     indoor.facility.hydroOnline = false;
     indoor.facility.manualMode = {};
+    indoor.facility.lightSwitches = {};
     if (!flagsAreShared) {
       indoor.flags = createFlags();
     }

@@ -10,14 +10,35 @@ import {
   isSelfClosingDoor,
   lockFreeFromRoom,
 } from "../lib/maps/composables/useDoors.js";
-import { searchActionLabel } from "../lib/maps/composables/useBarrierOpenings.js";
+import {
+  describeBarrierSearchResult,
+  searchActionLabel,
+} from "../lib/maps/composables/useBarrierOpenings.js";
 import { barrierHintAtStand } from "../lib/maps/composables/useBarrierStand.js";
+import { pushPlayMessage } from "./usePlayMessages.js";
 import {
   characterHolderId,
   holdingRecords,
   transferHolding,
 } from "../lib/character/holdings.js";
+import {
+  addStartingInstance,
+  ensureContainerHolder,
+  ensureFixedHolderAt,
+} from "../lib/character/holdingsAuthoring.js";
+import {
+  containerContentsRecords,
+  containerGroupInspectLabel,
+  containerInstanceLabel,
+  contentFlavorLabel,
+  formatContainerGroupDiscovery,
+} from "../lib/character/containerLabels.js";
 import { markCharacterChanged } from "./useCharacterState.js";
+import {
+  DEAD_LIGHT_SWITCH_NOTICE,
+  lightFixtureForRoom,
+  roomLightAction,
+} from "../lib/maps/composables/indoor/roomLights.js";
 
 function actionButtonLabel(action) {
   if (action.verb) return cleanActionLabel(`${action.verb} ${withArticle(action.label)}`);
@@ -92,17 +113,33 @@ export function storyChoiceDestinations(pendingBeat) {
 }
 
 export function buildOutdoorSearchActions(outdoor) {
-  if (!outdoor.canSearchHere?.()) return [];
   if (outdoor.hasObviousPassageAtStand) return [];
   if ((outdoor.passageCrossings ?? []).length > 0) return [];
-  const label = searchActionLabel({
-    openings: outdoor.searchableOpenings?.() ?? [],
-    atBarrier: outdoor.state.atBarrier ??
-      outdoor.state.lastBlocked ??
-      (outdoor.barrierCutsCurrentHex?.("fence") ? "fence" : null),
-    lastBlocked: outdoor.state.lastBlocked,
-  });
-  return [{ id: "search:barrier", label, kind: "search" }];
+  const kinds = outdoor.availableSearchKinds?.() ?? [];
+  if (!kinds.length) {
+    if (!outdoor.canSearchHere?.()) return [];
+    // Fallback for older outdoor adapters without availableSearchKinds.
+    const label = searchActionLabel({
+      openings: outdoor.searchableOpenings?.() ?? [],
+      atBarrier: outdoor.state.atBarrier ??
+        outdoor.state.lastBlocked ??
+        (outdoor.barrierCutsCurrentHex?.("fence")
+          ? "fence"
+          : outdoor.barrierCutsCurrentHex?.("stream")
+            ? "stream"
+            : outdoor.barrierCutsCurrentHex?.("river")
+              ? "river"
+              : null),
+      lastBlocked: outdoor.state.lastBlocked,
+    });
+    return [{ id: "search:barrier", label, kind: "search" }];
+  }
+  return kinds.map((barrierKind) => ({
+    id: kinds.length === 1 ? "search:barrier" : `search:barrier:${barrierKind}`,
+    label: searchActionLabel(barrierKind),
+    kind: "search",
+    barrierKind,
+  }));
 }
 
 export function buildOutdoorPassageActions(outdoor) {
@@ -110,7 +147,10 @@ export function buildOutdoorPassageActions(outdoor) {
     id: `passage:${m.openingId}`,
     openingId: m.openingId,
     label: m.label,
-    kind: m.barrierKind === "river" ? "river" : "fence",
+    kind:
+      m.barrierKind === "stream" || m.barrierKind === "river"
+        ? m.barrierKind
+        : "fence",
   }));
 }
 
@@ -154,6 +194,7 @@ function routeActionLabel(move) {
 
 function barrierName(kind) {
   if (kind === "fence") return "fence line";
+  if (kind === "stream") return "stream";
   if (kind === "river") return "river";
   if (kind === "cliff") return "cliff edge";
   if (kind === "ravine") return "ravine";
@@ -267,8 +308,13 @@ export function handleOutdoorChooseAction(
     enterBuilding();
     return;
   }
-  if (actionId === "search:barrier") {
-    outdoor.searchBarrier?.();
+  if (actionId === "search:barrier" || actionId.startsWith("search:barrier:")) {
+    const barrierKind = actionId.startsWith("search:barrier:")
+      ? actionId.slice("search:barrier:".length)
+      : null;
+    outdoor.searchBarrier?.(barrierKind || undefined);
+    const message = describeBarrierSearchResult(outdoor.state?.lastSearch);
+    if (message) pushPlayMessage(message, { source: "action" });
     return;
   }
   if (actionId.startsWith("passage-unlock:")) {
@@ -336,16 +382,58 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
   const items = buildIndoorMovementActions(indoor, pendingBeat);
 
   for (const pickup of indoor.roomPickups ?? []) {
+    const itemDef = itemDefinition(indoor, pickup.item);
+    const label = pickup.label || itemDef?.label || pickup.item;
+    // Container pickups support Look in (materializes a holdings instance at this stand).
+    if (itemDef?.container) {
+      items.push({
+        id: `pickup-look:${pickup.id}`,
+        label: `Look in ${withArticle(label)}`,
+      });
+    }
     items.push({
       id: `pickup:${pickup.id}`,
-      label: `Pick up ${withArticle(pickup.label)}`,
+      label: `Pick up ${withArticle(label)}`,
     });
   }
 
-  for (const record of nearbyPortableHoldings(indoor)) {
+  const nearbyHoldings = nearbyPortableHoldings(indoor);
+  const containerRecords = nearbyHoldings.filter((record) => isNearbyContainerRecord(indoor, record));
+  const nonContainerRecords = nearbyHoldings.filter((record) => !isNearbyContainerRecord(indoor, record));
+  const containersByItem = groupBy(containerRecords, (record) => record.item);
+
+  for (const [itemId, group] of containersByItem) {
+    const baseLabel = group[0]?.definition?.label || itemId;
+    if (group.length >= 2) {
+      items.push({
+        id: `holding-inspect-group:${itemId}`,
+        label: containerGroupInspectLabel(baseLabel, group.length),
+      });
+      for (const record of group) {
+        const label = holdingDisplayLabel(indoor, record);
+        items.push({
+          id: `holding-pickup:${record.type}:${record.id}`,
+          label: `Pick up ${withArticle(label)}`,
+        });
+      }
+      continue;
+    }
+    const record = group[0];
+    const label = holdingDisplayLabel(indoor, record);
+    items.push({
+      id: `holding-look:${record.type}:${record.id}`,
+      label: `Look in ${withArticle(label)}`,
+    });
     items.push({
       id: `holding-pickup:${record.type}:${record.id}`,
-      label: `Pick up ${withArticle(record.label)}`,
+      label: `Pick up ${withArticle(label)}`,
+    });
+  }
+
+  for (const record of nonContainerRecords) {
+    items.push({
+      id: `holding-pickup:${record.type}:${record.id}`,
+      label: `Pick up ${withArticle(holdingDisplayLabel(indoor, record))}`,
     });
   }
 
@@ -423,7 +511,26 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
     });
   }
 
+  const lightAction = roomLightPlayAction(indoor);
+  if (lightAction) items.push(lightAction);
+
   return items.filter(isVisibleAction);
+}
+
+function roomLightPlayAction(indoor) {
+  const roomId = indoor.playerRoomId ?? indoor.indoor?.currentRoom ?? null;
+  if (!roomId) return null;
+  const powerOn = Boolean(
+    indoor.powerOn
+      ?? indoor.stationPowerOnline
+      ?? indoor.indoor?.facility?.hydroOnline,
+  );
+  return roomLightAction(
+    indoor.building,
+    indoor.indoor?.facility ?? indoor.facility,
+    roomId,
+    powerOn,
+  );
 }
 
 function doorActionsAvailableHere(indoor) {
@@ -589,9 +696,18 @@ export function handleIndoorPlayAction(indoor, actionId) {
     indoor.moveToRoom(actionId.slice("move-room:".length));
     return;
   }
+  if (actionId.startsWith("pickup-look:")) {
+    return lookInBuildingPickup(indoor, actionId.slice("pickup-look:".length));
+  }
   if (actionId.startsWith("pickup:")) {
     indoor.tryPickup(actionId.slice("pickup:".length));
     return;
+  }
+  if (actionId.startsWith("holding-inspect-group:")) {
+    return inspectNearbyContainerGroup(indoor, actionId.slice("holding-inspect-group:".length));
+  }
+  if (actionId.startsWith("holding-look:")) {
+    return lookInNearbyHolding(indoor, actionId.slice("holding-look:".length));
   }
   if (actionId.startsWith("holding-pickup:")) {
     return pickupNearbyHolding(indoor, actionId.slice("holding-pickup:".length));
@@ -619,6 +735,26 @@ export function handleIndoorPlayAction(indoor, actionId) {
     indoor.toggleManualRelease(actionId.slice("switch:".length));
     return;
   }
+  if (actionId.startsWith("room-lights:flip:")) {
+    const roomId = actionId.slice("room-lights:flip:".length);
+    const result = indoor.toggleRoomLights?.(roomId)
+      ?? { ok: false, error: "Light switches are unavailable." };
+    if (!result.ok) return result;
+    // Power is out (or unknown): flip still toggles the remembered switch state.
+    return { ok: true, notice: DEAD_LIGHT_SWITCH_NOTICE };
+  }
+  if (actionId.startsWith("room-lights:on:")) {
+    const result = indoor.setRoomLights?.(actionId.slice("room-lights:on:".length), true)
+      ?? { ok: false, error: "Light switches are unavailable." };
+    if (!result.ok) return result;
+    return { ok: true, notice: result.lit ? null : DEAD_LIGHT_SWITCH_NOTICE };
+  }
+  if (actionId.startsWith("room-lights:off:")) {
+    const result = indoor.setRoomLights?.(actionId.slice("room-lights:off:".length), false)
+      ?? { ok: false, error: "Light switches are unavailable." };
+    if (!result.ok) return result;
+    return { ok: true };
+  }
   if (actionId.startsWith("exit-world:")) {
     indoor.exitViaDoor(actionId.slice("exit-world:".length));
     return;
@@ -636,8 +772,303 @@ function nearbyPortableHoldings(indoor) {
     .filter((record) => record.definition?.portable !== false)
     .map((record) => ({
       ...record,
-      label: record.definition?.label ?? record.item,
+      label: holdingDisplayLabel(indoor, {
+        ...record,
+        label: record.definition?.label ?? record.item,
+      }),
     }));
+}
+
+function holdingDisplayLabel(indoor, record) {
+  const base = record.label || record.definition?.label || record.item;
+  if (!isNearbyContainerRecord(indoor, record) || record.type !== "instance") {
+    return base;
+  }
+  return containerInstanceLabel(
+    indoor.character?.holdings,
+    indoor.character?.definitions,
+    record.id,
+    {
+      baseLabel: record.definition?.label || base,
+      itemId: record.item,
+    },
+  );
+}
+
+function inspectNearbyContainerGroup(indoor, itemId) {
+  const character = indoor.character;
+  if (!character?.holdings) return { ok: false, error: "Character holdings are unavailable." };
+  const group = nearbyPortableHoldings(indoor)
+    .filter((record) => isNearbyContainerRecord(indoor, record))
+    .filter((record) => record.item === itemId);
+  if (!group.length) return { ok: false, error: "Those containers are not within reach." };
+
+  const baseLabel = group[0].definition?.label || itemId;
+  const entries = group.map((record) => {
+    const contents = containerContentsRecords(
+      character.holdings,
+      character.definitions,
+      record.id,
+    );
+    const detail = contents.length
+      ? contents
+        .map((entry) => {
+          const name = contentFlavorLabel(entry.definition?.label || entry.item);
+          const qty = Number(entry.quantity) || 1;
+          return qty > 1 ? `${name} ×${qty}` : name;
+        })
+        .join(", ")
+      : "Empty";
+    return {
+      id: record.id,
+      type: record.type,
+      item: record.item,
+      label: holdingDisplayLabel(indoor, record),
+      detail,
+      canPickUp: record.definition?.portable !== false,
+      key: `${record.type}:${record.id}`,
+    };
+  });
+
+  return {
+    ok: true,
+    inspectGroup: {
+      itemId,
+      title: containerGroupInspectLabel(baseLabel, entries.length),
+      intro: /tastee\s*tack/i.test(baseLabel)
+        ? "Shelf-stable Tastee Tack rations for station crews. Each box is a different meal."
+        : "Choose a container to open or take with you.",
+      entries,
+    },
+  };
+}
+
+function itemDefinition(indoor, itemId) {
+  return (indoor.character?.definitions?.items ?? []).find((item) => item.id === itemId) ?? null;
+}
+
+function groupBy(list, keyFn) {
+  const map = new Map();
+  for (const entry of list) {
+    const key = keyFn(entry);
+    const bucket = map.get(key) ?? [];
+    bucket.push(entry);
+    map.set(key, bucket);
+  }
+  return map;
+}
+
+function isNearbyContainerRecord(indoor, record) {
+  if (record?.type !== "instance") return false;
+  if (record.definition?.container) return true;
+  return Boolean(indoor.character?.holdings?.holders?.[`container:${record.id}`]);
+}
+
+/**
+ * Open the within-reach inventory focused on a container still in the world.
+ * Does not pick the container up.
+ */
+function lookInNearbyHolding(indoor, encoded) {
+  const character = indoor.character;
+  if (!character?.holdings) return { ok: false, error: "Character holdings are unavailable." };
+  const [type, ...idParts] = String(encoded).split(":");
+  const id = idParts.join(":");
+  const record = nearbyPortableHoldings(indoor)
+    .find((entry) => entry.type === type && entry.id === id);
+  if (!record) return { ok: false, error: "That is not within reach." };
+  if (!isNearbyContainerRecord(indoor, record)) {
+    return { ok: false, error: "There is nothing to look inside." };
+  }
+  return {
+    ok: true,
+    lookIn: { type, id, key: `${type}:${id}` },
+  };
+}
+
+/**
+ * Look into a building pickup that is a container item.
+ * Materializes a holdings instance on the room/stand if needed so contents can live there.
+ */
+function lookInBuildingPickup(indoor, pickupId) {
+  const character = indoor.character;
+  if (!character?.holdings) return { ok: false, error: "Character holdings are unavailable." };
+  const pickup = (indoor.building?.pickups ?? indoor.roomPickups ?? [])
+    .find((entry) => entry.id === pickupId)
+    ?? (indoor.roomPickups ?? []).find((entry) => entry.id === pickupId);
+  // Prefer full building pickups list when available for room/stand location.
+  const buildingPickup = (indoor.building?.pickups ?? []).find((entry) => entry.id === pickupId) ?? pickup;
+  if (!buildingPickup) return { ok: false, error: "That is not within reach." };
+  if (buildingPickup.room && indoor.indoor?.currentRoom && buildingPickup.room !== indoor.indoor.currentRoom) {
+    return { ok: false, error: "That is not within reach." };
+  }
+  if (
+    buildingPickup.stand
+    && indoor.indoor?.currentStand
+    && buildingPickup.stand !== indoor.indoor.currentStand
+  ) {
+    return { ok: false, error: "That is not within reach." };
+  }
+
+  const itemDef = itemDefinition(indoor, buildingPickup.item);
+  if (!itemDef?.container) {
+    return { ok: false, error: "There is nothing to look inside." };
+  }
+
+  const instanceId = ensureContainerInstanceAtLocation(character, itemDef, {
+    room: buildingPickup.room,
+    stand: buildingPickup.stand ?? null,
+    roomLabel: indoor.building?.roomById?.[buildingPickup.room]?.label,
+    standLabel: (indoor.building?.roomById?.[buildingPickup.room]?.stands ?? [])
+      .find((stand) => stand.id === buildingPickup.stand)?.label,
+  });
+  if (!instanceId) return { ok: false, error: "Could not open that container." };
+  markCharacterChanged(character);
+  return {
+    ok: true,
+    lookIn: { type: "instance", id: instanceId, key: `instance:${instanceId}` },
+  };
+}
+
+/**
+ * Ensure a container instance exists on a fixed holder at room/stand.
+ * Reuses an existing instance of the same item at that location when present.
+ */
+export function ensureContainerInstanceAtLocation(character, itemDefinition, {
+  room,
+  stand = null,
+  roomLabel = null,
+  standLabel = null,
+} = {}) {
+  if (!character?.holdings || !itemDefinition?.container) return null;
+  const holdings = character.holdings;
+  const holderId = ensureFixedHolderAt(holdings, {
+    room,
+    stand,
+    roomLabel,
+    standLabel,
+    acceptsKinds: [
+      "container",
+      ...(itemDefinition.container.accepts?.kinds ?? []),
+    ],
+    slots: Math.max(4, Number(itemDefinition.container.capacity?.slots) || 12),
+  });
+
+  const existing = Object.entries(holdings.instances ?? {}).find(
+    ([, instance]) => instance.item === itemDefinition.id && instance.holder === holderId,
+  );
+  if (existing) {
+    ensureContainerHolder(holdings, existing[0], itemDefinition);
+    return existing[0];
+  }
+
+  return addStartingInstance(holdings, itemDefinition, { holderId });
+}
+
+/**
+ * Portable world items currently within reach (authored pickups + fixed holdings
+ * at this room/stand or exterior node).
+ */
+export function listNearbyReachableItems(indoor) {
+  const items = [];
+  for (const pickup of indoor.roomPickups ?? []) {
+    items.push({
+      key: `pickup:${pickup.id}`,
+      label: pickup.label || pickup.item || pickup.id,
+      itemId: pickup.item,
+      isContainer: Boolean(itemDefinition(indoor, pickup.item)?.container),
+    });
+  }
+  for (const record of nearbyPortableHoldings(indoor)) {
+    items.push({
+      key: `holding:${record.type}:${record.id}`,
+      label: record.label || record.item || record.id,
+      itemId: record.item,
+      isContainer: isNearbyContainerRecord(indoor, record),
+    });
+  }
+  return items;
+}
+
+/** Signature for watchers when nearby item set or stand changes. */
+export function nearbyReachableItemsSignature(indoor) {
+  const room = indoor.indoor?.currentRoom ?? null;
+  const stand = indoor.indoor?.currentStand ?? null;
+  const exterior = indoor.indoor?.exteriorNode ?? null;
+  const keys = listNearbyReachableItems(indoor).map((item) => item.key).sort();
+  return `${room ?? ""}|${stand ?? ""}|${exterior ?? ""}|${keys.join(",")}`;
+}
+
+/**
+ * Player-facing discovery line for items at the current stand, e.g.
+ * "There is a bolt cutter."
+ * Multiple same-type containers with different contents are summarized by flavor.
+ */
+export function formatNearbyReachableItemsMessage(indoor) {
+  const items = listNearbyReachableItems(indoor);
+  if (!items.length) return null;
+
+  const containerGroups = new Map();
+  const otherLabels = [];
+  for (const item of items) {
+    if (item.isContainer && item.itemId) {
+      const group = containerGroups.get(item.itemId) ?? [];
+      group.push(item);
+      containerGroups.set(item.itemId, group);
+    } else {
+      otherLabels.push(String(item.label ?? "").trim());
+    }
+  }
+
+  const groupPhrases = [];
+  for (const group of containerGroups.values()) {
+    if (group.length >= 2) {
+      const summary = formatContainerGroupDiscovery(
+        itemDefinition(indoor, group[0].itemId)?.label || group[0].label,
+        group.map((entry) => entry.label),
+      );
+      if (summary) groupPhrases.push(summary.replace(/\.$/, ""));
+      continue;
+    }
+    otherLabels.push(String(group[0].label ?? "").trim());
+  }
+
+  const simplePhrases = otherLabels
+    .filter(Boolean)
+    .map((label) => withIndefiniteArticle(label));
+
+  if (!groupPhrases.length && !simplePhrases.length) return null;
+
+  // Only ordinary pickups: keep the original "There is A and B." style.
+  if (!groupPhrases.length) {
+    if (simplePhrases.length === 1) return `There is ${simplePhrases[0]}.`;
+    if (simplePhrases.length === 2) return `There is ${simplePhrases[0]} and ${simplePhrases[1]}.`;
+    return `There is ${simplePhrases.slice(0, -1).join(", ")}, and ${simplePhrases.at(-1)}.`;
+  }
+
+  // Container summaries already include "There are N boxes...".
+  const parts = [
+    ...groupPhrases,
+    ...simplePhrases.map((phrase) => `there is ${phrase}`),
+  ];
+  if (parts.length === 1) {
+    const line = parts[0];
+    return line.endsWith(".") ? line : `${line}.`;
+  }
+  const normalized = parts.map((phrase, index) => {
+    let text = phrase.replace(/\.$/, "");
+    if (index === 0) return text.charAt(0).toUpperCase() + text.slice(1);
+    return text.charAt(0).toLowerCase() + text.slice(1);
+  });
+  return `${normalized.slice(0, -1).join("; ")}; and ${normalized.at(-1)}.`;
+}
+
+/** "bolt cutter" → "a bolt cutter"; preserves existing a/an/the. */
+function withIndefiniteArticle(label) {
+  const raw = String(label ?? "").trim();
+  if (!raw) return "";
+  if (/^(the|a|an)\s/i.test(raw)) return raw;
+  if (/^[aeiou]/i.test(raw)) return `an ${raw}`;
+  return `a ${raw}`;
 }
 
 function nearbyFixedHolderIds(indoor) {
@@ -668,10 +1099,14 @@ function pickupNearbyHolding(indoor, encoded) {
     .find((entry) => entry.type === type && entry.id === id);
   if (!record) return { ok: false, error: "Holding is not available." };
   try {
+    // Stacks default to one; take the whole stack only for unique-style single records.
+    const quantity = record.type === "stack"
+      ? 1
+      : (record.quantity ?? 1);
     transferHolding(character.holdings, character.definitions, {
       type,
       id,
-      quantity: record.quantity ?? 1,
+      quantity,
       toHolder: characterHolderId(character.holdings),
     });
     markCharacterChanged(character);
@@ -740,11 +1175,32 @@ function poweredObjectStatusLines(indoor) {
   const roomId = indoor.indoor?.currentRoom ?? indoor.playerRoomId ?? null;
   const standId = indoor.indoor?.currentStand ?? null;
   if (!roomId) return [];
-  return (indoor.building?.poweredObjects ?? [])
-    .filter((object) => object.room === roomId)
-    .filter((object) => !object.stand || object.stand === standId)
-    .map((object) => object.activeLine || `${object.label} is powered.`)
-    .filter(Boolean);
+  const facility = indoor.indoor?.facility ?? indoor.facility;
+  const powerOn = Boolean(
+    indoor.powerOn
+      ?? indoor.stationPowerOnline
+      ?? facility?.hydroOnline,
+  );
+  const lines = [];
+  // Only report light state when station power is on. While the bus is dead,
+  // switch position stays hidden so "Flip the light switch" stays ambiguous.
+  const lightFixture = lightFixtureForRoom(indoor.building, roomId);
+  if (lightFixture && powerOn) {
+    const switchClosed = Boolean(facility?.lightSwitches?.[roomId]);
+    if (switchClosed) {
+      lines.push(lightFixture.activeLine || `${lightFixture.label} are on.`);
+    } else {
+      lines.push("The lights are off.");
+    }
+  }
+  for (const object of indoor.building?.poweredObjects ?? []) {
+    if (object.room !== roomId) continue;
+    if (object.kind === "lights") continue; // room.lighting is canonical
+    if (object.stand && object.stand !== standId) continue;
+    if (!powerOn) continue;
+    lines.push(object.activeLine || `${object.label} is powered.`);
+  }
+  return lines.filter(Boolean);
 }
 
 export function buildOutdoorStatusLines(
@@ -760,28 +1216,37 @@ export function buildOutdoorStatusLines(
   for (const action of outdoor.lockedPassageActions ?? []) {
     if (action.status) lines.push(action.status);
   }
-  if (
-    outdoor.state.lastSearch?.kind === "fence" &&
-    outdoor.state.lastSearch.foundKinds?.includes("hole")
-  ) {
-    lines.push("On closer inspection, you have found a hole in the fence.");
-  } else if (
-    outdoor.state.lastSearch?.kind === "fence" &&
-    !outdoor.state.lastSearch.found?.length
-  ) {
-    lines.push("You see a sturdy fence covered in ivy.");
-  }
+  const searchLine = describeBarrierSearchResult(outdoor.state.lastSearch);
+  if (searchLine) lines.push(searchLine);
+
+  const hint = outdoor.barrierHintAtStand?.() ?? null;
+  const fencePresent =
+    outdoor.state.lastBlocked === "fence" ||
+    hint === "fence" ||
+    outdoor.barrierCutsCurrentHex?.("fence");
+  const streamPresent =
+    outdoor.state.lastBlocked === "stream" ||
+    hint === "stream" ||
+    outdoor.barrierCutsCurrentHex?.("stream");
+  const riverPresent =
+    outdoor.state.lastBlocked === "river" ||
+    hint === "river" ||
+    outdoor.barrierCutsCurrentHex?.("river");
+
   if (outdoor.state.lastBlocked === "fence") {
     lines.push("A fence blocks the way.");
-  } else if (outdoor.state.lastBlocked === "river") {
+  } else if (fencePresent) {
+    lines.push("The fence line is here.");
+  }
+  if (outdoor.state.lastBlocked === "stream") {
+    lines.push("The stream blocks the way.");
+  } else if (streamPresent) {
+    lines.push("The stream bank is here.");
+  }
+  if (outdoor.state.lastBlocked === "river") {
     lines.push("The river blocks the way.");
-  } else {
-    const hint = outdoor.barrierHintAtStand?.() ?? null;
-    if (hint === "fence") {
-      lines.push("The fence line is here.");
-    } else if (hint === "river") {
-      lines.push("The river bank is here.");
-    }
+  } else if (riverPresent) {
+    lines.push("The river bank is here.");
   }
   if (outdoor.atBuildingEntrance) {
     lines.push(`You are at the ${indoor.building.label}.`);
