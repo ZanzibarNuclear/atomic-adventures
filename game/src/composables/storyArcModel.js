@@ -59,7 +59,10 @@ export function normalizeStoryBeat(source = {}, index = 0, proseBeats = {}) {
   const linkedScenes = Object.entries(proseBeats)
     .filter(([sceneId, beat]) => sceneId !== proseBeatId && beat?.storyBeat === id)
     .map(([sceneId, beat]) => sceneFromProseBeat(sceneId, beat));
-  const scenes = Array.isArray(source.scenes)
+  // Empty scenes [] must not block re-linking prose when this runs again with storyData
+  // (useStoryArcContent normalizes once without beats; GameView normalizes again with them).
+  const hasScenes = Array.isArray(source.scenes) && source.scenes.length > 0;
+  const scenes = hasScenes
     ? source.scenes
     : proseBeat
       ? [sceneFromProseBeat(proseBeatId, proseBeat), ...linkedScenes]
@@ -95,7 +98,7 @@ export function normalizeStoryBeat(source = {}, index = 0, proseBeats = {}) {
 export function normalizeScene(source = {}, index = 0, context = {}) {
   const id = text(source.id) || text(source.sceneId) || `scene-${index + 1}`;
   const proseBeat = context.proseBeats?.[id] ?? null;
-  const choices = Array.isArray(source.choices)
+  const choices = Array.isArray(source.choices) && source.choices.length
     ? source.choices
     : Array.isArray(proseBeat?.choices)
       ? proseBeat.choices
@@ -105,13 +108,15 @@ export function normalizeScene(source = {}, index = 0, context = {}) {
   return {
     ...source,
     id,
-    trigger: source.trigger ?? {},
-    conditions: source.conditions ?? null,
-    modes: normalizeStringArray(source.modes),
-    match: source.match ?? {},
-    time: source.time ?? {},
-    prose: text(source.prose) || text(source.text),
-    revisitProse: text(source.revisitProse) || text(source.revisit),
+    trigger: source.trigger ?? proseBeat?.trigger ?? {},
+    conditions: source.conditions ?? proseBeat?.conditions ?? null,
+    modes: normalizeStringArray(source.modes?.length ? source.modes : proseBeat?.modes),
+    match: source.match ?? proseBeat?.match ?? {},
+    time: source.time ?? proseBeat?.time ?? {},
+    eyebrow: text(source.eyebrow) || text(proseBeat?.eyebrow),
+    heading: text(source.heading) || text(proseBeat?.heading),
+    prose: text(source.prose) || text(source.text) || text(proseBeat?.text),
+    revisitProse: text(source.revisitProse) || text(source.revisit) || text(proseBeat?.revisit),
     choices: choices.map((choice, choiceIndex) => normalizeChoice(choice, choiceIndex)),
   };
 }

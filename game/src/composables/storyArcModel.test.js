@@ -6,6 +6,45 @@ import {
   selectSceneForBeat,
 } from "./storyArcModel.js";
 
+describe("story arc double-normalize with prose", () => {
+  it("re-links primary scene prose when first normalize had no storyData", () => {
+    const rawArc = {
+      storyArcs: [{
+        id: "arc",
+        startBeat: "survive",
+        beats: [{
+          id: "survive",
+          scene: "intro",
+          choices: [],
+        }],
+      }],
+    };
+    const empty = normalizeStoryArcContent(rawArc);
+    expect(empty.storyArcs[0].beats[0].scenes).toEqual([]);
+
+    const withProse = normalizeStoryArcContent(empty, {
+      storyData: {
+        beats: {
+          intro: {
+            trigger: { place: "outdoors", hex: "origin" },
+            modes: ["story"],
+            storyBeat: "survive",
+            text: "Alone in the pines.",
+            heading: "Forest",
+          },
+        },
+      },
+    });
+
+    expect(withProse.storyArcs[0].beats[0].scenes).toHaveLength(1);
+    expect(withProse.storyArcs[0].beats[0].scenes[0]).toMatchObject({
+      id: "intro",
+      prose: "Alone in the pines.",
+      heading: "Forest",
+    });
+  });
+});
+
 describe("story arc stand triggers", () => {
   it("prefers a stand-scoped kitchen scene over the room-wide scene", () => {
     const scene = selectSceneForBeat({
