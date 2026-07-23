@@ -188,7 +188,10 @@ function selectBestScene(scenes, context = {}) {
     if (!modeMatches(scene, context)) continue;
     if (!timeMatches(scene, context)) continue;
     if (!flagMatches(scene, context)) continue;
-    const score = matchScore(scene, loc, action) + timeScore(scene) + flagScore(scene);
+    const score = matchScore(scene, loc, action)
+      + timeScore(scene)
+      + flagScore(scene)
+      + locationSpecificityScore(scene);
     if (score < 0 || score <= selectedScore) continue;
     selected = scene;
     selectedScore = score;
@@ -197,11 +200,26 @@ function selectBestScene(scenes, context = {}) {
   return selected;
 }
 
+/** Prefer stand-scoped scenes over room-wide ones when both match. */
+function locationSpecificityScore(scene) {
+  const trigger = scene.trigger ?? {};
+  let score = 0;
+  if (trigger.hex) score += 1;
+  if (trigger.room) score += 1;
+  if (trigger.stand) score += 2;
+  if (trigger.exteriorNode) score += 2;
+  if (trigger.event) score += 3;
+  return score;
+}
+
 function sceneSelectionScore(scene, context = {}) {
   const loc = context.location ?? {};
   const event = context.event ?? null;
   const action = context.actionContext ?? sceneActionContext(loc, event);
-  return matchScore(scene, loc, action) + timeScore(scene) + flagScore(scene);
+  return matchScore(scene, loc, action)
+    + timeScore(scene)
+    + flagScore(scene)
+    + locationSpecificityScore(scene);
 }
 
 function ambientOrderScore(index, total) {
@@ -280,6 +298,10 @@ function triggerMatches(scene, loc, event) {
   if (trigger.place && trigger.place !== loc.place) return false;
   if (trigger.hex && (loc.place !== "outdoors" || trigger.hex !== loc.hex)) return false;
   if (trigger.room && (loc.place !== "indoors" || trigger.room !== loc.room)) return false;
+  // Stand refines a room. Room-only scenes match any stand; stand scenes need exact stand.
+  if (trigger.stand) {
+    if (loc.place !== "indoors" || trigger.stand !== loc.stand) return false;
+  }
   if (trigger.exteriorNode && (loc.place !== "indoors" || trigger.exteriorNode !== loc.exteriorNode)) return false;
   return true;
 }

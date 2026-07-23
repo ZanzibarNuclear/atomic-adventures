@@ -3,9 +3,21 @@ export function buildWorldCatalog(map, building) {
   building ??= {};
   const transitions = building.exits ?? building.transitions ?? [];
   const mapTransitions = transitions.map(({ id, label }) => ({ id, label: label ?? id }));
+  const rooms = (building.rooms ?? []).map(({ id, label, level, stands }) => ({
+    id,
+    label: label ?? id,
+    level,
+    stands: (stands ?? []).map((stand) => ({
+      id: stand.id,
+      label: stand.label ?? stand.id,
+    })),
+  }));
+  const standIdsByRoom = new Map(
+    rooms.map((room) => [room.id, new Set((room.stands ?? []).map((stand) => stand.id))]),
+  );
   return {
     hexes: (map.hexes ?? []).map(({ id, label }) => ({ id, label: label ?? id })),
-    rooms: (building.rooms ?? []).map(({ id, label, level }) => ({ id, label: label ?? id, level })),
+    rooms,
     exteriorNodes: (building.exterior?.nodes ?? []).map(({ id, label }) => ({ id, label: label ?? id })),
     mapTransitions,
     buildings: [
@@ -14,6 +26,7 @@ export function buildWorldCatalog(map, building) {
     ],
     hexIds: new Set((map.hexes ?? []).map((item) => item.id)),
     roomIds: new Set((building.rooms ?? []).map((item) => item.id)),
+    standIdsByRoom,
     exteriorNodeIds: new Set((building.exterior?.nodes ?? []).map((item) => item.id)),
     mapTransitionIds: new Set(transitions.map((item) => item.id)),
     buildingIds: new Set(["building", building.id]),

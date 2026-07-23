@@ -1,6 +1,58 @@
 import { describe, expect, it } from "vitest";
 import { normalizeStoryArcContent, selectSceneForBeat } from "./storyArcModel.js";
 
+describe("story arc stand triggers", () => {
+  it("prefers a stand-scoped kitchen scene over the room-wide scene", () => {
+    const scene = selectSceneForBeat({
+      scenes: [
+        {
+          id: "kitchen-room",
+          trigger: { place: "indoors", room: "kitchen" },
+          prose: "The kitchen as a whole.",
+        },
+        {
+          id: "kitchen-cabinets",
+          trigger: { place: "indoors", room: "kitchen", stand: "cabinets" },
+          prose: "The ration cabinets.",
+        },
+      ],
+    }, {
+      playMode: "story",
+      location: { place: "indoors", room: "kitchen", stand: "cabinets" },
+      flags: new Set(),
+      milestones: {},
+      clock: null,
+    });
+
+    expect(scene?.id).toBe("kitchen-cabinets");
+  });
+
+  it("falls back to the room scene when the player is not at the stand", () => {
+    const scene = selectSceneForBeat({
+      scenes: [
+        {
+          id: "kitchen-room",
+          trigger: { place: "indoors", room: "kitchen" },
+          prose: "The kitchen as a whole.",
+        },
+        {
+          id: "kitchen-cabinets",
+          trigger: { place: "indoors", room: "kitchen", stand: "cabinets" },
+          prose: "The ration cabinets.",
+        },
+      ],
+    }, {
+      playMode: "story",
+      location: { place: "indoors", room: "kitchen", stand: "stove" },
+      flags: new Set(),
+      milestones: {},
+      clock: null,
+    });
+
+    expect(scene?.id).toBe("kitchen-room");
+  });
+});
+
 describe("story arc time gates", () => {
   it("honors a sleep flag for an after-milestone scene gate", () => {
     const scene = selectSceneForBeat({

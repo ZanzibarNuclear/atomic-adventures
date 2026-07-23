@@ -162,7 +162,8 @@ Every scene has exactly one primary trigger:
 | Trigger | Meaning |
 | --- | --- |
 | Outdoor hex | Eligible while the player stands in that hex |
-| Indoor room | Eligible while the player is in that room |
+| Indoor room | Eligible while the player is in that room (any stand) |
+| Indoor room + stand | Eligible only while the player is at that authored stand |
 | Exterior node | Eligible at a building's exterior waypoint |
 | Event | Eligible when code explicitly refreshes story for that named event |
 
@@ -175,10 +176,21 @@ normal indoor location trigger for the selected exterior node. Use a distinct
 exterior-node scene for each local-map arrival stand that needs its own prose.
 Event scenes remain available only for explicit named events requested by code.
 
-Indoor stand movement refines the avatar position within a room but does not
-change room-level trigger behavior. See
-[indoor-stands.md](indoor-stands.md). Stand-level story triggers are a possible
-later extension and are not part of the current scene schema.
+Indoor stand movement is a story-relevant location change. Authored stands such
+as `cabinets`, `stove`, or `console` may own their own scenes:
+
+```yaml
+trigger: { place: indoors, room: kitchen, stand: cabinets }
+```
+
+Rules:
+
+- A **room-only** scene matches any stand in that room.
+- A **room + stand** scene matches only that stand.
+- When both match, the **stand-scoped** scene wins (higher location specificity).
+- Stand IDs are unique within a room and come from World Builder room stands
+  (including `door:<id>` thresholds when authored against them).
+- See [indoor-stands.md](indoor-stands.md).
 
 ## Optional Match Criteria
 

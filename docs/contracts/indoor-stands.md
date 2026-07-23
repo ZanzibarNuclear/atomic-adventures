@@ -14,9 +14,13 @@ currentRoom: large-bay
 currentStand: stair:garage-stair:bottom
 ```
 
-Room-level story triggers, discovery, inventory, and actions continue to use
-`currentRoom`. A stand refines where the avatar appears and which local
-destination the player may choose; it does not create a new story room.
+Room-level discovery, inventory, and actions continue to use `currentRoom` as
+the primary location. A stand refines where the avatar appears, which nearby
+holders and pickups are in reach, and which **stand-scoped story scenes** may
+fire. See [story-beats.md](story-beats.md) for `trigger.stand`.
+
+A stand does not create a new story room. Room-only scenes still match while
+the player is anywhere in the room; stand scenes override them when present.
 
 ## Authored Stands
 

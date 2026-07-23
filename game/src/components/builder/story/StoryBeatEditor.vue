@@ -105,6 +105,26 @@ const modeCriteriaSummary = computed(() => {
   return summary;
 });
 
+const roomStandOptions = computed(() => {
+  const roomId = props.draft?.trigger?.room;
+  if (!roomId) return [];
+  const room = (props.catalog?.world?.rooms ?? []).find((entry) => entry.id === roomId);
+  return room?.stands ?? [];
+});
+
+const locationTriggerSummary = computed(() => {
+  if (!props.draft?.trigger) return [];
+  const trigger = props.draft.trigger;
+  const summary = [];
+  if (trigger.place) summary.push(`Place: ${trigger.place}`);
+  if (trigger.hex) summary.push(`Hex: ${trigger.hex}`);
+  if (trigger.room) summary.push(`Room: ${trigger.room}`);
+  if (trigger.stand) summary.push(`Stand: ${trigger.stand}`);
+  if (trigger.exteriorNode) summary.push(`Exterior: ${trigger.exteriorNode}`);
+  if (trigger.event) summary.push(`Event: ${trigger.event}`);
+  return summary;
+});
+
 watch(
   () => props.selectedLocation,
   () => {
@@ -208,7 +228,7 @@ function setModeEnabled(mode, enabled) {
 <template>
   <section class="builder-form-column panel">
     <div v-if="!draft" class="empty-editor">
-      Select a scene or create a new one.
+      Select a scene or create a new one for this location.
     </div>
     <form v-else @submit.prevent="$emit('save')">
       <div class="form-toolbar">
@@ -278,6 +298,42 @@ function setModeEnabled(mode, enabled) {
       </div>
 
       <div v-show="activeTab === 'criteria'" class="tab-panel" role="tabpanel">
+        <section class="criteria-card">
+          <div class="criteria-card-header">
+            <h3>Location trigger</h3>
+          </div>
+          <div class="criteria-readonly">
+            <span
+              v-for="item in locationTriggerSummary"
+              :key="item"
+              class="summary-chip"
+            >
+              {{ item }}
+            </span>
+            <p v-if="!locationTriggerSummary.length" class="empty-origin-list">No location trigger.</p>
+          </div>
+          <div v-if="draft.trigger?.place === 'indoors' && draft.trigger?.room" class="field-grid">
+            <label class="span-all">Stand (optional — leave blank for whole room)
+              <select
+                :value="draft.trigger.stand ?? ''"
+                @change="draft.trigger.stand = $event.target.value || null">
+                <option value="">Whole room (any stand)</option>
+                <option
+                  v-for="stand in roomStandOptions"
+                  :key="stand.id"
+                  :value="stand.id">
+                  {{ stand.label || stand.id }} ({{ stand.id }})
+                </option>
+              </select>
+              <span class="field-hint">
+                Stand scenes fire when the player moves to that authored stand (for example cabinets).
+                They beat room-wide scenes while the player is at that stand.
+              </span>
+              <span v-if="fieldError('trigger.stand')" class="field-error">{{ fieldError("trigger.stand") }}</span>
+            </label>
+          </div>
+        </section>
+
         <section class="criteria-card">
           <div class="criteria-card-header">
             <h3>Mode and story beat</h3>

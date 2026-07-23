@@ -21,6 +21,7 @@ export function useOpenWorldStory(storyData, {
       mapTransition: outdoor.state.mapTransition,
       transitionDirection: outdoor.state.transitionDirection,
       room: indoor.indoor.currentRoom,
+      stand: indoor.indoor.currentStand,
       exteriorNode: indoor.indoor.exteriorNode,
     };
   }
@@ -78,6 +79,7 @@ export function useOpenWorldStory(storyData, {
       outdoor.state.mapTransition,
       outdoor.state.transitionDirection,
       indoor.indoor.currentRoom,
+      indoor.indoor.currentStand,
       indoor.indoor.exteriorNode,
       [...(gameState.flags ?? [])].join("\0"),
       gameState.clock?.day,
@@ -122,6 +124,9 @@ function triggerMatches(beat, loc, gameState) {
   if (trigger.place && trigger.place !== loc.place) return false;
   if (trigger.hex && (loc.place !== "outdoors" || trigger.hex !== loc.hex)) return false;
   if (trigger.room && (loc.place !== "indoors" || trigger.room !== loc.room)) return false;
+  if (trigger.stand) {
+    if (loc.place !== "indoors" || trigger.stand !== loc.stand) return false;
+  }
   if (trigger.exteriorNode && (loc.place !== "indoors" || trigger.exteriorNode !== loc.exteriorNode)) return false;
   if (trigger.flag && !hasFlag(gameState.flags, trigger.flag)) return false;
   return true;
@@ -143,6 +148,11 @@ function matchScore(beat, loc) {
     if (match.transitionDirection !== loc.transitionDirection) return -1;
     score += 1;
   }
+  const trigger = beat.trigger ?? {};
+  if (trigger.room) score += 1;
+  if (trigger.stand) score += 2;
+  if (trigger.hex) score += 1;
+  if (trigger.exteriorNode) score += 2;
   return score;
 }
 

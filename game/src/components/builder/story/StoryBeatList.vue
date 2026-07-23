@@ -31,6 +31,11 @@ function flagCriteriaLabel(beat) {
   if (Array.isArray(flags.not) && flags.not.length) labels.push(`absent ${flags.not.join(", ")}`);
   return labels.join(" / ");
 }
+
+function standLabel(beat) {
+  const stand = beat?.trigger?.stand;
+  return stand ? `stand ${stand}` : "";
+}
 </script>
 
 <template>
@@ -40,7 +45,7 @@ function flagCriteriaLabel(beat) {
         <p class="label">Selected location</p>
         <h2>{{ selectedLocation }}</h2>
       </div>
-      <button class="sm" @click="$emit('new')">New beat</button>
+      <button class="sm" @click="$emit('new')">New scene</button>
     </div>
     <button
       v-for="beat in beats"
@@ -51,6 +56,7 @@ function flagCriteriaLabel(beat) {
     >
       <strong>{{ beat.heading || beat.id }}</strong>
       <span>{{ beat.id }}</span>
+      <small v-if="standLabel(beat)">{{ standLabel(beat) }}</small>
       <small v-if="originHexPrefix(beat.match?.originHex)">{{ originHexPrefix(beat.match.originHex) }}</small>
       <small v-if="beat.match?.mapTransition">
         map transition {{ beat.match.mapTransition }}
@@ -60,7 +66,7 @@ function flagCriteriaLabel(beat) {
       </small>
       <small v-if="flagCriteriaLabel(beat)">{{ flagCriteriaLabel(beat) }}</small>
     </button>
-    <p v-if="!beats.length" class="empty-note">No beats are attached here yet.</p>
+    <p v-if="!beats.length" class="empty-note">No scenes are attached here yet.</p>
     <p v-for="warning in warnings" :key="warning" class="builder-warning">{{ warning }}</p>
   </section>
 </template>

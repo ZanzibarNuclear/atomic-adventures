@@ -39,6 +39,7 @@ export function useStoryArc(storyData, {
     mapTransition: outdoor?.state?.mapTransition ?? null,
     transitionDirection: outdoor?.state?.transitionDirection ?? null,
     room: indoor?.indoor?.currentRoom ?? null,
+    stand: indoor?.indoor?.currentStand ?? null,
     exteriorNode: indoor?.indoor?.exteriorNode ?? null,
   }));
   const sceneContext = computed(() => ({
@@ -378,6 +379,7 @@ export function useStoryArc(storyData, {
       outdoor?.state?.stand?.x,
       outdoor?.state?.stand?.y,
       indoor?.indoor?.currentRoom,
+      indoor?.indoor?.currentStand,
       indoor?.indoor?.exteriorNode,
       [...(gameState.flags ?? [])].join("\0"),
       JSON.stringify(gameState.milestones ?? {}),
