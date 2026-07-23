@@ -31,9 +31,16 @@ describe("BuildingRepository", () => {
     expect(document.building.rooms.some((room) => room.id === "large-bay")).toBe(true);
     expect(document.building.rooms.find((room) => room.id === "conference")?.views).toEqual([
       expect.objectContaining({
-        id: "doorway",
+        id: "conference-room-lights-on",
         kind: "image",
-        src: "views/conference-room-cool-doorway.png",
+        src: "views/conference-room-lights-on.jpg",
+        when: { roomLights: "on" },
+      }),
+      expect.objectContaining({
+        id: "conference-room-dark",
+        kind: "image",
+        src: "views/conference-room-lights-out.jpg",
+        when: { roomLights: "off" },
       }),
     ]);
     expect(building.listRevisions().length).toBeGreaterThan(0);
