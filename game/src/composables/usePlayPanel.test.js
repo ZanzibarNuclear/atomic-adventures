@@ -335,6 +335,20 @@ describe("nearby reachable item messages", () => {
     );
   });
 
+  it("collapses identical items into a counted plural phrase", () => {
+    const indoor = indoorWithReachable({
+      pickups: [
+        { id: "g1", label: "drinking glass", item: "drinking-glass" },
+        { id: "g2", label: "drinking glass", item: "drinking-glass" },
+        { id: "g3", label: "drinking glass", item: "drinking-glass" },
+        { id: "g4", label: "drinking glass", item: "drinking-glass" },
+      ],
+    });
+    expect(formatNearbyReachableItemsMessage(indoor)).toBe(
+      "There are four drinking glasses.",
+    );
+  });
+
   it("returns null when nothing is within reach", () => {
     expect(formatNearbyReachableItemsMessage(indoorWithReachable())).toBe(null);
   });

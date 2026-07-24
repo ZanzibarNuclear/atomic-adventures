@@ -69,6 +69,32 @@ const storyArcErrors = ref({});
 const storyArcDirty = computed(() =>
   storyArcDocumentText.value !== storyArcBaselineText.value,
 );
+/** Story-arc beat IDs for the scene editor picker. */
+const storyBeatOptions = computed(() => {
+  try {
+    const doc = JSON.parse(storyArcDocumentText.value || "{}");
+    const options = [];
+    const seen = new Set();
+    for (const arc of doc.storyArcs ?? []) {
+      const arcTitle = String(arc?.title || arc?.id || "Story arc").trim();
+      for (const beat of arc?.beats ?? []) {
+        const id = String(beat?.id ?? "").trim();
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        const title = String(beat?.title || "").trim();
+        options.push({
+          id,
+          label: title && title !== id ? `${title} (${id})` : id,
+          arcTitle,
+        });
+      }
+    }
+    return options;
+  } catch {
+    return [];
+  }
+});
+
 const milestoneDialog = ref({
   visible: false,
   field: null,
@@ -801,6 +827,7 @@ async function applyStoryRouteQuery() {
         :selected-location="selectedLocation"
         :origin-hex-options="originHexOptions"
         :flag-ids="flagIds"
+        :story-beat-options="storyBeatOptions"
         @save="saveBeat"
         @revert="revertDraft"
         @duplicate="newBeat"
