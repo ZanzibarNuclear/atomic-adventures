@@ -7,10 +7,48 @@ import {
   itemQuantity,
   removeItem,
 } from "./holdings.js";
+import {
+  applyVesselContentConsumption,
+  isVesselDefinition,
+  normalizeContents,
+  planVesselContentConsumption,
+  vesselIsEmpty,
+} from "./vessels.js";
 
-export function availableItemActions(character, itemId) {
-  const item = (character.definitions?.items ?? []).find((entry) => entry.id === itemId);
-  if (!item || itemQuantity(character.holdings, itemId) <= 0) return [];
+function itemDef(character, itemId) {
+  return (character.definitions?.items ?? []).find((entry) => entry.id === itemId) ?? null;
+}
+
+export function availableItemActions(character, itemId, { recordId = null } = {}) {
+  const item = itemDef(character, itemId);
+  if (!item) return [];
+  if (itemQuantity(character.holdings, itemId) <= 0) return [];
+
+  // Vessel with contents: expose the content item's consume actions.
+  if (isVesselDefinition(item) && recordId) {
+    const instance = character.holdings.instances?.[recordId];
+    if (instance?.item === itemId && !vesselIsEmpty(instance)) {
+      const contents = normalizeContents(instance.contents);
+      const liquid = itemDef(character, contents.item);
+      return (liquid?.actions ?? []).filter((action) => isConsumptiveAction(action));
+    }
+    // Empty vessel: no drink/eat actions.
+    if (instance?.item === itemId && vesselIsEmpty(instance)) return [];
+  }
+
+  // Vessel without recordId: if any held instance has contents, still list actions
+  // (inventory UI always passes recordId for instances).
+  if (isVesselDefinition(item) && !recordId) {
+    const filled = Object.entries(character.holdings.instances ?? {})
+      .find(([, record]) => record.item === itemId && !vesselIsEmpty(record));
+    if (filled) {
+      const contents = normalizeContents(filled[1].contents);
+      const liquid = itemDef(character, contents.item);
+      return (liquid?.actions ?? []).filter((action) => isConsumptiveAction(action));
+    }
+    return [];
+  }
+
   return item.actions ?? [];
 }
 
@@ -19,7 +57,16 @@ export function performItemAction(gameState, itemId, actionId, {
   recordId = null,
   optionId = null,
 } = {}) {
-  const action = availableItemActions(gameState.character, itemId)
+  const vesselDef = itemDef(gameState.character, itemId);
+  if (isVesselDefinition(vesselDef)) {
+    return performVesselContentAction(gameState, itemId, actionId, {
+      holderId,
+      recordId,
+      optionId,
+    });
+  }
+
+  const action = availableItemActions(gameState.character, itemId, { recordId })
     .find((entry) => entry.id === actionId);
   if (!action) return { ok: false, error: "Item action is not available." };
   if (action.timeMinutes > 0 && !ACTIVITY_PROFILES.includes(action.activity ?? "light")) {
@@ -76,6 +123,87 @@ export function performItemAction(gameState, itemId, actionId, {
   };
 }
 
+function performVesselContentAction(gameState, vesselItemId, actionId, {
+  holderId = null,
+  recordId = null,
+  optionId = null,
+} = {}) {
+  const character = gameState.character;
+  const vesselDef = itemDef(character, vesselItemId);
+  const heldHolderId = characterHolderId(character.holdings);
+  if (holderId && holderId !== heldHolderId) {
+    return { ok: false, error: "Hold the vessel before using its contents." };
+  }
+
+  let instanceId = recordId;
+  let instance = instanceId ? character.holdings.instances?.[instanceId] : null;
+  if (!instance || instance.item !== vesselItemId) {
+    const found = Object.entries(character.holdings.instances ?? {})
+      .filter(([, record]) => record.item === vesselItemId)
+      .filter(([, record]) => record.holder === heldHolderId)
+      .find(([, record]) => !vesselIsEmpty(record));
+    if (!found) return { ok: false, error: "No filled vessel is available." };
+    instanceId = found[0];
+    instance = found[1];
+  }
+  if (vesselIsEmpty(instance)) {
+    return { ok: false, error: "The vessel is empty." };
+  }
+
+  const contents = normalizeContents(instance.contents);
+  const contentDef = itemDef(character, contents.item);
+  const action = (contentDef?.actions ?? []).find((entry) => entry.id === actionId);
+  if (!action || !isConsumptiveAction(action)) {
+    return { ok: false, error: "That action is not available for the contents." };
+  }
+  if (action.timeMinutes > 0 && !ACTIVITY_PROFILES.includes(action.activity ?? "light")) {
+    return { ok: false, error: "Item action has an invalid activity profile." };
+  }
+
+  const plan = planVesselContentConsumption(instance, vesselDef, contentDef, action, { optionId });
+  if (!plan.ok) return plan;
+
+  const wellbeingGate = consumptionWellbeingGate(character, action, plan.scale);
+  if (!wellbeingGate.ok) return wellbeingGate;
+
+  const effects = (action.effects ?? [])
+    .map((effect) => scaledEffect(effect, plan.scale))
+    .map((effect) => sourceAwareEffect(effect, heldHolderId));
+  const result = applyEffectsAtomically(effects, {
+    character,
+    flags: gameState.flags,
+  });
+  if (!result.ok) return result;
+
+  // applyEffects replaces holdings; re-resolve the live instance before mutating fill.
+  const liveInstance = character.holdings.instances?.[instanceId];
+  if (!liveInstance) {
+    return { ok: false, error: "Vessel instance disappeared during consumption." };
+  }
+  applyVesselContentConsumption(liveInstance, plan);
+
+  if (action.timeMinutes > 0) {
+    const timeResult = advanceGameTime(
+      gameState,
+      action.timeMinutes * plan.scale,
+      action.activity ?? "light",
+    );
+    if (!timeResult.ok) return timeResult;
+  }
+
+  const contentLabel = contentDef?.label ?? contents.item;
+  const notice = plan.emptied
+    ? `You finish the ${contentLabel}. The ${vesselDef.label ?? "vessel"} is empty.`
+    : wellbeingGate.notice ?? null;
+
+  return {
+    ok: true,
+    notice,
+    view: action.view && typeof action.view === "object" ? { ...action.view } : null,
+    vesselEmptied: plan.emptied,
+  };
+}
+
 function consumableActionSource(character, itemId, action, holderId) {
   if (!isConsumptiveAction(action)) return { ok: true, holderId: null };
   const heldHolderId = characterHolderId(character.holdings);
@@ -93,36 +221,48 @@ function isConsumptiveAction(action) {
 }
 
 /**
- * Block further food/drink when already at the top wellbeing band (e.g. Stuffed)
- * or at the meter max.
+ * Block further food/drink when the *primary* recovery meter is already at the
+ * top wellbeing band (e.g. Stuffed) or at the meter max.
+ *
+ * Meals often add a little hydration alongside satiety. Only the largest
+ * positive meter effect gates the action — a full hydration bar must not
+ * block eating food, and a stuffed satiety bar must not block pure drinks.
  */
 export function consumptionWellbeingGate(character, action, portionScale = 1) {
   const effects = (action.effects ?? [])
     .map((effect) => scaledEffect(effect, portionScale))
-    .filter((effect) => effect?.op === "stat.add" && Number(effect.value) > 0);
+    .filter((effect) => effect?.op === "stat.add" && Number(effect.value) > 0)
+    .map((effect) => {
+      const definition = (character.definitions?.stats ?? [])
+        .find((stat) => stat.id === effect.id);
+      return { effect, definition };
+    })
+    .filter(({ definition }) => definition?.type === "meter");
 
-  for (const effect of effects) {
-    const definition = (character.definitions?.stats ?? [])
-      .find((stat) => stat.id === effect.id);
-    if (!definition || definition.type !== "meter") continue;
+  if (!effects.length) return { ok: true };
 
-    const min = Number.isFinite(Number(definition.min)) ? Number(definition.min) : 0;
-    const max = Number.isFinite(Number(definition.max)) ? Number(definition.max) : 100;
-    const current = Number(character.stats?.[effect.id] ?? definition.default ?? min);
-    const band = topWellbeingBand(definition);
+  // Primary benefit = largest positive meter gain (satiety 55 beats hydration 4).
+  const primary = effects.reduce((best, entry) =>
+    Number(entry.effect.value) > Number(best.effect.value) ? entry : best
+  );
 
-    if (band && current >= band.at) {
-      return {
-        ok: false,
-        error: wellbeingRefusalMessage(definition, band.state, effect.id),
-      };
-    }
-    if (current >= max) {
-      return {
-        ok: false,
-        error: wellbeingRefusalMessage(definition, band?.state ?? "full", effect.id),
-      };
-    }
+  const { effect, definition } = primary;
+  const min = Number.isFinite(Number(definition.min)) ? Number(definition.min) : 0;
+  const max = Number.isFinite(Number(definition.max)) ? Number(definition.max) : 100;
+  const current = Number(character.stats?.[effect.id] ?? definition.default ?? min);
+  const band = topWellbeingBand(definition);
+
+  if (band && current >= band.at) {
+    return {
+      ok: false,
+      error: wellbeingRefusalMessage(definition, band.state, effect.id),
+    };
+  }
+  if (current >= max) {
+    return {
+      ok: false,
+      error: wellbeingRefusalMessage(definition, band?.state ?? "full", effect.id),
+    };
   }
   return { ok: true };
 }

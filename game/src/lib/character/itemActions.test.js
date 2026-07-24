@@ -262,4 +262,30 @@ describe("item actions", () => {
     expect(gameState.character.stats.satiety).toBe(95);
   });
 
+  it("allows eating food that also adds a little hydration when already hydrated", () => {
+    const gameState = state();
+    gameState.character.definitions.items.find((item) => item.id === "meal").actions = [{
+      id: "eat",
+      label: "Eat meal",
+      consume: 1,
+      timeMinutes: 0,
+      activity: "resting",
+      effects: [
+        { op: "stat.add", id: "satiety", value: 55 },
+        { op: "stat.add", id: "hydration", value: 4 },
+      ],
+    }];
+    gameState.character.definitions.stats.find((stat) => stat.id === "hydration").displayStates = [
+      { at: 80, state: "Hydrated", tone: "positive" },
+      { at: 0, state: "Thirsty", tone: "warning" },
+    ];
+    gameState.character.stats.satiety = 20;
+    gameState.character.stats.hydration = 95;
+
+    const result = performItemAction(gameState, "meal", "eat");
+    expect(result.ok).toBe(true);
+    expect(result.error).toBeUndefined();
+    expect(gameState.character.stats.satiety).toBeCloseTo(75);
+  });
+
 });

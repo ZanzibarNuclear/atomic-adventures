@@ -20,6 +20,17 @@ export function normalizeBuilding(input = {}) {
   building.outdoorHex = nullableText(building.outdoorHex);
   building.levels = array(building.levels);
   building.rooms = array(building.rooms);
+  building.rooms.forEach((room) => {
+    if (!room || typeof room !== "object") return;
+    room.fixtures = array(room.fixtures).map((fixture) => ({
+      ...fixture,
+      id: text(fixture.id),
+      kind: text(fixture.kind),
+      stand: nullableText(fixture.stand),
+      label: text(fixture.label) || text(fixture.id),
+      requiresTabletItem: nullableText(fixture.requiresTabletItem),
+    }));
+  });
   building.links = array(building.links);
   building.items = array(building.items);
   building.pickups = array(building.pickups);
@@ -110,6 +121,16 @@ export function validateBuilding(input, {
     if (room.defaultStand && !standIds.has(room.defaultStand)) {
       add(`${base}.defaultStand`, "Default stand must reference an authored stand in this room.");
     }
+    (room.fixtures ?? []).forEach((fixture, fixtureIndex) => {
+      const fixtureBase = `${base}.fixtures.${fixtureIndex}`;
+      if (!ID_PATTERN.test(fixture.id)) {
+        add(`${fixtureBase}.id`, "Use a kebab-case fixture ID.");
+      }
+      if (!fixture.kind) add(`${fixtureBase}.kind`, "Choose a fixture kind.");
+      if (fixture.stand && !standIds.has(fixture.stand)) {
+        add(`${fixtureBase}.stand`, "Fixture stand must exist on this room.");
+      }
+    });
     standIdsByRoom.set(room.id, standIds);
   });
 

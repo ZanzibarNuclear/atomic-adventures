@@ -16,6 +16,12 @@ import {
 } from "../lib/maps/composables/useBarrierOpenings.js";
 import { barrierHintAtStand } from "../lib/maps/composables/useBarrierStand.js";
 import { pushPlayMessage } from "./usePlayMessages.js";
+import { markCharacterChanged } from "./useCharacterState.js";
+import {
+  buildProcessFixtureActions,
+  performProcessFixtureAction,
+  processFixtureStatusLines,
+} from "../lib/maps/composables/indoor/roomFixtures.js";
 import {
   characterHolderId,
   holdingRecords,
@@ -33,7 +39,6 @@ import {
   contentFlavorLabel,
   formatContainerGroupDiscovery,
 } from "../lib/character/containerLabels.js";
-import { markCharacterChanged } from "./useCharacterState.js";
 import {
   DEAD_LIGHT_SWITCH_NOTICE,
   lightFixtureForRoom,
@@ -514,6 +519,10 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
   const lightAction = roomLightPlayAction(indoor);
   if (lightAction) items.push(lightAction);
 
+  for (const action of buildProcessFixtureActions(indoor)) {
+    items.push(action);
+  }
+
   return items.filter(isVisibleAction);
 }
 
@@ -754,6 +763,17 @@ export function handleIndoorPlayAction(indoor, actionId) {
       ?? { ok: false, error: "Light switches are unavailable." };
     if (!result.ok) return result;
     return { ok: true };
+  }
+  if (actionId.startsWith("fixture:")) {
+    const result = performProcessFixtureAction(
+      indoor,
+      actionId,
+      indoor.gameState ?? null,
+    );
+    if (result?.characterChanged && indoor.character) {
+      markCharacterChanged(indoor.character);
+    }
+    return result;
   }
   if (actionId.startsWith("exit-world:")) {
     indoor.exitViaDoor(actionId.slice("exit-world:".length));
@@ -1000,7 +1020,7 @@ export function nearbyReachableItemsSignature(indoor) {
 
 /**
  * Player-facing discovery line for items at the current stand, e.g.
- * "There is a bolt cutter."
+ * "There is a bolt cutter." / "There are four drinking glasses."
  * Multiple same-type containers with different contents are summarized by flavor.
  */
 export function formatNearbyReachableItemsMessage(indoor) {
@@ -1032,23 +1052,29 @@ export function formatNearbyReachableItemsMessage(indoor) {
     otherLabels.push(String(group[0].label ?? "").trim());
   }
 
-  const simplePhrases = otherLabels
-    .filter(Boolean)
-    .map((label) => withIndefiniteArticle(label));
+  // Collapse identical ordinary labels: four "drinking glass" → one counted phrase.
+  const simplePhrases = collapseIdenticalLabels(otherLabels);
 
   if (!groupPhrases.length && !simplePhrases.length) return null;
 
-  // Only ordinary pickups: keep the original "There is A and B." style.
+  // Only ordinary pickups (no multi-flavor container summaries).
   if (!groupPhrases.length) {
-    if (simplePhrases.length === 1) return `There is ${simplePhrases[0]}.`;
-    if (simplePhrases.length === 2) return `There is ${simplePhrases[0]} and ${simplePhrases[1]}.`;
-    return `There is ${simplePhrases.slice(0, -1).join(", ")}, and ${simplePhrases.at(-1)}.`;
+    if (simplePhrases.length === 1) {
+      return simplePhrases[0].plural
+        ? `There are ${simplePhrases[0].text}.`
+        : `There is ${simplePhrases[0].text}.`;
+    }
+    const texts = simplePhrases.map((phrase) => phrase.text);
+    if (texts.length === 2) return `There is ${texts[0]} and ${texts[1]}.`;
+    return `There is ${texts.slice(0, -1).join(", ")}, and ${texts.at(-1)}.`;
   }
 
   // Container summaries already include "There are N boxes...".
   const parts = [
     ...groupPhrases,
-    ...simplePhrases.map((phrase) => `there is ${phrase}`),
+    ...simplePhrases.map((phrase) =>
+      phrase.plural ? `there are ${phrase.text}` : `there is ${phrase.text}`,
+    ),
   ];
   if (parts.length === 1) {
     const line = parts[0];
@@ -1060,6 +1086,56 @@ export function formatNearbyReachableItemsMessage(indoor) {
     return text.charAt(0).toLowerCase() + text.slice(1);
   });
   return `${normalized.slice(0, -1).join("; ")}; and ${normalized.at(-1)}.`;
+}
+
+/**
+ * Group identical labels for discovery copy.
+ * @returns {{ text: string, plural: boolean }[]}
+ */
+function collapseIdenticalLabels(labels) {
+  const counts = new Map();
+  for (const raw of labels) {
+    const label = String(raw ?? "").trim();
+    if (!label) continue;
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  const phrases = [];
+  for (const [label, count] of counts) {
+    if (count === 1) {
+      phrases.push({ text: withIndefiniteArticle(label), plural: false });
+    } else {
+      phrases.push({
+        text: `${countWord(count)} ${pluralizeNounPhrase(label)}`,
+        plural: true,
+      });
+    }
+  }
+  return phrases;
+}
+
+const SMALL_COUNT_WORDS = [
+  "", "one", "two", "three", "four", "five", "six",
+  "seven", "eight", "nine", "ten", "eleven", "twelve",
+];
+
+function countWord(count) {
+  return SMALL_COUNT_WORDS[count] ?? String(count);
+}
+
+/** "drinking glass" → "drinking glasses"; "box" → "boxes". */
+function pluralizeNounPhrase(label) {
+  const raw = String(label ?? "").trim();
+  if (!raw) return raw;
+  const parts = raw.split(/\s+/);
+  const last = parts.pop();
+  parts.push(pluralizeWord(last));
+  return parts.join(" ");
+}
+
+function pluralizeWord(word) {
+  if (/[^aeiou]y$/i.test(word)) return `${word.slice(0, -1)}ies`;
+  if (/(s|x|z|ch|sh)$/i.test(word)) return `${word}es`;
+  return `${word}s`;
 }
 
 /** "bolt cutter" → "a bolt cutter"; preserves existing a/an/the. */
@@ -1122,6 +1198,7 @@ export function buildIndoorStatusLines(indoor, wellbeingOverview = null) {
     lines.push("Station power is on.");
     lines.push(...poweredObjectStatusLines(indoor));
   }
+  lines.push(...processFixtureStatusLines(indoor));
   return lines;
 }
 

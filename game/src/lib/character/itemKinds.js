@@ -6,8 +6,13 @@
 export const ITEM_KIND_OPTIONS = [
   { id: "key", label: "Key", description: "Opens locks when a door or action names this item." },
   { id: "tool", label: "Tool", description: "Portable equipment used by actions or simulations." },
-  { id: "container", label: "Container", description: "Unique item that can hold other items." },
-  { id: "consumable", label: "Consumable", description: "Food, water, medicine, and similar usable goods." },
+  { id: "container", label: "Container", description: "Unique item that can hold other solid items." },
+  {
+    id: "vessel",
+    label: "Vessel",
+    description: "Glass, bottle, bowl, or hopper that holds liquid or granular contents by volume.",
+  },
+  { id: "consumable", label: "Consumable", description: "Food, bulk liquid, medicine, and similar usable goods." },
   { id: "part", label: "Part", description: "Components, wrappers, empties, and salvage." },
   { id: "card", label: "Card", description: "Instruction cards and similar thin documents." },
   { id: "book", label: "Book", description: "Manuals and readable texts." },

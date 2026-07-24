@@ -109,6 +109,8 @@ export function createIndoorPlayer(
       manualMode: {},
       /** roomId → true when wall light switch is closed (on). */
       lightSwitches: {},
+      /** Process fixtures (sink, purifier, …) keyed by fixture id. */
+      fixtures: {},
     },
     flags: sharedFlags ?? createFlags(),
     completedActions: new Set(),

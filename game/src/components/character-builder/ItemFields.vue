@@ -351,11 +351,22 @@ function removeConsumeOption(action, index) {
           Full-item impact is scaled by the selected portion and the instance remaining amount.
         </p>
         <article
-          v-for="action in consumptionActions(entry)"
-          :key="action.id"
+          v-for="(action, actionIndex) in consumptionActions(entry)"
+          :key="`consume-action-${actionIndex}`"
           class="consume-action">
           <div class="field-grid">
-            <label>Action ID<input v-model="action.id"></label>
+            <label>Action ID
+              <input
+                v-model="action.id"
+                list="consumable-action-ids"
+                placeholder="drink or eat"
+                autocomplete="off">
+            </label>
+            <datalist id="consumable-action-ids">
+              <option value="drink"></option>
+              <option value="eat"></option>
+              <option value="use"></option>
+            </datalist>
             <label>Button label<input v-model="action.label"></label>
             <label>Time minutes<input v-model.number="action.timeMinutes" type="number" min="0"></label>
             <label>Activity
@@ -395,7 +406,7 @@ function removeConsumeOption(action, index) {
             </div>
             <div
               v-for="(option, index) in action.consumeOptions"
-              :key="option.id"
+              :key="`consume-option-${actionIndex}-${index}`"
               class="consume-option-row">
               <label>ID<input v-model="option.id"></label>
               <label>Label<input v-model="option.label"></label>

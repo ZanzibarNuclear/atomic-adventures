@@ -18,6 +18,8 @@ const props = defineProps({
   originHexOptions: { type: Array, default: () => [] },
   milestones: { type: Array, default: () => [] },
   flagIds: { type: Array, default: () => [] },
+  /** Story-arc beat options: { id, label, arcTitle? }[] */
+  storyBeatOptions: { type: Array, default: () => [] },
 });
 
 defineEmits([
@@ -101,9 +103,42 @@ const modeCriteriaSummary = computed(() => {
   const summary = [];
   const modes = Array.isArray(props.draft.modes) ? props.draft.modes : [];
   if (modes.length) summary.push(`Modes: ${modes.map(modeLabel).join(", ")}`);
-  if (props.draft.storyBeat) summary.push(`Story beat: ${props.draft.storyBeat}`);
+  if (props.draft.storyBeat) {
+    const match = storyBeatSelectOptions.value.find((beat) => beat.id === props.draft.storyBeat);
+    summary.push(`Story beat: ${match?.label ?? props.draft.storyBeat}`);
+  }
   return summary;
 });
+
+/** Beat picker options, including an orphan value still set on the scene. */
+const storyBeatSelectOptions = computed(() => {
+  const options = Array.isArray(props.storyBeatOptions) ? [...props.storyBeatOptions] : [];
+  const current = props.draft?.storyBeat;
+  if (current && !options.some((beat) => beat.id === current)) {
+    options.unshift({
+      id: current,
+      label: `${current} (not in loaded arcs)`,
+      arcTitle: null,
+    });
+  }
+  return options;
+});
+
+const storyBeatOptionGroups = computed(() => {
+  const groups = new Map();
+  for (const beat of storyBeatSelectOptions.value) {
+    const key = beat.arcTitle || "Story beats";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(beat);
+  }
+  return [...groups.entries()].map(([title, beats]) => ({ title, beats }));
+});
+
+function setStoryBeat(event) {
+  if (!props.draft) return;
+  const value = String(event?.target?.value ?? "").trim();
+  props.draft.storyBeat = value || null;
+}
 
 const roomStandOptions = computed(() => {
   const roomId = props.draft?.trigger?.room;
@@ -366,10 +401,28 @@ function setModeEnabled(mode, enabled) {
               Open-world mode
             </label>
             <label class="span-all">Story beat
-              <input
-                v-model="draft.storyBeat"
-                placeholder="optional story beat ID"
-              />
+              <select
+                :value="draft.storyBeat ?? ''"
+                @change="setStoryBeat"
+              >
+                <option value="">None (optional)</option>
+                <optgroup
+                  v-for="group in storyBeatOptionGroups"
+                  :key="group.title"
+                  :label="group.title"
+                >
+                  <option
+                    v-for="beat in group.beats"
+                    :key="beat.id"
+                    :value="beat.id"
+                  >
+                    {{ beat.label }}
+                  </option>
+                </optgroup>
+              </select>
+              <span v-if="!storyBeatOptions.length" class="field-hint">
+                Load story arcs to pick a beat ID from the list.
+              </span>
               <span v-if="fieldError('storyBeat')" class="field-error">{{ fieldError("storyBeat") }}</span>
             </label>
           </div>
