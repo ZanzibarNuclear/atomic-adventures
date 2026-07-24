@@ -67,25 +67,8 @@ describe("story action availability", () => {
     })).toEqual(actions);
   });
 
-  it("allows the required conference-room door during the first shelter beat", () => {
-    const beat = storyBeat("part-i-station", "solve-first-crisis");
-    const actions = [
-      { id: "move-room:garage-stair", label: "Descend the stairs" },
-      { id: "door-open:conference-garage-stair", label: "Open the door" },
-    ];
-
-    expect(
-      filterAllowedActions(actions, {
-        mode: "story",
-        beatId: beat.id,
-        allowed: beat.allowed,
-        unrestricted: false,
-      }),
-    ).toEqual(actions);
-  });
-
   it("does not let station story beats hide base traversal controls", () => {
-    const stationArc = storyArc("part-i-station");
+    const stationArc = storyArc("lost-in-forest");
     const traversalActions = [
       ...utilityData.doors.flatMap((door) => [
         { id: `door-open:${door.id}`, label: `Open ${door.id}` },

@@ -74,7 +74,7 @@ describe("WorldRepository", () => {
       expect.objectContaining({ kind: "story", beatId: "rename-target", path: "trigger.hex" }),
       expect.objectContaining({
         kind: "storyArc",
-        arcId: "part-i-opener",
+        arcId: "lost-in-forest",
         beatId: "survive-in-the-woods",
       }),
     ]));
@@ -97,7 +97,7 @@ describe("WorldRepository", () => {
     ]);
     expect(saved.story.affected).toEqual(expect.arrayContaining([
       { areaId: "test", beatId: "rename-target" },
-      { arcId: "part-i-opener", beatId: "survive-in-the-woods" },
+      { arcId: "lost-in-forest", beatId: "survive-in-the-woods" },
     ]));
     expect(story.getBeat("test", "rename-target").trigger.hex).toBe("arrival-trail");
     expect(
