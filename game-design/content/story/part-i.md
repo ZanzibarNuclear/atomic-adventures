@@ -131,11 +131,11 @@ Holo-reader technology produces an immersive 3D experience and is designed for e
 The people at this station are into science and engineering. Between the pair of holo-readers is a rack of infopods that mirrors the physical books.
 
 - Fundamentals of Physics
-- Partical Physics
+- Particle Physics
 - Chemistry: Potions, Reactions, Surprises
 - Mechanical Engineering, the Complete Works
 - Electro-magnetism, Maxwell's Faraday Cage Match
-- Quantum Machanics - Eigen see your nano banana
+- Quantum Mechanics - Eigen see your nano banana
 - Fluid Dynamics
 - Statistical Thermodynamics
 - Hydro Power, Water You Waiting For?
