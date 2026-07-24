@@ -51,28 +51,57 @@ export function listProcessFixtures(building) {
   return out;
 }
 
+function defaultStateForKind(kind) {
+  if (kind === "sink") return { ...DEFAULT_SINK };
+  if (kind === "water-purifier") return { ...DEFAULT_PURIFIER };
+  return null;
+}
+
+/**
+ * Read fixture runtime without mutating reactive facility state.
+ * Safe to call from computed/status builders.
+ */
+export function fixtureRuntime(facility, fixtureId, kind = null) {
+  const existing = facility?.fixtures?.[fixtureId];
+  if (existing) return existing;
+  return kind ? defaultStateForKind(kind) : null;
+}
+
+/**
+ * Ensure mutable facility state exists for process fixtures.
+ * Only writes when a fixture entry is missing — never from render loops.
+ */
 export function ensureFixtureRuntime(facility, building) {
+  if (!facility || typeof facility !== "object") return null;
   if (!facility.fixtures || typeof facility.fixtures !== "object") {
     facility.fixtures = {};
   }
   for (const fixture of listProcessFixtures(building)) {
-    if (fixture.kind === "sink") {
-      facility.fixtures[fixture.id] = {
-        ...DEFAULT_SINK,
-        ...(facility.fixtures[fixture.id] ?? {}),
-      };
-    } else if (fixture.kind === "water-purifier") {
-      facility.fixtures[fixture.id] = {
-        ...DEFAULT_PURIFIER,
-        ...(facility.fixtures[fixture.id] ?? {}),
-      };
-    }
+    if (facility.fixtures[fixture.id]) continue;
+    const defaults = defaultStateForKind(fixture.kind);
+    if (defaults) facility.fixtures[fixture.id] = defaults;
   }
   return facility.fixtures;
 }
 
-export function fixtureRuntime(facility, fixtureId) {
-  return facility?.fixtures?.[fixtureId] ?? null;
+/** Mutable state for an action handler (creates entry once if needed). */
+function mutableFixtureState(facility, fixture) {
+  if (!facility.fixtures || typeof facility.fixtures !== "object") {
+    facility.fixtures = {};
+  }
+  if (!facility.fixtures[fixture.id]) {
+    facility.fixtures[fixture.id] = defaultStateForKind(fixture.kind) ?? {};
+    return facility.fixtures[fixture.id];
+  }
+  // Fill missing keys in place; do not replace the object (avoids reactive churn).
+  const state = facility.fixtures[fixture.id];
+  const defaults = defaultStateForKind(fixture.kind);
+  if (defaults) {
+    for (const [key, value] of Object.entries(defaults)) {
+      if (state[key] === undefined) state[key] = value;
+    }
+  }
+  return state;
 }
 
 function fixturesAtStand(building, roomId, standId) {
@@ -127,13 +156,12 @@ export function buildProcessFixtureActions(indoor) {
 
   const facility = indoor.indoor?.facility ?? indoor.facility;
   if (!facility) return [];
-  ensureFixtureRuntime(facility, building);
   const character = indoor.character;
   const actions = [];
 
   for (const fixture of fixturesAtStand(building, roomId, standId)) {
     if (fixture.kind === "sink") {
-      const state = fixtureRuntime(facility, fixture.id);
+      const state = fixtureRuntime(facility, fixture.id, "sink");
       if (state.flow === "off") {
         actions.push({
           id: `fixture:${fixture.id}:flow-on`,
@@ -151,9 +179,11 @@ export function buildProcessFixtureActions(indoor) {
     }
 
     if (fixture.kind === "water-purifier") {
-      const state = fixtureRuntime(facility, fixture.id);
+      const state = fixtureRuntime(facility, fixture.id, "water-purifier");
       const sink = sinkInRoom(building, roomId);
-      const sinkState = sink ? fixtureRuntime(facility, sink.id) : null;
+      const sinkState = sink
+        ? fixtureRuntime(facility, sink.id, "sink")
+        : null;
       const tabletId = fixture.requiresTabletItem;
 
       if (!state.filled) {
@@ -212,29 +242,21 @@ export function processFixtureStatusLines(indoor) {
   if (!building || !roomId) return [];
   const facility = indoor.indoor?.facility ?? indoor.facility;
   if (!facility) return [];
-  ensureFixtureRuntime(facility, building);
   const lines = [];
 
   for (const fixture of fixturesAtStand(building, roomId, standId)) {
-    const state = fixtureRuntime(facility, fixture.id);
-    if (fixture.kind === "sink") {
-      if (state.flow !== "off") {
-        lines.push(
-          state.cleared
-            ? "Clear water runs from the faucet."
-            : "The faucet is running.",
-        );
-      }
-    } else if (fixture.kind === "water-purifier") {
-      if (state.stage === "ready") {
-        lines.push("The purifier holds treated water, ready to pour.");
-      } else if (state.filled && state.hasTablet) {
-        lines.push("The purifier is treating the water.");
-      } else if (state.filled) {
-        lines.push("The purifier reservoir is full of untreated water.");
-      } else if (state.hasTablet) {
-        lines.push("A purification tablet sits in the empty purifier.");
-      }
+    // Sink open/close copy is action-notice only so first-clear vs later clear
+    // water never stack with a status line that says the same thing.
+    if (fixture.kind !== "water-purifier") continue;
+    const state = fixtureRuntime(facility, fixture.id, fixture.kind);
+    if (state.stage === "ready") {
+      lines.push("The purifier holds treated water, ready to pour.");
+    } else if (state.filled && state.hasTablet) {
+      lines.push("The purifier is treating the water.");
+    } else if (state.filled) {
+      lines.push("The purifier reservoir is full of untreated water.");
+    } else if (state.hasTablet) {
+      lines.push("A purification tablet sits in the empty purifier.");
     }
   }
   return lines;
@@ -259,7 +281,6 @@ export function performProcessFixtureAction(indoor, actionId, gameState = null) 
   const character = indoor.character ?? gameState?.character ?? null;
   const flags = indoor.indoor?.flags ?? indoor.flags ?? gameState?.flags;
   if (!facility) return { ok: false, error: "Facility state is unavailable." };
-  ensureFixtureRuntime(facility, building);
 
   const fixture = listProcessFixtures(building).find((entry) => entry.id === fixtureId);
   if (!fixture) return { ok: false, error: "Unknown fixture." };
@@ -268,7 +289,7 @@ export function performProcessFixtureAction(indoor, actionId, gameState = null) 
     return { ok: false, error: "Move closer to use that fixture." };
   }
 
-  const state = fixtureRuntime(facility, fixtureId);
+  const state = mutableFixtureState(facility, fixture);
 
   if (fixture.kind === "sink") {
     if (verb === "flow-on") {
@@ -278,6 +299,7 @@ export function performProcessFixtureAction(indoor, actionId, gameState = null) 
       if (gameState && firstClear) {
         advanceGameTime(gameState, 2, "light");
       }
+      // One notice only: first open clears the line; later opens report clear water.
       return {
         ok: true,
         notice: firstClear
@@ -295,7 +317,9 @@ export function performProcessFixtureAction(indoor, actionId, gameState = null) 
   if (fixture.kind === "water-purifier") {
     if (verb === "fill") {
       const sink = sinkInRoom(building, roomId);
-      const sinkState = sink ? fixtureRuntime(facility, sink.id) : null;
+      const sinkState = sink
+        ? (facility.fixtures?.[sink.id] ?? fixtureRuntime(facility, sink.id, "sink"))
+        : null;
       if (!sinkState || sinkState.flow === "off") {
         return { ok: false, notice: "Turn on the faucet first." };
       }

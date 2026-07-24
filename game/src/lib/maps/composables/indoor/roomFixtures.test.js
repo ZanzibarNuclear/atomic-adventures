@@ -99,6 +99,14 @@ describe("room process fixtures", () => {
     ]);
   });
 
+  it("does not mutate facility state while building actions or status lines", () => {
+    const indoor = makeIndoor();
+    indoor.indoor.facility.fixtures = {};
+    buildProcessFixtureActions(indoor);
+    processFixtureStatusLines(indoor);
+    expect(indoor.indoor.facility.fixtures).toEqual({});
+  });
+
   it("runs the faucet clear, fills the purifier, doses a tablet, and fills a glass vessel", () => {
     const indoor = makeIndoor();
     addItem(indoor.character.holdings, definitions, "purifier-tablet", 2);
@@ -131,7 +139,18 @@ describe("room process fixtures", () => {
       amountMl: 250,
     });
     expect(indoor.indoor.flags.has("day1.found-water")).toBe(true);
-    expect(processFixtureStatusLines(indoor).some((line) => /faucet|water/i.test(line))).toBe(true);
+    // Faucet copy is action-notice only; purifier may still contribute status.
+    expect(processFixtureStatusLines(indoor).some((line) => /faucet sputters|Clear water runs/i.test(line))).toBe(false);
+  });
+
+  it("uses distinct faucet notices for first clear vs later open", () => {
+    const indoor = makeIndoor();
+    const first = performProcessFixtureAction(indoor, "fixture:kitchen-sink:flow-on");
+    expect(first.notice).toMatch(/sputters rust and silt/i);
+    performProcessFixtureAction(indoor, "fixture:kitchen-sink:flow-off");
+    const later = performProcessFixtureAction(indoor, "fixture:kitchen-sink:flow-on");
+    expect(later.notice).toBe("Clear water runs from the faucet.");
+    expect(processFixtureStatusLines(indoor)).not.toContain("Clear water runs from the faucet.");
   });
 
   it("refuses to fill the purifier before the faucet runs clear", () => {
