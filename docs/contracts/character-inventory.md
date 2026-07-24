@@ -360,6 +360,63 @@ up, but are not moved directly between world holders from the inventory.
 An item is destroyed or consumed only when an explicit action applies a
 removal effect. Quest-critical items should ordinarily be non-consumable.
 
+### Vessels and fillable contents
+
+Glasses, bottles, bowls, and similar equipment are **vessels**: reusable item
+instances with a volume capacity. They hold a **content item** (liquid or
+granular) by amount, not by swapping to a different item id.
+
+```yaml
+items:
+  - id: water-bottle
+    kind: vessel
+    carrying: unique
+    maxQuantity: 4
+    vessel:
+      capacityMl: 500
+      forms: [liquid]
+
+  - id: purified-water
+    kind: consumable
+    properties:
+      form: liquid
+      unitMl: 500
+    actions:
+      - id: drink
+        consumeOptions:
+          - { id: sip, label: Sip, portion: 0.25 }
+          - { id: half, label: Drink half, portion: 0.5 }
+          - { id: all, label: Drink all remaining, remaining: true }
+        effects:
+          - { op: stat.add, id: hydration, value: 110, scaleBy: portion }
+
+# Instance state (save / starting holdings)
+holdings:
+  instances:
+    water-bottle-3:
+      item: water-bottle
+      holder: container:field-backpack-1
+      contents:
+        item: purified-water   # catalog liquid/granular id
+        amountMl: 250          # half-full of a 500 mL bottle
+```
+
+Rules:
+
+- Drink/sip actions are authored on the **content** item (e.g. purified water),
+  not on the empty vessel.
+- Portion choices scale effects and reduce `contents.amountMl`. When amount
+  reaches 0, contents are cleared; the vessel instance remains.
+- Filling a vessel (from a purifier, tap, etc.) sets or replaces `contents`.
+  Original bottled pure water is just purified (or pure) contents at start;
+  a refill stores whatever liquid was poured.
+- `stream-water` is a separate liquid id for non-purified stream fills; Part I
+  may treat it as drinkable with the same effects until difficulty variants add
+  contaminants.
+
+Solid item containers (`container` with slots) remain for boxes and backpacks.
+Vessels are for measured liquid/granular fills.
+
 ### Consumables and Item Actions
 
 Food, water, medicine, and similar objects define player-invoked actions

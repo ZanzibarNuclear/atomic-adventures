@@ -65,6 +65,7 @@ export function useIndoorBuilding(buildingData, outdoor, ctx) {
   return reactive({
     buildingData,
     character: gameState?.character,
+    gameState: gameState ?? null,
     ...player,
     ...movement,
     ...doors,

@@ -24,7 +24,7 @@ import {
   syncCharacterHolderDefinitions,
 } from "../composables/useCharacterState.js";
 import { applyOutdoorWorldUpdate } from "../composables/worldRuntime.js";
-import { performItemAction } from "../lib/character/itemActions.js";
+import { availableItemActions, performItemAction } from "../lib/character/itemActions.js";
 import {
   accessibleHolderIds,
   characterHolderId,
@@ -33,6 +33,7 @@ import {
   transferHolding,
 } from "../lib/character/holdings.js";
 import { containerInstanceLabel } from "../lib/character/containerLabels.js";
+import { vesselDisplayLabel } from "../lib/character/vessels.js";
 import AppHeader from "../components/AppHeader.vue";
 import CharacterView from "../components/game-views/CharacterView.vue";
 import CharacterStatsStageView from "../components/game-views/CharacterStatsStageView.vue";
@@ -305,15 +306,31 @@ function inventoryHolderViews(ids) {
       gameState.character.holdings,
       gameState.character.definitions,
       [id],
-    ).map((record) => ({
-      ...record,
-      label: record.definition?.label ?? record.item,
-      description: record.definition?.description ?? "",
-      kind: record.definition?.kind ?? "item",
-      icon: record.definition?.icon ?? null,
-      actions: record.definition?.actions ?? [],
-    })),
+    ).map((record) => decorateHoldingRecord(record)),
   }));
+}
+
+function decorateHoldingRecord(record) {
+  const definition = record.definition;
+  const contentId = record.contents?.item;
+  const contentDef = contentId
+    ? (gameState.character.definitions?.items ?? []).find((item) => item.id === contentId)
+    : null;
+  let label = definition?.label ?? record.item;
+  if (definition?.vessel && record.type === "instance") {
+    label = vesselDisplayLabel(record, definition, contentDef);
+  }
+  const actions = availableItemActions(gameState.character, record.item, {
+    recordId: record.type === "instance" ? record.id : null,
+  });
+  return {
+    ...record,
+    label,
+    description: definition?.description ?? "",
+    kind: definition?.kind ?? "item",
+    icon: definition?.icon ?? null,
+    actions,
+  };
 }
 
 const inventoryHolders = computed(() => {

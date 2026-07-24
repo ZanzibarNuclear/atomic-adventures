@@ -177,7 +177,7 @@ export const storyArcSeed = {
             "outdoorActions": [],
             "itemActions": [
               "half-eaten-energy-bar.eat",
-              "half-full-water-bottle.drink"
+              "water-bottle.drink"
             ],
             "developerActions": []
           },
@@ -230,7 +230,7 @@ export const storyArcSeed = {
             ],
             "itemActions": [
               "half-eaten-energy-bar.eat",
-              "half-full-water-bottle.drink"
+              "water-bottle.drink"
             ],
             "developerActions": []
           },
@@ -295,7 +295,7 @@ export const storyArcSeed = {
             "outdoorActions": [],
             "itemActions": [
               "half-eaten-energy-bar.eat",
-              "half-full-water-bottle.drink"
+              "water-bottle.drink"
             ],
             "developerActions": []
           },

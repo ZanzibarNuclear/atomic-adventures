@@ -16,6 +16,12 @@ import {
 } from "../lib/maps/composables/useBarrierOpenings.js";
 import { barrierHintAtStand } from "../lib/maps/composables/useBarrierStand.js";
 import { pushPlayMessage } from "./usePlayMessages.js";
+import { markCharacterChanged } from "./useCharacterState.js";
+import {
+  buildProcessFixtureActions,
+  performProcessFixtureAction,
+  processFixtureStatusLines,
+} from "../lib/maps/composables/indoor/roomFixtures.js";
 import {
   characterHolderId,
   holdingRecords,
@@ -33,7 +39,6 @@ import {
   contentFlavorLabel,
   formatContainerGroupDiscovery,
 } from "../lib/character/containerLabels.js";
-import { markCharacterChanged } from "./useCharacterState.js";
 import {
   DEAD_LIGHT_SWITCH_NOTICE,
   lightFixtureForRoom,
@@ -514,6 +519,10 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
   const lightAction = roomLightPlayAction(indoor);
   if (lightAction) items.push(lightAction);
 
+  for (const action of buildProcessFixtureActions(indoor)) {
+    items.push(action);
+  }
+
   return items.filter(isVisibleAction);
 }
 
@@ -754,6 +763,17 @@ export function handleIndoorPlayAction(indoor, actionId) {
       ?? { ok: false, error: "Light switches are unavailable." };
     if (!result.ok) return result;
     return { ok: true };
+  }
+  if (actionId.startsWith("fixture:")) {
+    const result = performProcessFixtureAction(
+      indoor,
+      actionId,
+      indoor.gameState ?? null,
+    );
+    if (result?.characterChanged && indoor.character) {
+      markCharacterChanged(indoor.character);
+    }
+    return result;
   }
   if (actionId.startsWith("exit-world:")) {
     indoor.exitViaDoor(actionId.slice("exit-world:".length));
@@ -1122,6 +1142,7 @@ export function buildIndoorStatusLines(indoor, wellbeingOverview = null) {
     lines.push("Station power is on.");
     lines.push(...poweredObjectStatusLines(indoor));
   }
+  lines.push(...processFixtureStatusLines(indoor));
   return lines;
 }
 

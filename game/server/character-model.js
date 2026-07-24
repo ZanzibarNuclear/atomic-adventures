@@ -64,6 +64,14 @@ export function normalizeCharacterDocument(input = {}) {
             nesting: item.container.nesting === true,
           }
         : null,
+      vessel: item.vessel && typeof item.vessel === "object"
+        ? {
+            capacityMl: finiteNumber(item.vessel.capacityMl, 0),
+            forms: stringList(item.vessel.forms).length
+              ? stringList(item.vessel.forms)
+              : ["liquid", "granular"],
+          }
+        : null,
       properties: item.properties && typeof item.properties === "object"
         ? structuredClone(item.properties)
         : {},
@@ -194,11 +202,22 @@ export function validateCharacterDocument(input) {
     if (item.group && !inventoryGroups.has(item.group)) add(`${base}.group`, `Unknown inventory group "${item.group}".`);
     if (!["unique", "stack"].includes(item.carrying)) add(`${base}.carrying`, "Use unique or stack.");
     if (!(item.maxQuantity >= 1)) add(`${base}.maxQuantity`, "Maximum quantity must be at least 1.");
-    if (item.carrying === "unique" && item.maxQuantity !== 1) {
+    if (item.carrying === "unique" && item.maxQuantity !== 1 && !item.vessel) {
       add(`${base}.maxQuantity`, "Unique items must have a maximum quantity of 1.");
     }
     if (item.massKg != null && item.massKg < 0) add(`${base}.massKg`, "Item mass cannot be negative.");
     if (!VISIBILITY.has(item.visible)) add(`${base}.visible`, "Choose a supported visibility.");
+    if (item.vessel) {
+      if (!(item.vessel.capacityMl > 0)) {
+        add(`${base}.vessel.capacityMl`, "Vessel capacity must be a positive volume in mL.");
+      }
+      if (item.kind === "container") {
+        add(`${base}.kind`, "Use kind vessel (or keep solid container without vessel capacity).");
+      }
+    }
+    if (item.kind === "vessel" && !item.vessel) {
+      add(`${base}.vessel`, "Vessel items require a capacityMl.");
+    }
     if (item.container) {
       if (
         item.container.capacity.slots != null &&
@@ -369,6 +388,19 @@ function validateHoldings(holdings, itemIds, add) {
   for (const [id, instance] of Object.entries(holdings.instances ?? {})) {
     if (!itemIds.has(text(instance.item))) add(`holdings.instances.${id}.item`, `Unknown item "${instance.item}".`);
     if (!holderIds.has(text(instance.holder))) add(`holdings.instances.${id}.holder`, `Unknown holder "${instance.holder}".`);
+    if (instance.contents != null) {
+      const contents = instance.contents;
+      if (!contents || typeof contents !== "object") {
+        add(`holdings.instances.${id}.contents`, "Vessel contents must be an object.");
+      } else {
+        if (!itemIds.has(text(contents.item))) {
+          add(`holdings.instances.${id}.contents.item`, `Unknown contents item "${contents.item}".`);
+        }
+        if (!(finiteNumber(contents.amountMl, 0) > 0)) {
+          add(`holdings.instances.${id}.contents.amountMl`, "Contents amountMl must be positive.");
+        }
+      }
+    }
   }
 }
 

@@ -166,6 +166,7 @@ export function applySnapshot(snapshot, { gameState, place, outdoor, indoor }) {
     hydroOnline: gameState.facilities.hydro.online || (i.facility?.hydroOnline ?? false),
     manualMode: { ...(i.facility?.manualMode ?? {}) },
     lightSwitches: normalizeLightSwitches(i.facility?.lightSwitches),
+    fixtures: clonePlain(i.facility?.fixtures ?? {}),
   };
   d.completedActions = new Set(i.completedActions ?? []);
   d.avatarWaypoint = null;
