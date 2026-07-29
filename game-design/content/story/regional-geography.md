@@ -2,6 +2,8 @@
 
 [DRAFT] — Fictional terrain for Part I. Setting is **somewhere in Maine**; the player does not know this immediately.
 
+> **Naming update (2026-07-29):** The campus stream is **Clearwater Run** (rain/snowmelt; fictional tributary of a river TBD below campus). The campus plant is **Clearwater Diversion**. Draft labels **Mill Brook** and **Upper Penstock Plant** below are superseded; apply a thorough rename pass across story docs, contracts, and game copy when ready. Canonical fixture ids in `sims/energy-sims`: `clearwater-diversion`, stream narrative name Clearwater Run.
+
 ## Map asset
 
 | File | Purpose |
