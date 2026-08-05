@@ -211,13 +211,15 @@ watch(
 </template>
 
 <style>
+/* CRT / generator screens: phosphor green family (not base Cherenkov brand). */
 .hydro-console-view {
   min-height: calc(100vh - 4rem);
   padding: 1.25rem clamp(0.5rem, 2vw, 1.5rem) 2rem;
   color: #eef7f1;
   background:
     linear-gradient(135deg, rgba(9, 24, 26, 0.96), rgba(21, 28, 34, 0.98) 52%, rgba(18, 20, 24, 0.98)),
-    #121820;
+    var(--color-console-bg, #121820);
+  --console-accent: var(--color-console-phosphor, #8dd6cb);
 }
 
 .hydro-console-view .console-header {

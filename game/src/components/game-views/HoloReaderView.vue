@@ -103,7 +103,7 @@ const completed = computed(() =>
 
 .eyebrow {
   margin: 0;
-  color: #8bd8d2;
+  color: var(--color-cherenkov);
   text-transform: uppercase;
   font-size: 0.72rem;
   letter-spacing: 0.08em;

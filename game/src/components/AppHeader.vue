@@ -167,9 +167,19 @@ header {
 .title-block h1 {
   font-size: 1.4rem;
   margin: 0 0 0.25rem;
+  background: linear-gradient(105deg, #e8eaed 0%, #e8eaed 42%, var(--color-cherenkov) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+@supports not (background-clip: text) {
+  .title-block h1 {
+    color: var(--color-text);
+    background: none;
+  }
 }
 .sub {
-  color: #9aa0ac;
+  color: var(--color-text-muted);
   margin: 0;
   font-size: 0.92rem;
 }
@@ -209,13 +219,14 @@ header {
 .dev-menu summary::after,
 .game-menu summary::after {
   content: " ▾";
-  color: #9fc7ff;
+  color: var(--color-cherenkov);
 }
 .dev-menu[open] summary,
 .game-menu[open] summary {
   background: #3a4555;
-  border-color: #6c7b95;
+  border-color: var(--color-brand-border);
   color: #eef3f8;
+  box-shadow: 0 0 0 1px var(--color-cherenkov-soft);
 }
 .dev-menu-popover,
 .game-menu-popover {
@@ -225,10 +236,12 @@ header {
   right: 0;
   min-width: 12rem;
   padding: 0.35rem;
-  border: 1px solid #465166;
+  border: 1px solid var(--color-border-strong);
   border-radius: 8px;
-  background: #202630;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+  background: var(--color-bg-elevated);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.35),
+    0 0 0 1px var(--color-cherenkov-soft);
 }
 .dev-menu-item,
 .menu-item {
@@ -268,7 +281,7 @@ header {
 }
 .dev-menu-item:hover:not(:disabled),
 .menu-item:hover:not(:disabled) {
-  background: #344158;
+  background: color-mix(in srgb, var(--color-cherenkov) 12%, #344158);
 }
 .menu-item.success:hover:not(:disabled) {
   background: #294333;

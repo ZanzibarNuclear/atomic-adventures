@@ -3,18 +3,88 @@
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --map-height: min(44vh, 380px);
   --map-height-expanded: 72vh;
+
+  /*
+   * Brand identity — Cherenkov blue (favorite / world of energy).
+   * Use for base chrome, links, focus, narrative accents, water, holo UI.
+   * Console CRT screens keep a separate phosphor-green family below.
+   */
+  --color-cherenkov: #20c8fb;
+  --color-cherenkov-bright: #5ad8fc;
+  --color-cherenkov-deep: #0a8fb8;
+  --color-cherenkov-dim: #148fb8;
+  --color-cherenkov-muted: rgba(32, 200, 251, 0.72);
+  --color-cherenkov-soft: rgba(32, 200, 251, 0.16);
+  --color-cherenkov-border: rgba(32, 200, 251, 0.38);
+  --color-cherenkov-glow: rgba(32, 200, 251, 0.28);
+
+  --color-brand: var(--color-cherenkov);
+  --color-brand-bright: var(--color-cherenkov-bright);
+  --color-brand-deep: var(--color-cherenkov-deep);
+  --color-brand-muted: var(--color-cherenkov-muted);
+  --color-brand-soft: var(--color-cherenkov-soft);
+  --color-brand-border: var(--color-cherenkov-border);
+
+  /* Console / CRT phosphor (generator screens, terminal readouts) */
+  --color-console-phosphor: #8dd6cb;
+  --color-console-phosphor-bright: #a8ebe0;
+  --color-console-phosphor-dim: #5fb7a8;
+  --color-console-success: #85d78a;
+  --color-console-warn: #ffe09a;
+  --color-console-fault: #ff9b8a;
+  --color-console-bg: #0a1418;
+  --color-console-panel: rgba(8, 18, 20, 0.78);
+  --color-console-border: rgba(141, 214, 203, 0.28);
+
+  /* Base surfaces & type */
+  --color-bg: #181b21;
+  --color-bg-elevated: #20242d;
+  --color-bg-panel: #252b36;
+  --color-bg-panel-deep: #1e2430;
+  --color-text: #e8eaed;
+  --color-text-muted: #9aa0ac;
+  --color-text-subtle: #6f7787;
+  --color-border: #3f4c63;
+  --color-border-strong: #556176;
+  --color-link: var(--color-cherenkov);
+  --color-link-hover: var(--color-cherenkov-bright);
+  --color-focus: var(--color-cherenkov);
+  --color-accent: var(--color-cherenkov);
+  --color-accent-soft: var(--color-cherenkov-soft);
+
+  /* Semantic (non-console) */
+  --color-success: #9fdbad;
+  --color-warning: #ffb38a;
+  --color-danger: #e07a7a;
+  --color-highlight: #ffd166;
+
+  /* Water / stream on maps — lean Cherenkov */
+  --color-water: #2ab0d9;
+  --color-water-deep: #1a8fba;
+  --color-stream: var(--color-cherenkov);
 }
+
 * {
   box-sizing: border-box;
 }
+
 body {
   margin: 0;
-  background: #181b21;
-  color: #e8eaed;
+  background: var(--color-bg);
+  color: var(--color-text);
 }
 
 a {
-  color: #9fc7ff;
+  color: var(--color-link);
+}
+
+a:hover {
+  color: var(--color-link-hover);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
 }
 
 .game-shell {
@@ -40,21 +110,22 @@ a {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 0.7rem;
-  color: #6f7787;
+  color: var(--color-text-subtle);
 }
 
 button {
   background: #2f3a4d;
-  color: #e8eaed;
-  border: 1px solid #3f4c63;
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 0.5rem 0.9rem;
   font-size: 0.9rem;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 button:hover:not(:disabled) {
   background: #3a4860;
+  border-color: var(--color-border-strong);
 }
 button:disabled {
   opacity: 0.45;
@@ -77,9 +148,20 @@ button.muted:hover:not(:disabled) {
   border-color: #7a8eaa;
   color: #ffffff;
 }
+button.brand,
+button.primary {
+  background: color-mix(in srgb, var(--color-cherenkov) 22%, #2a3548);
+  border-color: var(--color-brand-border);
+  color: #e8f9ff;
+}
+button.brand:hover:not(:disabled),
+button.primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-cherenkov) 32%, #2f3a4d);
+  border-color: var(--color-cherenkov-muted);
+}
 
 .mode-pill {
-  border: 1px solid #3f4c63;
+  border: 1px solid var(--color-border);
   border-radius: 999px;
   padding: 0.25rem 0.75rem;
   font-size: 0.85rem;
@@ -87,9 +169,9 @@ button.muted:hover:not(:disabled) {
   text-transform: capitalize;
 }
 .mode-pill.active {
-  background: #ffd166;
+  background: var(--color-highlight);
   color: #1a1d23;
-  border-color: #ffd166;
+  border-color: var(--color-highlight);
 }
 .mode-pill input {
   display: none;
@@ -131,12 +213,15 @@ button.muted:hover:not(:disabled) {
 }
 .route-btn.k-stream,
 .route-btn.k-river {
-  border-left-color: #4a90d9;
+  border-left-color: var(--color-stream);
 }
 .route-btn.k-fence,
 .route-btn.k-gate,
 .route-btn.k-door {
   border-left-color: #c9b89a;
+}
+.route-btn.k-move {
+  border-left-color: var(--color-cherenkov-dim);
 }
 .route-btn.off {
   border-left-color: #5a6270;

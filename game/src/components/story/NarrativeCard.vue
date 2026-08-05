@@ -24,16 +24,20 @@ const paragraphs = computed(() => proseParagraphs(props.beat?.text));
   margin-bottom: 0.55rem;
   padding: 1.1rem 1.25rem;
   border-radius: 12px;
-  border: 1px solid #3a4558;
-  background: linear-gradient(180deg, #252b36 0%, #1e2430 100%);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+  border: 1px solid color-mix(in srgb, var(--color-cherenkov) 22%, #3a4558);
+  background:
+    linear-gradient(180deg, rgba(32, 200, 251, 0.06) 0%, transparent 42%),
+    linear-gradient(180deg, var(--color-bg-panel) 0%, var(--color-bg-panel-deep) 100%);
+  box-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(32, 200, 251, 0.08);
 }
 .narrative-eyebrow {
   margin: 0 0 0.35rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 0.72rem;
-  color: #8bc49a;
+  color: var(--color-cherenkov);
 }
 .narrative-heading {
   margin: 0 0 0.75rem;
