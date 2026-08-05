@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { presentSnapshot, isEnergySimEnabled } from "./client.js";
+import { isEnergySimEnabled } from "./client.js";
+import { presentSnapshot } from "./energySimPresent.js";
 
-describe("energySim presentSnapshot", () => {
+describe("energySim presentSnapshot (vendored presenters)", () => {
   it("maps brownout to reduced light level", () => {
     const view = presentSnapshot({
       simTimeS: 10,
@@ -30,8 +31,7 @@ describe("energySim presentSnapshot", () => {
     expect(view.lightLevel).toBe(1.0);
   });
 
-  it("is disabled when VITE_ENERGY_SIM_URL is unset", () => {
-    // Default test env has no URL; legacy hydro remains primary.
+  it("reports whether HTTP override is configured", () => {
     expect(typeof isEnergySimEnabled()).toBe("boolean");
   });
 });

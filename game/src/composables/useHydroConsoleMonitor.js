@@ -24,7 +24,7 @@ const diagnosticLabels = {
   "intake-debris-reducing-flow": "Debris is reducing captured flow.",
   "intake-needs-clearing": "The intake still needs field clearing.",
   "low-pressure": "Penstock pressure is below the startup target.",
-  "low-stream-flow": "Mill Brook flow is below the useful range.",
+  "low-stream-flow": "Stream flow is below the useful range.",
   "low-turbine-speed": "The turbine is below the target speed.",
   "major-penstock-leak": "A major penstock leak is preventing stable operation.",
   "manual-valves-not-open": "Manual valves are not fully open.",
@@ -77,27 +77,50 @@ export function useHydroConsoleMonitor(gameState, validPanel) {
   const readouts = computed(() => buildReadouts(telemetry.value));
   const fieldChecks = computed(() => buildFieldChecks(hydroState.value));
   const markerLines = computed(() => markerPositions(sampleBuffer.value, eventMarkers.value));
+  // Clearwater Diversion is ~8 kW rated; scale graphs to plant of record.
   const powerGraph = computed(() => graphSeries(sampleBuffer.value, [
-    { id: "power", label: "Power output", color: "#88d68d", metric: "generatorOutputKw", max: 1 },
+    { id: "power", label: "Power output", color: "#88d68d", metric: "generatorOutputKw", max: 10 },
   ]));
   const pressureSpeedGraph = computed(() => graphSeries(sampleBuffer.value, [
-    { id: "pressure", label: "Pressure", color: "#66b8e6", metric: "penstockPressureKpa", max: 180 },
-    { id: "speed", label: "Turbine speed", color: "#ffd36f", metric: "turbineSpeedRpm", max: 1000 },
+    { id: "pressure", label: "Pressure", color: "#66b8e6", metric: "penstockPressureKpa", max: 300 },
+    { id: "speed", label: "Turbine speed", color: "#ffd36f", metric: "turbineSpeedRpm", max: 1200 },
   ]));
 
-  function addMonitorSample() {
+  async function addMonitorSample() {
     if (!validPanel.value) return;
     const elapsedSimMinutes = monitorStartedAtElapsedMinutes.value +
       Math.floor((Date.now() - monitorStartedAtMs.value) / MONITOR_SAMPLE_MS) * MONITOR_MINUTES_PER_SAMPLE;
+    let telemetry;
+    try {
+      telemetry = await hydroFacility.tickEngine(1);
+    } catch {
+      telemetry = hydroFacility.readTelemetry();
+    }
     const sample = {
       id: `sample-${elapsedSimMinutes}-${sampleBuffer.value.length}`,
       elapsedMinutes: elapsedSimMinutes,
-      telemetry: hydroFacility.readTelemetry(),
+      telemetry,
     };
     sampleBuffer.value = [...sampleBuffer.value, sample].slice(-MAX_VISIBLE_SAMPLES);
   }
 
-  function loadHistorySamples() {
+  async function loadHistorySamples() {
+    try {
+      await hydroFacility.refreshEngine({ durationSecs: hydroState.value.online ? 25 : 2 });
+    } catch {
+      // legacy graph path below
+    }
+    const latest = hydroFacility.readTelemetry();
+    if (latest?.source === "energy-sims") {
+      const now = elapsedMinutes(gameState);
+      sampleBuffer.value = [{
+        id: `sample-engine-${now}`,
+        elapsedMinutes: now,
+        telemetry: latest,
+      }];
+      eventMarkers.value = [];
+      return;
+    }
     const graphData = hydroFacility.readGraphData({
       fromElapsedMinutes: Math.max(0, elapsedMinutes(gameState) - 60),
       stepMinutes: 5,
@@ -107,9 +130,12 @@ export function useHydroConsoleMonitor(gameState, validPanel) {
   }
 
   onMounted(() => {
-    loadHistorySamples();
-    if (!sampleBuffer.value.length) addMonitorSample();
-    monitorTimer = window.setInterval(addMonitorSample, MONITOR_SAMPLE_MS);
+    void loadHistorySamples().then(() => {
+      if (!sampleBuffer.value.length) void addMonitorSample();
+    });
+    monitorTimer = window.setInterval(() => {
+      void addMonitorSample();
+    }, MONITOR_SAMPLE_MS);
   });
 
   onBeforeUnmount(() => {

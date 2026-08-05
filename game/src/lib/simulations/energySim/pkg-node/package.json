@@ -1,0 +1,20 @@
+{
+  "name": "energy-sim-wasm",
+  "collaborators": [
+    "Zanzibar Nuclear"
+  ],
+  "description": "Optional WASM bindings for embedded energy-sim hosts.",
+  "version": "0.1.0",
+  "license": "GPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ZanzibarNuclear/energy-sims"
+  },
+  "files": [
+    "energy_sim_wasm_bg.wasm",
+    "energy_sim_wasm.js",
+    "energy_sim_wasm.d.ts"
+  ],
+  "main": "energy_sim_wasm.js",
+  "types": "energy_sim_wasm.d.ts"
+}

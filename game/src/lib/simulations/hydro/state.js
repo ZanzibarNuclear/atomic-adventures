@@ -34,6 +34,8 @@ export function normalizeHydroState(state = {}) {
     eventLog: Array.isArray(state.eventLog) ? [...state.eventLog] : [],
     debrisFraction: clamp01(state.debrisFraction),
     leakageFraction: clamp01(state.leakageFraction),
+    // Opaque energy-sims checkpoint blob (JSON-serializable); optional
+    engineCheckpoint: state.engineCheckpoint ?? null,
   };
 }
 
@@ -47,6 +49,10 @@ export function withHydroStatePatch(state, patch = {}) {
       ...patch.manualValves,
     },
     eventLog: patch.eventLog ?? current.eventLog,
+    engineCheckpoint:
+      patch.engineCheckpoint !== undefined
+        ? patch.engineCheckpoint
+        : current.engineCheckpoint,
   });
 }
 
