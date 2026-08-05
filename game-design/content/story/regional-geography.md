@@ -2,15 +2,24 @@
 
 [DRAFT] — Fictional terrain for Part I. Setting is **somewhere in Maine**; the player does not know this immediately.
 
-## Naming: Clearwater Run & Clearwater Diversion
+## Naming: Clearwater Run, Diversion, and Station
 
-**Status (2026-07-29):** Player-facing / engine-facing names locked for Stage 1 hydro. Draft map labels **Mill Brook** and **Upper Penstock Plant** (table and ASCII map below) are **superseded**. Apply a thorough rename pass across story docs, contracts, game copy, and map art when ready.
+**Status (2026-08-05):** Canon names and the **energy-sims plant of record** are locked. Draft map labels **Mill Brook** and **Upper Penstock Plant** (table and ASCII map below) are **superseded**. A thorough rename pass across remaining story prose, game copy, and map art is still future work—do not invent alternate stream/plant/station names in the meantime.
 
 | Role | Name | Notes |
 |------|------|--------|
 | Watercourse | **Clearwater Run** | Rain and snowmelt; plentiful but not large. “Run” stays slightly ambiguous (stream vs small river)—fine for scale. Fictional tributary of a **river TBD** below campus. |
-| Campus plant | **Clearwater Diversion** | Diversion / run-of-river powerhouse (intake, penstock, turbine, generator)—not a big dam. |
-| Engine fixtures | `clearwater-diversion`, session `clearwater-utility` | In `sims/energy-sims` (`fixtures/plants/`, `fixtures/stations/`). |
+| Campus plant | **Clearwater Diversion** | Diversion / run-of-river powerhouse (intake, penstock, turbine, generator)—not a big dam. Hydro fixture in energy-sims. |
+| Utility station | **Clearwater Station** | The campus utility building and its local power bus (plant + loads). Energy-sims session/grid id `clearwater-station`. Game building document may still be id `utility-station`. |
+| Engine fixtures | Plant `clearwater-diversion`; session/grid `clearwater-station` | Sibling repo `../sims/energy-sims` (`fixtures/plants/`, `fixtures/stations/`, `fixtures/grids/`). **Use this model** whenever the game represents hydro generation or the station grid. |
+
+### Discovery-gated labels
+
+These names are **author and engine canon**, not free early-game UI chrome. The player should learn them from in-world sources (maps, manuals, plaques, holo-reader, environmental storytelling)—not from day-one HUD labels or control-panel titles. Until that content is wired:
+
+- Prefer descriptive placeholders in early player-facing copy (“the stream,” “the powerhouse,” “the station”).
+- Keep fixture ids and internal content ids stable (`clearwater-diversion`, `clearwater-station`, building `utility-station`).
+- Working discovery into the game is planned; this section only records that the stream and related key features are named.
 
 ### Hydrology / character (for later backstory)
 
@@ -66,6 +75,7 @@ These names are the **story canon** for this draft map. Adjust as design evolves
 | **County Road 14** | Gravel road (dashed blue) | Public access; parking (P) at trailhead |
 | ~~**Upper Penstock Plant**~~ → **Clearwater Diversion** | Diversion hydro powerhouse | Campus hydro — intake, penstock, turbine, generator on Clearwater Run |
 | **Research Campus** | Building cluster | Secret DoE research facility (not public knowledge) |
+| **Clearwater Station** | Utility building | Indoor hub; hydro control room; station bus loads (energy-sims session) |
 
 ## Approximate layout
 
@@ -80,8 +90,11 @@ These names are the **story canon** for this draft map. Adjust as design evolves
            |                                      |
      Clearwater Run                    Clearwater Diversion
      (was: Mill Brook)                 (was: Upper Penstock)
-                                                  |
-                                             [powerhouse]
+           |                                      |
+           |                               [powerhouse]
+           |                                      │
+           └───────── (tailrace / stream) ── Clearwater Station
+                                           (utility building / bus)
 ```
 
 ## Map conventions (matching reference style)

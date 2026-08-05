@@ -1,25 +1,61 @@
 # Hydro Simulator
 
-**Status:** First runtime implemented; broader operations contract still shaping
-**Scope:** `game/` Upper Penstock hydro simulation runtime, game-environment
-inputs, facility state, simulator outcomes, and future lesson/simulation reuse
+**Status:** Plant-of-record physics lives in sibling `../sims/energy-sims`;
+game host binding and operations scenarios still shaping  
+**Scope:** Part I campus hydro — **Clearwater Diversion** on **Clearwater Run** —
+generation model, game-environment inputs, facility state, simulator outcomes,
+and future lesson/simulation reuse
+
+---
+
+## Plant of record (decision note)
+
+**2026-08-05:** Whenever the game needs to represent what is happening at the
+hydro plant or on the station bus, use the solidified Stage 1 model in
+**`../sims/energy-sims`** (GitHub: [ZanzibarNuclear/energy-sims](https://github.com/ZanzibarNuclear/energy-sims)).
+Do not invent parallel physics constants in Vue, and do not treat the older
+in-game hydro JS / `../welcome` prototypes as the source of truth.
+
+| Story / geography name | Engine role | Fixture / id |
+| --- | --- | --- |
+| **Clearwater Run** | Stream feeding the diversion | Story geography only (not a plant label) |
+| **Clearwater Diversion** | Hydro plant (`hydro-plant`) | `fixtures/plants/clearwater-diversion.json` · id `clearwater-diversion` |
+| **Clearwater Station** | Utility station session: plant + bus (`energy-session`) | `fixtures/stations/clearwater-station.json` · id `clearwater-station` |
+
+- **Clearwater Station** is the name of the utility station (building + local
+  grid). Building content in the game app may still use the document id
+  `utility-station`; the player-facing / sim facility name is Clearwater Station.
+- **Names are discovery-gated.** Clearwater Run, Clearwater Diversion, and
+  Clearwater Station are locked for authors and engine fixtures. The player
+  should not see those labels until in-world sources (signage, manuals,
+  holo-reader, NPC lore, maps) teach them. Early play may use descriptive
+  placeholders (“the stream,” “the powerhouse,” “the station”). Wiring names
+  into discovery is future content work; this note only records the canon.
+- Promote plant numbers through the energy-sims lab → fixture smoke workflow
+  (`fixtures/README.md`, `./scripts/smoke-clearwater.sh`). The game loads the
+  station document through an EnergySim adapter (WASM or HTTP), not forked
+  constants.
+
+Related geography: [regional-geography.md](../../game-design/content/story/regional-geography.md).  
+Station bus / loads: [station-electrical-grid.md](station-electrical-grid.md).  
+Engine design: `../sims/energy-sims/docs/design.md`.
 
 ---
 
 ## Purpose
 
 The hydro simulator is the Part I facility model for the campus diversion
-plant. It turns current game-world conditions, fixed plant configuration,
-facility condition, and operator settings into production values for an elapsed
-game-time interval: flow, pressure, effective head, electrical output, energy
-generated, station power served, warnings, faults, and outcomes.
+plant (**Clearwater Diversion**). It turns current game-world conditions, fixed
+plant configuration, facility condition, and operator settings into production
+values for an elapsed game-time interval: flow, pressure, effective head,
+electrical output, energy generated, station power served, warnings, faults,
+and outcomes.
 
-The current implementation covers the first hydro startup and monitoring
-slice with a code-built `hydro-generator-baseline` configuration, persistent
-`gameState.facilities.hydro` state, host-owned field action updates, live
-telemetry, compact event history, and console graph review. Authored
-configuration profiles, complex operator controls, full operations rounds, and
-story-level simulation gates remain future contract work.
+An interim game runtime may still use a code-built baseline and
+`gameState.facilities.hydro` while the EnergySim adapter lands. Authored
+configuration, full operations rounds, and story-level simulation gates remain
+future contract work. **Physics and plant numbers of record** are the
+Clearwater fixtures in energy-sims, not ad-hoc game constants.
 
 This contract owns the hydro model and its boundary with the game. It does not
 own the visual console layout, chart components, building connectivity map, or
@@ -29,22 +65,23 @@ generation-vs-consumption balance are defined in
 [station-electrical-grid.md](station-electrical-grid.md). Hydro supplies
 available generation to that bus model.
 
-The model starts from the simplified hydro equation used by the sibling
-`../welcome` simulator:
+The physical core remains:
 
 ```txt
 P_elec = eta * rho * g * Q * H_net
 H_net = H_gross - head_loss
 ```
 
-Atomic Adventures keeps that real physics core, but game state supplies many
-of the inputs. Stream condition, intake cover, debris, valve positions, leakage,
-plant health, simplified station demand, and story phase should all matter.
+as implemented in energy-sims (`energy-sim-core` / hydro plant config). Game
+state supplies environment and facility inputs (stream condition, intake cover,
+debris, valves, leakage, plant health, story phase). Station demand and bus
+balance belong to the grid contract and the Clearwater Station session.
 
 ## Design Goals
 
-- Ground the model in the local Part I plant: Mill Brook, intake/weir,
-  penstock, powerhouse, generator, and hydro control room.
+- Ground the model in the local Part I plant: **Clearwater Run**, intake/weir,
+  penstock, **Clearwater Diversion** powerhouse, generator, and hydro control
+  room at **Clearwater Station**.
 - Use real units and tested formula helpers for power calculations.
 - Let story, world, time, and facility state provide environmental inputs.
 - Keep simulator internals separate from story flags, character effects, save
@@ -125,64 +162,44 @@ the Upper Penstock plant. The game should be able to swap among configuration
 profiles for what-if analysis, author tuning, upgrades, and story progression
 without rewiring game logic.
 
+Illustrative shape (numbers and field layout must track the energy-sims
+Clearwater fixtures when the adapter lands—do not treat the sample values
+below as plant of record):
+
 ```js
 {
-  configId: "upper-penstock-baseline",
-  plantId: "upper-penstock",
-  label: "Upper Penstock baseline",
+  configId: "clearwater-diversion",
+  plantId: "clearwater-diversion",
+  label: "Clearwater Diversion",
   plantType: "diversion-run-of-river",
-  tags: ["baseline", "easy-mode"],
-  equationInputs: {
-    netHeadM: 22.86,
-    designFlowM3s: 1.8,
-    baseTurbineEfficiency: 0.87,
-    baseGeneratorEfficiency: 0.96,
-    ratedPowerKw: 350
-  },
+  tags: ["baseline", "plant-of-record"],
+  // Prefer loading energy-sims plant JSON over forked equationInputs.
   stream: {
-    sourceId: "mill-brook",
-    easyModeFlowM3s: 1.8,
-    minimumUsefulFlowM3s: 0.3
-  },
-  intake: {
-    id: "upper-intake",
-    maxCaptureFlowM3s: 1.8,
-    coveredOpenAreaM2: 1.2,
-    trashRackLossCoefficient: 0.12
+    sourceId: "clearwater-run",
+    // available flow from fixtures/plants/clearwater-diversion.json
   },
   penstock: {
-    id: "upper-penstock-pipe",
-    lengthM: 420,
-    diameterM: 0.9,
-    grossHeadM: 42,
-    frictionLossCoefficient: 0.03,
-    minorLossCoefficient: 0.08
+    id: "clearwater-penstock",
+    // lengthM, diameterM, grossHeadM, friction, minor losses from fixture
   },
   pressureGauge: {
     id: "powerhouse-entry-gauge",
     location: "powerhouse-entry"
   },
   turbine: {
-    id: "upper-turbine",
-    type: "francis",
-    designFlowM3s: 1.8,
-    maxSafeFlowM3s: 2.2,
-    ratedSpeedRpm: 900,
-    baseEfficiency: 0.87,
-    minSyncSpeedRpm: 855,
-    maxSyncSpeedRpm: 945
+    id: "clearwater-turbine"
+    // efficiency, design/max flow, dynamics from fixture
   },
   generator: {
-    id: "upper-generator",
-    ratedPowerKw: 560,
-    baseEfficiency: 0.96
+    id: "clearwater-generator"
+    // efficiency, ratedPowerKw from fixture
   }
 }
 ```
 
-Open question: final numeric values need calibration against the story's
-desired scale for station comfort and later campus loads. The contract should
-preserve units even while numbers change.
+Plant-of-record numbers live in `../sims/energy-sims/fixtures/plants/clearwater-diversion.json`
+(and the nested plant in the station session). Calibrate there; promote via
+lab export + smoke; keep units stable while numbers change.
 
 ### Configuration Profiles
 
@@ -350,7 +367,7 @@ it exists at the start of an interval:
 
 | Input | Unit / Type | Source | Meaning |
 | --- | --- | --- | --- |
-| `streamFlowAvailableM3s` | m^3/s | weather, season, story events | Mill Brook water available at the intake |
+| `streamFlowAvailableM3s` | m^3/s | weather, season, story events | Clearwater Run water available at the intake |
 | `intakeCoverFraction` | 0-1 | facility state | Fraction of intake cover/trash rack physically closed or covered |
 | `intakeDebrisFraction` | 0-1 | facility state | Fraction of remaining intake area blocked by leaves, branches, ice, silt |
 | `penstockIntegrity` | 0-1 | facility state | Pipe health; lower values add losses and fault risk |
@@ -1090,17 +1107,19 @@ later electrical-panel scope.
 
 ## Implementation Notes
 
-- Put reusable calculations in testable modules under `game/src/lib/learning/`
-  or a future `game/src/lib/simulations/` namespace; do not bury formulas inside
-  Vue components.
-- The existing `game/src/lib/learning/hydroPower.js` helpers are the seed for
-  net head and power calculations.
-- Port ideas from `../welcome/app/components/simulators/HydroPowerSimulator.vue`
-  as local code; do not import sibling project files at runtime.
+- **Plant of record:** `../sims/energy-sims` — Clearwater Diversion plant +
+  Clearwater Station session. Prefer WASM or HTTP EnergySim backend; retire
+  forked game hydro constants once the adapter is the default path.
+- Host presentation, story outcomes, facility flags, and panel UI stay in
+  `game/`. Engine owns generation, ramps, and (with the station session) bus
+  balance telemetry.
+- Legacy `game/` hydro JS and `../welcome` hydro UI are inspiration only—not
+  parity targets and not runtime dependencies.
 - Keep simulator internals separate from story flags, character effects, and
   save writes. Use registered outcomes at the host boundary.
 - Use deterministic interval tests for easy mode, startup, low-flow, partially
-  closed valves, intake debris, leakage, overload, and fault scenarios.
+  closed valves, intake debris, leakage, overload, and fault scenarios
+  (engine smoke: `./scripts/smoke-clearwater.sh` in energy-sims).
 
 ## Reference Notes
 

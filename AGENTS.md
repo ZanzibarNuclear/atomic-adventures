@@ -261,6 +261,10 @@ These embed as mini-games within the adventure:
 - **`../crazy-converter/`** — Nuxt 3 + FastAPI + Rust/PyO3. Unit conversion tool. Embeds via iframe.
 - **`../isotope-explorer/`** — Vue 3 + Rust/WASM. Nuclear simulation. Embeds as Vue component.
 
+Energy simulation (not an embed mini-game; the Part I plant of record):
+
+- **`../sims/energy-sims/`** — Rust hydro + station-grid engine (CLI, WASM, REST/WS). Use **Clearwater Diversion** (plant) and **Clearwater Station** (session/grid) fixtures whenever the game represents hydro generation or the utility-station bus. Stream geography name: **Clearwater Run** (discovery-gated for the player). See [docs/contracts/hydro-simulator.md](docs/contracts/hydro-simulator.md) and [regional geography](game-design/content/story/regional-geography.md).
+
 ## World & Tone
 
 - **Setting:** Future where energy technology has been lost. Infrastructure remains, knowledge is gone.
