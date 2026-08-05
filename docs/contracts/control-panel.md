@@ -1,6 +1,7 @@
 # Control Panel
 
-**Status:** First hydro console implemented; reusable panel system still shaping  
+**Status:** Hydro console multi-screen shell in place (plant + station grid);
+reusable panel registry still shaping  
 **Scope:** `game/` player-facing consoles and control panels, telemetry
 visualization, operator controls, facility connectivity, and simulator hosting
 
@@ -10,11 +11,12 @@ visualization, operator controls, facility connectivity, and simulator hosting
 
 A control panel is a focused console surface that lets the player observe and,
 where the current panel is physically wired for it, operate connected systems.
-In Part I, the hydro control-room panel visualizes the Upper Penstock
-hydro generator state and guides the player back to ordinary field actions for
-physical work. Over time, the same panel pattern should support building
-circuits, doors, monitors, sensors, outside systems, PV equipment, vehicles,
-and other simulators.
+In Part I, the hydro control-room console is a **multi-screen** terminal: the
+player flips between screens (side arrows or keyboard ←/→) for **hydro plant**
+sensors and the **station grid** (bus, loads, utilization). Physics comes from
+Clearwater Station via energy-sims. Field work stays on ordinary map actions.
+Over time, more screens (storage, PV, nuclear bootstrap) can join the same
+flipper without changing the shell.
 
 This contract owns the visual and interaction shell: tabs, gauges, real-time
 graphs, control widgets, system connectivity, status summaries, and event

@@ -213,14 +213,21 @@ const currentLocationMedia = computed(() =>
     : resolveOutdoorLocationMedia(outdoor, locationMediaContext.value),
 );
 
+/** Story action ids use choice.id when present, else the choice index (ambient scenes often omit ids). */
+function storyActionIdForChoice(choice, index) {
+  if (choice?.id != null && choice.id !== "") return `story:${choice.id}`;
+  return `story:${index}`;
+}
+
 function applyChoice(index = 0) {
   if (gameState.playMode === "open-world") {
     openWorldStory.applyChoice(index);
     return;
   }
-  const choice = activeChoices.value?.[Number(index)];
+  const i = Number(index);
+  const choice = activeChoices.value?.[i];
   if (!choice) return;
-  applyStoryAction(`story:${choice.id}`);
+  applyStoryAction(storyActionIdForChoice(choice, i));
 }
 
 function travelToHex(hexId) {
@@ -229,9 +236,9 @@ function travelToHex(hexId) {
     outdoor.moveTo(hexId);
     return;
   }
-  const choice = activeChoices.value?.find((candidate) => candidate.go_hex === hexId);
-  if (choice) {
-    applyStoryAction(`story:${choice.id}`);
+  const index = activeChoices.value?.findIndex((candidate) => candidate.go_hex === hexId) ?? -1;
+  if (index >= 0) {
+    applyChoice(index);
     return;
   }
   if (!outdoor.canReachHex(hexId)) return;
@@ -243,9 +250,9 @@ function enterBuilding() {
     indoor.enterBuilding();
     return;
   }
-  const choice = activeChoices.value?.find((candidate) => candidate.enter);
-  if (choice) {
-    applyStoryAction(`story:${choice.id}`);
+  const index = activeChoices.value?.findIndex((candidate) => candidate.enter) ?? -1;
+  if (index >= 0) {
+    applyChoice(index);
     return;
   }
   indoor.enterBuilding();
@@ -256,9 +263,9 @@ function travelToRoom(roomId) {
     indoor.moveToRoom(roomId);
     return;
   }
-  const choice = activeChoices.value?.find((candidate) => candidate.go_room === roomId);
-  if (choice) {
-    applyStoryAction(`story:${choice.id}`);
+  const index = activeChoices.value?.findIndex((candidate) => candidate.go_room === roomId) ?? -1;
+  if (index >= 0) {
+    applyChoice(index);
     return;
   }
   indoor.moveToRoom(roomId);
@@ -1122,6 +1129,11 @@ function handleGroupPickUp(entry) {
       v-else-if="gameState.playMode && !gameFailed && activeView.kind === 'console'"
       :game-state="gameState"
       :payload="activeView.payload"
+      :station-context="{
+        facility: indoor.indoor?.facility ?? indoor.facility,
+        activeStageKind: activeView.kind,
+        flags: gameState.flags,
+      }"
       @return-to-map="handleReturnToMap" />
 
     <InstructionCardView

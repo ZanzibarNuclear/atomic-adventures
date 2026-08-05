@@ -64,12 +64,20 @@ export async function syncOpsSession(hydroState, options = {}) {
     }
   }
 
-  const durationSecs =
-    options.durationSecs ??
-    (hydroState.online ? 25 : 1);
-
-  const report = await backend.advance(sessionId, { durationSecs });
-  lastSnapshot = report?.snapshot ?? (await backend.getSnapshot(sessionId));
+  const durationSecs = options.durationSecs;
+  if (durationSecs != null && Number(durationSecs) > 0) {
+    const report = await backend.advance(sessionId, {
+      durationSecs: Number(durationSecs),
+    });
+    lastSnapshot = report?.snapshot ?? (await backend.getSnapshot(sessionId));
+  } else if (durationSecs == null) {
+    const fallback = hydroState.online ? 25 : 1;
+    const report = await backend.advance(sessionId, { durationSecs: fallback });
+    lastSnapshot = report?.snapshot ?? (await backend.getSnapshot(sessionId));
+  } else {
+    // durationSecs === 0: apply inputs/loads only, no time advance
+    lastSnapshot = await backend.getSnapshot(sessionId);
+  }
   lastTelemetry = telemetryFromSnapshot(lastSnapshot, hydroState);
 
   return {

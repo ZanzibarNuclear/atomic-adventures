@@ -2,8 +2,9 @@
 
 **Status:** Plant-of-record physics lives in sibling `../sims/energy-sims`
 (WASM in browser via `game/src/lib/simulations/energySim/`). Ops host adapter
-wired for Clearwater Station; holo penstock lab and full load-board UI still
-shaping.  
+and multi-screen console (plant + station grid / utilization) wired for
+Clearwater Station; host load binding is coarse (lights / holo / EV / kitchen);
+holo penstock lab still shaping.  
 **Scope:** Part I campus hydro — **Clearwater Diversion** on **Clearwater Run** —
 generation model, game-environment inputs, facility state, simulator outcomes,
 and future lesson/simulation reuse

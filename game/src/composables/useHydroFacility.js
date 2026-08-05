@@ -103,7 +103,11 @@ export function applyHydroStartupAction(gameState, actionId, options = {}) {
 export async function refreshEngineFromHost(gameState, options = {}) {
   const hydro = ensureHydroFacilityState(gameState);
   try {
-    const result = await syncOpsSession(hydro, options);
+    const result = await syncOpsSession(hydro, {
+      durationSecs: options.durationSecs,
+      forceRecreate: options.forceRecreate,
+      loads: options.loads,
+    });
     if (result.ok && result.telemetry) {
       engineTelemetryRef.value = result.telemetry;
       return result.telemetry;
