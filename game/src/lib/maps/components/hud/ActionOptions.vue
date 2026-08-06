@@ -18,7 +18,7 @@ defineProps({
   margin-top: -0.35rem;
 }
 .actions .label {
-  color: #8bc49a;
+  color: var(--color-cherenkov, #20c8fb);
 }
 .actions .options {
   display: flex;

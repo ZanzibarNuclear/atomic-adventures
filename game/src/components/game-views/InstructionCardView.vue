@@ -17,6 +17,10 @@ const isKnownCard = computed(() =>
   documentEntry.value?.properties?.type === "hydro-startup-card",
 );
 
+/** Eyebrow: plant name. Title: procedure. */
+const CARD_EYEBROW = "Clearwater Diversion";
+const CARD_TITLE = "Hydro Generator Start-up";
+
 watch(
   () => props.payload?.id,
   () => {
@@ -24,83 +28,70 @@ watch(
   },
 );
 
+function flipCard() {
+  side.value = side.value === "front" ? "back" : "front";
+}
+
 const steps = [
   {
     id: 1,
     title: "Clear debris and open the intake",
-    location: "Upstream intake",
+    location: "Intake · Clearwater Run",
   },
   {
     id: 2,
     title: "Align the upstream/diversion valve",
-    location: "Diversion valve",
+    location: "Intake works · diversion valve",
   },
   {
     id: 3,
     title: "Open the turbine valve",
-    location: "Powerhouse pipe valve",
+    location: "Return pipe · mid-cascade",
   },
   {
     id: 4,
     title: "Return to the control room",
-    location: "Powerhouse",
+    location: "Powerhouse · foot of the cascade",
   },
   {
     id: 5,
     title: "Connect station power",
-    location: "Control-room console",
+    location: "Control room · Clearwater Station",
   },
   {
     id: 6,
     title: "Check the console",
-    location: "Control-room console",
+    location: "Control room · Clearwater Station",
   },
 ];
 </script>
 
 <template>
-  <section class="instruction-card-view" aria-labelledby="instruction-card-title">
-    <header class="card-view-header">
-      <div>
-        <p class="eyebrow">Laminated field card</p>
-        <h1 id="instruction-card-title">
-          {{ documentEntry?.title ?? "Instruction card unavailable" }}
-        </h1>
-      </div>
-      <button class="exit-button" type="button" @click="$emit('return-to-map')">Return</button>
-    </header>
-
+  <section class="instruction-card-view" aria-label="Hydro startup instruction card">
     <section v-if="!documentEntry" class="card-error">
       <h2>Document unavailable</h2>
       <p>The selected document ID does not exist in character content.</p>
+      <button type="button" class="done-button" @click="$emit('return-to-map')">Done</button>
     </section>
 
     <section v-else-if="!isKnownCard" class="card-error">
       <h2>Unsupported document</h2>
       <p>This document is not registered as a hydro startup instruction card.</p>
+      <button type="button" class="done-button" @click="$emit('return-to-map')">Done</button>
     </section>
 
     <article v-else class="laminated-card" :class="side" aria-live="polite">
-      <div class="card-toolbar" aria-label="Card side">
-        <button
-          type="button"
-          :aria-pressed="side === 'front'"
-          @click="side = 'front'">
-          Front
+      <header class="card-chrome">
+        <button type="button" class="flip-button" @click="flipCard">
+          Flip to {{ side === "front" ? "map" : "checklist" }}
         </button>
-        <button
-          type="button"
-          :aria-pressed="side === 'back'"
-          @click="side = 'back'">
-          Back
-        </button>
-      </div>
+        <button type="button" class="done-button" @click="$emit('return-to-map')">Done</button>
+      </header>
 
       <section v-if="side === 'front'" class="card-face front-face">
         <div class="card-title-block">
-          <span class="plant-label">Upper Penstock Station</span>
-          <h2>Startup checklist</h2>
-          <p>Perform these steps in order. Reading the card does not move any valve or switch.</p>
+          <p class="plant-label">{{ CARD_EYEBROW }}</p>
+          <h2>{{ CARD_TITLE }}</h2>
         </div>
         <ol class="checklist">
           <li v-for="step in steps" :key="step.id">
@@ -113,57 +104,183 @@ const steps = [
         </ol>
       </section>
 
-      <section v-else class="card-face back-face">
-        <div class="card-title-block">
-          <span class="plant-label">Hydro path mini-map</span>
-          <h2>Where each step happens</h2>
-        </div>
+      <!--
+        Map side only — control-room window view of Clearwater Diversion:
+        stream left↔right (downstream ← left, upstream → right), cascade along
+        the station face. Not a full outdoor hex map.
+      -->
+      <section v-else class="card-face back-face map-only">
+        <svg
+          class="field-sketch"
+          viewBox="0 0 720 400"
+          role="img"
+          aria-labelledby="field-sketch-title">
+          <title id="field-sketch-title">
+            Field sketch from the control room: Clearwater Run left to right,
+            cascade along Clearwater Station, intake upstream, powerhouse at the cascade foot
+          </title>
 
-        <svg class="hydro-minimap" viewBox="0 0 760 430" role="img" aria-labelledby="hydro-minimap-title">
-          <title id="hydro-minimap-title">Mini-map of the intake, valves, powerhouse, control room, and water path</title>
-          <path class="ridge" d="M38 86 C164 38 279 74 398 48 C520 21 622 57 724 36" />
-          <path class="river" d="M42 118 C150 158 219 134 310 171 C398 207 491 184 601 228 C654 249 694 279 724 334" />
-          <path class="water-path" d="M129 139 C206 159 239 202 292 236 C348 272 415 283 501 289" />
-          <path class="penstock" d="M293 236 C345 225 390 232 443 260 C473 276 497 287 533 300" />
-          <rect class="powerhouse" x="508" y="266" width="142" height="82" rx="8" />
-          <rect class="control-room" x="548" y="218" width="94" height="50" rx="7" />
+          <rect class="sketch-ground" x="0" y="0" width="720" height="400" />
 
-          <g class="map-point" transform="translate(128 139)">
-            <circle r="21" />
-            <text y="7">1</text>
-          </g>
-          <g class="map-point" transform="translate(292 236)">
-            <circle r="21" />
-            <text y="7">2</text>
-          </g>
-          <g class="map-point" transform="translate(532 300)">
-            <circle r="21" />
-            <text y="7">3</text>
-          </g>
-          <g class="map-point" transform="translate(565 336)">
-            <circle r="21" />
-            <text y="7">4</text>
-          </g>
-          <g class="map-point" transform="translate(594 244)">
-            <circle r="21" />
-            <text y="7">5</text>
-          </g>
-          <g class="map-point" transform="translate(628 244)">
-            <circle r="21" />
-            <text y="7">6</text>
+          <!-- Far bank / forest wash (above stream, opposite the station) -->
+          <path
+            class="far-bank"
+            d="M0 70 C80 50 160 85 240 60 C320 40 400 75 480 55 C560 38 640 70 720 48 L720 0 L0 0 Z" />
+          <g class="far-trees" opacity="0.4">
+            <path d="M90 78 L102 42 L114 78 Z" />
+            <path d="M180 72 L194 30 L208 72 Z" />
+            <path d="M300 68 L312 36 L324 68 Z" />
+            <path d="M420 74 L434 34 L448 74 Z" />
+            <path d="M540 70 L552 38 L564 70 Z" />
+            <path d="M640 76 L652 44 L664 76 Z" />
           </g>
 
-          <text class="map-label" x="88" y="94">Intake</text>
-          <text class="map-label" x="246" y="211">Diversion valve</text>
-          <text class="map-label" x="401" y="249">Penstock pressure pipe</text>
-          <text class="map-label" x="514" y="363">Powerhouse</text>
-          <text class="map-label" x="548" y="209">Control room</text>
-          <text class="flow-label" x="188" y="177">water path</text>
+          <!--
+            Clearwater Run: horizontal.
+            Left = downstream, right = upstream (as seen from control room).
+          -->
+          <path
+            class="stream-band"
+            d="M20 168
+               C100 158 180 175 260 162
+               C340 150 400 155 460 168
+               C520 180 580 172 700 178" />
+          <path
+            class="stream"
+            d="M20 168
+               C100 158 180 175 260 162
+               C340 150 400 155 460 168
+               C520 180 580 172 700 178" />
+          <text class="stream-label" x="360" y="148">Clearwater Run</text>
+          <text class="flow-hint" x="80" y="198">← downstream</text>
+          <text class="flow-hint" x="620" y="198">upstream →</text>
+
+          <!-- Cascade along the station face (center-right of stream) -->
+          <g class="cascade">
+            <path d="M400 155 L412 195" />
+            <path d="M418 152 L428 198" />
+            <path d="M436 154 L444 200" />
+            <path d="M454 158 L460 204" />
+            <path d="M470 162 L474 206" />
+            <path d="M408 178 L418 210" />
+            <path d="M428 176 L436 212" />
+            <path d="M448 180 L454 214" />
+          </g>
+          <text class="map-label" x="440" y="236">Cascade</text>
+
+          <!--
+            Clearwater Station — complex footprint (not a single rectangle).
+            Sits south of the cascade; control room bay faces the water.
+          -->
+          <g class="station">
+            <!-- main hall -->
+            <path
+              class="station-mass"
+              d="M250 248
+                 L390 248
+                 L400 268
+                 L400 330
+                 L240 330
+                 L240 270
+                 Z" />
+            <!-- east shop / garage wing -->
+            <path
+              class="station-wing"
+              d="M390 248
+                 L470 252
+                 L478 270
+                 L478 318
+                 L400 318
+                 L400 268
+                 Z" />
+            <!-- control-room bay (toward stream / cascade) -->
+            <path
+              class="control-bay"
+              d="M300 220
+                 L372 220
+                 L380 248
+                 L292 248
+                 Z" />
+            <!-- control-room windows looking at cascade -->
+            <rect class="window" x="308" y="228" width="16" height="12" rx="1" />
+            <rect class="window" x="330" y="228" width="16" height="12" rx="1" />
+            <rect class="window" x="352" y="228" width="16" height="12" rx="1" />
+            <!-- roof hint -->
+            <path
+              class="roof"
+              d="M292 248 L336 200 L380 248" />
+            <text class="station-label" x="350" y="300">Clearwater Station</text>
+            <text class="map-label quiet" x="336" y="214">Control room</text>
+          </g>
+
+          <!-- Powerhouse at foot of cascade (downstream of cascade, stream edge) -->
+          <g class="powerhouse-group">
+            <path
+              class="powerhouse"
+              d="M410 210
+                 L455 208
+                 L460 238
+                 L408 240
+                 Z" />
+            <text class="map-label" x="434" y="258">Powerhouse</text>
+          </g>
+
+          <!-- Return / penstock pipe: intake (right) → mid-cascade → powerhouse -->
+          <path
+            class="return-pipe"
+            d="M580 170
+               C540 175 500 182 470 190
+               C450 196 432 204 420 216" />
+          <text class="map-label quiet" x="510" y="210">Return pipe</text>
+
+          <!-- Intake works (upstream / right) -->
+          <g class="intake-works">
+            <rect class="intake-rack" x="560" y="148" width="48" height="22" rx="2" />
+            <path class="intake-slot" d="M568 152 L568 166 M580 152 L580 166 M592 152 L592 166" />
+            <text class="map-label" x="584" y="138">Intake</text>
+          </g>
+
+          <!--
+            Markers (control-room view):
+            1 intake · 2 diversion (same works, slightly offset)
+            3 return pipe mid-cascade
+            4 powerhouse foot of cascade
+            5 & 6 inside control-room bay
+          -->
+          <g class="map-point" transform="translate(572 159)">
+            <circle r="14" />
+            <text y="5">1</text>
+          </g>
+          <g class="map-point twin" transform="translate(598 159)">
+            <circle r="14" />
+            <text y="5">2</text>
+          </g>
+
+          <g class="map-point" transform="translate(448 198)">
+            <circle r="14" />
+            <text y="5">3</text>
+          </g>
+
+          <g class="map-point" transform="translate(432 224)">
+            <circle r="14" />
+            <text y="5">4</text>
+          </g>
+
+          <g class="map-point" transform="translate(324 236)">
+            <circle r="14" />
+            <text y="5">5</text>
+          </g>
+          <g class="map-point twin" transform="translate(350 236)">
+            <circle r="14" />
+            <text y="5">6</text>
+          </g>
         </svg>
 
         <ul class="map-key">
-          <li><span class="key-line water"></span>Water route from intake to turbine</li>
-          <li><span class="key-line room"></span>Powerhouse and control-room locations</li>
+          <li><span class="key-line stream"></span>Clearwater Run</li>
+          <li><span class="key-line pipe"></span>Return pipe / penstock</li>
+          <li><span class="key-swatch station"></span>Clearwater Station</li>
+          <li><span class="key-swatch powerhouse"></span>Powerhouse</li>
         </ul>
       </section>
     </article>
@@ -175,45 +292,8 @@ const steps = [
   min-height: calc(100vh - 4rem);
   padding: 1.25rem clamp(1rem, 3vw, 2.25rem) 2rem;
   background:
-    radial-gradient(circle at 16% 14%, rgba(149, 181, 151, 0.2), transparent 25rem),
+    radial-gradient(circle at 16% 14%, rgba(32, 200, 251, 0.12), transparent 25rem),
     linear-gradient(145deg, #111820, #252525 52%, #171b20);
-  color: #f4f0df;
-}
-
-.card-view-header {
-  display: flex;
-  align-items: start;
-  justify-content: space-between;
-  gap: 1rem;
-  max-width: 1120px;
-  margin: 0 auto 1rem;
-}
-
-.card-view-header h1 {
-  margin: 0.1rem 0 0;
-  font-size: clamp(1.7rem, 4vw, 3rem);
-  letter-spacing: 0;
-}
-
-.eyebrow {
-  margin: 0;
-  color: #c8dd9b;
-  text-transform: uppercase;
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-}
-
-button {
-  border: 1px solid #7f8e70;
-  border-radius: 7px;
-  background: #edf3cf;
-  color: #1d2417;
-  padding: 0.58rem 0.78rem;
-  font-weight: 700;
-}
-
-.exit-button {
-  background: transparent;
   color: #f4f0df;
 }
 
@@ -224,6 +304,9 @@ button {
 }
 
 .card-error {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: start;
   padding: 1rem;
   border: 1px solid rgba(238, 225, 185, 0.35);
   border-radius: 8px;
@@ -232,24 +315,40 @@ button {
 
 .laminated-card {
   display: grid;
-  gap: 0.85rem;
+  gap: 0;
 }
 
-.card-toolbar {
+.card-chrome {
   display: flex;
+  justify-content: flex-end;
   gap: 0.55rem;
-  justify-content: center;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid rgba(32, 200, 251, 0.22);
+  border-bottom: 0;
+  border-radius: 10px 10px 0 0;
+  background: rgba(12, 18, 24, 0.92);
 }
 
-.card-toolbar button {
-  min-width: 5.5rem;
-  background: rgba(237, 243, 207, 0.12);
-  color: #f4f0df;
-}
-
-.card-toolbar button[aria-pressed="true"] {
+button {
+  border: 1px solid #7f8e70;
+  border-radius: 7px;
   background: #edf3cf;
   color: #1d2417;
+  padding: 0.58rem 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.flip-button {
+  background: color-mix(in srgb, var(--color-cherenkov) 22%, #1a2830);
+  border-color: var(--color-brand-border, rgba(32, 200, 251, 0.45));
+  color: #e8f9ff;
+}
+
+.done-button {
+  background: transparent;
+  border-color: rgba(244, 240, 223, 0.45);
+  color: #f4f0df;
 }
 
 .card-face {
@@ -258,7 +357,7 @@ button {
   min-height: min(70vh, 620px);
   padding: clamp(1rem, 3vw, 2rem);
   border: 10px solid rgba(255, 255, 255, 0.34);
-  border-radius: 8px;
+  border-radius: 0 0 8px 8px;
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.48), transparent 28%),
     #f8f1cf;
@@ -268,14 +367,21 @@ button {
   color: #243019;
 }
 
+.card-face.map-only {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 0.75rem;
+}
+
 .card-title-block {
   display: grid;
-  gap: 0.35rem;
+  gap: 0.25rem;
   margin-bottom: 1rem;
 }
 
 .plant-label {
-  color: #52622f;
+  margin: 0;
+  color: #1a7a96;
   text-transform: uppercase;
   font-size: 0.78rem;
   font-weight: 800;
@@ -284,13 +390,7 @@ button {
 
 .card-title-block h2 {
   margin: 0;
-  font-size: clamp(1.65rem, 4vw, 2.8rem);
-}
-
-.card-title-block p {
-  max-width: 50rem;
-  margin: 0;
-  color: #52622f;
+  font-size: clamp(1.55rem, 3.6vw, 2.4rem);
 }
 
 .checklist {
@@ -320,7 +420,7 @@ button {
   width: 2.65rem;
   height: 2.65rem;
   border-radius: 50%;
-  background: #2e5f78;
+  background: #1a7a96;
   color: #fff8db;
   font-size: 1.25rem;
   font-weight: 900;
@@ -336,76 +436,155 @@ button {
   color: #61704a;
 }
 
-.hydro-minimap {
+.field-sketch {
   width: 100%;
-  aspect-ratio: 760 / 430;
+  max-height: min(58vh, 480px);
   border: 1px solid rgba(85, 99, 53, 0.35);
   border-radius: 8px;
-  background: #e9e0b8;
+  background: #efe6bc;
 }
 
-.ridge {
+.sketch-ground {
+  fill: #efe6bc;
+}
+
+.far-bank {
+  fill: #d8d0a4;
+}
+
+.far-trees path {
+  fill: #5f7a4a;
+  stroke: #3e4f30;
+  stroke-width: 1;
+}
+
+.stream-band {
   fill: none;
-  stroke: #8d895d;
-  stroke-width: 12;
+  stroke: rgba(32, 200, 251, 0.2);
+  stroke-width: 26;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.stream {
+  fill: none;
+  stroke: #20c8fb;
+  stroke-width: 7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cascade path {
+  fill: none;
+  stroke: #148fb8;
+  stroke-width: 2.5;
   stroke-linecap: round;
 }
 
-.river {
+.return-pipe {
   fill: none;
-  stroke: rgba(73, 132, 154, 0.35);
-  stroke-width: 50;
+  stroke: #5a6570;
+  stroke-width: 5;
   stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.water-path {
-  fill: none;
-  stroke: #2e8faf;
-  stroke-width: 12;
-  stroke-linecap: round;
-}
-
-.penstock {
-  fill: none;
-  stroke: #42505d;
-  stroke-width: 9;
-  stroke-linecap: round;
-}
-
-.powerhouse,
-.control-room {
-  fill: #d8c28a;
+.station-mass {
+  fill: #d4c08a;
   stroke: #3e4931;
-  stroke-width: 4;
+  stroke-width: 2.5;
 }
 
-.control-room {
+.station-wing {
+  fill: #c9b882;
+  stroke: #3e4931;
+  stroke-width: 2.2;
+}
+
+.control-bay {
   fill: #c6d3b0;
+  stroke: #3e4931;
+  stroke-width: 2.2;
+}
+
+.roof {
+  fill: #8a7a58;
+  stroke: #3e4931;
+  stroke-width: 1.5;
+}
+
+.window {
+  fill: #7ec8e0;
+  stroke: #2a3a28;
+  stroke-width: 1;
+}
+
+.powerhouse {
+  fill: #b8a66e;
+  stroke: #3e4931;
+  stroke-width: 2;
+}
+
+.intake-rack {
+  fill: #9aab90;
+  stroke: #3e4931;
+  stroke-width: 1.5;
+}
+
+.intake-slot {
+  fill: none;
+  stroke: #3e4931;
+  stroke-width: 1.2;
+}
+
+.station-label,
+.map-label {
+  fill: #27311d;
+  font-size: 13px;
+  font-weight: 800;
+  text-anchor: middle;
+}
+
+.station-label {
+  font-size: 14px;
+}
+
+.map-label.quiet {
+  font-size: 11px;
+  font-weight: 700;
+  fill: #4a5640;
+}
+
+.stream-label {
+  fill: #0a7a9a;
+  font-size: 18px;
+  font-weight: 800;
+  text-anchor: middle;
+  letter-spacing: 0.04em;
+}
+
+.flow-hint {
+  fill: #5a6a50;
+  font-size: 12px;
+  font-weight: 700;
+  text-anchor: middle;
 }
 
 .map-point circle {
-  fill: #2e5f78;
+  fill: #1a7a96;
   stroke: #fff8db;
-  stroke-width: 4;
+  stroke-width: 2.5;
 }
 
 .map-point text {
   fill: #fff8db;
-  font-size: 22px;
+  font-size: 14px;
   font-weight: 900;
   text-anchor: middle;
 }
 
-.map-label,
-.flow-label {
-  fill: #27311d;
-  font-size: 20px;
-  font-weight: 800;
-}
-
-.flow-label {
-  fill: #236d8a;
-  font-size: 18px;
+.map-point.twin circle {
+  fill: #156882;
 }
 
 .map-key {
@@ -413,9 +592,10 @@ button {
   flex-wrap: wrap;
   gap: 0.75rem 1.2rem;
   padding: 0;
-  margin: 1rem 0 0;
+  margin: 0;
   list-style: none;
   color: #52622f;
+  font-size: 0.9rem;
 }
 
 .map-key li {
@@ -428,22 +608,35 @@ button {
   width: 2.2rem;
   height: 0.35rem;
   border-radius: 99px;
-  background: #2e8faf;
+  background: #20c8fb;
 }
 
-.key-line.room {
-  background: #d8c28a;
+.key-line.pipe {
+  background: #5a6570;
+}
+
+.key-swatch {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 3px;
   border: 1px solid #3e4931;
 }
 
+.key-swatch.station {
+  background: #d4c08a;
+}
+
+.key-swatch.powerhouse {
+  background: #b8a66e;
+}
+
 @media (max-width: 760px) {
-  .card-view-header,
   .checklist {
     grid-template-columns: 1fr;
   }
 
-  .card-view-header {
-    display: grid;
+  .card-chrome {
+    flex-wrap: wrap;
   }
 
   .checklist li {
