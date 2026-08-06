@@ -257,9 +257,11 @@ export function useOutdoorWorld(mapData, gameState = null) {
     state.lastBlocked = blocked ?? null;
     state.atBarrier = atBarrier ?? null;
     state.lastSearch = null;
-    // Discovery notices are one-shot; clear when the player walks away
-    // (e.g. hole found, then go up to the gate instead of through it).
-    if (moved) clearPlayMessages("action");
+    // One-shot notices clear when the player walks on.
+    if (moved) {
+      clearPlayMessages("action");
+      clearPlayMessages("resume");
+    }
   }
 
   const atBuildingEntrance = computed(

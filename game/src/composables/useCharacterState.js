@@ -140,6 +140,23 @@ function initializeDefinitionDefaults(state) {
   }
 }
 
+/**
+ * Numeric suffix from ids like "neutron-bar-1" / "stack-ration-3".
+ * Used as a soft tombstone: if nextId is already past this sequence, the
+ * holding was allocated earlier and removed (moved/consumed) — do not respawn.
+ */
+function holdingIdSequence(id) {
+  const match = String(id ?? "").match(/-(\d+)$/);
+  return match ? Number(match[1]) : null;
+}
+
+function wasAlreadyAllocated(holdings, id) {
+  const seq = holdingIdSequence(id);
+  if (seq == null || !Number.isFinite(seq)) return false;
+  const nextId = Number(holdings?.nextId) || 1;
+  return nextId > seq;
+}
+
 function mergeAuthoredHoldings(state) {
   const authored = state.definitions?.holdings;
   if (!authored || !state.holdings) return;
@@ -156,6 +173,8 @@ function mergeAuthoredHoldings(state) {
     if (next.stacks[id]) continue;
     if (!next.holders[stack.holder]) continue;
     if (totalItemQuantity(next, stack.item) > 0) continue;
+    // Consumed/removed stack whose id was already in play — keep it gone.
+    if (wasAlreadyAllocated(next, id)) continue;
     next.stacks[id] = clonePlain(stack);
     changed = true;
   }
@@ -164,6 +183,9 @@ function mergeAuthoredHoldings(state) {
     if (next.instances[id]) continue;
     if (!next.holders[instance.holder]) continue;
     if (totalItemQuantity(next, instance.item) > 0) continue;
+    // Eaten unique items must not reappear in the backpack on save/load or
+    // definition refresh (quantity is 0 after consume, which used to re-merge).
+    if (wasAlreadyAllocated(next, id)) continue;
     next.instances[id] = clonePlain(instance);
     changed = true;
   }

@@ -1,12 +1,6 @@
 <template>
   <div v-if="hasContent" class="status-lines">
-    <p
-      v-for="(line, index) in statusLines"
-      :key="`status-${index}-${line}`"
-      class="status-line"
-    >
-      {{ line }}
-    </p>
+    <!-- Ephemeral notices first (e.g. Resuming Game 2), then ongoing status. -->
     <p
       v-for="message in messageItems"
       :key="`msg-${message.id}`"
@@ -14,6 +8,13 @@
       :class="toneClass(message.tone)"
     >
       {{ message.text }}
+    </p>
+    <p
+      v-for="(line, index) in statusLines"
+      :key="`status-${index}-${line}`"
+      class="status-line"
+    >
+      {{ line }}
     </p>
   </div>
 </template>

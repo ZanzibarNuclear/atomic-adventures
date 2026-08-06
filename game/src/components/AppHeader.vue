@@ -20,9 +20,8 @@
               <button
                 type="button"
                 class="dev-menu-item"
-                :disabled="movementAuditVisible"
-                @click="showMovementAudit">
-                {{ movementAuditVisible ? "Movement audit shown" : "Show movement audit" }}
+                @click="toggleMovementAudit">
+                {{ movementAuditVisible ? "Hide movement audit" : "Show movement audit" }}
               </button>
               <button
                 type="button"
@@ -162,7 +161,7 @@ const emit = defineEmits([
   "restart-game",
   "new-game",
   "show-dev-settings",
-  "show-movement-audit",
+  "toggle-movement-audit",
   "show-health",
   "show-inventory",
 ]);
@@ -206,8 +205,8 @@ function gameStatusLine(slot) {
   return "open";
 }
 
-function showMovementAudit() {
-  emit("show-movement-audit");
+function toggleMovementAudit() {
+  emit("toggle-movement-audit");
   if (devMenu.value) devMenu.value.open = false;
 }
 

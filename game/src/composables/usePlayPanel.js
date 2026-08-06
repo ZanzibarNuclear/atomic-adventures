@@ -15,7 +15,7 @@ import {
   searchActionLabel,
 } from "../lib/maps/composables/useBarrierOpenings.js";
 import { barrierHintAtStand } from "../lib/maps/composables/useBarrierStand.js";
-import { pushPlayMessage } from "./usePlayMessages.js";
+import { clearPlayMessages, pushPlayMessage } from "./usePlayMessages.js";
 import { markCharacterChanged } from "./useCharacterState.js";
 import {
   buildProcessFixtureActions,
@@ -319,7 +319,10 @@ export function handleOutdoorChooseAction(
       : null;
     outdoor.searchBarrier?.(barrierKind || undefined);
     const message = describeBarrierSearchResult(outdoor.state?.lastSearch);
-    if (message) pushPlayMessage(message, { source: "action" });
+    if (message) {
+      clearPlayMessages("resume");
+      pushPlayMessage(message, { source: "action" });
+    }
     return;
   }
   if (actionId.startsWith("passage-unlock:")) {

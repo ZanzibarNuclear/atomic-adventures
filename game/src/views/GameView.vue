@@ -4,6 +4,7 @@ import { useOutdoorWorld } from "../lib/maps/composables/useOutdoorWorld.js";
 import { useIndoorBuilding } from "../lib/maps/composables/useIndoorBuilding.js";
 import { captureSnapshot, createGameState, resetGameState, setPlayMode } from "../composables/useGameState.js";
 import { useSaveGame } from "../composables/useSaveGame.js";
+import { pushPlayMessage } from "../composables/usePlayMessages.js";
 import { useStoryArc } from "../composables/useStoryArc.js";
 import { useOpenWorldStory } from "../composables/useOpenWorldStory.js";
 import { normalizeStoryArcContent } from "../composables/storyArcModel.js";
@@ -155,8 +156,6 @@ const cleanFingerprint = ref(null);
 const pendingSaveAction = ref(null);
 /** When all games are full, pick which to overwrite for New Game from the menu. */
 const pickGameDialog = ref(null); // { mode: 'story'|'open-world'|null } null mode = menu New Game
-/** Title-screen resume: { gameId, savedAt } when Enter the Game finds a save. */
-const resumeDialog = ref(null);
 /** Restart confirm: { gameId } before wiping a saved game. */
 const restartDialog = ref(null);
 
@@ -632,9 +631,10 @@ function handlePlayGame(gameId) {
       return;
     }
     if (hasSave(gameId)) {
-      load(saveCtx.value, gameId);
+      if (!load(saveCtx.value, gameId)) return;
       markSessionClean();
       refreshStoryMoment();
+      noticeResumingGame(gameId);
     }
     return;
   }
@@ -646,11 +646,21 @@ function handlePlayGame(gameId) {
   completePlayGame(gameId);
 }
 
+/**
+ * One-shot HUD line when loading an existing save (title enter or Game menu).
+ * Uses source "resume" so indoor room-change / outdoor applyMove clears of
+ * "action" (which fire when a snapshot is applied) do not wipe it immediately.
+ */
+function noticeResumingGame(gameId) {
+  pushPlayMessage(`Resuming Game ${gameId}.`, { source: "resume", tone: "notice" });
+}
+
 function completePlayGame(gameId) {
   if (hasSave(gameId)) {
     if (!load(saveCtx.value, gameId)) return;
     markSessionClean();
     refreshStoryMoment();
+    noticeResumingGame(gameId);
     return;
   }
   // Open game: start a new story session in this slot (stay in play view).
@@ -745,44 +755,11 @@ function handleNewGame() {
   handleRestartGame(activeSlot.value);
 }
 
-function formatResumeWhen(savedAt) {
-  if (!savedAt) return "a previous session";
-  const d = new Date(savedAt);
-  if (Number.isNaN(d.getTime())) return "a previous session";
-  // e.g. "August 6, 2026, at 9:06 AM"
-  const datePart = d.toLocaleDateString(undefined, {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-  const timePart = d.toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-  return `${datePart}, at ${timePart}`;
-}
-
-function startNewStoryInOpenSlot() {
-  const openId = firstOpenSlot();
-  const gameId = openId ?? 1;
-  beginFreshGame(gameId);
-}
-
-function resumeSavedGame(gameId) {
-  if (!load(saveCtx.value, gameId)) {
-    // Corrupt / unreadable save — fall back to a clean story start.
-    startNewStoryInOpenSlot();
-    return;
-  }
-  markSessionClean();
-  refreshStoryMoment();
-}
-
 /**
- * Title screen: Enter the Game.
+ * Title screen: Enter the Game (no interstitial).
  * - No saves → new story in Game 1
- * - One save → offer resume (or New Game)
- * - Several saves → offer resume of the most recently saved
+ * - One save → resume that game
+ * - Several saves → resume the most recently saved
  */
 function enterTheGame() {
   const occupied = saveSlots.value.filter((s) => s.occupied);
@@ -791,30 +768,22 @@ function enterTheGame() {
     return;
   }
 
-  let target;
+  let gameId;
   if (occupied.length === 1) {
-    target = occupied[0];
+    gameId = occupied[0].id;
   } else {
-    const recentId = mostRecentlySavedSlot();
-    target = occupied.find((s) => s.id === recentId) ?? occupied[0];
+    gameId = mostRecentlySavedSlot() ?? occupied[0].id;
   }
 
-  resumeDialog.value = {
-    gameId: target.id,
-    savedAt: target.savedAt ?? null,
-  };
-}
-
-function handleResumeContinue() {
-  const gameId = resumeDialog.value?.gameId;
-  resumeDialog.value = null;
-  if (gameId == null) return;
-  resumeSavedGame(gameId);
-}
-
-function handleResumeNewGame() {
-  resumeDialog.value = null;
-  startNewStoryInOpenSlot();
+  if (!load(saveCtx.value, gameId)) {
+    // Corrupt / unreadable save — fall back to a clean story start.
+    const openId = firstOpenSlot();
+    beginFreshGame(openId ?? 1);
+    return;
+  }
+  markSessionClean();
+  refreshStoryMoment();
+  noticeResumingGame(gameId);
 }
 
 function handleHeaderSave() {
@@ -1182,7 +1151,7 @@ function handleGroupPickUp(entry) {
       @show-health="vitalsDialogVisible = true"
       @show-inventory="openInventoryDialog"
       @show-dev-settings="developerSettingsVisible = true"
-      @show-movement-audit="movementAuditVisible = true" />
+      @toggle-movement-audit="movementAuditVisible = !movementAuditVisible" />
 
     <SaveGamesDialog
       v-if="pendingSaveAction"
@@ -1205,16 +1174,6 @@ function handleGroupPickUp(entry) {
       :active-game="activeSlot"
       @choose-game="handlePickGameForNew"
       @cancel="pickGameDialog = null" />
-
-    <SaveGamesDialog
-      v-if="resumeDialog"
-      mode="resume"
-      eyebrow="Welcome back"
-      :title="`Resume Game ${resumeDialog.gameId}?`"
-      :message="`You have a saved game from ${formatResumeWhen(resumeDialog.savedAt)}. Continue where you left off?`"
-      @continue="handleResumeContinue"
-      @new-game="handleResumeNewGame"
-      @cancel="resumeDialog = null" />
 
     <SaveGamesDialog
       v-if="restartDialog"
