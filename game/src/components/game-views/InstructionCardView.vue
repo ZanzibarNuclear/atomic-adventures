@@ -19,7 +19,7 @@ const isKnownCard = computed(() =>
 
 /** Eyebrow: plant name. Title: procedure. */
 const CARD_EYEBROW = "Clearwater Diversion";
-const CARD_TITLE = "Hydro Generator Start-up";
+const CARD_TITLE = "Hydro Generator Start-up Procedure";
 
 watch(
   () => props.payload?.id,
@@ -33,36 +33,12 @@ function flipCard() {
 }
 
 const steps = [
-  {
-    id: 1,
-    title: "Clear debris and open the intake",
-    location: "Intake · Clearwater Run",
-  },
-  {
-    id: 2,
-    title: "Align the upstream/diversion valve",
-    location: "Intake works · diversion valve",
-  },
-  {
-    id: 3,
-    title: "Open the turbine valve",
-    location: "Return pipe · mid-cascade",
-  },
-  {
-    id: 4,
-    title: "Return to the control room",
-    location: "Powerhouse · foot of the cascade",
-  },
-  {
-    id: 5,
-    title: "Connect station power",
-    location: "Control room · Clearwater Station",
-  },
-  {
-    id: 6,
-    title: "Check the console",
-    location: "Control room · Clearwater Station",
-  },
+  { id: 1, title: "Clear debris" },
+  { id: 2, title: "Open the intake" },
+  { id: 3, title: "Align the diversion valve" },
+  { id: 4, title: "Open the turbine valve" },
+  { id: 5, title: "Connect station power" },
+  { id: 6, title: "Check the console" },
 ];
 </script>
 
@@ -96,192 +72,261 @@ const steps = [
         <ol class="checklist">
           <li v-for="step in steps" :key="step.id">
             <span class="step-number">{{ step.id }}</span>
-            <span>
-              <strong>{{ step.title }}</strong>
-              <small>{{ step.location }}</small>
-            </span>
+            <strong>{{ step.title }}</strong>
           </li>
         </ol>
       </section>
 
       <!--
-        Map side only — control-room window view of Clearwater Diversion:
-        stream left↔right (downstream ← left, upstream → right), cascade along
-        the station face. Not a full outdoor hex map.
+        Map side — field sketch: stream with flow chevrons, penstock on the bank
+        (not over water), powerhouse left, station outline with control-room detail.
       -->
       <section v-else class="card-face back-face map-only">
         <svg
           class="field-sketch"
-          viewBox="0 0 720 400"
+          viewBox="0 0 720 340"
           role="img"
           aria-labelledby="field-sketch-title">
           <title id="field-sketch-title">
-            Field sketch from the control room: Clearwater Run left to right,
-            cascade along Clearwater Station, intake upstream, powerhouse at the cascade foot
+            Field sketch: Clearwater Run, penstock on the bank to the powerhouse,
+            Clearwater Station with control room on the west end
           </title>
 
-          <rect class="sketch-ground" x="0" y="0" width="720" height="400" />
+          <defs>
+            <linearGradient id="run-water" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#7ad4ef" />
+              <stop offset="45%" stop-color="#20c8fb" />
+              <stop offset="100%" stop-color="#0e8fb4" />
+            </linearGradient>
+            <linearGradient id="pipe-metal" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#c5d0d8" />
+              <stop offset="35%" stop-color="#8a98a4" />
+              <stop offset="70%" stop-color="#5c6770" />
+              <stop offset="100%" stop-color="#3d464e" />
+            </linearGradient>
+            <linearGradient id="ph-fill" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#c5d6b0" />
+              <stop offset="100%" stop-color="#8fa67a" />
+            </linearGradient>
+            <filter id="soft-shadow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="1.5" stdDeviation="1.2" flood-opacity="0.22" />
+            </filter>
+          </defs>
 
-          <!-- Far bank / forest wash (above stream, opposite the station) -->
+          <rect class="sketch-ground" x="0" y="0" width="720" height="340" />
+
+          <!-- Far bank -->
           <path
             class="far-bank"
-            d="M0 70 C80 50 160 85 240 60 C320 40 400 75 480 55 C560 38 640 70 720 48 L720 0 L0 0 Z" />
-          <g class="far-trees" opacity="0.4">
-            <path d="M90 78 L102 42 L114 78 Z" />
-            <path d="M180 72 L194 30 L208 72 Z" />
-            <path d="M300 68 L312 36 L324 68 Z" />
-            <path d="M420 74 L434 34 L448 74 Z" />
-            <path d="M540 70 L552 38 L564 70 Z" />
-            <path d="M640 76 L652 44 L664 76 Z" />
+            d="M0 58 C90 32 170 62 260 36 C350 18 440 50 530 32 C610 18 670 46 720 28 L720 0 L0 0 Z" />
+          <g class="far-trees" opacity="0.42">
+            <path d="M70 54 L84 16 L98 54 Z" />
+            <path d="M150 48 L166 8 L182 48 Z" />
+            <path d="M250 44 L264 10 L278 44 Z" />
+            <path d="M360 52 L376 10 L392 52 Z" />
+            <path d="M470 46 L484 12 L498 46 Z" />
+            <path d="M580 52 L594 16 L608 52 Z" />
+            <path d="M650 56 L662 24 L674 56 Z" />
+          </g>
+
+          <!-- Clearwater Run — water only; flow chevrons left -->
+          <path
+            class="stream-body"
+            d="M12 70
+               C100 60 200 78 320 66
+               C420 56 520 68 708 74
+               L708 122
+               C520 118 420 106 320 114
+               C200 124 100 108 12 116
+               Z" />
+          <path
+            class="stream-highlight"
+            d="M24 82
+               C110 72 210 90 320 78
+               C420 68 520 80 696 86" />
+          <g class="flow-chevrons" aria-hidden="true">
+            <path d="M100 86 L74 96 L100 106" />
+            <path d="M180 82 L154 92 L180 102" />
+            <path d="M260 80 L234 90 L260 100" />
+            <path d="M340 78 L314 88 L340 98" />
+            <path d="M420 80 L394 90 L420 100" />
+            <path d="M500 82 L474 92 L500 102" />
+            <path d="M580 84 L554 94 L580 104" />
+            <path d="M640 86 L614 96 L640 106" />
+          </g>
+          <text class="stream-label" x="280" y="60">Clearwater Run</text>
+
+          <!--
+            Penstock on the brown bank (south of the stream).
+            From intake riser → mid valve (3) with bypass into stream →
+            powerhouse right wall at the bank edge (4).
+          -->
+          <g class="penstock" filter="url(#soft-shadow)">
+            <!-- Drop from intake in the stream down to the bank, then west -->
+            <path
+              class="pipe-outer"
+              d="M580 118
+                 L580 142
+                 L480 144
+                 L380 146
+                 L240 148
+                 L160 150
+                 L128 148" />
+            <path
+              class="pipe-inner"
+              d="M580 118
+                 L580 142
+                 L480 144
+                 L380 146
+                 L240 148
+                 L160 150
+                 L128 148" />
+            <path
+              class="pipe-shine"
+              d="M577 120
+                 L577 140
+                 L480 141
+                 L380 143
+                 L240 145
+                 L165 147" />
+            <g class="pipe-flange" transform="translate(580 130)">
+              <ellipse cx="0" cy="0" rx="7" ry="4.5" />
+            </g>
+            <g class="pipe-flange" transform="translate(500 143) rotate(2)">
+              <ellipse cx="0" cy="0" rx="4.5" ry="8.5" />
+            </g>
+            <g class="pipe-flange" transform="translate(300 147) rotate(2)">
+              <ellipse cx="0" cy="0" rx="4.5" ry="8.5" />
+            </g>
+            <g class="pipe-flange" transform="translate(200 149) rotate(4)">
+              <ellipse cx="0" cy="0" rx="4.5" ry="8.5" />
+            </g>
+            <!--
+              Mid-run turbine valve (marker 3) with bypass spur into the stream
+              for shutdown / maintenance.
+            -->
+            <g class="pipe-valve" transform="translate(380 146)">
+              <circle class="valve-body" r="10" />
+              <circle class="valve-rim" r="6.5" />
+              <path class="valve-cross" d="M-4.5 0 H4.5 M0 -4.5 V4.5" />
+              <rect class="valve-stem" x="-2.2" y="8" width="4.4" height="9" rx="1" />
+              <rect class="valve-handwheel" x="-6.5" y="15" width="13" height="4.5" rx="1.2" />
+            </g>
+            <path class="bypass-outer" d="M380 136 L380 112 L380 98" />
+            <path class="bypass-inner" d="M380 136 L380 112 L380 98" />
+            <path class="bypass-shine" d="M377 132 L377 100" />
+            <g class="pipe-flange" transform="translate(380 112)">
+              <ellipse cx="0" cy="0" rx="7" ry="4" />
+            </g>
+            <ellipse class="bypass-outlet" cx="380" cy="94" rx="8" ry="5" />
+            <path class="bypass-splash" d="M372 92 C376 86 384 86 388 92" />
+            <!-- Couples into the right wall of the powerhouse -->
+            <circle class="pipe-coupling" cx="128" cy="148" r="6.5" />
+          </g>
+          <text class="map-label quiet" x="250" y="172">Penstock</text>
+
+          <!-- Intake sits in the stream (blue water); markers 1–2 stay on the bank -->
+          <g class="intake-works" filter="url(#soft-shadow)">
+            <rect class="intake-pad" x="548" y="78" width="80" height="42" rx="3" />
+            <rect class="intake-rack" x="556" y="86" width="42" height="26" rx="2" />
+            <path
+              class="intake-slot"
+              d="M564 90 V108 M572 90 V108 M580 90 V108 M588 90 V108" />
+            <circle class="diversion-valve" cx="616" cy="100" r="8" />
+            <path class="diversion-cross" d="M612 100 H620 M616 96 V104" />
+            <text class="map-label" x="588" y="72">Intake</text>
           </g>
 
           <!--
-            Clearwater Run: horizontal.
-            Left = downstream, right = upstream (as seen from control room).
+            Powerhouse on the bank edge (land), tight to the stream so outflow
+            can rejoin the water. Penstock enters the right wall.
           -->
-          <path
-            class="stream-band"
-            d="M20 168
-               C100 158 180 175 260 162
-               C340 150 400 155 460 168
-               C520 180 580 172 700 178" />
-          <path
-            class="stream"
-            d="M20 168
-               C100 158 180 175 260 162
-               C340 150 400 155 460 168
-               C520 180 580 172 700 178" />
-          <text class="stream-label" x="360" y="148">Clearwater Run</text>
-          <text class="flow-hint" x="80" y="198">← downstream</text>
-          <text class="flow-hint" x="620" y="198">upstream →</text>
-
-          <!-- Cascade along the station face (center-right of stream) -->
-          <g class="cascade">
-            <path d="M400 155 L412 195" />
-            <path d="M418 152 L428 198" />
-            <path d="M436 154 L444 200" />
-            <path d="M454 158 L460 204" />
-            <path d="M470 162 L474 206" />
-            <path d="M408 178 L418 210" />
-            <path d="M428 176 L436 212" />
-            <path d="M448 180 L454 214" />
-          </g>
-          <text class="map-label" x="440" y="236">Cascade</text>
-
-          <!--
-            Clearwater Station — complex footprint (not a single rectangle).
-            Sits south of the cascade; control room bay faces the water.
-          -->
-          <g class="station">
-            <!-- main hall -->
-            <path
-              class="station-mass"
-              d="M250 248
-                 L390 248
-                 L400 268
-                 L400 330
-                 L240 330
-                 L240 270
-                 Z" />
-            <!-- east shop / garage wing -->
-            <path
-              class="station-wing"
-              d="M390 248
-                 L470 252
-                 L478 270
-                 L478 318
-                 L400 318
-                 L400 268
-                 Z" />
-            <!-- control-room bay (toward stream / cascade) -->
-            <path
-              class="control-bay"
-              d="M300 220
-                 L372 220
-                 L380 248
-                 L292 248
-                 Z" />
-            <!-- control-room windows looking at cascade -->
-            <rect class="window" x="308" y="228" width="16" height="12" rx="1" />
-            <rect class="window" x="330" y="228" width="16" height="12" rx="1" />
-            <rect class="window" x="352" y="228" width="16" height="12" rx="1" />
-            <!-- roof hint -->
-            <path
-              class="roof"
-              d="M292 248 L336 200 L380 248" />
-            <text class="station-label" x="350" y="300">Clearwater Station</text>
-            <text class="map-label quiet" x="336" y="214">Control room</text>
-          </g>
-
-          <!-- Powerhouse at foot of cascade (downstream of cascade, stream edge) -->
-          <g class="powerhouse-group">
-            <path
-              class="powerhouse"
-              d="M410 210
-                 L455 208
-                 L460 238
-                 L408 240
-                 Z" />
-            <text class="map-label" x="434" y="258">Powerhouse</text>
-          </g>
-
-          <!-- Return / penstock pipe: intake (right) → mid-cascade → powerhouse -->
-          <path
-            class="return-pipe"
-            d="M580 170
-               C540 175 500 182 470 190
-               C450 196 432 204 420 216" />
-          <text class="map-label quiet" x="510" y="210">Return pipe</text>
-
-          <!-- Intake works (upstream / right) -->
-          <g class="intake-works">
-            <rect class="intake-rack" x="560" y="148" width="48" height="22" rx="2" />
-            <path class="intake-slot" d="M568 152 L568 166 M580 152 L580 166 M592 152 L592 166" />
-            <text class="map-label" x="584" y="138">Intake</text>
+          <g class="powerhouse-group" filter="url(#soft-shadow)">
+            <rect class="powerhouse" x="72" y="120" width="56" height="50" rx="3" />
+            <rect class="powerhouse-roof" x="68" y="112" width="64" height="12" rx="2" />
+            <circle class="gen-ring" cx="100" cy="146" r="13" />
+            <circle class="gen-hub" cx="100" cy="146" r="3.5" />
+            <path class="gen-cross" d="M100 137 V155 M91 146 H109" />
+            <!-- Tailrace: discharge from the house back into the run (north edge) -->
+            <path class="tailrace" d="M90 120 C94 112 106 112 110 120" />
+            <path class="tailrace" d="M96 118 C98 108 102 108 104 118" />
+            <text class="map-label quiet" x="100" y="188">Powerhouse</text>
           </g>
 
           <!--
-            Markers (control-room view):
-            1 intake · 2 diversion (same works, slightly offset)
-            3 return pipe mid-cascade
-            4 powerhouse foot of cascade
-            5 & 6 inside control-room bay
+            Clearwater Station: control room (detailed) at west end of a simple
+            building outline — no interior room partitions or doors.
           -->
-          <g class="map-point" transform="translate(572 159)">
-            <circle r="14" />
-            <text y="5">1</text>
-          </g>
-          <g class="map-point twin" transform="translate(598 159)">
-            <circle r="14" />
-            <text y="5">2</text>
+          <g class="station" filter="url(#soft-shadow)">
+            <!-- Whole station outline: control room + corridor + east mass -->
+            <path
+              class="station-outline"
+              d="M130 218
+                 L280 218
+                 L280 248
+                 L350 248
+                 L350 228
+                 L580 228
+                 L580 318
+                 L350 318
+                 L350 292
+                 L280 292
+                 L280 318
+                 L130 318
+                 Z" />
+            <!-- Control-room fill (startup area) -->
+            <rect class="control-bay" x="132" y="220" width="146" height="96" rx="1" />
+
+            <!-- Step 5: electrical panel on the left wall -->
+            <rect class="power-panel" x="138" y="248" width="14" height="40" rx="1.5" />
+            <path
+              class="power-panel-slots"
+              d="M141 254 H149 M141 260 H149 M141 266 H149 M141 272 H149 M141 278 H149" />
+
+            <!-- Step 6: console screens in an arc (facing into the room) -->
+            <g class="console-arc">
+              <rect class="console-screen" x="188" y="252" width="16" height="12" rx="1" transform="rotate(-28 196 258)" />
+              <rect class="console-screen" x="208" y="246" width="16" height="12" rx="1" transform="rotate(-12 216 252)" />
+              <rect class="console-screen" x="228" y="244" width="16" height="12" rx="1" />
+              <rect class="console-screen" x="248" y="246" width="16" height="12" rx="1" transform="rotate(12 256 252)" />
+              <path class="console-desk" d="M186 268 Q228 258 270 268 L268 276 Q228 268 188 276 Z" />
+            </g>
+
+            <text class="map-label quiet" x="205" y="308">Control room</text>
+            <text class="station-label" x="465" y="278">Clearwater Station</text>
           </g>
 
-          <g class="map-point" transform="translate(448 198)">
-            <circle r="14" />
-            <text y="5">3</text>
+          <!--
+            Checklist markers:
+            1–2 bank at intake · 3 penstock bypass valve · 4 powerhouse · 5 panel · 6 console
+          -->
+          <g class="map-point" transform="translate(568 138)">
+            <circle r="12" />
+            <text y="4">1</text>
           </g>
-
-          <g class="map-point" transform="translate(432 224)">
-            <circle r="14" />
-            <text y="5">4</text>
+          <g class="map-point twin" transform="translate(596 138)">
+            <circle r="12" />
+            <text y="4">2</text>
           </g>
-
-          <g class="map-point" transform="translate(324 236)">
-            <circle r="14" />
-            <text y="5">5</text>
+          <g class="map-point" transform="translate(380 172)">
+            <circle r="12" />
+            <text y="4">3</text>
           </g>
-          <g class="map-point twin" transform="translate(350 236)">
-            <circle r="14" />
-            <text y="5">6</text>
+          <g class="map-point" transform="translate(72 146)">
+            <circle r="12" />
+            <text y="4">4</text>
+          </g>
+          <!-- 5 at electrical panel (left wall) -->
+          <g class="map-point" transform="translate(156 268)">
+            <circle r="12" />
+            <text y="4">5</text>
+          </g>
+          <!-- 6 in front of console arc -->
+          <g class="map-point twin" transform="translate(228 278)">
+            <circle r="12" />
+            <text y="4">6</text>
           </g>
         </svg>
-
-        <ul class="map-key">
-          <li><span class="key-line stream"></span>Clearwater Run</li>
-          <li><span class="key-line pipe"></span>Return pipe / penstock</li>
-          <li><span class="key-swatch station"></span>Clearwater Station</li>
-          <li><span class="key-swatch powerhouse"></span>Powerhouse</li>
-        </ul>
       </section>
     </article>
   </section>
@@ -354,8 +399,13 @@ button {
 .card-face {
   position: relative;
   overflow: hidden;
-  min-height: min(70vh, 620px);
-  padding: clamp(1rem, 3vw, 2rem);
+  /* Front and back share one laminated height (driven by the map aspect). */
+  box-sizing: border-box;
+  width: 100%;
+  aspect-ratio: 720 / 380;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(0.75rem, 2vw, 1.25rem);
   border: 10px solid rgba(255, 255, 255, 0.34);
   border-radius: 0 0 8px 8px;
   background:
@@ -368,77 +418,79 @@ button {
 }
 
 .card-face.map-only {
-  display: grid;
-  grid-template-rows: 1fr auto;
-  gap: 0.75rem;
+  padding-bottom: clamp(0.65rem, 1.5vw, 1rem);
 }
 
 .card-title-block {
   display: grid;
-  gap: 0.25rem;
-  margin-bottom: 1rem;
+  gap: 0.15rem;
+  margin-bottom: 0.65rem;
+  flex: 0 0 auto;
 }
 
 .plant-label {
   margin: 0;
   color: #1a7a96;
   text-transform: uppercase;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.08em;
 }
 
 .card-title-block h2 {
   margin: 0;
-  font-size: clamp(1.55rem, 3.6vw, 2.4rem);
+  font-size: clamp(1.25rem, 2.8vw, 1.75rem);
 }
 
 .checklist {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.8rem;
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
   padding: 0;
   margin: 0;
   list-style: none;
+  flex: 1 1 auto;
+  min-height: 0;
+  align-content: stretch;
 }
 
 .checklist li {
   display: grid;
-  grid-template-columns: 3rem minmax(0, 1fr);
+  grid-template-columns: 2.4rem minmax(0, 1fr);
   align-items: center;
-  gap: 0.75rem;
-  min-height: 5.25rem;
-  padding: 0.75rem;
+  gap: 0.55rem;
+  min-height: 0;
+  padding: 0.5rem 0.6rem;
   border: 1px solid rgba(85, 99, 53, 0.35);
-  border-radius: 8px;
+  border-radius: 7px;
   background: rgba(255, 252, 232, 0.72);
 }
 
 .step-number {
   display: grid;
   place-items: center;
-  width: 2.65rem;
-  height: 2.65rem;
+  width: 2.15rem;
+  height: 2.15rem;
   border-radius: 50%;
   background: #1a7a96;
   color: #fff8db;
-  font-size: 1.25rem;
+  font-size: 1.05rem;
   font-weight: 900;
 }
 
-.checklist strong,
-.checklist small {
-  display: block;
-}
-
-.checklist small {
-  margin-top: 0.3rem;
-  color: #61704a;
+.checklist strong {
+  font-size: 0.92rem;
+  line-height: 1.3;
+  font-weight: 800;
 }
 
 .field-sketch {
   width: 100%;
-  max-height: min(58vh, 480px);
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  display: block;
   border: 1px solid rgba(85, 99, 53, 0.35);
   border-radius: 8px;
   background: #efe6bc;
@@ -449,7 +501,7 @@ button {
 }
 
 .far-bank {
-  fill: #d8d0a4;
+  fill: #d4cca0;
 }
 
 .far-trees path {
@@ -458,83 +510,234 @@ button {
   stroke-width: 1;
 }
 
-.stream-band {
+/* ── Stream ── */
+.stream-body {
+  fill: url(#run-water);
+  stroke: #0e7a9c;
+  stroke-width: 1.5;
+}
+
+.stream-highlight {
   fill: none;
-  stroke: rgba(32, 200, 251, 0.2);
-  stroke-width: 26;
+  stroke: rgba(255, 255, 255, 0.45);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.flow-chevrons path {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.72);
+  stroke-width: 2.2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
-.stream {
+/* ── Penstock (real pipe) ── */
+.pipe-outer {
   fill: none;
-  stroke: #20c8fb;
-  stroke-width: 7;
+  stroke: #3d464e;
+  stroke-width: 14;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
-.cascade path {
+.pipe-inner {
   fill: none;
-  stroke: #148fb8;
-  stroke-width: 2.5;
-  stroke-linecap: round;
-}
-
-.return-pipe {
-  fill: none;
-  stroke: #5a6570;
-  stroke-width: 5;
+  stroke: url(#pipe-metal);
+  stroke-width: 10;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
-.station-mass {
+.pipe-shine {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.45);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+
+.bypass-outer {
+  fill: none;
+  stroke: #3d464e;
+  stroke-width: 9;
+  stroke-linecap: round;
+}
+
+.bypass-inner {
+  fill: none;
+  stroke: url(#pipe-metal);
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.bypass-shine {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.4);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.bypass-outlet {
+  fill: #5c6770;
+  stroke: #2e353c;
+  stroke-width: 1.2;
+}
+
+.bypass-splash {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.75);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.pipe-flange ellipse {
+  fill: #6a7480;
+  stroke: #2e353c;
+  stroke-width: 1.2;
+}
+
+.pipe-coupling {
+  fill: #5c6770;
+  stroke: #2e353c;
+  stroke-width: 1.5;
+}
+
+.valve-body {
+  fill: #6b7580;
+  stroke: #2a3138;
+  stroke-width: 1.8;
+}
+
+.valve-rim {
+  fill: none;
+  stroke: #c5d0d8;
+  stroke-width: 1.5;
+}
+
+.valve-cross {
+  fill: none;
+  stroke: #e8eef2;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.valve-stem {
+  fill: #4a545c;
+  stroke: #2a3138;
+  stroke-width: 0.8;
+}
+
+.valve-handwheel {
+  fill: #7a8792;
+  stroke: #2a3138;
+  stroke-width: 0.8;
+}
+
+/* ── Buildings ── */
+.station-outline {
   fill: #d4c08a;
   stroke: #3e4931;
-  stroke-width: 2.5;
-}
-
-.station-wing {
-  fill: #c9b882;
-  stroke: #3e4931;
-  stroke-width: 2.2;
+  stroke-width: 2.4;
 }
 
 .control-bay {
   fill: #c6d3b0;
-  stroke: #3e4931;
-  stroke-width: 2.2;
+  stroke: none;
 }
 
-.roof {
-  fill: #8a7a58;
-  stroke: #3e4931;
-  stroke-width: 1.5;
+.power-panel {
+  fill: #4a5560;
+  stroke: #2a3138;
+  stroke-width: 1.2;
 }
 
-.window {
-  fill: #7ec8e0;
+.power-panel-slots {
+  fill: none;
+  stroke: #9ab0c0;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+}
+
+.console-screen {
+  fill: #5ec8e8;
   stroke: #2a3a28;
   stroke-width: 1;
 }
 
+.console-desk {
+  fill: #6a5a40;
+  stroke: #3e4931;
+  stroke-width: 1;
+  opacity: 0.85;
+}
+
 .powerhouse {
-  fill: #b8a66e;
+  fill: url(#ph-fill);
   stroke: #3e4931;
   stroke-width: 2;
 }
 
-.intake-rack {
-  fill: #9aab90;
+.powerhouse-roof {
+  fill: #6e7d62;
   stroke: #3e4931;
   stroke-width: 1.5;
 }
 
+.tailrace {
+  fill: none;
+  stroke: #20c8fb;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  opacity: 0.75;
+}
+
+.gen-ring {
+  fill: none;
+  stroke: #2a3a28;
+  stroke-width: 2;
+}
+
+.gen-hub {
+  fill: #2a3a28;
+}
+
+.gen-cross {
+  fill: none;
+  stroke: #2a3a28;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.intake-pad {
+  fill: #a8b498;
+  stroke: #3e4931;
+  stroke-width: 1.5;
+}
+
+.intake-rack {
+  fill: #8a9a80;
+  stroke: #3e4931;
+  stroke-width: 1.3;
+}
+
 .intake-slot {
   fill: none;
-  stroke: #3e4931;
-  stroke-width: 1.2;
+  stroke: #2a3a28;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.diversion-valve {
+  fill: #6b7580;
+  stroke: #2a3138;
+  stroke-width: 1.4;
+}
+
+.diversion-cross {
+  fill: none;
+  stroke: #e8eef2;
+  stroke-width: 1.4;
+  stroke-linecap: round;
 }
 
 .station-label,
@@ -556,18 +759,11 @@ button {
 }
 
 .stream-label {
-  fill: #0a7a9a;
-  font-size: 18px;
+  fill: #0a6a88;
+  font-size: 17px;
   font-weight: 800;
   text-anchor: middle;
   letter-spacing: 0.04em;
-}
-
-.flow-hint {
-  fill: #5a6a50;
-  font-size: 12px;
-  font-weight: 700;
-  text-anchor: middle;
 }
 
 .map-point circle {
@@ -578,56 +774,13 @@ button {
 
 .map-point text {
   fill: #fff8db;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 900;
   text-anchor: middle;
 }
 
 .map-point.twin circle {
   fill: #156882;
-}
-
-.map-key {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem 1.2rem;
-  padding: 0;
-  margin: 0;
-  list-style: none;
-  color: #52622f;
-  font-size: 0.9rem;
-}
-
-.map-key li {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-}
-
-.key-line {
-  width: 2.2rem;
-  height: 0.35rem;
-  border-radius: 99px;
-  background: #20c8fb;
-}
-
-.key-line.pipe {
-  background: #5a6570;
-}
-
-.key-swatch {
-  width: 1.1rem;
-  height: 1.1rem;
-  border-radius: 3px;
-  border: 1px solid #3e4931;
-}
-
-.key-swatch.station {
-  background: #d4c08a;
-}
-
-.key-swatch.powerhouse {
-  background: #b8a66e;
 }
 
 @media (max-width: 760px) {
@@ -637,10 +790,6 @@ button {
 
   .card-chrome {
     flex-wrap: wrap;
-  }
-
-  .checklist li {
-    min-height: 0;
   }
 }
 </style>
