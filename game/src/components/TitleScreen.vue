@@ -175,7 +175,9 @@ defineEmits(["enter"]);
 
 h2 {
   margin: 0;
-  max-width: 18ch;
+  /* Desktop: keep the full title on one line (was forced to wrap at 18ch). */
+  max-width: none;
+  white-space: nowrap;
   font-size: clamp(1.65rem, 4.2vw, 2.55rem);
   line-height: 1.15;
   font-weight: 800;
@@ -186,7 +188,8 @@ h2 {
 
 .tagline {
   margin: 0 0 0.65rem;
-  max-width: 36rem;
+  max-width: none;
+  white-space: nowrap;
   color: #dce6df;
   font-size: clamp(0.92rem, 1.8vw, 1.05rem);
   line-height: 1.45;
@@ -328,6 +331,19 @@ h2 {
 
   .squirrel {
     left: 12%;
+  }
+}
+
+/* Only wrap title/tagline when the viewport is too narrow for a single line. */
+@media (max-width: 720px) {
+  h2 {
+    white-space: normal;
+    max-width: 14ch;
+  }
+
+  .tagline {
+    white-space: normal;
+    max-width: 28rem;
   }
 }
 
