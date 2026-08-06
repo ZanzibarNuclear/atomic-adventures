@@ -230,11 +230,17 @@ export function useOutdoorWorld(mapData, gameState = null) {
     },
   });
 
-  /** Hex ids the player may travel to from the current stand (route + direct). */
+  /** Hex ids the player may travel to (adjacent + known multi-hop). */
   const reachableHexIds = computed(() => {
     const ids = new Set([state.currentId]);
     for (const m of moves.value) ids.add(m.toHexId);
     for (const m of directMoves.value) ids.add(m.toHexId);
+    // Known-area free travel: any discovered hex with a planned path.
+    const discovered = state.discovered ?? [];
+    for (const hexId of discovered) {
+      if (ids.has(hexId)) continue;
+      if (canReachHex(hexId)) ids.add(hexId);
+    }
     return ids;
   });
 

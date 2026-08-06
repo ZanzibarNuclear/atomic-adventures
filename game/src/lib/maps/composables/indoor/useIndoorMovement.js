@@ -19,7 +19,15 @@ import {
   stairStandForRoom,
   stairStandForMove,
 } from "../useGrid.js";
-import { canBargeThroughDoor, canPassDoor } from "../useDoors.js";
+import {
+  applyClosedUnlockedDoorManners,
+  canBargeThroughDoor,
+  canPassDoor,
+  canTraverseDoorOnPath,
+  doorNeedsClosedUnlockedManners,
+  setDoorOpen,
+} from "../useDoors.js";
+import { planKnownRoomPath as planKnownRoomPathPure } from "../knownAreaIndoorTravel.js";
 import { advanceGameTime } from "../../../character/gameTime.js";
 import { resolveStandPoint } from "../useAvatarStand.js";
 
@@ -73,9 +81,11 @@ export function createIndoorMovement(deps) {
         }),
       );
       const node = currentExteriorNode.value;
+      // Free travel: closed unlocked exterior doors are destinations (manners on pass).
+      // Locked exterior doors stay blocked until the player unlocks.
       if (
         node?.room &&
-        canPassDoor(
+        canTraverseDoorOnPath(
           indoor.doorState,
           building.value.areaId,
           node.door,
@@ -184,9 +194,22 @@ export function createIndoorMovement(deps) {
         .map((m) => m.toRoomId);
       return ids;
     }
-    return [
-      ...indoorMoves.value.filter((m) => !m.onSpiral).map((m) => m.toRoomId),
-    ].filter((id) => id && id !== indoor.currentRoom);
+    const ids = new Set(
+      indoorMoves.value
+        .filter((m) => !m.onSpiral && m.toRoomId)
+        .map((m) => m.toRoomId),
+    );
+    // Known-area multi-hop destinations (discovered rooms with a planned path).
+    const discovered = indoor.discovered;
+    const known =
+      discovered instanceof Set
+        ? discovered
+        : new Set(discovered ?? []);
+    for (const roomId of known) {
+      if (roomId === indoor.currentRoom || ids.has(roomId)) continue;
+      if (planKnownRoomPath(roomId)) ids.add(roomId);
+    }
+    return [...ids].filter((id) => id && id !== indoor.currentRoom);
   });
 
   const reachableExteriorNodes = computed(() => {
@@ -314,13 +337,41 @@ export function createIndoorMovement(deps) {
     place.value = "outdoors";
   }
 
-  function applyIndoorMove(move) {
+  function applyIndoorMove(move, options = {}) {
     if (indoor.moving) return;
-    if (!indoorMoves.value.some((m) => moveKey(m) === moveKey(move))) return;
+    // Multi-hop steps may not be in the one-hop list from the *start* room.
+    if (
+      !options.allowAny &&
+      !indoorMoves.value.some((m) => moveKey(m) === moveKey(move))
+    ) {
+      return;
+    }
 
     outdoor.state.mapTransition = null;
     outdoor.state.transitionDirection = null;
     indoor.moving = true;
+
+    const areaId = building.value.areaId;
+    const door =
+      move.doorId != null
+        ? building.value.doorById?.[move.doorId]
+        : null;
+    const manners =
+      move.doorId != null &&
+      doorNeedsClosedUnlockedManners(
+        indoor.doorState,
+        areaId,
+        move.doorId,
+        door,
+      );
+    if (manners) {
+      setDoorOpen(indoor.doorState, areaId, move.doorId, true);
+    }
+    const finishManners = () => {
+      if (manners) {
+        applyClosedUnlockedDoorManners(indoor.doorState, areaId, move.doorId);
+      }
+    };
     const finishAfter = (duration) => {
       finishWith(duration);
     };
@@ -328,11 +379,13 @@ export function createIndoorMovement(deps) {
       const wait = indoorMoveWaitMs(duration);
       if (wait === 0) {
         if (complete) complete();
+        finishManners();
         indoor.moving = false;
         return;
       }
       setTimeout(() => {
         if (complete) complete();
+        finishManners();
         indoor.moving = false;
       }, wait);
     };
@@ -439,11 +492,60 @@ export function createIndoorMovement(deps) {
     finishAfter(INDOOR_MOVE_MS);
   }
 
+  function knownRoomSet() {
+    const discovered = indoor.discovered;
+    return discovered instanceof Set
+      ? discovered
+      : new Set(discovered ?? []);
+  }
+
+  function planKnownRoomPath(toRoomId) {
+    if (!toRoomId || toRoomId === indoor.currentRoom) return null;
+    if (!indoor.currentRoom) return null;
+    return planKnownRoomPathPure({
+      building: building.value,
+      fromRoomId: indoor.currentRoom,
+      toRoomId,
+      discovered: knownRoomSet(),
+      doorState: indoor.doorState,
+      visibility: indoorVisibility.value,
+      atLevel: indoor.level,
+    });
+  }
+
   function moveToRoom(roomId) {
     let move = indoorMoves.value.find(
       (m) => !m.onSpiral && m.toRoomId === roomId,
     );
-    if (move) applyIndoorMove(move);
+    if (move) {
+      // One-hop may be closed unlocked (exterior free travel / barge); manners apply.
+      applyIndoorMove(move);
+      return;
+    }
+    // Known-area multi-hop through closed unlocked (and open) doors.
+    const path = planKnownRoomPath(roomId);
+    if (!path?.length) return;
+    runIndoorMovePath(path);
+  }
+
+  function runIndoorMovePath(pathMoves) {
+    if (indoor.moving || !pathMoves.length) return;
+    let i = 0;
+    function next() {
+      if (i >= pathMoves.length) return;
+      if (indoor.moving) {
+        setTimeout(next, 32);
+        return;
+      }
+      const move = pathMoves[i];
+      i += 1;
+      applyIndoorMove(move, { allowAny: true });
+      if (i < pathMoves.length) {
+        const wait = indoorMoveWaitMs(INDOOR_MOVE_MS) || 16;
+        setTimeout(next, wait);
+      }
+    }
+    next();
   }
 
   function moveToStand(standId) {
