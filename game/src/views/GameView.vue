@@ -139,6 +139,7 @@ const {
   slots: saveSlots,
   hasSave,
   firstOpenSlot,
+  mostRecentlySavedSlot,
   save: saveGame,
   load,
   clearSave,
@@ -152,8 +153,10 @@ const cleanFingerprint = ref(null);
  * { type: 'play'|'restart'|'new-open', gameId?, mode? }
  */
 const pendingSaveAction = ref(null);
-/** When all games are full, pick which to overwrite for New Game / title start. */
+/** When all games are full, pick which to overwrite for New Game from the menu. */
 const pickGameDialog = ref(null); // { mode: 'story'|'open-world'|null } null mode = menu New Game
+/** Title-screen resume: { gameId, savedAt } when Enter the Game finds a save. */
+const resumeDialog = ref(null);
 
 const openStageViewForStory = (view) => openStageView(view, { force: true });
 const storyArcData = computed(() => normalizeStoryArcContent(storyArcDocument.value, {
@@ -543,13 +546,8 @@ watch(
 );
 
 onMounted(async () => {
-  // Restore the active game if it has a save; other games stay intact.
-  if (hasSave(activeSlot.value)) {
-    load(saveCtx.value, activeSlot.value);
-    markSessionClean();
-  } else {
-    markSessionClean();
-  }
+  // Title screen first — Enter the Game decides new vs resume.
+  markSessionClean();
   await refreshContent();
   refreshStoryMoment();
 });
@@ -752,28 +750,78 @@ function handleNewGame() {
   beginFreshGame(activeSlot.value);
 }
 
+function formatResumeWhen(savedAt) {
+  if (!savedAt) return "a previous session";
+  const d = new Date(savedAt);
+  if (Number.isNaN(d.getTime())) return "a previous session";
+  // e.g. "August 6, 2026, at 9:06 AM"
+  const datePart = d.toLocaleDateString(undefined, {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+  const timePart = d.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return `${datePart}, at ${timePart}`;
+}
+
+function startNewStoryInOpenSlot() {
+  const openId = firstOpenSlot();
+  const gameId = openId ?? 1;
+  beginFreshGame(gameId);
+  applyPlayMode("story");
+}
+
+function resumeSavedGame(gameId) {
+  if (!load(saveCtx.value, gameId)) {
+    // Corrupt / unreadable save — fall back to a clean story start.
+    startNewStoryInOpenSlot();
+    return;
+  }
+  markSessionClean();
+  refreshStoryMoment();
+}
+
 /**
- * Title screen: enter story mode (alpha focus). Uses the first open game, or
- * asks which to replace when all three already have saves.
+ * Title screen: Enter the Game.
+ * - No saves → new story in Game 1
+ * - One save → offer resume (or New Game)
+ * - Several saves → offer resume of the most recently saved
  */
 function enterTheGame() {
-  // Already assigned an open active game (e.g. after New Game / Restart).
-  if (!hasSave(activeSlot.value) && !gameState.playMode) {
+  const occupied = saveSlots.value.filter((s) => s.occupied);
+  if (occupied.length === 0) {
+    beginFreshGame(1);
     applyPlayMode("story");
     return;
   }
 
-  const openId = firstOpenSlot();
-  if (openId != null) {
-    if (openId !== activeSlot.value) setActiveSlot(openId);
-    if (hasSave(openId)) clearSave(openId);
-    resetGameState(saveCtx.value);
-    applyPlayMode("story");
-    return;
+  let target;
+  if (occupied.length === 1) {
+    target = occupied[0];
+  } else {
+    const recentId = mostRecentlySavedSlot();
+    target = occupied.find((s) => s.id === recentId) ?? occupied[0];
   }
 
-  // All games occupied — pick one to overwrite, then start story mode.
-  pickGameDialog.value = { mode: "story" };
+  resumeDialog.value = {
+    gameId: target.id,
+    savedAt: target.savedAt ?? null,
+  };
+}
+
+function handleResumeContinue() {
+  const gameId = resumeDialog.value?.gameId;
+  resumeDialog.value = null;
+  if (gameId == null) return;
+  resumeSavedGame(gameId);
+}
+
+function handleResumeNewGame() {
+  resumeDialog.value = null;
+  startNewStoryInOpenSlot();
 }
 
 function handleHeaderSave() {
@@ -1163,6 +1211,16 @@ function handleGroupPickUp(entry) {
       :active-game="activeSlot"
       @choose-game="handlePickGameForNew"
       @cancel="pickGameDialog = null" />
+
+    <SaveGamesDialog
+      v-if="resumeDialog"
+      mode="resume"
+      eyebrow="Welcome back"
+      :title="`Resume Game ${resumeDialog.gameId}?`"
+      :message="`You have a saved game from ${formatResumeWhen(resumeDialog.savedAt)}. Continue where you left off?`"
+      @continue="handleResumeContinue"
+      @new-game="handleResumeNewGame"
+      @cancel="resumeDialog = null" />
 
     <DeveloperSettingsDialog
       v-if="developerSettingsVisible"

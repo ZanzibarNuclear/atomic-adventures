@@ -5,6 +5,7 @@
     @click.self="emitCancel">
     <section
       class="save-dialog"
+      :class="{ 'resume-dialog': mode === 'resume' }"
       role="dialog"
       aria-modal="true"
       :aria-labelledby="titleId">
@@ -25,7 +26,7 @@
         </button>
       </div>
 
-      <div class="actions">
+      <div class="actions" :class="{ centered: mode === 'resume' }">
         <button
           v-if="showSave"
           type="button"
@@ -40,7 +41,25 @@
           @click="$emit('discard')">
           {{ discardLabel }}
         </button>
-        <button type="button" class="muted" @click="emitCancel">
+        <button
+          v-if="showContinue"
+          type="button"
+          class="primary"
+          @click="$emit('continue')">
+          Continue
+        </button>
+        <button
+          v-if="showNewGame"
+          type="button"
+          class="muted"
+          @click="$emit('new-game')">
+          New Game
+        </button>
+        <button
+          v-if="showCancel"
+          type="button"
+          class="muted"
+          @click="emitCancel">
           Cancel
         </button>
       </div>
@@ -55,7 +74,7 @@ const props = defineProps({
   mode: {
     type: String,
     required: true,
-    // save-before-switch | pick-game
+    // save-before-switch | pick-game | resume
   },
   title: { type: String, required: true },
   message: { type: String, required: true },
@@ -65,12 +84,22 @@ const props = defineProps({
   activeGame: { type: Number, default: 1 },
 });
 
-const emit = defineEmits(["save", "discard", "cancel", "choose-game"]);
+const emit = defineEmits([
+  "save",
+  "discard",
+  "cancel",
+  "choose-game",
+  "continue",
+  "new-game",
+]);
 
 const titleId = computed(() => `save-dialog-title-${props.mode}`);
 const showSave = computed(() => props.mode === "save-before-switch");
 const showDiscard = computed(() => props.mode === "save-before-switch");
 const showGameChoices = computed(() => props.mode === "pick-game");
+const showContinue = computed(() => props.mode === "resume");
+const showNewGame = computed(() => props.mode === "resume");
+const showCancel = computed(() => props.mode !== "resume");
 
 function formatSavedAt(raw) {
   if (!raw) return "";
@@ -182,6 +211,19 @@ h2 {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.actions.centered {
+  justify-content: center;
+  width: 100%;
+}
+
+.resume-dialog {
+  text-align: center;
+}
+
+.resume-dialog .actions {
+  justify-content: center;
 }
 
 .actions button {

@@ -19,6 +19,7 @@ import { useOutdoorBarrierSearch } from "./useOutdoorBarrierSearch.js";
 import { useOutdoorPassages } from "./useOutdoorPassages.js";
 import { useOutdoorMovement } from "./useOutdoorMovement.js";
 import { advanceGameTime } from "../../character/gameTime.js";
+import { clearPlayMessages } from "../../../composables/usePlayMessages.js";
 
 function initialStand(mapData, size) {
   const START = mapData.start ?? mapData.journey[0];
@@ -244,6 +245,10 @@ export function useOutdoorWorld(mapData, gameState = null) {
       y: Math.round(stand.y),
     };
     const nextHexId = hexAtPoint(rounded, hexId);
+    const moved =
+      nextHexId !== state.currentId ||
+      rounded.x !== state.stand?.x ||
+      rounded.y !== state.stand?.y;
     if (nextHexId !== state.currentId) state.previousId = previousId ?? state.currentId;
     state.mapTransition = null;
     state.transitionDirection = null;
@@ -252,6 +257,9 @@ export function useOutdoorWorld(mapData, gameState = null) {
     state.lastBlocked = blocked ?? null;
     state.atBarrier = atBarrier ?? null;
     state.lastSearch = null;
+    // Discovery notices are one-shot; clear when the player walks away
+    // (e.g. hole found, then go up to the gate instead of through it).
+    if (moved) clearPlayMessages("action");
   }
 
   const atBuildingEntrance = computed(

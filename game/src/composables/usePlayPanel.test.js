@@ -368,7 +368,9 @@ describe("outdoor barrier search feedback", () => {
     })).toBe("You search the streambank carefully, but find no safe place to cross.");
   });
 
-  it("includes stream search results in status lines", () => {
+  it("does not keep barrier search results as ongoing status lines", () => {
+    // Discovery feedback is a one-shot play message; sticky status confused
+    // players who left the hole and walked to the gate without crossing.
     const outdoor = {
       state: {
         lastSearch: {
@@ -382,9 +384,9 @@ describe("outdoor barrier search feedback", () => {
       barrierCutsCurrentHex: () => false,
       lockedPassageActions: [],
     };
-    expect(buildOutdoorStatusLines(outdoor, { building: { label: "Utility Station" } })).toContain(
-      "You find a shallow ford across the stream.",
-    );
+    const lines = buildOutdoorStatusLines(outdoor, { building: { label: "Utility Station" } });
+    expect(lines).not.toContain("You find a shallow ford across the stream.");
+    expect(lines).not.toContain("On closer inspection, you have found a hole in the fence.");
   });
 
   it("mentions both fence and stream when both cut the hex", () => {

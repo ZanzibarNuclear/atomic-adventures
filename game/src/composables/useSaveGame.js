@@ -156,6 +156,25 @@ export function useSaveGame() {
     return SAVE_SLOT_IDS.every((id) => slotOccupied(id));
   }
 
+  /**
+   * Slot id of the save with the latest savedAt timestamp, or null if none.
+   * Ties break toward the higher slot id.
+   */
+  function mostRecentlySavedSlot() {
+    let bestId = null;
+    let bestTime = -Infinity;
+    for (const id of SAVE_SLOT_IDS) {
+      const snapshot = readSlotSnapshot(id);
+      if (!snapshot) continue;
+      const t = Date.parse(snapshot.savedAt ?? "") || 0;
+      if (t >= bestTime) {
+        bestTime = t;
+        bestId = id;
+      }
+    }
+    return bestId;
+  }
+
   function listSlots() {
     return slots.value;
   }
@@ -266,6 +285,7 @@ export function useSaveGame() {
     hasAnySave,
     firstOpenSlot,
     allSlotsOccupied,
+    mostRecentlySavedSlot,
     listSlots,
     setActiveSlot,
     save,

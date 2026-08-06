@@ -46,7 +46,7 @@
             @click="$emit('show-inventory')">
             Inventory
           </button>
-          <details ref="gameMenu" class="game-menu">
+          <details v-if="playMode" ref="gameMenu" class="game-menu">
             <summary class="sm">Game</summary>
             <div class="game-menu-popover">
               <p v-if="playModeLabel" class="menu-label mode-menu-label">
@@ -177,11 +177,21 @@ const playModeLabel = computed(() => {
   return "";
 });
 
+/** e.g. "August 6, 2026, at 9:06 AM" — same as the Welcome Back modal. */
 function formatSavedAt(raw) {
   if (!raw) return "";
   const d = new Date(raw);
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString();
+  const datePart = d.toLocaleDateString(undefined, {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+  const timePart = d.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return `${datePart}, at ${timePart}`;
 }
 
 /** Status line under each game row: active | saved | open (+ time when useful). */

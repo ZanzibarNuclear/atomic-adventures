@@ -1293,8 +1293,8 @@ export function buildOutdoorStatusLines(
   for (const action of outdoor.lockedPassageActions ?? []) {
     if (action.status) lines.push(action.status);
   }
-  const searchLine = describeBarrierSearchResult(outdoor.state.lastSearch);
-  if (searchLine) lines.push(searchLine);
+  // Barrier search results are one-shot play messages (handleOutdoorChooseAction),
+  // not ongoing status — leaving them here kept "On closer inspection…" forever.
 
   const hint = outdoor.barrierHintAtStand?.() ?? null;
   const fencePresent =

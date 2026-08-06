@@ -87,4 +87,21 @@ describe("useSaveGame multi-slot", () => {
     expect(save.firstOpenSlot()).toBe(null);
     expect(save.allSlotsOccupied()).toBe(true);
   });
+
+  it("picks the most recently saved game by savedAt", () => {
+    localStorage.setItem(
+      slotKey(1),
+      JSON.stringify({ savedAt: "2026-01-01T00:00:00.000Z" }),
+    );
+    localStorage.setItem(
+      slotKey(2),
+      JSON.stringify({ savedAt: "2026-06-15T12:00:00.000Z" }),
+    );
+    localStorage.setItem(
+      slotKey(3),
+      JSON.stringify({ savedAt: "2026-03-01T00:00:00.000Z" }),
+    );
+    const save = useSaveGame();
+    expect(save.mostRecentlySavedSlot()).toBe(2);
+  });
 });
