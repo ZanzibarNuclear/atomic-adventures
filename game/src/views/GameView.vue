@@ -157,6 +157,8 @@ const pendingSaveAction = ref(null);
 const pickGameDialog = ref(null); // { mode: 'story'|'open-world'|null } null mode = menu New Game
 /** Title-screen resume: { gameId, savedAt } when Enter the Game finds a save. */
 const resumeDialog = ref(null);
+/** Restart confirm: { gameId } before wiping a saved game. */
+const restartDialog = ref(null);
 
 const openStageViewForStory = (view) => openStageView(view, { force: true });
 const storyArcData = computed(() => normalizeStoryArcContent(storyArcDocument.value, {
@@ -594,12 +596,14 @@ function performSave() {
   return ok;
 }
 
+/**
+ * Wipe a slot and enter a fresh story session in it (no title-screen detour).
+ */
 function beginFreshGame(gameId) {
   clearSave(gameId);
   setActiveSlot(gameId);
   resetGameState(saveCtx.value);
-  markSessionClean();
-  refreshStoryMoment();
+  applyPlayMode("story");
 }
 
 function applyPlayMode(mode) {
@@ -649,31 +653,29 @@ function completePlayGame(gameId) {
     refreshStoryMoment();
     return;
   }
-  // Open game: make it active with a clean session (mode chooser if needed).
-  setActiveSlot(gameId);
-  resetGameState(saveCtx.value);
-  markSessionClean();
-  refreshStoryMoment();
+  // Open game: start a new story session in this slot (stay in play view).
+  beginFreshGame(gameId);
 }
 
 function handleRestartGame(gameId) {
-  if (!hasSave(gameId)) return;
-  if (
-    !window.confirm(
-      `Restart Game ${gameId}? Its saved progress will be erased. Other games are kept.`,
-    )
-  ) {
+  // Menu only shows Restart when occupied; failure panel may call with a live slot.
+  if (!hasSave(gameId) && gameId === activeSlot.value && gameState.playMode) {
+    beginFreshGame(gameId);
     return;
   }
+  if (!hasSave(gameId)) return;
+  restartDialog.value = { gameId };
+}
+
+function handleRestartConfirm() {
+  const gameId = restartDialog.value?.gameId;
+  restartDialog.value = null;
+  if (gameId == null) return;
   if (isSessionDirty() && gameId !== activeSlot.value) {
     pendingSaveAction.value = { type: "restart", gameId };
     return;
   }
-  if (isSessionDirty() && gameId === activeSlot.value) {
-    // Restarting the active game — no need to save first; confirm already covered erase.
-    beginFreshGame(gameId);
-    return;
-  }
+  // Active-game restart (or clean session): wipe and start fresh.
   beginFreshGame(gameId);
 }
 
@@ -740,14 +742,7 @@ function handleRetryFromSave() {
 
 /** Failure panel: restart only the active game. */
 function handleNewGame() {
-  if (
-    !window.confirm(
-      `Restart Game ${activeSlot.value}? Its saved progress will be erased. Other games are kept.`,
-    )
-  ) {
-    return;
-  }
-  beginFreshGame(activeSlot.value);
+  handleRestartGame(activeSlot.value);
 }
 
 function formatResumeWhen(savedAt) {
@@ -771,7 +766,6 @@ function startNewStoryInOpenSlot() {
   const openId = firstOpenSlot();
   const gameId = openId ?? 1;
   beginFreshGame(gameId);
-  applyPlayMode("story");
 }
 
 function resumeSavedGame(gameId) {
@@ -794,7 +788,6 @@ function enterTheGame() {
   const occupied = saveSlots.value.filter((s) => s.occupied);
   if (occupied.length === 0) {
     beginFreshGame(1);
-    applyPlayMode("story");
     return;
   }
 
@@ -1194,8 +1187,9 @@ function handleGroupPickUp(entry) {
     <SaveGamesDialog
       v-if="pendingSaveAction"
       mode="save-before-switch"
+      eyebrow="Before you go"
       title="Save current game?"
-      :message="`Game ${activeSlot} has progress that is not saved. Save it before switching?`"
+      :message="`Game ${activeSlot} has progress that is not saved.`"
       discard-label="Don't save"
       @save="completePendingAfterSaveDecision({ saved: true })"
       @discard="completePendingAfterSaveDecision({ saved: false })"
@@ -1221,6 +1215,16 @@ function handleGroupPickUp(entry) {
       @continue="handleResumeContinue"
       @new-game="handleResumeNewGame"
       @cancel="resumeDialog = null" />
+
+    <SaveGamesDialog
+      v-if="restartDialog"
+      mode="confirm"
+      eyebrow="Restart"
+      :title="`Restart Game ${restartDialog.gameId}?`"
+      message="Saved progress will be erased."
+      confirm-label="Restart"
+      @confirm="handleRestartConfirm"
+      @cancel="restartDialog = null" />
 
     <DeveloperSettingsDialog
       v-if="developerSettingsVisible"

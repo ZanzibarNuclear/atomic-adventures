@@ -5,13 +5,13 @@
     @click.self="emitCancel">
     <section
       class="save-dialog"
-      :class="{ 'resume-dialog': mode === 'resume' }"
+      :class="{ centered: isCenteredLayout }"
       role="dialog"
       aria-modal="true"
       :aria-labelledby="titleId">
       <p v-if="eyebrow" class="eyebrow">{{ eyebrow }}</p>
       <h2 :id="titleId">{{ title }}</h2>
-      <p class="message">{{ message }}</p>
+      <p v-if="message" class="message">{{ message }}</p>
 
       <div v-if="showGameChoices" class="game-choices">
         <button
@@ -26,13 +26,13 @@
         </button>
       </div>
 
-      <div class="actions" :class="{ centered: mode === 'resume' }">
+      <div class="actions" :class="{ centered: isCenteredLayout }">
         <button
           v-if="showSave"
           type="button"
           class="primary"
           @click="$emit('save')">
-          Save and continue
+          Save
         </button>
         <button
           v-if="showDiscard"
@@ -56,6 +56,13 @@
           New Game
         </button>
         <button
+          v-if="showConfirm"
+          type="button"
+          class="danger-outline"
+          @click="$emit('confirm')">
+          {{ confirmLabel }}
+        </button>
+        <button
           v-if="showCancel"
           type="button"
           class="muted"
@@ -74,12 +81,13 @@ const props = defineProps({
   mode: {
     type: String,
     required: true,
-    // save-before-switch | pick-game | resume
+    // save-before-switch | pick-game | resume | confirm
   },
   title: { type: String, required: true },
-  message: { type: String, required: true },
+  message: { type: String, default: "" },
   eyebrow: { type: String, default: "Save" },
   discardLabel: { type: String, default: "Don't save" },
+  confirmLabel: { type: String, default: "Confirm" },
   slots: { type: Array, default: () => [] },
   activeGame: { type: Number, default: 1 },
 });
@@ -91,6 +99,7 @@ const emit = defineEmits([
   "choose-game",
   "continue",
   "new-game",
+  "confirm",
 ]);
 
 const titleId = computed(() => `save-dialog-title-${props.mode}`);
@@ -99,7 +108,14 @@ const showDiscard = computed(() => props.mode === "save-before-switch");
 const showGameChoices = computed(() => props.mode === "pick-game");
 const showContinue = computed(() => props.mode === "resume");
 const showNewGame = computed(() => props.mode === "resume");
+const showConfirm = computed(() => props.mode === "confirm");
 const showCancel = computed(() => props.mode !== "resume");
+const isCenteredLayout = computed(
+  () =>
+    props.mode === "resume" ||
+    props.mode === "save-before-switch" ||
+    props.mode === "confirm",
+);
 
 function formatSavedAt(raw) {
   if (!raw) return "";
@@ -218,11 +234,11 @@ h2 {
   width: 100%;
 }
 
-.resume-dialog {
+.save-dialog.centered {
   text-align: center;
 }
 
-.resume-dialog .actions {
+.save-dialog.centered .actions {
   justify-content: center;
 }
 

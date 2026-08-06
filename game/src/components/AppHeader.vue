@@ -144,7 +144,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import CreditsDialog from "./CreditsDialog.vue";
 
 const props = defineProps({
@@ -223,6 +223,28 @@ function closeDevMenu() {
 function closeGameMenu() {
   if (gameMenu.value) gameMenu.value.open = false;
 }
+
+/** Close open dropdowns when the pointer lands outside their bounds. */
+function onDocumentPointerDown(event) {
+  const target = event.target;
+  if (!(target instanceof Node)) return;
+  const gameEl = gameMenu.value;
+  if (gameEl?.open && !gameEl.contains(target)) {
+    gameEl.open = false;
+  }
+  const devEl = devMenu.value;
+  if (devEl?.open && !devEl.contains(target)) {
+    devEl.open = false;
+  }
+}
+
+onMounted(() => {
+  document.addEventListener("pointerdown", onDocumentPointerDown, true);
+});
+
+onUnmounted(() => {
+  document.removeEventListener("pointerdown", onDocumentPointerDown, true);
+});
 
 function handleSave() {
   emit("save");
