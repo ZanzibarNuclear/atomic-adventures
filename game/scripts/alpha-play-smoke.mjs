@@ -65,44 +65,43 @@ try {
     ok("load", `${BASE_URL} status ${resp.status()}`);
   }
 
-  // Wait for app chrome or mode chooser
-  const modeTitle = page.getByRole("heading", { name: /Choose how to play/i });
+  // Wait for title screen (or restored play / error)
+  const enterBtn = page.getByRole("button", { name: /Enter the Game/i });
+  const titleHeading = page.getByRole("heading", { name: /Zanzibar's World of Energy/i });
   const appRoot = page.locator("#app");
   await appRoot.waitFor({ state: "attached", timeout: 30000 });
-  // Prefer waiting for the mode chooser (or a loading/error state) over a fixed sleep.
-  await modeTitle.or(page.getByRole("button", { name: /New game/i })).or(page.getByText(/Retry|error/i)).first()
+  await enterBtn.or(page.getByRole("button", { name: /New Game/i })).or(page.getByText(/Retry|error/i)).first()
     .waitFor({ state: "visible", timeout: 30000 })
     .catch(() => {});
   await shot(page, "01-loaded");
 
-  const hasMode = await modeTitle.isVisible().catch(() => false);
-  if (!hasMode) {
+  const hasTitle = await enterBtn.isVisible().catch(() => false);
+  if (!hasTitle) {
     // Maybe a save restored playMode — force new game if UI offers it
-    const newGame = page.getByRole("button", { name: /New game/i }).first();
+    const newGame = page.getByRole("button", { name: /New Game/i }).first();
     if (await newGame.isVisible().catch(() => false)) {
       await newGame.click();
       await page.waitForTimeout(500);
     }
   }
 
-  const modeVisible = await modeTitle.isVisible().catch(() => false);
-  if (!modeVisible) {
-    fail("mode-chooser", "Mode chooser not visible after load/clear. Check existing save UI.");
-    await shot(page, "02-no-mode-chooser");
+  const titleVisible = await enterBtn.isVisible().catch(() => false);
+  if (!titleVisible) {
+    fail("title-screen", "Title screen not visible after load/clear. Check existing save UI.");
+    await shot(page, "02-no-title-screen");
   } else {
-    ok("mode-chooser", "Choose how to play is visible");
-    await shot(page, "02-mode-chooser");
+    ok("title-screen", "Title screen with Enter the Game is visible");
+    await shot(page, "02-title-screen");
 
-    const storyBtn = page.getByRole("button", { name: /Story/i }).first();
-    await storyBtn.click();
-    ok("choose-story", "Clicked Story mode");
+    await enterBtn.click();
+    ok("enter-game", "Clicked Enter the Game");
     await page.waitForTimeout(2000);
-    await shot(page, "03-after-story");
+    await shot(page, "03-after-enter");
 
-    // Mode chooser should go away
-    const stillChooser = await modeTitle.isVisible().catch(() => false);
-    if (stillChooser) fail("story-started", "Mode chooser still visible after Story click");
-    else ok("story-started", "Mode chooser dismissed");
+    // Title screen should go away
+    const stillTitle = await enterBtn.isVisible().catch(() => false);
+    if (stillTitle) fail("story-started", "Title screen still visible after Enter the Game");
+    else ok("story-started", "Title screen dismissed; story mode started");
 
     // Look for opener prose or map chrome
     const bodyText = await page.locator("body").innerText();

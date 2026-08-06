@@ -36,6 +36,7 @@ import { containerInstanceLabel } from "../lib/character/containerLabels.js";
 import { vesselDisplayLabel } from "../lib/character/vessels.js";
 import AppHeader from "../components/AppHeader.vue";
 import SaveGamesDialog from "../components/SaveGamesDialog.vue";
+import TitleScreen from "../components/TitleScreen.vue";
 import CharacterView from "../components/game-views/CharacterView.vue";
 import CharacterStatsStageView from "../components/game-views/CharacterStatsStageView.vue";
 import DeveloperSettingsDialog from "../components/dev/DeveloperSettingsDialog.vue";
@@ -752,13 +753,13 @@ function handleNewGame() {
 }
 
 /**
- * Title-screen mode chooser. Uses the first open game, or asks which to replace
- * when all three already have saves.
+ * Title screen: enter story mode (alpha focus). Uses the first open game, or
+ * asks which to replace when all three already have saves.
  */
-function choosePlayMode(mode) {
+function enterTheGame() {
   // Already assigned an open active game (e.g. after New Game / Restart).
   if (!hasSave(activeSlot.value) && !gameState.playMode) {
-    applyPlayMode(mode);
+    applyPlayMode("story");
     return;
   }
 
@@ -767,12 +768,12 @@ function choosePlayMode(mode) {
     if (openId !== activeSlot.value) setActiveSlot(openId);
     if (hasSave(openId)) clearSave(openId);
     resetGameState(saveCtx.value);
-    applyPlayMode(mode);
+    applyPlayMode("story");
     return;
   }
 
-  // All games occupied — pick one to overwrite, then apply mode.
-  pickGameDialog.value = { mode };
+  // All games occupied — pick one to overwrite, then start story mode.
+  pickGameDialog.value = { mode: "story" };
 }
 
 function handleHeaderSave() {
@@ -1233,31 +1234,9 @@ function handleGroupPickUp(entry) {
       >Retry</button>
     </div>
 
-    <section
+    <TitleScreen
       v-if="!gameState.playMode"
-      class="mode-choice"
-      aria-labelledby="mode-choice-title">
-      <div class="mode-choice-panel">
-        <p class="mode-choice-kicker">New game</p>
-        <h2 id="mode-choice-title">Choose how to play</h2>
-        <div class="mode-choice-options">
-          <button
-            type="button"
-            class="mode-choice-card recommended"
-            @click="choosePlayMode('story')">
-            <span class="mode-choice-label">Story</span>
-            <span class="mode-choice-note">Follow Zanzibar's story through guided exploration.</span>
-          </button>
-          <button
-            type="button"
-            class="mode-choice-card"
-            @click="choosePlayMode('open-world')">
-            <span class="mode-choice-label">Open-world</span>
-            <span class="mode-choice-note">Freeform exploration and experimentation without the canonical sequence.</span>
-          </button>
-        </div>
-      </div>
-    </section>
+      @enter="enterTheGame" />
 
     <section
       v-if="storyError"
@@ -1402,60 +1381,6 @@ function handleGroupPickUp(entry) {
 </template>
 
 <style scoped>
-.mode-choice {
-  min-height: min(58vh, 32rem);
-  display: grid;
-  place-items: center;
-  padding: 2rem 1rem;
-}
-.mode-choice-panel {
-  width: min(46rem, 100%);
-  border: 1px solid #566174;
-  background: #1f2631;
-  border-radius: 8px;
-  padding: 1.25rem;
-}
-.mode-choice-kicker {
-  margin: 0 0 0.25rem;
-  color: #9fb0c2;
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0;
-}
-.mode-choice-panel h2 {
-  margin: 0 0 1rem;
-  font-size: 1.35rem;
-}
-.mode-choice-options {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-  gap: 0.75rem;
-}
-.mode-choice-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  text-align: left;
-  min-height: 8.5rem;
-  border: 1px solid #566174;
-  border-radius: 8px;
-  background: #293241;
-  color: #eef3f8;
-  padding: 1rem;
-}
-.mode-choice-card.recommended {
-  border-color: #7ea77e;
-  background: #26362d;
-}
-.mode-choice-label {
-  font-size: 1rem;
-  font-weight: 700;
-}
-.mode-choice-note {
-  color: #c2ccd8;
-  font-size: 0.9rem;
-  line-height: 1.4;
-}
 .story-error {
   border: 1px solid #9f6a5d;
   background: #39251f;
