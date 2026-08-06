@@ -13,33 +13,44 @@
       </div>
 
       <div class="clouds-layer clouds-a">
-        <img src="/title/opening-clouds.png" alt="" width="1280" height="720" decoding="async" />
+        <img
+          src="/title/opening-clouds.png"
+          alt=""
+          width="1280"
+          height="720"
+          decoding="async" />
       </div>
       <div class="clouds-layer clouds-b">
-        <img src="/title/opening-clouds.png" alt="" width="1280" height="720" decoding="async" />
+        <img
+          src="/title/opening-clouds.png"
+          alt=""
+          width="1280"
+          height="720"
+          decoding="async" />
       </div>
 
       <div class="haze"></div>
       <div class="vignette"></div>
-
-      <div class="squirrel-track">
-        <img
-          class="squirrel"
-          src="/title/opening-squirrel.png"
-          alt=""
-          width="140"
-          height="94"
-          decoding="async" />
-      </div>
     </div>
 
+    <!-- Title chrome: copy centered, facing-viewer squirrel as a corner mascot. -->
     <div class="title-overlay">
-      <p class="eyebrow">Atomic Adventures</p>
-      <h2 id="title-screen-heading">Zanzibar's World of Energy</h2>
-      <p class="tagline">A pine-scented trail into lost knowledge — and the power waiting to be restored.</p>
-      <button type="button" class="enter-btn" @click="$emit('enter')">
-        Enter the Game
-      </button>
+      <img
+        class="title-squirrel"
+        src="/title/opening-squirrel.png"
+        alt=""
+        width="160"
+        height="160"
+        decoding="async"
+        aria-hidden="true" />
+      <div class="title-copy">
+        <p class="eyebrow">Atomic Adventures</p>
+        <h2 id="title-screen-heading">Zanzibar's World of Energy</h2>
+        <p class="tagline">Join the adventure. Discover what was lost.</p>
+        <button type="button" class="enter-btn" @click="$emit('enter')">
+          Enter the Game
+        </button>
+      </div>
     </div>
   </section>
 </template>
@@ -118,8 +129,18 @@ defineEmits(["enter"]);
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgba(12, 22, 32, 0.18) 0%, transparent 34%, transparent 55%, rgba(8, 12, 14, 0.72) 100%),
-    radial-gradient(ellipse 80% 50% at 50% 100%, rgba(10, 16, 12, 0.55), transparent 70%);
+    linear-gradient(
+      180deg,
+      rgba(12, 22, 32, 0.18) 0%,
+      transparent 34%,
+      transparent 55%,
+      rgba(8, 12, 14, 0.72) 100%
+    ),
+    radial-gradient(
+      ellipse 80% 50% at 50% 100%,
+      rgba(10, 16, 12, 0.55),
+      transparent 70%
+    );
   pointer-events: none;
 }
 
@@ -130,37 +151,51 @@ defineEmits(["enter"]);
   pointer-events: none;
 }
 
-.squirrel-track {
+.title-overlay {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 14%;
-  height: 4.5rem;
+  bottom: 0;
+  z-index: 2;
+  padding: clamp(1.1rem, 3vw, 1.75rem) clamp(1.25rem, 4vw, 2.5rem)
+    clamp(1.25rem, 3.5vw, 2rem);
+  color: #f4f7f2;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(8, 12, 14, 0.35) 28%,
+    rgba(8, 12, 14, 0.72) 100%
+  );
   pointer-events: none;
-  overflow: visible;
 }
 
-.squirrel {
+/* Facing-viewer cutout — title mascot, lower-left of the chrome. */
+.title-squirrel {
   position: absolute;
-  bottom: 0;
-  width: clamp(4.5rem, 9vw, 7rem);
+  left: clamp(0.5rem, 1.5vw, 1.1rem);
+  bottom: clamp(0.35rem, 1.2vw, 0.85rem);
+  width: clamp(5.5rem, 12vw, 8.5rem);
   height: auto;
-  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.45));
-  animation: squirrel-run 18s linear infinite;
+  display: block;
+  pointer-events: none;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
+  animation: squirrel-idle 4s ease-in-out infinite;
+  transform-origin: 50% 100%;
   will-change: transform;
 }
 
-.title-overlay {
-  position: relative;
-  z-index: 2;
+.title-copy {
   display: grid;
   justify-items: center;
-  align-content: end;
   gap: 0.55rem;
-  min-height: min(72vh, 38rem);
-  padding: clamp(1.25rem, 4vw, 2.5rem);
   text-align: center;
-  color: #f4f7f2;
+  /* Keep centered copy clear of the corner mascot */
+  padding-left: clamp(4.5rem, 11vw, 7.5rem);
+  padding-right: clamp(4.5rem, 11vw, 7.5rem);
+}
+
+.title-overlay .enter-btn {
+  pointer-events: auto;
 }
 
 .eyebrow {
@@ -200,12 +235,11 @@ h2 {
   appearance: none;
   border: 1px solid color-mix(in srgb, var(--color-cherenkov) 55%, #fff);
   border-radius: 999px;
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--color-cherenkov) 42%, #1a2830) 0%,
-      color-mix(in srgb, var(--color-cherenkov-deep, #0a8fb8) 55%, #122028) 100%
-    );
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-cherenkov) 42%, #1a2830) 0%,
+    color-mix(in srgb, var(--color-cherenkov-deep, #0a8fb8) 55%, #122028) 100%
+  );
   color: #f4fcff;
   font: inherit;
   font-size: 1.05rem;
@@ -269,51 +303,13 @@ h2 {
   }
 }
 
-@keyframes squirrel-run {
-  0% {
-    left: -12%;
-    transform: translateY(0) scaleX(1);
-  }
-  8% {
-    transform: translateY(-4px) scaleX(1);
-  }
-  16% {
-    transform: translateY(0) scaleX(1);
-  }
-  24% {
-    transform: translateY(-5px) scaleX(1);
-  }
-  32% {
-    transform: translateY(0) scaleX(1);
-  }
-  48% {
-    left: 108%;
-    transform: translateY(-2px) scaleX(1);
-  }
-  /* pause off-screen, then return the other way */
-  49% {
-    left: 108%;
-    transform: translateY(0) scaleX(-1);
-  }
-  55% {
-    left: 108%;
-    transform: translateY(0) scaleX(-1);
-  }
-  63% {
-    transform: translateY(-4px) scaleX(-1);
-  }
-  71% {
-    transform: translateY(0) scaleX(-1);
-  }
-  79% {
-    transform: translateY(-5px) scaleX(-1);
-  }
-  87% {
-    transform: translateY(0) scaleX(-1);
-  }
+@keyframes squirrel-idle {
+  0%,
   100% {
-    left: -12%;
-    transform: translateY(0) scaleX(-1);
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
   }
 }
 
@@ -321,16 +317,12 @@ h2 {
   .vista-pan,
   .clouds-a,
   .clouds-b,
-  .squirrel {
+  .title-squirrel {
     animation: none;
   }
 
   .vista-pan {
     transform: scale(1.08);
-  }
-
-  .squirrel {
-    left: 12%;
   }
 }
 
@@ -348,13 +340,20 @@ h2 {
 }
 
 @media (max-width: 640px) {
-  .title-overlay {
-    align-content: center;
-    padding-top: 40%;
+  .title-squirrel {
+    width: clamp(4.25rem, 22vw, 5.75rem);
+    left: 0.35rem;
+    bottom: 0.25rem;
   }
 
-  .squirrel-track {
-    bottom: 22%;
+  .title-copy {
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+    padding-bottom: 4.5rem;
+  }
+
+  .title-overlay {
+    padding-bottom: 0.75rem;
   }
 }
 </style>
