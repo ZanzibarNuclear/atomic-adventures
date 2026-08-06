@@ -2,7 +2,7 @@
 import { ref, onMounted, computed, watch, nextTick } from "vue";
 import { useOutdoorWorld } from "../lib/maps/composables/useOutdoorWorld.js";
 import { useIndoorBuilding } from "../lib/maps/composables/useIndoorBuilding.js";
-import { createGameState, resetGameState, setPlayMode } from "../composables/useGameState.js";
+import { captureSnapshot, createGameState, resetGameState, setPlayMode } from "../composables/useGameState.js";
 import { useSaveGame } from "../composables/useSaveGame.js";
 import { useStoryArc } from "../composables/useStoryArc.js";
 import { useOpenWorldStory } from "../composables/useOpenWorldStory.js";
@@ -35,6 +35,7 @@ import {
 import { containerInstanceLabel } from "../lib/character/containerLabels.js";
 import { vesselDisplayLabel } from "../lib/character/vessels.js";
 import AppHeader from "../components/AppHeader.vue";
+import SaveGamesDialog from "../components/SaveGamesDialog.vue";
 import CharacterView from "../components/game-views/CharacterView.vue";
 import CharacterStatsStageView from "../components/game-views/CharacterStatsStageView.vue";
 import DeveloperSettingsDialog from "../components/dev/DeveloperSettingsDialog.vue";
@@ -130,7 +131,28 @@ const outdoor = useOutdoorWorld(mapData, gameState);
 const ctx = { place, builderView, gameState };
 const indoor = useIndoorBuilding(initialBuildingData, outdoor, ctx);
 const save = useSaveGame();
-const { lastSavedAt, loadError, hasSave, save: saveGame, load, clearSave } = save;
+const {
+  activeSlot,
+  lastSavedAt,
+  loadError,
+  slots: saveSlots,
+  hasSave,
+  firstOpenSlot,
+  save: saveGame,
+  load,
+  clearSave,
+  setActiveSlot,
+} = save;
+
+/** Fingerprint of last clean (saved / loaded / reset) state for dirty checks. */
+const cleanFingerprint = ref(null);
+/**
+ * Pending action after a save-before-switch modal:
+ * { type: 'play'|'restart'|'new-open', gameId?, mode? }
+ */
+const pendingSaveAction = ref(null);
+/** When all games are full, pick which to overwrite for New Game / title start. */
+const pickGameDialog = ref(null); // { mode: 'story'|'open-world'|null } null mode = menu New Game
 
 const openStageViewForStory = (view) => openStageView(view, { force: true });
 const storyArcData = computed(() => normalizeStoryArcContent(storyArcDocument.value, {
@@ -520,7 +542,13 @@ watch(
 );
 
 onMounted(async () => {
-  if (hasSave()) load(saveCtx.value);
+  // Restore the active game if it has a save; other games stay intact.
+  if (hasSave(activeSlot.value)) {
+    load(saveCtx.value, activeSlot.value);
+    markSessionClean();
+  } else {
+    markSessionClean();
+  }
   await refreshContent();
   refreshStoryMoment();
 });
@@ -529,19 +557,53 @@ watch(storyArcDocument, () => {
   refreshStoryMoment();
 });
 
-function handleNewGame() {
-  if (hasSave() && !window.confirm("Start a new game? Your saved progress will be erased.")) return;
-  clearSave();
+function snapshotFingerprint(snapshot) {
+  if (!snapshot) return null;
+  const { savedAt: _savedAt, ...rest } = snapshot;
+  try {
+    return JSON.stringify(rest);
+  } catch {
+    return null;
+  }
+}
+
+function markSessionClean() {
+  try {
+    cleanFingerprint.value = snapshotFingerprint(captureSnapshot(saveCtx.value));
+  } catch {
+    cleanFingerprint.value = null;
+  }
+}
+
+function isSessionDirty() {
+  // No play session yet (mode chooser) — nothing to lose.
+  if (!gameState.playMode) return false;
+  if (cleanFingerprint.value == null) return true;
+  try {
+    return snapshotFingerprint(captureSnapshot(saveCtx.value)) !== cleanFingerprint.value;
+  } catch {
+    return true;
+  }
+}
+
+function performSave() {
+  const ok = saveGame({
+    ...saveCtx.value,
+    onSaveComplete: () => markSessionClean(),
+  });
+  if (ok) markSessionClean();
+  return ok;
+}
+
+function beginFreshGame(gameId) {
+  clearSave(gameId);
+  setActiveSlot(gameId);
   resetGameState(saveCtx.value);
+  markSessionClean();
   refreshStoryMoment();
 }
 
-function handleReset() {
-  if (!hasSave() || !load(saveCtx.value)) resetGameState(saveCtx.value);
-  refreshStoryMoment();
-}
-
-function choosePlayMode(mode) {
+function applyPlayMode(mode) {
   if (mode === "story") {
     const arc = defaultStoryArc.value;
     setPlayMode(gameState, "story", {
@@ -551,7 +613,170 @@ function choosePlayMode(mode) {
   } else {
     setPlayMode(gameState, "open-world");
   }
+  markSessionClean();
   refreshStoryMoment();
+}
+
+/**
+ * Play a game row: load if saved, or switch into an open game with a fresh session.
+ * Prompts to save the active game first when dirty.
+ */
+function handlePlayGame(gameId) {
+  if (gameId === activeSlot.value && gameState.playMode) {
+    // Already playing this game — re-load save if present, else stay.
+    if (hasSave(gameId) && isSessionDirty()) {
+      pendingSaveAction.value = { type: "play", gameId };
+      return;
+    }
+    if (hasSave(gameId)) {
+      load(saveCtx.value, gameId);
+      markSessionClean();
+      refreshStoryMoment();
+    }
+    return;
+  }
+
+  if (isSessionDirty()) {
+    pendingSaveAction.value = { type: "play", gameId };
+    return;
+  }
+  completePlayGame(gameId);
+}
+
+function completePlayGame(gameId) {
+  if (hasSave(gameId)) {
+    if (!load(saveCtx.value, gameId)) return;
+    markSessionClean();
+    refreshStoryMoment();
+    return;
+  }
+  // Open game: make it active with a clean session (mode chooser if needed).
+  setActiveSlot(gameId);
+  resetGameState(saveCtx.value);
+  markSessionClean();
+  refreshStoryMoment();
+}
+
+function handleRestartGame(gameId) {
+  if (!hasSave(gameId)) return;
+  if (
+    !window.confirm(
+      `Restart Game ${gameId}? Its saved progress will be erased. Other games are kept.`,
+    )
+  ) {
+    return;
+  }
+  if (isSessionDirty() && gameId !== activeSlot.value) {
+    pendingSaveAction.value = { type: "restart", gameId };
+    return;
+  }
+  if (isSessionDirty() && gameId === activeSlot.value) {
+    // Restarting the active game — no need to save first; confirm already covered erase.
+    beginFreshGame(gameId);
+    return;
+  }
+  beginFreshGame(gameId);
+}
+
+/**
+ * New Game toolbar: first open game, or pick when all three have saves.
+ */
+function handleNewGameRequest() {
+  const openId = firstOpenSlot();
+  if (openId != null) {
+    if (isSessionDirty()) {
+      pendingSaveAction.value = { type: "new-open", gameId: openId };
+      return;
+    }
+    beginFreshGame(openId);
+    return;
+  }
+  // All games have saves — ask which to replace.
+  if (isSessionDirty()) {
+    pendingSaveAction.value = { type: "new-pick" };
+    return;
+  }
+  pickGameDialog.value = { mode: null };
+}
+
+function completePendingAfterSaveDecision({ saved }) {
+  const action = pendingSaveAction.value;
+  pendingSaveAction.value = null;
+  if (!action) return;
+  if (saved === true && !performSave()) return;
+  // saved === false means discard and continue; saved === true already saved
+
+  if (action.type === "play") {
+    completePlayGame(action.gameId);
+    return;
+  }
+  if (action.type === "restart") {
+    beginFreshGame(action.gameId);
+    return;
+  }
+  if (action.type === "new-open") {
+    beginFreshGame(action.gameId);
+    return;
+  }
+  if (action.type === "new-pick") {
+    pickGameDialog.value = { mode: action.mode ?? null };
+  }
+}
+
+function handlePickGameForNew(gameId) {
+  const mode = pickGameDialog.value?.mode ?? null;
+  pickGameDialog.value = null;
+  beginFreshGame(gameId);
+  if (mode) applyPlayMode(mode);
+}
+
+/** Failure panel: reload the active game, or fall back to a clean state. */
+function handleRetryFromSave() {
+  if (!hasSave(activeSlot.value) || !load(saveCtx.value, activeSlot.value)) {
+    resetGameState(saveCtx.value);
+  }
+  markSessionClean();
+  refreshStoryMoment();
+}
+
+/** Failure panel: restart only the active game. */
+function handleNewGame() {
+  if (
+    !window.confirm(
+      `Restart Game ${activeSlot.value}? Its saved progress will be erased. Other games are kept.`,
+    )
+  ) {
+    return;
+  }
+  beginFreshGame(activeSlot.value);
+}
+
+/**
+ * Title-screen mode chooser. Uses the first open game, or asks which to replace
+ * when all three already have saves.
+ */
+function choosePlayMode(mode) {
+  // Already assigned an open active game (e.g. after New Game / Restart).
+  if (!hasSave(activeSlot.value) && !gameState.playMode) {
+    applyPlayMode(mode);
+    return;
+  }
+
+  const openId = firstOpenSlot();
+  if (openId != null) {
+    if (openId !== activeSlot.value) setActiveSlot(openId);
+    if (hasSave(openId)) clearSave(openId);
+    resetGameState(saveCtx.value);
+    applyPlayMode(mode);
+    return;
+  }
+
+  // All games occupied — pick one to overwrite, then apply mode.
+  pickGameDialog.value = { mode };
+}
+
+function handleHeaderSave() {
+  performSave();
 }
 
 function handleReturnToMap() {
@@ -902,18 +1127,41 @@ function handleGroupPickUp(entry) {
 <template>
   <main class="game-shell">
     <AppHeader
-      :has-save="hasSave()"
+      :active-slot="activeSlot"
+      :slots="saveSlots"
       :last-saved-at="lastSavedAt"
       :load-error="loadError"
       :movement-audit-visible="movementAuditVisible"
       :play-mode="gameState.playMode"
-      @save="saveGame(saveCtx)"
-      @new-game="handleNewGame"
-      @reset="handleReset"
+      @save="handleHeaderSave"
+      @play-game="handlePlayGame"
+      @restart-game="handleRestartGame"
+      @new-game="handleNewGameRequest"
       @show-health="vitalsDialogVisible = true"
       @show-inventory="openInventoryDialog"
       @show-dev-settings="developerSettingsVisible = true"
       @show-movement-audit="movementAuditVisible = true" />
+
+    <SaveGamesDialog
+      v-if="pendingSaveAction"
+      mode="save-before-switch"
+      title="Save current game?"
+      :message="`Game ${activeSlot} has progress that is not saved. Save it before switching?`"
+      discard-label="Don't save"
+      @save="completePendingAfterSaveDecision({ saved: true })"
+      @discard="completePendingAfterSaveDecision({ saved: false })"
+      @cancel="pendingSaveAction = null" />
+
+    <SaveGamesDialog
+      v-if="pickGameDialog"
+      mode="pick-game"
+      eyebrow="New Game"
+      title="All games are in use"
+      message="Choose a game to replace. Its saved progress will be erased."
+      :slots="saveSlots"
+      :active-game="activeSlot"
+      @choose-game="handlePickGameForNew"
+      @cancel="pickGameDialog = null" />
 
     <DeveloperSettingsDialog
       v-if="developerSettingsVisible"
@@ -1030,8 +1278,12 @@ function handleGroupPickUp(entry) {
         Restoring from the last save or starting again is the way forward.
       </p>
       <div class="failure-actions">
-        <button type="button" class="sm" @click="handleReset">Retry from save</button>
-        <button type="button" class="sm muted" @click="handleNewGame">New game</button>
+        <button type="button" class="sm" @click="handleRetryFromSave">
+          Retry from Game {{ activeSlot }}
+        </button>
+        <button type="button" class="sm muted" @click="handleNewGame">
+          Restart Game {{ activeSlot }}
+        </button>
       </div>
     </section>
 
