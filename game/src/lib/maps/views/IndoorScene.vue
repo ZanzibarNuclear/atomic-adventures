@@ -208,6 +208,9 @@ const mapStageProps = computed(() => ({
     isActionAllowed(`exit-world:${doorId}`, props.actionPolicy)
   ),
   hydroDiscovered: props.indoor.hydroDiscovered ?? false,
+  // Player camera: same wheel-zoom + drag-pan as outdoor hex gameplay.
+  wheelZoom: true,
+  dragPan: true,
 }));
 
 const mapStageListeners = computed(() => ({

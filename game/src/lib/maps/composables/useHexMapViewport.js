@@ -28,6 +28,10 @@ export function evaluateMapViewport({
   builderView = false,
   size = 44,
   panelAspect = null,
+  /** Optional player camera box (after zoom/pan). Used for culling when set. */
+  cameraViewBox = null,
+  /** Optional world focus (avatar stand). Centers gameplay framing when set. */
+  focusPoint = null,
 }) {
   const hexById = Object.fromEntries(allHexes.map((h) => [h.id, h]))
   const discoveredSet = new Set(discovered)
@@ -60,14 +64,39 @@ export function evaluateMapViewport({
     }
   }
 
-  // gameplay: fixed zoom, panned slightly toward nearby discovered hexes
-  const viewBox = current
+  // gameplay: default framing from hex (with optional avatar focus), then optional camera
+  let viewBox = current
     ? gameplayViewBox(current, size, {
         discovered,
         allHexes,
         panelAspect,
       })
     : { x: 0, y: 0, width: 100, height: 100 }
+
+  if (
+    focusPoint &&
+    Number.isFinite(focusPoint.x) &&
+    Number.isFinite(focusPoint.y)
+  ) {
+    viewBox = {
+      ...viewBox,
+      x: focusPoint.x - viewBox.width / 2,
+      y: focusPoint.y - viewBox.height / 2,
+    }
+  }
+
+  if (
+    cameraViewBox &&
+    Number.isFinite(cameraViewBox.width) &&
+    cameraViewBox.width > 0
+  ) {
+    viewBox = {
+      x: cameraViewBox.x,
+      y: cameraViewBox.y,
+      width: cameraViewBox.width,
+      height: cameraViewBox.height,
+    }
+  }
 
   const inView = (hex) => hexIntersectsViewBox(hex, viewBox, size)
 
@@ -105,6 +134,8 @@ export function useHexMapViewport({
   mode,
   builderView,
   panelAspect,
+  cameraViewBox = null,
+  focusPoint = null,
 }) {
   const size = computed(() => mapData.value.size ?? 44)
   const allHexes = computed(() => mapData.value.hexes ?? [])
@@ -123,12 +154,15 @@ export function useHexMapViewport({
       builderView: builderView.value,
       size: size.value,
       panelAspect: panelAspect?.value ?? panelAspect ?? null,
+      cameraViewBox: cameraViewBox?.value ?? cameraViewBox ?? null,
+      focusPoint: focusPoint?.value ?? focusPoint ?? null,
     }),
   )
 
   const visibleHexes = computed(() => evaluated.value.visibleHexes)
   const fogHexes = computed(() => evaluated.value.fogHexes)
   const viewBox = computed(() => evaluated.value.viewBoxString)
+  const viewBoxObject = computed(() => evaluated.value.viewBox)
 
   const gameplayBox = computed(() => {
     if (builderView.value || normalizeMapMode(mode.value) !== 'gameplay') {
@@ -178,6 +212,7 @@ export function useHexMapViewport({
     visibleHexes,
     fogHexes,
     viewBox,
+    viewBoxObject,
     fogMaskOpts,
     center,
   }
