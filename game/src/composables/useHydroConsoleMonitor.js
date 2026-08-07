@@ -16,6 +16,7 @@ const ENGINE_NOTE_PATTERNS = [
 
 const statusLabels = {
   "configuration-missing": "Configuration missing",
+  "engine-unavailable": "Simulator unavailable",
   "faulted": "Faulted",
   "insufficient-flow": "Insufficient flow",
   "insufficient-pressure": "Insufficient pressure",
@@ -28,6 +29,7 @@ const statusLabels = {
 
 const diagnosticLabels = {
   "configuration-missing": "The selected hydro configuration was not found.",
+  "engine-unavailable": "Energy simulator failed to run. This is a defect — not a secondary plant model.",
   "intake-blocked": "The intake is blocked.",
   "intake-closed": "The intake gate is closed.",
   "intake-debris-reducing-flow": "Debris is reducing captured flow.",
@@ -115,16 +117,11 @@ export function useHydroConsoleMonitor(gameState, validPanel, stationContextRef 
     if (!unref(validPanel)) return;
     const elapsedSimMinutes = monitorStartedAtElapsedMinutes.value +
       Math.floor((Date.now() - monitorStartedAtMs.value) / MONITOR_SAMPLE_MS) * MONITOR_MINUTES_PER_SAMPLE;
-    let nextTelemetry;
-    try {
-      // Keep loads in sync each tick (setLoad via refresh/sync path)
-      await hydroFacility.refreshEngine({
-        ...engineOptions({ durationSecs: 0.05 }),
-      });
-      nextTelemetry = await hydroFacility.tickEngine(1);
-    } catch {
-      nextTelemetry = hydroFacility.readTelemetry();
-    }
+    // Keep loads in sync each tick (setLoad via refresh/sync path)
+    await hydroFacility.refreshEngine({
+      ...engineOptions({ durationSecs: 0.05 }),
+    });
+    const nextTelemetry = await hydroFacility.tickEngine(1);
     const sample = {
       id: `sample-${elapsedSimMinutes}-${sampleBuffer.value.length}`,
       elapsedMinutes: elapsedSimMinutes,
@@ -134,30 +131,25 @@ export function useHydroConsoleMonitor(gameState, validPanel, stationContextRef 
   }
 
   async function loadHistorySamples() {
-    try {
-      await hydroFacility.refreshEngine(engineOptions({
-        durationSecs: hydroState.value.online ? 25 : 2,
+    const latest = await hydroFacility.refreshEngine(engineOptions({
+      durationSecs: hydroState.value.online ? 25 : 2,
+    }));
+    const now = elapsedMinutes(gameState);
+    sampleBuffer.value = [{
+      id: `sample-engine-${now}`,
+      elapsedMinutes: now,
+      telemetry: latest,
+    }];
+    // Host event log markers (field history), not a parallel physics replay
+    eventMarkers.value = (hydroState.value.eventLog ?? [])
+      .filter((event) => Number.isFinite(Number(event.elapsedMinutes)))
+      .map((event) => ({
+        id: event.eventId,
+        elapsedMinutes: Number(event.elapsedMinutes),
+        type: event.type,
+        label: event.label || event.type,
+        actionId: event.payload?.actionId ?? null,
       }));
-    } catch {
-      // legacy graph path below
-    }
-    const latest = hydroFacility.readTelemetry();
-    if (latest?.source === "energy-sims") {
-      const now = elapsedMinutes(gameState);
-      sampleBuffer.value = [{
-        id: `sample-engine-${now}`,
-        elapsedMinutes: now,
-        telemetry: latest,
-      }];
-      eventMarkers.value = [];
-      return;
-    }
-    const graphData = hydroFacility.readGraphData({
-      fromElapsedMinutes: Math.max(0, elapsedMinutes(gameState) - 60),
-      stepMinutes: 5,
-    });
-    sampleBuffer.value = graphData.samples.slice(-MAX_VISIBLE_SAMPLES);
-    eventMarkers.value = graphData.markers;
   }
 
   onMounted(() => {

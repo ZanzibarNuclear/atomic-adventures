@@ -5,7 +5,7 @@ partial, or intentionally waiting for a concrete content need. It is not a
 parking lot for old systems. When a gap is closed, update the relevant contract,
 implementation, and this list in the same change.
 
-**Last reviewed:** 2026-08-06 (alpha release pass)
+**Last reviewed:** 2026-08-07 (beta: energy-sims sole physics path)
 
 ## Closed for alpha (do not re-list as open)
 
@@ -20,6 +20,14 @@ implementation, and this list in the same change.
 - Pre-empty wellbeing crisis modal; health-collapse failure panel.
 - Structured `milestones` on save; `timeUntil` on story choices.
 - Scene `modes`, stand triggers, ambient fallback prose.
+
+## Hydro / EnergySim (beta)
+
+- ~~Rip out legacy JS hydro physics~~ — done for beta (WASM Clearwater Station
+  only; host facility inputs remain). Plan:
+  [energy-sim-legacy-ripout.md](../plans/energy-sim-legacy-ripout.md).
+- Optional: brownout `lightLevel` → indoor media dimming (console already shows grid).
+- Host load binding still coarse (lights / holo / EV / kitchen booleans).
 
 ## Play Modes And Story Mode
 

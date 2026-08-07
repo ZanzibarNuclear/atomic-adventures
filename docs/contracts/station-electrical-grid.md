@@ -1,8 +1,9 @@
 # Station Electrical Grid
 
 **Status:** Partial — station bus, room lighting switches, and powered-object
-presence exist; load ratings, aggregate balance, and brownouts are specified
-here but not yet implemented as a full grid model  
+presence exist; generation and bus telemetry come from the Clearwater Station
+energy-sims session (WASM). Host load binding is coarse; full load ratings,
+aggregate balance productization, and brownout-driven media are still open.  
 **Scope:** Utility-station (and later campus) electrical power: generation
 connection to a station bus, loads, wall switches, device demand ratings, load
 vs generation balance, and player-facing consequences  
@@ -10,7 +11,8 @@ vs generation balance, and player-facing consequences
 [control-panel.md](control-panel.md), [location-media.md](location-media.md),
 [indoor-stands.md](indoor-stands.md), [room-fixtures.md](room-fixtures.md),
 [world-authoring.md](world-authoring.md),
-[character-inventory.md](character-inventory.md)
+[character-inventory.md](character-inventory.md),
+[energy-sim-legacy-ripout.md](../plans/energy-sim-legacy-ripout.md)
 
 ---
 
@@ -157,12 +159,35 @@ power truth.
    energized, except for explicit status that explains the lack of power
    (e.g. switch closed, power out).
 
-### Current implementation note
+### Current implementation note (beta)
 
-Today, bus energization is represented by hydro facility `online` / related
-flags (`hub.hydro_online`). That is the correct first binding for Part I. A
-later multi-source bus must still expose one clear “station power online”
-truth for content and UI.
+**Two layers — do not invent a third physics path.**
+
+| Layer | Meaning | Durable in save? |
+| --- | --- | --- |
+| **Host connect intent** | Player completed (or Dev Tools forced) hydro connect-power: `facilities.hydro.online`, indoor `hydroOnline`, story flags such as `hub.hydro_online` | Yes |
+| **Engine bus presentation** | Clearwater Station snapshot: `busEnergized`, `gridStatus` (e.g. ok / brownout / shortage), \(P_{gen}\), \(P_{load}\), `lightLevel` | No (recompute after rehydrate); optional opaque engine checkpoint only |
+
+Rules for Part I:
+
+1. **Generation and balance numbers** always come from energy-sims (WASM
+   default). Never from a forked JS plant model.
+2. **Binary “station power online” for indoor lights, doors, and location
+   media** may track host connect intent after startup. That keeps save/load
+   and lit-vs-unlit photos stable without requiring a live session before first
+   paint. After the ops session rehydrates, console and future dimming must
+   follow engine `busEnergized` / `gridStatus` / `lightLevel`.
+3. Do **not** replace host connect intent with a free-form multi-state enum
+   (`full` / `brownout` / `startup` / `off`) in save data unless product later
+   needs it. Prefer:
+   - host: field path + online intent + flags;
+   - derived UI status: last engine snapshot (and host path when explaining
+     “why offline”).
+4. A later multi-source bus must still expose one clear binary “station power
+   online” for content that only cares about lights-on vs lights-off.
+5. **Dev Tools station-power toggle** sets host facility state as a completed
+   (or fully reset) startup sequence and forces an engine session sync so
+   console telemetry matches. It is not a separate cheat physics universe.
 
 ---
 
@@ -416,7 +441,7 @@ should not depend on infinite free power after that point.
 ```js
 // Indoor facility snapshot (names illustrative; implementation may nest)
 {
-  hydroOnline: boolean,           // bus energization for Part I
+  hydroOnline: boolean,           // host connect intent / Part I binary bus for lights-media
   lightSwitches: {
     [roomId]: true                // true = switch closed
   },
@@ -428,6 +453,8 @@ should not depend on infinite free power after that point.
   // }
   // storage: { energyWh, powerW }
 }
+// Engine-derived (not save truth): busEnergized, gridStatus, P_gen, P_load, lightLevel
+// from Clearwater Station snapshot after host rehydrate.
 ```
 
 Rules:

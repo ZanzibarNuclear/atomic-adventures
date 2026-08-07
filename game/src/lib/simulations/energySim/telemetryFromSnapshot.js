@@ -1,6 +1,9 @@
 /**
  * Map energy-sims Snapshot (+ host field state) → console telemetry shape
  * expected by HydroConsoleMonitor / readouts.
+ *
+ * There is no parallel JS plant model. When the engine is missing, use
+ * {@link unavailableEngineTelemetry} — zeros + engine-unavailable status.
  */
 
 import { normalizeHydroState } from "../hydro/state.js";
@@ -9,6 +12,23 @@ import { presentGrid } from "./energySimPresent.js";
 
 /** Approximate gauge from net head (kPa per m of water column). */
 const WATER_KPA_PER_M_HEAD = 9.80665;
+
+/**
+ * Host-shaped empty telemetry when energy-sims has not produced a snapshot.
+ * Used for cold UI and engine failures — never a forked power formula.
+ *
+ * @param {object} [hostState] - facilities.hydro
+ * @param {string} [reason]
+ */
+export function unavailableEngineTelemetry(hostState = {}, reason = "not-synced") {
+  const n = normalizeHydroState(hostState);
+  const base = emptyTelemetry(n, "engine-unavailable");
+  return {
+    ...base,
+    faults: ["engine-unavailable"],
+    engineError: String(reason || "not-synced"),
+  };
+}
 
 /**
  * @param {object|null|undefined} snapshot - engine Snapshot (camelCase)
@@ -93,6 +113,8 @@ function emptyTelemetry(n, status) {
     status,
     plantId: "clearwater-diversion",
     simTimeS: 0,
+    // Always the engine presenter's shape; unavailable is still this source with
+    // status engine-unavailable (not a second plant model).
     source: "energy-sims",
   };
 }

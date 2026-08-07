@@ -1,13 +1,16 @@
 # Hydro Simulator
 
-**Status:** Plant-of-record physics lives in sibling `../sims/energy-sims`
-(WASM in browser via `game/src/lib/simulations/energySim/`). Ops host adapter
-and multi-screen console (plant + station grid / utilization) wired for
-Clearwater Station; host load binding is coarse (lights / holo / EV / kitchen);
-holo penstock lab still shaping.  
+**Status:** Plant-of-record physics is **only** sibling `../sims/energy-sims`,
+embedded in the player browser via WASM (`game/src/lib/simulations/energySim/`).
+No parallel in-game hydro physics. Ops host adapter and multi-screen console
+(plant + station grid) are wired for Clearwater Station; host load binding is
+coarse (lights / holo / EV / kitchen).  
 **Scope:** Part I campus hydro — **Clearwater Diversion** on **Clearwater Run** —
 generation model, game-environment inputs, facility state, simulator outcomes,
-and future lesson/simulation reuse
+and lesson/simulation reuse  
+**Beta decision (2026-08-07):** Dual-path / legacy JS telemetry is retired. If
+the official engine fails to load or run, that is a **defect to fix**, not a
+signal to compute power in an alternate model.
 
 ---
 
@@ -16,8 +19,9 @@ and future lesson/simulation reuse
 **2026-08-05:** Whenever the game needs to represent what is happening at the
 hydro plant or on the station bus, use the solidified Stage 1 model in
 **`../sims/energy-sims`** (GitHub: [ZanzibarNuclear/energy-sims](https://github.com/ZanzibarNuclear/energy-sims)).
-Do not invent parallel physics constants in Vue, and do not treat the older
-in-game hydro JS / `../welcome` prototypes as the source of truth.
+Do not invent parallel physics constants in Vue. Older in-game hydro JS and
+`../welcome` prototypes are **inspiration only** — not runtime, not fallback,
+not parity targets.
 
 | Story / geography name | Engine role | Fixture / id |
 | --- | --- | --- |
@@ -36,29 +40,62 @@ in-game hydro JS / `../welcome` prototypes as the source of truth.
   into discovery is future content work; this note only records the canon.
 - Promote plant numbers through the energy-sims lab → fixture smoke workflow
   (`fixtures/README.md`, `./scripts/smoke-clearwater.sh`). The game loads the
-  station document through an EnergySim adapter (WASM or HTTP), not forked
-  constants.
+  station document through the EnergySim adapter (default: WASM), never forked
+  plant constants in `game/`.
 
 Related geography: [regional-geography.md](../../game-design/content/story/regional-geography.md).  
 Station bus / loads: [station-electrical-grid.md](station-electrical-grid.md).  
-Engine design: `../sims/energy-sims/docs/design.md`.
+Engine design: `../sims/energy-sims/docs/design.md`.  
+Legacy rip-out plan: [energy-sim-legacy-ripout.md](../plans/energy-sim-legacy-ripout.md).
+
+---
+
+## Runtime transport (decision note)
+
+**2026-08-07:** Production and local play use the **energy-sims WASM package
+on the player’s machine** (bundled under `game/src/lib/simulations/energySim/pkg/`).
+The game is not competitive and does not require a trusted remote physics
+server for Part I.
+
+| Transport | When | Role |
+| --- | --- | --- |
+| **WASM (default)** | Always for shippable play | `createWasmBackend` — Clearwater Station session in the browser |
+| **HTTP (optional)** | Dev / lab when `VITE_ENERGY_SIM_URL` is set | Same session API against a local energy-sim-server; **not** a second physics model |
+
+Rules:
+
+1. **One physics universe.** Telemetry, power, bus balance, and lesson sandboxes
+   that evaluate a plant use energy-sims only.
+2. **No fallback plant model.** Do not call or retain a parallel JS formula
+   path (historical `generateHydroTelemetry` / baseline config) when the engine
+   is unavailable. Surface an error, offline console state, or broken-lab
+   message; fix the engine or packaging bug.
+3. **Host ≠ physics.** `gameState.facilities.hydro` holds **field and operator
+   inputs** the host owns (intake, valves, debris, leakage, connect-power /
+   online intent, event log, optional engine checkpoint). It does **not**
+   re-implement \(P = \eta \rho g Q H\).
+4. **Rehydrate after load.** Save/load restores host facility fields (and
+   optional checkpoint). On resume, create or restore a Clearwater Station
+   session and push host inputs; do not invent numbers from a code baseline.
+5. Holo-reader practice labs may call `evaluateHydro` on plant JSON clones
+   without mutating live ops state; they still use the same WASM core.
 
 ---
 
 ## Purpose
 
 The hydro simulator is the Part I facility model for the campus diversion
-plant (**Clearwater Diversion**). It turns current game-world conditions, fixed
-plant configuration, facility condition, and operator settings into production
-values for an elapsed game-time interval: flow, pressure, effective head,
-electrical output, energy generated, station power served, warnings, faults,
-and outcomes.
+plant (**Clearwater Diversion**). The **engine** turns current game-world
+conditions, plant configuration (fixtures), facility condition, and operator
+settings into production values for an elapsed game-time interval: flow,
+pressure, effective head, electrical output, energy generated, station power
+served, warnings, faults, and outcomes.
 
-An interim game runtime may still use a code-built baseline and
-`gameState.facilities.hydro` while the EnergySim adapter lands. Authored
-configuration, full operations rounds, and story-level simulation gates remain
-future contract work. **Physics and plant numbers of record** are the
-Clearwater fixtures in energy-sims, not ad-hoc game constants.
+The **host** owns durable facility inputs, story outcomes, save/load, and UI.
+Authored multi-profile configuration, full operations rounds, and story-level
+simulation gates remain future contract work beyond the Clearwater fixtures
+already in energy-sims. **Physics and plant numbers of record** are only those
+fixtures, not ad-hoc game constants.
 
 This contract owns the hydro model and its boundary with the game. It does not
 own the visual console layout, chart components, building connectivity map, or
@@ -66,7 +103,7 @@ general panel navigation. Those concerns live in [control-panel.md](control-pane
 Station bus energization, indoor loads, light switches, load ratings, and
 generation-vs-consumption balance are defined in
 [station-electrical-grid.md](station-electrical-grid.md). Hydro supplies
-available generation to that bus model.
+available generation to that bus model via the Clearwater Station session.
 
 The physical core remains:
 
@@ -85,7 +122,7 @@ balance belong to the grid contract and the Clearwater Station session.
 - Ground the model in the local Part I plant: **Clearwater Run**, intake/weir,
   penstock, **Clearwater Diversion** powerhouse, generator, and hydro control
   room at **Clearwater Station**.
-- Use real units and tested formula helpers for power calculations.
+- Use real units; power calculations live only in energy-sims (WASM / lab HTTP).
 - Let story, world, time, and facility state provide environmental inputs.
 - Keep simulator internals separate from story flags, character effects, save
   writes, and panel rendering.
@@ -1095,34 +1132,55 @@ is a deliberate feature. Otherwise, closing or reloading returns to the last
 committed facility state and the next data collection evaluates from that
 committed timestamp.
 
-For the current implementation, the required persistence is smaller:
+For the current implementation, the required **host** persistence is smaller:
 
-- active hydro configuration ID;
-- hydro online/offline;
-- building-wide power-on flag or equivalent;
-- last hydro checkpoint time;
-- startup and maintenance event log;
-- current simple facility state: intake clear/open, two manual valves, switch
-  state, debris fraction, leak fraction.
+- hydro online / connect-power intent (operator breaker state);
+- last hydro checkpoint time (host clock);
+- optional opaque `engineCheckpoint` from energy-sims for resume fidelity;
+- startup and maintenance event log (host narrative / field history);
+- current simple facility state: intake clear/open, two manual valves,
+  debris fraction, leak fraction;
+- story flags such as `hub.hydro_online` when the host commits a validated
+  outcome (not a second physics model).
+
+Do **not** persist a parallel computed kW series from a forked JS plant.
+Regenerate console samples from the engine after rehydrate.
 
 The hidden battery buffer does not need a detailed state of charge until the
 later electrical-panel scope.
 
+### Host online vs engine presentation
+
+| Concern | Owner | Notes |
+| --- | --- | --- |
+| Field path ready (intake, valves, debris) | Host durable | Player field actions |
+| Generator / bus connect intent (`online`) | Host durable | Connect-power and Dev Tools |
+| Story “hydro online” flags | Host durable | Content gates; set with validated outcomes |
+| \(P_{gen}\), flow, head, RPM, energy | Engine snapshot | Only source for numbers |
+| `busEnergized`, `gridStatus`, load list | Engine snapshot | Clearwater Station session |
+| Indoor lights / media “is the building powered?” | Host read model for Part I | See [station-electrical-grid.md](station-electrical-grid.md): binary bus may track host connect intent after startup; console and future brownout use engine |
+
+**Dev Tools “station power” toggle** must set host facility state as if the
+normal startup sequence completed (or reverse it), then force an engine
+session sync — not invent console numbers outside energy-sims.
+
 ## Implementation Notes
 
 - **Plant of record:** `../sims/energy-sims` — Clearwater Diversion plant +
-  Clearwater Station session. Prefer WASM or HTTP EnergySim backend; retire
-  forked game hydro constants once the adapter is the default path.
+  Clearwater Station session. Default transport: **WASM** in the browser;
+  optional HTTP only for lab (`VITE_ENERGY_SIM_URL`). Same fixtures either way.
 - Host presentation, story outcomes, facility flags, and panel UI stay in
   `game/`. Engine owns generation, ramps, and (with the station session) bus
   balance telemetry.
-- Legacy `game/` hydro JS and `../welcome` hydro UI are inspiration only—not
-  parity targets and not runtime dependencies.
+- **No dual-path physics.** Do not keep or call an alternate hydro formula in
+  `game/` for ops telemetry, graphs, or lessons. If WASM fails, fail visibly
+  and fix packaging, init, or the engine.
 - Keep simulator internals separate from story flags, character effects, and
   save writes. Use registered outcomes at the host boundary.
 - Use deterministic interval tests for easy mode, startup, low-flow, partially
   closed valves, intake debris, leakage, overload, and fault scenarios
-  (engine smoke: `./scripts/smoke-clearwater.sh` in energy-sims).
+  (engine smoke: `./scripts/smoke-clearwater.sh` in energy-sims; game smoke
+  under `game/src/lib/simulations/energySim/`).
 
 ## Reference Notes
 
@@ -1140,12 +1198,11 @@ later electrical-panel scope.
 
 ## Open Questions
 
-- Which calibration profile feels best in play: 50 ft head, 75 ft head, or a
-  lower-head small-river profile?
-- What exact two manual valve locations are canonical in the Utility Station
-  map?
-- What output target makes the station feel satisfying without making later PV
-  and storage systems irrelevant: 500 W, 1 kW, or 2 kW?
+- Plant-of-record calibration is Clearwater Diversion (~8 kW nameplate in
+  fixture); further feel-tuning is lab → fixture smoke, not a second game model.
+- What exact two manual valve locations are canonical on the outdoor / station
+  map art?
+- How soon should brownout `lightLevel` affect indoor media vs stay console-only?
 - Which daily maintenance event comes first after the initial power-on reward:
   clogged intake or pipe leak?
 - Which electricity-dependent actions should be enabled immediately by the

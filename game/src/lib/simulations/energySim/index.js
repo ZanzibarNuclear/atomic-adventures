@@ -16,7 +16,10 @@ export {
 export { getEnergySimBackend, resetEnergySimBackendCache } from "./loadBackend.js";
 export { hostStateToHydroInputs, hydroPathOpen } from "./hostHydroInputs.js";
 export { deriveStationLoads, STATION_LOAD_IDS } from "./hostStationLoads.js";
-export { telemetryFromSnapshot } from "./telemetryFromSnapshot.js";
+export {
+  telemetryFromSnapshot,
+  unavailableEngineTelemetry,
+} from "./telemetryFromSnapshot.js";
 export {
   captureOpsCheckpoint,
   disposeOpsSession,
@@ -28,7 +31,7 @@ export {
   tickOpsSession,
 } from "./stationOps.js";
 
-// Legacy HTTP helpers (compat)
+// Optional HTTP lab transport (same session API as WASM)
 export {
   createEnergySimClient,
   defaultBaseUrl,

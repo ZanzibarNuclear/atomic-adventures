@@ -17,7 +17,7 @@ export function createHydroEvent({
   ].filter(Boolean).join("-");
   return {
     eventId: safeId,
-    plantId: "upper-penstock",
+    plantId: "clearwater-diversion",
     elapsedMinutes: safeElapsedMinutes,
     type: safeType,
     source,

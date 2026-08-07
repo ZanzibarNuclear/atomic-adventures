@@ -19,7 +19,7 @@ export function getEnergySimBackend() {
   if (!backendPromise) {
     backendPromise = createBackend().catch((err) => {
       backendPromise = null;
-      console.warn("[energySim] backend init failed; falling back to legacy hydro", err);
+      console.error("[energySim] backend init failed (no alternate plant model)", err);
       return null;
     });
   }

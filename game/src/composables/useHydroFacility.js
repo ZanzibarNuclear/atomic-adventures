@@ -1,10 +1,8 @@
 import { computed, ref } from "vue";
 import {
   appendHydroEvent,
-  buildHydroGraphData,
   createHydroEvent,
   createHydroState,
-  generateHydroTelemetry,
   normalizeHydroState,
   withHydroStatePatch,
 } from "../lib/simulations/hydro/index.js";
@@ -14,6 +12,7 @@ import {
   getLastOpsTelemetry,
   syncOpsSession,
   tickOpsSession,
+  unavailableEngineTelemetry,
 } from "../lib/simulations/energySim/index.js";
 
 /** Last engine-backed telemetry for reactive consumers (console). */
@@ -31,12 +30,9 @@ export function ensureHydroFacilityState(gameState) {
 
 export function setHydroFacilityState(gameState, patch, eventOptions = null) {
   const current = ensureHydroFacilityState(gameState);
-  const beforeTelemetry = currentTelemetry(current);
   const next = withHydroStatePatch(current, patch);
   if (eventOptions) {
     next.eventLog = appendHydroEvent(next, createHydroEvent(eventOptions));
-    const afterTelemetry = currentTelemetry(next);
-    next.eventLog = appendDiagnosticEvents(next, beforeTelemetry, afterTelemetry, eventOptions);
   }
   gameState.facilities.hydro = next;
   return next;
@@ -98,7 +94,8 @@ export function applyHydroStartupAction(gameState, actionId, options = {}) {
 
 /**
  * Push host hydro state into Clearwater Station WASM/HTTP session.
- * Updates engineTelemetryRef on success.
+ * Updates engineTelemetryRef. On failure, surfaces engine-unavailable — no
+ * alternate plant model.
  */
 export async function refreshEngineFromHost(gameState, options = {}) {
   const hydro = ensureHydroFacilityState(gameState);
@@ -112,12 +109,16 @@ export async function refreshEngineFromHost(gameState, options = {}) {
       engineTelemetryRef.value = result.telemetry;
       return result.telemetry;
     }
+    const unavailable = unavailableEngineTelemetry(hydro, result.reason ?? "no-backend");
+    engineTelemetryRef.value = unavailable;
+    console.error("[hydro] energy-sims sync failed:", result.reason ?? "no-telemetry");
+    return unavailable;
   } catch (err) {
-    console.warn("[hydro] energy-sims sync failed; using legacy telemetry", err);
+    console.error("[hydro] energy-sims sync failed", err);
+    const unavailable = unavailableEngineTelemetry(hydro, err?.message ?? "sync-error");
+    engineTelemetryRef.value = unavailable;
+    return unavailable;
   }
-  const legacy = generateHydroTelemetry(hydro, options);
-  engineTelemetryRef.value = null;
-  return legacy;
 }
 
 /**
@@ -138,12 +139,7 @@ export function useHydroFacility(gameState, stationContext = null) {
   ensureHydroFacilityState(gameState);
 
   const hydroState = computed(() => ensureHydroFacilityState(gameState));
-  const telemetry = computed(() => {
-    if (engineTelemetryRef.value) return engineTelemetryRef.value;
-    const cached = getLastOpsTelemetry();
-    if (cached) return cached;
-    return generateHydroTelemetry(hydroState.value);
-  });
+  const telemetry = computed(() => resolveEngineTelemetry(hydroState.value));
 
   function syncStationPower() {
     const online = hydroState.value.online === true;
@@ -176,11 +172,8 @@ export function useHydroFacility(gameState, stationContext = null) {
     return next;
   }
 
-  function readTelemetry(options = {}) {
-    if (engineTelemetryRef.value) return engineTelemetryRef.value;
-    const cached = getLastOpsTelemetry();
-    if (cached) return cached;
-    return generateHydroTelemetry(hydroState.value, options);
+  function readTelemetry() {
+    return resolveEngineTelemetry(hydroState.value);
   }
 
   async function readTelemetryAsync(options = {}) {
@@ -194,17 +187,22 @@ export function useHydroFacility(gameState, stationContext = null) {
         engineTelemetryRef.value = result.telemetry;
         return result.telemetry;
       }
+      const unavailable = unavailableEngineTelemetry(
+        hydroState.value,
+        result.reason ?? "tick-failed",
+      );
+      engineTelemetryRef.value = unavailable;
+      console.error("[hydro] energy-sims tick failed:", result.reason ?? "no-telemetry");
+      return unavailable;
     } catch (err) {
-      console.warn("[hydro] energy-sims tick failed", err);
+      console.error("[hydro] energy-sims tick failed", err);
+      const unavailable = unavailableEngineTelemetry(
+        hydroState.value,
+        err?.message ?? "tick-error",
+      );
+      engineTelemetryRef.value = unavailable;
+      return unavailable;
     }
-    return readTelemetry();
-  }
-
-  function readGraphData(options = {}) {
-    return buildHydroGraphData(hydroState.value, {
-      toElapsedMinutes: elapsedMinutesFor(gameState, options),
-      ...options,
-    });
   }
 
   return {
@@ -212,7 +210,6 @@ export function useHydroFacility(gameState, stationContext = null) {
     telemetry,
     setOnline,
     updateFieldState,
-    readGraphData,
     readTelemetry,
     readTelemetryAsync,
     tickEngine,
@@ -222,11 +219,11 @@ export function useHydroFacility(gameState, stationContext = null) {
   };
 }
 
-function currentTelemetry(state) {
+function resolveEngineTelemetry(hostState) {
   if (engineTelemetryRef.value) return engineTelemetryRef.value;
   const cached = getLastOpsTelemetry();
   if (cached) return cached;
-  return generateHydroTelemetry(state);
+  return unavailableEngineTelemetry(hostState, "not-synced");
 }
 
 function elapsedMinutesFor(gameState, options = {}) {
@@ -234,35 +231,4 @@ function elapsedMinutesFor(gameState, options = {}) {
   if (Number.isFinite(explicit)) return explicit;
   const fromClock = Number(gameState?.clock?.elapsedMinutes);
   return Number.isFinite(fromClock) ? fromClock : 0;
-}
-
-function appendDiagnosticEvents(state, beforeTelemetry, afterTelemetry, eventOptions) {
-  const beforeWarnings = new Set(beforeTelemetry.warnings ?? []);
-  const beforeFaults = new Set(beforeTelemetry.faults ?? []);
-  let eventLog = state.eventLog;
-  for (const warning of afterTelemetry.warnings ?? []) {
-    if (beforeWarnings.has(warning)) continue;
-    eventLog = appendHydroEvent({ eventLog }, createHydroEvent({
-      elapsedMinutes: eventOptions.elapsedMinutes,
-      type: "warning-raised",
-      source: "simulator",
-      actor: "system",
-      label: `Hydro warning: ${warning}`,
-      payload: { diagnosticId: warning },
-      eventId: `${eventOptions.eventId ?? `hydro-event-${eventOptions.elapsedMinutes}`}-warning-${warning}`,
-    }));
-  }
-  for (const fault of afterTelemetry.faults ?? []) {
-    if (beforeFaults.has(fault)) continue;
-    eventLog = appendHydroEvent({ eventLog }, createHydroEvent({
-      elapsedMinutes: eventOptions.elapsedMinutes,
-      type: "fault-triggered",
-      source: "simulator",
-      actor: "system",
-      label: `Hydro fault: ${fault}`,
-      payload: { diagnosticId: fault },
-      eventId: `${eventOptions.eventId ?? `hydro-event-${eventOptions.elapsedMinutes}`}-fault-${fault}`,
-    }));
-  }
-  return eventLog;
 }

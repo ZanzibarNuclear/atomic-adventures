@@ -26,7 +26,7 @@ export function isStationPowerOverriddenOn(gameState, indoor) {
 /**
  * Dev toggle: fully engage or disengage hydro as if startup completed.
  * Sets facility hydro state (intake, valves, online) + story flags, and
- * syncs the energy-sims session when available.
+ * forces an energy-sims session sync (sole physics path).
  */
 export function setStationPowerOverride({ gameState, indoor }, on) {
   if (!gameState?.flags || !indoor?.indoor?.facility) {
