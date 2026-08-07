@@ -11,10 +11,13 @@ or other consequences over time. The character overview presents positive
 vitals, named condition states, and health as a calculated result of sustained
 or severe problems rather than as a standalone need meter.
 
-The playable game surfaces serious reserve states in a compact vitals bar near
-the game timestamp and in the character overview. The bar is not shown before a
-play mode is active, and it is not a separate simulation. Health is a calculated
-result, not an independently adjustable or player-facing vital meter.
+The playable game surfaces serious reserve states as **status sentences** on the
+play panel (for example “Zanzibar is parched…”) and as meters in the **Health**
+dialog / character overview. The game timestamp is a separate map HUD line.
+Wellbeing chrome is not shown before a play mode is active. Health is a
+calculated result used for crisis and failure, not a free-floating need meter on
+the overview list (overview shows satiety, hydration, energy, composure, and
+named conditions).
 
 ## Player-Facing Model
 

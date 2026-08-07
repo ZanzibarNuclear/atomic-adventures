@@ -207,23 +207,24 @@ milestones.
 
 ## Persistence
 
-Player saves should eventually serialize structured milestone records:
+Player saves **do** serialize structured milestone records under
+`gameState.milestones` (see `useGameState` snapshot). Runtime grants via
+`grantMilestones` store at least id, clock fields, and source. Rich `kind`
+catalog metadata may still be author-facing only.
 
 ```yaml
 milestones:
   hydro.online:
     id: hydro.online
-    kind: operations
     elapsedMinutes: 1830
     day: 2
     minuteOfDay: 1110
     source: hydro-startup-sim
 ```
 
-The current implementation may back `afterMilestone` and `beforeMilestone` with
-namespaced flags. That is acceptable as an implementation bridge, but the
-author-facing contract should stay milestone-shaped so content can move to
-structured records without renaming story criteria.
+Scene / beat criteria may still accept **flags as a fallback** for
+`afterMilestone` / `beforeMilestone` style checks (`hasMilestoneOrFlag`). Prefer
+structured milestones for new content.
 
 Do not persist derived temporal predicates such as `time.day.55` by default.
 Persist only authored milestones that indicate something actually happened or
@@ -257,16 +258,17 @@ Validation should reject:
 
 | Concern | Location |
 | --- | --- |
-| Clock-derived day, minute, phase filters | `game/src/composables/useStory.js` |
-| Story `afterMilestone` / `beforeMilestone` bridge | `game/src/composables/useStory.js`, currently via flags |
-| Story choice milestone-like grants | `set_flags` in story choices |
-| Story choice time and milestone commit boundary | `game/src/composables/useStory.js` |
+| Clock-derived day, minute, phase filters | `game/src/lib/character/gameTime.js`, scene match in `storyArcModel.js` |
+| Milestone + flag criteria | `game/src/composables/storyArcModel.js` (`hasMilestoneOrFlag`) |
+| Story grants | `grantMilestones` in `useStoryArc.js`; choice/beat effects |
+| Story choice time commit | `useStoryArc.js` |
 | Skill evidence and award rules | `game/src/lib/character/` |
-| Player save flags bridge | `game/src/composables/useGameState.js` |
+| Player save `milestones` + flags | `game/src/composables/useGameState.js` |
+| Builder milestones workspace | Story Builder milestones UI |
 
 ## Open Decisions
 
-- When should milestones move from flags to a structured save field?
+- Should every legacy flag-backed unlock migrate to structured milestones only?
 - Should the milestone catalog live with story content, character content, or a
   separate progression document?
 - Should world events such as a Day 55 meteor be represented as event beats,

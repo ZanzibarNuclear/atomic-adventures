@@ -1,6 +1,6 @@
 # Known-area free travel — implementation plan
 
-**Status:** Implemented (core)  
+**Status:** Implemented (core) — shipped with alpha  
 **Contracts:** [hex-crawling.md](../contracts/hex-crawling.md), [indoor-stands.md](../contracts/indoor-stands.md)
 
 ## Goal

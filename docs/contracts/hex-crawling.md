@@ -164,9 +164,9 @@ From the current hex, the play panel combines:
 1. If the target is the current hex, treat as in-hex / no-op for inter-hex travel.
 2. If the target is not discovered, refuse multi-hop (discovery travel only).
 3. Search a path of **discovered** hexes from the current hex to the target where each adjacent step is a successful `resolveMove` / enter from the **simulated stand** after the previous step (openings allowed when available).
-4. Prefer paths that follow marked routes when ties exist; otherwise any legal discovered path is fine.
-5. Execute the path as a single continuous travel: intermediate hexes update `currentId` / `stand` as the avatar passes; time cost may scale with hop count or distance.
-6. If no path exists (barrier without available opening, fog gap), do not move; optional feedback that the way is blocked.
+4. Path search is BFS over discovered neighbors. Authored routes shape each step’s walk polyline when a route leg exists; they are not a separate tie-breaker.
+5. Execute the path as continuous travel: intermediate hexes update `currentId` / `stand` as the avatar passes. Game clock advances **once on the final hop** (not per intermediate hex), unless time is suppressed.
+6. If no path exists (barrier without available opening, fog gap), do not move. Blocked feedback UI is optional (currently silent refuse).
 
 ### Contract tests (outdoor known-area — synthetic maps)
 
@@ -234,8 +234,10 @@ crossPassage(openingId)
 
 | Concern                                          | File                                                                                 | Key exports                                                                         |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
-| Orchestration, state, `moveTo`                   | [`useOutdoorWorld.js`](../../game/src/lib/maps/composables/useOutdoorWorld.js)       | `moveTo`, `canReachHex`, `moves`, `directMoves`, `crossPassage`, `travelBarrierCtx` |
-| Current adjacent-move resolver, barrier geometry | [`useTravelBarriers.js`](../../game/src/lib/maps/composables/useTravelBarriers.js)   | `resolveMove`, `canEnterNeighbor`, `firstBlockedOnPath`, `firstBlockedOnPathInHex`  |
+| Orchestration, state, reachability               | [`useOutdoorWorld.js`](../../game/src/lib/maps/composables/useOutdoorWorld.js)       | state, `reachableHexIds`, travel context, `crossPassage`                            |
+| `moveTo`, multi-hop runner, `canReachHex`        | [`useOutdoorMovement.js`](../../game/src/lib/maps/composables/useOutdoorMovement.js) | `moveTo`, `canReachHex`, `previewMove`                                              |
+| Known-area outdoor BFS                           | [`knownAreaOutdoorTravel.js`](../../game/src/lib/maps/composables/knownAreaOutdoorTravel.js) | `planKnownHexPath`                                                           |
+| Adjacent-move resolver, barrier geometry         | [`useTravelBarriers.js`](../../game/src/lib/maps/composables/useTravelBarriers.js) + `travel/` | `resolveMove`, `canEnterNeighbor`                                         |
 | Routes, move lists                               | [`useRoutes.js`](../../game/src/lib/maps/composables/useRoutes.js)                   | `availableMoves`, `directNeighbors`, `buildMovePath`, `routeLegBetween`             |
 | Stand hints (`toPos`)                            | [`useAvatarStand.js`](../../game/src/lib/maps/composables/useAvatarStand.js)         | `resolveAvatarPosition`, `resolveNeighborStand`, `hexCenterStand`                   |
 | In-hex crossings                                 | [`usePassageCrossing.js`](../../game/src/lib/maps/composables/usePassageCrossing.js) | `standAcrossOpening`, `availablePassageCrossings`, `shouldOfferPassageCrossing`     |
@@ -255,7 +257,7 @@ crossPassage(openingId)
 3. Else partial interpolation from `fromPos` toward each inside-edge sample (t = 0.1…0.9).
 4. Else run a local cell-bounded search from the current stand to shared-edge samples, with conservative clearance around joined barrier endpoints.
 
-All checks use `interHexTravelCtx(ctx)` which sets `openings: []`. In the current Part I implementation, adjacent movement never consumes passages; passages are separate `crossPassage` actions.
+Barrier checks use `interHexTravelCtx(ctx)`. When `allowOpenings` is false (typical discovery adjacent without a route), openings are cleared so chords cannot ghost through gates/holes. When `allowOpenings` is true (authored **route** legs, or each step of **known-area multi-hop**), available openings in the travel context may cover crossings. Explicit `crossPassage` remains the discovery ceremony for far-side stand placement after a local passage action.
 
 **Step 2 — `resolveDestinationStand`**
 

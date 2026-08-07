@@ -424,34 +424,31 @@ a remote installation.
 
 ## Current Limitations
 
-The current runtime does not yet implement the full target model. Notable
-target omissions include:
+**Shipped for alpha:** `useStoryArc` as Story controller; story-arc document +
+production JSON; scene selection (location, match, time, modes, stand triggers);
+ambient fallback; completion conditions and beat effects; Story Builder arc
+editing; open-world ambient via `useOpenWorldStory`.
 
-- canonical SQLite field names for `StoryArc`, `StoryBeat`, and `Scene`;
-- `useStoryArc` as the single Story mode controller;
-- a first-class Scene workspace shared by location and Story Arc projections;
-- authored action editing;
-- completion condition editing;
-- beat effect editing;
-- simulation and mini-game gates;
-- images and ambient audio;
-- dedicated open-world scene semantics.
+**Still open / partial:**
 
-Add these deliberately to the runtime, database schema, builder, validation,
-tests, and this document together.
+- first-class shared Scenes workspace (location + arc as pure projections);
+- simulation and mini-game story gates;
+- rich scene images and ambient audio;
+- deeper open-world-only scene semantics;
+- hard rail of out-of-order actions (guidance prompts; world rules still gate).
+
+Add remaining pieces deliberately to runtime, schema, builder, validation, and
+this document together.
 
 ## Implementation Map
 
 | Concern | Location |
 | --- | --- |
 | Story mode controller | `game/src/composables/useStoryArc.js` |
-| Scene selection helper | `game/src/composables/` or `game/src/lib/` story helpers |
+| Scene / arc model helpers | `game/src/composables/storyArcModel.js` |
+| Open-world ambient controller | `game/src/composables/useOpenWorldStory.js` |
 | Player-facing action integration | `game/src/composables/usePlayPanel.js` |
 | Persistent story state | `game/src/composables/useGameState.js` |
-| Builder | `game/src/views/BuilderView.vue` |
-| Validation and runtime projection | `game/server/story-model.js` |
-| SQLite repository and revisions | `game/server/story-repository.js` |
+| Builder | `game/src/views/BuilderView.vue`, `game/src/components/builder/story/` |
+| Validation and runtime projection | `game/server/story-model.js`, `game/server/story-arc-*` |
 | Content API and live events | `game/server/api.js` |
-
-Tests for scene selection and beat lifecycle belong in
-`game/src/composables/` and focused story helper tests.

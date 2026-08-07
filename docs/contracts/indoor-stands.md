@@ -201,28 +201,31 @@ Door **open/closed** and **locked** are different:
 |-------|---------------------------|--------|
 | Open, unlocked | Yes | Walk through |
 | **Closed, unlocked** | **Yes** | Not a block. Path may traverse. **Manners:** if the walk *found* the door closed and unlocked, after the avatar passes, **reclose it and leave it unlocked**. Zanzibar was not raised in a barn. |
-| Locked | Only if the player can unlock from the approach side (thumb-turn / freeFrom room without key, or matching key from the key side, or active enablers for roll-ups) | Prefer stopping at the threshold so the player handles the lock; do not walk through locked doors like a ghost |
+| Locked | **No** (while still locked) | Free multi-hop never auto-unlocks. Player unlocks or breaks at the threshold (`lock.freeFrom` thumb-turn, matching key, break lock, or enablers for roll-ups). Exterior without key is not freeFrom. |
 | Self-closing stair doors | Yes when rules already allow push-through | Keep existing self-closing semantics |
 
 Lock side rules remain as authored (`lock.freeFrom`, `lock.key`, enablers). Extra
 effort at locked doors is intentional.
 
-Explicit open/close/lock actions remain available at the door threshold for
-player control. Free travel only automates **closed → pass → reclose unlocked**
-for unlocked doors on a multi-hop path; it does not auto-unlock.
+Explicit open/close/lock/break actions remain available at the door threshold.
+Free travel only automates **closed → pass → reclose unlocked** for unlocked
+doors on a multi-hop path; it does not auto-unlock.
 
-### Known-area multi-hop algorithm (indoor)
+### Known-area multi-hop algorithm (indoor) — current
 
-1. Build a graph of stand nodes (authored stands, door thresholds, stair
-   endpoints) in known rooms, plus exterior path nodes when applicable.
-2. Edges: same-room stand links; door links when passable under the table above
-   (closed unlocked counts as passable with manners); stairs/connectors when
-   already allowed; exterior path segments as today.
-3. Pathfind from current stand/node to the clicked destination.
-4. Animate along intermediate waypoints (same spirit as `walkExteriorPath`).
-5. For each closed unlocked door edge used, after traversal set door
+1. **Same-room stands:** click or action moves between stands in the current room
+   only (no room change).
+2. **Cross-room free travel:** BFS over **known rooms** via door/stair links
+   (`knownAreaIndoorTravel.planKnownRoomPath`). Closed unlocked doors are edges
+   (manners on execution). Locked doors are not edges.
+3. **Exterior path:** existing exterior graph + polyline walk; entry through a
+   door uses unlock/open rules, not multi-hop through a locked leaf.
+4. For each closed unlocked door edge used, after traversal set door
    **closed + unlocked**.
-6. Do not auto-exit the building or change to the outdoor map.
+5. Do not auto-exit the building or change to the outdoor hex map.
+
+Full stand-to-stand pathing across rooms is not required for alpha; room-graph
+free travel plus same-room stands is the implemented model.
 
 ### Contract tests (indoor known-area — synthetic buildings)
 
@@ -233,8 +236,9 @@ Use **synthetic room/door/stand fixtures**, not production room IDs.
 | Same-room multi-stand | Two stands, known room | Click far stand walks without room change |
 | Closed unlocked door | A—door—B, door closed unlocked | Multi-hop A→B succeeds; door ends closed unlocked |
 | Open door | Door open | Multi-hop succeeds; door stays open |
-| Locked door, no key | Door locked, player lacks key | Path stops / refuses; no ghost pass |
-| Locked freeFrom side | Player in freeFrom room | Unlock/pass per existing lock rules; no key required from that side |
+| Locked door | Door locked | Free-travel path refuses; no ghost pass |
+| Unlock from freeFrom | Player in freeFrom room | Explicit unlock without key; free travel only after unlocked |
+| Exterior no key | Key door from exterior, no key | Cannot unlock; break lock remains available |
 | Undiscovered room | Target not discovered | Not a free-travel destination |
 | No auto outdoor | Path ends at exterior door | Stay indoor/exterior-path; no auto regional hex switch |
 
