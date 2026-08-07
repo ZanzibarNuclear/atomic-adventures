@@ -43,8 +43,8 @@ Deployment behavior is checked into the repository:
 | File | Purpose |
 | --- | --- |
 | `vercel.json` | Build command, output directory, SPA fallback, and cache headers |
-| `.nvmrc` | Local Node.js baseline: 22.19.0 |
-| `package.json` | Declares the Vercel-compatible Node 22 runtime |
+| `.nvmrc` | Local Node.js baseline: 24 (matches Vercel) |
+| `package.json` | Declares Node `>=24` (Vercel resolves to 24.x) |
 | `game/server/export-runtime-content.js` | Exports SQLite content for the static game |
 
 The production build command is:
@@ -73,7 +73,7 @@ Use these settings:
 | Install Command | `npm install` or Vercel default |
 | Build Command | Use `vercel.json` (`npm run build:game`) |
 | Output Directory | Use `vercel.json` (`game/dist`) |
-| Node.js | 22.x |
+| Node.js | 24.x |
 
 Do not configure the root as `game/` unless the Vercel build and output settings
 are adjusted to their workspace-relative equivalents.
