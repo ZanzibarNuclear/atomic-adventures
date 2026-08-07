@@ -21,29 +21,6 @@ const statusLabels = {
   "startup-blocked": "Offline",
 };
 
-const guidedActionLabels = {
-  "clear-intake-debris": {
-    title: "Return to the upstream bank",
-    body: "Use the ordinary field action to clear debris from the intake.",
-  },
-  "open-intake": {
-    title: "Stay at the upstream bank",
-    body: "Use the ordinary field action to open the intake.",
-  },
-  "align-pipeflow": {
-    title: "Return to the midstream bank",
-    body: "Use the ordinary field action to set the bypass for penstock flow.",
-  },
-  "open-turbine-valve": {
-    title: "Return to the downstream bank",
-    body: "Use the ordinary field action to open the turbine valve.",
-  },
-  "connect-power": {
-    title: "Stay in the control room",
-    body: "Use the ordinary control-room action to connect station power.",
-  },
-};
-
 /**
  * @param {object} gameState
  * @param {import('vue').Ref<boolean>|boolean} validPanel
@@ -63,7 +40,15 @@ export function useHydroConsoleMonitor(gameState, validPanel, stationContextRef 
     const raw = telemetry.value?.status;
     return statusLabels[raw] ?? (hydroState.value.online ? "Online" : "Offline");
   });
-  const guidedActions = computed(() => nextGuidedActions(hydroState.value));
+  /** Station bus banner: Energized / Offline (no caption). */
+  const busStatusLabel = computed(() => {
+    const snap = telemetry.value;
+    const energized = Boolean(
+      snap?.busEnergized
+        ?? (hydroState.value.online && Number(snap?.turbineSpeedRpm ?? 0) > 0),
+    );
+    return energized ? "Energized" : "Offline";
+  });
   const equipment = computed(() => buildEquipmentState(hydroState.value, telemetry.value));
   const markerLines = computed(() => markerPositions(sampleBuffer.value, eventMarkers.value));
   const powerGraph = computed(() => graphSeries(sampleBuffer.value, [
@@ -146,7 +131,6 @@ export function useHydroConsoleMonitor(gameState, validPanel, stationContextRef 
 
   return {
     equipment,
-    guidedActions,
     latestSample,
     markerLines,
     powerGraph,
@@ -154,6 +138,7 @@ export function useHydroConsoleMonitor(gameState, validPanel, stationContextRef 
     speedGraph,
     gameTimeLabel,
     statusLabel,
+    busStatusLabel,
     telemetry,
   };
 }
@@ -207,25 +192,6 @@ export function buildEquipmentState(hydroState, telemetry = {}) {
     pathToTurbine: intakeClear && intakeOpen && bypassClosedForPenstock,
     pathToGenerator: intakeClear && intakeOpen && bypassClosedForPenstock && turbineValveOpen,
     pathToGrid: generatorEngaged && gridConnected,
-  };
-}
-
-function nextGuidedActions(state) {
-  if (!state.intakeClear) return [guidedAction("clear-intake-debris")];
-  if (!state.intakeOpen) return [guidedAction("open-intake")];
-  if (!state.manualValves.upstreamOpen) return [guidedAction("align-pipeflow")];
-  if (!state.manualValves.powerhouseOpen) return [guidedAction("open-turbine-valve")];
-  if (!state.startupComplete || !state.online) return [guidedAction("connect-power")];
-  return [];
-}
-
-function guidedAction(id) {
-  return {
-    id,
-    ...(guidedActionLabels[id] ?? {
-      title: "Return to the map",
-      body: "Use the next ordinary field action.",
-    }),
   };
 }
 

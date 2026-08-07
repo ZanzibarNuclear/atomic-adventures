@@ -17,7 +17,7 @@ In Part I the control-room stage is the **Operational console** (eyebrow
 between screens (side arrows or keyboard ←/→) for:
 
 1. **Hydro power generator** — Clearwater Diversion plant path, live graphs, status  
-2. **Station grid** — bus, loads, utilization  
+2. **Clearwater Station grid** — station bus status, loads, utilization  
 
 Physics comes from the Clearwater Station energy-sims session
 ([hydro-simulator.md](hydro-simulator.md)). Field work stays on ordinary map
@@ -119,7 +119,7 @@ of the locked chrome unless product deliberately revises them.
   locationId: "utility-station.control-room",
   screens: [
     { id: "hydro-plant", title: "Hydro power generator" },
-    { id: "station-grid", title: "Station grid", subtitle: "Bus · loads · utilization" }
+    { id: "station-grid", title: "Clearwater Station grid" }
   ],
   telemetrySourceId: "hydro-clearwater-diversion" // Clearwater Station session
 }
@@ -140,9 +140,9 @@ or dual-path plant physics in this shell.
 | Page eyebrow | **Control Room** |
 | Page title | **Operational console** (compact heading) |
 | Screen flipper | Left/right arrows + dots; keyboard ←/→ |
-| Screen titles | **Hydro power generator**; **Station grid** |
+| Screen titles | **Hydro power generator**; **Clearwater Station grid** |
 | Screen counter | **None** (no “Screen 1 of 2”) |
-| Screen 1 subtitle | **None** |
+| Screen subtitles | **None** |
 | Exit | Return to map |
 
 ### Screen 1 — Hydro power generator
@@ -167,8 +167,8 @@ Vertical stack, top to bottom:
 3. **Plant path schematic**  
    - Equipment boxes left → right with active flow pipes between them.  
    - Badges under each box (green when in the good operating state).  
-   - Optional **Next action** block only when the startup sequence is incomplete
-     (return-to-map CTA). No separate Diagnostics list.
+   - Field state is shown only via equipment badges. **No** “Next action”
+     guidance block and **no** Diagnostics list.
 
 #### Plant path equipment and badges
 
@@ -189,10 +189,16 @@ intake, bypass closed for penstock, turbine valve open, generator engaged).
 - Diagnostics / warning list section
 - Configuration profile browser / what-if selector (future module)
 
-### Screen 2 — Station grid
+### Screen 2 — Clearwater Station grid
 
-Presents bus energization, available generation vs load, margin, and the
-Clearwater Station load table (lighting, holo-reader, EV charge, kitchen).
+Same vertical stack pattern as screen 1:
+
+1. **Status banner** (same thin card styling as hydro Online/Offline)  
+   - Left: station bus state only — **Energized** or **Offline** (no caption).  
+   - Right: same authored game clock as screen 1.  
+2. **Grid body** — available generation vs load, margin, utilization bar, and the
+   Clearwater Station load table (lighting, holo-reader, EV charge, kitchen).
+
 Load drawing flags are host-derived and pushed into the energy-sims session;
 see [station-electrical-grid.md](station-electrical-grid.md).
 
@@ -215,17 +221,17 @@ Online” into presentation logic.
 Secondary fields (`flowM3s`, `netHeadM`, warnings) may appear later without
 displacing these three graphs.
 
-### Guided world actions (startup)
+### Field work (startup)
 
-Field work is **not** done on the console. Startup remains easy:
+Field work is **not** done on the console and is **not** prompted there.
+Startup remains easy on the map / room actions:
 
 1. Clear debris and open the intake.  
 2. Set bypass for penstock service (host step: upstream / align-pipeflow).  
 3. Open the turbine (powerhouse) valve.  
 4. Connect station power from the control room (host connect / online).
 
-When incomplete, the schematic may show a single **Next action** card with
-return-to-map. Routing is host/map movement, not panel-side teleport.
+The console only reflects resulting equipment badges and telemetry.
 
 ### Future modules (not Part I chrome)
 
@@ -473,7 +479,8 @@ target simulator or facility system, not to the panel shell.
 - **2026-08-07** — Locked Part I Operational console: chrome labels, status
   banner + game clock, three live graphs, intake/bypass/turbine/generator/grid
   schematic badges, no diagnostics wall / no stat cards. Energy-sims sole
-  physics path.
+  physics path. Station screen titled **Clearwater Station grid** with bus
+  banner (**Energized** / **Offline**) matching hydro status card styling.
 - **Earlier** — Multi-screen shell and station grid screen introduced for beta.
 
 ## Open Questions

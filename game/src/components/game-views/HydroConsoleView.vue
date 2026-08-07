@@ -16,8 +16,8 @@ const CONSOLE_SCREENS = Object.freeze([
   },
   {
     id: "station-grid",
-    title: "Station grid",
-    subtitle: "Bus · loads · utilization",
+    title: "Clearwater Station grid",
+    subtitle: null,
   },
 ]);
 
@@ -37,13 +37,13 @@ const stationContextRef = computed(() => props.stationContext);
 
 const {
   equipment,
-  guidedActions,
   markerLines,
   powerGraph,
   pressureGraph,
   speedGraph,
   gameTimeLabel,
   statusLabel,
+  busStatusLabel,
   telemetry,
 } = useHydroConsoleMonitor(props.gameState, validPanel, stationContextRef);
 
@@ -181,17 +181,24 @@ watch(
 
               <HydroSchematicPanel
                 :equipment="equipment"
-                :guided-actions="guidedActions"
-                :telemetry="telemetry"
-                @return-to-map="$emit('return-to-map')" />
+                :telemetry="telemetry" />
             </section>
 
-            <!-- Screen 2: station bus / loads -->
+            <!-- Screen 2: Clearwater Station grid -->
             <section
               v-show="activeScreen.id === 'station-grid'"
-              class="console-grid console-grid-grid"
+              class="console-stack"
               role="tabpanel"
               :aria-label="activeScreen.title">
+              <div
+                class="status-banner"
+                :class="{ online: busStatusLabel === 'Energized' }"
+                role="status"
+                aria-live="polite">
+                <strong class="status-banner-value">{{ busStatusLabel }}</strong>
+                <span class="status-banner-time">{{ gameTimeLabel }}</span>
+              </div>
+
               <HydroGridPanel :telemetry="telemetry" />
             </section>
           </div>
@@ -425,33 +432,36 @@ watch(
 }
 
 .hydro-console-view .plant-schematic {
+  --node-height: 3.25rem;
   display: grid;
   grid-template-columns:
     minmax(5.5rem, 1fr)
-    minmax(1.5rem, 0.35fr)
+    minmax(1.75rem, 0.4fr)
     minmax(5.5rem, 1fr)
-    minmax(1.5rem, 0.35fr)
+    minmax(1.75rem, 0.4fr)
     minmax(5.5rem, 1fr)
-    minmax(1.5rem, 0.35fr)
+    minmax(1.75rem, 0.4fr)
     minmax(5.5rem, 1fr)
-    minmax(1.5rem, 0.35fr)
+    minmax(1.75rem, 0.4fr)
     minmax(5.5rem, 1fr);
   align-items: start;
-  gap: 0.35rem 0.4rem;
+  gap: 0.35rem 0.35rem;
 }
 
 .hydro-console-view .equip-column {
   display: grid;
+  grid-template-rows: var(--node-height) auto;
   gap: 0.5rem;
   justify-items: center;
 }
 
 .hydro-console-view .node {
-  display: inline-grid;
+  display: grid;
   place-items: center;
+  box-sizing: border-box;
   width: 100%;
   min-width: 5.25rem;
-  min-height: 3.25rem;
+  height: var(--node-height);
   border: 1px solid rgba(223, 249, 239, 0.32);
   border-radius: 8px;
   background: #16292c;
@@ -460,10 +470,21 @@ watch(
   padding: 0.35rem 0.4rem;
 }
 
+/* Same height as equipment boxes so the pipe centers on the box midlines */
+.hydro-console-view .pipe-slot {
+  display: flex;
+  align-items: center;
+  height: var(--node-height);
+  min-width: 1.5rem;
+  width: 100%;
+}
+
 .hydro-console-view .pipe {
-  align-self: center;
+  display: block;
+  flex: 1 1 auto;
+  width: 100%;
   height: 0.45rem;
-  margin-top: 1.4rem;
+  margin: 0;
   border-radius: 999px;
   background: #344448;
 }
@@ -775,13 +796,29 @@ watch(
 
   .hydro-console-view .plant-schematic {
     grid-template-columns: 1fr;
-    gap: 0.75rem;
+    gap: 0;
+  }
+
+  .hydro-console-view .equip-column {
+    grid-template-rows: auto auto;
+  }
+
+  .hydro-console-view .node {
+    height: auto;
+    min-height: var(--node-height);
+  }
+
+  .hydro-console-view .pipe-slot {
+    justify-self: center;
+    width: 0.45rem;
+    height: 1.25rem;
+    min-width: 0;
   }
 
   .hydro-console-view .pipe {
     width: 0.45rem;
-    height: 1.25rem;
-    margin: 0 auto;
+    height: 100%;
+    flex: none;
   }
 }
 

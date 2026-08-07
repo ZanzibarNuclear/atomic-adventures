@@ -4,7 +4,7 @@
 embedded in the player browser via WASM (`game/src/lib/simulations/energySim/`).
 No parallel in-game hydro physics. Ops host adapter feeds the Part I
 **Operational console** (locked layout in [control-panel.md](control-panel.md):
-Hydro power generator + Station grid). Host load binding is coarse
+Hydro power generator + Clearwater Station grid). Host load binding is coarse
 (lights / holo / EV / kitchen).  
 **Scope:** Part I campus hydro — **Clearwater Diversion** on **Clearwater Run** —
 generation model, game-environment inputs, facility state, simulator outcomes,

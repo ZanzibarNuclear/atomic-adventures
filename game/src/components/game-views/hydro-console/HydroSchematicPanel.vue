@@ -1,11 +1,8 @@
 <script setup>
 defineProps({
   equipment: { type: Object, required: true },
-  guidedActions: { type: Array, required: true },
   telemetry: { type: Object, required: true },
 });
-
-defineEmits(["return-to-map"]);
 </script>
 
 <template>
@@ -24,9 +21,11 @@ defineEmits(["return-to-map"]);
         </div>
       </div>
 
-      <span class="pipe" :class="{ active: equipment.pathToBypass }" aria-hidden="true"></span>
+      <div class="pipe-slot" aria-hidden="true">
+        <span class="pipe" :class="{ active: equipment.pathToBypass }"></span>
+      </div>
 
-      <!-- Bypass valve (step 3): Open = cascade; Closed = penstock to turbine -->
+      <!-- Bypass: Open = cascade; Closed = penstock to turbine -->
       <div class="equip-column">
         <div class="node bypass">Bypass</div>
         <div class="badge-stack">
@@ -36,7 +35,9 @@ defineEmits(["return-to-map"]);
         </div>
       </div>
 
-      <span class="pipe" :class="{ active: equipment.pathToTurbine }" aria-hidden="true"></span>
+      <div class="pipe-slot" aria-hidden="true">
+        <span class="pipe" :class="{ active: equipment.pathToTurbine }"></span>
+      </div>
 
       <!-- Turbine + penstock valve -->
       <div class="equip-column">
@@ -48,7 +49,9 @@ defineEmits(["return-to-map"]);
         </div>
       </div>
 
-      <span class="pipe" :class="{ active: equipment.pathToGenerator }" aria-hidden="true"></span>
+      <div class="pipe-slot" aria-hidden="true">
+        <span class="pipe" :class="{ active: equipment.pathToGenerator }"></span>
+      </div>
 
       <!-- Generator engagement -->
       <div class="equip-column">
@@ -60,7 +63,9 @@ defineEmits(["return-to-map"]);
         </div>
       </div>
 
-      <span class="pipe" :class="{ active: equipment.pathToGrid }" aria-hidden="true"></span>
+      <div class="pipe-slot" aria-hidden="true">
+        <span class="pipe" :class="{ active: equipment.pathToGrid }"></span>
+      </div>
 
       <!-- Station bus / grid -->
       <div class="equip-column">
@@ -72,19 +77,5 @@ defineEmits(["return-to-map"]);
         </div>
       </div>
     </div>
-
-    <section
-      v-if="guidedActions.length"
-      class="console-guidance console-guidance-single"
-      aria-label="Next field action">
-      <div class="guided-actions">
-        <h2>Next action</h2>
-        <div v-for="action in guidedActions" :key="action.id" class="guided-action">
-          <strong>{{ action.title }}</strong>
-          <span>{{ action.body }}</span>
-          <button type="button" @click="$emit('return-to-map')">Return to map</button>
-        </div>
-      </div>
-    </section>
   </div>
 </template>

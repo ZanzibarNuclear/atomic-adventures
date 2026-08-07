@@ -33,11 +33,6 @@ function formatWatts(ratingW) {
 
 <template>
   <div class="grid-panel" :class="{ dimmed: lightLevel > 0 && lightLevel < 1, offline: !busEnergized }">
-    <div class="status-strip">
-      <span>Station bus</span>
-      <strong>{{ busEnergized ? "Energized" : "Offline" }}</strong>
-    </div>
-
     <div class="grid-readouts">
       <div class="readout">
         <span>Generation</span>
