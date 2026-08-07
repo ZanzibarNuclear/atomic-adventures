@@ -3,7 +3,6 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useHydroConsoleMonitor } from "../../composables/useHydroConsoleMonitor.js";
 import HydroGraphsPanel from "./hydro-console/HydroGraphsPanel.vue";
 import HydroGridPanel from "./hydro-console/HydroGridPanel.vue";
-import HydroReadoutPanel from "./hydro-console/HydroReadoutPanel.vue";
 import HydroSchematicPanel from "./hydro-console/HydroSchematicPanel.vue";
 
 const PANEL_ID = "hydro-control-room-panel";
@@ -12,8 +11,8 @@ const PANEL_ID = "hydro-control-room-panel";
 const CONSOLE_SCREENS = Object.freeze([
   {
     id: "hydro-plant",
-    title: "Hydro plant",
-    subtitle: "Intake · penstock · turbine · generator",
+    title: "Hydro power generator",
+    subtitle: null,
   },
   {
     id: "station-grid",
@@ -37,15 +36,13 @@ const validPanel = computed(() => panelId.value === PANEL_ID);
 const stationContextRef = computed(() => props.stationContext);
 
 const {
-  diagnostics,
-  fieldChecks,
+  equipment,
   guidedActions,
-  latestSample,
   markerLines,
   powerGraph,
-  pressureSpeedGraph,
-  readouts,
-  sampleTimeLabel,
+  pressureGraph,
+  speedGraph,
+  gameTimeLabel,
   statusLabel,
   telemetry,
 } = useHydroConsoleMonitor(props.gameState, validPanel, stationContextRef);
@@ -117,8 +114,8 @@ watch(
   <section class="hydro-console-view">
     <header class="console-header">
       <div>
-        <p class="eyebrow">Hydro control room</p>
-        <h1>Generator console</h1>
+        <p class="eyebrow">Control Room</p>
+        <h1>Operational console</h1>
       </div>
       <button class="exit-button" type="button" @click="$emit('return-to-map')">Return to map</button>
     </header>
@@ -142,9 +139,8 @@ watch(
         <div class="screen-stage">
           <div class="screen-chrome">
             <div class="screen-title-block">
-              <p class="screen-kicker">Screen {{ screenIndex + 1 }} of {{ screenCount }}</p>
               <h2 class="screen-title">{{ activeScreen.title }}</h2>
-              <p class="screen-subtitle">{{ activeScreen.subtitle }}</p>
+              <p v-if="activeScreen.subtitle" class="screen-subtitle">{{ activeScreen.subtitle }}</p>
             </div>
             <div class="screen-dots" role="tablist" aria-label="Console screens">
               <button
@@ -161,29 +157,33 @@ watch(
           </div>
 
           <div class="screen-body" :data-screen="activeScreen.id">
-            <!-- Screen 1: hydro plant sensors -->
+            <!-- Screen 1: hydro power generator -->
             <section
               v-show="activeScreen.id === 'hydro-plant'"
-              class="console-grid"
+              class="console-stack"
               role="tabpanel"
               :aria-label="activeScreen.title">
-              <HydroSchematicPanel
-                :diagnostics="diagnostics"
-                :field-checks="fieldChecks"
-                :guided-actions="guidedActions"
-                :status-label="statusLabel"
-                :telemetry="telemetry"
-                @return-to-map="$emit('return-to-map')" />
-
-              <HydroReadoutPanel :readouts="readouts" />
+              <div
+                class="status-banner"
+                :class="{ online: statusLabel === 'Online', fault: statusLabel === 'Fault' }"
+                role="status"
+                aria-live="polite">
+                <strong class="status-banner-value">{{ statusLabel }}</strong>
+                <span class="status-banner-time">{{ gameTimeLabel }}</span>
+              </div>
 
               <HydroGraphsPanel
-                :latest-sample="latestSample"
                 :marker-lines="markerLines"
                 :power-graph="powerGraph"
-                :pressure-speed-graph="pressureSpeedGraph"
-                :sample-time-label="sampleTimeLabel"
+                :pressure-graph="pressureGraph"
+                :speed-graph="speedGraph"
                 :telemetry="telemetry" />
+
+              <HydroSchematicPanel
+                :equipment="equipment"
+                :guided-actions="guidedActions"
+                :telemetry="telemetry"
+                @return-to-map="$emit('return-to-map')" />
             </section>
 
             <!-- Screen 2: station bus / loads -->
@@ -233,7 +233,8 @@ watch(
 
 .hydro-console-view .console-header h1 {
   margin: 0.1rem 0 0;
-  font-size: clamp(1.7rem, 4vw, 2.8rem);
+  /* ~40% smaller than prior clamp(1.7rem, 4vw, 2.8rem) */
+  font-size: clamp(1rem, 2.4vw, 1.7rem);
   letter-spacing: 0;
 }
 
@@ -313,16 +314,8 @@ watch(
   border-bottom: 1px solid rgba(141, 214, 203, 0.18);
 }
 
-.hydro-console-view .screen-kicker {
-  margin: 0;
-  color: #7eb8ad;
-  text-transform: uppercase;
-  font-size: 0.68rem;
-  letter-spacing: 0.1em;
-}
-
 .hydro-console-view .screen-title {
-  margin: 0.15rem 0 0;
+  margin: 0;
   font-size: 1.25rem;
   color: #eef7f1;
 }
@@ -357,6 +350,12 @@ watch(
   padding: 0.85rem;
 }
 
+.hydro-console-view .console-stack {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.85rem;
+}
+
 .hydro-console-view .console-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
@@ -367,8 +366,54 @@ watch(
   grid-template-columns: 1fr;
 }
 
+.hydro-console-view .status-banner {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.65rem 1rem;
+  border: 1px solid rgba(255, 224, 154, 0.35);
+  border-radius: 8px;
+  background:
+    linear-gradient(120deg, rgba(48, 40, 18, 0.75), rgba(8, 18, 20, 0.9));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.hydro-console-view .status-banner.online {
+  border-color: rgba(133, 215, 138, 0.45);
+  background:
+    linear-gradient(120deg, rgba(18, 48, 32, 0.8), rgba(8, 18, 20, 0.9));
+}
+
+.hydro-console-view .status-banner.fault {
+  border-color: rgba(255, 155, 138, 0.5);
+  background:
+    linear-gradient(120deg, rgba(56, 24, 20, 0.8), rgba(8, 18, 20, 0.9));
+}
+
+.hydro-console-view .status-banner-value {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #ffe09a;
+}
+
+.hydro-console-view .status-banner.online .status-banner-value {
+  color: #c9f5c9;
+}
+
+.hydro-console-view .status-banner.fault .status-banner-value {
+  color: #ff9b8a;
+}
+
+.hydro-console-view .status-banner-time {
+  color: #abc7c0;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
 .hydro-console-view .schematic-panel,
-.hydro-console-view .readout-panel,
 .hydro-console-view .graphs-panel,
 .hydro-console-view .grid-panel,
 .hydro-console-view .console-error {
@@ -376,47 +421,49 @@ watch(
   border-radius: 8px;
   background: rgba(8, 18, 20, 0.78);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-
-.hydro-console-view .schematic-panel,
-.hydro-console-view .graphs-panel,
-.hydro-console-view .grid-panel,
-.hydro-console-view .console-error {
   padding: 1rem;
 }
 
-.hydro-console-view .status-strip {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  color: #abc7c0;
-}
-
-.hydro-console-view .status-strip strong {
-  color: #ffe09a;
-}
-
-.hydro-console-view .plant-line {
+.hydro-console-view .plant-schematic {
   display: grid;
-  grid-template-columns: max-content minmax(4rem, 1fr) max-content minmax(4rem, 1fr) max-content;
-  align-items: center;
+  grid-template-columns:
+    minmax(5.5rem, 1fr)
+    minmax(1.5rem, 0.35fr)
+    minmax(5.5rem, 1fr)
+    minmax(1.5rem, 0.35fr)
+    minmax(5.5rem, 1fr)
+    minmax(1.5rem, 0.35fr)
+    minmax(5.5rem, 1fr)
+    minmax(1.5rem, 0.35fr)
+    minmax(5.5rem, 1fr);
+  align-items: start;
+  gap: 0.35rem 0.4rem;
+}
+
+.hydro-console-view .equip-column {
+  display: grid;
   gap: 0.5rem;
-  min-height: 7rem;
+  justify-items: center;
 }
 
 .hydro-console-view .node {
   display: inline-grid;
   place-items: center;
+  width: 100%;
   min-width: 5.25rem;
   min-height: 3.25rem;
   border: 1px solid rgba(223, 249, 239, 0.32);
   border-radius: 8px;
   background: #16292c;
   font-weight: 700;
+  text-align: center;
+  padding: 0.35rem 0.4rem;
 }
 
 .hydro-console-view .pipe {
+  align-self: center;
   height: 0.45rem;
+  margin-top: 1.4rem;
   border-radius: 999px;
   background: #344448;
 }
@@ -425,31 +472,31 @@ watch(
   background: linear-gradient(90deg, #5fb7dd, #85d78a);
 }
 
-.hydro-console-view .field-checks {
+.hydro-console-view .badge-stack {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
 }
 
 .hydro-console-view .check {
+  display: block;
+  width: 100%;
+  text-align: center;
   border: 1px solid rgba(255, 190, 120, 0.38);
   border-radius: 999px;
   padding: 0.32rem 0.5rem;
   color: #ffd9aa;
   background: rgba(96, 52, 24, 0.35);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
+  line-height: 1.2;
 }
 
 .hydro-console-view .check.ok {
   border-color: rgba(133, 215, 138, 0.5);
   color: #c9f5c9;
   background: rgba(24, 78, 50, 0.35);
-}
-
-.hydro-console-view .readout-panel {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  overflow: hidden;
 }
 
 .hydro-console-view .grid-readouts {
@@ -470,8 +517,6 @@ watch(
   gap: 0.35rem;
   min-height: 5.5rem;
   padding: 0.9rem;
-  border-right: 1px solid rgba(141, 214, 203, 0.18);
-  border-bottom: 1px solid rgba(141, 214, 203, 0.18);
 }
 
 .hydro-console-view .readout span,
@@ -520,10 +565,6 @@ watch(
   padding: 0.45rem 0.65rem;
 }
 
-.hydro-console-view .graphs-panel {
-  grid-column: 1 / -1;
-}
-
 .hydro-console-view .console-guidance {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(240px, 0.75fr);
@@ -531,6 +572,10 @@ watch(
   margin-top: 0.9rem;
   padding-top: 0.85rem;
   border-top: 1px solid rgba(141, 214, 203, 0.18);
+}
+
+.hydro-console-view .console-guidance-single {
+  grid-template-columns: 1fr;
 }
 
 .hydro-console-view .graphs-header,
@@ -622,6 +667,10 @@ watch(
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
+}
+
+.hydro-console-view .graph-stack-triple {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .hydro-console-view .graph-card {
@@ -719,6 +768,23 @@ watch(
   padding: 1rem;
 }
 
+@media (max-width: 980px) {
+  .hydro-console-view .graph-stack-triple {
+    grid-template-columns: 1fr;
+  }
+
+  .hydro-console-view .plant-schematic {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .hydro-console-view .pipe {
+    width: 0.45rem;
+    height: 1.25rem;
+    margin: 0 auto;
+  }
+}
+
 @media (max-width: 760px) {
   .hydro-console-view .screen-shell {
     grid-template-columns: 1fr;
@@ -744,17 +810,25 @@ watch(
   }
 
   .hydro-console-view .console-header,
-  .hydro-console-view .console-grid,
-  .hydro-console-view .plant-line {
+  .hydro-console-view .console-grid {
     display: grid;
   }
 
   .hydro-console-view .console-grid,
   .hydro-console-view .console-guidance,
-  .hydro-console-view .readout-panel,
   .hydro-console-view .grid-readouts,
-  .hydro-console-view .graph-stack {
+  .hydro-console-view .graph-stack,
+  .hydro-console-view .graph-stack-triple {
     grid-template-columns: 1fr;
+  }
+
+  .hydro-console-view .status-banner {
+    flex-wrap: wrap;
+    gap: 0.35rem 0.75rem;
+  }
+
+  .hydro-console-view .status-banner-time {
+    text-align: left;
   }
 }
 </style>

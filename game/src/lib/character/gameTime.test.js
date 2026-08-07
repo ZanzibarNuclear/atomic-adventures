@@ -6,6 +6,7 @@ import {
   formatGameClock,
   formatGameDate,
   formatGameTimestamp,
+  formatOperationalConsoleTime,
 } from "./gameTime.js";
 
 function state() {
@@ -48,6 +49,15 @@ describe("authored game time", () => {
   it("projects story days onto the future calendar", () => {
     expect(formatGameTimestamp(createGameClock())).toBe("Tuesday, July 2, 2126 · 12:00 PM");
     expect(formatGameDate(createGameClock({ day: 2 }))).toBe("Wednesday, July 3, 2126");
+  });
+
+  it("formats operational console time as 24h clock plus calendar date", () => {
+    expect(formatOperationalConsoleTime(createGameClock())).toBe(
+      "12:00:00 Tuesday, July 2, 2126",
+    );
+    expect(formatOperationalConsoleTime(createGameClock({ minuteOfDay: 13 * 60 + 50 + 14 / 60 }))).toBe(
+      "13:50:14 Tuesday, July 2, 2126",
+    );
   });
 
   it("produces the same result for equivalent large and small advances", () => {

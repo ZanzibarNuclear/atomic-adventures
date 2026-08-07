@@ -53,6 +53,24 @@ export function formatGameTimestamp(clock) {
   return `${formatGameDate(clock)} · ${formatClockTime(clock.minuteOfDay)}`;
 }
 
+/**
+ * Operational console clock: `13:50:14 Tuesday, February 15, 2127`
+ * Uses 24h time with seconds derived from fractional game minutes.
+ */
+export function formatOperationalConsoleTime(clock) {
+  const date = gameDate(clock);
+  const totalSeconds = Math.max(0, Math.floor(finite(clock?.minuteOfDay, 0) * 60));
+  const hours = Math.floor(totalSeconds / 3600) % 24;
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const time = [
+    String(hours).padStart(2, "0"),
+    String(minutes).padStart(2, "0"),
+    String(seconds).padStart(2, "0"),
+  ].join(":");
+  return `${time} ${weekdayName(date)}, ${monthName(date)} ${date.getUTCDate()}, ${date.getUTCFullYear()}`;
+}
+
 export function formatGameDate(clock) {
   const date = gameDate(clock);
   return `${weekdayName(date)}, ${monthName(date)} ${date.getUTCDate()}, ${date.getUTCFullYear()}`;
