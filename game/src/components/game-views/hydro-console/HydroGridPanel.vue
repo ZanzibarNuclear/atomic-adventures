@@ -59,56 +59,63 @@ function drawingWatts(row) {
 </script>
 
 <template>
-  <div class="grid-panel" :class="{ dimmed: lightLevel > 0 && lightLevel < 1, offline: !busEnergized }">
-    <div class="grid-readouts">
-      <div class="readout">
-        <span>Generation</span>
-        <strong>{{ formatKwAsPower(availableKw) }}</strong>
-      </div>
-      <div class="readout">
-        <span>Station load</span>
-        <strong>{{ formatKwAsPower(loadKw) }}</strong>
-      </div>
-      <div class="readout">
-        <span>Margin</span>
-        <strong :class="{ tight: marginTight, deficit: marginDeficit }">
-          {{ formatKwAsPower(marginKw, { signed: true }) }}
-        </strong>
-      </div>
+  <!-- Fragment: stats strip (no panel card) + utilization card + loads card -->
+  <div
+    class="grid-readouts"
+    :class="{ dimmed: lightLevel > 0 && lightLevel < 1, offline: !busEnergized }">
+    <div class="readout">
+      <span>Generation</span>
+      <strong>{{ formatKwAsPower(availableKw) }}</strong>
     </div>
-
-    <section class="utilization" aria-label="Grid utilization">
-      <div class="util-header">
-        <h2>Utilization</h2>
-        <span :class="{ over: overCapacity }">{{ utilizationPct }}% of available</span>
-      </div>
-      <div class="util-track" role="meter" :aria-valuenow="utilizationPct" aria-valuemin="0" aria-valuemax="100">
-        <div
-          class="util-fill"
-          :class="{ over: overCapacity, idle: loadKw <= 0 }"
-          :style="{ width: barWidth }" />
-      </div>
-    </section>
-
-    <section class="load-table" aria-label="Station loads">
-      <h2>Loads</h2>
-      <p v-if="!loads.length" class="quiet">No load registry in this snapshot.</p>
-      <table v-else>
-        <thead>
-          <tr>
-            <th scope="col">Circuit</th>
-            <th scope="col">Rating</th>
-            <th scope="col">Drawing</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in loads" :key="row.id" :class="{ drawing: row.drawing }">
-            <td>{{ row.label || row.id }}</td>
-            <td>{{ formatPower(row.ratingW, { zero: "—" }) }}</td>
-            <td>{{ formatPower(drawingWatts(row), { zero: "0 W" }) }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
+    <div class="readout">
+      <span>Station load</span>
+      <strong>{{ formatKwAsPower(loadKw) }}</strong>
+    </div>
+    <div class="readout">
+      <span>Margin</span>
+      <strong :class="{ tight: marginTight, deficit: marginDeficit }">
+        {{ formatKwAsPower(marginKw, { signed: true }) }}
+      </strong>
+    </div>
   </div>
+
+  <section
+    class="grid-panel utilization"
+    :class="{ dimmed: lightLevel > 0 && lightLevel < 1, offline: !busEnergized }"
+    aria-label="Grid utilization">
+    <div class="util-header">
+      <h2>Utilization</h2>
+      <span :class="{ over: overCapacity }">{{ utilizationPct }}% of available</span>
+    </div>
+    <div class="util-track" role="meter" :aria-valuenow="utilizationPct" aria-valuemin="0" aria-valuemax="100">
+      <div
+        class="util-fill"
+        :class="{ over: overCapacity, idle: loadKw <= 0 }"
+        :style="{ width: barWidth }" />
+    </div>
+  </section>
+
+  <section
+    class="grid-panel load-table"
+    :class="{ dimmed: lightLevel > 0 && lightLevel < 1, offline: !busEnergized }"
+    aria-label="Station loads">
+    <h2>Loads</h2>
+    <p v-if="!loads.length" class="quiet">No load registry in this snapshot.</p>
+    <table v-else>
+      <thead>
+        <tr>
+          <th scope="col">Circuit</th>
+          <th scope="col">Rating</th>
+          <th scope="col">Drawing</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="row in loads" :key="row.id" :class="{ drawing: row.drawing }">
+          <td>{{ row.label || row.id }}</td>
+          <td>{{ formatPower(row.ratingW, { zero: "—" }) }}</td>
+          <td>{{ formatPower(drawingWatts(row), { zero: "0 W" }) }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
 </template>

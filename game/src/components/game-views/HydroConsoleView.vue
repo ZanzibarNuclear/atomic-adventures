@@ -520,17 +520,37 @@ watch(
   background: rgba(24, 78, 50, 0.35);
 }
 
+/* Station grid: stats sit as a flat 3-up strip (no wrapping panel card) */
 .hydro-console-view .grid-readouts {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.55rem;
-  margin: 0.85rem 0;
+  margin: 0;
 }
 
 .hydro-console-view .grid-readouts .readout {
   border: 1px solid rgba(141, 214, 203, 0.18);
   border-radius: 8px;
   min-height: 4.5rem;
+  background: rgba(6, 16, 18, 0.55);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.hydro-console-view .grid-readouts.offline {
+  opacity: 0.88;
+}
+
+.hydro-console-view .grid-readouts.dimmed {
+  filter: brightness(0.92);
+}
+
+.hydro-console-view .grid-panel.utilization {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.hydro-console-view .grid-panel.load-table h2 {
+  margin-bottom: 0.55rem;
 }
 
 .hydro-console-view .readout {
@@ -651,10 +671,6 @@ watch(
   opacity: 0.88;
 }
 
-.hydro-console-view .load-table {
-  margin-top: 1rem;
-}
-
 .hydro-console-view .load-table table {
   width: 100%;
   border-collapse: collapse;
@@ -678,10 +694,6 @@ watch(
 
 .hydro-console-view .load-table tr.drawing td {
   color: #e8fff0;
-}
-
-.hydro-console-view .load-hint {
-  margin: 0.75rem 0 0;
 }
 
 .hydro-console-view .graph-stack {
