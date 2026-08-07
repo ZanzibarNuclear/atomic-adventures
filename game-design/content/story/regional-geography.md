@@ -4,7 +4,11 @@
 
 ## Naming: Clearwater Run, Diversion, and Station
 
-**Status (2026-08-05):** Canon names and the **energy-sims plant of record** are locked. Draft map labels **Mill Brook** and **Upper Penstock Plant** (table and ASCII map below) are **superseded**. A thorough rename pass across remaining story prose, game copy, and map art is still future work—do not invent alternate stream/plant/station names in the meantime.
+**Status (2026-08-07):** Canon names and the **energy-sims plant of record** are
+locked. Former draft labels (Mill Brook stream, Upper Penstock plant) are fully
+retired in contracts, host content, and IDs — use only the Clearwater names
+below. Map art labels may still lag; do not invent alternate stream/plant/station
+names.
 
 | Role | Name | Notes |
 |------|------|--------|
@@ -63,17 +67,17 @@ In this region, “clear / pure / bright water” is often closer to **white/bri
 
 These names are the **story canon** for this draft map. Adjust as design evolves.
 
-*Watercourse / plant:* prefer **Clearwater Run** and **Clearwater Diversion** (see [Naming](#naming-clearwater-run--clearwater-diversion)). Struck rows below are draft labels still on the v1 map asset.
+*Watercourse / plant:* **Clearwater Run** and **Clearwater Diversion** (see [Naming](#naming-clearwater-run--clearwater-diversion)). The v1 map asset may still show obsolete labels; treat the table as story canon.
 
 | Feature | Type | Story role |
 |---------|------|------------|
 | **Flagstaff Ridge** | Peak (1360 ft) | Landmark; orients the player in the mountains |
 | **Clearwater Pond** | Pond | Natural water feature; possible forest approach landmark |
-| ~~**Mill Brook**~~ → **Clearwater Run** | Stream / run | Drainage from pond toward the campus; rain & snowmelt |
+| **Clearwater Run** | Stream / run | Drainage from pond toward the campus; rain & snowmelt |
 | **Pine Hollow Trail** | Hiking trail (dotted red) | Likely Zanzibar's approach path through the woods |
 | **Ridge Line Trail** | Hiking trail (dotted red) | Connects parking area to campus via high route |
 | **County Road 14** | Gravel road (dashed blue) | Public access; parking (P) at trailhead |
-| ~~**Upper Penstock Plant**~~ → **Clearwater Diversion** | Diversion hydro powerhouse | Campus hydro — intake, penstock, turbine, generator on Clearwater Run |
+| **Clearwater Diversion** | Diversion hydro powerhouse | Campus hydro — intake, penstock, turbine, generator on Clearwater Run |
 | **Research Campus** | Building cluster | Secret DoE research facility (not public knowledge) |
 | **Clearwater Station** | Utility building | Indoor hub; hydro control room; station bus loads (energy-sims session) |
 
@@ -89,7 +93,6 @@ These names are the **story canon** for this draft map. Adjust as design evolves
       Clearwater Pond   Ridge Line Trail ---- Research Campus
            |                                      |
      Clearwater Run                    Clearwater Diversion
-     (was: Mill Brook)                 (was: Upper Penstock)
            |                                      |
            |                               [powerhouse]
            |                                      │

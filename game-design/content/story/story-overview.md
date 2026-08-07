@@ -210,7 +210,7 @@ _Player goal: learn enough to engage the hydro system, restore power, enjoy the 
 Through the holo-readers, Zanzibar learns what this place really is:
 
 - A **secret research facility**, funded by the **Department of Energy** (or equivalent — details TBD)
-- The campus hydro plant is **high-efficiency diversion hydro** — penstock, turbine, and generator on Mill Brook; advanced beyond typical small installations of the late 20th century
+- The campus hydro plant is **high-efficiency diversion hydro** — penstock, turbine, and generator on Clearwater Run; advanced beyond typical small installations of the late 20th century
 - This is the first clear **sci-fi beat**: we assume energy technology continued to advance over the next ~100 years, and this facility was on the leading edge
 
 _Specific names, mission statements, classification levels, and holo-reader UX — to be developed later._
@@ -239,7 +239,7 @@ See [World & Style Guide](world-and-style.md) for hub layout and [Learning Objec
 
 ### Beat — Hydro operations (core of Part I)
 
-After first power and the holo-reader revelation, Part I shifts from **one-time startup** to **ongoing operation**. Zanzibar must learn everything about **this** plant — not hydro in the abstract, but the Upper Penstock diversion system on Mill Brook — and keep it running reliably. First startup should feel almost too easy; operations then layers real problems in many rounds before the **Part II threshold** — see [Staged Complexity](../progression-design.md#staged-complexity-through-real-world-challenges).
+After first power and the holo-reader revelation, Part I shifts from **one-time startup** to **ongoing operation**. Zanzibar must learn everything about **this** plant — not hydro in the abstract, but the Clearwater Diversion system on Clearwater Run — and keep it running reliably. First startup should feel almost too easy; operations then layers real problems in many rounds before the **Part II threshold** — see [Staged Complexity](../progression-design.md#staged-complexity-through-real-world-challenges).
 
 This phase lasts **at least a few weeks** of game time. The player establishes a **routine**:
 

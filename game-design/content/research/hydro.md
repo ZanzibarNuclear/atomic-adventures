@@ -6,7 +6,7 @@
 
 **Date:** 2026-05-24
 
-For the campus hydro plant (Part I first power), we use **diversion / run-of-river** hydro on **Clearwater Run** (**Clearwater Diversion** plant; **Clearwater Station** bus). Plant of record: sibling `../sims/energy-sims`. Draft name “Mill Brook” is superseded:
+For the campus hydro plant (Part I first power), we use **diversion / run-of-river** hydro on **Clearwater Run** (**Clearwater Diversion** plant; **Clearwater Station** bus). Plant of record: sibling `../sims/energy-sims`. Former draft stream name “Mill Brook” is superseded:
 
 1. **Divert** stream flow at an intake (weir or headworks — not a large impoundment dam)
 2. **Convey** water through a **penstock** downhill
@@ -29,7 +29,8 @@ Part I simulation focus: **startup** (one-time), then **operations** (weeks of m
 
 - Storage dams, spillways, pumped storage — separate chapter or advanced sandbox
 - Full turbine-selector sandbox — after Part I gate is working
-- Working official names into discovery content and retiring remaining Mill Brook / Upper Penstock prose
+- Working official names into **player-facing discovery** content (IDs and
+  author docs already use Clearwater Run / Diversion / Station)
 
 ## Open questions
 

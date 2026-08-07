@@ -171,7 +171,7 @@ simulator with a stage view payload:
 {
   kind: "simulation",
   payload: {
-    simulationId: "hydro-upper-penstock",
+    simulationId: "hydro-clearwater-diversion",
     panelId: "hydro-control-room-panel",
     mode: "startup"
   }
@@ -198,7 +198,7 @@ The simulator reads three classes of data.
 ### Plant Configuration
 
 Plant configuration is authored content. It describes one possible setup for
-the Upper Penstock plant. The game should be able to swap among configuration
+the Clearwater Diversion plant. The game should be able to swap among configuration
 profiles for what-if analysis, author tuning, upgrades, and story progression
 without rewiring game logic.
 
@@ -258,14 +258,14 @@ Configuration swaps should be explicit events:
 ```js
 {
   eventId: "hydro-config-swap-75ft-head",
-  plantId: "upper-penstock",
+  plantId: "clearwater-diversion",
   elapsedMinutes: 1180,
   type: "configuration-selected",
   source: "control-panel",
   actor: "player",
   payload: {
-    previousConfigId: "upper-penstock-baseline",
-    nextConfigId: "upper-penstock-75ft-head",
+    previousConfigId: "clearwater-diversion-baseline",
+    nextConfigId: "clearwater-diversion-75ft-head",
     durable: false
   }
 }
@@ -286,8 +286,8 @@ Example what-if profiles:
 ```js
 [
   {
-    configId: "upper-penstock-50ft-head",
-    plantId: "upper-penstock",
+    configId: "clearwater-diversion-50ft-head",
+    plantId: "clearwater-diversion",
     label: "What if: 50 ft net head",
     profileKind: "what-if",
     equationInputs: {
@@ -298,8 +298,8 @@ Example what-if profiles:
     }
   },
   {
-    configId: "upper-penstock-75ft-head",
-    plantId: "upper-penstock",
+    configId: "clearwater-diversion-75ft-head",
+    plantId: "clearwater-diversion",
     label: "What if: 75 ft net head",
     profileKind: "what-if",
     equationInputs: {
@@ -458,7 +458,7 @@ The input to an interval evaluation is:
 {
   fromElapsedMinutes: 1140,
   toElapsedMinutes: 1200,
-  plantConfigId: "upper-penstock",
+  plantConfigId: "clearwater-diversion",
   startingFacilityState: {},
   startingOperatorInputs: {},
   events: [
@@ -503,7 +503,7 @@ Event records should have a stable shape:
 ```js
 {
   eventId: "hydro-event-1148-pressure-ready",
-  plantId: "upper-penstock",
+  plantId: "clearwater-diversion",
   elapsedMinutes: 1148,
   type: "threshold-crossed",
   source: "simulator",
@@ -694,7 +694,7 @@ Rollups should store aggregates rather than chart pixels:
 
 ```js
 {
-  plantId: "upper-penstock",
+  plantId: "clearwater-diversion",
   bucket: "hour",
   fromElapsedMinutes: 1140,
   toElapsedMinutes: 1200,
@@ -997,7 +997,7 @@ Startup success reports:
 ```js
 {
   outcomeId: "hydro.startup.online",
-  plantId: "upper-penstock",
+  plantId: "clearwater-diversion",
   evaluatedMinutes: 10,
   outputKw: 420,
   energyGeneratedKwh: 70,

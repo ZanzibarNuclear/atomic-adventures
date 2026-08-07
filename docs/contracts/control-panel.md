@@ -121,7 +121,7 @@ Example:
     {
       id: "configuration",
       label: "Configuration",
-      sourceId: "hydro-upper-penstock",
+      sourceId: "hydro-clearwater-diversion",
       sourceType: "simulation",
       readouts: ["active-config", "net-head", "design-flow", "efficiency"],
       controls: ["select-what-if-config"]
@@ -129,7 +129,7 @@ Example:
     {
       id: "generation",
       label: "Generation",
-      sourceId: "hydro-upper-penstock",
+      sourceId: "hydro-clearwater-diversion",
       sourceType: "simulation",
       readouts: ["pressure-gauge", "turbine-speed", "power-output"],
       graphs: ["power-output", "pressure-speed", "flow-head"],
@@ -138,7 +138,7 @@ Example:
     {
       id: "field-systems",
       label: "Field Systems",
-      sourceId: "hydro-upper-penstock",
+      sourceId: "hydro-clearwater-diversion",
       sourceType: "simulation",
       readouts: ["intake-status", "valve-status", "leak-status"],
       actions: ["go-to-intake", "go-to-penstock-valve", "go-to-leak-site"]
@@ -153,7 +153,7 @@ may change without breaking saves.
 ## Hydro First Scope
 
 The first concrete control-panel target is the hydro control-room interface for
-the Upper Penstock plant. It should let the player:
+the Clearwater Diversion plant. It should let the player:
 
 - see the active hydro configuration profile and key equation parameters;
 - compare what-if profiles when the mode allows it;
@@ -331,7 +331,7 @@ Minimum source shape:
 
 ```js
 {
-  sourceId: "hydro-upper-penstock",
+  sourceId: "hydro-clearwater-diversion",
   sourceType: "simulation",
   elapsedMinutes: 1200,
   status: "syncing",
@@ -359,7 +359,7 @@ Controls dispatch registered commands to a target source:
 ```js
 {
   commandId: "hydro.set-entry-valve",
-  targetId: "hydro-upper-penstock",
+  targetId: "hydro-clearwater-diversion",
   payload: {
     entryValvePercent: 35
   }
@@ -415,7 +415,7 @@ Initial connection types:
 
 Connectivity examples for the hydro panel:
 
-- Mill Brook intake sensor;
+- Clearwater Run intake sensor;
 - penstock pressure sensor;
 - entry valve actuator;
 - turbine/generator simulator;
@@ -436,7 +436,7 @@ Graph definition example:
 {
   id: "power-output",
   label: "Power Output",
-  sourceId: "hydro-upper-penstock",
+  sourceId: "hydro-clearwater-diversion",
   windowSeconds: 90,
   series: [
     { field: "generatorOutputKw", label: "Generation", unit: "kW" }
@@ -469,7 +469,7 @@ Example:
 
 ```js
 {
-  sourceId: "hydro-upper-penstock",
+  sourceId: "hydro-clearwater-diversion",
   fromElapsedMinutes: 1140,
   toElapsedMinutes: 1200,
   fields: ["generatorOutputKw", "penstockPressureKpa", "turbineSpeedRpm"],
@@ -482,7 +482,7 @@ Response shape:
 
 ```js
 {
-  sourceId: "hydro-upper-penstock",
+  sourceId: "hydro-clearwater-diversion",
   resolution: "sample",
   samples: [
     {

@@ -54,7 +54,7 @@ but must not reimplement \(P = \eta \rho g Q H\).
 | Piece | Why |
 | --- | --- |
 | `hydro/telemetry.js` (`generateHydroTelemetry`) | Forked power formula |
-| `hydro/config.js` (`upper-penstock` / `mill-brook` baseline) | Superseded plant numbers |
+| `hydro/config.js` (former upper-penstock / mill-brook baseline) | Superseded plant numbers |
 | `hydro/history.js` physics replay via `generateHydroTelemetry` | Alternate universe graphs |
 | `lib/learning/hydroPower.js` if only used by the above | Formula helper for the fork |
 | Tests that assert the old baseline kW numbers | Pin wrong plant |
@@ -83,7 +83,7 @@ but must not reimplement \(P = \eta \rho g Q H\).
 1. Removed `telemetry.js`, `config.js`, `history.js`, `hydroPower.js`,
    legacy `hydroRuntime.test.js`.
 2. Host `state.js` / `events.js` / `startupActions.js` kept; `activeConfigId` gone.
-3. Runtime plant ids use `clearwater-diversion` (not `upper-penstock`).
+3. Runtime plant ids use `clearwater-diversion` (draft upper-penstock retired).
 
 ### Phase 3 — Power model polish (optional same PR or follow-up)
 
@@ -127,8 +127,10 @@ mean for generation and the bus right now?”
 
 ## Out of scope for this rip-out
 
-- Renaming every illustrative `upper-penstock` example in long contract
-  appendices (follow-up doc hygiene).
 - Full load-shed productization and authored `loadW` everywhere.
 - Competitive anti-cheat / authoritative remote sim.
 - Replacing host field actions with pure engine UI.
+
+**Done in follow-up:** draft `upper-penstock` / Mill Brook IDs and prose renamed
+to Clearwater Diversion / Clearwater Run across contracts, design docs, and
+authored content (event `clearwater-diversion-joint`, skill copy, etc.).

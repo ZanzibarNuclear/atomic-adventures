@@ -63,7 +63,7 @@ The hub serves as:
 | **Rations supply** | Immediate survival resource |
 | **Sleeping area** | Zanzibar rests as the sun sets |
 | **Library** | Study material; **holo-readers** (power-gated) for immersive future-style learning |
-| **Hydro control room** | Remote startup of the campus diversion plant (intake, penstock, turbine, generator on Mill Brook) |
+| **Hydro control room** | Remote startup of the campus diversion plant (intake, penstock, turbine, generator on Clearwater Run) |
 
 *Additional campus buildings and outdoor areas — explored via EV buggy after power returns. Discoveries (battery storage array, solar field, Act II reactor tease) are catalogued in [Part I Unlocks](../part-i-unlocks.md#discovery-track-campus-and-other-tech).*
 

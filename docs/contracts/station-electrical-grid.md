@@ -600,6 +600,8 @@ and 6–7 for lighting already apply to current work. Kitchen fixture
 - **2026-08-05** — Plant of record: Clearwater Station session + Clearwater
   Diversion plant in `../sims/energy-sims`; supersedes informal “Upper Penstock”
   generation wording for Part I.
+- **2026-08-07** — Draft Upper Penstock / Mill Brook IDs and copy fully retired
+  in favor of Clearwater Diversion / Clearwater Run.
 - **2026-07-22** — Initial contract: station bus, room lighting switches, load
   ratings, aggregate balance, and brownout/shed policy. Captures intended
   direction before full grid-management implementation.
