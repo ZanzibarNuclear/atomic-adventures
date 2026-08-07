@@ -1,6 +1,6 @@
 # Play Modes And Story Mode Control
 
-**Status:** Target contract
+**Status:** Implemented core (Story mode + multi-slot saves); open-world start UI deferred  
 **Scope:** playable game mode selection, Story mode progression, visible story
 actions, save data, Story Builder arc authoring, and references from world and
 content authoring
@@ -48,8 +48,10 @@ normalized during migration, but they are not permanent design concepts.
 
 ## Design Principles
 
-- **Explicit mode choice.** A new playthrough chooses `story` or
-  `open-world` before ordinary play begins.
+- **Mode is save state.** Saves record `playMode` and Story progress. **Current
+  player UI always starts Story mode** (title Enter / New Game / Restart). An
+  explicit Story vs Open-world chooser remains a product gap; open-world
+  runtime exists and can load if a save already has `playMode: "open-world"`.
 - **Story mode is Zanzibar's point of view.** Story mode presents the authored
   sequence through Zanzibar's perceptions, memories, worries, and guesses. It
   should not name the utility station, hydro facility, eBuggy, or other
@@ -99,39 +101,61 @@ progress:
     activeBeatId: "lost-in-the-woods",
     completedBeatIds: [],
     enteredBeatIds: [],
-    seenSceneIds: []
+    seenSceneIds: [],
+    completedArcIds: [],
+    dismissedCompletionArcIds: []
   },
   milestones: {}
 }
 ```
 
-`playMode` is required. New playthroughs default to `story` unless the player
-chooses `open-world`.
+On a **saved** playthrough, `playMode` is always `"story"` or `"open-world"`.
+Before title **Enter the Game**, in-memory session may use `playMode: null`
+(title only). New playthroughs always start as **story** in the current UI.
 
 `story` is active when `playMode` is `story`. It records the current arc and
-beat plus durable progression state. Milestones are ordinary game state and
-may also satisfy completion conditions or scene criteria.
+beat plus durable progression (including completed arcs and dismissed
+completion cards). Milestones are ordinary game state and may also satisfy
+completion conditions or scene criteria.
 
-Open-world saves keep canonical story progression inactive. They continue to
-persist ordinary player state: location, discoveries, flags, scene seen state,
-character holdings, lessons, clock, milestones, and facility state.
+Open-world saves keep canonical story progression inactive (`story: null`).
+They continue to persist ordinary player state: location, discoveries, flags,
+scene seen state, character holdings, lessons, clock, milestones, and facility
+state.
 
-## Mode Selection
+## Mode Selection (current vs target)
 
-Starting a new game presents an explicit mode choice before normal play:
-
-| Mode | Player-facing promise | Default |
+| Mode | Player-facing promise | Current start path |
 | --- | --- | --- |
-| Story | Experience Zanzibar's story from the inside. | Yes |
-| Open-world | Explore and experiment freely as a player-authored run. | No |
+| Story | Experience Zanzibar's story from the inside. | **Default** — title Enter, New Game, Restart |
+| Open-world | Explore and experiment freely. | Runtime + save shape only; **no new-game chooser** |
 
-For the current implementation, a save cannot switch from `open-world` back
-into `story`. Supporting that later requires a deliberate rejoin contract that
-can map arbitrary world, inventory, and facility states onto a valid story
-beat.
+**Current title flow (alpha):**
 
-A future one-way "continue as open-world" escape from Story mode may be added
-when useful, but it is not required for the current implementation.
+1. No occupied slots → wipe/start **Game 1** in Story mode.
+2. One or more saves → load the most recently saved occupied slot (no mode interstitial).
+3. **New Game** → first empty slot, or pick a slot to replace when all three are full.
+4. **Restart Game N** → wipe that slot and start Story again.
+
+A save cannot switch from `open-world` back into `story`. Supporting that later
+requires a deliberate rejoin contract. A future one-way escape from Story to
+open-world may be added when useful.
+
+## Save slots and session lifecycle
+
+Authoritative multi-slot product behavior (code: `useSaveGame.js`, `GameView.vue`,
+`AppHeader.vue`, `TitleScreen.vue`, `SaveGamesDialog.vue`):
+
+| Rule | Behavior |
+| --- | --- |
+| Slot count | Three independent games (Game 1–3) in `localStorage` |
+| Active slot | Persisted separately; menus act on the active or chosen game |
+| Dirty session | Unsaved progress prompts before switch / restart / new game when dirty |
+| Save | Writes full snapshot for the active slot (mode, story, location, flags, holdings, clock, facility, doors, …) |
+| Play (menu) | Load that slot if occupied, else start Story in that slot |
+| Failure (health collapse) | **Restart Game {active}** (wipe slot) or **New Game** (other open slot / pick replace) |
+
+Legacy single-save keys migrate into Game 1 when present.
 
 ## Story Arc Content
 

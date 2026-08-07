@@ -3,8 +3,10 @@ import { computed, ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { pointsAttr } from '../composables/useRoutes.js'
 import { useSvgDragHandles } from '../composables/useSvgDragHandles.js'
 import { useHexMapViewport } from '../composables/useHexMapViewport.js'
+import { useHexMapCamera } from '../composables/useHexMapCamera.js'
 import { useHexMapPlacements } from '../composables/useHexMapPlacements.js'
 import { useHexMapInteractions } from '../composables/useHexMapInteractions.js'
+import { resolveAvatarPosition } from '../composables/useAvatarStand.js'
 import MapAvatar from './map/MapAvatar.vue'
 import MapEditHandlesLayer from './map/MapEditHandlesLayer.vue'
 import HexMapShell from './hex/HexMapShell.vue'
@@ -84,9 +86,46 @@ const { onHandleDown, clientToSvg } = useSvgDragHandles(mapSvgRef, {
   onMove: (payload) => emit('waypoint-move', payload),
 })
 
+const mapSize = computed(() => props.mapData?.size ?? 44)
+const currentHexData = computed(() =>
+  (props.mapData?.hexes ?? []).find((hex) => hex.id === props.currentHex) ?? null,
+)
+
+/** World-space focus for camera recenter (avatar stand preferred). */
+const focusPoint = computed(() => {
+  const hex = currentHexData.value
+  if (!hex) return null
+  if (
+    props.standOverride?.hexId === hex.id &&
+    props.standOverride?.standAt
+  ) {
+    return props.standOverride.standAt
+  }
+  return resolveAvatarPosition(hex, mapSize.value)
+})
+
+const playerCameraEnabled = computed(
+  () => !props.builderView && !props.viewBoxOverride,
+)
+
+const {
+  viewBoxObject: cameraViewBox,
+  viewBoxString: cameraViewBoxString,
+  onWheel,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onClickCapture,
+} = useHexMapCamera({
+  mapSvgRef,
+  focusPoint,
+  size: mapSize,
+  panelAspect,
+  enabled: playerCameraEnabled,
+})
+
 const {
   size,
-  allHexes,
   discoveredSet,
   current,
   visibleHexes,
@@ -102,6 +141,18 @@ const {
   mode: computed(() => props.mode),
   builderView: computed(() => props.builderView),
   panelAspect,
+  cameraViewBox: computed(() =>
+    playerCameraEnabled.value ? cameraViewBox.value : null,
+  ),
+  focusPoint: computed(() =>
+    playerCameraEnabled.value ? focusPoint.value : null,
+  ),
+})
+
+const displayViewBox = computed(() => {
+  if (props.viewBoxOverride) return props.viewBoxOverride
+  if (playerCameraEnabled.value) return cameraViewBoxString.value
+  return viewBox.value
 })
 
 const {
@@ -162,9 +213,16 @@ const {
     <svg
       ref="mapSvgRef"
       class="map-svg"
-      :viewBox="viewBoxOverride || viewBox"
+      :class="{ interactive: playerCameraEnabled }"
+      :viewBox="displayViewBox"
       preserveAspectRatio="xMidYMid meet"
       @click="onSvgClick"
+      @click.capture="onClickCapture"
+      @wheel.prevent="onWheel"
+      @pointerdown="onPointerDown"
+      @pointermove="onPointerMove"
+      @pointerup="onPointerUp"
+      @pointercancel="onPointerUp"
     >
       <HexFogLayer
         :fog-hexes="fogHexes"

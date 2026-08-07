@@ -177,6 +177,70 @@ describe("character state", () => {
     expect(itemQuantity(state.holdings, "startup-card", { holderId: "fixed:console" })).toBe(0);
   });
 
+  it("does not respawn a consumed authored item when reloading a save", () => {
+    // Reproduces: eat neutron bar (wrapper remains), save, switch games, reload —
+    // mergeAuthored used to re-insert the bar into the backpack.
+    const withBar = {
+      ...definitions,
+      items: [
+        ...definitions.items,
+        { id: "neutron-bar", label: "Neutron Energy Bar", carrying: "unique", maxQuantity: 1 },
+        { id: "empty-wrapper", label: "Empty wrapper", carrying: "unique", maxQuantity: 1 },
+      ],
+      holdings: {
+        holders: {
+          "character:player": { id: "character:player", kind: "character", label: "Holding" },
+          "instance:pack-1": {
+            id: "instance:pack-1",
+            kind: "container",
+            label: "Pack",
+          },
+        },
+        instances: {
+          "pack-1": { item: "pack", holder: "character:player" },
+          "neutron-bar-1": { item: "neutron-bar", holder: "instance:pack-1" },
+        },
+        stacks: {},
+        nextId: 3,
+      },
+    };
+    const state = createCharacterState(withBar);
+
+    // After eating: bar gone, wrapper held, nextId past the bar id.
+    applyCharacterState(state, {
+      holdings: {
+        holders: {
+          "character:player": { id: "character:player", kind: "character", label: "Holding" },
+          "instance:pack-1": {
+            id: "instance:pack-1",
+            kind: "container",
+            label: "Pack",
+          },
+        },
+        instances: {
+          "pack-1": { item: "pack", holder: "character:player" },
+          "empty-wrapper-2": { item: "empty-wrapper", holder: "character:player" },
+        },
+        stacks: {},
+        nextId: 3,
+      },
+    }, { mergeAuthored: false });
+
+    expect(itemQuantity(state.holdings, "neutron-bar")).toBe(0);
+    expect(itemQuantity(state.holdings, "empty-wrapper")).toBe(1);
+
+    // Live authoring refresh must not resurrect the eaten bar.
+    syncCharacterDefinitions(state, withBar);
+    expect(itemQuantity(state.holdings, "neutron-bar")).toBe(0);
+    expect(itemQuantity(state.holdings, "empty-wrapper")).toBe(1);
+
+    // Save/load path (mergeAuthored false on apply) stays authoritative.
+    const snap = captureCharacterState(state);
+    applyCharacterState(state, snap);
+    expect(itemQuantity(state.holdings, "neutron-bar")).toBe(0);
+    expect(itemQuantity(state.holdings, "empty-wrapper")).toBe(1);
+  });
+
   it("round-trips all character domains", () => {
     const state = createCharacterState(definitions);
     applyCharacterState(state, {

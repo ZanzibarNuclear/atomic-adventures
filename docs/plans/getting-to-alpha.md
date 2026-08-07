@@ -1,9 +1,10 @@
 # Getting to Alpha
 
-**Status:** In progress — pillars shipped; end-to-end Story pass and polish remain  
-**Last updated:** 2026-07-20  
+**Status:** **Alpha release** — pillars + multi-slot saves + known-area travel; open Story path polish remains  
+**Last updated:** 2026-08-06  
 **Public reference build:** https://fun.atomicambitions.com (main deploy)  
 **Playtest script:** [alpha-story-mode-playtest.md](alpha-story-mode-playtest.md)  
+**Contract audit:** [contract-audit-alpha.md](contract-audit-alpha.md)  
 **Quality checklist:** [Character, Inventory, and Game-View Regression Checklist](../quality/character-inventory-regression-checklist.md)
 
 **Primary contracts:** [Play Modes And Story Mode](../contracts/play-modes-and-story-mode.md), [Story Beats And Scenes](../contracts/story-beats.md), [Stage Views](../contracts/stage-views.md), [Holo-Reader](../contracts/holo-reader.md), [Control Panel](../contracts/control-panel.md), [Hydro Simulator](../contracts/hydro-simulator.md), [Character, Artifacts, and Inventory Management](../contracts/character-inventory.md)
@@ -54,17 +55,23 @@ Related plumbing that is also in place for the alpha loop:
 
 ## Definition of done
 
-Alpha is ready when **all** of the following are true:
+**Alpha call (2026-08):** pillars are shipped and the loop is playable enough for
+external try. Checkboxes below track **confidence** for a polished alpha / early
+v1, not a gate that blocks tagging alpha.
 
-- [ ] A new player can finish **survival → hydro online** in Story mode without a soft-lock.
-- [ ] Scene prose order and actions agree with the card/console model (no contradictory procedures).
-- [ ] Food/water and first-night paths complete the station arc and apply understandable wellbeing effects (or intentional, labeled alternatives).
-- [ ] After power, electrical affordances do not claim to be active when the station is offline.
-- [ ] Player can open the beginner hydro lesson after power (pillar 1 exercised at least once in the run).
-- [ ] Save/load preserves mode, arc/beat, inventory, flags, and hydro facility state at mid-path checkpoints.
-- [ ] Hands-on browser pass logged (manual findings section below).
-- [ ] `npm run test` and `npm run build:game` still pass from repo root (see also test-effectiveness work item).
-- [ ] Prioritized punchlist below is empty of P0 items (P1/P2 optional for alpha call).
+- [x] Story vs Open-world runtime + Story default start (open-world chooser deferred).
+- [x] Multi-slot save / title resume / New Game / Restart / failure restart.
+- [x] Known-area free travel outdoor + indoor (room graph) + door manners.
+- [x] Pre-empty wellbeing alerts + health failure panel.
+- [ ] A new player can finish **survival → hydro online** without soft-lock (manual path proof).
+- [ ] Scene prose / card / console procedures agree.
+- [ ] Food/water dual path is fair (man-door vs garage) with real recovery.
+- [ ] After power, offline electrical claims are honest.
+- [ ] Beginner hydro lesson reachable after power at least once.
+- [x] Save/load preserves mode, arc/beat, inventory, flags, facility (unit + design).
+- [ ] Full hands-on Story browser pass logged end-to-end.
+- [x] `npm run test` green on recent work (maintain on release branch).
+- [ ] P0 path items below empty or accepted as known issues for alpha notes.
 
 ---
 
@@ -74,14 +81,14 @@ Priorities will be reordered after manual findings are in. **Do not treat this
 list as closed.** Items marked _audit_ came from content/runtime review, not
 yet confirmed in browser.
 
-### P0 — Likely blockers or trust breakers
+### P0 — Path trust (post-alpha-tag polish / v1)
 
 | ID   | Source   | Item                                    | Notes                                                                                                                                                                                                                      |
 | ---- | -------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | P0-1 | audit F4 | End-of-hydro console beat can auto-skip | `connect-power` sets `online` **and** `startupComplete`. Beats `check-console` and `complete-startup` both complete on those, so “check the console” may not require a real player step (console may flash via `onEnter`). |
 | P0-2 | audit F6 | Food/water dual path                    | Kitchen choice **Eat and drink** only sets flags. Real satiety/hydration actions require `story.the-garage` (garage-front scene). Man-door-only path may “complete” night without real recovery.                           |
 | P0-3 | process  | Full manual Story mode browser pass     | Gate path + hole path + sleep + field + power + lesson + save/load. Script: [alpha-story-mode-playtest.md](alpha-story-mode-playtest.md).                                                                                  |
-| P0-4 | process  | Automated play path coverage            | Playwright/smoke path that exercises mode select → early story → (later) key gates. Unit suite alone is not trusted as path proof.                                                                                         |
+| P0-4 | process  | Automated play path coverage            | Optional smoke path; **not** required for alpha tag. Prefer invariant tests only ([AGENTS.md](../../AGENTS.md)).                                                                                                           |
 
 ### P1 — Confusing path / prose that undermines alpha
 
@@ -98,20 +105,26 @@ yet confirmed in browser.
 | ---- | --------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | P2-1 | audit F9        | Typos / tone                                               | e.g. “Partical Physics”, “Quantum Machanics”, “somem time”, “Get you water here”.                                                                                         |
 | P2-2 | audit           | Stale production JSON snapshot                             | Checked-in `game/public/content/utility-station.json` lagged SQLite for `rest-in-library` flags; confirm build export path and live site after deploy.                    |
-| P2-3 | process         | Verify and improve effectiveness of automated tests        | Hypothesis: many tests pin content existence or incidental structure, not player-facing invariants. Audit suite; keep invariant tests; delete or replace misleading ones. |
-| P2-4 | docs            | Refresh stale `feature-gaps.md` and contract status labels | Gaps still list shipped work (mode select, StoryArc, holo MVP, etc.). Misleads alpha triage.                                                                              |
+| P2-3 | process         | Cull worthless automated tests                             | Keep only tests that prove named correct behavior ([AGENTS.md](../../AGENTS.md)). Optional post-alpha.                                                                   |
+| P2-4 | docs            | Remaining low-priority contract drift                      | See [contract-audit-alpha.md](contract-audit-alpha.md); high-priority gaps refreshed 2026-08-06.                                                                          |
 | P2-5 | browser-confirm | Fixed items need human confirm                             | F1 hole arc, F2 rest/sleep flags, F3 station start beat, F5 completion card copy.                                                                                         |
 
-### Explicitly post-alpha (do not expand alpha unless loop is blocked)
+### Explicitly post-alpha → useful for production v1
 
-- Detailed plug/unplug/turn-off and brownout/load modeling.
-- eBuggy battery, charge range, gauge panel, driving simulation.
-- AI station assistant.
-- Part I battery bank location/capacity story beyond the hidden buffer assumption.
-- Interactive hydro field close-ups (intake/valve/turbine) beyond stills + actions.
-- Scene Builder full rename / first-class Scenes workspace (`scene-builder-workspace.md`).
-- Holo-reader author validation warnings and richer completion rules.
-- Close-up rides, video kinds, simulation outcome sandbox (beyond current console/lesson/document).
+Prioritize after path soft-locks are fixed:
+
+| Track | Items |
+| --- | --- |
+| **Story trust** | P0-1 console step, P0-2 food/water, prose P1-1/P1-2, lesson on path P1-3 |
+| **Survival UX** | Real rest/sleep at zero energy; composure action distortion later |
+| **Mode product** | Optional open-world start chooser |
+| **Electrical v1** | Authored loadW, visible brownout/shed (beyond coarse host loads) |
+| **Kitchen v1** | Stove/induction fixtures if meals need them |
+| **Close-ups** | Video/ride/sim sandbox per close-up plan |
+| **Authoring** | Scene workspace (`scene-builder-workspace.md`); holo validation warnings |
+| **Platform** | Account/save backend when registration exists |
+
+Still explicitly later: eBuggy campaign, AI assistant, full campus grid, fusion/AP-1000.
 
 ---
 

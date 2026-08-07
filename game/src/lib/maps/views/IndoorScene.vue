@@ -115,8 +115,13 @@ const chooseActions = computed(() =>
 
 watch(
   () => props.indoor.indoor?.currentRoom ?? null,
-  () => {
+  (room, previousRoom) => {
+    // Skip the initial subscription value so loading a save does not race
+    // the "Resuming Game N" notice.
+    if (previousRoom === undefined) return;
     clearPlayMessages("action");
+    // Leave "resume" alone here — snapshot loads change rooms and would
+    // wipe the notice; outdoor moves / indoor actions clear it instead.
   },
 );
 
@@ -135,6 +140,8 @@ watch(
 onBeforeUnmount(() => {
   clearPlayMessages("action");
   clearPlayMessages("nearby-items");
+  // Do not clear "resume" here — unmounting while switching games would
+  // wipe the notice that was just posted for the incoming save.
 });
 
 const statusLines = computed(() =>
@@ -156,6 +163,7 @@ const filteredActions = computed(() =>
 
 function publishActionNotice(result) {
   clearPlayMessages("action");
+  clearPlayMessages("resume");
   if (result?.notice) {
     pushPlayMessage(result.notice, { source: "action", tone: "notice" });
   }
@@ -169,6 +177,7 @@ function onAction(id) {
   }
   if (id.startsWith("story:")) {
     clearPlayMessages("action");
+    clearPlayMessages("resume");
     handleIndoorChooseAction(
       props.indoor,
       props.applyChoice,
@@ -208,6 +217,9 @@ const mapStageProps = computed(() => ({
     isActionAllowed(`exit-world:${doorId}`, props.actionPolicy)
   ),
   hydroDiscovered: props.indoor.hydroDiscovered ?? false,
+  // Player camera: same wheel-zoom + drag-pan as outdoor hex gameplay.
+  wheelZoom: true,
+  dragPan: true,
 }));
 
 const mapStageListeners = computed(() => ({

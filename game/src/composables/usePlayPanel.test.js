@@ -116,6 +116,48 @@ describe("indoor door actions", () => {
     expect(buildIndoorPlayActions(indoor).map((action) => action.id))
       .toContain("door-lock:hallway-small-bay");
   });
+
+  it("from exterior: locked key door offers break, not open or unlock", () => {
+    const door = {
+      id: "side-man",
+      label: "side door",
+      kind: "man",
+      lock: { key: "side-man-key", freeFrom: "inside" },
+    };
+    const doorState = {
+      "synth:side-man": { open: false, locked: true, lockBroken: false },
+    };
+    const indoor = {
+      roomPickups: [],
+      availableActions: [],
+      nearbyDoors: [{ doorId: "side-man", toRoomId: "inside", toName: "Inside" }],
+      playerRoomId: null,
+      building: {
+        areaId: "synth",
+        doors: [door],
+        doorById: { [door.id]: door },
+        links: [],
+        roomById: { inside: { id: "inside", label: "Inside" } },
+      },
+      indoor: {
+        currentRoom: null,
+        exteriorNode: "side-entry",
+        currentStand: null,
+        doorState,
+        facility: {},
+        discovered: new Set(),
+      },
+      character: { holdings: { holders: {}, instances: {}, stacks: {} }, definitions: { items: [] } },
+      doorStateFor: () => doorState["synth:side-man"],
+      doorLockHint: () => "Need key: side man key",
+      canToggleDoorLock: () => false,
+    };
+
+    const ids = buildIndoorPlayActions(indoor).map((action) => action.id);
+    expect(ids).toContain("door-break:side-man");
+    expect(ids).not.toContain("door-open:side-man");
+    expect(ids).not.toContain("door-lock:side-man");
+  });
 });
 
 function indoorWithReachable({ pickups = [] } = {}) {
@@ -368,7 +410,9 @@ describe("outdoor barrier search feedback", () => {
     })).toBe("You search the streambank carefully, but find no safe place to cross.");
   });
 
-  it("includes stream search results in status lines", () => {
+  it("does not keep barrier search results as ongoing status lines", () => {
+    // Discovery feedback is a one-shot play message; sticky status confused
+    // players who left the hole and walked to the gate without crossing.
     const outdoor = {
       state: {
         lastSearch: {
@@ -382,9 +426,9 @@ describe("outdoor barrier search feedback", () => {
       barrierCutsCurrentHex: () => false,
       lockedPassageActions: [],
     };
-    expect(buildOutdoorStatusLines(outdoor, { building: { label: "Utility Station" } })).toContain(
-      "You find a shallow ford across the stream.",
-    );
+    const lines = buildOutdoorStatusLines(outdoor, { building: { label: "Utility Station" } });
+    expect(lines).not.toContain("You find a shallow ford across the stream.");
+    expect(lines).not.toContain("On closer inspection, you have found a hole in the fence.");
   });
 
   it("mentions both fence and stream when both cut the hex", () => {

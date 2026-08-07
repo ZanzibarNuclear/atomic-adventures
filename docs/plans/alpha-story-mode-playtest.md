@@ -1,6 +1,6 @@
 # Alpha Story Mode Playtest Script + A1 Audit
 
-**Status:** Script ready; high-confidence fixes landed (hole arc, cards, sleep, station handoff)  
+**Status:** Script ready for alpha external play; high-confidence fixes landed (hole arc, cards, sleep, station handoff). Full end-to-end browser log still open.  
 **Last updated:** 2026-07-18  
 **Source of truth:** live `game/content/atomic-adventures.sqlite` + runtime (`useStoryArc`, hydro facility actions)  
 **Parent plan:** [getting-to-alpha.md](getting-to-alpha.md)

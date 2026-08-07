@@ -127,7 +127,11 @@ export function applySnapshot(snapshot, { gameState, place, outdoor, indoor }) {
   indoor.indoor.flags = gameState.flags;
   gameState.storySeen = new Set(snapshot.storySeen ?? []);
   gameState.clock = createGameClock(snapshot.clock);
-  if (snapshot.character) applyCharacterState(gameState.character, snapshot.character);
+  // Saved holdings are authoritative — do not re-merge authored starting
+  // inventory (that respawned consumed items like the Neutron Energy Bar).
+  if (snapshot.character) {
+    applyCharacterState(gameState.character, snapshot.character, { mergeAuthored: false });
+  }
   gameState.lessons = plainObject(snapshot.lessons);
   gameState.milestones = plainObject(snapshot.milestones);
   gameState.playMode = normalizePlayMode(snapshot.playMode);

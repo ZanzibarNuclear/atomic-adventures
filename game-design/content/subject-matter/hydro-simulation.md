@@ -2,33 +2,51 @@
 
 [DRAFT] — Specification for hydroelectric power simulations.
 
+## Plant of record
+
+**2026-08-05:** Generation and station-bus behavior for Part I use the
+solidified Stage 1 model in sibling **`../sims/energy-sims`**.
+
+| Name | Role |
+|------|------|
+| **Clearwater Run** | Stream (discovery-gated name) |
+| **Clearwater Diversion** | Hydro plant fixture |
+| **Clearwater Station** | Utility station + local grid session |
+
+See [Regional Geography](../story/regional-geography.md) and
+[docs/contracts/hydro-simulator.md](../../../docs/contracts/hydro-simulator.md).
+Older draft labels (Mill Brook, Upper Penstock) are superseded; remaining
+prose below will be renamed in a later pass.
+
 ## Part I Focus — Hydro as the spine of Part I
 
 Part I is **hydro-centric**. Zanzibar must:
 
 1. **Start** the campus diversion plant (one-time startup gate)
-2. **Learn** this plant in depth — the Upper Penstock system on Mill Brook, not hydro in the abstract
+2. **Learn** this plant in depth — **Clearwater Diversion** on **Clearwater Run**, not hydro in the abstract
 3. **Operate** it reliably for **weeks** — maintenance routine, responding to stream conditions
-4. **Manage** campus power — balance generation against load across campus circuits
+4. **Manage** campus power — balance generation against load across campus circuits at **Clearwater Station**
 5. **Qualify** for Part II — sustained competent operation unlocks the PV chapter (solar field already discovered on eBuggy tour)
 
-There is **no large dam or reservoir**. Water is diverted from Mill Brook through a **penstock** to a **turbine–generator** in the hillside **powerhouse**, controlled from the **hydro control room** in the main building.
+There is **no large dam or reservoir**. Water is diverted from Clearwater Run through a **penstock** to a **turbine–generator** in the hillside **powerhouse**, controlled from the **hydro control room** in the main building (Clearwater Station).
 
 See [Hydro research notes](../research/hydro.md) and [Story Overview](../story/story-overview.md#beat--hydro-operations-core-of-part-i).
 
 ## Plant Layout (Campus)
 
 ```
-Mill Brook (mountain stream)
+Clearwater Run (mountain stream / run)
       │
       ▼
   Intake / weir ──► penstock (pipe downhill) ──► turbine ──► generator
       │                                              │
-      └────────────── tailrace back to brook ◄────────┘
+      └────────────── tailrace back to run ◄──────────┘
                               │
-                    transmission to campus
+              Clearwater Diversion (powerhouse)
                               │
-                    Hydro control room (main building)
+                    transmission to campus bus
+                              │
+         Hydro control room (Clearwater Station)
 ```
 
 | Component | Role in story / sim |
@@ -221,5 +239,6 @@ The components and their tracked states are:
 - [Part I Unlocks](../part-i-unlocks.md) — challenge IDs, ops rounds, discovery track
 - [Hydro research notes](../research/hydro.md)
 - [Story Overview](../story/story-overview.md) — first power beat
-- [Regional Geography](../story/regional-geography.md) — Mill Brook, Upper Penstock plant
+- [Regional Geography](../story/regional-geography.md) — Clearwater Run, Clearwater Diversion, Clearwater Station
+- [energy-sims](../../../../sims/energy-sims/README.md) — plant-of-record engine and Clearwater fixtures
 - [Learning Objectives](../learning-objectives.md)

@@ -125,6 +125,19 @@ export function panViewBoxByPixels(viewBox, dx, dy, viewportWidth, viewportHeigh
   }
 }
 
+/** Keep zoom/size; move the viewBox so focus sits at the center. */
+export function recenterViewBoxOnFocus(viewBox, focus) {
+  if (!viewBox || !focus) return viewBox
+  if (!Number.isFinite(focus.x) || !Number.isFinite(focus.y)) return viewBox
+  if (!(viewBox.w > 0) || !(viewBox.h > 0)) return { ...viewBox }
+  return {
+    x: focus.x - viewBox.w / 2,
+    y: focus.y - viewBox.h / 2,
+    w: viewBox.w,
+    h: viewBox.h,
+  }
+}
+
 export function rotatePointAround(point, pivot, degrees) {
   const rad = (degrees * Math.PI) / 180
   const dx = point.x - pivot.x
@@ -274,6 +287,30 @@ export function useGridMapTransform({
 
   const viewBoxRect = computed(() => wheelViewBox.value ?? fittedViewBoxRect.value)
 
+  /** After zoom/pan, follow the avatar while preserving the current zoom level. */
+  function recenterWheelOnFocus() {
+    if (!wheelViewBox.value) return
+    if (viewportMode.value !== 'gameplay') return
+    const focus = tp(gameplayFocus.value.x, gameplayFocus.value.y)
+    wheelViewBox.value = recenterViewBoxOnFocus(wheelViewBox.value, focus)
+  }
+
+  // Avatar / stand / room moved → keep them centered (preserve zoom)
+  watch(
+    () => {
+      const p = gameplayFocus.value
+      return p && Number.isFinite(p.x) && Number.isFinite(p.y) ? `${p.x},${p.y}` : ''
+    },
+    () => {
+      recenterWheelOnFocus()
+    },
+  )
+
+  // Rotation rewrites screen-space coordinates; re-anchor on focus at same zoom
+  watch(mapRotation, () => {
+    recenterWheelOnFocus()
+  })
+
   function zoomByWheel(factor, anchorX = 0.5, anchorY = 0.5) {
     if (!wheelZoomEnabled?.value) return
     const fitted = fittedViewBoxRect.value
@@ -416,5 +453,6 @@ export function useGridMapTransform({
     placedGridLines,
     zoomByWheel,
     setViewBox,
+    recenterWheelOnFocus,
   }
 }

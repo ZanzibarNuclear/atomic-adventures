@@ -251,15 +251,15 @@ defineExpose({ rootRef })
   stroke-width: 1.5;
 }
 .compass-needle {
-  stroke: #6db97f;
+  stroke: var(--color-brand, #20c8fb);
   stroke-width: 2.5;
   stroke-linecap: round;
 }
 .compass-dot {
-  fill: #6db97f;
+  fill: var(--color-brand, #20c8fb);
 }
 .compass-n {
-  fill: #6db97f;
+  fill: var(--color-brand, #20c8fb);
   font-size: 8px;
   font-weight: 700;
   text-anchor: middle;

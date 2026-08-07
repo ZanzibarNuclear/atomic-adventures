@@ -1,9 +1,18 @@
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, unref, watch } from "vue";
 import { useHydroFacility } from "./useHydroFacility.js";
+import { deriveStationLoads } from "../lib/simulations/energySim/hostStationLoads.js";
 
 const MONITOR_SAMPLE_MS = 1000;
 const MONITOR_MINUTES_PER_SAMPLE = 1;
 const MAX_VISIBLE_SAMPLES = 48;
+
+/** Engine advisory strings → Note (not alarming). Host problems stay Warning/Fault. */
+const ENGINE_NOTE_PATTERNS = [
+  /exceeds design flow/i,
+  /capped at ratedPowerKw/i,
+  /capped at maxSafeFlow/i,
+  /plant offline/i,
+];
 
 const statusLabels = {
   "configuration-missing": "Configuration missing",
@@ -24,13 +33,15 @@ const diagnosticLabels = {
   "intake-debris-reducing-flow": "Debris is reducing captured flow.",
   "intake-needs-clearing": "The intake still needs field clearing.",
   "low-pressure": "Penstock pressure is below the startup target.",
-  "low-stream-flow": "Mill Brook flow is below the useful range.",
+  "low-stream-flow": "Stream flow is below the useful range.",
   "low-turbine-speed": "The turbine is below the target speed.",
   "major-penstock-leak": "A major penstock leak is preventing stable operation.",
   "manual-valves-not-open": "Manual valves are not fully open.",
   "penstock-leakage": "Penstock leakage is reducing output.",
   "station-power-off": "Station power is offline.",
   "startup-incomplete": "The generator startup sequence is incomplete.",
+  "grid-brownout": "Station demand is near or above available generation.",
+  "grid-shortage": "Station load exceeds available generation.",
 };
 
 const guidedActionLabels = {
@@ -56,7 +67,13 @@ const guidedActionLabels = {
   },
 };
 
-export function useHydroConsoleMonitor(gameState, validPanel) {
+/**
+ * @param {object} gameState
+ * @param {import('vue').Ref<boolean>|boolean} validPanel
+ * @param {import('vue').Ref<object|null>|object|null} [stationContextRef]
+ *   Optional reactive context: { facility, activeStageKind, flags }
+ */
+export function useHydroConsoleMonitor(gameState, validPanel, stationContextRef = null) {
   const hydroFacility = useHydroFacility(gameState);
   const hydroState = hydroFacility.hydroState;
   const sampleBuffer = ref([]);
@@ -68,36 +85,73 @@ export function useHydroConsoleMonitor(gameState, validPanel) {
   const latestSample = computed(() => sampleBuffer.value.at(-1) ?? null);
   const telemetry = computed(() => latestSample.value?.telemetry ?? hydroFacility.telemetry.value);
   const statusLabel = computed(() => statusLabels[telemetry.value.status] ?? telemetry.value.status);
-  const diagnostics = computed(() => [
-    ...telemetry.value.faults.map((id) => diagnosticLine(id, "Fault")),
-    ...telemetry.value.warnings.map((id) => diagnosticLine(id, "Warning")),
-    ...(!hydroState.value.online ? [diagnosticLine("station-power-off", "Warning")] : []),
-  ]);
+  const diagnostics = computed(() => buildDiagnostics(telemetry.value, hydroState.value));
   const guidedActions = computed(() => nextGuidedActions(hydroState.value));
   const readouts = computed(() => buildReadouts(telemetry.value));
   const fieldChecks = computed(() => buildFieldChecks(hydroState.value));
   const markerLines = computed(() => markerPositions(sampleBuffer.value, eventMarkers.value));
+  // Clearwater Diversion is ~8 kW rated; scale graphs to plant of record.
   const powerGraph = computed(() => graphSeries(sampleBuffer.value, [
-    { id: "power", label: "Power output", color: "#88d68d", metric: "generatorOutputKw", max: 1 },
+    { id: "power", label: "Power output", color: "#88d68d", metric: "generatorOutputKw", max: 10 },
   ]));
   const pressureSpeedGraph = computed(() => graphSeries(sampleBuffer.value, [
-    { id: "pressure", label: "Pressure", color: "#66b8e6", metric: "penstockPressureKpa", max: 180 },
-    { id: "speed", label: "Turbine speed", color: "#ffd36f", metric: "turbineSpeedRpm", max: 1000 },
+    { id: "pressure", label: "Pressure", color: "#66b8e6", metric: "penstockPressureKpa", max: 300 },
+    { id: "speed", label: "Turbine speed", color: "#ffd36f", metric: "turbineSpeedRpm", max: 1200 },
   ]));
 
-  function addMonitorSample() {
-    if (!validPanel.value) return;
+  function engineOptions(extra = {}) {
+    const ctx = unref(stationContextRef) ?? {};
+    const facility = ctx.facility ?? null;
+    const loads = deriveStationLoads({
+      hydroOnline: hydroState.value.online,
+      facility,
+      activeStageKind: ctx.activeStageKind ?? null,
+      flags: ctx.flags ?? gameState.flags,
+    });
+    return { loads, ...extra };
+  }
+
+  async function addMonitorSample() {
+    if (!unref(validPanel)) return;
     const elapsedSimMinutes = monitorStartedAtElapsedMinutes.value +
       Math.floor((Date.now() - monitorStartedAtMs.value) / MONITOR_SAMPLE_MS) * MONITOR_MINUTES_PER_SAMPLE;
+    let nextTelemetry;
+    try {
+      // Keep loads in sync each tick (setLoad via refresh/sync path)
+      await hydroFacility.refreshEngine({
+        ...engineOptions({ durationSecs: 0.05 }),
+      });
+      nextTelemetry = await hydroFacility.tickEngine(1);
+    } catch {
+      nextTelemetry = hydroFacility.readTelemetry();
+    }
     const sample = {
       id: `sample-${elapsedSimMinutes}-${sampleBuffer.value.length}`,
       elapsedMinutes: elapsedSimMinutes,
-      telemetry: hydroFacility.readTelemetry(),
+      telemetry: nextTelemetry,
     };
     sampleBuffer.value = [...sampleBuffer.value, sample].slice(-MAX_VISIBLE_SAMPLES);
   }
 
-  function loadHistorySamples() {
+  async function loadHistorySamples() {
+    try {
+      await hydroFacility.refreshEngine(engineOptions({
+        durationSecs: hydroState.value.online ? 25 : 2,
+      }));
+    } catch {
+      // legacy graph path below
+    }
+    const latest = hydroFacility.readTelemetry();
+    if (latest?.source === "energy-sims") {
+      const now = elapsedMinutes(gameState);
+      sampleBuffer.value = [{
+        id: `sample-engine-${now}`,
+        elapsedMinutes: now,
+        telemetry: latest,
+      }];
+      eventMarkers.value = [];
+      return;
+    }
     const graphData = hydroFacility.readGraphData({
       fromElapsedMinutes: Math.max(0, elapsedMinutes(gameState) - 60),
       stepMinutes: 5,
@@ -107,14 +161,24 @@ export function useHydroConsoleMonitor(gameState, validPanel) {
   }
 
   onMounted(() => {
-    loadHistorySamples();
-    if (!sampleBuffer.value.length) addMonitorSample();
-    monitorTimer = window.setInterval(addMonitorSample, MONITOR_SAMPLE_MS);
+    void loadHistorySamples().then(() => {
+      if (!sampleBuffer.value.length) void addMonitorSample();
+    });
+    monitorTimer = window.setInterval(() => {
+      void addMonitorSample();
+    }, MONITOR_SAMPLE_MS);
   });
 
   onBeforeUnmount(() => {
     if (monitorTimer != null) window.clearInterval(monitorTimer);
   });
+
+  if (stationContextRef && typeof stationContextRef === "object" && "value" in stationContextRef) {
+    watch(stationContextRef, () => {
+      if (!unref(validPanel)) return;
+      void hydroFacility.refreshEngine(engineOptions({ durationSecs: 1 }));
+    }, { deep: true });
+  }
 
   return {
     diagnostics,
@@ -131,11 +195,45 @@ export function useHydroConsoleMonitor(gameState, validPanel) {
   };
 }
 
+function buildDiagnostics(telemetry, hydroState) {
+  const items = [];
+  for (const id of telemetry.faults ?? []) {
+    items.push(diagnosticLine(id, "Fault"));
+  }
+  for (const id of telemetry.warnings ?? []) {
+    items.push(diagnosticLine(id, kindForDiagnostic(id)));
+  }
+  if (!hydroState.online) {
+    items.push(diagnosticLine("station-power-off", "Warning"));
+  }
+  const gridStatus = telemetry.gridStatus;
+  if (gridStatus === "brownout") {
+    items.push(diagnosticLine("grid-brownout", "Warning"));
+  } else if (gridStatus === "shortage") {
+    items.push(diagnosticLine("grid-shortage", "Warning"));
+  }
+  return items;
+}
+
+function kindForDiagnostic(id) {
+  const text = String(id);
+  if (ENGINE_NOTE_PATTERNS.some((re) => re.test(text))) return "Note";
+  // Host kebab ids stay Warning unless known soft
+  if (
+    text === "intake-debris-reducing-flow"
+    || text === "penstock-leakage"
+    || text === "low-turbine-speed"
+  ) {
+    return "Note";
+  }
+  return "Warning";
+}
+
 function buildReadouts(telemetry) {
   return [
-    { id: "output", label: "Output", value: `${telemetry.generatorOutputKw.toFixed(3)} kW` },
-    { id: "pressure", label: "Pressure", value: `${telemetry.penstockPressureKpa.toFixed(1)} kPa` },
-    { id: "speed", label: "Turbine", value: `${telemetry.turbineSpeedRpm} rpm` },
+    { id: "output", label: "Output", value: `${Number(telemetry.generatorOutputKw ?? 0).toFixed(3)} kW` },
+    { id: "pressure", label: "Pressure", value: `${Number(telemetry.penstockPressureKpa ?? 0).toFixed(1)} kPa` },
+    { id: "speed", label: "Turbine", value: `${telemetry.turbineSpeedRpm ?? 0} rpm` },
   ];
 }
 

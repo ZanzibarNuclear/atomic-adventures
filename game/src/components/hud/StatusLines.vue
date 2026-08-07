@@ -1,12 +1,6 @@
 <template>
   <div v-if="hasContent" class="status-lines">
-    <p
-      v-for="(line, index) in statusLines"
-      :key="`status-${index}-${line}`"
-      class="status-line"
-    >
-      {{ line }}
-    </p>
+    <!-- Ephemeral notices first (e.g. Resuming Game 2), then ongoing status. -->
     <p
       v-for="message in messageItems"
       :key="`msg-${message.id}`"
@@ -14,6 +8,13 @@
       :class="toneClass(message.tone)"
     >
       {{ message.text }}
+    </p>
+    <p
+      v-for="(line, index) in statusLines"
+      :key="`status-${index}-${line}`"
+      class="status-line"
+    >
+      {{ line }}
     </p>
   </div>
 </template>
@@ -56,10 +57,12 @@ function toneClass(tone) {
 .status-lines {
   margin-bottom: 1rem;
   padding: 1rem 1.15rem;
-  border: 1px solid #5a5d60;
+  border: 1px solid color-mix(in srgb, var(--color-cherenkov) 14%, #5a5d60);
   border-radius: 12px;
   background: #454749;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+  box-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 var(--color-cherenkov-soft);
 }
 .status-line {
   margin: 0;

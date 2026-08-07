@@ -15,7 +15,7 @@ import {
   searchActionLabel,
 } from "../lib/maps/composables/useBarrierOpenings.js";
 import { barrierHintAtStand } from "../lib/maps/composables/useBarrierStand.js";
-import { pushPlayMessage } from "./usePlayMessages.js";
+import { clearPlayMessages, pushPlayMessage } from "./usePlayMessages.js";
 import { markCharacterChanged } from "./useCharacterState.js";
 import {
   buildProcessFixtureActions,
@@ -319,7 +319,10 @@ export function handleOutdoorChooseAction(
       : null;
     outdoor.searchBarrier?.(barrierKind || undefined);
     const message = describeBarrierSearchResult(outdoor.state?.lastSearch);
-    if (message) pushPlayMessage(message, { source: "action" });
+    if (message) {
+      clearPlayMessages("resume");
+      pushPlayMessage(message, { source: "action" });
+    }
     return;
   }
   if (actionId.startsWith("passage-unlock:")) {
@@ -1293,8 +1296,8 @@ export function buildOutdoorStatusLines(
   for (const action of outdoor.lockedPassageActions ?? []) {
     if (action.status) lines.push(action.status);
   }
-  const searchLine = describeBarrierSearchResult(outdoor.state.lastSearch);
-  if (searchLine) lines.push(searchLine);
+  // Barrier search results are one-shot play messages (handleOutdoorChooseAction),
+  // not ongoing status — leaving them here kept "On closer inspection…" forever.
 
   const hint = outdoor.barrierHintAtStand?.() ?? null;
   const fencePresent =

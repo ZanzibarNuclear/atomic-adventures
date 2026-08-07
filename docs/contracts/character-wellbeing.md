@@ -11,10 +11,13 @@ or other consequences over time. The character overview presents positive
 vitals, named condition states, and health as a calculated result of sustained
 or severe problems rather than as a standalone need meter.
 
-The playable game surfaces serious reserve states in a compact vitals bar near
-the game timestamp and in the character overview. The bar is not shown before a
-play mode is active, and it is not a separate simulation. Health is a calculated
-result, not an independently adjustable or player-facing vital meter.
+The playable game surfaces serious reserve states as **status sentences** on the
+play panel (for example “Zanzibar is parched…”) and as meters in the **Health**
+dialog / character overview. The game timestamp is a separate map HUD line.
+Wellbeing chrome is not shown before a play mode is active. Health is a
+calculated result used for crisis and failure, not a free-floating need meter on
+the overview list (overview shows satiety, hydration, energy, composure, and
+named conditions).
 
 ## Player-Facing Model
 
@@ -267,6 +270,21 @@ simulation precision.
 - Vitals should render in one direction: higher means better.
 - Conditions should use named severity states rather than unexplained amounts.
 - Death or irreversible failure should be rare and intentionally designed.
+
+## Pre-empty crisis alerts
+
+When satiety, hydration, or calculated health enters the **display band just
+above empty** (for example Parched before Dehydrated, Hungry before Starving,
+Critical before Collapsed), the playable game shows a one-shot **information
+modal** with a clear instruction (drink, eat, tend injuries). Dismissing the
+modal does not change stats; it only acknowledges the warning.
+
+- Energy at zero is **not** a failure: force rest / sleep mode instead of a
+  death modal. A pre-empty energy warning is optional later.
+- Composure at panic is **not** fatal; later work should distort available
+  actions and perception rather than ending the game.
+- Collapse / empty health is the irreversible failure panel (restart or new
+  game), not the pre-empty warning.
   The first playable slice may include a simple "You lose. Play again?" outcome when calculated
   health reaches zero through sustained neglect, dehydration, starvation,
   poison, injury, sickness, or other physical harm.

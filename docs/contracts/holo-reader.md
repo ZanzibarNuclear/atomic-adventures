@@ -217,7 +217,7 @@ Supported content block types are:
 | `diagram` | Ordered visual flow steps with optional explanatory body text |
 | `image` | Public image asset with required alt text and optional caption |
 | `video` | Future registered video/media asset with captions or transcript |
-| `interaction` | Future registered interaction ID with declared inputs and outcomes |
+| `interaction` | Registered interaction ID (e.g. `hydro-penstock-lab`) resolved via the lesson interaction registry; optional `preset` / `caption` |
 
 Supported quiz question types currently include retryable `multiple-choice`.
 Future assessment, simulation, media, and interaction blocks should reference
@@ -512,8 +512,9 @@ completion.
    multiple-choice quiz renderer.
 6. Commit completion outcomes through the existing validated effects service,
    and show an award/rejoin screen.
-7. Add simulator-backed lesson frames after the host outcome contract is
-   exercised by a built-in assessment.
+7. ~~Add simulator-backed lesson frames~~ — **Started:** `interaction` blocks +
+   Clearwater penstock lab (`hydro-penstock-lab`) via energy-sims WASM sandbox.
+   Further practice outcomes / Content Builder authoring still open.
 
 Each step must preserve the separation between authored content, transient view
 state, committed player progress, and external simulator internals.

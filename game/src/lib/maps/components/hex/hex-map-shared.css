@@ -3,6 +3,15 @@
   cursor: crosshair;
 }
 
+.hexmap .map-svg.interactive {
+  cursor: grab;
+  touch-action: none;
+}
+
+.hexmap .map-svg.interactive:active {
+  cursor: grabbing;
+}
+
 .hexmap .placement-link {
   stroke: rgba(255, 255, 255, 0.35);
   stroke-width: 1.5;

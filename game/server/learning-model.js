@@ -2,7 +2,17 @@ import { validateCharacterEffects } from "./character-reference-validation.js";
 
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const FLAG_PATTERN = /^[a-z0-9_]+(?:[.-][a-z0-9_]+)*$/;
-const BLOCK_TYPES = new Set(["paragraph", "formula", "symbols", "examples", "diagram", "image"]);
+const BLOCK_TYPES = new Set([
+  "paragraph",
+  "formula",
+  "symbols",
+  "examples",
+  "diagram",
+  "image",
+  "interaction",
+]);
+/** Registered Holo-Reader interaction ids (must stay in sync with game registry). */
+const INTERACTION_IDS = new Set(["hydro-penstock-lab"]);
 const FRAME_KINDS = new Set(["content", "quiz"]);
 const QUESTION_TYPES = new Set(["multiple-choice"]);
 
@@ -118,6 +128,8 @@ function normalizeBlock(block = {}) {
     alt: nullableText(block.alt),
     formula: nullableText(block.formula),
     caption: nullableText(block.caption),
+    interactionId: nullableText(block.interactionId),
+    preset: nullableText(block.preset),
     rows: array(block.rows).map((row) => ({
       symbol: text(row.symbol),
       meaning: text(row.meaning),
@@ -167,6 +179,16 @@ function validateBlock(block, path, add) {
   if (block.type === "diagram" && block.steps.length < 2) add(`${path}.steps`, "Add at least two diagram steps.");
   if (block.type === "image" && !block.src) add(`${path}.src`, "Image path is required.");
   if (block.type === "image" && !block.alt) add(`${path}.alt`, "Image alt text is required.");
+  if (block.type === "interaction") {
+    if (!block.interactionId) {
+      add(`${path}.interactionId`, "Registered interaction ID is required.");
+    } else if (!INTERACTION_IDS.has(block.interactionId)) {
+      add(`${path}.interactionId`, `Unknown interaction "${block.interactionId}".`);
+    }
+    if (block.preset && !["clearwater", "ideal"].includes(block.preset)) {
+      add(`${path}.preset`, 'Use preset "clearwater" or "ideal".');
+    }
+  }
 }
 
 function validateQuestion(question, path, add) {

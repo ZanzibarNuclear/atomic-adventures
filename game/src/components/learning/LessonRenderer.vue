@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref, watch } from "vue";
 import MathMarkdown from "./MathMarkdown.vue";
+import { resolveLessonInteraction } from "../../lib/learning/interactionRegistry.js";
 
 const props = defineProps({
   lesson: { type: Object, required: true },
@@ -88,6 +89,10 @@ function previousPage() {
 
 function nextPage() {
   if (canGoNext.value) currentPageIndex.value += 1;
+}
+
+function interactionComponent(block) {
+  return resolveLessonInteraction(block?.interactionId)?.component ?? null;
 }
 
 function lessonPages(lesson) {
@@ -205,6 +210,18 @@ function lessonPages(lesson) {
                 <MathMarkdown v-if="example.explanation" :source="example.explanation" />
               </section>
             </div>
+
+            <component
+              :is="interactionComponent(block)"
+              v-if="block.type === 'interaction' && interactionComponent(block)"
+              :preset="block.preset || 'clearwater'"
+              :caption="block.caption || ''" />
+            <p
+              v-else-if="block.type === 'interaction'"
+              class="caption">
+              Unknown lesson interaction
+              <code v-if="block.interactionId">{{ block.interactionId }}</code>.
+            </p>
           </div>
         </template>
       </section>
@@ -244,7 +261,7 @@ function lessonPages(lesson) {
 .award {
   margin-top: 1rem;
   padding: 1rem;
-  border: 1px solid rgba(139, 216, 210, 0.32);
+  border: 1px solid var(--color-brand-border);
   border-radius: 8px;
   background: rgba(8, 18, 24, 0.78);
 }
@@ -278,7 +295,7 @@ function lessonPages(lesson) {
 
 .eyebrow {
   margin: 0;
-  color: #8bd8d2;
+  color: var(--color-cherenkov);
   text-transform: uppercase;
   font-size: 0.72rem;
   letter-spacing: 0.08em;
@@ -369,7 +386,7 @@ td {
   content: "->";
   position: absolute;
   right: 0.45rem;
-  color: #8bd8d2;
+  color: var(--color-cherenkov);
 }
 
 .examples {
@@ -416,7 +433,7 @@ td {
 }
 
 .answers label.selected {
-  border-color: #8bd8d2;
+  border-color: var(--color-cherenkov);
   background: rgba(139, 216, 210, 0.1);
 }
 

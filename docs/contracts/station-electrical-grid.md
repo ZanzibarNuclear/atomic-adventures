@@ -25,6 +25,29 @@ energize a building, but running lights and equipment is a real demand that
 must stay within what the plant (and any buffer) can supply. Later parts may
 extend the same model to PV, storage, and multi-building campus loads.
 
+### Plant of record (decision note)
+
+**2026-08-05:** Generation and the local station bus for Part I are the
+**Clearwater Station** session in sibling **`../sims/energy-sims`**:
+
+| Name | Role |
+| --- | --- |
+| **Clearwater Diversion** | Hydro plant that supplies the bus (`clearwater-diversion`) |
+| **Clearwater Station** | Utility station — plant + load registry (`clearwater-station`) |
+| **Clearwater Run** | Stream feeding the diversion (geography; discovery-gated name) |
+
+Fixture: `../sims/energy-sims/fixtures/stations/clearwater-station.json`
+(loads also under `fixtures/grids/clearwater-station.json`). Hydro physics and
+available \(P_{gen}\) come from the nested Clearwater Diversion plant; this
+contract owns how the game presents bus energization, drawing loads, and
+balance. Stable load ids in the fixture (e.g. `lighting.main`,
+`holo-reader.library`, `ev-charge.port-1`, `kitchen.appliance`) should be
+bound by the EnergySim adapter—do not hard-code physics in the game repo.
+
+Player-facing names for the station and plant are discovery-gated; see
+[hydro-simulator.md](hydro-simulator.md#plant-of-record-decision-note) and
+[regional-geography.md](../../game-design/content/story/regional-geography.md).
+
 This document is the long-lived record of intended behavior. Implementation
 plans implement the contract; they do not redefine it.
 
@@ -149,8 +172,8 @@ truth for content and UI.
 
 1. **Generation sources** declare an available output (watts or a hydro-derived
    electrical power) for the current game time and facility state.
-2. Part I’s generation source is the Upper Penstock hydro plant modeled in
-   [hydro-simulator.md](hydro-simulator.md).
+2. Part I’s generation source is **Clearwater Diversion**, modeled via
+   energy-sims and the hydro boundary in [hydro-simulator.md](hydro-simulator.md).
 3. Available generation for balance is the **electrical output that can serve
    the station bus**, not gross water power or nameplate fantasy.
 4. Optional **storage** (battery/inverter buffer) may supply or absorb energy
@@ -547,6 +570,9 @@ and 6–7 for lighting already apply to current work. Kitchen fixture
 
 ## Document History
 
+- **2026-08-05** — Plant of record: Clearwater Station session + Clearwater
+  Diversion plant in `../sims/energy-sims`; supersedes informal “Upper Penstock”
+  generation wording for Part I.
 - **2026-07-22** — Initial contract: station bus, room lighting switches, load
   ratings, aggregate balance, and brownout/shed policy. Captures intended
   direction before full grid-management implementation.

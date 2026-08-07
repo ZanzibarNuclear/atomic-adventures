@@ -52,6 +52,36 @@ export function canPassDoor(doorState, areaId, doorId, door = null) {
   return s.open === true
 }
 
+/**
+ * Known-area free travel: closed unlocked doors are not barriers.
+ * Locked doors block free travel (player handles unlock ceremony).
+ * @see docs/contracts/indoor-stands.md — Doors on free travel
+ */
+export function canTraverseDoorOnPath(doorState, areaId, doorId, door = null) {
+  if (!doorId) return true
+  if (door && isSelfClosingDoor(door)) return true
+  const s = getDoorState(doorState, areaId, doorId)
+  if (!s) return false
+  if (s.locked) return false
+  return true
+}
+
+/** True when free travel should auto open→pass→reclose unlocked. */
+export function doorNeedsClosedUnlockedManners(doorState, areaId, doorId, door = null) {
+  if (!doorId || (door && isSelfClosingDoor(door))) return false
+  const s = getDoorState(doorState, areaId, doorId)
+  return Boolean(s && !s.open && !s.locked)
+}
+
+/** After walking through a closed unlocked door: leave it closed and unlocked. */
+export function applyClosedUnlockedDoorManners(doorState, areaId, doorId) {
+  const s = getDoorState(doorState, areaId, doorId)
+  if (!s) return false
+  s.open = false
+  s.locked = false
+  return true
+}
+
 export function canOpenDoor(doorState, areaId, doorId, door = null) {
   if (door && isSelfClosingDoor(door)) return false
   const s = getDoorState(doorState, areaId, doorId)
@@ -188,10 +218,11 @@ export function canToggleLock(
   inventory = null,
   facilityState = null,
 ) {
-  if (!building || playerRoomId == null) {
+  // Exterior (playerRoomId null) is not the freeFrom side — still need key rules.
+  // Never treat "outside / no room" as an unrestricted unlock.
+  if (!building) {
     const s = getDoorState(doorState, areaId, doorId)
     if (!s || s.lockBroken || s.open) return false
-    if (isEnablerLock(building.doorById?.[doorId])) return false
     return true
   }
   return canToggleLockFromRoom(
@@ -220,7 +251,8 @@ export function toggleDoorLock(
 
   if (isEnablerLock(door)) return false
 
-  if (building && playerRoomId != null) {
+  if (building) {
+    // Always apply key / freeFrom rules, including from exterior (playerRoomId null).
     const check = canToggleLockFromRoom(
       doorState,
       building,

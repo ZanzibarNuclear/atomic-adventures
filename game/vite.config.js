@@ -8,6 +8,11 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.test.js', 'server/**/*.test.js'],
   },
+  // energy-sim-wasm (web target) loads the companion .wasm via import.meta.url
+  assetsInclude: ['**/*.wasm'],
+  optimizeDeps: {
+    exclude: ['energy-sim-wasm'],
+  },
   plugins: [
     vue(),
     yaml(),

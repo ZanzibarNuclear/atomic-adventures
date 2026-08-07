@@ -351,6 +351,33 @@ export const learningSeed = {
           ],
         },
         {
+          id: "penstock-lab-page",
+          title: "Penstock Lab",
+          frames: [
+            {
+              id: "penstock-lab-intro",
+              kind: "content",
+              title: "Try A Diversion Plant",
+              blocks: [
+                {
+                  type: "paragraph",
+                  body: "Our campus plant is a diversion (run-of-river) system: no large reservoir, just a mountain stream, a penstock pipe, a turbine, and a generator. The numbers below start near the Clearwater Diversion scale you operate from the control room. Change head, flow, pipe size, gate opening, debris, or leakage and watch net head and electrical power respond. This lab is a sandbox — it never changes the live station.",
+                },
+                {
+                  type: "interaction",
+                  interactionId: "hydro-penstock-lab",
+                  preset: "clearwater",
+                  caption: "Clearwater-like penstock model powered by the energy-sims engine in your browser.",
+                },
+                {
+                  type: "paragraph",
+                  body: "Tips: a partly closed gate reduces flow; debris and leakage waste useful energy; a skinnier or longer penstock raises head loss. Wide-open gates on a full stream can exceed design flow or generator nameplate — those notes are teaching signals, not alarms.",
+                },
+              ],
+            },
+          ],
+        },
+        {
           id: "field-checks",
           title: "Field Checks",
           frames: [

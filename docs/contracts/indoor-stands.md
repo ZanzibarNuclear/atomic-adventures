@@ -172,6 +172,76 @@ The first increment permits direct movement between every stand in one room.
 It does not model furniture collision. Door controls are offered only at the
 specific door threshold.
 
+## Discovery travel vs known-area travel (indoor)
+
+Indoor play uses the same two modes as outdoor hexcrawling (see
+[hex-crawling.md](hex-crawling.md)): careful local steps while discovering, and
+smooth multi-hop once the relevant stands and rooms are known.
+
+| Mode | When | Player feel |
+|------|------|-------------|
+| **Discovery travel** | Destination room/node not yet discovered/revealed, or the only path hits a **blocking lock** | Step-by-step stands, explicit open/unlock when required |
+| **Known-area travel** | Destination is known and a legal stand-graph path exists through known rooms/nodes | Click a visible stand, room, or exterior node → avatar walks through intermediate stands |
+
+**Known** indoors means:
+
+- Destination room is discovered (and revealed under the same visibility rules already used for fog/ghost rooms).
+- Exterior nodes used on the path are on the known exterior network the player can already walk.
+- Stands/thresholds on those places may be used as path nodes.
+
+**Map switching:** Known-area indoor travel never auto-switches to the outdoor
+hex map (and outdoor multi-hop never auto-enters the building). The player
+chooses enter/exit actions when they want a perspective change.
+
+### Doors on free travel
+
+Door **open/closed** and **locked** are different:
+
+| State | Free multi-hop path edge? | Notes |
+|-------|---------------------------|--------|
+| Open, unlocked | Yes | Walk through |
+| **Closed, unlocked** | **Yes** | Not a block. Path may traverse. **Manners:** if the walk *found* the door closed and unlocked, after the avatar passes, **reclose it and leave it unlocked**. Zanzibar was not raised in a barn. |
+| Locked | **No** (while still locked) | Free multi-hop never auto-unlocks. Player unlocks or breaks at the threshold (`lock.freeFrom` thumb-turn, matching key, break lock, or enablers for roll-ups). Exterior without key is not freeFrom. |
+| Self-closing stair doors | Yes when rules already allow push-through | Keep existing self-closing semantics |
+
+Lock side rules remain as authored (`lock.freeFrom`, `lock.key`, enablers). Extra
+effort at locked doors is intentional.
+
+Explicit open/close/lock/break actions remain available at the door threshold.
+Free travel only automates **closed → pass → reclose unlocked** for unlocked
+doors on a multi-hop path; it does not auto-unlock.
+
+### Known-area multi-hop algorithm (indoor) — current
+
+1. **Same-room stands:** click or action moves between stands in the current room
+   only (no room change).
+2. **Cross-room free travel:** BFS over **known rooms** via door/stair links
+   (`knownAreaIndoorTravel.planKnownRoomPath`). Closed unlocked doors are edges
+   (manners on execution). Locked doors are not edges.
+3. **Exterior path:** existing exterior graph + polyline walk; entry through a
+   door uses unlock/open rules, not multi-hop through a locked leaf.
+4. For each closed unlocked door edge used, after traversal set door
+   **closed + unlocked**.
+5. Do not auto-exit the building or change to the outdoor hex map.
+
+Full stand-to-stand pathing across rooms is not required for alpha; room-graph
+free travel plus same-room stands is the implemented model.
+
+### Contract tests (indoor known-area — synthetic buildings)
+
+Use **synthetic room/door/stand fixtures**, not production room IDs.
+
+| Case | Setup | Expect |
+|------|--------|--------|
+| Same-room multi-stand | Two stands, known room | Click far stand walks without room change |
+| Closed unlocked door | A—door—B, door closed unlocked | Multi-hop A→B succeeds; door ends closed unlocked |
+| Open door | Door open | Multi-hop succeeds; door stays open |
+| Locked door | Door locked | Free-travel path refuses; no ghost pass |
+| Unlock from freeFrom | Player in freeFrom room | Explicit unlock without key; free travel only after unlocked |
+| Exterior no key | Key door from exterior, no key | Cannot unlock; break lock remains available |
+| Undiscovered room | Target not discovered | Not a free-travel destination |
+| No auto outdoor | Path ends at exterior door | Stay indoor/exterior-path; no auto regional hex switch |
+
 ## Persistence and Live Updates
 
 `currentStand` is saved beneath the indoor snapshot. On live building refresh,

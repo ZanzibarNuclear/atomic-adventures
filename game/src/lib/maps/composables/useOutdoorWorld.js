@@ -19,6 +19,7 @@ import { useOutdoorBarrierSearch } from "./useOutdoorBarrierSearch.js";
 import { useOutdoorPassages } from "./useOutdoorPassages.js";
 import { useOutdoorMovement } from "./useOutdoorMovement.js";
 import { advanceGameTime } from "../../character/gameTime.js";
+import { clearPlayMessages } from "../../../composables/usePlayMessages.js";
 
 function initialStand(mapData, size) {
   const START = mapData.start ?? mapData.journey[0];
@@ -229,11 +230,17 @@ export function useOutdoorWorld(mapData, gameState = null) {
     },
   });
 
-  /** Hex ids the player may travel to from the current stand (route + direct). */
+  /** Hex ids the player may travel to (adjacent + known multi-hop). */
   const reachableHexIds = computed(() => {
     const ids = new Set([state.currentId]);
     for (const m of moves.value) ids.add(m.toHexId);
     for (const m of directMoves.value) ids.add(m.toHexId);
+    // Known-area free travel: any discovered hex with a planned path.
+    const discovered = state.discovered ?? [];
+    for (const hexId of discovered) {
+      if (ids.has(hexId)) continue;
+      if (canReachHex(hexId)) ids.add(hexId);
+    }
     return ids;
   });
 
@@ -244,6 +251,10 @@ export function useOutdoorWorld(mapData, gameState = null) {
       y: Math.round(stand.y),
     };
     const nextHexId = hexAtPoint(rounded, hexId);
+    const moved =
+      nextHexId !== state.currentId ||
+      rounded.x !== state.stand?.x ||
+      rounded.y !== state.stand?.y;
     if (nextHexId !== state.currentId) state.previousId = previousId ?? state.currentId;
     state.mapTransition = null;
     state.transitionDirection = null;
@@ -252,6 +263,11 @@ export function useOutdoorWorld(mapData, gameState = null) {
     state.lastBlocked = blocked ?? null;
     state.atBarrier = atBarrier ?? null;
     state.lastSearch = null;
+    // One-shot notices clear when the player walks on.
+    if (moved) {
+      clearPlayMessages("action");
+      clearPlayMessages("resume");
+    }
   }
 
   const atBuildingEntrance = computed(

@@ -35,9 +35,12 @@ defineEmits(["return-to-map"]);
     <section class="console-guidance" aria-label="Console guidance">
       <div>
         <h2>Diagnostics</h2>
-        <p v-if="!diagnostics.length" class="quiet">No warnings or faults.</p>
+        <p v-if="!diagnostics.length" class="quiet">No notes, warnings, or faults.</p>
         <ul v-else>
-          <li v-for="item in diagnostics" :key="`${item.kind}:${item.id}`">
+          <li
+            v-for="item in diagnostics"
+            :key="`${item.kind}:${item.id}`"
+            :class="`diag-${String(item.kind).toLowerCase()}`">
             <strong>{{ item.kind }}</strong>
             <span>{{ item.label }}</span>
           </li>

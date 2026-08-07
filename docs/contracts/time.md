@@ -403,12 +403,16 @@ Derived temporal predicates are recomputed from the clock rather than persisted.
 | Character stat drift during time advancement | `game/src/lib/character/gameTime.js` |
 | Shared action time helper | `game/src/lib/character/gameActivity.js` |
 | Player clock persistence | `game/src/composables/useGameState.js` |
-| Story choice `timeMinutes` and `activity` | `game/server/story-model.js`, `game/src/components/builder/story/StoryChoiceEditor.vue` |
-| Story choice time commit | `game/src/composables/useStory.js` |
-| Story milestone bridge | `afterMilestone` / `beforeMilestone` in `game/src/composables/useStory.js` |
+| Story choice `timeMinutes`, `activity`, `timeUntil` | `game/server/story-model.js`, StoryChoiceEditor, `useStoryArc.js` |
+| Story choice time commit | `game/src/composables/useStoryArc.js` |
+| Story milestone grants / criteria | `useStoryArc.js`, `storyArcModel.js` |
 | Item action time commit | `game/src/lib/character/itemActions.js` |
 | Outdoor movement default time | `game/src/lib/maps/composables/useOutdoorWorld.js` |
 | Indoor movement and interaction time | `game/src/lib/maps/composables/indoor/` |
+
+`timeUntil` (sleep-until style) is **implemented** for story choices. Scenario
+start clock is still hard-coded for Part I in `gameTime.js` until authoring
+exposes start settings.
 
 ## Open Decisions
 

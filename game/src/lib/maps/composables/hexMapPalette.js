@@ -4,7 +4,8 @@ export const TERRAIN_COLORS = {
   clearing: '#8fae6e',
   gorge: '#9f947b',
   rock: '#9a9d94',
-  water: '#5f93c4',
+  /** Cherenkov-leaning water (base theme brand #20c8fb) */
+  water: '#2ab0d9',
 }
 
 export const FOG_COLOR = '#222a25'
@@ -20,8 +21,8 @@ export const TERRAIN_LABELS = {
 export const TERRAIN_ORDER = ['forest', 'clearing', 'gorge', 'rock', 'water']
 
 export const LINE_STYLE = {
-  stream: { label: 'Stream', stroke: '#4a90d9', width: 4, dash: '' },
-  river: { label: 'River', stroke: '#4a90d9', width: 4, dash: '' },
+  stream: { label: 'Stream', stroke: '#20c8fb', width: 4, dash: '' },
+  river: { label: 'River', stroke: '#20c8fb', width: 4, dash: '' },
   road: { label: 'Road', stroke: '#8a8073', width: 5, dash: '' },
   drive: { label: 'Driveway', stroke: '#9b917f', width: 4, dash: '' },
   fence: { label: 'Fence', stroke: '#c9b89a', width: 3, dash: '2 6' },

@@ -2,8 +2,9 @@
 import { ref, onMounted, computed, watch, nextTick } from "vue";
 import { useOutdoorWorld } from "../lib/maps/composables/useOutdoorWorld.js";
 import { useIndoorBuilding } from "../lib/maps/composables/useIndoorBuilding.js";
-import { createGameState, resetGameState, setPlayMode } from "../composables/useGameState.js";
+import { captureSnapshot, createGameState, resetGameState, setPlayMode } from "../composables/useGameState.js";
 import { useSaveGame } from "../composables/useSaveGame.js";
+import { pushPlayMessage } from "../composables/usePlayMessages.js";
 import { useStoryArc } from "../composables/useStoryArc.js";
 import { useOpenWorldStory } from "../composables/useOpenWorldStory.js";
 import { normalizeStoryArcContent } from "../composables/storyArcModel.js";
@@ -35,6 +36,8 @@ import {
 import { containerInstanceLabel } from "../lib/character/containerLabels.js";
 import { vesselDisplayLabel } from "../lib/character/vessels.js";
 import AppHeader from "../components/AppHeader.vue";
+import SaveGamesDialog from "../components/SaveGamesDialog.vue";
+import TitleScreen from "../components/TitleScreen.vue";
 import CharacterView from "../components/game-views/CharacterView.vue";
 import CharacterStatsStageView from "../components/game-views/CharacterStatsStageView.vue";
 import DeveloperSettingsDialog from "../components/dev/DeveloperSettingsDialog.vue";
@@ -53,6 +56,12 @@ import {
   characterWellbeingOverview,
   visibleCharacterStats,
 } from "../lib/character/panel.js";
+import {
+  hasRecoveredFromPreEmpty,
+  listPreEmptyCrisisVitals,
+  preEmptyCrisisMessage,
+  preEmptyCrisisTitle,
+} from "../lib/character/wellbeingCrisis.js";
 import {
   resolveIndoorLocationMedia,
   resolveOutdoorLocationMedia,
@@ -73,6 +82,10 @@ const builderView = ref(false);
 const movementAuditVisible = ref(false);
 const developerSettingsVisible = ref(false);
 const vitalsDialogVisible = ref(false);
+/** One-shot info modal when a vital enters the band just above empty. */
+const vitalCrisisAlert = ref(null); // { id, title, message }
+/** Vital ids already warned this crisis episode (cleared on recovery). */
+const vitalCrisisAlertedIds = ref(new Set());
 const inventoryDialogVisible = ref(false);
 /** Focused look-in for a world/carried container instance id (without full inventory). */
 const lookInContainerInstanceId = ref(null);
@@ -130,7 +143,31 @@ const outdoor = useOutdoorWorld(mapData, gameState);
 const ctx = { place, builderView, gameState };
 const indoor = useIndoorBuilding(initialBuildingData, outdoor, ctx);
 const save = useSaveGame();
-const { lastSavedAt, loadError, hasSave, save: saveGame, load, clearSave } = save;
+const {
+  activeSlot,
+  lastSavedAt,
+  loadError,
+  slots: saveSlots,
+  hasSave,
+  firstOpenSlot,
+  mostRecentlySavedSlot,
+  save: saveGame,
+  load,
+  clearSave,
+  setActiveSlot,
+} = save;
+
+/** Fingerprint of last clean (saved / loaded / reset) state for dirty checks. */
+const cleanFingerprint = ref(null);
+/**
+ * Pending action after a save-before-switch modal:
+ * { type: 'play'|'restart'|'new-open', gameId?, mode? }
+ */
+const pendingSaveAction = ref(null);
+/** When all games are full, pick which to overwrite for New Game from the menu. */
+const pickGameDialog = ref(null); // { mode: 'story'|'open-world'|null } null mode = menu New Game
+/** Restart confirm: { gameId } before wiping a saved game. */
+const restartDialog = ref(null);
 
 const openStageViewForStory = (view) => openStageView(view, { force: true });
 const storyArcData = computed(() => normalizeStoryArcContent(storyArcDocument.value, {
@@ -213,14 +250,21 @@ const currentLocationMedia = computed(() =>
     : resolveOutdoorLocationMedia(outdoor, locationMediaContext.value),
 );
 
+/** Story action ids use choice.id when present, else the choice index (ambient scenes often omit ids). */
+function storyActionIdForChoice(choice, index) {
+  if (choice?.id != null && choice.id !== "") return `story:${choice.id}`;
+  return `story:${index}`;
+}
+
 function applyChoice(index = 0) {
   if (gameState.playMode === "open-world") {
     openWorldStory.applyChoice(index);
     return;
   }
-  const choice = activeChoices.value?.[Number(index)];
+  const i = Number(index);
+  const choice = activeChoices.value?.[i];
   if (!choice) return;
-  applyStoryAction(`story:${choice.id}`);
+  applyStoryAction(storyActionIdForChoice(choice, i));
 }
 
 function travelToHex(hexId) {
@@ -229,9 +273,9 @@ function travelToHex(hexId) {
     outdoor.moveTo(hexId);
     return;
   }
-  const choice = activeChoices.value?.find((candidate) => candidate.go_hex === hexId);
-  if (choice) {
-    applyStoryAction(`story:${choice.id}`);
+  const index = activeChoices.value?.findIndex((candidate) => candidate.go_hex === hexId) ?? -1;
+  if (index >= 0) {
+    applyChoice(index);
     return;
   }
   if (!outdoor.canReachHex(hexId)) return;
@@ -243,9 +287,9 @@ function enterBuilding() {
     indoor.enterBuilding();
     return;
   }
-  const choice = activeChoices.value?.find((candidate) => candidate.enter);
-  if (choice) {
-    applyStoryAction(`story:${choice.id}`);
+  const index = activeChoices.value?.findIndex((candidate) => candidate.enter) ?? -1;
+  if (index >= 0) {
+    applyChoice(index);
     return;
   }
   indoor.enterBuilding();
@@ -256,9 +300,9 @@ function travelToRoom(roomId) {
     indoor.moveToRoom(roomId);
     return;
   }
-  const choice = activeChoices.value?.find((candidate) => candidate.go_room === roomId);
-  if (choice) {
-    applyStoryAction(`story:${choice.id}`);
+  const index = activeChoices.value?.findIndex((candidate) => candidate.go_room === roomId) ?? -1;
+  if (index >= 0) {
+    applyChoice(index);
     return;
   }
   indoor.moveToRoom(roomId);
@@ -401,6 +445,46 @@ const catastrophicVitals = computed(() =>
   ),
 );
 const gameFailed = computed(() => catastrophicVitals.value.length > 0);
+
+function pruneRecoveredCrisisAlerts(overview) {
+  const next = new Set(vitalCrisisAlertedIds.value);
+  for (const vital of [...(overview?.vitals ?? []), overview?.health].filter(Boolean)) {
+    if (hasRecoveredFromPreEmpty(vital)) next.delete(vital.id);
+  }
+  vitalCrisisAlertedIds.value = next;
+}
+
+/** Show the next unacknowledged pre-empty crisis (one modal at a time). */
+function showNextVitalCrisisIfNeeded() {
+  if (vitalCrisisAlert.value || gameFailed.value || !gameState.playMode) return;
+  const overview = wellbeingOverview.value;
+  pruneRecoveredCrisisAlerts(overview);
+  const alerted = new Set(vitalCrisisAlertedIds.value);
+  for (const vital of listPreEmptyCrisisVitals(overview)) {
+    if (alerted.has(vital.id)) continue;
+    alerted.add(vital.id);
+    vitalCrisisAlertedIds.value = alerted;
+    vitalCrisisAlert.value = {
+      id: vital.id,
+      title: preEmptyCrisisTitle(vital),
+      message: preEmptyCrisisMessage(vital),
+    };
+    return;
+  }
+}
+
+function dismissVitalCrisisAlert() {
+  vitalCrisisAlert.value = null;
+  showNextVitalCrisisIfNeeded();
+}
+
+watch(
+  wellbeingOverview,
+  () => {
+    showNextVitalCrisisIfNeeded();
+  },
+  { deep: true },
+);
 const characterDocuments = computed(() => gameState.character.definitions.documents ?? []);
 const lessonCompletionError = ref("");
 const availableLessons = computed(() =>
@@ -513,7 +597,8 @@ watch(
 );
 
 onMounted(async () => {
-  if (hasSave()) load(saveCtx.value);
+  // Title screen first — Enter the Game decides new vs resume.
+  markSessionClean();
   await refreshContent();
   refreshStoryMoment();
 });
@@ -522,19 +607,57 @@ watch(storyArcDocument, () => {
   refreshStoryMoment();
 });
 
-function handleNewGame() {
-  if (hasSave() && !window.confirm("Start a new game? Your saved progress will be erased.")) return;
-  clearSave();
+function snapshotFingerprint(snapshot) {
+  if (!snapshot) return null;
+  const { savedAt: _savedAt, ...rest } = snapshot;
+  try {
+    return JSON.stringify(rest);
+  } catch {
+    return null;
+  }
+}
+
+function markSessionClean() {
+  try {
+    cleanFingerprint.value = snapshotFingerprint(captureSnapshot(saveCtx.value));
+  } catch {
+    cleanFingerprint.value = null;
+  }
+}
+
+function isSessionDirty() {
+  // No play session yet (mode chooser) — nothing to lose.
+  if (!gameState.playMode) return false;
+  if (cleanFingerprint.value == null) return true;
+  try {
+    return snapshotFingerprint(captureSnapshot(saveCtx.value)) !== cleanFingerprint.value;
+  } catch {
+    return true;
+  }
+}
+
+function performSave() {
+  const ok = saveGame({
+    ...saveCtx.value,
+    onSaveComplete: () => markSessionClean(),
+  });
+  if (ok) markSessionClean();
+  return ok;
+}
+
+/**
+ * Wipe a slot and enter a fresh story session in it (no title-screen detour).
+ */
+function beginFreshGame(gameId) {
+  clearSave(gameId);
+  setActiveSlot(gameId);
   resetGameState(saveCtx.value);
-  refreshStoryMoment();
+  vitalCrisisAlert.value = null;
+  vitalCrisisAlertedIds.value = new Set();
+  applyPlayMode("story");
 }
 
-function handleReset() {
-  if (!hasSave() || !load(saveCtx.value)) resetGameState(saveCtx.value);
-  refreshStoryMoment();
-}
-
-function choosePlayMode(mode) {
+function applyPlayMode(mode) {
   if (mode === "story") {
     const arc = defaultStoryArc.value;
     setPlayMode(gameState, "story", {
@@ -544,7 +667,187 @@ function choosePlayMode(mode) {
   } else {
     setPlayMode(gameState, "open-world");
   }
+  markSessionClean();
   refreshStoryMoment();
+}
+
+/**
+ * Play a game row: load if saved, or switch into an open game with a fresh session.
+ * Prompts to save the active game first when dirty.
+ */
+function handlePlayGame(gameId) {
+  if (gameId === activeSlot.value && gameState.playMode) {
+    // Already playing this game — re-load save if present, else stay.
+    if (hasSave(gameId) && isSessionDirty()) {
+      pendingSaveAction.value = { type: "play", gameId };
+      return;
+    }
+    if (hasSave(gameId)) {
+      if (!load(saveCtx.value, gameId)) return;
+      markSessionClean();
+      refreshStoryMoment();
+      noticeResumingGame(gameId);
+    }
+    return;
+  }
+
+  if (isSessionDirty()) {
+    pendingSaveAction.value = { type: "play", gameId };
+    return;
+  }
+  completePlayGame(gameId);
+}
+
+/**
+ * One-shot HUD line when loading an existing save (title enter or Game menu).
+ * Uses source "resume" so indoor room-change / outdoor applyMove clears of
+ * "action" (which fire when a snapshot is applied) do not wipe it immediately.
+ */
+function noticeResumingGame(gameId) {
+  pushPlayMessage(`Resuming Game ${gameId}.`, { source: "resume", tone: "notice" });
+}
+
+function completePlayGame(gameId) {
+  if (hasSave(gameId)) {
+    if (!load(saveCtx.value, gameId)) return;
+    markSessionClean();
+    refreshStoryMoment();
+    noticeResumingGame(gameId);
+    return;
+  }
+  // Open game: start a new story session in this slot (stay in play view).
+  beginFreshGame(gameId);
+}
+
+function handleRestartGame(gameId) {
+  // Menu only shows Restart when occupied; failure panel may call with a live slot.
+  if (!hasSave(gameId) && gameId === activeSlot.value && gameState.playMode) {
+    beginFreshGame(gameId);
+    return;
+  }
+  if (!hasSave(gameId)) return;
+  restartDialog.value = { gameId };
+}
+
+function handleRestartConfirm() {
+  const gameId = restartDialog.value?.gameId;
+  restartDialog.value = null;
+  if (gameId == null) return;
+  if (isSessionDirty() && gameId !== activeSlot.value) {
+    pendingSaveAction.value = { type: "restart", gameId };
+    return;
+  }
+  // Active-game restart (or clean session): wipe and start fresh.
+  beginFreshGame(gameId);
+}
+
+/**
+ * New Game toolbar: first open game, or pick when all three have saves.
+ */
+function handleNewGameRequest() {
+  const openId = firstOpenSlot();
+  if (openId != null) {
+    if (isSessionDirty()) {
+      pendingSaveAction.value = { type: "new-open", gameId: openId };
+      return;
+    }
+    beginFreshGame(openId);
+    return;
+  }
+  // All games have saves — ask which to replace.
+  if (isSessionDirty()) {
+    pendingSaveAction.value = { type: "new-pick" };
+    return;
+  }
+  pickGameDialog.value = { mode: null };
+}
+
+function completePendingAfterSaveDecision({ saved }) {
+  const action = pendingSaveAction.value;
+  pendingSaveAction.value = null;
+  if (!action) return;
+  if (saved === true && !performSave()) return;
+  // saved === false means discard and continue; saved === true already saved
+
+  if (action.type === "play") {
+    completePlayGame(action.gameId);
+    return;
+  }
+  if (action.type === "restart") {
+    beginFreshGame(action.gameId);
+    return;
+  }
+  if (action.type === "new-open") {
+    beginFreshGame(action.gameId);
+    return;
+  }
+  if (action.type === "new-pick") {
+    pickGameDialog.value = { mode: action.mode ?? null };
+  }
+}
+
+function handlePickGameForNew(gameId) {
+  const mode = pickGameDialog.value?.mode ?? null;
+  pickGameDialog.value = null;
+  beginFreshGame(gameId);
+  if (mode) applyPlayMode(mode);
+}
+
+/** Failure panel: wipe the active game and start over in the same slot. */
+function handleFailureRestart() {
+  vitalCrisisAlert.value = null;
+  vitalCrisisAlertedIds.value = new Set();
+  beginFreshGame(activeSlot.value);
+}
+
+/**
+ * Failure panel: start a New Game in an open slot (or pick a slot to replace).
+ * Does not prompt to save the failed run.
+ */
+function handleFailureNewGame() {
+  vitalCrisisAlert.value = null;
+  vitalCrisisAlertedIds.value = new Set();
+  const openId = firstOpenSlot();
+  if (openId != null) {
+    beginFreshGame(openId);
+    return;
+  }
+  pickGameDialog.value = { mode: null };
+}
+
+/**
+ * Title screen: Enter the Game (no interstitial).
+ * - No saves → new story in Game 1
+ * - One save → resume that game
+ * - Several saves → resume the most recently saved
+ */
+function enterTheGame() {
+  const occupied = saveSlots.value.filter((s) => s.occupied);
+  if (occupied.length === 0) {
+    beginFreshGame(1);
+    return;
+  }
+
+  let gameId;
+  if (occupied.length === 1) {
+    gameId = occupied[0].id;
+  } else {
+    gameId = mostRecentlySavedSlot() ?? occupied[0].id;
+  }
+
+  if (!load(saveCtx.value, gameId)) {
+    // Corrupt / unreadable save — fall back to a clean story start.
+    const openId = firstOpenSlot();
+    beginFreshGame(openId ?? 1);
+    return;
+  }
+  markSessionClean();
+  refreshStoryMoment();
+  noticeResumingGame(gameId);
+}
+
+function handleHeaderSave() {
+  performSave();
 }
 
 function handleReturnToMap() {
@@ -895,18 +1198,52 @@ function handleGroupPickUp(entry) {
 <template>
   <main class="game-shell">
     <AppHeader
-      :has-save="hasSave()"
+      :active-slot="activeSlot"
+      :slots="saveSlots"
       :last-saved-at="lastSavedAt"
       :load-error="loadError"
       :movement-audit-visible="movementAuditVisible"
       :play-mode="gameState.playMode"
-      @save="saveGame(saveCtx)"
-      @new-game="handleNewGame"
-      @reset="handleReset"
+      @save="handleHeaderSave"
+      @play-game="handlePlayGame"
+      @restart-game="handleRestartGame"
+      @new-game="handleNewGameRequest"
       @show-health="vitalsDialogVisible = true"
       @show-inventory="openInventoryDialog"
       @show-dev-settings="developerSettingsVisible = true"
-      @show-movement-audit="movementAuditVisible = true" />
+      @toggle-movement-audit="movementAuditVisible = !movementAuditVisible" />
+
+    <SaveGamesDialog
+      v-if="pendingSaveAction"
+      mode="save-before-switch"
+      eyebrow="Before you go"
+      title="Save current game?"
+      :message="`Game ${activeSlot} has progress that is not saved.`"
+      discard-label="Don't save"
+      @save="completePendingAfterSaveDecision({ saved: true })"
+      @discard="completePendingAfterSaveDecision({ saved: false })"
+      @cancel="pendingSaveAction = null" />
+
+    <SaveGamesDialog
+      v-if="pickGameDialog"
+      mode="pick-game"
+      eyebrow="New Game"
+      title="All games are in use"
+      message="Choose a game to replace. Its saved progress will be erased."
+      :slots="saveSlots"
+      :active-game="activeSlot"
+      @choose-game="handlePickGameForNew"
+      @cancel="pickGameDialog = null" />
+
+    <SaveGamesDialog
+      v-if="restartDialog"
+      mode="confirm"
+      eyebrow="Restart"
+      :title="`Restart Game ${restartDialog.gameId}?`"
+      message="Saved progress will be erased."
+      confirm-label="Restart"
+      @confirm="handleRestartConfirm"
+      @cancel="restartDialog = null" />
 
     <DeveloperSettingsDialog
       v-if="developerSettingsVisible"
@@ -978,37 +1315,36 @@ function handleGroupPickUp(entry) {
       >Retry</button>
     </div>
 
-    <section
+    <TitleScreen
       v-if="!gameState.playMode"
-      class="mode-choice"
-      aria-labelledby="mode-choice-title">
-      <div class="mode-choice-panel">
-        <p class="mode-choice-kicker">New game</p>
-        <h2 id="mode-choice-title">Choose how to play</h2>
-        <div class="mode-choice-options">
-          <button
-            type="button"
-            class="mode-choice-card recommended"
-            @click="choosePlayMode('story')">
-            <span class="mode-choice-label">Story</span>
-            <span class="mode-choice-note">Follow Zanzibar's story through guided exploration.</span>
-          </button>
-          <button
-            type="button"
-            class="mode-choice-card"
-            @click="choosePlayMode('open-world')">
-            <span class="mode-choice-label">Open-world</span>
-            <span class="mode-choice-note">Freeform exploration and experimentation without the canonical sequence.</span>
-          </button>
-        </div>
-      </div>
-    </section>
+      @enter="enterTheGame" />
 
     <section
       v-if="storyError"
       class="story-error"
       role="alert">
       {{ storyError }}
+    </section>
+
+    <section
+      v-if="vitalCrisisAlert && !gameFailed"
+      class="vital-crisis-backdrop"
+      role="presentation"
+      @click.self="dismissVitalCrisisAlert">
+      <section
+        class="vital-crisis-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="vital-crisis-title">
+        <p class="vital-crisis-kicker">Wellbeing</p>
+        <h2 id="vital-crisis-title">{{ vitalCrisisAlert.title }}</h2>
+        <p>{{ vitalCrisisAlert.message }}</p>
+        <div class="vital-crisis-actions">
+          <button type="button" class="sm" @click="dismissVitalCrisisAlert">
+            Got it
+          </button>
+        </div>
+      </section>
     </section>
 
     <section
@@ -1020,11 +1356,15 @@ function handleGroupPickUp(entry) {
       <h2 id="failure-title">The trail goes dark.</h2>
       <p>
         {{ catastrophicVitals.map((vital) => `${vital.label.toLowerCase()} is ${vital.state.toLowerCase()}`).join(", ") }}.
-        Restoring from the last save or starting again is the way forward.
+        Restart this game, or start a new one in another slot.
       </p>
       <div class="failure-actions">
-        <button type="button" class="sm" @click="handleReset">Retry from save</button>
-        <button type="button" class="sm muted" @click="handleNewGame">New game</button>
+        <button type="button" class="sm" @click="handleFailureRestart">
+          Restart Game {{ activeSlot }}
+        </button>
+        <button type="button" class="sm muted" @click="handleFailureNewGame">
+          New Game
+        </button>
       </div>
     </section>
 
@@ -1122,6 +1462,11 @@ function handleGroupPickUp(entry) {
       v-else-if="gameState.playMode && !gameFailed && activeView.kind === 'console'"
       :game-state="gameState"
       :payload="activeView.payload"
+      :station-context="{
+        facility: indoor.indoor?.facility ?? indoor.facility,
+        activeStageKind: activeView.kind,
+        flags: gameState.flags,
+      }"
       @return-to-map="handleReturnToMap" />
 
     <InstructionCardView
@@ -1138,60 +1483,6 @@ function handleGroupPickUp(entry) {
 </template>
 
 <style scoped>
-.mode-choice {
-  min-height: min(58vh, 32rem);
-  display: grid;
-  place-items: center;
-  padding: 2rem 1rem;
-}
-.mode-choice-panel {
-  width: min(46rem, 100%);
-  border: 1px solid #566174;
-  background: #1f2631;
-  border-radius: 8px;
-  padding: 1.25rem;
-}
-.mode-choice-kicker {
-  margin: 0 0 0.25rem;
-  color: #9fb0c2;
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0;
-}
-.mode-choice-panel h2 {
-  margin: 0 0 1rem;
-  font-size: 1.35rem;
-}
-.mode-choice-options {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-  gap: 0.75rem;
-}
-.mode-choice-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  text-align: left;
-  min-height: 8.5rem;
-  border: 1px solid #566174;
-  border-radius: 8px;
-  background: #293241;
-  color: #eef3f8;
-  padding: 1rem;
-}
-.mode-choice-card.recommended {
-  border-color: #7ea77e;
-  background: #26362d;
-}
-.mode-choice-label {
-  font-size: 1rem;
-  font-weight: 700;
-}
-.mode-choice-note {
-  color: #c2ccd8;
-  font-size: 0.9rem;
-  line-height: 1.4;
-}
 .story-error {
   border: 1px solid #9f6a5d;
   background: #39251f;
@@ -1232,6 +1523,47 @@ function handleGroupPickUp(entry) {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  margin-top: 1rem;
+}
+.vital-crisis-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(12 18 26 / 0.52);
+}
+.vital-crisis-dialog {
+  width: min(28rem, 100%);
+  padding: 1.1rem 1.2rem;
+  border: 1px solid #c4a15a;
+  border-radius: 8px;
+  background: #2a2418;
+  color: #f7f0df;
+  box-shadow: 0 18px 50px rgb(15 23 42 / 0.35);
+}
+.vital-crisis-kicker {
+  margin: 0 0 0.2rem;
+  color: #d7b77f;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.vital-crisis-dialog h2 {
+  margin: 0 0 0.55rem;
+  font-size: 1.2rem;
+  color: #fff6df;
+}
+.vital-crisis-dialog p:not(.vital-crisis-kicker) {
+  margin: 0;
+  color: #e8dcc0;
+  line-height: 1.5;
+}
+.vital-crisis-actions {
+  display: flex;
+  justify-content: flex-end;
   margin-top: 1rem;
 }
 </style>
