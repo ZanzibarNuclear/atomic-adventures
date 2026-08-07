@@ -123,40 +123,59 @@ starting another instance or treating the port conflict as a failure.
 
 ### Tests and quality checklists
 
-Gameplay and map changes live in `game/`. **Before finishing work** on travel, barriers, story integration, composables, or world YAML, run the test suite and fix failures:
+Gameplay and map changes live in `game/`. **Before finishing work** on travel, barriers, story integration, composables, or world YAML, run the existing suite and fix failures you cause:
 
 ```bash
 npm run test            # from repo root (runs game/ vitest)
 ```
 
-Run tests again after each meaningful code change in those areas — not only at the end of a large task. A pre-push hook also runs tests locally; do not rely on it as the first time you learn something broke.
+A pre-push hook also runs tests locally; do not rely on it as the first time you
+learn something broke.
 
-Tests in this repo must protect named invariants, not freeze incidental implementation details. A useful test should have a one-sentence contract such as "failed item-effect batches leave no partial inventory or flag changes," "closed barriers cannot be crossed unless the matching opening is discovered/open," "save/load preserves player location, flags, holdings, vitals, and clock," or "a consumable item action available to the player appears in inventory and applies its stat effect." Avoid tests that only pin current wording, CSS selectors, component structure, authored IDs, or the exact shape of a temporary UI. If a test would still pass when the player-facing behavior is broken, or would fail when an allowed wording/content/layout change happens, it is a misleading test. Delete or replace misleading tests instead of preserving them as legacy coverage.
+#### Default: do not add tests
 
-Regression tests for bug fixes have a stricter bar: prove the test fails
-against the broken implementation before relying on it. The expected workflow
-is red first, then green:
+**Do not write tests by habit.** Prefer playtesting, contracts, and reading the
+code. Only add a test when it **proves a named correct behavior** — a rule that
+would fail if the player-facing outcome were wrong.
 
-1. Reproduce the bug with a test or small verification that uses the real
-   failing data shape, state transition, or integration path.
-2. Run it before the fix and confirm it fails for the right reason.
-3. Implement the fix.
-4. Run the same test again and confirm it passes.
+A useful test has a one-sentence contract such as "exterior unlock of a key door
+requires the key or the freeFrom room," "failed item-effect batches leave no
+partial inventory or flag changes," "closed barriers cannot be crossed unless
+the matching opening is available," or "save/load preserves location, flags,
+holdings, vitals, and clock."
 
-Do not add a regression test if you did not see it fail against the broken
-behavior. Do not use synthetic fixtures that bypass the actual failure path
-just because they are easier to set up. If the useful failing check would be
-too expensive or brittle to keep in the suite, use it as a temporary
-verification during the fix and say so in the final notes instead of committing
-a fake-green test. When reporting the work, mention the failing-before-fix
-check for any regression test you keep.
+**Do not add tests that:**
 
-When adding or changing movement, barrier, or arrival behavior, add or update a test in `game/src/lib/maps/testing/` or `game/src/composables/`. See [docs/contracts/hex-crawling.md](docs/contracts/hex-crawling.md) for the movement contract (two-step border-then-stand, in-hex `crossPassage` vs inter-hex travel).
+- pass regardless of whether the real rule holds (mocks of the unit under test,
+  stubs that force the happy path, fixtures that skip the failing branch);
+- miss the aspect that actually matters (e.g. test freeFrom inside but not
+  exterior-without-key);
+- only pin wording, CSS, component structure, authored IDs, or temporary UI;
+- would still pass if the player-facing behavior were broken;
+- exist only to increase coverage or "match how humans used to test."
 
-For character, inventory, save/load, builder, close-up-view, and simulation
-integration changes, also consult
+If a test is misleading ballast, **delete or replace it** when you touch that
+area — do not preserve green noise as legacy coverage. A later pass may cull
+worthless tests more broadly; prefer that over growing the pile.
+
+#### When a test is warranted
+
+- **Bug fix / regression:** red first, then green. Reproduce with the real
+  failing shape; run before the fix and confirm failure for the right reason;
+  fix; confirm pass. Do not commit a regression test you never saw fail on the
+  broken code. Do not use synthetic fixtures that bypass the failure path just
+  because they are easier. If a solid check is too expensive to keep, use it as
+  temporary verification and say so instead of shipping a fake-green test.
+- **Named mechanic / pure rule:** small synthetic fixtures (not production IDs
+  as source of truth) that assert the full decision matrix for that rule —
+  including the sides that must *deny* the action.
+- **Movement / barriers:** when changing those systems, update audit cases or
+  mechanic tests only if they prove the invariant. See
+  [docs/contracts/hex-crawling.md](docs/contracts/hex-crawling.md).
+
+For character, inventory, save/load, builder, and simulation cross-checks, see
 [docs/quality/character-inventory-regression-checklist.md](docs/quality/character-inventory-regression-checklist.md)
-for the cross-cutting checks that should stay green.
+— as a checklist for judgment, not as a mandate to add more automated tests.
 
 ### Production deployment
 

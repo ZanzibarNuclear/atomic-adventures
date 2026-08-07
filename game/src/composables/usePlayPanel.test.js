@@ -116,6 +116,48 @@ describe("indoor door actions", () => {
     expect(buildIndoorPlayActions(indoor).map((action) => action.id))
       .toContain("door-lock:hallway-small-bay");
   });
+
+  it("from exterior: locked key door offers break, not open or unlock", () => {
+    const door = {
+      id: "side-man",
+      label: "side door",
+      kind: "man",
+      lock: { key: "side-man-key", freeFrom: "inside" },
+    };
+    const doorState = {
+      "synth:side-man": { open: false, locked: true, lockBroken: false },
+    };
+    const indoor = {
+      roomPickups: [],
+      availableActions: [],
+      nearbyDoors: [{ doorId: "side-man", toRoomId: "inside", toName: "Inside" }],
+      playerRoomId: null,
+      building: {
+        areaId: "synth",
+        doors: [door],
+        doorById: { [door.id]: door },
+        links: [],
+        roomById: { inside: { id: "inside", label: "Inside" } },
+      },
+      indoor: {
+        currentRoom: null,
+        exteriorNode: "side-entry",
+        currentStand: null,
+        doorState,
+        facility: {},
+        discovered: new Set(),
+      },
+      character: { holdings: { holders: {}, instances: {}, stacks: {} }, definitions: { items: [] } },
+      doorStateFor: () => doorState["synth:side-man"],
+      doorLockHint: () => "Need key: side man key",
+      canToggleDoorLock: () => false,
+    };
+
+    const ids = buildIndoorPlayActions(indoor).map((action) => action.id);
+    expect(ids).toContain("door-break:side-man");
+    expect(ids).not.toContain("door-open:side-man");
+    expect(ids).not.toContain("door-lock:side-man");
+  });
 });
 
 function indoorWithReachable({ pickups = [] } = {}) {

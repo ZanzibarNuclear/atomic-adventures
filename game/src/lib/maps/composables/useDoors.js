@@ -218,10 +218,11 @@ export function canToggleLock(
   inventory = null,
   facilityState = null,
 ) {
-  if (!building || playerRoomId == null) {
+  // Exterior (playerRoomId null) is not the freeFrom side — still need key rules.
+  // Never treat "outside / no room" as an unrestricted unlock.
+  if (!building) {
     const s = getDoorState(doorState, areaId, doorId)
     if (!s || s.lockBroken || s.open) return false
-    if (isEnablerLock(building.doorById?.[doorId])) return false
     return true
   }
   return canToggleLockFromRoom(
@@ -250,7 +251,8 @@ export function toggleDoorLock(
 
   if (isEnablerLock(door)) return false
 
-  if (building && playerRoomId != null) {
+  if (building) {
+    // Always apply key / freeFrom rules, including from exterior (playerRoomId null).
     const check = canToggleLockFromRoom(
       doorState,
       building,
