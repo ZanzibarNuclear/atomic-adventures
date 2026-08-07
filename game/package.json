@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Playable Atomic Adventures — Part I vertical slice and full game.",
   "engines": {
-    "node": "22.x"
+    "node": ">=24"
   },
   "scripts": {
     "dev": "node --watch-path=server server/index.js",

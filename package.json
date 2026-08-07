@@ -2,7 +2,7 @@
   "name": "atomic-adventures",
   "private": true,
   "engines": {
-    "node": "22.x"
+    "node": ">=24"
   },
   "workspaces": [
     "game"

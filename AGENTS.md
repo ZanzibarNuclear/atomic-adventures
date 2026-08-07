@@ -109,7 +109,7 @@ From the repo root:
 npm run dev:game        # game + builder + local content API
 ```
 
-`npm run dev:game` requires Node.js 22.19 or newer and starts one localhost server:
+`npm run dev:game` requires Node.js 24 or newer and starts one localhost server:
 
 - Game: `http://127.0.0.1:5173/`
 - Story builder: `http://127.0.0.1:5173/builder/story`

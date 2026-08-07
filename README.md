@@ -46,7 +46,7 @@ npm run test           # Game test suite
 npm run test:movement  # Exercises comprehensive hex-crawling
 ```
 
-`npm run dev:game` requires Node.js 22.19 or newer and starts both the game and
+`npm run dev:game` requires Node.js 24 or newer and starts both the game and
 the local authoring API on one server:
 
 - Game: [http://127.0.0.1:5173/](http://127.0.0.1:5173/)
