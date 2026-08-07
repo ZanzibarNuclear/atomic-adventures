@@ -229,19 +229,21 @@ function derivedHealthVital(byId) {
   const max = finiteNumber(healthStat?.max, 100);
   const base = clamp(finiteNumber(healthStat?.value, healthStat?.default ?? max), min, max);
   const value = clamp(base - derivedHealthPenalty(byId), min, max);
+  const displayStates = displayStatesForStat(healthStat, [
+    [80, "Healthy", "positive"],
+    [50, "Stable", "positive"],
+    [25, "Weak", "warning"],
+    [1, "Critical", "error"],
+    [0, "Collapsed", "error"],
+  ]);
   return {
     id: "health",
     label: "Health",
     value,
     min,
     max,
-    ...stateForValue(value, displayStatesForStat(healthStat, [
-      [80, "Healthy", "positive"],
-      [50, "Stable", "positive"],
-      [25, "Weak", "warning"],
-      [1, "Critical", "error"],
-      [0, "Collapsed", "error"],
-    ])),
+    displayStates: displayStates.map(([at, state, tone]) => ({ at, state, tone })),
+    ...stateForValue(value, displayStates),
     description: healthStat?.description ??
       "Overall physical condition calculated from survival pressures and injuries.",
     derived: true,

@@ -267,6 +267,21 @@ simulation precision.
 - Vitals should render in one direction: higher means better.
 - Conditions should use named severity states rather than unexplained amounts.
 - Death or irreversible failure should be rare and intentionally designed.
+
+## Pre-empty crisis alerts
+
+When satiety, hydration, or calculated health enters the **display band just
+above empty** (for example Parched before Dehydrated, Hungry before Starving,
+Critical before Collapsed), the playable game shows a one-shot **information
+modal** with a clear instruction (drink, eat, tend injuries). Dismissing the
+modal does not change stats; it only acknowledges the warning.
+
+- Energy at zero is **not** a failure: force rest / sleep mode instead of a
+  death modal. A pre-empty energy warning is optional later.
+- Composure at panic is **not** fatal; later work should distort available
+  actions and perception rather than ending the game.
+- Collapse / empty health is the irreversible failure panel (restart or new
+  game), not the pre-empty warning.
   The first playable slice may include a simple "You lose. Play again?" outcome when calculated
   health reaches zero through sustained neglect, dehydration, starvation,
   poison, injury, sickness, or other physical harm.

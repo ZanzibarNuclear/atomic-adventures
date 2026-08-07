@@ -57,6 +57,12 @@ import {
   visibleCharacterStats,
 } from "../lib/character/panel.js";
 import {
+  hasRecoveredFromPreEmpty,
+  listPreEmptyCrisisVitals,
+  preEmptyCrisisMessage,
+  preEmptyCrisisTitle,
+} from "../lib/character/wellbeingCrisis.js";
+import {
   resolveIndoorLocationMedia,
   resolveOutdoorLocationMedia,
 } from "../lib/maps/locationMedia.js";
@@ -76,6 +82,10 @@ const builderView = ref(false);
 const movementAuditVisible = ref(false);
 const developerSettingsVisible = ref(false);
 const vitalsDialogVisible = ref(false);
+/** One-shot info modal when a vital enters the band just above empty. */
+const vitalCrisisAlert = ref(null); // { id, title, message }
+/** Vital ids already warned this crisis episode (cleared on recovery). */
+const vitalCrisisAlertedIds = ref(new Set());
 const inventoryDialogVisible = ref(false);
 /** Focused look-in for a world/carried container instance id (without full inventory). */
 const lookInContainerInstanceId = ref(null);
@@ -435,6 +445,46 @@ const catastrophicVitals = computed(() =>
   ),
 );
 const gameFailed = computed(() => catastrophicVitals.value.length > 0);
+
+function pruneRecoveredCrisisAlerts(overview) {
+  const next = new Set(vitalCrisisAlertedIds.value);
+  for (const vital of [...(overview?.vitals ?? []), overview?.health].filter(Boolean)) {
+    if (hasRecoveredFromPreEmpty(vital)) next.delete(vital.id);
+  }
+  vitalCrisisAlertedIds.value = next;
+}
+
+/** Show the next unacknowledged pre-empty crisis (one modal at a time). */
+function showNextVitalCrisisIfNeeded() {
+  if (vitalCrisisAlert.value || gameFailed.value || !gameState.playMode) return;
+  const overview = wellbeingOverview.value;
+  pruneRecoveredCrisisAlerts(overview);
+  const alerted = new Set(vitalCrisisAlertedIds.value);
+  for (const vital of listPreEmptyCrisisVitals(overview)) {
+    if (alerted.has(vital.id)) continue;
+    alerted.add(vital.id);
+    vitalCrisisAlertedIds.value = alerted;
+    vitalCrisisAlert.value = {
+      id: vital.id,
+      title: preEmptyCrisisTitle(vital),
+      message: preEmptyCrisisMessage(vital),
+    };
+    return;
+  }
+}
+
+function dismissVitalCrisisAlert() {
+  vitalCrisisAlert.value = null;
+  showNextVitalCrisisIfNeeded();
+}
+
+watch(
+  wellbeingOverview,
+  () => {
+    showNextVitalCrisisIfNeeded();
+  },
+  { deep: true },
+);
 const characterDocuments = computed(() => gameState.character.definitions.documents ?? []);
 const lessonCompletionError = ref("");
 const availableLessons = computed(() =>
@@ -602,6 +652,8 @@ function beginFreshGame(gameId) {
   clearSave(gameId);
   setActiveSlot(gameId);
   resetGameState(saveCtx.value);
+  vitalCrisisAlert.value = null;
+  vitalCrisisAlertedIds.value = new Set();
   applyPlayMode("story");
 }
 
@@ -741,18 +793,26 @@ function handlePickGameForNew(gameId) {
   if (mode) applyPlayMode(mode);
 }
 
-/** Failure panel: reload the active game, or fall back to a clean state. */
-function handleRetryFromSave() {
-  if (!hasSave(activeSlot.value) || !load(saveCtx.value, activeSlot.value)) {
-    resetGameState(saveCtx.value);
-  }
-  markSessionClean();
-  refreshStoryMoment();
+/** Failure panel: wipe the active game and start over in the same slot. */
+function handleFailureRestart() {
+  vitalCrisisAlert.value = null;
+  vitalCrisisAlertedIds.value = new Set();
+  beginFreshGame(activeSlot.value);
 }
 
-/** Failure panel: restart only the active game. */
-function handleNewGame() {
-  handleRestartGame(activeSlot.value);
+/**
+ * Failure panel: start a New Game in an open slot (or pick a slot to replace).
+ * Does not prompt to save the failed run.
+ */
+function handleFailureNewGame() {
+  vitalCrisisAlert.value = null;
+  vitalCrisisAlertedIds.value = new Set();
+  const openId = firstOpenSlot();
+  if (openId != null) {
+    beginFreshGame(openId);
+    return;
+  }
+  pickGameDialog.value = { mode: null };
 }
 
 /**
@@ -1267,6 +1327,27 @@ function handleGroupPickUp(entry) {
     </section>
 
     <section
+      v-if="vitalCrisisAlert && !gameFailed"
+      class="vital-crisis-backdrop"
+      role="presentation"
+      @click.self="dismissVitalCrisisAlert">
+      <section
+        class="vital-crisis-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="vital-crisis-title">
+        <p class="vital-crisis-kicker">Wellbeing</p>
+        <h2 id="vital-crisis-title">{{ vitalCrisisAlert.title }}</h2>
+        <p>{{ vitalCrisisAlert.message }}</p>
+        <div class="vital-crisis-actions">
+          <button type="button" class="sm" @click="dismissVitalCrisisAlert">
+            Got it
+          </button>
+        </div>
+      </section>
+    </section>
+
+    <section
       v-if="gameFailed"
       class="failure-panel"
       role="alert"
@@ -1275,14 +1356,14 @@ function handleGroupPickUp(entry) {
       <h2 id="failure-title">The trail goes dark.</h2>
       <p>
         {{ catastrophicVitals.map((vital) => `${vital.label.toLowerCase()} is ${vital.state.toLowerCase()}`).join(", ") }}.
-        Restoring from the last save or starting again is the way forward.
+        Restart this game, or start a new one in another slot.
       </p>
       <div class="failure-actions">
-        <button type="button" class="sm" @click="handleRetryFromSave">
-          Retry from Game {{ activeSlot }}
-        </button>
-        <button type="button" class="sm muted" @click="handleNewGame">
+        <button type="button" class="sm" @click="handleFailureRestart">
           Restart Game {{ activeSlot }}
+        </button>
+        <button type="button" class="sm muted" @click="handleFailureNewGame">
+          New Game
         </button>
       </div>
     </section>
@@ -1442,6 +1523,47 @@ function handleGroupPickUp(entry) {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  margin-top: 1rem;
+}
+.vital-crisis-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(12 18 26 / 0.52);
+}
+.vital-crisis-dialog {
+  width: min(28rem, 100%);
+  padding: 1.1rem 1.2rem;
+  border: 1px solid #c4a15a;
+  border-radius: 8px;
+  background: #2a2418;
+  color: #f7f0df;
+  box-shadow: 0 18px 50px rgb(15 23 42 / 0.35);
+}
+.vital-crisis-kicker {
+  margin: 0 0 0.2rem;
+  color: #d7b77f;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.vital-crisis-dialog h2 {
+  margin: 0 0 0.55rem;
+  font-size: 1.2rem;
+  color: #fff6df;
+}
+.vital-crisis-dialog p:not(.vital-crisis-kicker) {
+  margin: 0;
+  color: #e8dcc0;
+  line-height: 1.5;
+}
+.vital-crisis-actions {
+  display: flex;
+  justify-content: flex-end;
   margin-top: 1rem;
 }
 </style>
