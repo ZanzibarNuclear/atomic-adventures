@@ -1,7 +1,7 @@
 # Control Panel
 
-**Status:** Hydro console multi-screen shell in place (plant + station grid);
-reusable panel registry still shaping  
+**Status:** Part I **Operational console** layout locked (2026-08-07) — multi-screen
+shell (Hydro power generator + Station grid); physics from energy-sims WASM  
 **Scope:** `game/` player-facing consoles and control panels, telemetry
 visualization, operator controls, facility connectivity, and simulator hosting
 
@@ -11,32 +11,33 @@ visualization, operator controls, facility connectivity, and simulator hosting
 
 A control panel is a focused console surface that lets the player observe and,
 where the current panel is physically wired for it, operate connected systems.
-In Part I, the hydro control-room console is a **multi-screen** terminal: the
-player flips between screens (side arrows or keyboard ←/→) for **hydro plant**
-sensors and the **station grid** (bus, loads, utilization). Physics comes from
-Clearwater Station via energy-sims. Field work stays on ordinary map actions.
-Over time, more screens (storage, PV, nuclear bootstrap) can join the same
-flipper without changing the shell.
 
-This contract owns the visual and interaction shell: tabs, gauges, real-time
-graphs, control widgets, system connectivity, status summaries, and event
-messages. Individual simulators and facility systems own their own physics,
-domain rules, telemetry fields, and validated outcomes. The hydro model is
-defined in [hydro-simulator.md](hydro-simulator.md).
+In Part I the control-room stage is the **Operational console** (eyebrow
+**Control Room**). It is a **multi-screen** CRT-style terminal: the player flips
+between screens (side arrows or keyboard ←/→) for:
+
+1. **Hydro power generator** — Clearwater Diversion plant path, live graphs, status  
+2. **Station grid** — bus, loads, utilization  
+
+Physics comes from the Clearwater Station energy-sims session
+([hydro-simulator.md](hydro-simulator.md)). Field work stays on ordinary map
+actions. Later screens (storage, PV, nuclear) may join the same flipper without
+renaming the shell.
+
+This contract owns the visual and interaction shell. Individual simulators and
+facility systems own physics, domain rules, telemetry fields, and validated
+outcomes.
 
 ## Design Goals
 
-- Make consoles feel like in-world equipment.
-- Provide a reusable way to connect panel modules to simulators, building
-  systems, outdoor equipment, and campus loads.
+- Make consoles feel like in-world equipment (tight, simple, useful).
+- Prefer a small set of high-signal readouts over diagnostic walls of text.
 - Keep panel view state separate from simulator state, facility state, player
   saves, story flags, and authoring forms.
-- Let panels visualize stable telemetry fields without knowing each simulator's
-  internal calculations.
-- Support real-time graphs, gauges, alarms, and event markers from declared
-  telemetry streams.
-- Allow operator commands through registered control bindings.
-- Scale from one hydro panel to later multi-system control rooms.
+- Visualize stable telemetry fields without reimplementing plant physics.
+- Support live graphs while the player watches the console.
+- Allow operator commands through registered control bindings when wired.
+- Scale from the hydro + grid flipper to later multi-system control rooms.
 
 ## Relationship to Existing Contracts
 
@@ -54,8 +55,10 @@ Station load totals, margin, and brownout warnings (when implemented) follow
 [station-electrical-grid.md](station-electrical-grid.md); the panel presents
 those readouts and does not invent a separate power truth.
 
-Panel interactions may spend authored time according to [time.md](time.md),
-but real-time chart motion does not secretly advance the shared clock.
+Panel interactions may spend authored time according to [time.md](time.md).
+**Current:** live chart sampling and engine ticks while the console is open do
+**not** advance the shared game clock (the banner shows authored game time,
+which remains frozen until the host time policy for “watch mode” lands).
 
 ## Runtime Surface
 
@@ -102,224 +105,145 @@ A control panel does not own:
 
 ## Panel Implementation
 
-For Part I, the hydro control panel is code-built to match the controls
-and monitoring visuals needed by the hydro power generator. It is not authored
-content and should not require Story Builder or Content Builder support.
+For Part I, the Operational console is **code-built** (`HydroConsoleView` and
+`game/src/components/game-views/hydro-console/`). It is not authored content and
+does not require Story Builder or Content Builder support.
 
-Later control panels may introduce reusable layout registration or authored
-configuration if a second or third system proves the pattern, but the first
-scope should stay concrete.
-
-Example:
+Stable implementation IDs remain kebab-case. Player-facing labels below are part
+of the locked chrome unless product deliberately revises them.
 
 ```js
 {
   id: "hydro-control-room-panel",
-  label: "Hydro Control Room",
+  label: "Operational console",
   locationId: "utility-station.control-room",
-  modules: [
-    {
-      id: "configuration",
-      label: "Configuration",
-      sourceId: "hydro-clearwater-diversion",
-      sourceType: "simulation",
-      readouts: ["active-config", "net-head", "design-flow", "efficiency"],
-      controls: ["select-what-if-config"]
-    },
-    {
-      id: "generation",
-      label: "Generation",
-      sourceId: "hydro-clearwater-diversion",
-      sourceType: "simulation",
-      readouts: ["pressure-gauge", "turbine-speed", "power-output"],
-      graphs: ["power-output", "pressure-speed", "flow-head"],
-      controls: ["exciter", "sync-breaker"]
-    },
-    {
-      id: "field-systems",
-      label: "Field Systems",
-      sourceId: "hydro-clearwater-diversion",
-      sourceType: "simulation",
-      readouts: ["intake-status", "valve-status", "leak-status"],
-      actions: ["go-to-intake", "go-to-penstock-valve", "go-to-leak-site"]
-    }
-  ]
+  screens: [
+    { id: "hydro-plant", title: "Hydro power generator" },
+    { id: "station-grid", title: "Station grid", subtitle: "Bus · loads · utilization" }
+  ],
+  telemetrySourceId: "hydro-clearwater-diversion" // Clearwater Station session
 }
 ```
 
-Stable implementation IDs should be kebab-case. Labels are player-facing and
-may change without breaking saves.
+---
 
-## Hydro First Scope
+## Part I Operational Console (final design)
 
-The first concrete control-panel target is the hydro control-room interface for
-the Clearwater Diversion plant. It should let the player:
+**Decision (2026-08-07):** The following chrome and layout are the product
+baseline for beta. Do not reintroduce redundant stat cards, a diagnostics wall,
+or dual-path plant physics in this shell.
 
-- see the active hydro configuration profile and key equation parameters;
-- compare what-if profiles when the mode allows it;
-- monitor live and historical sensor data;
-- issue only the commands that the current panel is physically wired to issue;
-- identify field work that cannot be completed from the control room;
-- guide the player toward the relevant world action when a route, map focus, or
-  story choice exists.
+### Chrome
 
-The panel should not make every simulator input editable. Some changes are
-remote controls. Some require Zanzibar to walk to the intake, penstock, valve,
-powerhouse, or leak site and interact there.
-
-### Layout Sections
-
-The Part I hydro panel should start with three sections.
-
-| Section | Purpose |
+| Element | Locked behavior |
 | --- | --- |
-| Schematic | Clickable replica of the local hydro system, echoing the map layout |
-| Instant Overview | Current values: flow, pressure, turbine speed, power output, warnings |
-| Graphs | Live and historical plots with event markers |
+| Page eyebrow | **Control Room** |
+| Page title | **Operational console** (compact heading) |
+| Screen flipper | Left/right arrows + dots; keyboard ←/→ |
+| Screen titles | **Hydro power generator**; **Station grid** |
+| Screen counter | **None** (no “Screen 1 of 2”) |
+| Screen 1 subtitle | **None** |
+| Exit | Return to map |
 
-The schematic should be useful, not decorative. Clicking a region opens the
-focused status for that component:
+### Screen 1 — Hydro power generator
 
-| Schematic region | Detail shown |
+Vertical stack, top to bottom:
+
+1. **Status banner**  
+   - Left: high-level plant status only — no “Status” caption. Values today:
+     **Online**, **Offline**, **Fault** (extensible later). Compact font.  
+   - Right: authored **game clock** via `formatOperationalConsoleTime`
+     (`HH:mm:ss Weekday, Month D, YYYY`). Small tabular font.  
+   - Clock is display of host `gameState.clock`; watching the console does not
+     yet advance that clock (see [time.md](time.md) / open follow-ups).
+2. **Live monitor**  
+   - Heading only (no clock here).  
+   - **Three separate graphs** (not combined pressure+speed):  
+     - Power output → `generatorOutputKw`  
+     - Water pressure → `penstockPressureKpa`  
+     - Turbine speed → `turbineSpeedRpm`  
+   - Graph value labels show the current sample; series sample while open.  
+   - **No** parallel JS plant model; telemetry from energy-sims only.
+3. **Plant path schematic**  
+   - Equipment boxes left → right with active flow pipes between them.  
+   - Badges under each box (green when in the good operating state).  
+   - Optional **Next action** block only when the startup sequence is incomplete
+     (return-to-map CTA). No separate Diagnostics list.
+
+#### Plant path equipment and badges
+
+| Box | Badges (good / not good) | Host / engine basis |
+| --- | --- | --- |
+| **Intake** | stacked: **Intake clear** / **Intake blocked**; **Intake open** / **Intake closed** | `facilities.hydro.intakeClear`, `intakeOpen` |
+| **Bypass** | **Closed** (penstock fed) / **Open** (flow back to cascade) | Step 3 host flag `manualValves.upstreamOpen` → path ready means bypass **Closed** |
+| **Turbine** | **Valve open** / **Valve closed** | `manualValves.powerhouseOpen` |
+| **Generator** | **Engaged** / **Disengaged** | Engaged when host online **and** turbine rpm > 0 |
+| **Grid** | **Connected** / **Disconnected** | Prefer engine `busEnergized`; else online + spinning |
+
+Pipes light when the upstream path is ready for the next stage (clear/open
+intake, bypass closed for penstock, turbine valve open, generator engaged).
+
+**Not in the locked layout:**
+
+- Instant-overview stat cards (redundant with graph value labels)
+- Diagnostics / warning list section
+- Configuration profile browser / what-if selector (future module)
+
+### Screen 2 — Station grid
+
+Presents bus energization, available generation vs load, margin, and the
+Clearwater Station load table (lighting, holo-reader, EV charge, kitchen).
+Load drawing flags are host-derived and pushed into the energy-sims session;
+see [station-electrical-grid.md](station-electrical-grid.md).
+
+### Power gating the console (now vs later)
+
+Today the player typically reaches the console after hydro is online (sole
+power source for the station). The shell must remain valid for **Offline**
+hydro: later batteries, solar, and multi-source buses will power the control
+room while Clearwater Diversion is idle. Do not hard-code “console implies
+Online” into presentation logic.
+
+### Required hydro sensors (live graphs)
+
+| Graph | Field | Purpose |
+| --- | --- | --- |
+| Power output | `generatorOutputKw` | Usable electrical output |
+| Water pressure | `penstockPressureKpa` | Penstock fill, leaks, valve effects |
+| Turbine speed | `turbineSpeedRpm` | Whether water is driving the turbine |
+
+Secondary fields (`flowM3s`, `netHeadM`, warnings) may appear later without
+displacing these three graphs.
+
+### Guided world actions (startup)
+
+Field work is **not** done on the console. Startup remains easy:
+
+1. Clear debris and open the intake.  
+2. Set bypass for penstock service (host step: upstream / align-pipeflow).  
+3. Open the turbine (powerhouse) valve.  
+4. Connect station power from the control room (host connect / online).
+
+When incomplete, the schematic may show a single **Next action** card with
+return-to-map. Routing is host/map movement, not panel-side teleport.
+
+### Future modules (not Part I chrome)
+
+These remain valid long-term extensions; they must not regress the locked layout:
+
+| Module | Notes |
 | --- | --- |
-| Intake | Cover on/off, debris blockage percent, captured water flow |
-| Penstock / pipe | leakage status, integrity, current flow, pressure trend |
-| Manual valve / diversion valve | current position, whether it is remotely controllable |
-| Turbine | spin rate, operating band, sync readiness |
-| Generator / switch | breaker state, power output, online/offline state |
+| Remote controls | Exciter, sync breaker, emergency stop when physically wired |
+| What-if configuration | Non-durable profile compare; durable upgrades via validated host actions |
+| Clickable schematic regions | Optional deeper component close-ups |
+| Console watch → game clock | 1 game second per real second while open; chunky time when closed |
+| Extra screens | Storage, PV, nuclear on the same flipper |
 
-The instantaneous overview is the first operator dashboard. It should show all
-important current values at once without requiring graph reading.
+### Later electrical / multi-source
 
-The graph section supports live watching, historical review, and replay of
-startup/fault events.
-
-### Configuration Readout
-
-The hydro panel should display the selected configuration profile and the
-minimal equation inputs that matter for power:
-
-| Readout | Source field | Notes |
-| --- | --- | --- |
-| Active profile | `configId`, `label`, `profileKind` | Baseline, what-if, simplified, upgrade, or tradeoff |
-| Net head | `equationInputs.netHeadM` or telemetry `netHeadM` | Display in meters with optional feet conversion |
-| Flow | `flowM3s`, `designFlowM3s` | Current and design values should be distinguishable |
-| Efficiency | `efficiency` or turbine/generator components | Show combined efficiency first |
-| Rated output | `ratedPowerKw` | Reference, not a guarantee |
-
-The configuration tab may offer what-if selection when the mode permits it.
-What-if changes dispatch a `configuration-selected` command/event with
-`durable: false`. Story upgrades use a separate validated action with
-`durable: true` only after requirements pass.
-
-### Required Hydro Sensors
-
-The first sensor set is intentionally small:
-
-| Sensor / readout | Field | Purpose |
-| --- | --- | --- |
-| Pressure gauge | `penstockPressureKpa` | Shows penstock fill, leaks, bypass/valve effects |
-| Turbine speed | `turbineSpeedRpm` | Shows whether water is driving the turbine and whether sync is plausible |
-| Power output | `generatorOutputKw` | Shows usable electrical output |
-
-Useful secondary readouts:
-
-| Sensor / readout | Field | Purpose |
-| --- | --- | --- |
-| Flow | `flowM3s` | Connects intake/valve/debris state to output |
-| Net head | `netHeadM` | Connects pressure/losses to output |
-| Warnings/faults | `warnings`, `faults` | Gives structured diagnosis without hiding the graph evidence |
-
-### Remote Controls
-
-Remote controls are controls physically wired to the control room or made
-available by story progression. Initial remote controls may include:
-
-| Control | Command | Notes |
-| --- | --- | --- |
-| Exciter | `hydro.set-exciter` | Enables generator field/voltage buildup |
-| Sync breaker | `hydro.set-sync-breaker` | Connects generator only when sync criteria pass |
-| What-if config selector | `hydro.select-configuration` | Non-durable comparison unless validated as upgrade |
-
-Optional later remote controls:
-
-| Control | Command | Constraint |
-| --- | --- | --- |
-| Servo intake gate | `hydro.set-intake-gate` | Only if the intake has a powered actuator online |
-| Servo penstock/diversion valve | `hydro.set-penstock-valve` or `hydro.set-bypass-valve` | Only if that valve is authored as remotely actuated |
-| Emergency stop | `hydro.emergency-stop` | Safe shutdown command, not a repair |
-
-The panel must disable or mark unavailable controls when the required actuator,
-power, permissions, or story prerequisite is missing.
-
-### Guided World Actions
-
-Some changes require moving through the world and interacting with equipment.
-The panel may diagnose and route to them, but it must not apply the change
-directly.
-
-The initial hydro startup should be deliberately easy. To turn on the hydro
-generator, the player needs to complete only a small sequence:
-
-1. Clear debris and open the intake.
-2. Turn two manual valves.
-3. Flip the generator/circuit switch from the control room.
-
-Everything else can work reliably for the first startup unless a later challenge has
-explicitly introduced it.
-
-| Problem / task | Panel guidance | Required world action |
-| --- | --- | --- |
-| Intake debris | Show debris/flow warning and route to intake | Travel to intake and clear screen |
-| Intake cover blocked | Show intake-status warning and route to intake | Inspect/open cover or remove obstruction |
-| Manual penstock/diversion valve | Show valve state and route to valve location | Travel to valve and turn it |
-| Pipe leak | Show pressure/power drop and route to suspected segment | Travel to leak site and patch/repair |
-| Broken sensor | Show stale/missing telemetry | Inspect/repair sensor in world |
-| Generator/mechanical fault | Show fault and route to powerhouse | Inspect/repair component |
-
-Routing is a request to the host, not a panel-side teleport. The host may expose
-a story choice, map focus, objective marker, or close-up action depending on
-the current location and authored content.
-
-Example guided world action:
-
-```js
-{
-  actionId: "go-to-penstock-valve",
-  label: "Inspect penstock valve",
-  target: {
-    kind: "world-location",
-    mapId: "utility-station",
-    nodeId: "midstream-penstock-valve"
-  },
-  reason: {
-    field: "penstockValvePercent",
-    observedValue: 0,
-    expectedValue: 100
-  }
-}
-```
-
-Selecting this action should close or background the panel according to the
-stage-view rules, then let normal movement, requirements, time costs, and
-world interactions handle the repair or adjustment.
-
-### Later Electrical Panel
-
-Campus circuits are important but out of first implementation scope. Later, the
-control room should include an electrical panel with circuit breakers, campus
-power usage views, and battery storage readouts.
-
-Planned later signals include:
-
-- enabled campus circuits;
-- electrical demand by building or system;
-- battery storage levels for the EV and future battery banks;
-- charging/discharging state;
-- brownout or overload warnings.
-
-These should use the same panel pattern, but they can wait until the hydro
-startup and basic generation monitor are playable.
+Station grid is already screen 2. Deeper campus breakers, multi-building
+demand, and battery banks extend that screen or add flipper screens; they do
+not replace the Hydro power generator schematic.
 
 ## Telemetry Sources
 
@@ -511,45 +435,22 @@ uniform samples. Mixed-resolution data is expected for old history, and exact
 event markers should remain visible even when surrounding samples have been
 compressed into hourly or daily rollups.
 
-## Hydro Panel Starting Graphs
+## Hydro Live Graphs (locked)
 
-The first hydro control panel should include two or three live graphs.
+Screen 1 **Live monitor** uses **three separate graphs** (not combined series):
 
-### Required Graph 1: Power Output
+| Graph | Series | Purpose |
+| --- | --- | --- |
+| Power output | `generatorOutputKw` | Electrical output over the watch session |
+| Water pressure | `penstockPressureKpa` | Penstock fill / valve / leak effects |
+| Turbine speed | `turbineSpeedRpm` | Mechanical drive / engage readiness |
 
-Series:
+Optional later overlays (campus load, sync band, flow/net head) must not
+collapse pressure and speed back into a single dual-series chart without a
+product decision.
 
-- `generatorOutputKw`
-- optional `campusLoadDemandKw`
-
-Purpose: show useful electrical output over time. Load can be overlaid when
-campus circuits are part of the scenario.
-
-### Required Graph 2: Pressure and Turbine Speed
-
-Series:
-
-- `penstockPressureKpa`
-- `turbineSpeedRpm`
-- optional sync band reference lines
-
-Purpose: make startup and field problems visible. Pressure should rise as the
-penstock fills; turbine speed should rise after flow reaches the turbine.
-
-### Candidate Graph 3: Flow and Net Head
-
-Series:
-
-- `flowM3s`
-- `netHeadM`
-- optional `headLossM`
-
-Purpose: connect configuration and physical losses to the power equation.
-
-Event markers should appear on all hydro graphs when relevant: intake opened,
-diversion valve closed, pressure threshold reached, turbine admitted, sync
-ready, breaker closed, leak detected, valve changed, repair completed, and
-configuration selected.
+Event markers on graphs remain optional; host field events may feed them when
+a shared time axis exists.
 
 ## Persistence
 
@@ -567,12 +468,19 @@ console scenario after save/load. Durable facts such as valve positions,
 enabled circuits, online/offline state, and completed outcomes belong to the
 target simulator or facility system, not to the panel shell.
 
+## Document History
+
+- **2026-08-07** — Locked Part I Operational console: chrome labels, status
+  banner + game clock, three live graphs, intake/bypass/turbine/generator/grid
+  schematic badges, no diagnostics wall / no stat cards. Energy-sims sole
+  physics path.
+- **Earlier** — Multi-screen shell and station grid screen introduced for beta.
+
 ## Open Questions
 
-- What exact schematic art/layout should mirror the Utility Station map closely
-  enough that players recognize intake, pipe, valves, turbine, and generator?
-- Which two manual valve locations are canonical for the initial startup path?
-- Does the generator/circuit switch live only in the control panel, or is there
-  also a physical switch object in the room close-up?
-- Which battery and circuit signals should enter the later electrical panel
-  first: EV battery, building loads, or campus storage banks?
+- When should watching the console advance authored game time (1:1 real second
+  while open)?
+- Does connect-power remain control-room-only, or is there also a physical
+  switch object in a room close-up?
+- Which battery and multi-source signals enter the station-grid screen first
+  after hydro is no longer the sole power source?

@@ -333,6 +333,19 @@ frames elapsed. It should commit time through the same effect boundary used by
 story choices and item actions. If a sim has its own internal clock, that clock
 is local until the sim commits a result.
 
+### Operational console watch mode (follow-up)
+
+The Part I **Operational console** ([control-panel.md](control-panel.md)) shows
+authored game time on its status banner (`formatOperationalConsoleTime`:
+`HH:mm:ss Weekday, Month D, YYYY`). **Today** that display does not advance
+while the player watches: engine ticks update graphs only.
+
+**Intended later policy:** while the console stage is open, advance the shared
+clock at roughly **1 game second per real second** (via `advanceGameTime` or a
+dedicated continuous-watch boundary); when the console closes, resume chunky
+advancement from movement and actions. Until that ships, do not invent a second
+frozen “monitor elapsed” clock for player-facing chrome.
+
 ## Player-Facing Display
 
 The game may show a subtle timestamp, such as:
@@ -350,7 +363,8 @@ Useful display contexts:
 - character overview;
 - story card eyebrow, such as `Day 2 · Morning`;
 - save slot metadata;
-- simulation summary, such as `3 hours simulated`.
+- simulation summary, such as `3 hours simulated`;
+- Operational console status banner (24h form; see control-panel contract).
 
 Avoid exposing implementation counters like `elapsedMinutes: 372` in ordinary
 player UI.

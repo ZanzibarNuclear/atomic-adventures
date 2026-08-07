@@ -15,6 +15,8 @@ implementation, and this list in the same change.
 - Holo-reader MVP: learning document, lessons, completion effects, power-gated stand.
 - Inventory stage view + Character inventory reuse.
 - Hydro console multi-screen shell + EnergySim adapter path for Part I.
+- Operational console layout locked (status banner, three live graphs, plant
+  path badges) — see [control-panel.md](control-panel.md).
 - Process fixtures: **sink** and **water-purifier** runtime.
 - Known-area outdoor multi-hop + indoor room multi-hop + door manners.
 - Pre-empty wellbeing crisis modal; health-collapse failure panel.
@@ -26,8 +28,10 @@ implementation, and this list in the same change.
 - ~~Rip out legacy JS hydro physics~~ — done for beta (WASM Clearwater Station
   only; host facility inputs remain). Plan:
   [energy-sim-legacy-ripout.md](../plans/energy-sim-legacy-ripout.md).
+- ~~Operational console chrome/layout~~ — locked in control-panel contract.
 - Optional: brownout `lightLevel` → indoor media dimming (console already shows grid).
 - Host load binding still coarse (lights / holo / EV / kitchen booleans).
+- Console open → advance authored game clock ~1:1 (currently frozen display).
 
 ## Play Modes And Story Mode
 

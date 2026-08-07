@@ -2,9 +2,10 @@
 
 **Status:** Plant-of-record physics is **only** sibling `../sims/energy-sims`,
 embedded in the player browser via WASM (`game/src/lib/simulations/energySim/`).
-No parallel in-game hydro physics. Ops host adapter and multi-screen console
-(plant + station grid) are wired for Clearwater Station; host load binding is
-coarse (lights / holo / EV / kitchen).  
+No parallel in-game hydro physics. Ops host adapter feeds the Part I
+**Operational console** (locked layout in [control-panel.md](control-panel.md):
+Hydro power generator + Station grid). Host load binding is coarse
+(lights / holo / EV / kitchen).  
 **Scope:** Part I campus hydro — **Clearwater Diversion** on **Clearwater Run** —
 generation model, game-environment inputs, facility state, simulator outcomes,
 and lesson/simulation reuse  
@@ -99,7 +100,9 @@ fixtures, not ad-hoc game constants.
 
 This contract owns the hydro model and its boundary with the game. It does not
 own the visual console layout, chart components, building connectivity map, or
-general panel navigation. Those concerns live in [control-panel.md](control-panel.md).
+general panel navigation. Those concerns live in [control-panel.md](control-panel.md)
+(Part I Operational console layout is **final** there — do not invent a second
+presentation of plant telemetry in this document).
 Station bus energization, indoor loads, light switches, load ratings, and
 generation-vs-consumption balance are defined in
 [station-electrical-grid.md](station-electrical-grid.md). Hydro supplies
