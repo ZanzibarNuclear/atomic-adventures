@@ -514,7 +514,7 @@ const hydroConsoleActions = computed(() => {
   if (!stationPowerOverrideOn.value) return [];
   return [{
     id: "hydro-console:open",
-    label: "Open the generator console",
+    label: "View console",
     kind: "system",
   }];
 });

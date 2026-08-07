@@ -22,12 +22,39 @@ const lightLevel = computed(() => Number(props.telemetry.lightLevel ?? (busEnerg
 const loads = computed(() => Array.isArray(props.telemetry.loads) ? props.telemetry.loads : []);
 const barWidth = computed(() => `${Math.min(100, utilizationPct.value)}%`);
 const overCapacity = computed(() => utilization.value > 1 || gridStatus.value === "brownout" || gridStatus.value === "shortage");
+const marginTight = computed(() => Math.abs(marginKw.value) < 0.5 && busEnergized.value);
+const marginDeficit = computed(() => marginKw.value < 0);
 
-function formatWatts(ratingW) {
-  const w = Number(ratingW);
-  if (!Number.isFinite(w)) return "—";
-  if (w >= 1000) return `${(w / 1000).toFixed(1)} kW`;
-  return `${Math.round(w)} W`;
+/**
+ * Display power: watts under 1 kW, otherwise kW with one decimal.
+ * @param {number} watts
+ * @param {{ zero?: string, signed?: boolean }} [options]
+ */
+function formatPower(watts, { zero = "0 W", signed = false } = {}) {
+  const raw = Number(watts);
+  if (!Number.isFinite(raw)) return zero === "0 W" ? "—" : zero;
+  const sign = signed ? (raw > 0 ? "+" : raw < 0 ? "-" : "") : "";
+  const mag = Math.abs(raw);
+  if (mag === 0) return signed && zero === "0 W" ? "0 W" : zero;
+  if (mag >= 1000) {
+    const kw = mag / 1000;
+    const body = kw >= 10 ? `${Math.round(kw)} kW` : `${kw.toFixed(1)} kW`;
+    return `${sign}${body}`;
+  }
+  return `${sign}${Math.round(mag)} W`;
+}
+
+function formatKwAsPower(kw, options) {
+  const n = Number(kw);
+  if (!Number.isFinite(n)) return formatPower(NaN, options);
+  return formatPower(n * 1000, options);
+}
+
+/** Drawn demand for a circuit: full rating when drawing, else 0. */
+function drawingWatts(row) {
+  if (!row?.drawing) return 0;
+  const w = Number(row.ratingW);
+  return Number.isFinite(w) && w > 0 ? w : 0;
 }
 </script>
 
@@ -36,16 +63,16 @@ function formatWatts(ratingW) {
     <div class="grid-readouts">
       <div class="readout">
         <span>Generation</span>
-        <strong>{{ availableKw.toFixed(2) }} kW</strong>
+        <strong>{{ formatKwAsPower(availableKw) }}</strong>
       </div>
       <div class="readout">
         <span>Station load</span>
-        <strong>{{ loadKw.toFixed(2) }} kW</strong>
+        <strong>{{ formatKwAsPower(loadKw) }}</strong>
       </div>
       <div class="readout">
         <span>Margin</span>
-        <strong :class="{ tight: marginKw < 0.5 && busEnergized, deficit: marginKw < 0 }">
-          {{ marginKw >= 0 ? "+" : "" }}{{ marginKw.toFixed(2) }} kW
+        <strong :class="{ tight: marginTight, deficit: marginDeficit }">
+          {{ formatKwAsPower(marginKw, { signed: true }) }}
         </strong>
       </div>
     </div>
@@ -61,10 +88,6 @@ function formatWatts(ratingW) {
           :class="{ over: overCapacity, idle: loadKw <= 0 }"
           :style="{ width: barWidth }" />
       </div>
-      <p class="quiet grid-status">
-        Grid status: <strong>{{ gridStatus }}</strong>
-        <template v-if="lightLevel > 0 && lightLevel < 1"> · service dimmed ({{ Math.round(lightLevel * 100) }}%)</template>
-      </p>
     </section>
 
     <section class="load-table" aria-label="Station loads">
@@ -75,23 +98,17 @@ function formatWatts(ratingW) {
           <tr>
             <th scope="col">Circuit</th>
             <th scope="col">Rating</th>
-            <th scope="col">State</th>
-            <th scope="col">Priority</th>
+            <th scope="col">Drawing</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="row in loads" :key="row.id" :class="{ drawing: row.drawing }">
             <td>{{ row.label || row.id }}</td>
-            <td>{{ formatWatts(row.ratingW) }}</td>
-            <td>{{ row.drawing ? "Drawing" : "Idle" }}</td>
-            <td>{{ row.priority || "—" }}</td>
+            <td>{{ formatPower(row.ratingW, { zero: "—" }) }}</td>
+            <td>{{ formatPower(drawingWatts(row), { zero: "0 W" }) }}</td>
           </tr>
         </tbody>
       </table>
-      <p class="quiet load-hint">
-        Utilization compares live generation to drawing loads. Heavy circuits (EV charge)
-        and low stream days are where conservation matters.
-      </p>
     </section>
   </div>
 </template>

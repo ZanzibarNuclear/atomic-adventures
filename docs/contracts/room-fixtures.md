@@ -27,8 +27,10 @@ This contract defines:
 - the **Kitchen** fixture set required for Part I survival play: cabinet meal
   storage, running water, and tablet purifier fill/charge.
 
-Electrical demand of powered fixtures is owned by
-[station-electrical-grid.md](station-electrical-grid.md). This document owns
+Electrical demand of powered fixtures (per-device `loadW` / `loadWByLevel`,
+circuit membership, contribution to station \(P_{load}\)) is owned by
+[station-electrical-grid.md](station-electrical-grid.md). World Builder authors
+those fields alongside fixture controls. This document owns
 **controls, reach, and processes** (including non-electric ones).
 
 ---

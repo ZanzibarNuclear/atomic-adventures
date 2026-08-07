@@ -49,10 +49,15 @@ implementation, and this list in the same change.
 
 ## Station Electrical Grid
 
-- Author `loadW` (and optional critical flags) on lighting/devices; real balance.
-- Deterministic brownout/shed productization beyond coarse host load booleans.
+- **Device draws + authored circuits** (replace coarse boolean
+  `lighting.main` 400 W for any light). Contract extended 2026-08-07 —
+  [station-electrical-grid.md](station-electrical-grid.md).
+- Host `P_device` / `P_circuit` / `P_load` evaluation; operational console as a
+  drawing terminal; honest Drawing column on Clearwater Station grid.
+- World Builder: circuits panel + loadW on lighting / fixtures / terminals.
+- energy-sims adapter: map circuits to session loads (watt-level when available).
+- Brownout: report-only for beta (utilization/margin); auto-shed later.
 - Optional storage buffer story/state.
-- See [station-electrical-grid.md](station-electrical-grid.md).
 
 ## Room Fixtures
 

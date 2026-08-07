@@ -199,8 +199,10 @@ Same vertical stack pattern as screen 1:
 2. **Grid body** — available generation vs load, margin, utilization bar, and the
    Clearwater Station load table (lighting, holo-reader, EV charge, kitchen).
 
-Load drawing flags are host-derived and pushed into the energy-sims session;
-see [station-electrical-grid.md](station-electrical-grid.md).
+Load **Drawing** is host-derived circuit watts (sum of device draws); **Rating**
+is circuit capacity. See [station-electrical-grid.md](station-electrical-grid.md)
+for circuits vs devices, World Builder authoring, and engine binding. Until that
+model ships, the table may still reflect the coarse boolean load registry.
 
 ### Power gating the console (now vs later)
 

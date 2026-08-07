@@ -1,18 +1,25 @@
 # Station Electrical Grid
 
-**Status:** Partial — station bus, room lighting switches, and powered-object
-presence exist; generation and bus telemetry come from the Clearwater Station
-energy-sims session (WASM). Host load binding is coarse; full load ratings,
-aggregate balance productization, and brownout-driven media are still open.  
+**Status:** Partial — bus energization, room light switches, and a coarse
+four-circuit energy-sims registry exist. **Honest per-device draws, authored
+circuits, and World Builder circuit editing are specified here and not yet
+fully implemented.** Generation telemetry comes from Clearwater Station WASM.  
 **Scope:** Utility-station (and later campus) electrical power: generation
-connection to a station bus, loads, wall switches, device demand ratings, load
-vs generation balance, and player-facing consequences  
+connection to a station bus, **circuits**, **devices** that draw, wall switches,
+appliances/fixtures, powered artifacts, load ratings, aggregate balance, and
+player-facing consequences  
 **Related:** [hydro-simulator.md](hydro-simulator.md),
 [control-panel.md](control-panel.md), [location-media.md](location-media.md),
 [indoor-stands.md](indoor-stands.md), [room-fixtures.md](room-fixtures.md),
 [world-authoring.md](world-authoring.md),
 [character-inventory.md](character-inventory.md),
 [energy-sim-legacy-ripout.md](../plans/energy-sim-legacy-ripout.md)
+
+**Decision (2026-08-07):** Stop treating “any light on → charge full building
+lighting circuit nameplate.” Model **device draw (W)** honestly, group devices
+onto **circuits** with capacity headroom, sum draws for station balance, and
+author circuits + energy use in the **World Builder**. Brownout when demand
+exceeds generation; **no** automatic priority shed ladder for Part I beta.
 
 ---
 
@@ -41,10 +48,10 @@ extend the same model to PV, storage, and multi-building campus loads.
 Fixture: `../sims/energy-sims/fixtures/stations/clearwater-station.json`
 (loads also under `fixtures/grids/clearwater-station.json`). Hydro physics and
 available \(P_{gen}\) come from the nested Clearwater Diversion plant; this
-contract owns how the game presents bus energization, drawing loads, and
-balance. Stable load ids in the fixture (e.g. `lighting.main`,
-`holo-reader.library`, `ev-charge.port-1`, `kitchen.appliance`) should be
-bound by the EnergySim adapter—do not hard-code physics in the game repo.
+contract owns how the **host** presents bus energization, **device and circuit
+draws**, and balance, and how that maps into the Clearwater Station load
+registry. Do not invent a second generation physics path in the game repo
+([hydro-simulator.md](hydro-simulator.md)).
 
 Player-facing names for the station and plant are discovery-gated; see
 [hydro-simulator.md](hydro-simulator.md#plant-of-record-decision-note) and
@@ -59,13 +66,15 @@ plans implement the contract; they do not redefine it.
   energized or it is not, before finer load balance applies.
 - Separate **energized**, **switched/armed**, and **actively drawing** states
   so lights and appliances can be modeled honestly.
-- Author **load ratings** on real devices so generation vs consumption can be
-  taught with numbers, not only binary power.
-- Keep physics and ratings host-owned; story flags and prose may reflect grid
-  state but must not be the only source of truth for “is power available.”
+- Separate **device draw** (what this thing uses right now) from **circuit
+  capacity** (breaker/fuse headroom for normal operation).
+- Author energy use and circuits in the **World Builder** so designers can
+  balance play without editing engine fixtures by hand every time.
+- Teach generation vs consumption with **honest watts** (console table Drawing
+  column), not “any light → full building circuit nameplate.”
 - Prefer cause and effect the player can reverse: turn loads off, restore
   generation, or (later) charge storage—not permanent soft-locks.
-- Scale from Part I hydro + station loads to later multi-source grids without
+- Scale from Part I hydro + station circuits to later multi-source grids without
   renaming the core vocabulary.
 
 ## Relationship to Other Contracts
@@ -73,16 +82,16 @@ plans implement the contract; they do not redefine it.
 | Concern | Owner |
 | --- | --- |
 | Hydro generation physics, telemetry, startup | [hydro-simulator.md](hydro-simulator.md) |
-| Console UI for generation and (later) load | [control-panel.md](control-panel.md) |
+| Operational console UI (gen + Clearwater Station grid) | [control-panel.md](control-panel.md) |
 | Room photos that depend on effective lights | [location-media.md](location-media.md) (`roomLights`, `stationPower`) |
 | Room geometry and stands | [indoor-stands.md](indoor-stands.md) |
-| Fixed room fixtures and appliances (stove, sink, purifier, …) | [room-fixtures.md](room-fixtures.md) |
-| Building document authoring | [world-authoring.md](world-authoring.md) |
-| Portable items, containers, tablets, meals | [character-inventory.md](character-inventory.md) |
+| Fixed room fixtures and appliances (stove, sink, purifier, …) | [room-fixtures.md](room-fixtures.md) — **operation UI**; electrical draw rules here |
+| Building document + World Builder surfaces | [world-authoring.md](world-authoring.md) — **circuits** authored here under this contract’s schema |
+| Portable items, containers, tablets, meals | [character-inventory.md](character-inventory.md) — portable **powered artifacts** may declare draw when in use |
 
 Hydro answers “how much can we generate right now?”  
-This contract answers “what is connected, what is drawing, and is demand within
-supply?”  
+This contract answers “what is connected, what is drawing, on which circuit, and
+is demand within supply?”  
 Room fixtures own **how the player operates** a stove burner or induction pot;
 this contract owns **whether the bus can supply** that operation and how many
 watts it draws while running.
@@ -94,18 +103,21 @@ watts it draws while running.
 | Term | Meaning |
 | --- | --- |
 | **Station bus** | The building’s shared AC (or modeled) distribution. When the bus is **energized**, outlets and devices *can* receive power. |
-| **Station power online** | Bus energized. Today this tracks hydro facility online / `hub.hydro_online` after startup. |
+| **Station power online** | Bus energized. Part I binary media may track host hydro connect intent; console bus banner prefers engine `busEnergized`. |
 | **Generation** | Sources that can supply the bus (Part I: hydro plant; later PV, storage discharge). |
-| **Load** | Anything that can draw power from the bus when conditions allow (lights, appliances, chargers, consoles, readers). |
-| **Load rating** | Authored demand of a load when it is fully drawing (prefer watts, `W`). |
-| **Wall light switch** | Per-room control: **open** = circuit open (off); **closed** = circuit closed (on if bus energized). |
-| **Effective lights** | Lights actually illuminate only when the bus is energized **and** the room switch is closed. |
-| **Armed / ready** | Device is connected and allowed to draw if the bus is energized (e.g. stove “on,” charger plugged in). |
-| **Drawing** | Device is currently contributing to bus load (rating applies). |
-| **Balance** | Comparison of available generation (plus storage discharge) to total drawing load. |
-| **Surplus** | Available supply exceeds drawing load. |
-| **Deficit** | Drawing load exceeds available supply. |
-| **Brownout / shed** | Player-visible consequence of deficit (dimming, forced off noncritical loads, warnings). |
+| **Device** | A single addressable consumer: room lights for one room, one fixture control, holo-reader, operational console, EV charger, powered artifact in use, etc. |
+| **Device draw** | Watts this device contributes **right now** while drawing (`0` when off / no bus). Authored as `loadW` or `loadWByLevel`. |
+| **Circuit** | A panel/breaker row that groups one or more devices. Has capacity (fuse headroom) and current drawing (sum of its devices). |
+| **Circuit capacity** | Authored max continuous draw the circuit is designed for under normal play (`capacityW`). UI **Rating** column. Must exceed sum of devices expected on together in normal ops. |
+| **Circuit drawing** | \(\sum\) device draws on that circuit. UI **Drawing** column. |
+| **Load** (generic) | Any device or circuit that can consume bus power when conditions allow. Prefer **device** / **circuit** when precise. |
+| **Wall light switch** | Per-room control: **open** = off; **closed** = on if bus energized. |
+| **Effective lights** | Illuminate only when bus energized **and** room switch closed. |
+| **Armed / ready** | Device is set to run if the bus is energized (stove “on,” charge session armed). |
+| **Drawing** | Device is contributing watts to its circuit and the station total. |
+| **Balance** | \(P_{gen}\) vs \(P_{load}\) (sum of all device draws on the bus). |
+| **Surplus / deficit** | Margin ≥ 0 / margin < 0. |
+| **Brownout** | Player-visible consequence of deficit (warnings, dimming, console utilization over 100%). Part I beta: **report-only** — no automatic priority shed ladder. |
 
 Electrical convention for wall switches matches ordinary wiring language:
 
@@ -117,28 +129,202 @@ Electrical convention for wall switches matches ordinary wiring language:
 ## Layers of the Model
 
 ```text
-Authored equipment (building content)
-  room.lighting, room.fixtures / appliances, poweredObjects
+Authored (building + world builder)
+  circuits[]  (id, label, capacityW, deviceIds)
+  devices: room.lighting.loadW, fixtures loadW / loadWByLevel,
+           poweredObjects / terminals, powered artifacts
         │
         ▼
-Runtime device state (save)
-  lightSwitches[roomId], fixture control state (burners, flow, …), hydro facility
+Runtime state (save)
+  lightSwitches, fixture levels, charge sessions, active stage (console/lesson),
+  hydro online / bus intent
         │
         ▼
-Effective availability
-  bus energized? switch closed? device level > off?
+Host draw evaluation
+  for each device: P_device = f(bus, switch/level/stage)
+  for each circuit: P_circuit = sum(P_device on circuit)
+  P_load = sum(P_circuit)   [= sum all devices]
         │
         ▼
-Aggregate power (grid management)
-  sum(drawing load ratings)  vs  generation (+ storage)
+Engine / presentation
+  P_gen from Clearwater Station session
+  map circuits → energy-sims load rows (adapter)
+  console: Energized banner, Generation / Station load / Margin, utilization,
+           Loads table Circuit | Rating(capacity) | Drawing(P_circuit)
         │
         ▼
-Player-facing outcomes
-  status lines, console readouts, room images, brownout/shed
+Player outcomes
+  lit rooms, fixture behavior, brownout warning when P_load > P_gen
 ```
 
 Story and lessons may explain the same layers; they must not invent a parallel
 power truth.
+
+---
+
+## Circuits and devices (decision)
+
+### Why two concepts
+
+| | **Device** | **Circuit** |
+| --- | --- | --- |
+| Answers | “What is using power right now?” | “Which breaker/panel row is it on, and is that row oversized enough?” |
+| Authored watts | **Draw** when on (`loadW`) | **Capacity** (`capacityW`) for normal ops headroom |
+| Player sees | Effects (lights, heat, charge) | Clearwater Station grid table rows |
+| Fail mode | Off when bus dead | Future: trip if over capacity (optional); station brownout if total over \(P_{gen}\) |
+
+**Anti-pattern (current coarse host):** any room light switch → `lighting.main`
+boolean → charge full **400 W** nameplate. That lies about a few LEDs and
+hides the operational console’s own draw.
+
+**Target:** control-room lights alone might draw **25–40 W**; the lighting
+circuit capacity might be **200–400 W** so several rooms can be lit without
+“blowing a fuse” under normal play. Station brownout only when **total** draw
+exceeds generation (e.g. EV charge + kitchen + lights).
+
+### Authored circuit shape
+
+Circuits live on the **building document** (utility-station / Clearwater
+Station workspace), not in story flags:
+
+```yaml
+circuits:
+  - id: lighting.interior
+    label: Interior lighting
+    capacityW: 250          # fuse / design headroom
+    deviceIds:
+      - lighting.room.control-room
+      - lighting.room.library
+      - lighting.room.kitchen
+      # … other lit rooms
+  - id: console.control-room
+    label: Control-room terminals
+    capacityW: 150
+    deviceIds:
+      - terminal.operational-console
+  - id: holo-reader.library
+    label: Library holo-reader
+    capacityW: 120
+    deviceIds:
+      - terminal.holo-reader.library
+  - id: kitchen.appliances
+    label: Kitchen appliance circuit
+    capacityW: 3000
+    deviceIds:
+      - fixture.kitchen-stove
+      # induction, etc.
+  - id: ev-charge.port-1
+    label: EV charge port
+    capacityW: 4000
+    deviceIds:
+      - charger.ev.port-1
+```
+
+Rules:
+
+1. Circuit **ids** are stable kebab-case; they should align with energy-sims
+   load row ids when a row exists (adapter may 1:1 map).
+2. **capacityW** ≥ sum of device draws expected on together in normal ops
+   (authoring validation warning if a single device `loadW` > capacity, or if
+   “all devices full-on” sum exceeds capacity without a note).
+3. A device belongs to **at most one** circuit. Unassigned drawing devices still
+   count in \(P_{load}\) and surface an authoring warning.
+4. Circuits without devices are allowed as placeholders; Drawing = 0.
+5. Priority / shed class fields are **optional and unused** for Part I beta
+   (no auto-shed). Do not show Priority on the console.
+
+### Authored device identity
+
+Every device that can draw:
+
+| Field | Meaning |
+| --- | --- |
+| `id` | Stable kebab-case |
+| `class` | `lighting` \| `fixture` \| `terminal` \| `charger` \| `artifact` \| `outlet` \| `other` |
+| `label` | Player/author label |
+| `circuitId` | Owning circuit (or implied by circuit.deviceIds — one source of truth) |
+| `loadW` | Watts when fully drawing (binary devices) |
+| `loadWByLevel` | Optional multi-level watts (fixtures) |
+| `room` / `stand` | When location matters |
+| `drawWhen` | Host rule key: `roomLights` \| `stage:console` \| `stage:lesson` \| `fixture` \| `chargeSession` \| `flag:…` \| custom |
+| `critical` | Optional; reserved for later shed policy |
+
+Devices are **not** a free-floating parallel catalog forever: prefer existing
+content homes:
+
+| Device class | Authoring home |
+| --- | --- |
+| Room lighting | `rooms[].lighting` (+ `loadW`, optional `deviceId` / `circuitId`) |
+| Appliances / process fixtures | `rooms[].fixtures[]` ([room-fixtures.md](room-fixtures.md)) + electrical fields |
+| Fixed terminals (console, holo) | Building `poweredObjects` or dedicated terminal entries with `loadW` |
+| EV charger | Building powered object / outdoor node with charge state |
+| Portable powered artifacts | Character item definitions ([character-inventory.md](character-inventory.md)) with `loadW` + in-use rule |
+
+### Host draw algorithm
+
+```text
+P_device(d) =
+  0  if bus not energized
+  0  if device control is off / switch open / stage closed / not in use
+  loadWByLevel[level] or loadW  otherwise
+
+P_circuit(c) = sum P_device(d) for d on c
+P_load       = sum P_circuit(c)   // all devices on the bus
+P_gen        = available generation serving the bus (engine)
+P_margin     = P_gen - P_load
+```
+
+Console **Clearwater Station grid** table:
+
+| Column | Source |
+| --- | --- |
+| Circuit | circuit label |
+| Rating | `capacityW` (not “all devices maxed”) |
+| Drawing | `P_circuit` right now |
+
+Top readouts: Generation \(P_{gen}\), Station load \(P_{load}\), Margin
+\(P_{margin}\). Display **W below 1 kW**, kW at 1 kW+. Utilization bar is
+enough for surplus/deficit coloring — no separate “Grid status: surplus” line
+required.
+
+### Energy-sims / engine binding
+
+Clearwater Station session load rows remain the engine’s circuit registry.
+
+| Approach | Role |
+| --- | --- |
+| **Host-aggregated (target)** | Host computes \(P_{circuit}\). Adapter maps each circuit to an engine load id. Prefer watt-level or fractional drawing when the engine supports it; until then, boolean `set_load` may approximate “drawing if \(P_{circuit} > 0\)” while the **console Drawing column uses host watts** (engine totals may lag fidelity). |
+| **Fine-grained engine loads** | Optional later: one engine load per device. Heavier fixtures; only if host aggregation is insufficient. |
+
+Do **not** hard-code plant physics in the game. Do **host-own** device→watt
+rules and circuit grouping so World Builder can edit them.
+
+### Interim coarse registry (current code)
+
+Until the inventory ships, the game may still use four boolean circuits
+(`lighting.main` 400 W, holo 80 W, EV 3500 W, kitchen 1200 W). That path is
+**technical debt**: replace with per-device draws + authored circuits. Do not
+extend the coarse map with more booleans without ratings.
+
+### Part I reference inventory (starting numbers)
+
+Illustrative defaults for Clearwater Station play — authors may retune in World
+Builder. Capacities leave headroom; draws are modest LEDs / terminals.
+
+| Circuit id | capacityW (order of) | Devices (examples) | Device draw when on (order of) |
+| --- | --- | --- | --- |
+| `lighting.interior` | 250–400 | Each lit room’s `lighting` | 15–40 W per room |
+| `console.control-room` | 100–150 | Operational console (stage `console` open) | 40–80 W |
+| `holo-reader.library` | 100–120 | Holo-reader while lesson open | 50–100 W |
+| `kitchen.appliances` | 2500–3500 | Stove burners / induction levels | per `loadWByLevel` |
+| `ev-charge.port-1` | 3500–4000 | EV charge session | ~3000–3500 W |
+
+**Operational console** must be a first-class drawing device whenever the
+console stage is open and the bus is energized — it is not free energy.
+
+---
+
+## Station Bus
 
 ---
 
@@ -274,6 +460,11 @@ Rules:
 5. `loadW` applies when lights are effectively on (drawing). Switch closed with
    bus dead draws **0 W** (no phantom load unless a later standby rating is
    added).
+6. Prefer **per-room** `loadW` (LED-scale), not one building-wide nameplate for
+   “any light.” Assign the room light device to a lighting **circuit** via
+   `circuitId` or the circuit’s `deviceIds` list.
+7. Optional `deviceId` on `room.lighting` when the auto id
+   `lighting.room.<roomId>` is not desired.
 
 ### Building fixtures as electrical loads
 
@@ -301,22 +492,39 @@ P_stove = sum over burners b of loadW_b[level_b]
 # level off → 0; low/medium/high → authored watts for that level
 ```
 
-### Powered objects (status and simple loads)
+### Powered objects and fixed terminals
 
-Building `poweredObjects` may still describe simple non-fixture loads and
-status lines (outlets, holo-reader, console, EV charger). Supported rules:
+Building `poweredObjects` (and equivalent terminal entries) describe fixed
+non-fixture consumers and status lines: outlets, holo-reader, **operational
+console**, EV charger. Supported rules:
 
 1. Objects may require the bus energized for active status and for actions that
    consume power.
 2. Stand-scoped objects still respect stand proximity for interaction; power
    rules do not replace location rules.
-3. An appliance that is “on” or “charging” while the bus is energized **draws**
-   its rating; off/idle draws 0 W unless a standby rating is authored later.
-4. **Do not** model multi-control kitchen equipment only as a single
+3. While armed/on **and** bus energized, the device draws its `loadW` (or level
+   table); off/idle draws 0 W unless a standby rating is authored later.
+4. **Operational console:** when the player’s stage view is the operational
+   console and the bus is energized, count `terminal.operational-console` (or
+   authored id) as drawing — even if the player never toggles a separate switch.
+5. **Holo-reader:** drawing while a lesson stage is open (bus energized).
+6. **Do not** model multi-control kitchen equipment only as a single
    poweredObject status line. Use room fixtures for stove, sink, purifier, and
-   induction pot.
-5. Legacy `poweredObjects` with `kind: lights` may be accepted as a fallback
+   induction pot; attach those fixtures to a kitchen **circuit**.
+7. Legacy `poweredObjects` with `kind: lights` may be accepted as a fallback
    only until content uses `room.lighting`; new content must use room lighting.
+
+### Portable powered artifacts
+
+Portable items (tools, tablets, future gadgets) may declare electrical demand
+when **in use** on the station bus (plugged in or facility-powered mode):
+
+1. Item definition carries optional `loadW` / `loadWByLevel` and a draw rule
+   (e.g. “while reading on station power,” “while charging”).
+2. Runtime attaches the draw to a circuit (default shared outlets circuit or
+   authored `circuitId`) only while the use condition holds.
+3. Inventory rules stay in [character-inventory.md](character-inventory.md);
+   this contract only owns the watt contribution and circuit membership.
 
 ---
 
@@ -325,8 +533,9 @@ status lines (outlets, holo-reader, console, EV charger). Supported rules:
 ### Units
 
 - Primary unit: **watts (`W`)**, non-negative integer.
-- UI may display kW when values are large; storage and balance math use watts
-  (or watt-hours for energy over time).
+- UI: show **W below 1 kW**, kW at 1 kW and above (Clearwater Station grid
+  readouts and load table). Storage and balance math use watts (or watt-hours
+  for energy over time).
 
 ### When a rating applies
 
@@ -407,30 +616,23 @@ Evaluation is **event-driven** from game state changes, not dependent on a
 background browser tick. Time advancement may re-evaluate if generation or
 loads are time-dependent.
 
-### Brownout and shed (supported policy)
+### Brownout (Part I beta policy)
 
-When deficit occurs, the host applies a deterministic policy:
+When deficit occurs (\(P_{load} > P_{gen}\)):
 
-1. Surface a clear warning (status line and/or console).
-2. **Shed** noncritical drawing loads until \(P_{margin} \ge 0\) or no
-   noncritical loads remain.
-3. Shed order: noncritical lighting first (optional room order), then
-   noncritical appliances/chargers, then other noncritical loads. **Critical**
-   loads shed last or never, per authoring.
-4. Shed means: force load out of drawing state (e.g. open light switch or turn
-   appliance off) and tell the player why.
-5. Do not silently leave the system in an impossible “everything on” deficit
-   without player-visible consequence.
+1. Surface a clear warning (console utilization / margin; optional status line).
+2. **Report-only brownout** — do **not** auto-shed by priority ladder in Part I
+   beta. The player learns by turning things off or restoring generation.
+3. Optional later: dimming via engine `lightLevel` for media.
+4. **Future shed policy** (not beta): deterministic shed of noncritical loads
+   until margin recovers; `critical` devices last. Document ordering when that
+   ships — do not imply it works today.
 
-Exact shed ordering IDs may be refined in implementation as long as the
-policy remains deterministic and testable.
+### Alpha / early-play exception (retiring)
 
-### Alpha / early-play exception
-
-Until load ratings and balance are implemented, the bus may behave as
-**binary energization only** (if online, all armed devices may appear active).
-That exception ends when grid management ships against this contract; content
-should not depend on infinite free power after that point.
+Coarse boolean circuits and binary “any light → full nameplate” are **interim
+only**. Once host device draws + authored circuits ship, content must not depend
+on free infinite bus capacity or lying watt totals.
 
 ---
 
@@ -492,11 +694,16 @@ Rules:
 
 ### Console / control panel
 
-- Generation readouts remain hydro-owned.
-- Grid management should add a **station load** summary: total load, margin,
-  warnings, optionally top drawing loads.
-- Operator commands that only change panel view state must not mutate grid
-  truth without a registered binding.
+See locked chrome in [control-panel.md](control-panel.md) (**Clearwater Station
+grid** screen):
+
+- Status banner: **Energized** / **Offline** + game clock.
+- Generation, Station load, Margin (host/engine watts; W under 1 kW).
+- Utilization bar (no separate “Grid status: surplus” line required).
+- Loads table: **Circuit | Rating (capacity) | Drawing (\(P_{circuit}\))** —
+  no Priority column for beta.
+- Hydro screen remains generation path + plant badges; does not replace grid
+  accounting.
 
 ### Location media
 
@@ -506,32 +713,68 @@ Rules:
 
 ---
 
-## Authoring (World / Content Builder)
+## Authoring (World Builder)
 
-### Supported authoring
+Circuits and energy use are **world/building content**, edited in the World
+Builder (`/builder/world`, utility-station / Clearwater Station workspace).
+They are not story-only flags and not hidden only inside energy-sims fixtures
+(fixtures stay plant-of-record for generation; circuit **capacity and membership**
+are authored for the game host and synced/adapted to the engine).
 
-| Surface | Fields |
+### Supported authoring surfaces
+
+| Surface | Fields / responsibility |
 | --- | --- |
-| Room | `lighting` object (enable, style, labels, switch note, near door, `loadW`) |
-| Room | `fixtures` list (kinds, stands, control config, optional `loadW` / `loadWByLevel`) — see [room-fixtures.md](room-fixtures.md) |
-| Powered objects / devices | id, room, stand?, class, labels, `loadW`, critical? |
-| Hydro config | generation capability via hydro contract |
+| **Building `circuits[]`** (**new**) | id, label, `capacityW`, ordered `deviceIds[]`, optional notes |
+| Room `lighting` | enable, style, labels, switch note, near door, **`loadW`**, optional `deviceId` / `circuitId` |
+| Room `fixtures[]` | kinds, stands, controls ([room-fixtures.md](room-fixtures.md)), **`loadW` / `loadWByLevel`**, `circuitId` / membership |
+| Powered objects / terminals | id, room, stand?, class, labels, **`loadW`**, drawWhen, circuit membership, critical? |
+| Portable artifacts | item defs with optional electrical draw (Content / character catalog) |
+| Hydro / plant | generation via [hydro-simulator.md](hydro-simulator.md) / energy-sims — not circuit lists |
+
+### World Builder UX (target)
+
+1. **Circuits panel** on the building: list/add/rename circuits; edit capacity;
+   assign devices via multi-select or drag from a device inventory.
+2. **Device energy fields** on room lighting, fixture inspectors, and powered
+   object inspectors: `loadW` / levels, preview “drawing now” in authoring
+   playtest when possible.
+3. **Validation**: warn if device draw > circuit capacity; warn if unassigned
+   drawing devices; warn if missing `loadW` on drawing-capable devices; warn if
+   circuit id does not map to an engine load row when binding is required.
+4. **Do not** require authors to edit vendored WASM JSON for everyday watt
+   tuning; promote engine fixture changes only when plant/grid **schema** or
+   stable circuit ids change (sync script / energy-sims lab).
+5. Live authoring must not wipe player `lightSwitches` / fixture state for
+   existing ids when only ratings or circuit membership change.
+
+### Relationship to room fixtures and artifacts
+
+- **Fixtures** remain the interaction model (burners, flow, heat). Electrical
+  fields on fixtures are the grid contract’s concern; fixture kinds stay in
+  [room-fixtures.md](room-fixtures.md).
+- **Powered artifacts** remain inventory items; optional electrical section on
+  the item definition feeds this contract when in use on the bus.
+- **Console / holo** are terminals: authored once as devices, drawWhen tied to
+  stage views.
 
 ### Builder UX expectations
 
-- Room lighting is edited as a **room detail** in World Builder (not only as a
-  free-floating powered-object list).
-- Room fixtures (stove, sink, purifier, …) are edited as **room details** with
-  kind-specific fields (burner count, flow levels, etc.).
-- Authors can set load ratings without code changes.
-- Validation warns on missing `loadW` for enabled lighting and known drawing
+- **Circuits** are a first-class building editor surface (not only raw JSON).
+- Room lighting is edited as a **room detail** (not only a free-floating
+  powered-object list), including `loadW`.
+- Room fixtures are room details with kind-specific fields **and** electrical
+  ratings / circuit membership.
+- Authors can set load ratings and circuit membership without code changes.
+- Validation warns on missing `loadW`, oversubscribed circuits, and unassigned
   devices once balance is active; may remain soft during migration.
 
 ### YAML / SQLite
 
-- Canonical store remains the building document in SQLite.
-- YAML import/export preserves `room.lighting`, `room.fixtures`, and device
-  load fields.
+- Canonical store remains the building document in SQLite
+  (`utility-station` / Clearwater Station building).
+- YAML import/export preserves `circuits[]`, `room.lighting`, `room.fixtures`,
+  powered objects/terminals, and device load fields.
 
 ---
 
@@ -561,12 +804,16 @@ Rules:
 
 | Concern | Likely home (illustrative) |
 | --- | --- |
-| Room lighting content | Building document `rooms[].lighting` |
+| Circuits content | Building document `circuits[]` |
+| Room lighting content | Building `rooms[].lighting` (+ loadW) |
 | Light switch state | Indoor facility `lightSwitches` |
+| Fixture electrical | Building fixtures + [room-fixtures.md](room-fixtures.md) |
 | Bus / hydro online | Hydro facility + station power helpers |
-| Load aggregation | Future station-grid / facility service |
-| Console load UI | Control panel modules |
+| Device → watt evaluation | Host `deriveStationDraw` / station-grid service (target) |
+| Engine load rows | energy-sims Clearwater Station adapter |
+| Console load UI | [control-panel.md](control-panel.md) Clearwater Station grid |
 | Room light images | Location media `when.roomLights` |
+| World Builder circuits UI | `/builder/world` building workspace |
 
 Update this map when code lands; do not treat paths as frozen APIs.
 
@@ -578,25 +825,34 @@ A build satisfies this contract when:
 
 1. Bus energization is a single clear runtime truth for the station.
 2. Room lighting is room-authored; switches default open; effective lights need
-   bus + closed switch.
-3. Drawing loads have stable ids and can carry `loadW` (and per-level watts for
-   multi-control fixtures).
-4. Electrical room fixtures report drawing only when bus is energized and
-   controls are above `off`.
-5. When balance is enabled, \(P_{load}\) and \(P_{gen}\) are defined, and
-   deficit produces deterministic, player-visible shed or equivalent.
-6. Save/load preserves light switches and fixture control state.
-7. Location media and status lines do not contradict bus or light state.
-8. Hydro remains the Part I generation source under its own contract.
+   bus + closed switch; **per-room `loadW`** (not one shared nameplate for any
+   light).
+3. Devices have stable ids and `loadW` / levels; circuits have `capacityW` and
+   device membership.
+4. \(P_{device}\), \(P_{circuit}\), \(P_{load}\) follow the host algorithm;
+   console Drawing matches \(P_{circuit}\).
+5. Operational console and holo-reader count as drawing terminals when open.
+6. Electrical fixtures report drawing only when bus is energized and controls
+   are above `off`.
+7. When balance is enabled, deficit produces player-visible brownout/warning
+   (Part I beta: report-only; utilization/margin).
+8. Save/load preserves light switches and fixture control state.
+9. Location media and status lines do not contradict bus or light state.
+10. Hydro remains the Part I generation source under its own contract.
+11. World Builder can author circuits and device energy fields without hand-editing
+    WASM JSON for routine watt changes.
 
-Until load ratings and balance ship, criteria 3–5 may be partial; criteria 1–2
-and 6–7 for lighting already apply to current work. Kitchen fixture
-**interaction** completeness is owned by [room-fixtures.md](room-fixtures.md).
+Until device/circuit authoring ships, criteria 3–5 and 11 may be partial;
+criteria 1–2 and 8–9 for lighting already apply. Kitchen fixture **interaction**
+completeness is owned by [room-fixtures.md](room-fixtures.md).
 
 ---
 
 ## Document History
 
+- **2026-08-07** — Circuits vs devices, host draw algorithm, Part I inventory,
+  report-only brownout, World Builder circuit authoring, operational console as
+  load; retire coarse “any light → 400 W” as the target model.
 - **2026-08-05** — Plant of record: Clearwater Station session + Clearwater
   Diversion plant in `../sims/energy-sims`; supersedes informal “Upper Penstock”
   generation wording for Part I.
