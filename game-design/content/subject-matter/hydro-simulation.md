@@ -15,8 +15,8 @@ solidified Stage 1 model in sibling **`../sims/energy-sims`**.
 
 See [Regional Geography](../story/regional-geography.md) and
 [docs/contracts/hydro-simulator.md](../../../docs/contracts/hydro-simulator.md).
-Older draft labels (Mill Brook, Upper Penstock) are superseded; remaining
-prose below will be renamed in a later pass.
+Use only Clearwater names (Run / Diversion / Station); draft Mill Brook and
+Upper Penstock labels are retired.
 
 ## Part I Focus — Hydro as the spine of Part I
 

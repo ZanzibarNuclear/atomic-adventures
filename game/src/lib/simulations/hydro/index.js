@@ -1,9 +1,8 @@
-export {
-  HYDRO_BASELINE_CONFIG,
-  HYDRO_BASELINE_CONFIG_ID,
-  HYDRO_CONFIGS,
-  getHydroConfig,
-} from "./config.js";
+/**
+ * Host hydro facility model (inputs, events, startup patches).
+ * Power physics: game/src/lib/simulations/energySim/ only.
+ */
+
 export {
   createHydroEvent,
   appendHydroEvent,
@@ -15,8 +14,4 @@ export {
   normalizeHydroState,
   withHydroStatePatch,
 } from "./state.js";
-export { generateHydroTelemetry } from "./telemetry.js";
-export {
-  buildHydroGraphData,
-  summarizeHydroSamples,
-} from "./history.js";
+export { hydroStartupActionPatch } from "./startupActions.js";

@@ -2,7 +2,7 @@
 
 **Status:** Implemented MVP contract for the Part I learning-content vertical slice  
 **Scope:** `game/` lesson runtime, Content Builder lesson authoring, story/world
-entry points, player learning credit, and future hydro simulator integration
+entry points, player learning credit, and energy-sims-backed lesson interactions
 
 ---
 
@@ -223,6 +223,19 @@ Supported quiz question types currently include retryable `multiple-choice`.
 Future assessment, simulation, media, and interaction blocks should reference
 registered assets, registered interaction IDs, or host-validated simulation
 outcomes, not arbitrary component names or script content.
+
+### Hydro practice interactions (plant of record)
+
+Interactive hydro labs (e.g. `hydro-penstock-lab`) evaluate Clearwater-shaped
+plant JSON through **energy-sims WASM** (`evaluateHydro` / the same core as
+ops). Rules:
+
+1. Sandbox only — never mutate live `facilities.hydro` or station bus state.
+2. **No alternate JS power model** if WASM fails; show an unavailable/error
+   state and fix the engine packaging.
+3. Fixture numbers come from vendored energy-sims plants
+   (`clearwater-diversion`, `ideal-teaching`), not forked game constants.
+4. See [hydro-simulator.md](hydro-simulator.md#runtime-transport-decision-note).
 
 ## Simulator Extraction and Reuse
 
@@ -512,9 +525,10 @@ completion.
    multiple-choice quiz renderer.
 6. Commit completion outcomes through the existing validated effects service,
    and show an award/rejoin screen.
-7. ~~Add simulator-backed lesson frames~~ — **Started:** `interaction` blocks +
-   Clearwater penstock lab (`hydro-penstock-lab`) via energy-sims WASM sandbox.
-   Further practice outcomes / Content Builder authoring still open.
+7. ~~Add simulator-backed lesson frames~~ — **Done for first lab:**
+   `interaction` blocks + Clearwater penstock lab (`hydro-penstock-lab`) via
+   energy-sims WASM only (no legacy physics fallback). Further practice
+   outcomes / Content Builder interaction authoring still open.
 
 Each step must preserve the separation between authored content, transient view
 state, committed player progress, and external simulator internals.

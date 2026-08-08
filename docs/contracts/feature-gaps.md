@@ -5,7 +5,7 @@ partial, or intentionally waiting for a concrete content need. It is not a
 parking lot for old systems. When a gap is closed, update the relevant contract,
 implementation, and this list in the same change.
 
-**Last reviewed:** 2026-08-06 (alpha release pass)
+**Last reviewed:** 2026-08-07 (beta: energy-sims sole physics path)
 
 ## Closed for alpha (do not re-list as open)
 
@@ -15,11 +15,23 @@ implementation, and this list in the same change.
 - Holo-reader MVP: learning document, lessons, completion effects, power-gated stand.
 - Inventory stage view + Character inventory reuse.
 - Hydro console multi-screen shell + EnergySim adapter path for Part I.
+- Operational console layout locked (status banner, three live graphs, plant
+  path badges) — see [control-panel.md](control-panel.md).
 - Process fixtures: **sink** and **water-purifier** runtime.
 - Known-area outdoor multi-hop + indoor room multi-hop + door manners.
 - Pre-empty wellbeing crisis modal; health-collapse failure panel.
 - Structured `milestones` on save; `timeUntil` on story choices.
 - Scene `modes`, stand triggers, ambient fallback prose.
+
+## Hydro / EnergySim (beta)
+
+- ~~Rip out legacy JS hydro physics~~ — done for beta (WASM Clearwater Station
+  only; host facility inputs remain). Plan:
+  [energy-sim-legacy-ripout.md](../plans/energy-sim-legacy-ripout.md).
+- ~~Operational console chrome/layout~~ — locked in control-panel contract.
+- Optional: brownout `lightLevel` → indoor media dimming (console already shows grid).
+- Host load binding still coarse (lights / holo / EV / kitchen booleans).
+- Console open → advance authored game clock ~1:1 (currently frozen display).
 
 ## Play Modes And Story Mode
 
@@ -37,10 +49,15 @@ implementation, and this list in the same change.
 
 ## Station Electrical Grid
 
-- Author `loadW` (and optional critical flags) on lighting/devices; real balance.
-- Deterministic brownout/shed productization beyond coarse host load booleans.
+- **Device draws + authored circuits** (replace coarse boolean
+  `lighting.main` 400 W for any light). Contract extended 2026-08-07 —
+  [station-electrical-grid.md](station-electrical-grid.md).
+- Host `P_device` / `P_circuit` / `P_load` evaluation; operational console as a
+  drawing terminal; honest Drawing column on Clearwater Station grid.
+- World Builder: circuits panel + loadW on lighting / fixtures / terminals.
+- energy-sims adapter: map circuits to session loads (watt-level when available).
+- Brownout: report-only for beta (utilization/margin); auto-shed later.
 - Optional storage buffer story/state.
-- See [station-electrical-grid.md](station-electrical-grid.md).
 
 ## Room Fixtures
 

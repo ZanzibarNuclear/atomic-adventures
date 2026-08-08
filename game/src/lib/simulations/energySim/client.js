@@ -1,10 +1,11 @@
 /**
- * Thin adapter to the energy-sims remote engine.
- * Source of truth for the HTTP/WS client lives in sims/energy-sims/clients/js.
+ * Thin adapter to the energy-sims remote engine (optional lab HTTP transport).
+ * Source of truth for the HTTP client lives in sims/energy-sims/clients/js.
  * This copy is vendored so the game does not need a monorepo path dependency.
  *
- * Enable with VITE_ENERGY_SIM_URL (e.g. http://127.0.0.1:8787).
- * When unset, helpers return null / no-op so legacy hydro prototypes stay primary.
+ * Default play path is WASM (see loadBackend.js). Enable HTTP with
+ * VITE_ENERGY_SIM_URL (e.g. http://127.0.0.1:8787) for lab/debug only.
+ * When unset, createEnergySimClient returns null — WASM remains the default.
  */
 
 /**

@@ -2,11 +2,10 @@
 import HydroGraphCard from "./HydroGraphCard.vue";
 
 defineProps({
-  latestSample: { type: Object, default: null },
   markerLines: { type: Array, required: true },
   powerGraph: { type: Array, required: true },
-  pressureSpeedGraph: { type: Array, required: true },
-  sampleTimeLabel: { type: Function, required: true },
+  pressureGraph: { type: Array, required: true },
+  speedGraph: { type: Array, required: true },
   telemetry: { type: Object, required: true },
 });
 </script>
@@ -15,25 +14,31 @@ defineProps({
   <div class="graphs-panel">
     <div class="graphs-header">
       <h2>Live monitor</h2>
-      <span>{{ sampleTimeLabel(latestSample) }}</span>
     </div>
-    <div class="graph-stack">
+    <div class="graph-stack graph-stack-triple">
       <HydroGraphCard
         aria-label="Power output graph"
         heading="Power output"
         marker-key-prefix="power"
         :marker-lines="markerLines"
         :series="powerGraph"
-        :value-label="`${telemetry.generatorOutputKw.toFixed(3)} kW`" />
+        :value-label="`${Number(telemetry.generatorOutputKw ?? 0).toFixed(3)} kW`" />
 
       <HydroGraphCard
-        aria-label="Pressure and turbine speed graph"
-        heading="Pressure and turbine speed"
+        aria-label="Water pressure graph"
+        heading="Water pressure"
         marker-key-prefix="pressure"
         :marker-lines="markerLines"
-        :series="pressureSpeedGraph"
-        :value-label="`${telemetry.penstockPressureKpa.toFixed(1)} kPa / ${telemetry.turbineSpeedRpm} rpm`"
-        show-legend />
+        :series="pressureGraph"
+        :value-label="`${Number(telemetry.penstockPressureKpa ?? 0).toFixed(1)} kPa`" />
+
+      <HydroGraphCard
+        aria-label="Turbine speed graph"
+        heading="Turbine speed"
+        marker-key-prefix="speed"
+        :marker-lines="markerLines"
+        :series="speedGraph"
+        :value-label="`${telemetry.turbineSpeedRpm ?? 0} rpm`" />
     </div>
   </div>
 </template>

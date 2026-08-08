@@ -244,7 +244,7 @@ describe('useGameState save roundtrip', () => {
       eventLog: [
         {
           eventId: 'hydro-event-0044-online',
-          plantId: 'upper-penstock',
+          plantId: 'clearwater-diversion',
           elapsedMinutes: 44,
           type: 'state-transition',
           source: 'host',

@@ -1,8 +1,10 @@
-import { HYDRO_BASELINE_CONFIG_ID } from "./config.js";
+/**
+ * Host-owned hydro facility state (field path, operator connect intent, log).
+ * Physics and kW live only in energy-sims — this module does not compute power.
+ */
 
 export function createHydroState(overrides = {}) {
   return normalizeHydroState({
-    activeConfigId: HYDRO_BASELINE_CONFIG_ID,
     online: false,
     intakeClear: false,
     intakeOpen: false,
@@ -21,7 +23,6 @@ export function createHydroState(overrides = {}) {
 
 export function normalizeHydroState(state = {}) {
   return {
-    activeConfigId: String(state.activeConfigId || HYDRO_BASELINE_CONFIG_ID),
     online: Boolean(state.online),
     intakeClear: Boolean(state.intakeClear),
     intakeOpen: Boolean(state.intakeOpen),

@@ -1,70 +1,24 @@
 import { computed, onBeforeUnmount, onMounted, ref, unref, watch } from "vue";
+import { formatOperationalConsoleTime } from "../lib/character/gameTime.js";
 import { useHydroFacility } from "./useHydroFacility.js";
 import { deriveStationLoads } from "../lib/simulations/energySim/hostStationLoads.js";
 
+/** Real-time sample interval while the console is open. */
 const MONITOR_SAMPLE_MS = 1000;
-const MONITOR_MINUTES_PER_SAMPLE = 1;
 const MAX_VISIBLE_SAMPLES = 48;
 
-/** Engine advisory strings → Note (not alarming). Host problems stay Warning/Fault. */
-const ENGINE_NOTE_PATTERNS = [
-  /exceeds design flow/i,
-  /capped at ratedPowerKw/i,
-  /capped at maxSafeFlow/i,
-  /plant offline/i,
-];
-
+/** High-level operator status for the prominent Status strip. */
 const statusLabels = {
-  "configuration-missing": "Configuration missing",
-  "faulted": "Faulted",
-  "insufficient-flow": "Insufficient flow",
-  "insufficient-pressure": "Insufficient pressure",
+  "configuration-missing": "Fault",
+  "engine-unavailable": "Fault",
+  "faulted": "Fault",
+  "insufficient-flow": "Offline",
+  "insufficient-pressure": "Offline",
   "offline": "Offline",
   "online": "Online",
-  "ready": "Ready",
-  "spinning-up": "Spinning up",
-  "startup-blocked": "Startup blocked",
-};
-
-const diagnosticLabels = {
-  "configuration-missing": "The selected hydro configuration was not found.",
-  "intake-blocked": "The intake is blocked.",
-  "intake-closed": "The intake gate is closed.",
-  "intake-debris-reducing-flow": "Debris is reducing captured flow.",
-  "intake-needs-clearing": "The intake still needs field clearing.",
-  "low-pressure": "Penstock pressure is below the startup target.",
-  "low-stream-flow": "Stream flow is below the useful range.",
-  "low-turbine-speed": "The turbine is below the target speed.",
-  "major-penstock-leak": "A major penstock leak is preventing stable operation.",
-  "manual-valves-not-open": "Manual valves are not fully open.",
-  "penstock-leakage": "Penstock leakage is reducing output.",
-  "station-power-off": "Station power is offline.",
-  "startup-incomplete": "The generator startup sequence is incomplete.",
-  "grid-brownout": "Station demand is near or above available generation.",
-  "grid-shortage": "Station load exceeds available generation.",
-};
-
-const guidedActionLabels = {
-  "clear-intake-debris": {
-    title: "Return to the upstream bank",
-    body: "Use the ordinary field action to clear debris from the intake.",
-  },
-  "open-intake": {
-    title: "Stay at the upstream bank",
-    body: "Use the ordinary field action to open the intake.",
-  },
-  "align-pipeflow": {
-    title: "Return to the midstream bank",
-    body: "Use the ordinary field action to align the upstream valve.",
-  },
-  "open-turbine-valve": {
-    title: "Return to the downstream bank",
-    body: "Use the ordinary field action to open the turbine valve.",
-  },
-  "connect-power": {
-    title: "Stay in the control room",
-    body: "Use the ordinary control-room action to connect station power.",
-  },
+  "ready": "Offline",
+  "spinning-up": "Online",
+  "startup-blocked": "Offline",
 };
 
 /**
@@ -78,26 +32,35 @@ export function useHydroConsoleMonitor(gameState, validPanel, stationContextRef 
   const hydroState = hydroFacility.hydroState;
   const sampleBuffer = ref([]);
   const eventMarkers = ref([]);
-  const monitorStartedAtMs = ref(Date.now());
-  const monitorStartedAtElapsedMinutes = ref(elapsedMinutes(gameState));
   let monitorTimer = null;
 
   const latestSample = computed(() => sampleBuffer.value.at(-1) ?? null);
   const telemetry = computed(() => latestSample.value?.telemetry ?? hydroFacility.telemetry.value);
-  const statusLabel = computed(() => statusLabels[telemetry.value.status] ?? telemetry.value.status);
-  const diagnostics = computed(() => buildDiagnostics(telemetry.value, hydroState.value));
-  const guidedActions = computed(() => nextGuidedActions(hydroState.value));
-  const readouts = computed(() => buildReadouts(telemetry.value));
-  const fieldChecks = computed(() => buildFieldChecks(hydroState.value));
+  const statusLabel = computed(() => {
+    const raw = telemetry.value?.status;
+    return statusLabels[raw] ?? (hydroState.value.online ? "Online" : "Offline");
+  });
+  /** Station bus banner: Energized / Offline (no caption). */
+  const busStatusLabel = computed(() => {
+    const snap = telemetry.value;
+    const energized = Boolean(
+      snap?.busEnergized
+        ?? (hydroState.value.online && Number(snap?.turbineSpeedRpm ?? 0) > 0),
+    );
+    return energized ? "Energized" : "Offline";
+  });
+  const equipment = computed(() => buildEquipmentState(hydroState.value, telemetry.value));
   const markerLines = computed(() => markerPositions(sampleBuffer.value, eventMarkers.value));
-  // Clearwater Diversion is ~8 kW rated; scale graphs to plant of record.
   const powerGraph = computed(() => graphSeries(sampleBuffer.value, [
     { id: "power", label: "Power output", color: "#88d68d", metric: "generatorOutputKw", max: 10 },
   ]));
-  const pressureSpeedGraph = computed(() => graphSeries(sampleBuffer.value, [
-    { id: "pressure", label: "Pressure", color: "#66b8e6", metric: "penstockPressureKpa", max: 300 },
+  const pressureGraph = computed(() => graphSeries(sampleBuffer.value, [
+    { id: "pressure", label: "Water pressure", color: "#66b8e6", metric: "penstockPressureKpa", max: 300 },
+  ]));
+  const speedGraph = computed(() => graphSeries(sampleBuffer.value, [
     { id: "speed", label: "Turbine speed", color: "#ffd36f", metric: "turbineSpeedRpm", max: 1200 },
   ]));
+  const gameTimeLabel = computed(() => formatOperationalConsoleTime(gameState.clock));
 
   function engineOptions(extra = {}) {
     const ctx = unref(stationContextRef) ?? {};
@@ -113,51 +76,37 @@ export function useHydroConsoleMonitor(gameState, validPanel, stationContextRef 
 
   async function addMonitorSample() {
     if (!unref(validPanel)) return;
-    const elapsedSimMinutes = monitorStartedAtElapsedMinutes.value +
-      Math.floor((Date.now() - monitorStartedAtMs.value) / MONITOR_SAMPLE_MS) * MONITOR_MINUTES_PER_SAMPLE;
-    let nextTelemetry;
-    try {
-      // Keep loads in sync each tick (setLoad via refresh/sync path)
-      await hydroFacility.refreshEngine({
-        ...engineOptions({ durationSecs: 0.05 }),
-      });
-      nextTelemetry = await hydroFacility.tickEngine(1);
-    } catch {
-      nextTelemetry = hydroFacility.readTelemetry();
-    }
+    await hydroFacility.refreshEngine({
+      ...engineOptions({ durationSecs: 0.05 }),
+    });
+    // Physics tick while watching; host game clock is not mutated here.
+    const nextTelemetry = await hydroFacility.tickEngine(1);
     const sample = {
-      id: `sample-${elapsedSimMinutes}-${sampleBuffer.value.length}`,
-      elapsedMinutes: elapsedSimMinutes,
+      id: `sample-${sampleBuffer.value.length}`,
+      elapsedSeconds: sampleBuffer.value.length,
       telemetry: nextTelemetry,
     };
     sampleBuffer.value = [...sampleBuffer.value, sample].slice(-MAX_VISIBLE_SAMPLES);
   }
 
   async function loadHistorySamples() {
-    try {
-      await hydroFacility.refreshEngine(engineOptions({
-        durationSecs: hydroState.value.online ? 25 : 2,
+    const latest = await hydroFacility.refreshEngine(engineOptions({
+      durationSecs: hydroState.value.online ? 25 : 2,
+    }));
+    sampleBuffer.value = [{
+      id: "sample-engine-0",
+      elapsedSeconds: 0,
+      telemetry: latest,
+    }];
+    eventMarkers.value = (hydroState.value.eventLog ?? [])
+      .filter((event) => Number.isFinite(Number(event.elapsedMinutes)))
+      .map((event) => ({
+        id: event.eventId,
+        elapsedMinutes: Number(event.elapsedMinutes),
+        type: event.type,
+        label: event.label || event.type,
+        actionId: event.payload?.actionId ?? null,
       }));
-    } catch {
-      // legacy graph path below
-    }
-    const latest = hydroFacility.readTelemetry();
-    if (latest?.source === "energy-sims") {
-      const now = elapsedMinutes(gameState);
-      sampleBuffer.value = [{
-        id: `sample-engine-${now}`,
-        elapsedMinutes: now,
-        telemetry: latest,
-      }];
-      eventMarkers.value = [];
-      return;
-    }
-    const graphData = hydroFacility.readGraphData({
-      fromElapsedMinutes: Math.max(0, elapsedMinutes(gameState) - 60),
-      stepMinutes: 5,
-    });
-    sampleBuffer.value = graphData.samples.slice(-MAX_VISIBLE_SAMPLES);
-    eventMarkers.value = graphData.markers;
   }
 
   onMounted(() => {
@@ -181,97 +130,68 @@ export function useHydroConsoleMonitor(gameState, validPanel, stationContextRef 
   }
 
   return {
-    diagnostics,
-    fieldChecks,
-    guidedActions,
+    equipment,
     latestSample,
     markerLines,
     powerGraph,
-    pressureSpeedGraph,
-    readouts,
-    sampleTimeLabel,
+    pressureGraph,
+    speedGraph,
+    gameTimeLabel,
     statusLabel,
+    busStatusLabel,
     telemetry,
   };
 }
 
-function buildDiagnostics(telemetry, hydroState) {
-  const items = [];
-  for (const id of telemetry.faults ?? []) {
-    items.push(diagnosticLine(id, "Fault"));
-  }
-  for (const id of telemetry.warnings ?? []) {
-    items.push(diagnosticLine(id, kindForDiagnostic(id)));
-  }
-  if (!hydroState.online) {
-    items.push(diagnosticLine("station-power-off", "Warning"));
-  }
-  const gridStatus = telemetry.gridStatus;
-  if (gridStatus === "brownout") {
-    items.push(diagnosticLine("grid-brownout", "Warning"));
-  } else if (gridStatus === "shortage") {
-    items.push(diagnosticLine("grid-shortage", "Warning"));
-  }
-  return items;
-}
+/**
+ * Plant schematic equipment + badge state for the operational console.
+ *
+ * Bypass: host step 3 (`upstreamOpen`). Hydraulically, Open returns flow to the
+ * cascade; Closed routes water down the penstock to the turbine. Completing
+ * step 3 sets the host path open for penstock service → badge shows Closed.
+ */
+export function buildEquipmentState(hydroState, telemetry = {}) {
+  const intakeClear = Boolean(hydroState.intakeClear);
+  const intakeOpen = Boolean(hydroState.intakeOpen);
+  const bypassClosedForPenstock = Boolean(hydroState.manualValves?.upstreamOpen);
+  const turbineValveOpen = Boolean(hydroState.manualValves?.powerhouseOpen);
+  const rpm = Number(telemetry.turbineSpeedRpm ?? 0);
+  const generatorEngaged = Boolean(hydroState.online) && rpm > 0;
+  const gridConnected = Boolean(
+    telemetry.busEnergized
+      ?? (hydroState.online && rpm > 0),
+  );
 
-function kindForDiagnostic(id) {
-  const text = String(id);
-  if (ENGINE_NOTE_PATTERNS.some((re) => re.test(text))) return "Note";
-  // Host kebab ids stay Warning unless known soft
-  if (
-    text === "intake-debris-reducing-flow"
-    || text === "penstock-leakage"
-    || text === "low-turbine-speed"
-  ) {
-    return "Note";
-  }
-  return "Warning";
-}
-
-function buildReadouts(telemetry) {
-  return [
-    { id: "output", label: "Output", value: `${Number(telemetry.generatorOutputKw ?? 0).toFixed(3)} kW` },
-    { id: "pressure", label: "Pressure", value: `${Number(telemetry.penstockPressureKpa ?? 0).toFixed(1)} kPa` },
-    { id: "speed", label: "Turbine", value: `${telemetry.turbineSpeedRpm ?? 0} rpm` },
-  ];
-}
-
-function buildFieldChecks(hydroState) {
-  return [
-    { id: "intake-clear", label: "Intake clear", ok: hydroState.intakeClear },
-    { id: "intake-open", label: "Intake open", ok: hydroState.intakeOpen },
-    { id: "upstream-valve", label: "Upstream valve", ok: hydroState.manualValves.upstreamOpen },
-    { id: "powerhouse-valve", label: "Powerhouse valve", ok: hydroState.manualValves.powerhouseOpen },
-    { id: "startup", label: "Startup complete", ok: hydroState.startupComplete },
-    { id: "online", label: "Station power", ok: hydroState.online },
-  ];
-}
-
-function nextGuidedActions(state) {
-  if (!state.intakeClear) return [guidedAction("clear-intake-debris")];
-  if (!state.intakeOpen) return [guidedAction("open-intake")];
-  if (!state.manualValves.upstreamOpen) return [guidedAction("align-pipeflow")];
-  if (!state.manualValves.powerhouseOpen) return [guidedAction("open-turbine-valve")];
-  if (!state.startupComplete || !state.online) return [guidedAction("connect-power")];
-  return [];
-}
-
-function diagnosticLine(id, kind) {
   return {
-    id,
-    kind,
-    label: diagnosticLabels[id] ?? id,
-  };
-}
-
-function guidedAction(id) {
-  return {
-    id,
-    ...(guidedActionLabels[id] ?? {
-      title: "Return to the map",
-      body: "Use the next ordinary field action.",
-    }),
+    intakeClear: {
+      ok: intakeClear,
+      label: intakeClear ? "Intake clear" : "Intake blocked",
+    },
+    intakeOpen: {
+      ok: intakeOpen,
+      label: intakeOpen ? "Intake open" : "Intake closed",
+    },
+    bypass: {
+      // Good operating path: bypass closed so penstock is fed
+      ok: bypassClosedForPenstock,
+      label: bypassClosedForPenstock ? "Closed" : "Open",
+    },
+    turbineValve: {
+      ok: turbineValveOpen,
+      label: turbineValveOpen ? "Valve open" : "Valve closed",
+    },
+    generator: {
+      ok: generatorEngaged,
+      label: generatorEngaged ? "Engaged" : "Disengaged",
+    },
+    grid: {
+      ok: gridConnected,
+      label: gridConnected ? "Connected" : "Disconnected",
+    },
+    pathToBypass: intakeClear && intakeOpen,
+    pathToTurbine: intakeClear && intakeOpen && bypassClosedForPenstock,
+    pathToGenerator: intakeClear && intakeOpen && bypassClosedForPenstock && turbineValveOpen,
+    pathToGrid: generatorEngaged && gridConnected,
   };
 }
 
@@ -300,27 +220,8 @@ function graphY(value, maxValue) {
   return round(36 - normalized * 32, 2);
 }
 
-function markerPositions(samples, markers) {
-  if (samples.length < 2) return [];
-  const first = samples[0].elapsedMinutes;
-  const last = samples.at(-1).elapsedMinutes;
-  const span = Math.max(1, last - first);
-  return markers
-    .filter((marker) => marker.elapsedMinutes >= first && marker.elapsedMinutes <= last)
-    .map((marker) => ({
-      ...marker,
-      x: round(((marker.elapsedMinutes - first) / span) * 100, 2),
-    }));
-}
-
-function elapsedMinutes(gameState) {
-  const value = Number(gameState?.clock?.elapsedMinutes);
-  return Number.isFinite(value) ? value : 0;
-}
-
-function sampleTimeLabel(sample) {
-  if (!sample) return "No samples yet";
-  return `${Math.round(sample.elapsedMinutes)} min`;
+function markerPositions(_samples, _markers) {
+  return [];
 }
 
 function round(value, decimals) {
