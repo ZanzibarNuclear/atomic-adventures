@@ -508,9 +508,12 @@ const holoReaderActions = computed(() =>
     stationPowerOn: stationPowerOverrideOn.value,
   }),
 );
+const HYDRO_CONSOLE_STAND_ID = "console";
+const HYDRO_CONSOLE_CHECKED_FLAG = "hydro.console-checked";
 const hydroConsoleActions = computed(() => {
   if (place.value !== "indoors") return [];
   if (indoor.indoor.currentRoom !== "control-room") return [];
+  if (indoor.indoor.currentStand !== HYDRO_CONSOLE_STAND_ID) return [];
   if (!stationPowerOverrideOn.value) return [];
   return [{
     id: "hydro-console:open",
@@ -937,11 +940,15 @@ function handleHoloReaderAction(id) {
     openView("lesson", { source: "library-holo-reader" });
   }
   if (id === "hydro-console:open") {
+    // Durable signal for story beat check-console: only the player action
+    // (stand at console + View console) should open this stage.
+    gameState.flags?.add?.(HYDRO_CONSOLE_CHECKED_FLAG);
     openView("console", {
       panelId: "hydro-control-room-panel",
       focus: "generation",
       mode: "startup",
     });
+    refreshStoryMoment();
   }
 }
 
