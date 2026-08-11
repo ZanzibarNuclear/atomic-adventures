@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import { createCharacterState } from "../../composables/useCharacterState.js";
 import { createGameClock } from "./gameTime.js";
 import { addItem, characterHolderId, itemQuantity, transferHolding } from "./holdings.js";
-import { performItemAction } from "./itemActions.js";
+import {
+  consumeOptionLabel,
+  isConsumeOptionOffered,
+  performItemAction,
+  presentConsumeOptions,
+} from "./itemActions.js";
 
 function state() {
   const character = createCharacterState({
@@ -122,6 +127,43 @@ function state() {
   addItem(character.holdings, character.definitions, "card", 1);
   return { character, flags: new Set(), clock: createGameClock(), packHolderId };
 }
+
+describe("consume option presentation", () => {
+  const options = [
+    { id: "nibble", label: "Nibble", portion: 0.25 },
+    { id: "half", label: "Eat half", portion: 0.5 },
+    { id: "all", label: "Eat all remaining", remaining: true },
+  ];
+  const action = { id: "eat", label: "Eat", consumeOptions: options };
+
+  it("drops trailing remaining from all-out labels", () => {
+    expect(consumeOptionLabel({ label: "Eat all remaining", remaining: true })).toBe("Eat all");
+    expect(consumeOptionLabel({ label: "Drink all remaining", remaining: true })).toBe("Drink all");
+    expect(consumeOptionLabel({ label: "Eat half", portion: 0.5 })).toBe("Eat half");
+  });
+
+  it("hides half when leftover is at or below half of a full item", () => {
+    expect(isConsumeOptionOffered(options[1], 1)).toBe(true);
+    expect(isConsumeOptionOffered(options[1], 0.5)).toBe(false);
+    expect(isConsumeOptionOffered(options[1], 0.4)).toBe(false);
+  });
+
+  it("keeps nibble available even when it would finish the rest", () => {
+    expect(isConsumeOptionOffered(options[0], 0.2)).toBe(true);
+    expect(isConsumeOptionOffered(options[0], 0.25)).toBe(true);
+  });
+
+  it("always offers all when anything remains", () => {
+    expect(isConsumeOptionOffered(options[2], 0.5)).toBe(true);
+    expect(isConsumeOptionOffered(options[2], 0.01)).toBe(true);
+    expect(isConsumeOptionOffered(options[2], 0)).toBe(false);
+  });
+
+  it("presents the visible labeled choices for a half-eaten item", () => {
+    const choices = presentConsumeOptions(action, 0.5);
+    expect(choices.map((entry) => entry.buttonLabel)).toEqual(["Nibble", "Eat all"]);
+  });
+});
 
 describe("item actions", () => {
   it("atomically consumes an item, applies effects, and advances authored time", () => {

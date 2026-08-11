@@ -653,14 +653,34 @@ function performSave() {
 }
 
 /**
+ * Clear play-only UI that must not leak across loads / new games
+ * (inventory focus, open modals, stage views, media mode).
+ */
+function resetPlaySessionUi() {
+  inventoryDialogVisible.value = false;
+  stageSelectedHoldingId.value = null;
+  lookInContainerInstanceId.value = null;
+  lookInSelectedHoldingId.value = null;
+  itemActionFeedback.value = "";
+  containerGroupInspect.value = null;
+  developerSettingsVisible.value = false;
+  vitalCrisisAlert.value = null;
+  vitalCrisisAlertedIds.value = new Set();
+  locationMediaMode.value = "map";
+  locationMediaIndex.value = 0;
+  locationMediaKey.value = null;
+  lessonCompletionError.value = "";
+  returnToMap({ force: true });
+}
+
+/**
  * Wipe a slot and enter a fresh story session in it (no title-screen detour).
  */
 function beginFreshGame(gameId) {
   clearSave(gameId);
   setActiveSlot(gameId);
   resetGameState(saveCtx.value);
-  vitalCrisisAlert.value = null;
-  vitalCrisisAlertedIds.value = new Set();
+  resetPlaySessionUi();
   applyPlayMode("story");
 }
 
@@ -691,6 +711,7 @@ function handlePlayGame(gameId) {
     }
     if (hasSave(gameId)) {
       if (!load(saveCtx.value, gameId)) return;
+      resetPlaySessionUi();
       markSessionClean();
       refreshStoryMoment();
       noticeResumingGame(gameId);
@@ -717,6 +738,7 @@ function noticeResumingGame(gameId) {
 function completePlayGame(gameId) {
   if (hasSave(gameId)) {
     if (!load(saveCtx.value, gameId)) return;
+    resetPlaySessionUi();
     markSessionClean();
     refreshStoryMoment();
     noticeResumingGame(gameId);
@@ -848,6 +870,7 @@ function enterTheGame() {
     beginFreshGame(openId ?? 1);
     return;
   }
+  resetPlaySessionUi();
   markSessionClean();
   refreshStoryMoment();
   noticeResumingGame(gameId);
@@ -1067,6 +1090,7 @@ function openInventoryDialog(focusHoldingKey = null) {
   if (focusHoldingKey) {
     stageSelectedHoldingId.value = focusHoldingKey;
   } else if (!stageSelectedHolding.value) {
+    // Stale selection from a prior session, or empty focus — pick first live item.
     const firstHolding = inventoryHolders.value
       .flatMap((holder) => holder.records)
       .at(0);

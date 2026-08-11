@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from "vue";
 import { isActionAllowed } from "../../composables/storyActionAvailability.js";
+import { presentConsumeOptions } from "../../lib/character/itemActions.js";
 
 const props = defineProps({
   holders: { type: Array, required: true },
@@ -88,21 +89,16 @@ const detailImage = computed(() => {
 
 const visibleActions = computed(() => {
   if (!isHeldDirectly.value) return [];
+  const remaining = props.selectedHolding?.remaining != null
+    ? Number(props.selectedHolding.remaining)
+    : 1;
   return (props.selectedHolding?.actions ?? [])
     .filter((action) =>
       isActionAllowed(`item-action:${props.selectedHolding.item}.${action.id}`, props.actionPolicy, {
         itemId: props.selectedHolding.item,
         actionId: action.id,
       }))
-    .flatMap((action) => {
-      const options = action.consumeOptions ?? [];
-      if (!options.length) return [{ ...action, buttonLabel: action.label }];
-      return options.map((option) => ({
-        ...action,
-        optionId: option.id,
-        buttonLabel: option.label || action.label,
-      }));
-    });
+    .flatMap((action) => presentConsumeOptions(action, remaining));
 });
 
 const availableTransferTargets = computed(() => {
@@ -354,57 +350,52 @@ function closeToContainer() {
           v-if="availableTransferTargets.length || visibleActions.length"
           class="focus-actions"
           :class="{ 'has-contents-below': containerContents.length }">
-          <div v-if="availableTransferTargets.length" class="item-actions">
-            <button
-              v-for="target in availableTransferTargets"
-              :key="target.actionKey"
-              type="button"
-              class="sm transfer-btn"
-              :class="{
-                'take-out': target.takeOut,
-                'put-down': target.putDown,
-                'put-in': target.putIn,
-              }"
-              @click="$emit('transfer-item', {
-                type: selectedHolding.type,
-                recordId: selectedHolding.id,
-                itemId: selectedHolding.item,
-                quantity: target.quantity,
-                toHolder: target.id,
-              })">
-              <svg
-                v-if="target.takeOut"
-                class="transfer-icon"
-                viewBox="0 0 24 24"
-                aria-hidden="true">
-                <path
-                  d="M12 21V11m0 0l-3.5 3.5M12 11l3.5 3.5M5 9V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.75"
-                  stroke-linecap="round"
-                  stroke-linejoin="round" />
-              </svg>
-              {{ target.buttonLabel }}
-            </button>
-          </div>
-
-          <div v-if="visibleActions.length" class="item-actions">
-            <button
-              v-for="action in visibleActions"
-              :key="`${action.id}:${action.optionId ?? 'default'}`"
-              type="button"
-              class="sm"
-              @click="$emit('use-item', {
-                itemId: selectedHolding.item,
-                actionId: action.id,
-                optionId: action.optionId ?? null,
-                recordId: selectedHolding.id,
-                holderId: selectedHolding.holder?.id,
-              })">
-              {{ action.buttonLabel }}
-            </button>
-          </div>
+          <button
+            v-for="target in availableTransferTargets"
+            :key="target.actionKey"
+            type="button"
+            class="sm transfer-btn"
+            :class="{
+              'take-out': target.takeOut,
+              'put-down': target.putDown,
+              'put-in': target.putIn,
+            }"
+            @click="$emit('transfer-item', {
+              type: selectedHolding.type,
+              recordId: selectedHolding.id,
+              itemId: selectedHolding.item,
+              quantity: target.quantity,
+              toHolder: target.id,
+            })">
+            <svg
+              v-if="target.takeOut"
+              class="transfer-icon"
+              viewBox="0 0 24 24"
+              aria-hidden="true">
+              <path
+                d="M12 21V11m0 0l-3.5 3.5M12 11l3.5 3.5M5 9V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+            {{ target.buttonLabel }}
+          </button>
+          <button
+            v-for="action in visibleActions"
+            :key="`${action.id}:${action.optionId ?? 'default'}`"
+            type="button"
+            class="sm"
+            @click="$emit('use-item', {
+              itemId: selectedHolding.item,
+              actionId: action.id,
+              optionId: action.optionId ?? null,
+              recordId: selectedHolding.id,
+              holderId: selectedHolding.holder?.id,
+            })">
+            {{ action.buttonLabel }}
+          </button>
           <p
             v-if="actionFeedback"
             class="action-feedback"
@@ -616,16 +607,12 @@ function closeToContainer() {
   margin-top: 0.9rem;
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 0.45rem;
 }
-.focus-actions .item-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  margin-top: 0;
-}
-.focus-actions .item-actions + .item-actions {
-  margin-top: 0;
+.focus-actions .action-feedback {
+  flex: 1 0 100%;
+  text-align: center;
 }
 .container-contents {
   margin-top: 1rem;
@@ -671,11 +658,6 @@ function closeToContainer() {
 .content-item span {
   display: grid;
   gap: 0.1rem;
-}
-.item-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
 }
 .transfer-btn {
   display: inline-flex;

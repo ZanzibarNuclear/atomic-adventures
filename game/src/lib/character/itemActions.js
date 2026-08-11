@@ -221,6 +221,61 @@ function isConsumptiveAction(action) {
 }
 
 /**
+ * UI label for a consume option. "Eat all remaining" / "Drink all remaining"
+ * always read as "Eat all" / "Drink all" — leftover amount is implied.
+ */
+export function consumeOptionLabel(option) {
+  const label = String(option?.label ?? "").trim();
+  if (!label) return label;
+  return label.replace(/\s+remaining\s*$/i, "");
+}
+
+/**
+ * Whether a portion choice should appear for the current leftover fraction.
+ *
+ * Fixed portions are of a *full* item (half = 50% of original). When the
+ * leftover is already at or below that portion, the choice would finish the
+ * item and is redundant with "all" — hide it.
+ *
+ * Small bites (nibble / sip, portion ≤ 0.25) stay available even if they
+ * finish what is left; that is intentional.
+ */
+export function isConsumeOptionOffered(option, remainingFraction = 1) {
+  const remaining = clampFraction(remainingFraction);
+  if (!(remaining > 0)) return false;
+  if (option?.remaining) return true;
+  const portion = clampFraction(option?.portion);
+  if (!(portion > 0)) return false;
+  if (isSmallBiteOption(option, portion)) return true;
+  return portion < remaining - 1e-9;
+}
+
+/**
+ * Expand a consumptive action into the player-facing button choices for the
+ * given leftover fraction (1 = whole / unknown stack unit).
+ */
+export function presentConsumeOptions(action, remainingFraction = 1) {
+  const options = action?.consumeOptions ?? [];
+  if (!options.length) {
+    return action ? [{ ...action, optionId: null, buttonLabel: action.label }] : [];
+  }
+  return options
+    .filter((option) => isConsumeOptionOffered(option, remainingFraction))
+    .map((option) => ({
+      ...action,
+      optionId: option.id,
+      buttonLabel: consumeOptionLabel(option) || action.label,
+    }));
+}
+
+function isSmallBiteOption(option, portion = clampFraction(option?.portion)) {
+  if (portion > 0 && portion <= 0.25 + 1e-9) return true;
+  const id = String(option?.id ?? "");
+  const label = String(option?.label ?? "");
+  return /^(nibble|sip|small)$/i.test(id) || /^(nibble|sip)\b/i.test(label);
+}
+
+/**
  * Block further food/drink when the *primary* recovery meter is already at the
  * top wellbeing band (e.g. Stuffed) or at the meter max.
  *

@@ -151,7 +151,7 @@ function ensureConsumptionAction(entry) {
     consumeOptions: [
       { id: "small", label: water ? "Sip" : "Nibble", portion: 0.25 },
       { id: "half", label: water ? "Drink half" : "Eat half", portion: 0.5 },
-      { id: "all", label: water ? "Drink all remaining" : "Eat all remaining", remaining: true },
+      { id: "all", label: water ? "Drink all" : "Eat all", remaining: true },
     ],
     depletedItem: null,
     timeMinutes: water ? 2 : 5,
