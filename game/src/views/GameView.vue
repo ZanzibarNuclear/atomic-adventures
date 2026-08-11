@@ -342,14 +342,18 @@ const nearbyHolderIds = computed(() => {
 });
 const stageSelectedHoldingId = ref(null);
 function inventoryHolderViews(ids) {
-  return ids.map((id) => ({
-    ...(gameState.character.holdings.holders[id] ?? { id, label: id, kind: "holder" }),
-    records: holdingRecords(
-      gameState.character.holdings,
-      gameState.character.definitions,
-      [id],
-    ).map((record) => decorateHoldingRecord(record)),
-  }));
+  return ids.map((id) => {
+    const holder = gameState.character.holdings.holders[id] ?? { id, label: id, kind: "holder" };
+    return {
+      ...holder,
+      shortLabel: holder.shortLabel ?? null,
+      records: holdingRecords(
+        gameState.character.holdings,
+        gameState.character.definitions,
+        [id],
+      ).map((record) => decorateHoldingRecord(record)),
+    };
+  });
 }
 
 function decorateHoldingRecord(record) {
@@ -368,6 +372,7 @@ function decorateHoldingRecord(record) {
   return {
     ...record,
     label,
+    shortLabel: definition?.shortLabel ?? null,
     description: definition?.description ?? "",
     kind: definition?.kind ?? "item",
     icon: definition?.icon ?? null,
@@ -404,6 +409,7 @@ const transferTargets = computed(() => inventoryHolders.value
   .map((holder) => ({
     id: holder.id,
     label: holder.label ?? holder.id,
+    shortLabel: holder.shortLabel ?? null,
     kind: holder.kind,
     accepts: holder.accepts ?? null,
   })));
@@ -1423,6 +1429,7 @@ function handleGroupPickUp(entry) {
       :location-media="currentLocationMedia"
       :location-media-mode="locationMediaMode"
       :location-media-index="locationMediaIndex"
+      @stage-view="openStageView"
       @show-location-map="showLocationMap"
       @show-location-image="showLocationImage"
       @previous-location-image="stepLocationImage(-1)"
@@ -1444,6 +1451,7 @@ function handleGroupPickUp(entry) {
       :location-media="currentLocationMedia"
       :location-media-mode="locationMediaMode"
       :location-media-index="locationMediaIndex"
+      :refresh-story="refreshStoryMoment"
       @extra-action="handleHoloReaderAction"
       @stage-view="openStageView"
       @look-in-holding="handleLookInHolding"

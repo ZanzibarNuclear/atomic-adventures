@@ -44,6 +44,11 @@ import {
   lightFixtureForRoom,
   roomLightAction,
 } from "../lib/maps/composables/indoor/roomLights.js";
+import {
+  availableItemActions,
+  presentConsumeOptions,
+  performItemAction,
+} from "../lib/character/itemActions.js";
 
 function actionButtonLabel(action) {
   if (action.verb) return cleanActionLabel(`${action.verb} ${withArticle(action.label)}`);
@@ -275,15 +280,18 @@ export function buildOutdoorPlayActions(
   indoor = null,
   nearbyHoldings = [],
 ) {
+  const character = indoor?.character ?? outdoor?.character ?? null;
   return [
-    ...buildOutdoorRouteActions(outdoor, pendingBeat),
-    ...buildOutdoorBarrierFollowActions(outdoor, pendingBeat),
-    ...buildOutdoorDirectMovementActions(outdoor, pendingBeat),
-    ...buildOutdoorEnterBuildingActions(outdoor, indoor),
+    ...buildHeldItemUseActions(character),
+    // Barrier/passage use before travel — e.g. Untangle the vines, Open the gate.
     ...buildOutdoorSearchActions(outdoor),
     ...buildOutdoorPassageUnlockActions(outdoor),
     ...buildOutdoorPassageToggleActions(outdoor),
     ...buildOutdoorPassageActions(outdoor),
+    ...buildOutdoorRouteActions(outdoor, pendingBeat),
+    ...buildOutdoorBarrierFollowActions(outdoor, pendingBeat),
+    ...buildOutdoorDirectMovementActions(outdoor, pendingBeat),
+    ...buildOutdoorEnterBuildingActions(outdoor, indoor),
     ...nearbyHoldings.map((record) => ({
       id: `holding-pickup:${record.type}:${record.id}`,
       label: `Pick up ${withArticle(record.label)}`,
@@ -384,10 +392,117 @@ export function handleIndoorChooseAction(
 }
 
 /**
+ * Use-actions for items currently in the character's hands.
+ * These lead the play list so held tools/food/docs stay usable without opening inventory.
+ */
+export function buildHeldItemUseActions(character) {
+  if (!character?.holdings || !character?.definitions) return [];
+  const holderId = characterHolderId(character.holdings);
+  const records = holdingRecords(character.holdings, character.definitions, [holderId]);
+  const actions = [];
+  for (const record of records) {
+    const itemActions = availableItemActions(character, record.item, {
+      recordId: record.type === "instance" ? record.id : null,
+    });
+    if (!itemActions.length) continue;
+    const remaining = heldRecordRemainingFraction(record);
+    for (const action of itemActions) {
+      for (const entry of presentConsumeOptions(action, remaining)) {
+        const optionPart = entry.optionId ? `:${entry.optionId}` : "";
+        actions.push({
+          id: `held-use:${record.type}:${record.id}:${entry.id}${optionPart}`,
+          label: entry.buttonLabel || entry.label || action.label,
+          kind: "action",
+        });
+      }
+    }
+  }
+  return actions;
+}
+
+function heldRecordRemainingFraction(record) {
+  if (record?.remaining != null && Number.isFinite(Number(record.remaining))) {
+    return Math.min(1, Math.max(0, Number(record.remaining)));
+  }
+  const capacity = Number(record?.definition?.vessel?.capacityMl);
+  const amount = Number(record?.contents?.amountMl);
+  if (Number.isFinite(capacity) && capacity > 0 && Number.isFinite(amount)) {
+    return Math.min(1, Math.max(0, amount / capacity));
+  }
+  return 1;
+}
+
+/**
+ * Parse `held-use:{type}:{recordId}:{actionId}[:optionId]` and run the item action.
+ */
+export function performHeldItemUse(gameState, actionId) {
+  if (!gameState?.character) {
+    return { ok: false, error: "No character is available." };
+  }
+  const parsed = parseHeldUseActionId(actionId);
+  if (!parsed) return { ok: false, error: "Unknown held-item action." };
+  const { type, recordId, itemActionId, optionId } = parsed;
+  const holderId = characterHolderId(gameState.character.holdings);
+  const record = holdingRecords(
+    gameState.character.holdings,
+    gameState.character.definitions,
+    [holderId],
+  ).find((entry) => entry.type === type && entry.id === recordId);
+  if (!record) return { ok: false, error: "You are not holding that item." };
+
+  const result = performItemAction(gameState, record.item, itemActionId, {
+    holderId,
+    recordId: type === "instance" ? recordId : null,
+    optionId,
+  });
+  if (!result.ok) return result;
+  markCharacterChanged(gameState.character);
+  return result;
+}
+
+function parseHeldUseActionId(actionId) {
+  if (!String(actionId).startsWith("held-use:")) return null;
+  const parts = String(actionId).split(":");
+  // held-use : type : recordId... : actionId [ : optionId ]
+  // record ids may contain hyphens but not colons in practice.
+  if (parts.length < 4) return null;
+  const type = parts[1];
+  if (type !== "instance" && type !== "stack" && type !== "catalog") return null;
+  // action id is the last segment, or second-to-last when option present.
+  // We detect option by checking if the final segment matches a known option
+  // on the action — simpler: require form type:id:action or type:id:action:option
+  // where id has no colons.
+  if (parts.length === 4) {
+    return {
+      type,
+      recordId: parts[2],
+      itemActionId: parts[3],
+      optionId: null,
+    };
+  }
+  if (parts.length === 5) {
+    return {
+      type,
+      recordId: parts[2],
+      itemActionId: parts[3],
+      optionId: parts[4],
+    };
+  }
+  // Longer: treat last as option, second-last as action, middle as recordId
+  const optionId = parts[parts.length - 1];
+  const itemActionId = parts[parts.length - 2];
+  const recordId = parts.slice(2, -2).join(":");
+  return { type, recordId, itemActionId, optionId };
+}
+
+/**
  * Build a flat action list for the play panel (pickups, room actions, doors, switches).
  */
 export function buildIndoorPlayActions(indoor, pendingBeat = null) {
-  const items = buildIndoorMovementActions(indoor, pendingBeat);
+  const items = [
+    ...buildHeldItemUseActions(indoor.character),
+    ...buildIndoorMovementActions(indoor, pendingBeat),
+  ];
 
   for (const pickup of indoor.roomPickups ?? []) {
     const itemDef = itemDefinition(indoor, pickup.item);
@@ -696,6 +811,9 @@ export function buildIndoorMovementActions(indoor, pendingBeat = null) {
 }
 
 export function handleIndoorPlayAction(indoor, actionId) {
+  if (actionId.startsWith("held-use:")) {
+    return performHeldItemUse(indoor.gameState ?? { character: indoor.character }, actionId);
+  }
   if (actionId.startsWith("move-exterior:")) {
     indoor.moveToExteriorNode(actionId.slice("move-exterior:".length));
     return;

@@ -86,6 +86,7 @@ const props = defineProps({
   locationMedia: { type: Object, default: null },
   locationMediaMode: { type: String, default: "map" },
   locationMediaIndex: { type: Number, default: 0 },
+  refreshStory: { type: Function, default: () => {} },
 });
 
 const emit = defineEmits([
@@ -191,6 +192,7 @@ function onAction(id) {
   if (result?.view) emit("stage-view", result.view);
   if (result?.lookIn) emit("look-in-holding", result.lookIn);
   if (result?.inspectGroup) emit("inspect-container-group", result.inspectGroup);
+  if (result?.ok !== false) props.refreshStory();
 }
 
 const mapStageProps = computed(() => ({

@@ -97,15 +97,16 @@ describe("InventoryBrowser transfers", () => {
       transferTargets: [carriedHolder, groundHolder, consoleHolder],
     });
 
+    // Sole reachable surface: place is implied by where the player stands.
     const button = wrapper.findAll("button")
-      .find((candidate) => candidate.text() === "Put down on Control-room console");
+      .find((candidate) => candidate.text() === "Put down");
     expect(button?.exists()).toBe(true);
     await button.trigger("click");
     expect(wrapper.emitted("transfer-item")?.[0]?.[0]).toMatchObject({
       recordId: "laminated-card-1",
       toHolder: consoleHolder.id,
     });
-    expect(wrapper.findAll("button").some((candidate) => candidate.text() === "Put down")).toBe(false);
+    expect(wrapper.text()).not.toContain("Put down on Control-room console");
     expect(wrapper.text()).not.toContain("Move to Control-room console");
   });
 
@@ -148,6 +149,25 @@ describe("InventoryBrowser transfers", () => {
       "Put down on Conference table",
       "Put down on Kitchen counter",
     ]));
+    // Verbose fixed-holder prefixes drop in multi-surface labels.
+    const verboseConsole = {
+      id: "fixed:control-room-console",
+      kind: "fixed",
+      label: "Control-room console",
+      accepts: { kinds: ["card"] },
+    };
+    const withConsole = mountBrowser({
+      selectedHolding,
+      holders: [
+        { ...carriedHolder, records: [selectedHolding] },
+        { ...groundHolder, records: [] },
+        { ...tableHolder, records: [] },
+        { ...verboseConsole, records: [] },
+      ],
+      transferTargets: [carriedHolder, groundHolder, tableHolder, verboseConsole],
+    });
+    expect(withConsole.findAll("button").map((button) => button.text()))
+      .toEqual(expect.arrayContaining(["Put down on console"]));
   });
 
   it("does not repeat an item's related document in its details", () => {

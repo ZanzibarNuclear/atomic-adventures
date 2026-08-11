@@ -173,7 +173,8 @@ const availableTransferTargets = computed(() => {
         .filter((target) => target.kind === "fixed")
         .filter((target) => acceptsItemKind(target, props.selectedHolding?.kind))
         .map((target) => ({ ...target, putOnSurface: true }));
-      const includeFloor = surfaces.length !== 1;
+      const soleSurface = surfaces.length === 1;
+      const includeFloor = !soleSurface;
       const ordinaryTargets = candidates
         .filter((target) => target.kind !== "fixed")
         .filter((target) => includeFloor || target.kind !== "world")
@@ -183,13 +184,24 @@ const availableTransferTargets = computed(() => {
         });
       const containers = props.holders
         .filter((holder) => holder.kind === "container" && holder.instance !== selectedId)
-        .map((holder) => ({
-          id: holder.id,
-          label: containerItemLabel(holder) ?? holder.label ?? holder.id,
-          kind: "container",
-          putIn: true,
-        }));
-      targets = [...surfaces, ...ordinaryTargets, ...containers];
+        .map((holder) => {
+          const record = containerItemRecord(holder);
+          return {
+            id: holder.id,
+            label: record?.label ?? holder.label ?? holder.id,
+            shortLabel: record?.shortLabel ?? holder.shortLabel ?? null,
+            kind: "container",
+            putIn: true,
+          };
+        });
+      targets = [
+        ...surfaces.map((target) => ({
+          ...target,
+          soleSurface,
+        })),
+        ...ordinaryTargets,
+        ...containers,
+      ];
     }
   }
 
@@ -213,16 +225,17 @@ function expandStackTransferActions(targets, holding) {
       }];
     }
     if (target.takeOut || target.pickUp || target.putIn) {
+      const place = transferPlaceName(target);
       const oneLabel = target.takeOut
         ? "Take one"
         : target.pickUp
           ? "Pick up one"
-          : `Put one in ${target.label}`;
+          : `Put one in ${place}`;
       const allLabel = target.takeOut
         ? `Take all (${quantity})`
         : target.pickUp
           ? `Pick up all (${quantity})`
-          : `Put all (${quantity}) in ${target.label}`;
+          : `Put all (${quantity}) in ${place}`;
       return [
         {
           ...target,
@@ -250,10 +263,30 @@ function expandStackTransferActions(targets, holding) {
 function transferLabel(target) {
   if (target.takeOut) return "Take out";
   if (target.pickUp) return "Pick up";
-  if (target.putIn) return `Put in ${target.label}`;
-  if (target.putOnSurface) return `Put down on ${target.label}`;
+  if (target.putIn) return `Put in ${transferPlaceName(target)}`;
+  // Standing at the only reachable surface — place is implied.
+  if (target.putOnSurface && target.soleSurface) return "Put down";
+  if (target.putOnSurface) return `Put down on ${transferPlaceName(target)}`;
   if (target.putDown) return "Put down";
-  return `Move to ${target.label}`;
+  return `Move to ${transferPlaceName(target)}`;
+}
+
+/**
+ * Short place name for transfer buttons. Prefers authored shortLabel, else
+ * drops common verbose prefixes ("field", "control-room", …).
+ */
+function transferPlaceName(target) {
+  const short = String(target?.shortLabel ?? "").trim();
+  if (short) return short;
+  return briefTransferName(target?.label) || target?.label || target?.id || "there";
+}
+
+function briefTransferName(label) {
+  let text = String(label ?? "").trim();
+  if (!text) return "";
+  text = text.replace(/^(the|a|an)\s+/i, "");
+  text = text.replace(/^(control[-\s]?room|field|utility[-\s]?station)\s+/i, "");
+  return text;
 }
 
 function acceptsItemKind(target, itemKind) {
@@ -261,12 +294,16 @@ function acceptsItemKind(target, itemKind) {
   return !kinds.length || kinds.includes(itemKind);
 }
 
-function containerItemLabel(holder) {
+function containerItemRecord(holder) {
   if (!holder.instance) return null;
   return props.holders
     .flatMap((entry) => entry.records ?? [])
     .find((record) => record.type === "instance" && record.id === holder.instance)
-    ?.label ?? null;
+    ?? null;
+}
+
+function containerItemLabel(holder) {
+  return containerItemRecord(holder)?.label ?? null;
 }
 
 function holdingKey(record) {
@@ -416,6 +453,20 @@ function closeToContainer() {
           class="focus-actions"
           :class="{ 'has-contents-below': containerContents.length }">
           <button
+            v-for="action in visibleActions"
+            :key="`${action.id}:${action.optionId ?? 'default'}`"
+            type="button"
+            class="sm"
+            @click="$emit('use-item', {
+              itemId: selectedHolding.item,
+              actionId: action.id,
+              optionId: action.optionId ?? null,
+              recordId: selectedHolding.id,
+              holderId: selectedHolding.holder?.id,
+            })">
+            {{ action.buttonLabel }}
+          </button>
+          <button
             v-for="target in availableTransferTargets"
             :key="target.actionKey"
             type="button"
@@ -446,20 +497,6 @@ function closeToContainer() {
                 stroke-linejoin="round" />
             </svg>
             {{ target.buttonLabel }}
-          </button>
-          <button
-            v-for="action in visibleActions"
-            :key="`${action.id}:${action.optionId ?? 'default'}`"
-            type="button"
-            class="sm"
-            @click="$emit('use-item', {
-              itemId: selectedHolding.item,
-              actionId: action.id,
-              optionId: action.optionId ?? null,
-              recordId: selectedHolding.id,
-              holderId: selectedHolding.holder?.id,
-            })">
-            {{ action.buttonLabel }}
           </button>
           <p
             v-if="actionFeedback"

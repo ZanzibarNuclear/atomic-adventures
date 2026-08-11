@@ -10,10 +10,18 @@ import {
   applyPassageUnlock,
   passageRequirementSatisfied,
 } from "./usePassageState.js";
+import { requireSatisfied } from "./useFlags.js";
 import { barrierHintAtStand } from "./useBarrierStand.js";
 
 function isGatePassage(opening) {
   return opening?.kind === "gate";
+}
+
+/** Unlock steps may require prior discovery (e.g. inspect gate before untangle). */
+function unlockPrerequisiteSatisfied(opening, flags) {
+  if (!opening?.unlock) return false;
+  if (!opening.unlock.require) return true;
+  return requireSatisfied(opening.unlock.require, flags);
 }
 
 export function useOutdoorPassages({
@@ -71,8 +79,9 @@ export function useOutdoorPassages({
       state.lastBlocked;
     return ctx.allOpenings
       .filter((opening) => opening.hex === state.currentId)
-      .filter((opening) => !isGatePassage(opening))
       .filter((opening) => opening.unlock)
+      // One-time unlock (e.g. untangle vines) — including gates. Open/close is separate.
+      .filter((opening) => unlockPrerequisiteSatisfied(opening, gameState?.flags))
       .filter((opening) => !passageRequirementSatisfied(opening, gameState?.flags))
       .filter((opening) => shouldOfferPassageCrossing(opening, fromPos, ctx, atBarrier))
       .map((opening) => ({
@@ -100,13 +109,19 @@ export function useOutdoorPassages({
     return ctx.allOpenings
       .filter((opening) => opening.hex === state.currentId)
       .filter((opening) => isGatePassage(opening))
+      // Open/close only after one-time unlock requirements (e.g. vines untangled).
       .filter((opening) => passageRequirementSatisfied(opening, gameState?.flags))
       .filter((opening) => shouldOfferPassageCrossing(opening, fromPos, ctx, atBarrier))
-      .map((opening) => ({
-        openingId: opening.id,
-        label: isPassageOpen(opening) ? "Close the gate" : "Open the gate",
-        open: isPassageOpen(opening),
-      }));
+      .map((opening) => {
+        const open = isPassageOpen(opening);
+        return {
+          openingId: opening.id,
+          label: open
+            ? (opening.closeLabel || "Close the gate")
+            : (opening.openLabel || "Open the gate"),
+          open,
+        };
+      });
   });
 
   const hasObviousPassageAtStand = computed(() => {

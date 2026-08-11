@@ -6,7 +6,7 @@ import { buildGameplayWorld, gameplayMoveTo } from './gameplayTravel.js'
 describe('passage crossing guards', () => {
   function standInsideOpenCompoundGate() {
     const { outdoor } = buildGameplayWorld(mapData, {
-      flags: ['story.gate.inspected'],
+      flags: ['story.gate.inspected', 'story.gate.untangled'],
     })
     for (const hexId of ['east-pines', 'center-pines', 'north-bend', 'gate-woods']) {
       gameplayMoveTo(outdoor, hexId)

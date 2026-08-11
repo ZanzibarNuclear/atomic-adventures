@@ -88,6 +88,7 @@ import {
   getMovementOptions,
   buildOutdoorStatusLines,
   handleOutdoorChooseAction,
+  performHeldItemUse,
 } from "../../../composables/usePlayPanel.js";
 import {
   filterAllowedActions,
@@ -118,12 +119,13 @@ const props = defineProps({
   locationMediaIndex: { type: Number, default: 0 },
 });
 
-defineEmits([
-  "hide-movement-audit",
+const emit = defineEmits([
+  "stage-view",
   "show-location-map",
   "show-location-image",
   "previous-location-image",
   "next-location-image",
+  "hide-movement-audit",
 ]);
 
 const devMode = import.meta.env.DEV;
@@ -198,6 +200,14 @@ const buildingEnterable = computed(() =>
 
 function onAction(id) {
   if (!filteredActions.value.some((action) => action.id === id)) return;
+  if (id.startsWith("held-use:")) {
+    const gameState = props.indoor?.gameState
+      ?? { character: props.indoor?.character };
+    const result = performHeldItemUse(gameState, id);
+    if (result?.view) emit("stage-view", result.view);
+    props.refreshStory();
+    return;
+  }
   handleOutdoorChooseAction(
     props.outdoor,
     props.applyChoice,
