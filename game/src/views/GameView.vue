@@ -48,7 +48,6 @@ import ContainerContentsDialog from "../components/game-views/ContainerContentsD
 import ContainerGroupDialog from "../components/game-views/ContainerGroupDialog.vue";
 import InventoryDialog from "../components/game-views/InventoryDialog.vue";
 import InventoryStageView from "../components/game-views/InventoryStageView.vue";
-import VitalsDialog from "../components/game-views/VitalsDialog.vue";
 import StoryOverlay from "../components/story/StoryOverlay.vue";
 import OutdoorScene from "../lib/maps/views/OutdoorScene.vue";
 import IndoorScene from "../lib/maps/views/IndoorScene.vue";
@@ -81,7 +80,6 @@ const place = ref("outdoors");
 const builderView = ref(false);
 const movementAuditVisible = ref(false);
 const developerSettingsVisible = ref(false);
-const vitalsDialogVisible = ref(false);
 /** One-shot info modal when a vital enters the band just above empty. */
 const vitalCrisisAlert = ref(null); // { id, title, message }
 /** Vital ids already warned this crisis episode (cleared on recovery). */
@@ -429,6 +427,12 @@ const playerSelectedHolding = computed(() =>
     .find((record) => `${record.type}:${record.id}` === stageSelectedHoldingId.value) ?? null,
 );
 const characterStats = computed(() => visibleCharacterStats(gameState.character));
+const characterDisplayName = computed(
+  () => gameState.character?.definitions?.profile?.name ?? "Zanzibar Nuhero",
+);
+const characterPortraitSrc = computed(() =>
+  publicAssetPath(gameState.character?.definitions?.profile?.portrait),
+);
 const wellbeingOverview = computed(() => characterWellbeingOverview(gameState.character));
 const mustRest = computed(() => Number(gameState.character.stats?.energy ?? 100) <= 0);
 const wellbeingAvailableActions = computed(() => ({
@@ -600,7 +604,7 @@ watch(
 );
 
 onMounted(async () => {
-  // Title screen first — Enter the Game decides new vs resume.
+  // Title screen first — Welcome decides new vs resume.
   markSessionClean();
   await refreshContent();
   refreshStoryMoment();
@@ -819,7 +823,7 @@ function handleFailureNewGame() {
 }
 
 /**
- * Title screen: Enter the Game (no interstitial).
+ * Title screen: Welcome (no interstitial).
  * - No saves → new story in Game 1
  * - One save → resume that game
  * - Several saves → resume the most recently saved
@@ -856,7 +860,7 @@ function handleHeaderSave() {
 function handleReturnToMap() {
   returnToMap();
   lessonCompletionError.value = "";
-  nextTick(() => document.querySelector(".player-health")?.focus());
+  nextTick(() => document.querySelector(".player-character")?.focus());
 }
 
 function showLocationImage() {
@@ -1073,6 +1077,10 @@ function openInventoryDialog(focusHoldingKey = null) {
   inventoryDialogVisible.value = true;
 }
 
+function openCharacterSheet() {
+  openCharacter({ tab: "overview" });
+}
+
 const lookInContainerView = computed(() => {
   const instanceId = lookInContainerInstanceId.value;
   if (!instanceId) return null;
@@ -1211,11 +1219,13 @@ function handleGroupPickUp(entry) {
       :load-error="loadError"
       :movement-audit-visible="movementAuditVisible"
       :play-mode="gameState.playMode"
+      :portrait-src="characterPortraitSrc"
+      :character-name="characterDisplayName"
       @save="handleHeaderSave"
       @play-game="handlePlayGame"
       @restart-game="handleRestartGame"
       @new-game="handleNewGameRequest"
-      @show-health="vitalsDialogVisible = true"
+      @show-character="openCharacterSheet"
       @show-inventory="openInventoryDialog"
       @show-dev-settings="developerSettingsVisible = true"
       @toggle-movement-audit="movementAuditVisible = !movementAuditVisible" />
@@ -1260,11 +1270,6 @@ function handleGroupPickUp(entry) {
       @set-vital="handleSetVital"
       @adjust-vital="handleAdjustVital"
       @close="developerSettingsVisible = false" />
-
-    <VitalsDialog
-      v-if="vitalsDialogVisible"
-      :vitals="wellbeingOverview.vitals"
-      @close="vitalsDialogVisible = false" />
 
     <InventoryDialog
       v-if="inventoryDialogVisible"

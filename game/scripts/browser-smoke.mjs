@@ -13,8 +13,8 @@ try {
   await page.evaluate(() => localStorage.clear());
   await page.reload({ waitUntil: "domcontentloaded", timeout: 15_000 });
 
-  await page.getByRole("button", { name: /Enter the Game/i }).waitFor({ timeout: 10_000 });
-  await page.getByRole("button", { name: /Enter the Game/i }).click();
+  await page.getByRole("button", { name: /^Welcome$/i }).waitFor({ timeout: 10_000 });
+  await page.getByRole("button", { name: /^Welcome$/i }).click();
   await page.getByText("Origin", { exact: true }).waitFor({ timeout: 10_000 });
   await page.getByRole("button", { name: /^(Go west|Keep walking west)$/ }).waitFor({ timeout: 10_000 });
   const openingText = await page.locator("body").innerText();

@@ -66,7 +66,7 @@ try {
   }
 
   // Wait for title screen (or restored play / error)
-  const enterBtn = page.getByRole("button", { name: /Enter the Game/i });
+  const enterBtn = page.getByRole("button", { name: /^Welcome$/i });
   const titleHeading = page.getByRole("heading", { name: /Zanzibar's World of Energy/i });
   const appRoot = page.locator("#app");
   await appRoot.waitFor({ state: "attached", timeout: 30000 });
@@ -90,17 +90,17 @@ try {
     fail("title-screen", "Title screen not visible after load/clear. Check existing save UI.");
     await shot(page, "02-no-title-screen");
   } else {
-    ok("title-screen", "Title screen with Enter the Game is visible");
+    ok("title-screen", "Title screen with Welcome is visible");
     await shot(page, "02-title-screen");
 
     await enterBtn.click();
-    ok("enter-game", "Clicked Enter the Game");
+    ok("enter-game", "Clicked Welcome");
     await page.waitForTimeout(2000);
     await shot(page, "03-after-enter");
 
     // Title screen should go away
     const stillTitle = await enterBtn.isVisible().catch(() => false);
-    if (stillTitle) fail("story-started", "Title screen still visible after Enter the Game");
+    if (stillTitle) fail("story-started", "Title screen still visible after Welcome");
     else ok("story-started", "Title screen dismissed; story mode started");
 
     // Look for opener prose or map chrome

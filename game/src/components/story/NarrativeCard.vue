@@ -1,6 +1,5 @@
 <template>
   <section v-if="beat" class="narrative-card" aria-live="polite">
-    <p v-if="beat.eyebrow" class="narrative-eyebrow">{{ beat.eyebrow }}</p>
     <h2 v-if="beat.heading" class="narrative-heading">{{ beat.heading }}</h2>
     <div class="narrative-body">
       <p v-for="(para, i) in paragraphs" :key="i">{{ para }}</p>
@@ -32,18 +31,11 @@ const paragraphs = computed(() => proseParagraphs(props.beat?.text));
     0 2px 12px rgba(0, 0, 0, 0.25),
     inset 0 1px 0 rgba(32, 200, 251, 0.08);
 }
-.narrative-eyebrow {
-  margin: 0 0 0.35rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 0.72rem;
-  color: var(--color-cherenkov);
-}
 .narrative-heading {
   margin: 0 0 0.75rem;
   font-size: 1.15rem;
   font-weight: 600;
-  color: #f0f2f5;
+  color: var(--color-cherenkov);
   line-height: 1.3;
 }
 .narrative-body {

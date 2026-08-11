@@ -7,7 +7,15 @@
       <div class="controls-column">
         <div class="game-controls">
           <details v-if="devMode" ref="devMenu" class="dev-menu">
-            <summary class="sm">Dev Tools</summary>
+            <summary class="dev-menu-summary" title="Dev Tools" aria-label="Dev Tools">
+              <img
+                class="dev-menu-icon"
+                src="/icons/dev-tools.png"
+                alt=""
+                width="28"
+                height="28"
+                decoding="async" />
+            </summary>
             <div class="dev-menu-popover">
               <a
                 href="/builder/story"
@@ -34,19 +42,47 @@
           <button
             v-if="playMode"
             type="button"
-            class="sm player-health"
-            @click="$emit('show-health')">
-            Health
+            class="player-character"
+            title="Player Stats"
+            aria-label="Player Stats"
+            @click="$emit('show-character')">
+            <img
+              v-if="portraitSrc"
+              class="player-character-portrait"
+              :src="portraitSrc"
+              alt=""
+              width="28"
+              height="28"
+              decoding="async" />
+            <span v-else class="player-character-fallback" aria-hidden="true">
+              {{ characterInitial }}
+            </span>
           </button>
           <button
             v-if="playMode"
             type="button"
-            class="sm player-inventory"
+            class="player-inventory"
+            title="Inventory"
+            aria-label="Inventory"
             @click="$emit('show-inventory')">
-            Inventory
+            <img
+              class="player-inventory-icon"
+              src="/icons/inventory-chest.png"
+              alt=""
+              width="28"
+              height="28"
+              decoding="async" />
           </button>
           <details v-if="playMode" ref="gameMenu" class="game-menu">
-            <summary class="sm">Game</summary>
+            <summary class="game-menu-summary" title="Game" aria-label="Game">
+              <img
+                class="game-menu-icon"
+                src="/icons/game-menu.png"
+                alt=""
+                width="28"
+                height="28"
+                decoding="async" />
+            </summary>
             <div class="game-menu-popover">
               <p v-if="playModeLabel" class="menu-label mode-menu-label">
                 {{ playModeLabel }}
@@ -153,6 +189,8 @@ const props = defineProps({
   loadError: { type: String, default: null },
   movementAuditVisible: { type: Boolean, default: false },
   playMode: { type: String, default: null },
+  portraitSrc: { type: String, default: null },
+  characterName: { type: String, default: null },
 });
 
 const emit = defineEmits([
@@ -162,7 +200,7 @@ const emit = defineEmits([
   "new-game",
   "show-dev-settings",
   "toggle-movement-audit",
-  "show-health",
+  "show-character",
   "show-inventory",
 ]);
 const devMode = import.meta.env.DEV;
@@ -174,6 +212,11 @@ const playModeLabel = computed(() => {
   if (props.playMode === "story") return "Story mode";
   if (props.playMode === "open-world") return "Open-world mode";
   return "";
+});
+
+const characterInitial = computed(() => {
+  const name = props.characterName?.trim();
+  return name ? name.charAt(0).toUpperCase() : "Z";
 });
 
 /** e.g. "August 6, 2026, at 9:06 AM" — same as the Welcome Back modal. */
@@ -309,10 +352,62 @@ header {
 }
 .game-controls {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.4rem;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+.player-character {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--color-brand-border, rgba(32, 200, 251, 0.38));
+  background: color-mix(in srgb, var(--color-cherenkov) 12%, #2a3548);
+  overflow: hidden;
+  flex: 0 0 auto;
+  box-shadow: 0 0 0 1px var(--color-cherenkov-soft, rgba(32, 200, 251, 0.16));
+}
+.player-character:hover:not(:disabled) {
+  border-color: var(--color-cherenkov-muted, rgba(32, 200, 251, 0.72));
+  background: color-mix(in srgb, var(--color-cherenkov) 20%, #2f3a4d);
+}
+.player-character-portrait {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+}
+.player-character-fallback {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-cherenkov, #20c8fb);
+  line-height: 1;
+}
+.player-inventory {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  padding: 0.15rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, #E0A040 12%, #2a3548);
+  border-color: color-mix(in srgb, #E0A040 40%, #556176);
+}
+.player-inventory:hover:not(:disabled) {
+  background: color-mix(in srgb, #E0A040 18%, #2f3a4d);
+  border-color: color-mix(in srgb, #F0C060 55%, #556176);
+}
+.player-inventory-icon {
+  width: 1.65rem;
+  height: 1.65rem;
+  display: block;
+  object-fit: contain;
 }
 .dev-menu,
 .game-menu {
@@ -330,14 +425,56 @@ header {
   font-size: 0.82rem;
   cursor: pointer;
 }
+.dev-menu-summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  padding: 0.15rem;
+  box-sizing: border-box;
+  background: color-mix(in srgb, #C8CED6 8%, #303846);
+  border-color: color-mix(in srgb, #C8CED6 28%, #556176);
+}
+.dev-menu-summary:hover {
+  background: color-mix(in srgb, #C8CED6 14%, #354050);
+  border-color: color-mix(in srgb, #E0E4EA 40%, #556176);
+}
+.dev-menu-icon {
+  width: 1.65rem;
+  height: 1.65rem;
+  display: block;
+  object-fit: contain;
+}
+.dev-menu[open] .dev-menu-summary {
+  background: color-mix(in srgb, #C8CED6 16%, #3a4555);
+  border-color: color-mix(in srgb, #E0E4EA 45%, #556176);
+}
 .dev-menu summary::-webkit-details-marker,
 .game-menu summary::-webkit-details-marker {
   display: none;
 }
-.dev-menu summary::after,
-.game-menu summary::after {
-  content: " ▾";
-  color: var(--color-cherenkov);
+.game-menu-summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  padding: 0.1rem;
+  box-sizing: border-box;
+  /* Keep chrome dark so cutouts (arrow, bar, outer edge) read clearly */
+  background: #252a33;
+  border-color: color-mix(in srgb, #48b96e 35%, #556176);
+}
+.game-menu-summary:hover {
+  background: #2c323d;
+  border-color: color-mix(in srgb, #48b96e 50%, #556176);
+}
+.game-menu-icon {
+  width: 1.85rem;
+  height: 1.85rem;
+  display: block;
+  object-fit: contain;
 }
 .dev-menu[open] summary,
 .game-menu[open] summary {
@@ -345,6 +482,10 @@ header {
   border-color: var(--color-brand-border);
   color: #eef3f8;
   box-shadow: 0 0 0 1px var(--color-cherenkov-soft);
+}
+.game-menu[open] .game-menu-summary {
+  background: #2c323d;
+  border-color: color-mix(in srgb, #48b96e 55%, #556176);
 }
 .dev-menu-popover,
 .game-menu-popover {
