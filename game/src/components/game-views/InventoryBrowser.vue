@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { isActionAllowed } from "../../composables/storyActionAvailability.js";
 import { presentConsumeOptions } from "../../lib/character/itemActions.js";
 
@@ -14,6 +14,14 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["select-holding", "transfer-item", "use-item"]);
+
+const DETAIL_ZOOM = 2;
+const LOUPE_SIZE_PX = 112;
+
+const detailImageHost = ref(null);
+const detailImgEl = ref(null);
+const zoomActive = ref(false);
+const loupeStyle = ref({});
 
 const visibleHolders = computed(() =>
   props.holders.filter((holder) => holder.kind !== "container"),
@@ -86,6 +94,48 @@ const detailImage = computed(() => {
   if (props.selectedHolding?.item === "field-backpack") return "items/field-backpack.png";
   return null;
 });
+
+const detailImageSrc = computed(() =>
+  detailImage.value ? props.publicAssetPath(detailImage.value) : null,
+);
+
+watch(
+  () => props.selectedHoldingId,
+  () => {
+    zoomActive.value = false;
+    loupeStyle.value = {};
+  },
+);
+
+function hideDetailZoom() {
+  zoomActive.value = false;
+}
+
+function onDetailImageMove(event) {
+  const img = detailImgEl.value;
+  const host = detailImageHost.value;
+  if (!img || !host || !detailImageSrc.value) return;
+
+  const imgRect = img.getBoundingClientRect();
+  const hostRect = host.getBoundingClientRect();
+  if (!(imgRect.width > 0) || !(imgRect.height > 0)) return;
+
+  const x = Math.max(0, Math.min(imgRect.width, event.clientX - imgRect.left));
+  const y = Math.max(0, Math.min(imgRect.height, event.clientY - imgRect.top));
+  const half = LOUPE_SIZE_PX / 2;
+
+  zoomActive.value = true;
+  loupeStyle.value = {
+    width: `${LOUPE_SIZE_PX}px`,
+    height: `${LOUPE_SIZE_PX}px`,
+    left: `${event.clientX - hostRect.left - half}px`,
+    top: `${event.clientY - hostRect.top - half}px`,
+    backgroundImage: `url(${JSON.stringify(detailImageSrc.value)})`,
+    backgroundRepeat: "no-repeat",
+    backgroundSize: `${imgRect.width * DETAIL_ZOOM}px ${imgRect.height * DETAIL_ZOOM}px`,
+    backgroundPosition: `${-(x * DETAIL_ZOOM - half)}px ${-(y * DETAIL_ZOOM - half)}px`,
+  };
+}
 
 const visibleActions = computed(() => {
   if (!isHeldDirectly.value) return [];
@@ -323,8 +373,23 @@ function closeToContainer() {
         </div>
 
         <div class="detail-hero">
-          <div v-if="detailImage" class="detail-image">
-            <img :src="publicAssetPath(detailImage)" :alt="selectedHolding.label">
+          <div
+            v-if="detailImageSrc"
+            ref="detailImageHost"
+            class="detail-image"
+            @mousemove="onDetailImageMove"
+            @mouseenter="onDetailImageMove"
+            @mouseleave="hideDetailZoom">
+            <img
+              ref="detailImgEl"
+              :src="detailImageSrc"
+              :alt="selectedHolding.label"
+              draggable="false">
+            <div
+              v-show="zoomActive"
+              class="detail-zoom-loupe"
+              :style="loupeStyle"
+              aria-hidden="true" />
           </div>
           <div class="detail-summary">
             <h3>{{ selectedHolding.label }}</h3>
@@ -577,11 +642,15 @@ function closeToContainer() {
   align-items: start;
 }
 .detail-image {
+  position: relative;
   width: 7.5rem;
   padding: 0.65rem;
   border-radius: 12px;
   background: rgba(32, 42, 62, 0.85);
   border: 1px solid rgba(120, 150, 195, 0.22);
+  cursor: zoom-in;
+  touch-action: none;
+  user-select: none;
 }
 .detail-image img {
   display: block;
@@ -589,6 +658,21 @@ function closeToContainer() {
   height: auto;
   object-fit: contain;
   filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35));
+  pointer-events: none;
+}
+.detail-zoom-loupe {
+  position: absolute;
+  z-index: 4;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--color-cherenkov, #20c8fb) 55%, #e8f4ff);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.45),
+    0 8px 22px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  background-color: rgba(20, 26, 36, 0.92);
+  pointer-events: none;
+  /* Glass rim highlight */
+  background-clip: padding-box;
 }
 .detail-summary {
   display: grid;
