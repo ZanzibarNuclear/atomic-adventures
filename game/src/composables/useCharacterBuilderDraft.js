@@ -45,7 +45,7 @@ const previewWellbeingStats = [
   { id: "satiety", label: "Satiety", default: 100 },
   { id: "hydration", label: "Hydration", default: 100 },
   { id: "energy", label: "Energy", default: 100 },
-  { id: "composure", label: "Composure", default: 100 },
+  { id: "composure", label: "Composure", default: 80 },
 ];
 
 export function useCharacterBuilderDraft() {
