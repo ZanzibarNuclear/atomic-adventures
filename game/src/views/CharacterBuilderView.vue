@@ -78,9 +78,20 @@ const contentWorkspaceTabs = [
       </template>
       <template #actions>
         <span v-if="dirty" class="dirty-pill">Unsaved</span>
-        <button class="sm muted" :disabled="!dirty" @click="revertDraft">Revert</button>
+        <button class="sm muted" :disabled="!dirty" @click="revertDraft">
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          Revert
+        </button>
         <button class="sm muted" @click="loadHistory">History</button>
-        <button class="sm" :disabled="!dirty" @click="saveDraft">Save content</button>
+        <button class="sm success-btn" :disabled="!dirty" @click="saveDraft">
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 4h11l3 3v13H5V4z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+            <path d="M8 4v5h8V4M8 20v-7h8v7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+          </svg>
+          Save content
+        </button>
       </template>
     </BuilderPageHeader>
 

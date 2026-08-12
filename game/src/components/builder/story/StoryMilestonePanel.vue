@@ -59,7 +59,12 @@ function saveEdit(index) {
         <p class="label">Story state</p>
         <h2>Milestones</h2>
       </div>
-      <button type="button" class="sm" @click="$emit('new')">New milestone</button>
+      <button type="button" class="sm add-btn" @click="$emit('new')">
+        <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+        </svg>
+        New milestone
+      </button>
     </div>
 
     <p v-if="status" class="builder-status">{{ status }}</p>
@@ -90,8 +95,24 @@ function saveEdit(index) {
             <textarea v-model="draft.description" rows="5"></textarea>
           </label>
           <div class="card-actions">
-            <button type="button" class="card-button secondary" @click="cancelEdit">Cancel</button>
-            <button type="submit" class="card-button save">Save</button>
+            <button type="button" class="sm muted" @click="cancelEdit">Cancel</button>
+            <button type="submit" class="sm success-btn">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M5 4h11l3 3v13H5V4z"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linejoin="round" />
+                <path
+                  d="M8 4v5h8V4M8 20v-7h8v7"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linejoin="round" />
+              </svg>
+              Save
+            </button>
           </div>
         </form>
 
@@ -106,8 +127,24 @@ function saveEdit(index) {
           <p v-if="milestone.description" class="description">{{ milestone.description }}</p>
           <p v-else class="description empty">No description.</p>
           <div class="card-actions">
-            <button type="button" class="card-button edit" @click="startEdit(milestone, index)">Edit</button>
-            <button type="button" class="card-button danger" @click="$emit('remove', index)">Remove</button>
+            <button type="button" class="sm edit-btn" @click="startEdit(milestone, index)">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 20h4.5L19 9.5 14.5 5 4 15.5V20z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                <path d="M12.5 6.5 17.5 11.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+              </svg>
+              Edit
+            </button>
+            <button type="button" class="sm danger" @click="$emit('remove', index)">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M5 7h14M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M8 7l.8 12.2A1.5 1.5 0 0 0 10.3 20.5h3.4a1.5 1.5 0 0 0 1.5-1.3L16 7"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linejoin="round" />
+              </svg>
+              Remove
+            </button>
           </div>
         </div>
       </article>
@@ -259,45 +296,6 @@ function saveEdit(index) {
   gap: 0.5rem;
   flex-wrap: wrap;
   padding-top: 0.15rem;
-}
-
-.card-button {
-  border: 1px solid #536176;
-  border-radius: 7px;
-  padding: 0.45rem 0.75rem;
-  color: #eef1f5;
-  background: #334052;
-  font: inherit;
-  font-size: 0.82rem;
-  cursor: pointer;
-}
-
-.card-button:hover {
-  filter: brightness(1.08);
-}
-
-.card-button.edit {
-  border-color: #6c7f99;
-  background: #405069;
-  color: #f3f7fb;
-}
-
-.card-button.secondary {
-  border-color: #6a7380;
-  background: #3d4652;
-  color: #f0f3f6;
-}
-
-.card-button.save {
-  border-color: #6ea57b;
-  background: #2f6f45;
-  color: #f0fff3;
-}
-
-.card-button.danger {
-  border-color: #b55c46;
-  background: #8a3d2f;
-  color: #fff2ed;
 }
 
 .empty-note,

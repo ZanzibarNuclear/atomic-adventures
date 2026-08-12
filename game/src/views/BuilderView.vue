@@ -534,7 +534,17 @@ function setMilestoneCriterion({ field, value }) {
 }
 
 function newBeat(copy = null) {
-  void requestContextChange(() => beginNewBeat(copy));
+  void requestContextChange(async () => {
+    beginNewBeat(copy);
+    // Duplicates save immediately so they appear in the location list.
+    // Overlapping criteria may warn; the author can fix them next.
+    if (copy) {
+      const ok = await saveBeat();
+      if (ok && draft.value?.id) {
+        status.value = `Duplicated as ${draft.value.id}. Adjust criteria if this scene competes with the original.`;
+      }
+    }
+  });
 }
 
 function newSceneForStoryBeat({ beatId, primarySceneId = null } = {}) {
@@ -806,8 +816,10 @@ async function applyStoryRouteQuery() {
           :selected-location="selectedLocation"
           :beats="displayedLocationBeats"
           :selected-beat-id="selectedBeatId"
+          :can-duplicate="Boolean(draft) && !isNew"
           :warnings="matchWarnings"
           @new="newBeat()"
+          @duplicate="newBeat(draft)"
           @select="selectBeat"
         />
       </div>
@@ -830,7 +842,6 @@ async function applyStoryRouteQuery() {
         :story-beat-options="storyBeatOptions"
         @save="saveBeat"
         @revert="revertDraft"
-        @duplicate="newBeat"
         @history="loadRevisions"
         @delete="deleteBeat"
         @add-choice="addChoice"
@@ -922,7 +933,12 @@ async function applyStoryRouteQuery() {
         </section>
         <div class="dialog-actions">
           <button type="button" class="sm muted" @click="cancelMilestoneDialog">Cancel</button>
-          <button type="submit" class="sm">Create</button>
+          <button type="submit" class="sm success-btn">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12.5 9.5 17 19 7.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Create
+          </button>
         </div>
       </form>
     </div>

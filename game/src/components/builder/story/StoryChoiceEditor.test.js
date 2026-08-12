@@ -33,17 +33,54 @@ describe("StoryChoiceEditor flags", () => {
     expect(wrapper.find(".choice-form").exists()).toBe(false);
   });
 
-  it("shows all defined flags in the browser tree when editing", async () => {
+  it("lets the author pick known flags when editing set-flags", async () => {
     const wrapper = mountEditor([
       "story.gate.inspected",
       "story.gate.untangled",
     ]);
 
     await wrapper.get('button[aria-label="Edit choice"]').trigger("click");
-    await wrapper.get(".flag-browser button").trigger("click");
+    const flagEditor = wrapper.findComponent({ name: "FlagListEditor" });
+    expect(flagEditor.exists()).toBe(true);
+    expect(flagEditor.props("flagIds")).toEqual([
+      "story.gate.inspected",
+      "story.gate.untangled",
+    ]);
 
-    expect(wrapper.text()).not.toContain("No flags defined yet.");
-    expect(wrapper.text()).toContain("inspected");
-    expect(wrapper.text()).toContain("untangled");
+    // Already-selected flags show as chips, not as picker options.
+    expect(flagEditor.text()).toContain("story.gate.inspected");
+    const optionValues = flagEditor.findAll("select option").map((option) => option.element.value);
+    expect(optionValues).not.toContain("story.gate.inspected");
+    expect(optionValues).toContain("story.gate.untangled");
+
+    // Write-in field is available for new flag ids.
+    expect(flagEditor.find('input[aria-label="Write in a flag id"]').exists()).toBe(true);
+  });
+
+  it("adds a known flag from the picker and a write-in flag", async () => {
+    const wrapper = mountEditor([
+      "story.gate.inspected",
+      "story.gate.untangled",
+    ]);
+
+    await wrapper.get('button[aria-label="Edit choice"]').trigger("click");
+    const flagEditor = wrapper.findComponent({ name: "FlagListEditor" });
+
+    await flagEditor.get('select[aria-label="Choose a known flag"]').setValue("story.gate.untangled");
+    await flagEditor.findAll("button.sm").find((btn) => btn.text().includes("Add")).trigger("click");
+    expect(wrapper.props("choice").set_flags).toEqual([
+      "story.gate.inspected",
+      "story.gate.untangled",
+    ]);
+
+    const writeIn = flagEditor.get('input[aria-label="Write in a flag id"]');
+    await writeIn.setValue("story.gate.opened");
+    const addButtons = flagEditor.findAll("button.sm").filter((btn) => btn.text().includes("Add"));
+    await addButtons[addButtons.length - 1].trigger("click");
+    expect(wrapper.props("choice").set_flags).toEqual([
+      "story.gate.inspected",
+      "story.gate.untangled",
+      "story.gate.opened",
+    ]);
   });
 });

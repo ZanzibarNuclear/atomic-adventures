@@ -3,10 +3,11 @@ defineProps({
   selectedLocation: { type: String, default: "" },
   beats: { type: Array, default: () => [] },
   selectedBeatId: { type: String, default: "" },
+  canDuplicate: { type: Boolean, default: false },
   warnings: { type: Array, default: () => [] },
 });
 
-defineEmits(["new", "select"]);
+defineEmits(["new", "duplicate", "select"]);
 
 function originHexLabel(value) {
   const origins = Array.isArray(value)
@@ -45,7 +46,44 @@ function standLabel(beat) {
         <p class="label">Selected location</p>
         <h2>{{ selectedLocation }}</h2>
       </div>
-      <button class="sm" @click="$emit('new')">New scene</button>
+      <div class="section-heading-actions">
+        <button type="button" class="sm add-btn" @click="$emit('new')">
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M12 5v14M5 12h14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.9"
+              stroke-linecap="round" />
+          </svg>
+          New scene
+        </button>
+        <button
+          type="button"
+          class="sm muted duplicate-btn"
+          :disabled="!canDuplicate"
+          title="Duplicate selected scene"
+          @click="$emit('duplicate')">
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <rect
+              x="8"
+              y="8"
+              width="11"
+              height="11"
+              rx="1.5"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7" />
+            <path
+              d="M6 15H5.5A1.5 1.5 0 0 1 4 13.5v-8A1.5 1.5 0 0 1 5.5 4h8A1.5 1.5 0 0 1 15 5.5V6"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round" />
+          </svg>
+          Duplicate
+        </button>
+      </div>
     </div>
     <button
       v-for="beat in beats"
@@ -91,6 +129,13 @@ function standLabel(beat) {
 .section-heading h2,
 .section-heading p {
   margin: 0;
+}
+
+.section-heading-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
 }
 
 .label {

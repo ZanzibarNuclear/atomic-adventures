@@ -160,6 +160,64 @@ button.primary:hover:not(:disabled) {
   border-color: var(--color-cherenkov-muted);
 }
 
+/* Builder action accents — shared by story/world/content authoring toolbars. */
+button.sm.success,
+button.success-btn,
+button.sm.add-btn,
+button.add-btn {
+  background: color-mix(in srgb, #4caf70 28%, #2a3548);
+  border-color: color-mix(in srgb, #6fd391 55%, #556176);
+  color: #dff8e8;
+}
+button.sm.success:hover:not(:disabled),
+button.success-btn:hover:not(:disabled),
+button.sm.add-btn:hover:not(:disabled),
+button.add-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, #4caf70 40%, #2f3a4d);
+  border-color: #6fd391;
+  color: #f0fff5;
+}
+button.sm.edit,
+button.edit-btn {
+  background: color-mix(in srgb, var(--color-cherenkov, #20c8fb) 16%, #2a3548);
+  border-color: color-mix(in srgb, var(--color-cherenkov, #20c8fb) 45%, #556176);
+  color: var(--color-cherenkov, #20c8fb);
+}
+button.sm.edit:hover:not(:disabled),
+button.edit-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-cherenkov, #20c8fb) 26%, #2f3a4d);
+  border-color: var(--color-cherenkov-muted, rgba(32, 200, 251, 0.72));
+  color: var(--color-cherenkov-bright, #5ad8fc);
+}
+button.sm.danger,
+button.danger {
+  background: color-mix(in srgb, #c45c5c 22%, #2a3342);
+  border-color: color-mix(in srgb, #e07a7a 50%, #5a6a82);
+  color: #ffd0d0;
+}
+button.sm.danger:hover:not(:disabled),
+button.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, #c45c5c 34%, #354356);
+  border-color: #e07a7a;
+  color: #fff0f0;
+}
+button.sm:has(.btn-icon),
+button.success-btn,
+button.edit-btn,
+button.add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  line-height: 1.2;
+}
+button .btn-icon {
+  width: 1rem;
+  height: 1rem;
+  display: block;
+  flex: 0 0 auto;
+}
+
 .mode-pill {
   border: 1px solid var(--color-border);
   border-radius: 999px;
