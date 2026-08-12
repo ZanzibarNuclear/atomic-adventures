@@ -12,11 +12,14 @@
  * (see GameView catastrophic vitals).
  *
  * Composure is also a side effect of these needs (see syncComposureFromNeeds):
- * hungry/parched → Concerned, starving → Nervous, dehydrated → Scared.
+ * hungry/parched → Concerned, starving → Nervous, dehydrated → Panicked.
  * Clearing the need restores composure toward the baseline.
+ *
+ * Display bands: Calm 90–100, Normal 60–89, Concerned 40–59,
+ * Nervous 10–39, Panicked 0–9.
  */
 
-/** Starting / recovered composure when needs are fine (Calm band is ≥ 60). */
+/** Starting / recovered composure when needs are fine (Normal band). */
 export const COMPOSURE_BASELINE = 80;
 
 /**
@@ -24,12 +27,12 @@ export const COMPOSURE_BASELINE = 80;
  * Worst active need wins (lowest value).
  */
 export const COMPOSURE_FROM_NEEDS = Object.freeze({
-  /** Hungry (satiety &lt; 40) or Parched (hydration &lt; 10). */
+  /** Hungry (satiety &lt; 40) or Parched (hydration &lt; 10) → Concerned (40–59). */
   concerned: 40,
-  /** Starving (satiety &lt; 10). */
-  nervous: 20,
-  /** Dehydrated (hydration at minimum / 0). */
-  scared: 5,
+  /** Starving (satiety &lt; 10) → Nervous (10–39). */
+  nervous: 10,
+  /** Dehydrated (hydration at minimum / 0) → Panicked (0–9). */
+  panicked: 5,
 });
 
 /** Align with satiety display: Peckish/Hungry when below Full. */
@@ -149,7 +152,7 @@ export function needsComposureTarget(character) {
   const hyd = hydration?.current;
   const hydMin = hydration?.min ?? 0;
 
-  if (hydration && hyd <= hydMin + 1e-9) return COMPOSURE_FROM_NEEDS.scared;
+  if (hydration && hyd <= hydMin + 1e-9) return COMPOSURE_FROM_NEEDS.panicked;
   if (satiety && sat < SATIETY_STARVING_BELOW) return COMPOSURE_FROM_NEEDS.nervous;
   if (
     (satiety && sat < SATIETY_HUNGRY_BELOW)
@@ -162,7 +165,7 @@ export function needsComposureTarget(character) {
 
 /**
  * Apply composure as a side effect of satiety/hydration.
- * - Active need: set composure to the condition level (Concerned / Nervous / Scared).
+ * - Active need: set composure to the condition level (Concerned / Nervous / Panicked).
  * - Needs just cleared: restore to COMPOSURE_BASELINE (side-effect recovery).
  * - Needs already fine: leave composure alone (nap/meditate gains stick).
  */

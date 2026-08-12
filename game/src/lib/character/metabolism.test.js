@@ -73,10 +73,10 @@ describe("metabolism", () => {
       COMPOSURE_FROM_NEEDS.nervous,
     );
     expect(needsComposureTarget(charStats({ satiety: 50, hydration: 0 }))).toBe(
-      COMPOSURE_FROM_NEEDS.scared,
+      COMPOSURE_FROM_NEEDS.panicked,
     );
     expect(needsComposureTarget(charStats({ satiety: 5, hydration: 0 }))).toBe(
-      COMPOSURE_FROM_NEEDS.scared,
+      COMPOSURE_FROM_NEEDS.panicked,
     );
     expect(needsComposureTarget(charStats({ satiety: 60, hydration: 60 }))).toBeNull();
   });
