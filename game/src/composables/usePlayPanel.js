@@ -82,6 +82,9 @@ export function isVisibleAction(action) {
  * Story choice buttons for the play panel (prose stays in NarrativeCard).
  * Story movement choices are authored prompts, so action policy and choice
  * application own validity; do not hide them during button construction.
+ *
+ * Destination fields mark the choice as a move so the UI can highlight it
+ * the same way as free outdoor/indoor/exterior travel actions.
  */
 export function buildStoryChoices(pendingBeat) {
   if (!pendingBeat?.choices?.length) return [];
@@ -95,7 +98,22 @@ export function buildStoryChoices(pendingBeat) {
       toExteriorNode: choice.go_exterior_node ?? null,
       enterBuilding: choice.enter ?? null,
       label: choice.text,
+      kind: storyChoiceActionKind(choice),
     }));
+}
+
+/**
+ * Map authored destination fields → play-panel action kind.
+ * Outdoor hex, indoor room, and exterior-node steps all use "move"
+ * so they share the movement highlight with free map travel.
+ */
+export function storyChoiceActionKind(choice) {
+  if (!choice || typeof choice !== "object") return null;
+  if (choice.go_hex || choice.go_room || choice.go_exterior_node) return "move";
+  if (choice.enter) return "move";
+  // Crossing a passage is travel; open/close alone is not.
+  if (choice.crossPassage || choice.cross_passage) return "move";
+  return null;
 }
 
 export function handleStoryChoice(index, applyChoice) {
@@ -792,20 +810,20 @@ export function buildIndoorMovementActions(indoor, pendingBeat = null) {
         return {
           id: `move-exterior:${move.toExteriorNode}`,
           label: movementLabel(indoor, move),
-          kind: move.kind ?? "path",
+          kind: "move",
         };
       }
       if (move.toStandId) {
         return {
           id: `move-stand:${move.toStandId}`,
           label: movementLabel(indoor, move),
-          kind: move.kind ?? "stand",
+          kind: "move",
         };
       }
       return {
         id: `move-room:${move.toRoomId}`,
         label: movementLabel(indoor, move),
-        kind: move.kind ?? "room",
+        kind: "move",
       };
     });
 }
