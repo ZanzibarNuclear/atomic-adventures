@@ -24,12 +24,22 @@ function mountEditor(flagIds = []) {
 }
 
 describe("StoryChoiceEditor flags", () => {
-  it("shows all defined flags in the browser tree", async () => {
+  it("shows a compact summary with the choice label by default", () => {
+    const wrapper = mountEditor(["story.gate.inspected"]);
+
+    expect(wrapper.get(".choice-title").text()).toBe("Inspect the gate");
+    expect(wrapper.text()).toContain("Flag");
+    expect(wrapper.text()).toContain("story.gate.inspected");
+    expect(wrapper.find(".choice-form").exists()).toBe(false);
+  });
+
+  it("shows all defined flags in the browser tree when editing", async () => {
     const wrapper = mountEditor([
       "story.gate.inspected",
       "story.gate.untangled",
     ]);
 
+    await wrapper.get('button[aria-label="Edit choice"]').trigger("click");
     await wrapper.get(".flag-browser button").trigger("click");
 
     expect(wrapper.text()).not.toContain("No flags defined yet.");
