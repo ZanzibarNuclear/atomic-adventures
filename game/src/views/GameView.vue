@@ -453,11 +453,19 @@ const wellbeingAvailableActions = computed(() => ({
   ),
   mustRest: mustRest.value,
 }));
-const catastrophicVitals = computed(() =>
-  [wellbeingOverview.value.health].filter((vital) =>
+const catastrophicVitals = computed(() => {
+  const overview = wellbeingOverview.value;
+  const fatalIds = new Set(["health", "satiety", "hydration"]);
+  const candidates = [
+    overview?.health,
+    ...(overview?.vitals ?? []),
+  ].filter((vital) => vital && fatalIds.has(vital.id));
+  // Dedupe by id (health may appear only on overview.health).
+  const byId = new Map(candidates.map((vital) => [vital.id, vital]));
+  return [...byId.values()].filter((vital) =>
     Number(vital.value) <= Number(vital.min ?? 0),
-  ),
-);
+  );
+});
 const gameFailed = computed(() => catastrophicVitals.value.length > 0);
 
 function pruneRecoveredCrisisAlerts(overview) {

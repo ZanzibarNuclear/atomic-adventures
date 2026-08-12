@@ -7,6 +7,7 @@ import {
   itemQuantity,
   removeItem,
 } from "./holdings.js";
+import { hydrationPointsForMl } from "./metabolism.js";
 import {
   applyVesselContentConsumption,
   isVesselDefinition,
@@ -173,18 +174,39 @@ function performVesselContentAction(gameState, vesselItemId, actionId, {
   let plan = planVesselContentConsumption(instance, vesselDef, contentDef, action, { optionId });
   if (!plan.ok) return plan;
 
-  const wellbeingGate = consumptionWellbeingGate(character, action, plan.scale);
+  // Hydration from vessels is volume-based (mL), not "one full vessel = one serving".
+  const capacity = vesselCapacityMl(vesselDef);
+  const pointsPerFullVessel = hydrationPointsForMl(capacity);
+  const gateAction = {
+    ...action,
+    effects: (action.effects ?? []).map((effect) => (
+      effect?.op === "stat.add" && effect.id === "hydration"
+        ? { op: "stat.add", id: "hydration", value: pointsPerFullVessel, scaleBy: "portion" }
+        : effect
+    )),
+  };
+
+  const wellbeingGate = consumptionWellbeingGate(character, gateAction, plan.scale);
   if (!wellbeingGate.ok) return wellbeingGate;
   if (wellbeingGate.scale < plan.scale - 1e-9) {
     plan = applyWellbeingScaleToVesselPlan(
       plan,
       wellbeingGate.scale,
-      vesselCapacityMl(vesselDef),
+      capacity,
     );
   }
 
   const effects = (action.effects ?? [])
-    .map((effect) => scaledEffect(effect, plan.scale))
+    .map((effect) => {
+      if (effect?.op === "stat.add" && effect.id === "hydration") {
+        return {
+          ...effect,
+          value: hydrationPointsForMl(plan.spentMl),
+          scaleBy: undefined,
+        };
+      }
+      return scaledEffect(effect, plan.scale);
+    })
     .map((effect) => sourceAwareEffect(effect, heldHolderId));
   const result = applyEffectsAtomically(effects, {
     character,

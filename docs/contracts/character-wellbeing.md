@@ -246,28 +246,38 @@ Conditions may influence:
 Do not show ambiguous labels such as `Poison 37` unless a future simulation
 gives that number direct player meaning.
 
-## Daily Needs
+## Daily Needs And Metabolism
 
-The character document should eventually support authored daily targets:
+Runtime balance lives in `game/src/lib/character/metabolism.js` and is authored
+onto satiety/hydration `drift.perGameHour` in the character document.
 
-```yaml
-wellbeing:
-  caloriesPerDay: 2400
-  waterMlPerDay: 2500
-```
+### Food (satiety)
 
-These targets should describe Zanzibar's baseline needs. Activity, temperature,
-injury, illness, clothing, and environmental conditions may modify them.
+- **Three Tastee Tack meals per day** maintain satiety under a normal day
+  (8 hours sleep + 16 hours light activity).
+- Each standard meal restores **55** satiety (authored eat effect).
+- Daily satiety budget: `3 × 55 = 165` points drained and restored per day.
+- **Sleep/resting** is the lightest burn; light is the unit; moderate and
+  strenuous burn more.
+- Under light activity, satiety moves from roughly **Full → Hungry in about
+  four hours** (one meal cycle).
 
-Open questions:
+### Water (hydration)
 
-- Should calories and water be tracked as daily intake totals, as reservoir
-  meters, or both?
-- Should satiety/hydration drift be derived from calorie and water deficits
-  instead of authored directly per stat?
-- At what time boundary does the game evaluate daily targets?
-- How forgiving should the system be in an educational adventure, where survival
-  pressure should create stakes but not dominate exploration?
+- Target drinking fluid: **five 250 mL glasses per day (1.25 L)**.
+- Hydration meter 0–100 maps to that daily budget (one full glass ≈ **20**
+  points). Vessel drinks scale by **mL consumed**
+  (`hydrationPointsForMl`).
+- **Resting loses water at the same rate as light activity** (breathing /
+  overnight loss). Moderate and strenuous activity increase loss.
+- Thirst returns more often than hunger because the daily water budget is
+  smaller relative to how fast activity burns fluid.
+
+### Catastrophic failure
+
+If **satiety** or **hydration** reaches **0** (or **health** reaches 0), the
+game ends. Dehydration is more urgent in the short term; starvation remains a
+slower path to failure. Player weight is not tracked yet.
 
 ## Intake And Overconsumption
 
