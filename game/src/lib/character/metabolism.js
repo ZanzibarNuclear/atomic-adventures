@@ -10,7 +10,33 @@
  *
  * Reservoir meters are 0–100. Reaching 0 satiety or hydration ends the game
  * (see GameView catastrophic vitals).
+ *
+ * Composure is also a side effect of these needs (see syncComposureFromNeeds):
+ * hungry/parched → Concerned, starving → Nervous, dehydrated → Scared.
+ * Clearing the need restores composure toward the baseline.
  */
+
+/** Starting / recovered composure when needs are fine (Calm band is ≥ 60). */
+export const COMPOSURE_BASELINE = 80;
+
+/**
+ * Composure forced by survival needs (matches composure displayStates bands).
+ * Worst active need wins (lowest value).
+ */
+export const COMPOSURE_FROM_NEEDS = Object.freeze({
+  /** Hungry (satiety &lt; 40) or Parched (hydration &lt; 10). */
+  concerned: 40,
+  /** Starving (satiety &lt; 10). */
+  nervous: 20,
+  /** Dehydrated (hydration at minimum / 0). */
+  scared: 5,
+});
+
+/** Align with satiety display: Peckish/Hungry when below Full. */
+export const SATIETY_HUNGRY_BELOW = 40;
+export const SATIETY_STARVING_BELOW = 10;
+/** Align with hydration display: Parched band. */
+export const HYDRATION_PARCHED_BELOW = 10;
 
 export const MEALS_PER_DAY = 3;
 /** Satiety restored by one full Tastee Tack meal (authored eat effect). */
@@ -108,4 +134,90 @@ export function hoursLightFromFullToHungry() {
 
 function roundRate(value) {
   return Math.round(value * 1000) / 1000;
+}
+
+/**
+ * Worst survival need → forced composure target, or null when needs are fine.
+ * Dehydrated beats starving beats hungry/parched.
+ */
+export function needsComposureTarget(character) {
+  const satiety = readMeter(character, "satiety");
+  const hydration = readMeter(character, "hydration");
+  if (!satiety && !hydration) return null;
+
+  const sat = satiety?.current;
+  const hyd = hydration?.current;
+  const hydMin = hydration?.min ?? 0;
+
+  if (hydration && hyd <= hydMin + 1e-9) return COMPOSURE_FROM_NEEDS.scared;
+  if (satiety && sat < SATIETY_STARVING_BELOW) return COMPOSURE_FROM_NEEDS.nervous;
+  if (
+    (satiety && sat < SATIETY_HUNGRY_BELOW)
+    || (hydration && hyd < HYDRATION_PARCHED_BELOW)
+  ) {
+    return COMPOSURE_FROM_NEEDS.concerned;
+  }
+  return null;
+}
+
+/**
+ * Apply composure as a side effect of satiety/hydration.
+ * - Active need: set composure to the condition level (Concerned / Nervous / Scared).
+ * - Needs just cleared: restore to COMPOSURE_BASELINE (side-effect recovery).
+ * - Needs already fine: leave composure alone (nap/meditate gains stick).
+ */
+export function syncComposureFromNeeds(character) {
+  if (!character?.stats) return null;
+  const meter = readMeter(character, "composure");
+  if (!meter) return null;
+
+  const flags = (character.wellbeingFlags ??= {});
+  const forced = needsComposureTarget(character);
+
+  if (forced != null) {
+    character.stats.composure = clamp(forced, meter.min, meter.max);
+    flags.composureSuppressedByNeeds = true;
+    return { composure: character.stats.composure, reason: "needs", target: forced };
+  }
+
+  const current = clamp(
+    Number(character.stats.composure ?? meter.current),
+    meter.min,
+    meter.max,
+  );
+
+  if (flags.composureSuppressedByNeeds) {
+    character.stats.composure = clamp(
+      Math.max(current, COMPOSURE_BASELINE),
+      meter.min,
+      meter.max,
+    );
+    flags.composureSuppressedByNeeds = false;
+    return { composure: character.stats.composure, reason: "recovered", target: COMPOSURE_BASELINE };
+  }
+
+  character.stats.composure = current;
+  return { composure: current, reason: "unchanged", target: null };
+}
+
+function readMeter(character, statId) {
+  const definition = (character?.definitions?.stats ?? []).find((stat) => stat.id === statId);
+  if (!definition && character?.stats?.[statId] == null) return null;
+  const min = finite(definition?.min, 0);
+  const max = finite(definition?.max, 100);
+  const current = clamp(
+    finite(character?.stats?.[statId], definition?.default ?? min),
+    min,
+    max,
+  );
+  return { min, max, current, id: statId };
+}
+
+function finite(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
 }

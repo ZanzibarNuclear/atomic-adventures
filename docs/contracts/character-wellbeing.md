@@ -279,6 +279,21 @@ If **satiety** or **hydration** reaches **0** (or **health** reaches 0), the
 game ends. Dehydration is more urgent in the short term; starvation remains a
 slower path to failure. Player weight is not tracked yet.
 
+### Composure from needs
+
+Composure starts at **80** (Calm). For now it is mainly a **side effect of
+satiety and hydration** (other causes later):
+
+| Condition | Composure |
+| --- | --- |
+| Hungry (satiety &lt; 40) or Parched (hydration &lt; 10) | **Concerned** (40) |
+| Starving (satiety &lt; 10) | **Nervous** (20) |
+| Dehydrated (hydration at 0) | **Scared** (5) |
+
+Worst condition wins. When needs improve again, composure restores to the
+**baseline (80)**. `syncComposureFromNeeds` runs after stat mutations (time
+drift, item effects, health actions).
+
 ## Intake And Overconsumption
 
 Food and water are not only “fill the reserve” buttons. Future mechanics

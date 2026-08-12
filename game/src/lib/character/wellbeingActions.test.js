@@ -75,24 +75,24 @@ describe("wellbeing actions", () => {
   });
 
   it("allows rest even at full energy without changing energy", () => {
-    const gameState = state({ energy: 100, composure: 50 });
+    const gameState = state({ energy: 100, composure: 70, satiety: 70, hydration: 70 });
     const result = performWellbeingAction(gameState, "rest");
     expect(result.ok).toBe(true);
     expect(gameState.character.stats.energy).toBe(100);
-    expect(gameState.character.stats.composure).toBe(50);
+    expect(gameState.character.stats.composure).toBe(70);
   });
 
   it("rests for 15 minutes at the unit energy rate without composure gain", () => {
-    const gameState = state({ energy: 50, composure: 40 });
+    const gameState = state({ energy: 50, composure: 70, satiety: 70, hydration: 70 });
     const result = performWellbeingAction(gameState, "rest");
     expect(result.ok).toBe(true);
     // 15 min at 20/hr → +5 energy.
     expect(gameState.character.stats.energy).toBeCloseTo(55, 1);
-    expect(gameState.character.stats.composure).toBe(40);
+    expect(gameState.character.stats.composure).toBe(70);
   });
 
-  it("naps with 2× energy and unit composure recovery", () => {
-    const gameState = state({ energy: 50, composure: 40 });
+  it("naps with 2× energy and unit composure recovery when needs are fine", () => {
+    const gameState = state({ energy: 50, composure: 40, satiety: 70, hydration: 70 });
     const plan = planWellbeingAction(gameState.character, "nap");
     expect(plan.ok).toBe(true);
     expect(plan.minutes).toBe(30);
@@ -107,8 +107,8 @@ describe("wellbeing actions", () => {
     expect(result.notice).toMatch(/energy and composure/i);
   });
 
-  it("sleeps at 2× energy and 3× composure until 80% energy", () => {
-    const gameState = state({ energy: 20, composure: 20 });
+  it("sleeps at 2× energy and 3× composure until 80% energy when needs are fine", () => {
+    const gameState = state({ energy: 20, composure: 20, satiety: 70, hydration: 70 });
     const plan = planWellbeingAction(gameState.character, "sleep");
     expect(plan.ok).toBe(true);
     // Need 60 energy at 40/hr → 90 minutes.
@@ -122,8 +122,8 @@ describe("wellbeing actions", () => {
     expect(gameState.character.stats.composure).toBeCloseTo(65, 1);
   });
 
-  it("meditates with 2× sleep composure and nap-rate energy", () => {
-    const gameState = state({ energy: 50, composure: 40 });
+  it("meditates with 2× sleep composure and nap-rate energy when needs are fine", () => {
+    const gameState = state({ energy: 50, composure: 40, satiety: 70, hydration: 70 });
     // 10 min: energy +40/hr → +6.67; composure +60/hr → +10.
     const plan = planWellbeingAction(gameState.character, "meditate", { minutes: 10 });
     expect(plan.ok).toBe(true);

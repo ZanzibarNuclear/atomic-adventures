@@ -1,4 +1,5 @@
 import { advanceGameTime } from "./gameTime.js";
+import { syncComposureFromNeeds } from "./metabolism.js";
 
 /**
  * Unit energy recovery for intentional Rest (points per game hour).
@@ -262,6 +263,9 @@ export function performWellbeingAction(gameState, actionId, options = {}) {
     const next = beforeComposure.current + plan.composureGain;
     gameState.character.stats.composure = clamp(next, beforeComposure.min, beforeComposure.max);
   }
+
+  // Needs (hunger/thirst) can override composure gains from rest/meditation.
+  syncComposureFromNeeds(gameState.character);
 
   const finalEnergy = readMeter(gameState.character, "energy");
   const finalComposure = readMeter(gameState.character, "composure");

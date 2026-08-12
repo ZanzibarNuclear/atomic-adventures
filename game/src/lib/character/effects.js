@@ -1,6 +1,7 @@
 import { applyCharacterState, captureCharacterState } from "../../composables/useCharacterState.js";
 import { EFFECT_HANDLERS, catalogFor } from "./effectHandlers.js";
 import { evaluateSkillAwards } from "./skillAwards.js";
+import { syncComposureFromNeeds } from "./metabolism.js";
 
 export function applyEffectsAtomically(effects = [], {
   character,
@@ -17,6 +18,8 @@ export function applyEffectsAtomically(effects = [], {
     return { ok: false, error: error.message, effect: error.effect };
   }
   applyCharacterState(character, draft, { mergeAuthored: false });
+  // Composure follows satiety/hydration needs after any stat mutation.
+  syncComposureFromNeeds(character);
   flags.clear();
   for (const flag of draftFlags) flags.add(flag);
   return { ok: true };

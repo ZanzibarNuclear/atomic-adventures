@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  COMPOSURE_BASELINE,
+  COMPOSURE_FROM_NEEDS,
   DAILY_SATIETY_BUDGET,
   DAILY_WATER_ML,
   DRINKS_PER_DAY,
@@ -11,7 +13,9 @@ import {
   hydrationDrainPerHour,
   hydrationPointsForMl,
   metabolismDriftRates,
+  needsComposureTarget,
   satietyDrainPerHour,
+  syncComposureFromNeeds,
 } from "./metabolism.js";
 
 describe("metabolism", () => {
@@ -57,4 +61,65 @@ describe("metabolism", () => {
     expect(rates.hydration.light).toBeLessThan(0);
     expect(rates.hydration.resting).toBeCloseTo(rates.hydration.light, 5);
   });
+
+  it("maps hungry/parched/starving/dehydrated to composure bands", () => {
+    expect(needsComposureTarget(charStats({ satiety: 30, hydration: 50 }))).toBe(
+      COMPOSURE_FROM_NEEDS.concerned,
+    );
+    expect(needsComposureTarget(charStats({ satiety: 50, hydration: 8 }))).toBe(
+      COMPOSURE_FROM_NEEDS.concerned,
+    );
+    expect(needsComposureTarget(charStats({ satiety: 5, hydration: 50 }))).toBe(
+      COMPOSURE_FROM_NEEDS.nervous,
+    );
+    expect(needsComposureTarget(charStats({ satiety: 50, hydration: 0 }))).toBe(
+      COMPOSURE_FROM_NEEDS.scared,
+    );
+    expect(needsComposureTarget(charStats({ satiety: 5, hydration: 0 }))).toBe(
+      COMPOSURE_FROM_NEEDS.scared,
+    );
+    expect(needsComposureTarget(charStats({ satiety: 60, hydration: 60 }))).toBeNull();
+  });
+
+  it("forces composure down for needs and restores baseline when fed and watered", () => {
+    const character = charStats({ satiety: 20, hydration: 50, composure: 80 });
+    syncComposureFromNeeds(character);
+    expect(character.stats.composure).toBe(COMPOSURE_FROM_NEEDS.concerned);
+
+    character.stats.satiety = 5;
+    syncComposureFromNeeds(character);
+    expect(character.stats.composure).toBe(COMPOSURE_FROM_NEEDS.nervous);
+
+    character.stats.satiety = 70;
+    character.stats.hydration = 70;
+    syncComposureFromNeeds(character);
+    expect(character.stats.composure).toBe(COMPOSURE_BASELINE);
+  });
+
+  it("does not overwrite composure when needs stay fine", () => {
+    const character = charStats({ satiety: 70, hydration: 70, composure: 50 });
+    syncComposureFromNeeds(character);
+    expect(character.stats.composure).toBe(50);
+    character.stats.composure = 90;
+    syncComposureFromNeeds(character);
+    expect(character.stats.composure).toBe(90);
+  });
 });
+
+function charStats(stats) {
+  return {
+    definitions: {
+      stats: [
+        { id: "satiety", type: "meter", min: 0, max: 100, default: 50 },
+        { id: "hydration", type: "meter", min: 0, max: 100, default: 50 },
+        { id: "composure", type: "meter", min: 0, max: 100, default: COMPOSURE_BASELINE },
+      ],
+    },
+    stats: {
+      satiety: 50,
+      hydration: 50,
+      composure: COMPOSURE_BASELINE,
+      ...stats,
+    },
+  };
+}
