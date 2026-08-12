@@ -347,7 +347,6 @@ export function useStoryBeatDocument({
   async function deleteBeat() {
     if (!draft.value || isNew.value) return;
     const beatId = selectedBeatId.value;
-    if (!window.confirm(`Delete "${beatId}"? Its revision history will remain available.`)) return;
     await storyApi(
       `/api/story/areas/${areaId}/beats/${encodeURIComponent(beatId)}`,
       { method: "DELETE", body: JSON.stringify({ expectedVersion: draft.value.version }) },

@@ -184,7 +184,7 @@ function flattenTree(nodes, depth = 0) {
         </button>
         <button
           type="button"
-          class="icon-btn muted"
+          class="icon-btn edit"
           :title="editing ? 'Done editing' : 'Edit choice'"
           :aria-label="editing ? 'Done editing choice' : 'Edit choice'"
           :aria-pressed="editing"
@@ -446,6 +446,18 @@ function flattenTree(nodes, depth = 0) {
 .icon-btn.muted:hover {
   background: #354356;
   border-color: #7a8eaa;
+}
+
+.icon-btn.edit {
+  background: color-mix(in srgb, var(--color-cherenkov, #20c8fb) 16%, #2a3548);
+  border-color: color-mix(in srgb, var(--color-cherenkov, #20c8fb) 45%, #556176);
+  color: var(--color-cherenkov, #20c8fb);
+}
+
+.icon-btn.edit:hover {
+  background: color-mix(in srgb, var(--color-cherenkov, #20c8fb) 26%, #2f3a4d);
+  border-color: var(--color-cherenkov-muted, rgba(32, 200, 251, 0.72));
+  color: var(--color-cherenkov-bright, #5ad8fc);
 }
 
 .icon-btn.danger {

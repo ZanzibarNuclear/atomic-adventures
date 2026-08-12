@@ -22,7 +22,7 @@ const props = defineProps({
   storyBeatOptions: { type: Array, default: () => [] },
 });
 
-defineEmits([
+const emit = defineEmits([
   "save",
   "revert",
   "duplicate",
@@ -44,6 +44,17 @@ const selectedOriginHex = ref("");
 const editingLocationCriteria = ref(false);
 const editingFlagCriteria = ref(false);
 const editingTimeCriteria = ref(false);
+const deleteConfirmOpen = ref(false);
+
+function requestDelete() {
+  if (props.isNew || !props.draft) return;
+  deleteConfirmOpen.value = true;
+}
+
+function confirmDelete() {
+  deleteConfirmOpen.value = false;
+  emit("delete");
+}
 
 const selectedOriginHexes = computed(() =>
   Array.isArray(props.draft?.match?.originHex)
@@ -274,6 +285,13 @@ function setModeEnabled(mode, enabled) {
         <div class="toolbar-actions">
           <button type="button" class="sm muted" :disabled="!dirty" @click="$emit('revert')">Revert</button>
           <button type="button" class="sm muted" @click="$emit('duplicate', draft)">Duplicate</button>
+          <button
+            v-if="!isNew"
+            type="button"
+            class="sm muted danger"
+            @click="requestDelete">
+            Delete
+          </button>
           <button type="button" class="sm muted" :disabled="isNew" @click="$emit('history')">History</button>
           <button type="submit" class="sm" :disabled="!dirty">Save</button>
         </div>
@@ -637,7 +655,26 @@ function setModeEnabled(mode, enabled) {
             @set-destination-type="$emit('set-destination-type', $event)"
             @set-view-kind="$emit('set-view-kind', $event)"
           />
-          <button type="button" class="sm" @click="$emit('add-choice')">Add choice</button>
+          <div class="add-choice-row">
+            <button type="button" class="sm add-choice-btn" @click="$emit('add-choice')">
+              <svg class="add-choice-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="9"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.7" />
+                <path
+                  d="M12 8v8M8 12h8"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linecap="round" />
+              </svg>
+              Add choice
+            </button>
+          </div>
         </fieldset>
       </div>
 
@@ -648,9 +685,29 @@ function setModeEnabled(mode, enabled) {
         :revisions="revisions"
         @restore="$emit('restore-revision', $event)"
       />
-
-      <button v-if="!isNew" type="button" class="danger" @click="$emit('delete')">Delete scene</button>
     </form>
+
+    <div
+      v-if="deleteConfirmOpen"
+      class="confirm-backdrop"
+      role="presentation"
+      @click.self="deleteConfirmOpen = false">
+      <section
+        class="confirm-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-scene-title">
+        <p class="confirm-eyebrow">Delete scene</p>
+        <h2 id="delete-scene-title">Delete “{{ draft?.id }}”?</h2>
+        <p class="confirm-message">
+          This removes the scene from the story area. Its revision history will remain available.
+        </p>
+        <div class="confirm-actions">
+          <button type="button" class="sm muted danger" @click="confirmDelete">Delete</button>
+          <button type="button" class="sm muted" @click="deleteConfirmOpen = false">Cancel</button>
+        </div>
+      </section>
+    </div>
   </section>
 </template>
 
@@ -661,6 +718,100 @@ function setModeEnabled(mode, enabled) {
   background: #20252f;
   padding: 1rem;
   min-width: 0;
+}
+
+/* Same box model as .sm.muted siblings; only recolor for danger. */
+.toolbar-actions > button.danger,
+.confirm-actions > button.danger {
+  background: color-mix(in srgb, #c45c5c 22%, #2a3342);
+  border-color: color-mix(in srgb, #e07a7a 50%, #5a6a82);
+  color: #ffd0d0;
+}
+
+.toolbar-actions > button.danger:hover:not(:disabled),
+.confirm-actions > button.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, #c45c5c 34%, #354356);
+  border-color: #e07a7a;
+  color: #fff0f0;
+}
+
+.add-choice-row {
+  display: flex;
+  justify-content: center;
+  padding-top: 0.25rem;
+}
+
+.add-choice-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  line-height: 1.2;
+  background: color-mix(in srgb, #4caf70 28%, #2a3548);
+  border-color: color-mix(in srgb, #6fd391 55%, #556176);
+  color: #dff8e8;
+}
+
+.add-choice-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, #4caf70 40%, #2f3a4d);
+  border-color: #6fd391;
+  color: #f0fff5;
+}
+
+.add-choice-icon {
+  width: 1.05rem;
+  height: 1.05rem;
+  display: block;
+  flex: 0 0 auto;
+}
+
+.confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(8 12 18 / 0.55);
+}
+
+.confirm-dialog {
+  width: min(28rem, 100%);
+  padding: 1.1rem 1.15rem;
+  border: 1px solid #4a5568;
+  border-radius: 10px;
+  background: #1b212b;
+  color: #e8edf5;
+  box-shadow: 0 18px 48px rgb(0 0 0 / 0.4);
+}
+
+.confirm-eyebrow {
+  margin: 0 0 0.3rem;
+  color: #ffb4b4;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.confirm-dialog h2 {
+  margin: 0 0 0.55rem;
+  font-size: 1.15rem;
+  color: #f4f7fb;
+}
+
+.confirm-message {
+  margin: 0 0 1rem;
+  color: #b7c0cc;
+  line-height: 1.45;
+}
+
+.confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: flex-end;
 }
 
 .builder-form-column form,
@@ -678,6 +829,20 @@ fieldset {
   justify-content: space-between;
   gap: 0.65rem;
   flex-wrap: wrap;
+}
+
+.toolbar-actions {
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+/* Match global button.sm metrics; keep flex alignment only. */
+.toolbar-actions > button,
+.confirm-actions > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .editor-tabs {
@@ -886,12 +1051,6 @@ legend {
 .revision-panel {
   display: grid;
   gap: 0.4rem;
-}
-
-.danger {
-  margin-top: 1rem;
-  background: #5a2929;
-  border-color: #854141;
 }
 
 .empty-editor {
