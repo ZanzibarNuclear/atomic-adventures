@@ -292,17 +292,26 @@ slower path to failure. Player weight is not tracked yet.
 ### Composure from needs
 
 Composure starts at **80** (**Normal**). For now it is mainly a **side effect
-of satiety and hydration** (other causes later):
+of satiety and hydration** (other causes later). Only the **worst** active need
+applies (impacts do not stack).
 
-| Condition | Composure |
+| Condition | Impact |
 | --- | --- |
-| Hungry (satiety &lt; 40) or Parched (hydration &lt; 10) | **Concerned** (40) |
-| Starving (satiety &lt; 10) | **Nervous** (10) |
-| Dehydrated (hydration at 0) | **Panicked** (5) |
+| Hungry (satiety 10–39) or Thirsty (hydration 30–59) | **Concerned** (40) |
+| Starving (satiety &lt; 10) or Parched (hydration 10–29) | **Nervous** (10) |
+| Dehydrated (hydration &lt; 10) | **Panicked** (5) |
 
-Worst condition wins. When needs improve again, composure restores to the
-**baseline (80)**. `syncComposureFromNeeds` runs after stat mutations (time
-drift, item effects, health actions). **Scared** is not used.
+Rules:
+
+- **Not permanent.** Entering a worse band can drop composure if the player is
+  currently calmer; staying in that band does **not** clamp composure. Meditation
+  (or other recovery) may raise composure even while still starving.
+- **Eating / drinking restores** composure from the *resulting* state:
+  - Hydrated + Stuffed → at least **Calm** (90)
+  - Hydrated + Full or Peckish → at least **Normal** (80)
+  - Still under a need impact → at least that impact level
+- `syncComposureFromNeeds` runs after stat mutations with previous meter values
+  so it can detect worsening vs recovery transitions.
 
 ## Intake And Overconsumption
 

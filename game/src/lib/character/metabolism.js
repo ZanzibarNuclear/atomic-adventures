@@ -11,35 +11,46 @@
  * Reservoir meters are 0–100. Reaching 0 satiety or hydration ends the game
  * (see GameView catastrophic vitals).
  *
- * Composure is also a side effect of these needs (see syncComposureFromNeeds):
- * hungry/parched → Concerned, starving → Nervous, dehydrated → Panicked.
- * Clearing the need restores composure toward the baseline.
+ * Composure side effects from needs (see syncComposureFromNeeds):
+ * - Worst active need wins (not stacked).
+ * - Entering a worse band can drop composure once; it is not a permanent clamp
+ *   (meditation can raise composure even while still starving).
+ * - Eating/drinking restores composure from the resulting satiety/hydration state.
  *
  * Display bands: Calm 90–100, Normal 60–89, Concerned 40–59,
  * Nervous 10–39, Panicked 0–9.
  */
 
-/** Starting / recovered composure when needs are fine (Normal band). */
+/** Starting composure and restore target when Full/Peckish + Hydrated. */
 export const COMPOSURE_BASELINE = 80;
+/** Restore target when Stuffed + Hydrated. */
+export const COMPOSURE_CALM = 90;
 
 /**
- * Composure forced by survival needs (matches composure displayStates bands).
- * Worst active need wins (lowest value).
+ * Impact levels when a need band is active (lowest value = worst).
+ * Aligns with composure displayStates.
  */
 export const COMPOSURE_FROM_NEEDS = Object.freeze({
-  /** Hungry (satiety &lt; 40) or Parched (hydration &lt; 10) → Concerned (40–59). */
+  /** Hungry or Thirsty → Concerned (40–59). */
   concerned: 40,
-  /** Starving (satiety &lt; 10) → Nervous (10–39). */
+  /** Starving or Parched → Nervous (10–39). */
   nervous: 10,
-  /** Dehydrated (hydration at minimum / 0) → Panicked (0–9). */
+  /** Dehydrated → Panicked (0–9). */
   panicked: 5,
 });
 
-/** Align with satiety display: Peckish/Hungry when below Full. */
+/** Satiety bands (match displayStates). */
+export const SATIETY_STUFFED_AT = 90;
+export const SATIETY_FULL_AT = 55;
+export const SATIETY_PECKISH_AT = 40;
 export const SATIETY_HUNGRY_BELOW = 40;
 export const SATIETY_STARVING_BELOW = 10;
-/** Align with hydration display: Parched band. */
-export const HYDRATION_PARCHED_BELOW = 10;
+
+/** Hydration bands (match displayStates). */
+export const HYDRATION_HYDRATED_AT = 60;
+export const HYDRATION_THIRSTY_BELOW = 60;
+export const HYDRATION_PARCHED_BELOW = 30;
+export const HYDRATION_DEHYDRATED_BELOW = 10;
 
 export const MEALS_PER_DAY = 3;
 /** Satiety restored by one full Tastee Tack meal (authored eat effect). */
@@ -140,67 +151,121 @@ function roundRate(value) {
 }
 
 /**
- * Worst survival need → forced composure target, or null when needs are fine.
- * Dehydrated beats starving beats hungry/parched.
+ * Worst survival-need impact on composure, or null when none apply.
+ * Only the most severe impact is used (not stacked).
+ *
+ * | Condition | Composure impact |
+ * | Hungry (satiety 10–39) or Thirsty (hydration 30–59) | Concerned (40) |
+ * | Starving (satiety &lt; 10) or Parched (hydration 10–29) | Nervous (10) |
+ * | Dehydrated (hydration &lt; 10) | Panicked (5) |
  */
-export function needsComposureTarget(character) {
-  const satiety = readMeter(character, "satiety");
-  const hydration = readMeter(character, "hydration");
-  if (!satiety && !hydration) return null;
-
-  const sat = satiety?.current;
-  const hyd = hydration?.current;
-  const hydMin = hydration?.min ?? 0;
-
-  if (hydration && hyd <= hydMin + 1e-9) return COMPOSURE_FROM_NEEDS.panicked;
-  if (satiety && sat < SATIETY_STARVING_BELOW) return COMPOSURE_FROM_NEEDS.nervous;
-  if (
-    (satiety && sat < SATIETY_HUNGRY_BELOW)
-    || (hydration && hyd < HYDRATION_PARCHED_BELOW)
-  ) {
-    return COMPOSURE_FROM_NEEDS.concerned;
+export function needsComposureTarget(characterOrSat, hydrationValue = null) {
+  let sat;
+  let hyd;
+  if (hydrationValue != null || typeof characterOrSat === "number") {
+    sat = Number(characterOrSat);
+    hyd = Number(hydrationValue);
+  } else {
+    const character = characterOrSat;
+    const satiety = readMeter(character, "satiety");
+    const hydration = readMeter(character, "hydration");
+    if (!satiety && !hydration) return null;
+    sat = satiety?.current;
+    hyd = hydration?.current;
   }
+  if (!Number.isFinite(sat) && !Number.isFinite(hyd)) return null;
+
+  let worst = null;
+  const consider = (value) => {
+    if (worst == null || value < worst) worst = value;
+  };
+
+  if (Number.isFinite(hyd)) {
+    if (hyd < HYDRATION_DEHYDRATED_BELOW) consider(COMPOSURE_FROM_NEEDS.panicked);
+    else if (hyd < HYDRATION_PARCHED_BELOW) consider(COMPOSURE_FROM_NEEDS.nervous);
+    else if (hyd < HYDRATION_THIRSTY_BELOW) consider(COMPOSURE_FROM_NEEDS.concerned);
+  }
+  if (Number.isFinite(sat)) {
+    if (sat < SATIETY_STARVING_BELOW) consider(COMPOSURE_FROM_NEEDS.nervous);
+    else if (sat < SATIETY_HUNGRY_BELOW) consider(COMPOSURE_FROM_NEEDS.concerned);
+  }
+  return worst;
+}
+
+/**
+ * Composure restore target after eating/drinking, from resulting needs state.
+ * - Still under a need impact → that impact level (floor when recovering).
+ * - Hydrated + Stuffed → Calm (90).
+ * - Hydrated + Full or Peckish → Normal baseline (80).
+ * Meditation can raise above these freely when not freshly dropped by needs.
+ */
+export function recoveryComposureTarget(satietyValue, hydrationValue) {
+  const impact = needsComposureTarget(satietyValue, hydrationValue);
+  if (impact != null) return impact;
+
+  const sat = Number(satietyValue);
+  const hyd = Number(hydrationValue);
+  if (!(Number.isFinite(sat) && Number.isFinite(hyd))) return null;
+
+  if (hyd >= HYDRATION_HYDRATED_AT && sat >= SATIETY_STUFFED_AT) return COMPOSURE_CALM;
+  if (hyd >= HYDRATION_HYDRATED_AT && sat >= SATIETY_PECKISH_AT) return COMPOSURE_BASELINE;
   return null;
 }
 
 /**
- * Apply composure as a side effect of satiety/hydration.
- * - Active need: set composure to the condition level (Concerned / Nervous / Panicked).
- * - Needs just cleared: restore to COMPOSURE_BASELINE (side-effect recovery).
- * - Needs already fine: leave composure alone (nap/meditate gains stick).
+ * Apply composure side effects from satiety/hydration changes.
+ *
+ * @param {object} character
+ * @param {{ previous?: { satiety?: number, hydration?: number } }} [options]
+ *   Pass prior meter values so we can detect worsening vs recovery.
+ *   When omitted, previous is treated as equal to current (no transition).
  */
-export function syncComposureFromNeeds(character) {
+export function syncComposureFromNeeds(character, options = {}) {
   if (!character?.stats) return null;
-  const meter = readMeter(character, "composure");
-  if (!meter) return null;
+  const composure = readMeter(character, "composure");
+  const satiety = readMeter(character, "satiety");
+  const hydration = readMeter(character, "hydration");
+  if (!composure || (!satiety && !hydration)) return null;
 
-  const flags = (character.wellbeingFlags ??= {});
-  const forced = needsComposureTarget(character);
+  const sat = satiety?.current;
+  const hyd = hydration?.current;
+  const prevSat = options.previous?.satiety ?? sat;
+  const prevHyd = options.previous?.hydration ?? hyd;
 
-  if (forced != null) {
-    character.stats.composure = clamp(forced, meter.min, meter.max);
-    flags.composureSuppressedByNeeds = true;
-    return { composure: character.stats.composure, reason: "needs", target: forced };
-  }
+  const prevImpact = needsComposureTarget(prevSat, prevHyd);
+  const nextImpact = needsComposureTarget(sat, hyd);
+  const satImproved = Number.isFinite(sat) && Number.isFinite(prevSat) && sat > prevSat + 1e-9;
+  const hydImproved = Number.isFinite(hyd) && Number.isFinite(prevHyd) && hyd > prevHyd + 1e-9;
+  const worsened = nextImpact != null
+    && (prevImpact == null || nextImpact < prevImpact - 1e-9);
 
-  const current = clamp(
-    Number(character.stats.composure ?? meter.current),
-    meter.min,
-    meter.max,
+  let current = clamp(
+    Number(character.stats.composure ?? composure.current),
+    composure.min,
+    composure.max,
   );
 
-  if (flags.composureSuppressedByNeeds) {
-    character.stats.composure = clamp(
-      Math.max(current, COMPOSURE_BASELINE),
-      meter.min,
-      meter.max,
-    );
-    flags.composureSuppressedByNeeds = false;
-    return { composure: character.stats.composure, reason: "recovered", target: COMPOSURE_BASELINE };
+  // Entering a worse need band: drop composure if currently calmer.
+  // Not a permanent clamp — meditation may raise composure afterward.
+  if (worsened && current > nextImpact) {
+    current = nextImpact;
+    character.stats.composure = clamp(current, composure.min, composure.max);
+    return { composure: character.stats.composure, reason: "worsened", target: nextImpact };
+  }
+
+  // Eating/drinking (or any satiety/hydration gain): restore toward the
+  // recovery target for the resulting state.
+  if (satImproved || hydImproved) {
+    const restore = recoveryComposureTarget(sat, hyd);
+    if (restore != null && current < restore) {
+      current = restore;
+      character.stats.composure = clamp(current, composure.min, composure.max);
+      return { composure: character.stats.composure, reason: "restored", target: restore };
+    }
   }
 
   character.stats.composure = current;
-  return { composure: current, reason: "unchanged", target: null };
+  return { composure: current, reason: "unchanged", target: nextImpact };
 }
 
 function readMeter(character, statId) {

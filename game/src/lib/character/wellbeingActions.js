@@ -246,6 +246,10 @@ export function performWellbeingAction(gameState, actionId, options = {}) {
 
   const beforeEnergy = readMeter(gameState.character, "energy");
   const beforeComposure = readMeter(gameState.character, "composure");
+  const previousNeeds = {
+    satiety: gameState.character.stats?.satiety,
+    hydration: gameState.character.stats?.hydration,
+  };
 
   const timeResult = advanceGameTime(gameState, plan.minutes, plan.activity);
   if (!timeResult.ok) return timeResult;
@@ -264,8 +268,9 @@ export function performWellbeingAction(gameState, actionId, options = {}) {
     gameState.character.stats.composure = clamp(next, beforeComposure.min, beforeComposure.max);
   }
 
-  // Needs (hunger/thirst) can override composure gains from rest/meditation.
-  syncComposureFromNeeds(gameState.character);
+  // Apply need transitions from the break (e.g. satiety drift while napping).
+  // Does not permanently clamp composure — meditation gains can remain.
+  syncComposureFromNeeds(gameState.character, { previous: previousNeeds });
 
   const finalEnergy = readMeter(gameState.character, "energy");
   const finalComposure = readMeter(gameState.character, "composure");

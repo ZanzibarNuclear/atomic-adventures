@@ -8,6 +8,10 @@ export function applyEffectsAtomically(effects = [], {
   flags = new Set(),
   now = () => new Date().toISOString(),
 }) {
+  const previousNeeds = {
+    satiety: character?.stats?.satiety,
+    hydration: character?.stats?.hydration,
+  };
   const draft = captureCharacterState(character);
   const draftFlags = new Set(flags);
   const definitions = character.definitions ?? {};
@@ -18,8 +22,8 @@ export function applyEffectsAtomically(effects = [], {
     return { ok: false, error: error.message, effect: error.effect };
   }
   applyCharacterState(character, draft, { mergeAuthored: false });
-  // Composure follows satiety/hydration needs after any stat mutation.
-  syncComposureFromNeeds(character);
+  // Composure side effects from satiety/hydration transitions.
+  syncComposureFromNeeds(character, { previous: previousNeeds });
   flags.clear();
   for (const flag of draftFlags) flags.add(flag);
   return { ok: true };
