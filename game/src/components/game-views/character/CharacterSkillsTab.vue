@@ -2,6 +2,7 @@
 defineProps({
   publicAssetPath: { type: Function, required: true },
   skills: { type: Array, required: true },
+  compact: { type: Boolean, default: false },
 });
 
 function skillRankLabel(entry) {
@@ -15,14 +16,14 @@ function evidenceValue(entry, evidence) {
 </script>
 
 <template>
-  <ul v-if="skills.length" class="entry-list skill-list">
+  <ul v-if="skills.length" class="entry-list skill-list" :class="{ compact }">
     <li v-for="skill in skills" :key="skill.id">
       <div class="entry-heading">
         <strong>{{ skill.label }}</strong>
         <span>{{ skillRankLabel(skill) }}</span>
       </div>
-      <span v-if="skill.description">{{ skill.description }}</span>
-      <div v-if="skill.practice?.evidence?.length" class="skill-progress">
+      <span v-if="!compact && skill.description">{{ skill.description }}</span>
+      <div v-if="skill.practice?.evidence?.length" class="skill-progress" :class="{ compact }">
         <label v-for="evidence in skill.practice.evidence" :key="evidence.id">
           <span>{{ evidence.label }}</span>
           <progress
@@ -33,7 +34,7 @@ function evidenceValue(entry, evidence) {
           <small>{{ evidenceValue(skill, evidence) }} / {{ evidence.target }}</small>
         </label>
       </div>
-      <ul v-if="Object.keys(skill.state?.awards ?? {}).length" class="badge-list">
+      <ul v-if="!compact && Object.keys(skill.state?.awards ?? {}).length" class="badge-list">
         <li v-for="(award, rank) in skill.state.awards" :key="rank">
           <img v-if="award.badge" :src="publicAssetPath(award.badge)" alt="">
           <span>{{ award.earnedText || `Rank ${rank} earned` }}</span>
@@ -49,6 +50,7 @@ function evidenceValue(entry, evidence) {
   display: grid;
   gap: 0.65rem;
   padding: 0;
+  margin: 0;
   list-style: none;
 }
 .entry-list li {
@@ -59,9 +61,19 @@ function evidenceValue(entry, evidence) {
   border-radius: 8px;
   background: rgba(24, 29, 37, 0.72);
 }
+.entry-list.compact {
+  gap: 0.45rem;
+}
+.entry-list.compact li {
+  padding: 0.55rem 0.65rem;
+  background: rgba(16, 20, 27, 0.55);
+}
 .entry-list span,
 .empty-state {
   color: #8f98a6;
+}
+.empty-state {
+  margin: 0;
 }
 .entry-heading {
   display: flex;
@@ -70,17 +82,26 @@ function evidenceValue(entry, evidence) {
 }
 .entry-heading span {
   color: #8bc49a;
+  flex: 0 0 auto;
 }
 .skill-progress {
   display: grid;
   gap: .65rem;
   margin-top: .5rem;
 }
+.skill-progress.compact {
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+}
 .skill-progress label {
   display: grid;
-  grid-template-columns: minmax(10rem, 1fr) minmax(8rem, 2fr) auto;
+  grid-template-columns: minmax(6rem, 1fr) minmax(4rem, 2fr) auto;
   align-items: center;
-  gap: .65rem;
+  gap: .5rem;
+  font-size: 0.82rem;
+}
+.skill-progress progress {
+  width: 100%;
 }
 .badge-list {
   display: flex;

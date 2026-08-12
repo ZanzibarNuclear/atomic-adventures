@@ -2,6 +2,7 @@
 defineProps({
   entries: { type: Array, required: true },
   selectedTab: { type: String, required: true },
+  compact: { type: Boolean, default: false },
 });
 
 function entryLabel(entry) {
@@ -10,7 +11,7 @@ function entryLabel(entry) {
 </script>
 
 <template>
-  <ul v-if="entries.length" class="entry-list">
+  <ul v-if="entries.length" class="entry-list" :class="{ compact }">
     <li
       v-for="entry in entries"
       :key="entry.id">
@@ -31,6 +32,7 @@ function entryLabel(entry) {
   display: grid;
   gap: 0.65rem;
   padding: 0;
+  margin: 0;
   list-style: none;
 }
 .entry-list li {
@@ -41,8 +43,22 @@ function entryLabel(entry) {
   border-radius: 8px;
   background: rgba(24, 29, 37, 0.72);
 }
+.entry-list.compact {
+  gap: 0.45rem;
+}
+.entry-list.compact li {
+  padding: 0.55rem 0.65rem;
+  background: rgba(16, 20, 27, 0.55);
+}
 .entry-list span,
+.entry-list small,
 .empty-state {
   color: #8f98a6;
+}
+.entry-list small {
+  font-size: 0.78rem;
+}
+.empty-state {
+  margin: 0;
 }
 </style>

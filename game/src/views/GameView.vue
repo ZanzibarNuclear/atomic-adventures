@@ -100,6 +100,7 @@ const {
   isCharacterView,
   openView,
   openCharacter,
+  openInventory,
   openCharacterStats,
   returnToMap,
 } = useGameView();
@@ -960,7 +961,7 @@ function openStageView(view, { force = false } = {}) {
   if (!force && !isStageViewAllowed(wellbeingAvailableActions.value, view)) return false;
   if (kind === "inventory") {
     currentWorldHolderId();
-    return openCharacter({ ...view, tab: "inventory" });
+    return openInventory(view);
   }
   if (kind === "character-stats") return openCharacterStats(view);
   if (kind === "character") return openCharacter(view);
