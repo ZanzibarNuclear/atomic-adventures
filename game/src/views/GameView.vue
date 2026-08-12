@@ -26,6 +26,8 @@ import {
 } from "../composables/useCharacterState.js";
 import { applyOutdoorWorldUpdate } from "../composables/worldRuntime.js";
 import { availableItemActions, performItemAction } from "../lib/character/itemActions.js";
+import { performWellbeingAction } from "../lib/character/wellbeingActions.js";
+import { performQuickConsume } from "../lib/character/quickConsume.js";
 import {
   accessibleHolderIds,
   characterHolderId,
@@ -89,6 +91,7 @@ const inventoryDialogVisible = ref(false);
 const lookInContainerInstanceId = ref(null);
 const lookInSelectedHoldingId = ref(null);
 const itemActionFeedback = ref("");
+const wellbeingActionFeedback = ref("");
 const containerGroupInspect = ref(null);
 const locationMediaMode = ref("map");
 const locationMediaIndex = ref(0);
@@ -1054,6 +1057,28 @@ function handleUseItem({ itemId, actionId, holderId = null, recordId = null, opt
   if (result.view) openStageView(result.view);
 }
 
+function handleWellbeingAction(payload) {
+  const actionId = typeof payload === "string" ? payload : payload?.actionId;
+  const minutes = typeof payload === "object" ? payload?.minutes : undefined;
+
+  let result;
+  if (actionId === "eat" || actionId === "drink") {
+    result = performQuickConsume(gameState, actionId, {
+      nearbyHolderIds: [...nearbyHolderIds.value, currentWorldHolderId()],
+    });
+  } else {
+    result = performWellbeingAction(gameState, actionId, { minutes });
+  }
+
+  if (!result.ok) {
+    wellbeingActionFeedback.value = result.error || "That did not work.";
+    return;
+  }
+  wellbeingActionFeedback.value = result.notice || "";
+  markCharacterChanged(gameState.character);
+  refreshStoryMoment();
+}
+
 function handleTransferItem({ type, recordId, quantity, toHolder }) {
   const target = toHolder === "__ground__" ? currentWorldHolderId() : toHolder;
   try {
@@ -1489,8 +1514,10 @@ function handleGroupPickUp(entry) {
       :nearby-holder-ids="[...nearbyHolderIds, currentWorldHolderId()]"
       :initial-tab="activeView.payload?.tab"
       :action-policy="wellbeingAvailableActions"
+      :wellbeing-action-feedback="wellbeingActionFeedback"
       @use-item="handleUseItem"
       @transfer-item="handleTransferItem"
+      @wellbeing-action="handleWellbeingAction"
       @return-to-map="handleReturnToMap" />
 
     <HoloReaderView

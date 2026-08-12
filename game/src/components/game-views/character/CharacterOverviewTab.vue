@@ -1,12 +1,49 @@
 <script setup>
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { characterWellbeingOverview } from "../../../lib/character/panel.js";
+import { listWellbeingActions } from "../../../lib/character/wellbeingActions.js";
 
 const props = defineProps({
   character: { type: Object, required: true },
+  /** When false, actions render disabled (e.g. content-builder preview). */
+  actionsEnabled: { type: Boolean, default: true },
+  actionFeedback: { type: String, default: "" },
 });
 
+const emit = defineEmits(["wellbeing-action"]);
+
 const wellbeing = computed(() => characterWellbeingOverview(props.character));
+const wellbeingActions = computed(() => listWellbeingActions(props.character));
+const consumeActions = [
+  { id: "eat", label: "Eat", hint: "Eat the first food in reach" },
+  { id: "drink", label: "Drink", hint: "Drink the first beverage in reach" },
+];
+const energyActions = computed(() =>
+  wellbeingActions.value.filter((action) => ["rest", "nap", "sleep"].includes(action.id)),
+);
+const meditateAction = computed(() =>
+  wellbeingActions.value.find((action) => action.id === "meditate") ?? null,
+);
+const activeConditions = computed(() =>
+  (wellbeing.value.conditions ?? []).filter((condition) => condition.active),
+);
+const conditionsSummary = computed(() => {
+  if (!activeConditions.value.length) return "None";
+  return activeConditions.value.map((condition) => condition.state).join(", ");
+});
+
+const meditateMinutes = ref(10);
+
+watch(
+  wellbeingActions,
+  (actions) => {
+    const meditate = actions.find((entry) => entry.id === "meditate");
+    if (meditate?.durationOptions?.length && !meditate.durationOptions.includes(meditateMinutes.value)) {
+      meditateMinutes.value = meditate.defaultMinutes ?? meditate.durationOptions[0];
+    }
+  },
+  { immediate: true },
+);
 
 function rangeMin(vital) {
   return Number.isFinite(Number(vital?.min)) ? Number(vital.min) : 0;
@@ -28,16 +65,48 @@ function rangePercentage(vital) {
   if (span <= 0) return 0;
   return ((rangeValue(vital) - rangeMin(vital)) / span) * 100;
 }
+
+function minutesFor(action) {
+  if (action.id === "meditate") return Number(meditateMinutes.value);
+  return undefined;
+}
+
+function actionTitle(action) {
+  if (!props.actionsEnabled) return "Health actions are unavailable in this preview.";
+  if (action.available === false) return action.reason || action.hint;
+  if (action.fixedMinutes) return `${action.hint}`;
+  if (action.wakeAtRatio != null) return action.hint;
+  const minutes = minutesFor(action);
+  if (minutes) return `${action.hint} (${minutes} min)`;
+  return action.hint;
+}
+
+function runAction(action) {
+  emit("wellbeing-action", {
+    actionId: action.id,
+    minutes: minutesFor(action),
+  });
+}
+
+function runConsume(kind) {
+  emit("wellbeing-action", { actionId: kind });
+}
+
+function formatDurationOption(minutes) {
+  if (minutes < 60) return `${minutes} min`;
+  if (minutes % 60 === 0) return `${minutes / 60} hr`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+}
 </script>
 
 <template>
-  <section class="panel-card" aria-labelledby="character-health-heading">
-    <h3 id="character-health-heading">Health</h3>
-    <dl class="stat-list">
-      <div v-for="vital in wellbeing.vitals" :key="vital.id">
-        <dt>{{ vital.label }}</dt>
-        <dd>
-          <span class="measure-detail">
+  <div class="health-column">
+    <section class="panel-card" aria-labelledby="character-health-heading">
+      <h3 id="character-health-heading">Health</h3>
+      <dl class="stat-list">
+        <div v-for="vital in wellbeing.vitals" :key="vital.id" class="stat-row">
+          <dt>{{ vital.label }}</dt>
+          <dd class="stat-bar-cell">
             <span
               class="vital-track"
               :class="vital.tone"
@@ -51,27 +120,83 @@ function rangePercentage(vital) {
                 class="vital-fill"
                 :style="{ width: `${rangePercentage(vital)}%` }"></span>
             </span>
+          </dd>
+          <dd class="stat-state-cell">
             <span class="vital-state" :class="vital.tone">{{ vital.state }}</span>
-          </span>
-        </dd>
+          </dd>
+        </div>
+      </dl>
+
+      <h4 class="conditions-heading">Conditions</h4>
+      <p class="conditions-summary" :class="{ empty: !activeConditions.length }">
+        {{ conditionsSummary }}
+      </p>
+    </section>
+
+    <section class="panel-card actions-card" aria-labelledby="character-health-actions-heading">
+      <h3 id="character-health-actions-heading">Health actions</h3>
+      <div class="action-rows">
+        <div class="action-row consume-row">
+          <button
+            v-for="action in consumeActions"
+            :key="action.id"
+            type="button"
+            class="sm brand wellbeing-action"
+            :disabled="!actionsEnabled"
+            :title="actionsEnabled ? action.hint : actionTitle(action)"
+            @click="runConsume(action.id)">
+            {{ action.label }}
+          </button>
+        </div>
+        <div class="action-row energy-row">
+          <button
+            v-for="action in energyActions"
+            :key="action.id"
+            type="button"
+            class="sm brand wellbeing-action"
+            :disabled="!actionsEnabled || !action.available"
+            :title="actionTitle(action)"
+            @click="runAction(action)">
+            {{ action.label }}
+          </button>
+        </div>
+        <div v-if="meditateAction" class="action-row meditate-row">
+          <button
+            type="button"
+            class="sm brand wellbeing-action"
+            :disabled="!actionsEnabled || !meditateAction.available"
+            :title="actionTitle(meditateAction)"
+            @click="runAction(meditateAction)">
+            {{ meditateAction.label }}
+          </button>
+          <label class="duration-picker">
+            <span class="sr-only">Meditate duration</span>
+            <select
+              v-model.number="meditateMinutes"
+              :disabled="!actionsEnabled || !meditateAction.available"
+              aria-label="Meditate duration">
+              <option
+                v-for="option in meditateAction.durationOptions"
+                :key="option"
+                :value="option">
+                {{ formatDurationOption(option) }}
+              </option>
+            </select>
+          </label>
+        </div>
       </div>
-    </dl>
-    <h3 class="section-heading">Conditions</h3>
-    <ul class="condition-list">
-      <li
-        v-for="condition in wellbeing.conditions"
-        :key="condition.id"
-        :class="{ active: condition.active }">
-        <span>{{ condition.label }}</span>
-        <span class="condition-state" :class="condition.tone">
-          <strong>{{ condition.state }}</strong>
-        </span>
-      </li>
-    </ul>
-  </section>
+      <p v-if="actionFeedback" class="action-feedback" role="status">{{ actionFeedback }}</p>
+    </section>
+  </div>
 </template>
 
 <style scoped>
+.health-column {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  align-content: start;
+}
 .panel-card {
   min-width: 0;
   padding: 1rem;
@@ -81,42 +206,36 @@ function rangePercentage(vital) {
 }
 h3 {
   margin: 0;
-}
-.section-heading {
-  margin-top: 1.15rem;
+  color: var(--color-cherenkov, #20c8fb);
 }
 .stat-list {
   display: grid;
   gap: 0.65rem;
   margin: 0.9rem 0 0;
 }
-.stat-list div,
-.condition-list li {
+/* label | expanding bar | left-justified state — bars share one column so max width aligns */
+.stat-row {
   display: grid;
-  /* Fixed label column keeps bars aligned; free space lives in the value column. */
-  grid-template-columns: 4.75rem minmax(0, 1fr);
+  grid-template-columns: 5.25rem minmax(0, 1fr) 6.5rem;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.55rem;
+  min-width: 0;
 }
-.stat-list dt,
-.condition-list li > span:first-child,
-.empty-state {
+.stat-list dt {
   color: #8f98a6;
   font-size: 0.88rem;
 }
-.stat-list dd {
+.stat-bar-cell,
+.stat-state-cell {
   min-width: 0;
   margin: 0;
 }
-.measure-detail {
-  display: grid;
-  /* Bar fills remaining card width; status sits left-justified after it. */
-  grid-template-columns: minmax(0, 1fr) max-content;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
+.stat-state-cell {
+  text-align: left;
+  justify-self: stretch;
 }
 .vital-track {
+  display: block;
   width: 100%;
   height: 0.7rem;
   overflow: hidden;
@@ -143,34 +262,82 @@ h3 {
 .vital-track.error .vital-fill {
   background: linear-gradient(90deg, #9a3e3e, #ff9a9a);
 }
-.vital-state,
-.condition-state strong {
+.vital-state {
   font-weight: 600;
   font-size: 0.88rem;
   text-align: left;
-  justify-self: start;
 }
-.vital-state.positive,
-.condition-state.positive strong {
+.vital-state.positive {
   color: #9fdbad;
 }
-.vital-state.warning,
-.condition-state.warning strong {
+.vital-state.warning {
   color: #ffb38a;
 }
-.vital-state.error,
-.condition-state.error strong {
+.vital-state.error {
   color: #ff8a8a;
 }
-.condition-list {
-  display: grid;
-  gap: 0.55rem;
-  padding: 0;
-  margin: 0.75rem 0 0;
-  list-style: none;
+.conditions-heading {
+  margin: 1rem 0 0.35rem;
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
-.condition-state {
-  justify-self: start;
-  text-align: left;
+.conditions-summary {
+  margin: 0;
+  color: #d5dce6;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+.conditions-summary.empty {
+  color: #8f98a6;
+}
+.action-rows {
+  display: grid;
+  gap: 0.65rem;
+  justify-items: center;
+  margin-top: 0.75rem;
+}
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.wellbeing-action {
+  min-width: 5.5rem;
+}
+.duration-picker select {
+  min-width: 5.5rem;
+  border: 1px solid #485267;
+  border-radius: 6px;
+  background: #171b22;
+  color: #dbe2ea;
+  padding: 0.35rem 0.5rem;
+  font: inherit;
+  font-size: 0.82rem;
+}
+.duration-picker select:disabled {
+  opacity: 0.45;
+}
+.action-feedback {
+  margin: 0.75rem 0 0;
+  color: #c5d4e4;
+  font-size: 0.86rem;
+  line-height: 1.4;
+  text-align: center;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 </style>

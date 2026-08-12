@@ -12,6 +12,7 @@ import {
   isVesselDefinition,
   normalizeContents,
   planVesselContentConsumption,
+  vesselCapacityMl,
   vesselIsEmpty,
 } from "./vessels.js";
 
@@ -74,7 +75,7 @@ export function performItemAction(gameState, itemId, actionId, {
   }
   const consumptionSource = consumableActionSource(gameState.character, itemId, action, holderId);
   if (!consumptionSource.ok) return consumptionSource;
-  const portion = resolveConsumptionPortion(gameState.character, itemId, action, {
+  let portion = resolveConsumptionPortion(gameState.character, itemId, action, {
     holderId: consumptionSource.holderId ?? holderId,
     recordId,
     optionId,
@@ -83,13 +84,19 @@ export function performItemAction(gameState, itemId, actionId, {
 
   const wellbeingGate = consumptionWellbeingGate(gameState.character, action, portion.scale);
   if (!wellbeingGate.ok) return wellbeingGate;
+  portion = applyWellbeingScaleToPortion(portion, wellbeingGate.scale);
 
   const sourceHolderId = consumptionSource.holderId ??
     (holderId && itemQuantity(gameState.character.holdings, itemId, { holderId }) > 0
       ? holderId
       : null);
+  // Whole-unit consume (no partial instance) only when the entire unit is spent.
+  const removeWholeUnit = action.consume > 0 &&
+    !portion.instance &&
+    !portion.stackUnit &&
+    portion.scale >= 1 - 1e-9;
   const effects = [
-    ...(action.consume > 0 && !portion.instance && !portion.stackUnit
+    ...(removeWholeUnit
       ? [{
           op: "item.remove",
           id: itemId,
@@ -109,12 +116,15 @@ export function performItemAction(gameState, itemId, actionId, {
   const depletion = applyInstanceConsumption(gameState.character, itemId, action, portion, sourceHolderId);
   if (!depletion.ok) return depletion;
   if (action.timeMinutes > 0) {
-    const timeResult = advanceGameTime(
-      gameState,
-      action.timeMinutes,
-      action.activity ?? "light",
-    );
-    if (!timeResult.ok) return timeResult;
+    const minutes = action.timeMinutes * (Number(portion.scale) || 1);
+    if (minutes > 0) {
+      const timeResult = advanceGameTime(
+        gameState,
+        minutes,
+        action.activity ?? "light",
+      );
+      if (!timeResult.ok) return timeResult;
+    }
   }
   return {
     ok: true,
@@ -160,11 +170,18 @@ function performVesselContentAction(gameState, vesselItemId, actionId, {
     return { ok: false, error: "Item action has an invalid activity profile." };
   }
 
-  const plan = planVesselContentConsumption(instance, vesselDef, contentDef, action, { optionId });
+  let plan = planVesselContentConsumption(instance, vesselDef, contentDef, action, { optionId });
   if (!plan.ok) return plan;
 
   const wellbeingGate = consumptionWellbeingGate(character, action, plan.scale);
   if (!wellbeingGate.ok) return wellbeingGate;
+  if (wellbeingGate.scale < plan.scale - 1e-9) {
+    plan = applyWellbeingScaleToVesselPlan(
+      plan,
+      wellbeingGate.scale,
+      vesselCapacityMl(vesselDef),
+    );
+  }
 
   const effects = (action.effects ?? [])
     .map((effect) => scaledEffect(effect, plan.scale))
@@ -275,72 +292,149 @@ function isSmallBiteOption(option, portion = clampFraction(option?.portion)) {
   return /^(nibble|sip|small)$/i.test(id) || /^(nibble|sip)\b/i.test(label);
 }
 
+const WELLBEING_METER_IDS = new Set(["satiety", "hydration", "energy", "composure", "health"]);
+
 /**
- * Block further food/drink when the *primary* recovery meter is already at the
- * top wellbeing band (e.g. Stuffed) or at the meter max.
+ * Plan consumptive wellbeing effects against the *primary* recovery meter
+ * (largest positive meter gain — satiety on a meal beats a sip of hydration).
  *
- * Meals often add a little hydration alongside satiety. Only the largest
- * positive meter effect gates the action — a full hydration bar must not
- * block eating food, and a stuffed satiety bar must not block pure drinks.
+ * - Already at meter max → soft refusal (not hungry / not thirsty / well rested).
+ * - Otherwise allow the action, reducing portion scale so the primary meter
+ *   tops off at max when the full request would overshoot. Leftover food/drink
+ *   stays for later (nibble/sip of a larger "all" request).
+ *
+ * Returns `{ ok, scale, notice?, error? }`. Callers must apply `scale` to both
+ * effects and inventory/vessel depletion.
  */
 export function consumptionWellbeingGate(character, action, portionScale = 1) {
-  const effects = (action.effects ?? [])
-    .map((effect) => scaledEffect(effect, portionScale))
+  const requested = Math.max(0, Number(portionScale) || 0);
+  if (!(requested > 0)) return { ok: true, scale: requested };
+
+  const primary = primaryWellbeingMeterEffect(character, action);
+  if (!primary) return { ok: true, scale: requested };
+
+  const { effect, definition, baseValue } = primary;
+  const min = Number.isFinite(Number(definition.min)) ? Number(definition.min) : 0;
+  const max = Number.isFinite(Number(definition.max)) ? Number(definition.max) : 100;
+  const current = clampMeter(
+    Number(character.stats?.[effect.id] ?? definition.default ?? min),
+    min,
+    max,
+  );
+  const headroom = max - current;
+
+  if (headroom <= 1e-9) {
+    return {
+      ok: false,
+      error: wellbeingMaxedMessage(effect.id),
+      scale: 0,
+    };
+  }
+
+  // Gain if the full requested portion is taken (portion-scaled or whole unit).
+  const fullGain = baseValue * requested;
+  if (!(fullGain > 0)) return { ok: true, scale: requested };
+
+  if (fullGain <= headroom + 1e-9) {
+    return { ok: true, scale: requested };
+  }
+
+  // Top off: spend only enough of the item to reach max.
+  const scale = Math.min(requested, headroom / baseValue);
+  if (!(scale > 0)) {
+    return {
+      ok: false,
+      error: wellbeingMaxedMessage(effect.id),
+      scale: 0,
+    };
+  }
+
+  return {
+    ok: true,
+    scale,
+  };
+}
+
+function primaryWellbeingMeterEffect(character, action) {
+  const entries = (action.effects ?? [])
     .filter((effect) => effect?.op === "stat.add" && Number(effect.value) > 0)
     .map((effect) => {
       const definition = (character.definitions?.stats ?? [])
         .find((stat) => stat.id === effect.id);
-      return { effect, definition };
+      return {
+        effect,
+        definition,
+        // Base gain at scale 1 (before portion). scaleBy:portion uses this base.
+        baseValue: Number(effect.value),
+      };
     })
-    .filter(({ definition }) => definition?.type === "meter");
+    .filter(({ definition, baseValue }) =>
+      definition?.type === "meter" &&
+      Number.isFinite(baseValue) &&
+      baseValue > 0 &&
+      WELLBEING_METER_IDS.has(definition.id));
 
-  if (!effects.length) return { ok: true };
+  if (!entries.length) return null;
 
-  // Primary benefit = largest positive meter gain (satiety 55 beats hydration 4).
-  const primary = effects.reduce((best, entry) =>
-    Number(entry.effect.value) > Number(best.effect.value) ? entry : best
+  // Primary benefit = largest base meter gain (satiety 55 beats hydration 4).
+  return entries.reduce((best, entry) =>
+    entry.baseValue > best.baseValue ? entry : best
   );
-
-  const { effect, definition } = primary;
-  const min = Number.isFinite(Number(definition.min)) ? Number(definition.min) : 0;
-  const max = Number.isFinite(Number(definition.max)) ? Number(definition.max) : 100;
-  const current = Number(character.stats?.[effect.id] ?? definition.default ?? min);
-  const band = topWellbeingBand(definition);
-
-  if (band && current >= band.at) {
-    return {
-      ok: false,
-      error: wellbeingRefusalMessage(definition, band.state, effect.id),
-    };
-  }
-  if (current >= max) {
-    return {
-      ok: false,
-      error: wellbeingRefusalMessage(definition, band?.state ?? "full", effect.id),
-    };
-  }
-  return { ok: true };
 }
 
-function topWellbeingBand(definition) {
-  const states = [...(definition.displayStates ?? [])]
-    .filter((entry) => entry && entry.state != null && Number.isFinite(Number(entry.at)))
-    .sort((a, b) => Number(b.at) - Number(a.at));
-  if (!states.length) return null;
-  // Prefer an explicit "Stuffed" (or similar) band when present.
-  const stuffed = states.find((entry) => /stuffed|bloated|bursting/i.test(String(entry.state)));
-  return stuffed ?? states[0];
+function wellbeingMaxedMessage(statId) {
+  if (statId === "satiety") return "You're not hungry right now.";
+  if (statId === "hydration") return "You're not thirsty right now.";
+  if (statId === "energy") return "You're already well rested.";
+  if (statId === "composure") return "You're already calm enough.";
+  return "That won't help right now.";
 }
 
-function wellbeingRefusalMessage(definition, stateLabel, statId) {
-  const label = String(stateLabel || "full");
-  if (statId === "satiety" || /stuffed|full|hungry|satiety/i.test(definition.id + label)) {
-    return `You're ${label.toLowerCase()}. Save the rest of that food for later.`;
-  }
-  if (statId === "hydration") {
-    return `You're ${label.toLowerCase()}. No more water right now.`;
-  }
-  return `You're already ${label.toLowerCase()}.`;
+function clampMeter(value, min, max) {
+  if (!Number.isFinite(value)) return min;
+  return Math.min(max, Math.max(min, value));
+}
+
+/**
+ * Reduce a resolved consumption portion so inventory/vessel depletion matches
+ * the wellbeing top-off scale.
+ */
+export function applyWellbeingScaleToPortion(portion, scale) {
+  if (!portion?.ok) return portion;
+  const nextScale = Math.max(0, Number(scale) || 0);
+  const remaining = Number.isFinite(Number(portion.remaining))
+    ? Number(portion.remaining)
+    : null;
+  return {
+    ...portion,
+    scale: nextScale,
+    nextRemaining: remaining == null
+      ? portion.nextRemaining
+      : Math.max(0, remaining - nextScale),
+  };
+}
+
+/**
+ * Rebuild a vessel consumption plan at a reduced scale (top-off sip).
+ */
+export function applyWellbeingScaleToVesselPlan(plan, scale, capacityMl) {
+  if (!plan?.ok) return plan;
+  const nextScale = Math.max(0, Number(scale) || 0);
+  const capacity = Number(capacityMl) || 0;
+  const spentMl = capacity > 0
+    ? Number((nextScale * capacity).toFixed(2))
+    : 0;
+  const previousSpent = Number(plan.spentMl) || 0;
+  const previousNext = Number(plan.nextMl);
+  const amountBefore = previousSpent + (Number.isFinite(previousNext) ? previousNext : 0);
+  const nextMl = Math.max(0, Number((amountBefore - spentMl).toFixed(2)));
+  return {
+    ...plan,
+    scale: nextScale,
+    spentMl,
+    nextMl,
+    emptied: nextMl <= 0.001,
+  };
 }
 
 function resolveConsumptionPortion(character, itemId, action, {
@@ -349,9 +443,39 @@ function resolveConsumptionPortion(character, itemId, action, {
   optionId = null,
 } = {}) {
   const options = action.consumeOptions ?? [];
-  if (!options.length) return { ok: true, scale: 1, instance: null, stackUnit: null };
-
+  // Always prefer a concrete instance/stack so top-off can leave leftovers.
   const instance = resolveSourceInstance(character.holdings, itemId, { holderId, recordId });
+  const stackUnit = instance
+    ? null
+    : resolveSourceStack(character.holdings, itemId, { holderId });
+
+  if (!options.length) {
+    if (instance) {
+      const remaining = clampFraction(instance.record.remaining ?? 1);
+      if (remaining <= 0) return { ok: false, error: "Nothing remains to consume." };
+      return {
+        ok: true,
+        scale: remaining,
+        instance,
+        stackUnit: null,
+        remaining,
+        nextRemaining: 0,
+      };
+    }
+    if (stackUnit) {
+      return {
+        ok: true,
+        scale: 1,
+        instance: null,
+        stackUnit,
+        remaining: 1,
+        nextRemaining: 0,
+      };
+    }
+    // Fallback for odd holdings layouts: whole-unit remove via effects.
+    return { ok: true, scale: 1, instance: null, stackUnit: null };
+  }
+
   if (instance) {
     const remaining = clampFraction(instance.record.remaining ?? 1);
     if (remaining <= 0) return { ok: false, error: "Nothing remains to consume." };
@@ -370,7 +494,6 @@ function resolveConsumptionPortion(character, itemId, action, {
     };
   }
 
-  const stackUnit = resolveSourceStack(character.holdings, itemId, { holderId });
   if (!stackUnit) return { ok: false, error: "Item is not available." };
   const remaining = 1;
   const option = pickConsumeOption(options, optionId);
@@ -423,11 +546,26 @@ function resolveSourceStack(holdings, itemId, { holderId = null } = {}) {
 }
 
 function scaledEffect(effect, scale = 1) {
-  if (effect?.scaleBy !== "portion") return effect;
-  return {
-    ...effect,
-    value: Number(effect.value ?? 0) * scale,
-  };
+  if (effect?.scaleBy === "portion") {
+    return {
+      ...effect,
+      value: Number(effect.value ?? 0) * scale,
+    };
+  }
+  // Partial / top-off consumption: wellbeing meters track portion scale even
+  // when the effect was authored without scaleBy: "portion".
+  if (
+    scale !== 1 &&
+    effect?.op === "stat.add" &&
+    Number(effect.value) > 0 &&
+    WELLBEING_METER_IDS.has(effect.id)
+  ) {
+    return {
+      ...effect,
+      value: Number(effect.value ?? 0) * scale,
+    };
+  }
+  return effect;
 }
 
 function applyInstanceConsumption(character, itemId, action, portion, sourceHolderId) {

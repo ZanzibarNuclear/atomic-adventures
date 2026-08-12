@@ -77,6 +77,78 @@ actions:
       - { op: stat.add, id: satiety, value: 18 }
 ```
 
+### Topping off (partial consumption)
+
+Wellbeing meters refuse consumption only when the **primary** recovery meter
+is already at its **authored max** (not merely in the top display band such as
+Hydrated or Stuffed). Soft refusals are enough:
+
+- satiety max → "You're not hungry right now."
+- hydration max → "You're not thirsty right now."
+- energy max → "You're already well rested."
+
+When the player is below max but a full sip/bite/meal would overshoot, the
+engine spends only enough of the item to reach max (a top-off nibble/sip) and
+leaves the remainder for later. Meals still gate on satiety as primary so a
+full hydration bar does not block eating food that also adds a little water.
+
+The same top-off rule applies to energy if rest/food restores it.
+
+### Proactive rest breaks (character sheet)
+
+The character **Health actions** card offers proactive breaks that advance
+authored game time:
+
+| Action | Target | Duration | Notes |
+| --- | --- | --- | --- |
+| **Eat** | satiety | item time | First food in hands → packs → nearby; auto-consumes (see quick consume) |
+| **Drink** | hydration | item time | First drink in hands → packs → nearby; auto-consumes |
+| **Rest** | energy | 15 min | Always available; **1×** energy unit (no energy change at 100%) |
+| **Nap** | energy + composure | 30 min | Energy **2×** unit; composure **1×** composure unit (10% of max / hr) |
+| **Sleep** | energy + composure | until ~80% energy | Energy **2×** unit; composure **3×** unit (30% of max / hr); nap tops off |
+| **Meditate** | composure + energy | 10 / 20 / 30 min | Composure **2× sleep** (60% of max / hr); energy at **nap** rate |
+
+Balancing knobs in `wellbeingActions.js`:
+
+- `ENERGY_RECOVERY_UNIT_PER_HOUR` — Rest energy per game hour; Nap / Sleep /
+  Meditate use `ENERGY_RECOVERY_MULTIPLIER` (1 / 2 / 2 / 2).
+- `COMPOSURE_RECOVERY_UNIT_PERCENT_PER_HOUR` — Nap composure as % of max per
+  hour; Sleep / Meditate use `COMPOSURE_RECOVERY_MULTIPLIER` (1 / 3 / 6), so
+  sleep is 3× nap and meditate is 2× sleep.
+
+Authored energy/composure drift still applies to other time advances; these
+buttons apply the unit rates above so intentional recovery stays tunable.
+
+### Quick Eat / Drink
+
+**Eat** and **Drink** are hurry actions on the health card. They scan:
+
+1. what the player is holding;
+2. other carried containers (packs);
+3. nearby world holders (ground / within reach).
+
+The first matching food or beverage is transferred into hand if needed and
+consumed with the default consume option (typically “all remaining” / full
+unit). Matching uses action ids/labels (`eat` / `drink` / `sip`) and, as a
+fallback, the primary positive meter effect (`satiety` vs `hydration`).
+
+Feedback names the item and source (“You eat the Meal from your pack.”). If
+nothing is found: “No food in reach.” / “No drink in reach.” Soft refuse when
+the primary meter is already full. For choosier selection, use inventory.
+Rules:
+
+- Nap/Sleep refuse when energy is already full (soft: "You're already well rested.").
+- Sleep also refuses when energy is already at or above 80% (suggest nap to top off).
+- Rest is always allowed; at full energy it spends 15 minutes without changing energy.
+- Rest/Nap/Sleep use `advanceGameTime(..., "resting")` for time and baseline
+  energy drift; Nap adds an extra energy grant so net recovery is twice resting.
+- Other resting drift (food/water decline) still applies during these breaks.
+- Meditate advances resting time and grants a portion of composure.
+- Opening the character sheet itself does not spend time; only these actions do.
+
+Conditions on the health card list only **active** conditions as a compact
+comma-separated line, or **None** when the player is fine.
+
 Time can reduce reserve meters by activity profile:
 
 ```yaml

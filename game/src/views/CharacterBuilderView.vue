@@ -175,7 +175,7 @@ const contentWorkspaceTabs = [
           <dd>{{ item.acquired }} / {{ item.total }}</dd>
         </div>
       </dl>
-      <CharacterView :character="previewCharacter" />
+      <CharacterView :character="previewCharacter" :wellbeing-actions-enabled="false" />
     </section>
 
     <div v-if="navigationPromptVisible" class="unsaved-backdrop" role="dialog" aria-modal="true">

@@ -98,7 +98,8 @@ character sheet; there is no separate documents panel on the character UI.
 
 `CharacterView` is a tabless dashboard:
 
-- **Health** — wellbeing vitals and conditions (narrow card);
+- **Health** — wellbeing vitals, conditions, and a **Health actions** card
+  (Nap / Rest / Meditate; see [character-wellbeing.md](character-wellbeing.md));
 - **Knowledge** and **Skills** — stacked in one right-hand column.
 
 It does not embed inventory, a documents codex, or quest tabs. Quests may gain a

@@ -13,9 +13,12 @@ const props = defineProps({
   nearbyHolderIds: { type: Array, default: () => [] },
   initialTab: { type: String, default: null },
   actionPolicy: { type: Object, default: null },
+  /** False in builder preview where game time cannot advance. */
+  wellbeingActionsEnabled: { type: Boolean, default: true },
+  wellbeingActionFeedback: { type: String, default: "" },
 });
 
-defineEmits(["return-to-map", "use-item", "transfer-item"]);
+defineEmits(["return-to-map", "use-item", "transfer-item", "wellbeing-action"]);
 
 const portraitSrc = computed(() => publicAssetPath(props.character.definitions.profile?.portrait));
 const knowledge = computed(() => acquiredEntries(props.character, "knowledge"));
@@ -43,12 +46,10 @@ function publicAssetPath(path) {
           {{ character.definitions.profile?.name?.charAt(0) ?? "Z" }}
         </div>
         <div>
-          <p class="label">Character</p>
           <h2 id="character-view-title">{{ character.definitions.profile?.name }}</h2>
           <p v-if="character.definitions.profile?.summary" class="summary">
             {{ character.definitions.profile.summary }}
           </p>
-          <p v-if="clock" class="game-time">{{ formatGameClock(clock) }}</p>
         </div>
       </div>
       <button type="button" class="sm brand" @click="$emit('return-to-map')">
@@ -65,8 +66,14 @@ function publicAssetPath(path) {
       </button>
     </header>
 
+    <p v-if="clock" class="stats-as-of">{{ formatGameClock(clock) }}</p>
+
     <div class="character-dashboard">
-      <CharacterOverviewTab :character="character" />
+      <CharacterOverviewTab
+        :character="character"
+        :actions-enabled="wellbeingActionsEnabled"
+        :action-feedback="wellbeingActionFeedback"
+        @wellbeing-action="$emit('wellbeing-action', $event)" />
 
       <div class="progression-column">
         <section class="panel-card knowledge-card" aria-labelledby="character-knowledge-heading">
@@ -136,17 +143,17 @@ function publicAssetPath(path) {
   margin: 0.35rem 0 0;
   color: #aeb5c0;
 }
-.game-time {
-  margin: .35rem 0 0;
+.stats-as-of {
+  margin: 1rem 0 0.55rem;
   color: #8bc49a;
-  font-size: .82rem;
+  font-size: 0.82rem;
+  line-height: 1.3;
 }
 .character-dashboard {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
   align-items: start;
-  margin-top: 1.25rem;
 }
 .progression-column {
   display: grid;
@@ -163,6 +170,7 @@ function publicAssetPath(path) {
 }
 .panel-card h3 {
   margin: 0 0 0.85rem;
+  color: var(--color-cherenkov, #20c8fb);
 }
 @media (max-width: 960px) {
   .character-dashboard {
