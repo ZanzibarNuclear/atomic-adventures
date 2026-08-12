@@ -291,9 +291,14 @@ slower path to failure. Player weight is not tracked yet.
 
 ### Composure from needs
 
-Composure starts at **80** (**Normal**). For now it is mainly a **side effect
-of satiety and hydration** (other causes later). Only the **worst** active need
-applies (impacts do not stack).
+Composure is **derived from satiety/hydration at start** (and after load), not a
+fixed authored default. `initializeComposureFromNeeds` sets it from the current
+need impact or recovery target so different starting hunger/thirst naturally
+change starting composure. Baseline when Full/Peckish and Hydrated is **80**
+(**Normal**).
+
+For now composure is mainly a **side effect of satiety and hydration** (other
+causes later). Only the **worst** active need applies (impacts do not stack).
 
 | Condition | Impact |
 | --- | --- |

@@ -213,15 +213,39 @@ export function recoveryComposureTarget(satietyValue, hydrationValue) {
 }
 
 /**
+ * Set composure from current satiety/hydration (new game, load, content sync).
+ * Uses the worst need impact if any; otherwise the eat/drink recovery target
+ * (Calm when stuffed+hydrated, Normal when full/peckish+hydrated); else baseline.
+ */
+export function initializeComposureFromNeeds(character) {
+  if (!character?.stats) return null;
+  const composure = readMeter(character, "composure");
+  const satiety = readMeter(character, "satiety");
+  const hydration = readMeter(character, "hydration");
+  if (!composure) return null;
+
+  const sat = satiety?.current;
+  const hyd = hydration?.current;
+  const impact = needsComposureTarget(sat, hyd);
+  const restore = recoveryComposureTarget(sat, hyd);
+  const target = impact ?? restore ?? COMPOSURE_BASELINE;
+  character.stats.composure = clamp(target, composure.min, composure.max);
+  return { composure: character.stats.composure, reason: "initialize", target };
+}
+
+/**
  * Apply composure side effects from satiety/hydration changes.
  *
  * @param {object} character
- * @param {{ previous?: { satiety?: number, hydration?: number } }} [options]
+ * @param {{ previous?: { satiety?: number, hydration?: number }, initialize?: boolean }} [options]
  *   Pass prior meter values so we can detect worsening vs recovery.
- *   When omitted, previous is treated as equal to current (no transition).
+ *   When `initialize` is true (or previous is omitted on a fresh character),
+ *   composure is set from the current needs state.
  */
 export function syncComposureFromNeeds(character, options = {}) {
   if (!character?.stats) return null;
+  if (options.initialize) return initializeComposureFromNeeds(character);
+
   const composure = readMeter(character, "composure");
   const satiety = readMeter(character, "satiety");
   const hydration = readMeter(character, "hydration");
@@ -229,13 +253,17 @@ export function syncComposureFromNeeds(character, options = {}) {
 
   const sat = satiety?.current;
   const hyd = hydration?.current;
-  const prevSat = options.previous?.satiety ?? sat;
-  const prevHyd = options.previous?.hydration ?? hyd;
+  const hasPrevious = options.previous
+    && (options.previous.satiety !== undefined || options.previous.hydration !== undefined);
+  const prevSat = hasPrevious ? Number(options.previous.satiety) : sat;
+  const prevHyd = hasPrevious ? Number(options.previous.hydration) : hyd;
 
   const prevImpact = needsComposureTarget(prevSat, prevHyd);
   const nextImpact = needsComposureTarget(sat, hyd);
   const satImproved = Number.isFinite(sat) && Number.isFinite(prevSat) && sat > prevSat + 1e-9;
   const hydImproved = Number.isFinite(hyd) && Number.isFinite(prevHyd) && hyd > prevHyd + 1e-9;
+  // Worse impact = lower composure value. Also treat first entry into any impact
+  // from a no-impact previous state as a drop.
   const worsened = nextImpact != null
     && (prevImpact == null || nextImpact < prevImpact - 1e-9);
 

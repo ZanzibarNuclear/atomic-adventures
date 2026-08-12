@@ -30,14 +30,22 @@ function state(statValues = {}) {
         type: "meter",
         min: 0,
         max: 100,
-        default: 40,
+        default: 80,
       },
       {
         id: "satiety",
         type: "meter",
         min: 0,
         max: 100,
-        default: 80,
+        default: 70,
+        drift: { perGameHour: { resting: -1 } },
+      },
+      {
+        id: "hydration",
+        type: "meter",
+        min: 0,
+        max: 100,
+        default: 70,
         drift: { perGameHour: { resting: -1 } },
       },
     ],
@@ -138,7 +146,12 @@ describe("wellbeing actions", () => {
   });
 
   it("allows meditation when composure is full but energy is not", () => {
-    const gameState = state({ energy: 50, composure: 100 });
+    const gameState = state({
+      energy: 50,
+      composure: 100,
+      satiety: 70,
+      hydration: 70,
+    });
     const result = performWellbeingAction(gameState, "meditate", { minutes: 10 });
     expect(result.ok).toBe(true);
     expect(gameState.character.stats.composure).toBe(100);

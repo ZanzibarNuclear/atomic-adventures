@@ -15,6 +15,7 @@ import {
   hydrationPointsForMl,
   metabolismDriftRates,
   needsComposureTarget,
+  initializeComposureFromNeeds,
   recoveryComposureTarget,
   satietyDrainPerHour,
   syncComposureFromNeeds,
@@ -124,11 +125,32 @@ describe("metabolism", () => {
 
   it("does not change composure when meters are unchanged and needs stay fine", () => {
     const character = charStats({ satiety: 70, hydration: 70, composure: 50 });
-    syncComposureFromNeeds(character);
+    syncComposureFromNeeds(character, { previous: { satiety: 70, hydration: 70 } });
     expect(character.stats.composure).toBe(50);
     character.stats.composure = 95;
-    syncComposureFromNeeds(character);
+    syncComposureFromNeeds(character, { previous: { satiety: 70, hydration: 70 } });
     expect(character.stats.composure).toBe(95);
+  });
+
+  it("initializes composure from starting satiety and hydration", () => {
+    const hungry = charStats({ satiety: 30, hydration: 70, composure: 80 });
+    initializeComposureFromNeeds(hungry);
+    expect(hungry.stats.composure).toBe(COMPOSURE_FROM_NEEDS.concerned);
+
+    const fine = charStats({ satiety: 60, hydration: 70, composure: 0 });
+    initializeComposureFromNeeds(fine);
+    expect(fine.stats.composure).toBe(COMPOSURE_BASELINE);
+
+    const stuffed = charStats({ satiety: 95, hydration: 70, composure: 0 });
+    initializeComposureFromNeeds(stuffed);
+    expect(stuffed.stats.composure).toBe(COMPOSURE_CALM);
+  });
+
+  it("drops composure when crossing from peckish into hungry", () => {
+    const character = charStats({ satiety: 45, hydration: 70, composure: 80 });
+    character.stats.satiety = 35;
+    syncComposureFromNeeds(character, { previous: { satiety: 45, hydration: 70 } });
+    expect(character.stats.composure).toBe(COMPOSURE_FROM_NEEDS.concerned);
   });
 });
 
