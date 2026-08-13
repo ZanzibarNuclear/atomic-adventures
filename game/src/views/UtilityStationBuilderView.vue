@@ -103,6 +103,7 @@ const {
   removeSelectedPathHandle,
   addObject,
   addRoomStand,
+  deleteRoomStand,
   duplicateSelected,
   deleteSelected,
   moveSelected,
@@ -384,6 +385,7 @@ function duplicateArtifact(payload) {
           @delete-selected="deleteSelected"
           @select-item="selectItem($event.source, $event.id)"
           @add-room-stand="addRoomStand($event)"
+          @delete-room-stand="deleteRoomStand($event)"
           @open-location-beat="openLocationBeat"
           @toggle-path-add-mode="togglePathAddMode"
           @remove-selected-path-handle="removeSelectedPathHandle"

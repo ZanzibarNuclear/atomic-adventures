@@ -231,6 +231,33 @@ export function useGridBuilderSelection({
     return item;
   }
 
+  async function deleteRoomStand({ roomId, standId } = {}) {
+    const room = draft.value.rooms?.find((candidate) => candidate.id === roomId);
+    if (!room || !standId) return false;
+    const stand = (room.stands ?? []).find((entry) => entry.id === standId);
+    if (!stand) return false;
+    const ok = await askConfirm(requestConfirm, {
+      eyebrow: "Delete stand",
+      title: `Delete stand “${stand.label || standId}”?`,
+      message: `This removes the stand from room “${room.label || roomId}”. The room selection is kept.`,
+      confirmLabel: "Delete stand",
+      danger: true,
+    });
+    if (!ok) return false;
+    room.stands = (room.stands ?? []).filter((entry) => entry.id !== standId);
+    if (room.defaultStand === standId) {
+      room.defaultStand = room.stands[0]?.id ?? null;
+    }
+    // Stay on the room so the stands list remains in context.
+    if (
+      selection.value?.source === "stands" &&
+      selection.value.id === `${roomId}/${standId}`
+    ) {
+      selectItem("rooms", roomId);
+    }
+    return true;
+  }
+
   function addObject(sourceName) {
     let list = collectionFor(sourceName);
     let item = null;
@@ -568,6 +595,7 @@ export function useGridBuilderSelection({
     collectionFor,
     addObject,
     addRoomStand,
+    deleteRoomStand,
     duplicateSelected,
     deleteSelected,
     moveSelected,

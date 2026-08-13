@@ -170,55 +170,74 @@ watch(
       </template>
     </section>
 
-    <section class="form-section">
-      <div class="section-heading stands-heading">
-        <h4>Room stands</h4>
-        <button type="button" class="sm add-btn" @click="emit('add-stand', selection.id)">
-          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
-          </svg>
-          Add stand
-        </button>
-      </div>
-      <p class="help-note">
-        Stands belong to this room. Open one to edit pose, views, and default arrival.
-      </p>
-      <p v-if="!roomStands.length" class="empty-note">No authored stands in this room yet.</p>
-      <div v-else class="stand-list">
-        <div
-          v-for="stand in roomStands"
-          :key="stand.id"
-          class="stand-row"
-        >
-          <button
-            type="button"
-            class="stand-link"
-            @click="emit('select-stand', { roomId: selection.id, standId: stand.id })"
-          >
-            <strong>{{ stand.label || stand.id }}</strong>
-            <span>
-              {{ stand.id }}
-              <template v-if="selection.entity.defaultStand === stand.id"> · default</template>
-            </span>
-          </button>
-          <button
-            type="button"
-            class="sm edit-btn"
-            @click="emit('select-stand', { roomId: selection.id, standId: stand.id })"
-          >
-            Open
-          </button>
-        </div>
-      </div>
-    </section>
   </template>
 
+  <!-- Views, then stands (beats sit on the room overview card in StationInspector). -->
   <LocationViewsEditor
     :owner="selection.entity"
     title="Room views"
     parent-label="room"
     @drill-change="setViewsDrilled"
   />
+
+  <section v-if="!viewsDrilled" class="form-section">
+    <div class="section-heading stands-heading">
+      <h4>Room stands</h4>
+      <button type="button" class="sm add-btn" @click="emit('add-stand', selection.id)">
+        <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+        </svg>
+        Add stand
+      </button>
+    </div>
+    <p class="help-note">
+      Stands belong to this room. Open one to edit pose, views, and default arrival.
+    </p>
+    <p v-if="!roomStands.length" class="empty-note">No authored stands in this room yet.</p>
+    <div v-else class="stand-list">
+      <div
+        v-for="stand in roomStands"
+        :key="stand.id"
+        class="stand-row"
+      >
+        <button
+          type="button"
+          class="stand-link"
+          @click="emit('select-stand', { roomId: selection.id, standId: stand.id })"
+        >
+          <strong>{{ stand.label || stand.id }}</strong>
+          <span>
+            {{ stand.id }}
+            <template v-if="selection.entity.defaultStand === stand.id"> · default</template>
+          </span>
+        </button>
+        <button
+          type="button"
+          class="sm edit-btn"
+          @click="emit('select-stand', { roomId: selection.id, standId: stand.id })"
+        >
+          Open
+        </button>
+        <button
+          type="button"
+          class="sm danger-outline"
+          title="Remove stand"
+          @click="emit('delete-stand', { roomId: selection.id, standId: stand.id })"
+        >
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M5 7h14M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M8 7l.8 12.2A1.5 1.5 0 0 0 10.3 20.5h3.4a1.5 1.5 0 0 0 1.5-1.3L16 7"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linejoin="round"
+            />
+          </svg>
+          Remove
+        </button>
+      </div>
+    </div>
+  </section>
 </template>
 
 <style scoped>

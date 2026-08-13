@@ -39,6 +39,7 @@ const emit = defineEmits([
   "delete-selected",
   "select-item",
   "add-room-stand",
+  "delete-room-stand",
   "toggle-path-add-mode",
   "remove-selected-path-handle",
   "restore-revision",
@@ -410,6 +411,25 @@ function removePlacement(placementId) {
         <LocationViewsSummary
           :views="selection.entity?.views ?? []"
         />
+        <div v-if="selection.source === 'rooms'" class="stand-associations">
+          <p class="label">Room stands</p>
+          <p v-if="!(selection.entity.stands ?? []).length" class="empty-note">None yet. Edit the room to add stands.</p>
+          <ul v-else>
+            <li v-for="stand in selection.entity.stands ?? []" :key="stand.id">
+              <button
+                type="button"
+                class="beat-link"
+                @click="openNestedSelection('stands', `${selection.id}/${stand.id}`)"
+              >
+                <strong>{{ stand.label || stand.id }}</strong>
+                <span>
+                  {{ stand.id }}
+                  <template v-if="selection.entity.defaultStand === stand.id"> · default</template>
+                </span>
+              </button>
+            </li>
+          </ul>
+        </div>
         <template v-if="selection.source === 'exits'">
           <div class="beat-associations">
             <div>
@@ -686,6 +706,7 @@ function removePlacement(placementId) {
         @drill-change="nestedDrill = $event"
         @select-stand="openNestedSelection('stands', `${$event.roomId}/${$event.standId}`)"
         @add-stand="emit('add-room-stand', $event)"
+        @delete-stand="emit('delete-room-stand', $event)"
       />
 
       <DoorInspector
