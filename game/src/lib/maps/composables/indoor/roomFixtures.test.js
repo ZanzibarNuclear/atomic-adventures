@@ -139,8 +139,25 @@ describe("room process fixtures", () => {
       amountMl: 250,
     });
     expect(indoor.indoor.flags.has("day1.found-water")).toBe(true);
+    // One fill+tablet charge yields multiple glasses.
+    expect(indoor.indoor.facility.fixtures["kitchen-purifier"].servingsLeft).toBe(3);
+    expect(indoor.indoor.facility.fixtures["kitchen-purifier"].stage).toBe("ready");
     // Faucet copy is action-notice only; purifier may still contribute status.
     expect(processFixtureStatusLines(indoor).some((line) => /faucet sputters|Clear water runs/i.test(line))).toBe(false);
+  });
+
+  it("pours and drinks without leaving the sink scene, leaving remaining servings", () => {
+    const indoor = makeIndoor();
+    addItem(indoor.character.holdings, definitions, "purifier-tablet", 1);
+    addItem(indoor.character.holdings, definitions, "drinking-glass", 1);
+    performProcessFixtureAction(indoor, "fixture:kitchen-sink:flow-on");
+    performProcessFixtureAction(indoor, "fixture:kitchen-purifier:fill");
+    performProcessFixtureAction(indoor, "fixture:kitchen-purifier:add-tablet");
+    const result = performProcessFixtureAction(indoor, "fixture:kitchen-purifier:pour-and-drink");
+    expect(result.ok).toBe(true);
+    expect(result.notice).toMatch(/drink/i);
+    expect(indoor.character.stats.hydration).toBeGreaterThan(20);
+    expect(indoor.indoor.facility.fixtures["kitchen-purifier"].servingsLeft).toBe(3);
   });
 
   it("uses distinct faucet notices for first clear vs later open", () => {
@@ -169,7 +186,12 @@ describe("room process fixtures", () => {
     };
     const facility = indoor.indoor.facility.fixtures;
     facility["kitchen-sink"] = { flow: "low", cleared: true };
-    facility["kitchen-purifier"] = { hasTablet: true, filled: true, stage: "ready" };
+    facility["kitchen-purifier"] = {
+      hasTablet: true,
+      filled: true,
+      stage: "ready",
+      servingsLeft: 4,
+    };
 
     const result = performProcessFixtureAction(indoor, "fixture:kitchen-purifier:fill-bottle");
     expect(result.ok).toBe(true);

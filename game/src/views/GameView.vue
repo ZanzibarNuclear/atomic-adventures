@@ -1519,6 +1519,7 @@ function handleGroupPickUp(entry) {
       v-else-if="gameState.playMode && !gameFailed && isCharacterView"
       :character="gameState.character"
       :clock="gameState.clock"
+      :flags="gameState.flags"
       :nearby-holder-ids="[...nearbyHolderIds, currentWorldHolderId()]"
       :initial-tab="activeView.payload?.tab"
       :action-policy="wellbeingAvailableActions"

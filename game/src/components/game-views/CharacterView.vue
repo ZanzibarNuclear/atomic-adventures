@@ -16,6 +16,8 @@ const props = defineProps({
   /** False in builder preview where game time cannot advance. */
   wellbeingActionsEnabled: { type: Boolean, default: true },
   wellbeingActionFeedback: { type: String, default: "" },
+  /** Story/facility flags for Eat/Drink readiness. */
+  flags: { type: [Object, null], default: null },
 });
 
 defineEmits(["return-to-map", "use-item", "transfer-item", "wellbeing-action"]);
@@ -71,6 +73,7 @@ function publicAssetPath(path) {
     <div class="character-dashboard">
       <CharacterOverviewTab
         :character="character"
+        :flags="flags"
         :actions-enabled="wellbeingActionsEnabled"
         :action-feedback="wellbeingActionFeedback"
         @wellbeing-action="$emit('wellbeing-action', $event)" />

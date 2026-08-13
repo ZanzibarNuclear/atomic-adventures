@@ -44,6 +44,7 @@ import {
   lightFixtureForRoom,
   roomLightAction,
 } from "../lib/maps/composables/indoor/roomLights.js";
+import { roomLabel } from "../lib/displayLabel.js";
 import {
   availableItemActions,
   presentConsumeOptions,
@@ -110,7 +111,8 @@ export function isLocalOutdoorAction(action) {
     // passage-unlock / passage-toggle / passage: (cross)
     id.startsWith("passage") ||
     id.startsWith("held-use:") ||
-    id.startsWith("holding-pickup:")
+    id.startsWith("holding-pickup:") ||
+    id.startsWith("holding-pickup-any:")
   );
 }
 
@@ -729,7 +731,20 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
     });
   }
 
-  for (const record of nonContainerRecords) {
+  // Identical loose items (e.g. four empty glasses) share one pickup action.
+  const nonContainersByItem = groupBy(nonContainerRecords, (record) => record.item);
+  for (const [itemId, group] of nonContainersByItem) {
+    const baseLabel = group[0]?.definition?.label || group[0]?.label || itemId;
+    if (group.length >= 2) {
+      items.push({
+        id: `holding-pickup-any:${itemId}`,
+        label: `Pick up ${withArticle(baseLabel)}`,
+        kind: "pickup",
+        hint: group.length > 1 ? `${group.length} within reach` : "",
+      });
+      continue;
+    }
+    const record = group[0];
     items.push({
       id: `holding-pickup:${record.type}:${record.id}`,
       label: `Pick up ${withArticle(holdingDisplayLabel(indoor, record))}`,
@@ -838,30 +853,80 @@ function movementLabel(indoor, move) {
   }
   if (indoor?.indoor && !indoor.indoor.exteriorNode && move.toExteriorNode) return "Go outside";
   if (indoor?.indoor?.exteriorNode && move.toRoomId && move.kind === "door") return "Go inside";
-  if (
-    move.toRoomId &&
-    !isDestinationRoomDiscovered(indoor, move.toRoomId) &&
-    !isKnownGenericDestination(indoor, move.toRoomId)
-  ) {
-    return "Enter the room";
+
+  if (move.toRoomId && (move.kind === "door" || move.doorId)) {
+    return doorTravelLabel(indoor, move);
   }
-  if (
-    move.toRoomId &&
-    move.kind === "door" &&
-    indoor?.indoor?.discovered?.has &&
-    !indoor.indoor.discovered.has(move.toRoomId)
-  ) {
-    return "Enter the room";
-  }
+
   if (move.toExteriorNode) return `Go ${move.label ?? "along the footpath"}`;
   if (move.toStandId) return `Go ${move.label ?? "to another spot"}`;
-  if (move.toRoomId) return `Go ${move.label ?? "to another room"}`;
+  if (move.toRoomId) {
+    const dest = indoor?.building?.roomById?.[move.toRoomId];
+    const name = roomDestinationPhrase(dest);
+    if (isDestinationRoomDiscovered(indoor, move.toRoomId) || isKnownGenericDestination(indoor, move.toRoomId)) {
+      return name ? `Go to ${name}` : `Go ${move.label ?? "to another room"}`;
+    }
+    return "Enter the room";
+  }
   return `Go ${move.label ?? "onward"}`;
+}
+
+/**
+ * Prefer named destinations and door labels so multi-door rooms aren't ambiguous.
+ * Known rooms (already visited) never fall back to bare "Enter the room".
+ */
+function doorTravelLabel(indoor, move) {
+  const building = indoor?.building;
+  const dest = building?.roomById?.[move.toRoomId];
+  const door = move.doorId ? building?.doorById?.[move.doorId] : null;
+  const doorName = String(door?.label ?? "").trim();
+  const destName = roomDestinationPhrase(dest);
+  const known =
+    isDestinationRoomDiscovered(indoor, move.toRoomId)
+    || isKnownGenericDestination(indoor, move.toRoomId);
+  const doorCount = countDoorLinksFromRoom(building, indoor?.indoor?.currentRoom ?? indoor?.playerRoomId);
+
+  if (doorName && doorCount > 1) {
+    return `Go through ${withArticle(doorName)}`;
+  }
+  if (known && destName) {
+    return `Go to ${destName}`;
+  }
+  if (doorName) {
+    return `Go through ${withArticle(doorName)}`;
+  }
+  if (known && move.label) {
+    return `Go ${move.label}`;
+  }
+  return "Enter the room";
+}
+
+function roomDestinationPhrase(room) {
+  const raw = roomLabel(room);
+  if (!raw) return "";
+  const name = String(raw).trim();
+  if (!name) return "";
+  // roomLabel is often Title Case ("Conference Room"); play actions use "the …".
+  return /^(the|a|an)\s/i.test(name) ? name : `the ${name}`;
+}
+
+function countDoorLinksFromRoom(building, roomId) {
+  if (!building || !roomId) return 0;
+  return (building.links ?? []).filter(
+    (link) =>
+      link.kind === "door"
+      && link.door
+      && (link.from === roomId || link.to === roomId),
+  ).length;
 }
 
 function isDestinationRoomDiscovered(indoor, roomId) {
   const discovered = indoor?.indoor?.discovered;
-  return !discovered?.has || discovered.has(roomId);
+  if (!discovered) return true;
+  if (discovered instanceof Set) return discovered.has(roomId);
+  if (Array.isArray(discovered)) return discovered.includes(roomId);
+  if (typeof discovered.has === "function") return discovered.has(roomId);
+  return false;
 }
 
 function isKnownGenericDestination(indoor, roomId) {
@@ -943,6 +1008,9 @@ export function handleIndoorPlayAction(indoor, actionId) {
   }
   if (actionId.startsWith("holding-look:")) {
     return lookInNearbyHolding(indoor, actionId.slice("holding-look:".length));
+  }
+  if (actionId.startsWith("holding-pickup-any:")) {
+    return pickupAnyNearbyHolding(indoor, actionId.slice("holding-pickup-any:".length));
   }
   if (actionId.startsWith("holding-pickup:")) {
     return pickupNearbyHolding(indoor, actionId.slice("holding-pickup:".length));
@@ -1400,14 +1468,27 @@ function pickupNearbyHolding(indoor, encoded) {
   const record = nearbyPortableHoldings(indoor)
     .find((entry) => entry.type === type && entry.id === id);
   if (!record) return { ok: false, error: "Holding is not available." };
+  return transferNearbyRecord(indoor, record);
+}
+
+/** Pick the first nearby instance/stack of an item id (shared glass/tablet actions). */
+function pickupAnyNearbyHolding(indoor, itemId) {
+  const character = indoor.character;
+  if (!character?.holdings) return { ok: false, error: "Character holdings are unavailable." };
+  const record = nearbyPortableHoldings(indoor).find((entry) => entry.item === itemId);
+  if (!record) return { ok: false, error: "Nothing like that is within reach." };
+  return transferNearbyRecord(indoor, record);
+}
+
+function transferNearbyRecord(indoor, record) {
+  const character = indoor.character;
   try {
-    // Stacks default to one; take the whole stack only for unique-style single records.
     const quantity = record.type === "stack"
       ? 1
       : (record.quantity ?? 1);
     transferHolding(character.holdings, character.definitions, {
-      type,
-      id,
+      type: record.type,
+      id: record.id,
       quantity,
       toHolder: characterHolderId(character.holdings),
     });

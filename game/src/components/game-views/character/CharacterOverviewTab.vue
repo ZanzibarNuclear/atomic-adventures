@@ -2,9 +2,12 @@
 import { computed, ref, watch } from "vue";
 import { characterWellbeingOverview } from "../../../lib/character/panel.js";
 import { listWellbeingActions } from "../../../lib/character/wellbeingActions.js";
+import { isQuickConsumeReady } from "../../../lib/character/quickConsume.js";
 
 const props = defineProps({
   character: { type: Object, required: true },
+  /** Game flags (or Set) used to gate Eat/Drink until supplies are known. */
+  flags: { type: [Object, null], default: null },
   /** When false, actions render disabled (e.g. content-builder preview). */
   actionsEnabled: { type: Boolean, default: true },
   actionFeedback: { type: String, default: "" },
@@ -14,10 +17,25 @@ const emit = defineEmits(["wellbeing-action"]);
 
 const wellbeing = computed(() => characterWellbeingOverview(props.character));
 const wellbeingActions = computed(() => listWellbeingActions(props.character));
-const consumeActions = [
-  { id: "eat", label: "Eat", hint: "Eat the first food in reach" },
-  { id: "drink", label: "Drink", hint: "Drink the first beverage in reach" },
-];
+const consumeActions = computed(() => {
+  const gameState = { character: props.character, flags: props.flags };
+  return [
+    {
+      id: "eat",
+      label: "Eat",
+      hint: "Eat the first food in reach",
+      ready: isQuickConsumeReady(gameState, "eat"),
+      blockedHint: "Find food in the kitchen first.",
+    },
+    {
+      id: "drink",
+      label: "Drink",
+      hint: "Drink the first beverage in reach",
+      ready: isQuickConsumeReady(gameState, "drink"),
+      blockedHint: "Purify water at the sink first.",
+    },
+  ];
+});
 const energyActions = computed(() =>
   wellbeingActions.value.filter((action) => ["rest", "nap", "sleep"].includes(action.id)),
 );
@@ -92,6 +110,12 @@ function runConsume(kind) {
   emit("wellbeing-action", { actionId: kind });
 }
 
+function consumeTitle(action) {
+  if (!props.actionsEnabled) return "Health actions are unavailable in this preview.";
+  if (!action.ready) return action.blockedHint || action.hint;
+  return action.hint;
+}
+
 function formatDurationOption(minutes) {
   if (minutes < 60) return `${minutes} min`;
   if (minutes % 60 === 0) return `${minutes / 60} hr`;
@@ -142,8 +166,8 @@ function formatDurationOption(minutes) {
             :key="action.id"
             type="button"
             class="sm brand wellbeing-action"
-            :disabled="!actionsEnabled"
-            :title="actionsEnabled ? action.hint : actionTitle(action)"
+            :disabled="!actionsEnabled || !action.ready"
+            :title="consumeTitle(action)"
             @click="runConsume(action.id)">
             {{ action.label }}
           </button>
