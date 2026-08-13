@@ -97,9 +97,57 @@ export function buildStoryChoices(pendingBeat) {
       toRoomId: choice.go_room ?? null,
       toExteriorNode: choice.go_exterior_node ?? null,
       enterBuilding: choice.enter ?? null,
-      label: choice.text,
+      label: choice.text ?? choice.label,
       kind: storyChoiceActionKind(choice),
     }));
+}
+
+/** Local world affordances that should appear before travel. */
+export function isLocalOutdoorAction(action) {
+  const id = action?.id ?? "";
+  return (
+    id.startsWith("search:") ||
+    // passage-unlock / passage-toggle / passage: (cross)
+    id.startsWith("passage") ||
+    id.startsWith("held-use:") ||
+    id.startsWith("holding-pickup:")
+  );
+}
+
+export function isStoryTravelAction(action) {
+  if (!action?.id?.startsWith("story:")) return false;
+  return (
+    Boolean(action.toHexId) ||
+    Boolean(action.toRoomId) ||
+    Boolean(action.toExteriorNode) ||
+    Boolean(action.enterBuilding) ||
+    action.kind === "move"
+  );
+}
+
+/**
+ * Order outdoor actions for the play panel:
+ * 1. Story non-travel choices (Inspect the gate)
+ * 2. Local free actions (Untangle / Open the gate)
+ * 3. Story travel choices (Follow the road uphill)
+ * 4. Free travel (routes, barrier walks, hex steps)
+ *
+ * Keeps gate work ahead of road-following so open/cross is not buried under movement.
+ */
+export function mergeOutdoorPanelActions(storyActions = [], freeActions = []) {
+  const storyLocal = [];
+  const storyTravel = [];
+  for (const action of storyActions) {
+    if (isStoryTravelAction(action)) storyTravel.push(action);
+    else storyLocal.push(action);
+  }
+  const freeLocal = [];
+  const freeTravel = [];
+  for (const action of freeActions) {
+    if (isLocalOutdoorAction(action)) freeLocal.push(action);
+    else freeTravel.push(action);
+  }
+  return [...storyLocal, ...freeLocal, ...storyTravel, ...freeTravel];
 }
 
 /**

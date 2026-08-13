@@ -86,6 +86,7 @@ import { formatGameTimestamp } from "../../character/gameTime.js";
 import {
   buildOutdoorPlayActions,
   getMovementOptions,
+  mergeOutdoorPanelActions,
   buildOutdoorStatusLines,
   handleOutdoorChooseAction,
   performHeldItemUse,
@@ -181,7 +182,9 @@ const playActions = computed(() => {
   );
 });
 
-const actions = computed(() => [...chooseActions.value, ...playActions.value]);
+const actions = computed(() =>
+  mergeOutdoorPanelActions(chooseActions.value, playActions.value),
+);
 const allowedActions = computed(() =>
   filterAllowedActions(actions.value, props.actionPolicy),
 );

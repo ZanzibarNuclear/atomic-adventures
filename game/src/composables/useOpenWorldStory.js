@@ -1,6 +1,6 @@
 import { computed, ref, unref, watch } from "vue";
 import { advanceGameTime } from "../lib/character/gameTime.js";
-import { hasFlag, setFlags } from "../lib/maps/composables/useFlags.js";
+import { hasFlag, isStoryChoiceAvailable, setFlags } from "../lib/maps/composables/useFlags.js";
 
 export function useOpenWorldStory(storyData, {
   gameState,
@@ -164,6 +164,8 @@ function presentBeat(id, beat, gameState) {
     heading: beat.heading,
     text: seen && beat.revisit ? beat.revisit : beat.text,
     revisit: seen && Boolean(beat.revisit),
-    choices: beat.choices ?? [],
+    choices: (beat.choices ?? []).filter((choice) =>
+      isStoryChoiceAvailable(choice, gameState.flags),
+    ),
   };
 }
