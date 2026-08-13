@@ -41,8 +41,18 @@ defineProps({
       <label>ID<input v-model="cascade.id" /></label>
       <label>From<input v-model.number="cascade.from" type="number" min="0" max="1" step=".01" /></label>
       <label>To<input v-model.number="cascade.to" type="number" min="0" max="1" step=".01" /></label>
-      <button class="sm danger-outline" @click="removeCascade(index)">Remove</button>
+      <button type="button" class="sm danger-outline" @click="removeCascade(index)">
+        <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 7h14M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M8 7l.8 12.2A1.5 1.5 0 0 0 10.3 20.5h3.4a1.5 1.5 0 0 0 1.5-1.3L16 7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+        </svg>
+        Remove
+      </button>
     </div>
-    <button class="sm" @click="addCascade">Add cascade</button>
+    <button type="button" class="sm add-btn" @click="addCascade">
+      <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+      </svg>
+      Add cascade
+    </button>
   </section>
 </template>

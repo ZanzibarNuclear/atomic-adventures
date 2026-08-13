@@ -251,20 +251,26 @@ function duplicateArtifact(payload) {
         <slot name="workspace-switcher" />
       </template>
       <template #actions>
-        <button class="sm muted" @click="leftCollapsed = !leftCollapsed">
+        <button type="button" class="sm muted" @click="leftCollapsed = !leftCollapsed">
           {{ leftCollapsed ? "Show objects" : "Hide objects" }}
         </button>
-        <button class="sm muted" @click="rightCollapsed = !rightCollapsed">
+        <button type="button" class="sm muted" @click="rightCollapsed = !rightCollapsed">
           {{ rightCollapsed ? "Show inspector" : "Hide inspector" }}
         </button>
-        <button class="sm muted" :disabled="!dirty" @click="revertDraft">
+        <button type="button" class="sm muted" :disabled="!dirty" @click="revertDraft">
           <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
           Revert
         </button>
-        <button class="sm muted" @click="loadHistory">History</button>
-        <button class="sm success-btn" :disabled="!dirty" @click="saveDraft">
+        <button type="button" class="sm muted" @click="loadHistory">
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8" />
+          </svg>
+          History
+        </button>
+        <button type="button" class="sm success-btn" :disabled="!dirty" @click="saveDraft">
           <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M5 4h11l3 3v13H5V4z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
             <path d="M8 4v5h8V4M8 20v-7h8v7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
@@ -457,7 +463,6 @@ button.active { background: #49624f; border-color: #6f9b79; }
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; }
 .check-field { display: flex !important; align-items: center; }
 .check-field input { width: auto; }
-.danger-outline { border-color: #9b5050; color: #ffb5b5; background: #3d2729; }
 .empty-note { color: #939ba7; }
 .read-only-note { color: #aeb5c0; font-size: .78rem; line-height: 1.45; }
 .field-error { color: #ff9e9e; font-size: .78rem; }

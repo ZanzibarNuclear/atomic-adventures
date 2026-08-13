@@ -104,9 +104,12 @@ watch(
 
     <button
       type="button"
-      class="sm muted clear-btn"
+      class="sm danger-outline clear-btn"
       :disabled="!modelValue"
       @click="clearImage">
+      <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+      </svg>
       Clear image
     </button>
 
@@ -142,14 +145,20 @@ watch(
             </div>
             <div class="picker-heading-actions">
               <button type="button" class="sm muted" :disabled="loading" @click="loadImages">
+                <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M20 11a8 8 0 1 0-2.3 5.5M20 11V5m0 6h-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
                 Refresh
               </button>
               <button
                 type="button"
-                class="icon-btn close-btn"
+                class="sm muted close-btn"
                 aria-label="Close without selecting"
                 @click="closePicker">
-                ×
+                <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+                </svg>
+                Cancel
               </button>
             </div>
           </header>
@@ -198,6 +207,9 @@ label {
 }
 .clear-btn {
   justify-self: start;
+}
+.close-btn {
+  gap: 0.35rem;
 }
 .image-preview {
   width: min(100%, 10rem);
@@ -253,14 +265,6 @@ label {
   display: flex;
   align-items: center;
   gap: 0.35rem;
-}
-.icon-btn.close-btn {
-  width: 1.85rem;
-  height: 1.85rem;
-  padding: 0;
-  border-radius: 6px;
-  font-size: 1.2rem;
-  line-height: 1;
 }
 .picker-grid {
   display: grid;

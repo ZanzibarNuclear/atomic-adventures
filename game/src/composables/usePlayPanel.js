@@ -150,6 +150,42 @@ export function mergeOutdoorPanelActions(storyActions = [], freeActions = []) {
   return [...storyLocal, ...freeLocal, ...storyTravel, ...freeTravel];
 }
 
+/** Indoor travel (path, room, exterior, world exit). */
+export function isIndoorTravelAction(action) {
+  const id = action?.id ?? "";
+  if (action?.kind === "move") return true;
+  return (
+    id.startsWith("move-room:") ||
+    id.startsWith("move-stand:") ||
+    id.startsWith("move-exterior:") ||
+    id.startsWith("exit-world:") ||
+    isStoryTravelAction(action)
+  );
+}
+
+/**
+ * Order indoor panel actions so doors and other local work beat path travel:
+ * 1. Story non-travel
+ * 2. Local free (door break/open, switches, pickups, …)
+ * 3. Story travel
+ * 4. Free travel (along the path, room steps, world exit)
+ */
+export function mergeIndoorPanelActions(storyActions = [], freeActions = [], extraActions = []) {
+  const storyLocal = [];
+  const storyTravel = [];
+  for (const action of storyActions) {
+    if (isIndoorTravelAction(action)) storyTravel.push(action);
+    else storyLocal.push(action);
+  }
+  const freeLocal = [];
+  const freeTravel = [];
+  for (const action of [...extraActions, ...freeActions]) {
+    if (isIndoorTravelAction(action)) freeTravel.push(action);
+    else freeLocal.push(action);
+  }
+  return [...storyLocal, ...freeLocal, ...storyTravel, ...freeTravel];
+}
+
 /**
  * Map authored destination fields → play-panel action kind.
  * Outdoor hex, indoor room, and exterior-node steps all use "move"
@@ -562,76 +598,13 @@ function parseHeldUseActionId(actionId) {
 }
 
 /**
- * Build a flat action list for the play panel (pickups, room actions, doors, switches).
+ * Build a flat action list for the play panel (doors, pickups, room actions, movement).
+ * Door and other local interactions come before path/room travel.
  */
 export function buildIndoorPlayActions(indoor, pendingBeat = null) {
   const items = [
     ...buildHeldItemUseActions(indoor.character),
-    ...buildIndoorMovementActions(indoor, pendingBeat),
   ];
-
-  for (const pickup of indoor.roomPickups ?? []) {
-    const itemDef = itemDefinition(indoor, pickup.item);
-    const label = pickup.label || itemDef?.label || pickup.item;
-    // Container pickups support Look in (materializes a holdings instance at this stand).
-    if (itemDef?.container) {
-      items.push({
-        id: `pickup-look:${pickup.id}`,
-        label: `Look in ${withArticle(label)}`,
-      });
-    }
-    items.push({
-      id: `pickup:${pickup.id}`,
-      label: `Pick up ${withArticle(label)}`,
-    });
-  }
-
-  const nearbyHoldings = nearbyPortableHoldings(indoor);
-  const containerRecords = nearbyHoldings.filter((record) => isNearbyContainerRecord(indoor, record));
-  const nonContainerRecords = nearbyHoldings.filter((record) => !isNearbyContainerRecord(indoor, record));
-  const containersByItem = groupBy(containerRecords, (record) => record.item);
-
-  for (const [itemId, group] of containersByItem) {
-    const baseLabel = group[0]?.definition?.label || itemId;
-    if (group.length >= 2) {
-      items.push({
-        id: `holding-inspect-group:${itemId}`,
-        label: containerGroupInspectLabel(baseLabel, group.length),
-      });
-      for (const record of group) {
-        const label = holdingDisplayLabel(indoor, record);
-        items.push({
-          id: `holding-pickup:${record.type}:${record.id}`,
-          label: `Pick up ${withArticle(label)}`,
-        });
-      }
-      continue;
-    }
-    const record = group[0];
-    const label = holdingDisplayLabel(indoor, record);
-    items.push({
-      id: `holding-look:${record.type}:${record.id}`,
-      label: `Look in ${withArticle(label)}`,
-    });
-    items.push({
-      id: `holding-pickup:${record.type}:${record.id}`,
-      label: `Pick up ${withArticle(label)}`,
-    });
-  }
-
-  for (const record of nonContainerRecords) {
-    items.push({
-      id: `holding-pickup:${record.type}:${record.id}`,
-      label: `Pick up ${withArticle(holdingDisplayLabel(indoor, record))}`,
-    });
-  }
-
-  for (const action of indoor.availableActions ?? []) {
-    items.push({
-      id: `action:${action.id}`,
-      label: actionButtonLabel(action),
-    });
-  }
 
   const building = indoor.building;
   const doorState = indoor.indoor.doorState;
@@ -706,6 +679,72 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
   for (const action of buildProcessFixtureActions(indoor)) {
     items.push(action);
   }
+
+  for (const pickup of indoor.roomPickups ?? []) {
+    const itemDef = itemDefinition(indoor, pickup.item);
+    const label = pickup.label || itemDef?.label || pickup.item;
+    // Container pickups support Look in (materializes a holdings instance at this stand).
+    if (itemDef?.container) {
+      items.push({
+        id: `pickup-look:${pickup.id}`,
+        label: `Look in ${withArticle(label)}`,
+      });
+    }
+    items.push({
+      id: `pickup:${pickup.id}`,
+      label: `Pick up ${withArticle(label)}`,
+    });
+  }
+
+  const nearbyHoldings = nearbyPortableHoldings(indoor);
+  const containerRecords = nearbyHoldings.filter((record) => isNearbyContainerRecord(indoor, record));
+  const nonContainerRecords = nearbyHoldings.filter((record) => !isNearbyContainerRecord(indoor, record));
+  const containersByItem = groupBy(containerRecords, (record) => record.item);
+
+  for (const [itemId, group] of containersByItem) {
+    const baseLabel = group[0]?.definition?.label || itemId;
+    if (group.length >= 2) {
+      items.push({
+        id: `holding-inspect-group:${itemId}`,
+        label: containerGroupInspectLabel(baseLabel, group.length),
+      });
+      for (const record of group) {
+        const label = holdingDisplayLabel(indoor, record);
+        items.push({
+          id: `holding-pickup:${record.type}:${record.id}`,
+          label: `Pick up ${withArticle(label)}`,
+        });
+      }
+      continue;
+    }
+    const record = group[0];
+    const label = holdingDisplayLabel(indoor, record);
+    items.push({
+      id: `holding-look:${record.type}:${record.id}`,
+      label: `Look in ${withArticle(label)}`,
+    });
+    items.push({
+      id: `holding-pickup:${record.type}:${record.id}`,
+      label: `Pick up ${withArticle(label)}`,
+    });
+  }
+
+  for (const record of nonContainerRecords) {
+    items.push({
+      id: `holding-pickup:${record.type}:${record.id}`,
+      label: `Pick up ${withArticle(holdingDisplayLabel(indoor, record))}`,
+    });
+  }
+
+  for (const action of indoor.availableActions ?? []) {
+    items.push({
+      id: `action:${action.id}`,
+      label: actionButtonLabel(action),
+    });
+  }
+
+  // Path/room travel after local door and interaction work.
+  items.push(...buildIndoorMovementActions(indoor, pendingBeat));
 
   return items.filter(isVisibleAction);
 }

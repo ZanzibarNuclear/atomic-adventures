@@ -17,6 +17,14 @@ defineEmits([
   "select",
 ]);
 
+const ADD_ACTIONS = [
+  { event: "add-hex", label: "Hex" },
+  { event: "add-route", label: "Route" },
+  { event: "add-barrier", label: "Barrier" },
+  { event: "add-passage", label: "Passage" },
+  { event: "add-landmark", label: "Landmark" },
+];
+
 const expandedGroups = ref(new Set());
 const isSearching = computed(() => props.search.trim().length > 0);
 const visibleGroups = computed(() =>
@@ -51,11 +59,18 @@ function toggleGroup(group) {
       @input="$emit('update:search', $event.target.value)"
     />
     <div class="create-grid">
-      <button class="sm" @click="$emit('add-hex')">+ Hex</button>
-      <button class="sm" @click="$emit('add-route')">+ Route</button>
-      <button class="sm" @click="$emit('add-barrier')">+ Barrier</button>
-      <button class="sm" @click="$emit('add-passage')">+ Passage</button>
-      <button class="sm" @click="$emit('add-landmark')">+ Landmark</button>
+      <button
+        v-for="action in ADD_ACTIONS"
+        :key="action.event"
+        type="button"
+        class="sm add-btn"
+        @click="$emit(action.event)"
+      >
+        <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+        </svg>
+        {{ action.label }}
+      </button>
     </div>
     <p v-if="isSearching && !visibleGroups.length" class="empty-note">No matching objects.</p>
     <section v-for="group in visibleGroups" :key="group.label" class="object-group">
@@ -114,6 +129,13 @@ function toggleGroup(group) {
   grid-template-columns: 1fr 1fr;
   gap: 0.4rem;
   margin-top: 0.6rem;
+}
+
+.create-grid .add-btn {
+  justify-content: flex-start;
+  text-align: left;
+  font-size: 0.78rem;
+  padding: 0.35rem 0.45rem;
 }
 
 .empty-note {

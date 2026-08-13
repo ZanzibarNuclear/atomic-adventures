@@ -9,6 +9,17 @@ const props = defineProps({
 
 defineEmits(["update:search", "add", "select"]);
 
+const ADD_ACTIONS = [
+  { source: "rooms", label: "Room" },
+  { source: "doors", label: "Door" },
+  { source: "paths", label: "Path" },
+  { source: "nodes", label: "Node" },
+  { source: "exits", label: "Map transition" },
+  { source: "links", label: "Connection" },
+  { source: "switches", label: "Switch" },
+  { source: "stands", label: "Stand" },
+];
+
 const expandedGroups = ref(new Set());
 const isSearching = computed(() => props.search.trim().length > 0);
 const visibleGroups = computed(() =>
@@ -54,14 +65,18 @@ function itemMeta(item) {
       @input="$emit('update:search', $event.target.value)"
     />
     <div class="create-grid">
-      <button class="sm" @click="$emit('add', 'rooms')">+ Room</button>
-      <button class="sm" @click="$emit('add', 'doors')">+ Door</button>
-      <button class="sm" @click="$emit('add', 'paths')">+ Path</button>
-      <button class="sm" @click="$emit('add', 'nodes')">+ Node</button>
-      <button class="sm" @click="$emit('add', 'exits')">+ Map transition</button>
-      <button class="sm" @click="$emit('add', 'links')">+ Connection</button>
-      <button class="sm" @click="$emit('add', 'switches')">+ Switch</button>
-      <button class="sm" @click="$emit('add', 'stands')">+ Stand</button>
+      <button
+        v-for="action in ADD_ACTIONS"
+        :key="action.source"
+        type="button"
+        class="sm add-btn"
+        @click="$emit('add', action.source)"
+      >
+        <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+        </svg>
+        {{ action.label }}
+      </button>
     </div>
     <p v-if="isSearching && !visibleGroups.length" class="empty-note">No matching objects.</p>
     <section v-for="group in visibleGroups" :key="group.source" class="object-group">
@@ -120,6 +135,13 @@ function itemMeta(item) {
   grid-template-columns: 1fr 1fr;
   gap: 0.4rem;
   margin-top: 0.6rem;
+}
+
+.create-grid .add-btn {
+  justify-content: flex-start;
+  text-align: left;
+  font-size: 0.78rem;
+  padding: 0.35rem 0.45rem;
 }
 
 .empty-note {

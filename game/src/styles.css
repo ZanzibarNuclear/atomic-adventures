@@ -201,10 +201,24 @@ button.danger:hover:not(:disabled) {
   border-color: #e07a7a;
   color: #fff0f0;
 }
+/* Outline danger for secondary remove actions in dense lists. */
+button.sm.danger-outline,
+button.danger-outline {
+  border-color: #9b5050;
+  color: #ffb5b5;
+  background: #3d2729;
+}
+button.sm.danger-outline:hover:not(:disabled),
+button.danger-outline:hover:not(:disabled) {
+  border-color: #e07a7a;
+  color: #ffe0e0;
+  background: color-mix(in srgb, #c45c5c 28%, #3d2729);
+}
 button.sm:has(.btn-icon),
 button.success-btn,
 button.edit-btn,
-button.add-btn {
+button.add-btn,
+button.danger-outline:has(.btn-icon) {
   display: inline-flex;
   align-items: center;
   justify-content: center;

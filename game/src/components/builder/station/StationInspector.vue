@@ -353,8 +353,29 @@ function removePlacement(placementId) {
           <h3>{{ selectionTitle(selection) }}</h3>
         </div>
         <div class="row-actions">
-          <button v-if="!editing" class="sm" @click="editing = true">Edit</button>
-          <button v-else class="sm muted" @click="editing = false">Done</button>
+          <button
+            v-if="!editing"
+            type="button"
+            class="sm edit-btn"
+            @click="editing = true"
+          >
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 20h4.5L19 9.5 14.5 5 4 15.5V20z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+              <path d="M12.5 6.5 17.5 11.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+            </svg>
+            Edit
+          </button>
+          <button
+            v-else
+            type="button"
+            class="sm success-btn"
+            @click="editing = false"
+          >
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12.5 9.5 17 19 7.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Done
+          </button>
         </div>
       </div>
 
@@ -391,7 +412,7 @@ function removePlacement(placementId) {
               </ul>
               <button
                 type="button"
-                class="sm muted add-beat"
+                class="sm add-btn add-beat"
                 @click="emit('open-transition-beat', {
                   transitionId: selection.id,
                   direction: 'toLocal',
@@ -400,6 +421,9 @@ function removePlacement(placementId) {
                   create: true,
                 })"
               >
+                <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+                </svg>
                 Add to local beat
               </button>
             </div>
@@ -426,7 +450,7 @@ function removePlacement(placementId) {
               </ul>
               <button
                 type="button"
-                class="sm muted add-beat"
+                class="sm add-btn add-beat"
                 @click="emit('open-transition-beat', {
                   transitionId: selection.id,
                   direction: 'toRegional',
@@ -435,6 +459,9 @@ function removePlacement(placementId) {
                   create: true,
                 })"
               >
+                <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+                </svg>
                 Add to regional beat
               </button>
             </div>
@@ -462,13 +489,16 @@ function removePlacement(placementId) {
             </ul>
             <button
               type="button"
-              class="sm muted add-beat"
+              class="sm add-btn add-beat"
               @click="emit('open-location-beat', {
                 locationMode: locationBeatTarget.locationMode,
                 location: locationBeatTarget.location,
                 create: true,
               })"
             >
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+              </svg>
               Add beat
             </button>
           </div>
@@ -498,23 +528,48 @@ function removePlacement(placementId) {
                     </select>
                   </label>
                   <div class="row-actions placement-actions">
-                    <button type="button" class="sm muted" @click="stopEditingPlacement(placement.id)">Done</button>
-                    <button type="button" class="sm danger-outline" @click="removePlacement(placement.id)">Remove</button>
+                    <button type="button" class="sm success-btn" @click="stopEditingPlacement(placement.id)">
+                      <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 12.5 9.5 17 19 7.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+                      </svg>
+                      Done
+                    </button>
+                    <button type="button" class="sm danger-outline" @click="removePlacement(placement.id)">
+                      <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 7h14M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M8 7l.8 12.2A1.5 1.5 0 0 0 10.3 20.5h3.4a1.5 1.5 0 0 0 1.5-1.3L16 7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                      </svg>
+                      Remove
+                    </button>
                   </div>
                 </template>
                 <template v-else>
                   <p class="placement-text">{{ placement.label || "No placement text." }}</p>
                   <p v-if="placement.stand" class="placement-meta">Standpoint: {{ standLabel(placement.stand) }}</p>
                   <div class="row-actions placement-actions">
-                    <button type="button" class="sm muted" @click="editPlacement(placement.id)">Edit</button>
+                    <button type="button" class="sm edit-btn" @click="editPlacement(placement.id)">
+                      <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 20h4.5L19 9.5 14.5 5 4 15.5V20z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                        <path d="M12.5 6.5 17.5 11.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                      </svg>
+                      Edit
+                    </button>
                     <button
                       type="button"
                       class="sm muted"
                       @click="emit('duplicate-artifact', { catalog: 'items', id: placement.item })"
                     >
+                      <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <rect x="8" y="8" width="11" height="11" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7" />
+                        <path d="M6 15H5.5A1.5 1.5 0 0 1 4 13.5v-8A1.5 1.5 0 0 1 5.5 4h8A1.5 1.5 0 0 1 15 5.5V6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                      </svg>
                       Duplicate
                     </button>
-                    <button type="button" class="sm danger-outline" @click="removePlacement(placement.id)">Remove</button>
+                    <button type="button" class="sm danger-outline" @click="removePlacement(placement.id)">
+                      <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 7h14M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M8 7l.8 12.2A1.5 1.5 0 0 0 10.3 20.5h3.4a1.5 1.5 0 0 0 1.5-1.3L16 7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                      </svg>
+                      Remove
+                    </button>
                   </div>
                 </template>
               </div>
@@ -533,15 +588,23 @@ function removePlacement(placementId) {
                 </option>
               </select>
             </label>
-            <button type="button" class="sm muted" @click="placementFormOpen = false">Cancel</button>
+            <button type="button" class="sm muted" @click="placementFormOpen = false">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+              </svg>
+              Cancel
+            </button>
           </div>
           <button
             v-else
             type="button"
-            class="sm muted add-beat"
+            class="sm add-btn add-beat"
             :disabled="!characterCatalog.items.length"
             @click="placementFormOpen = true"
           >
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+            </svg>
             Place artifact
           </button>
         </div>
@@ -549,9 +612,47 @@ function removePlacement(placementId) {
 
       <div v-if="editing && !nestedDrill" class="edit-toolbar">
         <div class="row-actions object-actions">
-          <button class="sm muted" :disabled="fixedSelectionSources.has(selection.source)" @click="emit('rename-selected')">Rename</button>
-          <button class="sm muted" :disabled="fixedSelectionSources.has(selection.source)" @click="emit('duplicate-selected')">Duplicate object</button>
-          <button class="sm danger-outline" :disabled="['fixtures', 'walls'].includes(selection.source)" @click="emit('delete-selected')">Delete</button>
+          <button
+            type="button"
+            class="sm muted"
+            :disabled="fixedSelectionSources.has(selection.source)"
+            @click="emit('rename-selected')"
+          >
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 20h4.5L19 9.5 14.5 5 4 15.5V20z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+              <path d="M12.5 6.5 17.5 11.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+            </svg>
+            Rename
+          </button>
+          <button
+            type="button"
+            class="sm muted"
+            :disabled="fixedSelectionSources.has(selection.source)"
+            @click="emit('duplicate-selected')"
+          >
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="8" y="8" width="11" height="11" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7" />
+              <path d="M6 15H5.5A1.5 1.5 0 0 1 4 13.5v-8A1.5 1.5 0 0 1 5.5 4h8A1.5 1.5 0 0 1 15 5.5V6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+            </svg>
+            Duplicate object
+          </button>
+          <button
+            type="button"
+            class="sm danger"
+            :disabled="['fixtures', 'walls'].includes(selection.source)"
+            @click="emit('delete-selected')"
+          >
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M5 7h14M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M8 7l.8 12.2A1.5 1.5 0 0 0 10.3 20.5h3.4a1.5 1.5 0 0 0 1.5-1.3L16 7"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.7"
+                stroke-linejoin="round"
+              />
+            </svg>
+            Delete
+          </button>
         </div>
       </div>
 
@@ -782,7 +883,6 @@ function removePlacement(placementId) {
 }
 button.active, .inspector :deep(button.active) { background: #49624f; border-color: #6f9b79; }
 .object-actions { justify-content: flex-start; }
-.danger-outline, .inspector :deep(.danger-outline) { border-color: #9b5050; color: #ffb5b5; background: #3d2729; }
 .empty-note { color: #939ba7; }
 .read-only-note, .inspector :deep(.read-only-note) { color: #aeb5c0; font-size: .78rem; line-height: 1.45; }
 .field-error { color: #ff9e9e; font-size: .78rem; }

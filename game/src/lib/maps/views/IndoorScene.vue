@@ -57,6 +57,7 @@ import {
   buildIndoorChooseActions,
   buildIndoorPlayActions,
   buildIndoorStatusLines,
+  mergeIndoorPanelActions,
   formatNearbyReachableItemsMessage,
   handleIndoorChooseAction,
   handleIndoorPlayAction,
@@ -153,11 +154,13 @@ const playActions = computed(() =>
   buildIndoorPlayActions(props.indoor, props.pendingBeat),
 );
 
-const actions = computed(() => [
-  ...chooseActions.value,
-  ...props.extraActions,
-  ...playActions.value,
-]);
+const actions = computed(() =>
+  mergeIndoorPanelActions(
+    chooseActions.value,
+    playActions.value,
+    props.extraActions,
+  ),
+);
 const filteredActions = computed(() =>
   filterAllowedActions(actions.value, props.actionPolicy),
 );
