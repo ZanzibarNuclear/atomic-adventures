@@ -19,6 +19,7 @@ import {
   standDraftFrom,
   standFromDraft,
 } from "../lib/maps/builder/outdoorDrafts.js";
+import { askConfirm } from "./useConfirmDialog.js";
 
 function splitKey(key) {
   const index = key.indexOf(":");
@@ -66,6 +67,7 @@ export function useOutdoorBuilderSelection({
   standDraft,
   standEditDraft,
   focusPoint = () => {},
+  requestConfirm = null,
 } = {}) {
   const selected = computed(() => {
     const [type, id] = splitKey(selectedKey.value);
@@ -479,10 +481,17 @@ export function useOutdoorBuilderSelection({
     }
   }
 
-  function deleteSelected() {
+  async function deleteSelected() {
     if (!selected.value) return;
     const [type, id] = splitKey(selectedKey.value);
-    if (!window.confirm(`Delete ${type} "${id}"? References will be checked when you save.`)) return;
+    const ok = await askConfirm(requestConfirm, {
+      eyebrow: "Delete",
+      title: `Delete ${type} “${id}”?`,
+      message: "References will be checked when you save.",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     if (type === "landmark") {
       delete selected.value.landmark;
       select("hex", id);

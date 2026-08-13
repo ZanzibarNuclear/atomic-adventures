@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, ref, watch } from "vue";
 import RevisionHistoryPanel from "../RevisionHistoryPanel.vue";
+import ConfirmDialog from "../ConfirmDialog.vue";
 import FlagListEditor from "./FlagListEditor.vue";
 import StoryChoiceEditor from "./StoryChoiceEditor.vue";
 
@@ -775,37 +776,17 @@ function setModeEnabled(mode, enabled) {
       </div>
     </form>
 
-    <div
-      v-if="deleteConfirmOpen"
-      class="confirm-backdrop"
-      role="presentation"
-      @click.self="deleteConfirmOpen = false">
-      <section
-        class="confirm-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="delete-scene-title">
-        <p class="confirm-eyebrow">Delete scene</p>
-        <h2 id="delete-scene-title">Delete “{{ draft?.id }}”?</h2>
-        <p class="confirm-message">
-          This removes the scene from the story area. Its revision history will remain available.
-        </p>
-        <div class="confirm-actions">
-          <button type="button" class="sm muted danger" @click="confirmDelete">
-            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M5 7h14M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M8 7l.8 12.2A1.5 1.5 0 0 0 10.3 20.5h3.4a1.5 1.5 0 0 0 1.5-1.3L16 7"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.7"
-                stroke-linejoin="round" />
-            </svg>
-            Delete
-          </button>
-          <button type="button" class="sm muted" @click="deleteConfirmOpen = false">Cancel</button>
-        </div>
-      </section>
-    </div>
+    <ConfirmDialog
+      :visible="deleteConfirmOpen"
+      eyebrow="Delete scene"
+      :title="`Delete “${draft?.id ?? 'scene'}”?`"
+      message="This removes the scene from the story area. Its revision history will remain available."
+      confirm-label="Delete"
+      cancel-label="Cancel"
+      :danger="true"
+      @confirm="confirmDelete"
+      @cancel="deleteConfirmOpen = false"
+    />
   </section>
 </template>
 
@@ -828,54 +809,6 @@ function setModeEnabled(mode, enabled) {
   box-shadow: 0 0 0 1px color-mix(in srgb, #6fd391 35%, transparent);
 }
 
-.confirm-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: grid;
-  place-items: center;
-  padding: 1rem;
-  background: rgb(8 12 18 / 0.55);
-}
-
-.confirm-dialog {
-  width: min(28rem, 100%);
-  padding: 1.1rem 1.15rem;
-  border: 1px solid #4a5568;
-  border-radius: 10px;
-  background: #1b212b;
-  color: #e8edf5;
-  box-shadow: 0 18px 48px rgb(0 0 0 / 0.4);
-}
-
-.confirm-eyebrow {
-  margin: 0 0 0.3rem;
-  color: #ffb4b4;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.confirm-dialog h2 {
-  margin: 0 0 0.55rem;
-  font-size: 1.15rem;
-  color: #f4f7fb;
-}
-
-.confirm-message {
-  margin: 0 0 1rem;
-  color: #b7c0cc;
-  line-height: 1.45;
-}
-
-.confirm-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  justify-content: flex-end;
-}
 
 .builder-form-column form,
 .tab-panel,

@@ -4,22 +4,26 @@ import { useRouter } from "vue-router";
 import { storyApi } from "../lib/storyApi.js";
 import BuilderPageHeader from "../components/builder/BuilderPageHeader.vue";
 import BuilderStatusBanner from "../components/builder/BuilderStatusBanner.vue";
+import ConfirmDialog from "../components/builder/ConfirmDialog.vue";
 import UnsavedChangesDialog from "../components/builder/UnsavedChangesDialog.vue";
 import StationCanvasPanel from "../components/builder/station/StationCanvasPanel.vue";
 import StationInspector from "../components/builder/station/StationInspector.vue";
 import StationObjectBrowser from "../components/builder/station/StationObjectBrowser.vue";
 import { useBuildingBuilderDocument } from "../composables/useBuildingBuilderDocument.js";
+import { useConfirmDialog } from "../composables/useConfirmDialog.js";
 import { useDirtyDocumentNavigation } from "../composables/useDirtyDocumentNavigation.js";
 import { useGridBuilderSelection } from "../composables/useGridBuilderSelection.js";
 import { buildBuilding } from "../lib/maps/composables/useGrid.js";
 import { buildInitialDoorState } from "../lib/maps/composables/useDoors.js";
 import {
   listAllGridEditable,
+  listEditableRoomsWithStands,
 } from "../lib/maps/composables/useGridBuilder.js";
 import { auditIndoorBuilding } from "../lib/maps/testing/indoorBuildingAudit.js";
 import { useResizableSplit } from "../composables/useResizableSplit.js";
 
 const router = useRouter();
+const confirmDialog = useConfirmDialog();
 const emptyUtilityStation = {
   id: "utility-station",
   label: "Utility Station",
@@ -98,6 +102,7 @@ const {
   onMapClick,
   removeSelectedPathHandle,
   addObject,
+  addRoomStand,
   duplicateSelected,
   deleteSelected,
   moveSelected,
@@ -107,6 +112,7 @@ const {
   level,
   status,
   renames,
+  requestConfirm: confirmDialog.requestConfirm,
   previewRename: async ({ kind, from, to }) => {
     const preview = await storyApi(
       "/api/world/buildings/utility-station/rename-preview",
@@ -137,24 +143,39 @@ const allExteriorIds = computed(() => building.value.exterior.nodes.map((node) =
 const editableItems = computed(() =>
   listAllGridEditable(draft.value, level.value).filter((item) => {
     const term = search.value.trim().toLowerCase();
-    return !term || `${item.id} ${item.label} ${item.source}`.toLowerCase().includes(term);
+    return !term || `${item.id} ${item.label} ${item.source} ${item.kind ?? ""}`.toLowerCase().includes(term);
   }),
 );
-const groupedItems = computed(() => [
-  { source: "rooms", label: "Rooms" },
-  { source: "doors", label: "Doors" },
-  { source: "paths", label: "Exterior paths" },
-  { source: "nodes", label: "Exterior nodes" },
-  { source: "exits", label: "Map transitions" },
-  { source: "fixtures", label: "Fixtures" },
-  { source: "walls", label: "Visual walls" },
-  { source: "links", label: "Room connections" },
-  { source: "switches", label: "Switches" },
-  { source: "stands", label: "Room stands" },
-].map((group) => ({
-  ...group,
-  items: editableItems.value.filter((item) => item.source === group.source),
-})));
+const groupedItems = computed(() => {
+  const term = search.value.trim().toLowerCase();
+  const matches = (item) =>
+    !term ||
+    `${item.id} ${item.label} ${item.source} ${item.kind ?? ""}`.toLowerCase().includes(term);
+  const roomItems = listEditableRoomsWithStands(draft.value, level.value)
+    .map((room) => ({
+      ...room,
+      children: (room.children ?? []).filter(matches),
+    }))
+    .filter((room) => matches(room) || room.children.length > 0);
+
+  return [
+    { source: "rooms", label: "Rooms", items: roomItems },
+    { source: "doors", label: "Doors" },
+    { source: "paths", label: "Exterior paths" },
+    { source: "nodes", label: "Exterior nodes" },
+    { source: "exits", label: "Map transitions" },
+    { source: "fixtures", label: "Fixtures" },
+    { source: "links", label: "Room connections" },
+    { source: "switches", label: "Switches" },
+  ].map((group) =>
+    group.source === "rooms"
+      ? group
+      : {
+          ...group,
+          items: editableItems.value.filter((item) => item.source === group.source),
+        },
+  );
+});
 onMounted(async () => {
   try {
     const [buildingResult, catalogResult, beatsResult] = await Promise.all([
@@ -361,6 +382,8 @@ function duplicateArtifact(payload) {
           @rename-selected="renameSelected"
           @duplicate-selected="duplicateSelected"
           @delete-selected="deleteSelected"
+          @select-item="selectItem($event.source, $event.id)"
+          @add-room-stand="addRoomStand($event)"
           @open-location-beat="openLocationBeat"
           @toggle-path-add-mode="togglePathAddMode"
           @remove-selected-path-handle="removeSelectedPathHandle"
@@ -381,6 +404,18 @@ function duplicateArtifact(payload) {
       @save="navigation.saveAndContinue"
       @discard="navigation.discardAndContinue"
       @keep="navigation.keepEditing"
+    />
+
+    <ConfirmDialog
+      :visible="confirmDialog.state.visible"
+      :eyebrow="confirmDialog.state.eyebrow"
+      :title="confirmDialog.state.title"
+      :message="confirmDialog.state.message"
+      :confirm-label="confirmDialog.state.confirmLabel"
+      :cancel-label="confirmDialog.state.cancelLabel"
+      :danger="confirmDialog.state.danger"
+      @confirm="confirmDialog.accept"
+      @cancel="confirmDialog.dismiss"
     />
   </main>
 </template>

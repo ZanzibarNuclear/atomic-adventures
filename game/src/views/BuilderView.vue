@@ -8,6 +8,7 @@ import StoryMilestonePanel from "../components/builder/story/StoryMilestonePanel
 import StoryArcPanel from "../components/builder/story/StoryArcPanel.vue";
 import BuilderPageHeader from "../components/builder/BuilderPageHeader.vue";
 import BuilderWorkspaceTabs from "../components/builder/BuilderWorkspaceTabs.vue";
+import ConfirmDialog from "../components/builder/ConfirmDialog.vue";
 import UnsavedChangesDialog from "../components/builder/UnsavedChangesDialog.vue";
 import { useOutdoorWorld } from "../lib/maps/composables/useOutdoorWorld.js";
 import { buildBuilding } from "../lib/maps/composables/useGrid.js";
@@ -18,12 +19,15 @@ import {
   setChoiceDestinationType,
   setChoiceViewKind as applyChoiceViewKind,
 } from "../lib/storyChoiceDrafts.js";
+import { useConfirmDialog } from "../composables/useConfirmDialog.js";
 import { useDirtyDocumentNavigation } from "../composables/useDirtyDocumentNavigation.js";
 import { useStoryBeatDocument } from "../composables/useStoryBeatDocument.js";
 import { useWorldContent } from "../composables/useWorldContent.js";
 import { useBuildingContent } from "../composables/useBuildingContent.js";
 import { hexDistance } from "../lib/maps/composables/useHexGeometry.js";
 import { buildStoryBeatMatchWarnings } from "../lib/storyBeatMatchWarnings.js";
+
+const confirmDialog = useConfirmDialog();
 
 const { worldData, revision: worldRevision } = useWorldContent();
 const { buildingData, revision: buildingRevision } = useBuildingContent();
@@ -593,7 +597,15 @@ function openStoryBeatScene({ sceneId } = {}) {
 }
 
 async function removeStoryBeatScene({ scene } = {}) {
-  if (!scene?.id || !window.confirm(`Remove scene "${scene.id}" from this story beat?`)) return;
+  if (!scene?.id) return;
+  const ok = await confirmDialog.requestConfirm({
+    eyebrow: "Remove scene",
+    title: `Remove scene “${scene.id}” from this story beat?`,
+    message: "The scene is deleted from the story area. Its revision history remains available.",
+    confirmLabel: "Remove scene",
+    danger: true,
+  });
+  if (!ok) return;
   try {
     await storyApi(`/api/story/areas/${STORY_AREA_ID}/beats/${encodeURIComponent(scene.id)}`, {
       method: "DELETE",
@@ -894,6 +906,18 @@ async function applyStoryRouteQuery() {
       @save="navigation.saveAndContinue"
       @discard="navigation.discardAndContinue"
       @keep="navigation.keepEditing"
+    />
+
+    <ConfirmDialog
+      :visible="confirmDialog.state.visible"
+      :eyebrow="confirmDialog.state.eyebrow"
+      :title="confirmDialog.state.title"
+      :message="confirmDialog.state.message"
+      :confirm-label="confirmDialog.state.confirmLabel"
+      :cancel-label="confirmDialog.state.cancelLabel"
+      :danger="confirmDialog.state.danger"
+      @confirm="confirmDialog.accept"
+      @cancel="confirmDialog.dismiss"
     />
 
     <div v-if="milestoneDialog.visible" class="modal-backdrop" role="presentation">

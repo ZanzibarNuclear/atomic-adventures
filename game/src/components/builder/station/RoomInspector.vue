@@ -9,9 +9,11 @@ const props = defineProps({
   selection: { type: Object, required: true },
 });
 
-const emit = defineEmits(["drill-change"]);
+const emit = defineEmits(["drill-change", "select-stand", "add-stand", "delete-stand"]);
 
 const viewsDrilled = ref(false);
+
+const roomStands = computed(() => props.selection?.entity?.stands ?? []);
 
 const roomDoors = computed(() => {
   const roomId = props.selection?.id;
@@ -167,6 +169,48 @@ watch(
         </label>
       </template>
     </section>
+
+    <section class="form-section">
+      <div class="section-heading stands-heading">
+        <h4>Room stands</h4>
+        <button type="button" class="sm add-btn" @click="emit('add-stand', selection.id)">
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+          </svg>
+          Add stand
+        </button>
+      </div>
+      <p class="help-note">
+        Stands belong to this room. Open one to edit pose, views, and default arrival.
+      </p>
+      <p v-if="!roomStands.length" class="empty-note">No authored stands in this room yet.</p>
+      <div v-else class="stand-list">
+        <div
+          v-for="stand in roomStands"
+          :key="stand.id"
+          class="stand-row"
+        >
+          <button
+            type="button"
+            class="stand-link"
+            @click="emit('select-stand', { roomId: selection.id, standId: stand.id })"
+          >
+            <strong>{{ stand.label || stand.id }}</strong>
+            <span>
+              {{ stand.id }}
+              <template v-if="selection.entity.defaultStand === stand.id"> · default</template>
+            </span>
+          </button>
+          <button
+            type="button"
+            class="sm edit-btn"
+            @click="emit('select-stand', { roomId: selection.id, standId: stand.id })"
+          >
+            Open
+          </button>
+        </div>
+      </div>
+    </section>
   </template>
 
   <LocationViewsEditor
@@ -191,4 +235,35 @@ watch(
   gap: .45rem;
 }
 .check-field input { width: auto; }
+.stands-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.stand-list {
+  display: grid;
+  gap: 0.35rem;
+}
+.stand-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.stand-link {
+  flex: 1 1 auto;
+  display: grid;
+  gap: 0.1rem;
+  text-align: left;
+  background: #252b35;
+  border: 1px solid #3a4558;
+  border-radius: 7px;
+  padding: 0.4rem 0.55rem;
+  color: #eef1f5;
+}
+.stand-link span {
+  color: #8e96a3;
+  font-size: 0.72rem;
+}
+.empty-note { color: #939ba7; margin: 0; font-size: 0.82rem; }
 </style>

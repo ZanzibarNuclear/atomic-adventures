@@ -2,6 +2,8 @@
 import { computed, ref, watch } from "vue";
 import { moveStoryBeat, splitStoryBeat } from "../../../lib/story/storyArcOperations.js";
 import StoryCompletionCard from "../../story/StoryCompletionCard.vue";
+import ConfirmDialog from "../ConfirmDialog.vue";
+import { useConfirmDialog } from "../../../composables/useConfirmDialog.js";
 
 const props = defineProps({
   documentText: { type: String, default: "" },
@@ -48,6 +50,7 @@ const attachRoomFilter = ref("");
 const attachUnattachedOnly = ref(true);
 const completionEditing = ref(false);
 const completionDraft = ref(null);
+const deleteConfirm = useConfirmDialog();
 const completionError = ref("");
 
 const selectedStoryArc = computed(() =>
@@ -281,10 +284,18 @@ function applyCompletionEdit() {
   cancelCompletionEdit();
 }
 
-function removeStoryBeat() {
+async function removeStoryBeat() {
   const arcId = selectedStoryArc.value?.id;
   const beatId = selectedStoryBeat.value?.id;
-  if (!arcId || !beatId || !window.confirm(`Delete story beat "${beatId}"? Linked scenes will not be deleted.`)) return;
+  if (!arcId || !beatId) return;
+  const ok = await deleteConfirm.requestConfirm({
+    eyebrow: "Delete beat",
+    title: `Delete story beat “${beatId}”?`,
+    message: "Linked scenes will not be deleted. They stay in the story area and can be reattached later.",
+    confirmLabel: "Delete beat",
+    danger: true,
+  });
+  if (!ok) return;
   updateDocument((document) => {
     const arc = document.storyArcs?.find((item) => item.id === arcId);
     if (!arc) return;
@@ -839,6 +850,18 @@ function uniqueId(base, existingIds = []) {
         </div>
       </form>
     </div>
+
+    <ConfirmDialog
+      :visible="deleteConfirm.state.visible"
+      :eyebrow="deleteConfirm.state.eyebrow"
+      :title="deleteConfirm.state.title"
+      :message="deleteConfirm.state.message"
+      :confirm-label="deleteConfirm.state.confirmLabel"
+      :cancel-label="deleteConfirm.state.cancelLabel"
+      :danger="deleteConfirm.state.danger"
+      @confirm="deleteConfirm.accept"
+      @cancel="deleteConfirm.dismiss"
+    />
   </section>
 </template>
 

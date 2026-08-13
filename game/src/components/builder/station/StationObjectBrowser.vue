@@ -15,9 +15,9 @@ const ADD_ACTIONS = [
   { source: "paths", label: "Path" },
   { source: "nodes", label: "Node" },
   { source: "exits", label: "Map transition" },
+  { source: "fixtures", label: "Fixture" },
   { source: "links", label: "Connection" },
   { source: "switches", label: "Switch" },
-  { source: "stands", label: "Stand" },
 ];
 
 const expandedGroups = ref(new Set());
@@ -93,16 +93,32 @@ function itemMeta(item) {
         <span class="count">{{ group.items.length }}</span>
       </button>
       <div v-if="isExpanded(group)" class="object-list">
-        <button
+        <div
           v-for="item in group.items"
           :key="`${item.source}:${item.id}`"
-          class="object-item"
-          :class="{ active: selectedKey === `${item.source}:${item.id}` }"
-          @click="$emit('select', { source: item.source, id: item.id })"
+          class="object-block"
         >
-          <strong>{{ itemTitle(item) }}</strong>
-          <span>{{ itemMeta(item) }}</span>
-        </button>
+          <button
+            class="object-item"
+            :class="{ active: selectedKey === `${item.source}:${item.id}` }"
+            @click="$emit('select', { source: item.source, id: item.id })"
+          >
+            <strong>{{ itemTitle(item) }}</strong>
+            <span>{{ itemMeta(item) }}</span>
+          </button>
+          <div v-if="item.children?.length" class="object-children">
+            <button
+              v-for="child in item.children"
+              :key="`${child.source}:${child.id}`"
+              class="object-item nested"
+              :class="{ active: selectedKey === `${child.source}:${child.id}` }"
+              @click="$emit('select', { source: child.source, id: child.id })"
+            >
+              <strong>{{ itemTitle(child) }}</strong>
+              <span>{{ itemMeta(child) }}</span>
+            </button>
+          </div>
+        </div>
       </div>
     </section>
   </aside>
@@ -194,11 +210,14 @@ function itemMeta(item) {
   margin-top: 0.35rem;
 }
 
+.object-block {
+  margin-top: 0.25rem;
+}
+
 .object-item {
   display: grid;
   width: 100%;
   gap: 0.1rem;
-  margin-top: 0.25rem;
   text-align: left;
   background: #252b35;
 }
@@ -211,5 +230,18 @@ function itemMeta(item) {
 .object-item.active {
   background: #49624f;
   border-color: #6f9b79;
+}
+
+.object-children {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0.2rem 0 0.15rem 0.7rem;
+  padding-left: 0.45rem;
+  border-left: 2px solid #354052;
+}
+
+.object-item.nested {
+  background: #1f252f;
+  font-size: 0.92em;
 }
 </style>

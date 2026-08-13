@@ -6,6 +6,7 @@ import {
   createHoldings,
   itemQuantity,
 } from "../lib/character/holdings.js";
+import { askConfirm } from "./useConfirmDialog.js";
 
 const characterCatalogs = [
   { id: "stats", label: "Stats" },
@@ -48,7 +49,7 @@ const previewWellbeingStats = [
   { id: "composure", label: "Composure", default: 80 },
 ];
 
-export function useCharacterBuilderDraft() {
+export function useCharacterBuilderDraft({ requestConfirm = null } = {}) {
   const router = useRouter();
   const route = useRoute();
   const draft = ref(null);
@@ -269,7 +270,15 @@ export function useCharacterBuilderDraft() {
       statusTone.value = "error";
       return;
     }
-    if (!window.confirm(`Delete "${entry.label ?? entry.title ?? entry.id}"?`)) return;
+    const label = entry.label ?? entry.title ?? entry.id;
+    const ok = await askConfirm(requestConfirm, {
+      eyebrow: "Delete",
+      title: `Delete “${label}”?`,
+      message: `This removes ${entry.id} from the ${selectedCatalog.value} catalog.`,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     draft.value[selectedCatalog.value] = draft.value[selectedCatalog.value]
       .filter((item) => item.id !== entry.id);
     ensureSelection();

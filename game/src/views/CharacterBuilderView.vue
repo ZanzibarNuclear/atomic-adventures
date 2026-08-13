@@ -6,11 +6,15 @@ import LearningLessonsEditor from "../components/character-builder/LearningLesso
 import CharacterView from "../components/game-views/CharacterView.vue";
 import BuilderPageHeader from "../components/builder/BuilderPageHeader.vue";
 import BuilderWorkspaceTabs from "../components/builder/BuilderWorkspaceTabs.vue";
+import ConfirmDialog from "../components/builder/ConfirmDialog.vue";
 import {
   previewBarLevelOptions,
   useCharacterBuilderDraft,
   visibilityOptions,
 } from "../composables/useCharacterBuilderDraft.js";
+import { useConfirmDialog } from "../composables/useConfirmDialog.js";
+
+const confirmDialog = useConfirmDialog();
 
 const {
   activeCatalogs,
@@ -54,7 +58,9 @@ const {
   warnings,
   workspaceMode,
   selectWorkspace,
-} = useCharacterBuilderDraft();
+} = useCharacterBuilderDraft({
+  requestConfirm: confirmDialog.requestConfirm,
+});
 
 const contentWorkspaceTabs = [
   { id: "character", label: "Character" },
@@ -190,6 +196,18 @@ const contentWorkspaceTabs = [
         </div>
       </section>
     </div>
+
+    <ConfirmDialog
+      :visible="confirmDialog.state.visible"
+      :eyebrow="confirmDialog.state.eyebrow"
+      :title="confirmDialog.state.title"
+      :message="confirmDialog.state.message"
+      :confirm-label="confirmDialog.state.confirmLabel"
+      :cancel-label="confirmDialog.state.cancelLabel"
+      :danger="confirmDialog.state.danger"
+      @confirm="confirmDialog.accept"
+      @cancel="confirmDialog.dismiss"
+    />
   </main>
   <section v-else class="character-builder">
     <p class="status" :class="`status-${statusTone}`">{{ status || "Loading content…" }}</p>

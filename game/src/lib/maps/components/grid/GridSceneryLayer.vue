@@ -26,7 +26,7 @@
       :key="'cliff-' + seg.key"
       :d="seg.d"
       class="cliff-wall-fill"
-      @click.stop="builderView && $emit('select-item', { source: 'walls', id: 'cliff-wall' })"
+      @click.stop="builderView && $emit('select-item', { source: 'fixtures', id: 'cliff-wall' })"
     />
   </g>
 

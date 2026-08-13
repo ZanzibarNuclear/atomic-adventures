@@ -1,6 +1,8 @@
 // Re-export barrel — import from here for backward compatibility.
 export {
   buildBuilding,
+  migrateCliffWallToFixture,
+  cliffWallConfigFromFixtures,
   roomsOnLevel,
   roomOnLevel,
   roomRect,

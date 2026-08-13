@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import RevisionHistoryPanel from "../RevisionHistoryPanel.vue";
 import DoorInspector from "./DoorInspector.vue";
 import ExteriorNodeInspector from "./ExteriorNodeInspector.vue";
@@ -37,6 +37,8 @@ const emit = defineEmits([
   "rename-selected",
   "duplicate-selected",
   "delete-selected",
+  "select-item",
+  "add-room-stand",
   "toggle-path-add-mode",
   "remove-selected-path-handle",
   "restore-revision",
@@ -48,7 +50,8 @@ const errorMessages = computed(() =>
   ),
 );
 
-const fixedSelectionSources = new Set(["fixtures", "walls", "links"]);
+// Links stay identity-fixed for now (no stable id field in the list model).
+const fixedSelectionSources = new Set(["links"]);
 const editing = ref(false);
 const selectedArtifactItemId = ref("");
 const placementFormOpen = ref(false);
@@ -246,12 +249,24 @@ const summaryRows = computed(() => {
       ["Door", entity.door],
     ];
   }
-  if (selection.source === "fixtures" || selection.source === "walls") {
+  if (selection.source === "fixtures") {
     return [
       ["ID", selection.id],
-      ["Kind", selection.source === "walls" ? "stone wall" : entity.kind || "fixture"],
-      ["Role", entity.visualOnly ? "Visual only" : "Traversal"],
+      ["Label", entity.label || "None"],
+      ["Kind", entity.kind === "cliff-wall" ? "stone wall (cliff-wall)" : entity.kind || "fixture"],
+      ["Role", entity.visualOnly || entity.kind === "cliff-wall" ? "Visual only" : "Traversal"],
       ["Levels", (entity.onLevels ?? []).join(", ") || "Default"],
+      ["Connects", (entity.connects ?? []).join(", ") || "None"],
+    ];
+  }
+  if (selection.source === "stands") {
+    const roomId = selection.id.split("/")[0];
+    return [
+      ["ID", entity.id || selection.id],
+      ["Room", roomId],
+      ["Label", entity.label || "None"],
+      ["Pose", entity.pose || "stand"],
+      ["Position", entity.at ? `${entity.at.x}, ${entity.at.y}` : "Unset"],
     ];
   }
   return [["ID", selection.id]];
@@ -294,6 +309,14 @@ function doorInitialSummary(door) {
   const open = initial.open ?? (initial.closed != null ? !initial.closed : false);
   const locked = initial.locked === true;
   return `${open ? "Open" : "Closed"}${locked ? ", locked" : ""}`;
+}
+
+function openNestedSelection(source, id) {
+  emit("select-item", { source, id });
+  // Keep the editor open when drilling room ↔ stand.
+  nextTick(() => {
+    editing.value = true;
+  });
 }
 
 function artifactLabel(id) {
@@ -639,7 +662,7 @@ function removePlacement(placementId) {
           <button
             type="button"
             class="sm danger"
-            :disabled="['fixtures', 'walls'].includes(selection.source)"
+            :disabled="selection.source === 'links'"
             @click="emit('delete-selected')"
           >
             <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -661,6 +684,8 @@ function removePlacement(placementId) {
         :draft="draft"
         :selection="selection"
         @drill-change="nestedDrill = $event"
+        @select-stand="openNestedSelection('stands', `${$event.roomId}/${$event.standId}`)"
+        @add-stand="emit('add-room-stand', $event)"
       />
 
       <DoorInspector
@@ -695,7 +720,8 @@ function removePlacement(placementId) {
       />
 
       <FixtureInspector
-        v-else-if="editing && ['fixtures', 'walls'].includes(selection.source)"
+        v-else-if="editing && selection.source === 'fixtures'"
+        :draft="draft"
         :selection="selection"
       />
 
@@ -710,6 +736,7 @@ function removePlacement(placementId) {
         :draft="draft"
         :selection="selection"
         @drill-change="nestedDrill = $event"
+        @back-to-room="openNestedSelection('rooms', $event)"
       />
 
       <SwitchInspector
@@ -718,7 +745,7 @@ function removePlacement(placementId) {
         :selection="selection"
       />
     </template>
-    <p v-else class="empty-note">Select a room, door, path, node, or transition.</p>
+    <p v-else class="empty-note">Select a room, stand, door, path, node, fixture, or transition.</p>
 
     <StationInventoryAuthoring
       v-if="editing && selection?.source === 'rooms' && !nestedDrill"

@@ -12,7 +12,6 @@ import {
   resolvedPathNodeHandles,
   resolvedRoomHandles,
   resolvedRoomStandHandle,
-  resolvedWallHandles,
   setDoorAt,
   setExitMapAt,
   setFixtureFromHandle,
@@ -20,10 +19,10 @@ import {
   setPathPoint,
   setRoomFromHandle,
   setRoomStandAt,
-  setWallPoint,
   addPathNode,
   addPathPoint,
 } from "../lib/maps/composables/useGridBuilder.js";
+import { askConfirm } from "./useConfirmDialog.js";
 
 export function splitGridSelectionKey(key) {
   const index = key.indexOf(":");
@@ -48,6 +47,7 @@ export function useGridBuilderSelection({
   status = ref(""),
   renames = ref([]),
   previewRename = async () => [],
+  requestConfirm = null,
 } = {}) {
   const selectedKey = ref("");
   const selectedHandleId = ref(null);
@@ -81,7 +81,6 @@ export function useGridBuilderSelection({
     if (selected.source === "nodes") return resolvedNodeHandle(selected.entity, cell.value);
     if (selected.source === "exits") return resolvedExitHandle(selected.entity, cell.value);
     if (selected.source === "fixtures") return resolvedFixtureHandles(selected.entity, cell.value);
-    if (selected.source === "walls") return resolvedWallHandles(selected.entity, cell.value);
     if (selected.source === "stands") return resolvedRoomStandHandle(selected.entity, cell.value);
     return [];
   });
@@ -144,9 +143,14 @@ export function useGridBuilderSelection({
     } else if (selected.source === "exits") {
       setExitMapAt(draft.value, selected.id, x, y);
     } else if (selected.source === "fixtures") {
-      setFixtureFromHandle(draft.value, selected.id, payload.role, x, y);
-    } else if (selected.source === "walls") {
-      setWallPoint(draft.value, selected.id, payload.index, x, y);
+      setFixtureFromHandle(
+        draft.value,
+        selected.id,
+        payload.role,
+        x,
+        y,
+        payload.index,
+      );
     } else if (selected.source === "stands") {
       setRoomStandAt(draft.value, selected.id, x, y);
     }
@@ -182,8 +186,10 @@ export function useGridBuilderSelection({
     if (sourceName === "paths") return draft.value.exterior?.paths;
     if (sourceName === "nodes") return draft.value.exterior?.nodes;
     if (sourceName === "exits") return draft.value.transitions ?? draft.value.exits;
-    if (sourceName === "fixtures") return draft.value.fixtures;
-    if (sourceName === "walls") return draft.value.cliffWall ? [draft.value.cliffWall] : null;
+    if (sourceName === "fixtures") {
+      draft.value.fixtures ??= [];
+      return draft.value.fixtures;
+    }
     if (sourceName === "links") return draft.value.links;
     if (sourceName === "switches") return draft.value.switches;
     if (sourceName === "stands") {
@@ -197,30 +203,39 @@ export function useGridBuilderSelection({
     return null;
   }
 
+  function addRoomStand(roomId = null) {
+    const room =
+      (roomId && draft.value.rooms.find((candidate) => candidate.id === roomId)) ||
+      (selection.value?.source === "rooms" ? selection.value.entity : null) ||
+      (selection.value?.source === "stands"
+        ? draft.value.rooms.find(
+            (candidate) => candidate.id === selection.value.id.split("/")[0],
+          )
+        : null);
+    if (!room) {
+      status.value = "Select a room before adding a stand.";
+      return null;
+    }
+    room.stands ??= [];
+    const item = {
+      id: uniqueId("new-stand", room.stands),
+      at: {
+        x: Number(room.x ?? 0) + Number(room.w ?? 1) / 2,
+        y: Number(room.y ?? 0) + Number(room.h ?? 1) / 2,
+      },
+      label: "New stand",
+    };
+    room.stands.push(item);
+    room.defaultStand ??= item.id;
+    selectItem("stands", `${room.id}/${item.id}`);
+    return item;
+  }
+
   function addObject(sourceName) {
     let list = collectionFor(sourceName);
     let item = null;
     if (sourceName === "stands") {
-      const room = selection.value?.source === "rooms"
-        ? selection.value.entity
-        : draft.value.rooms.find((candidate) =>
-            !candidate.feature &&
-            (candidate.level === level.value || candidate.levels?.includes(level.value))
-          );
-      if (!room) return;
-      room.stands ??= [];
-      list = room.stands;
-      item = {
-        id: uniqueId("new-stand", list),
-        at: {
-          x: Number(room.x ?? 0) + Number(room.w ?? 1) / 2,
-          y: Number(room.y ?? 0) + Number(room.h ?? 1) / 2,
-        },
-        label: "New stand",
-      };
-      list.push(item);
-      room.defaultStand ??= item.id;
-      selectItem("stands", `${room.id}/${item.id}`);
+      addRoomStand();
       return;
     }
     if (!list) return;
@@ -290,6 +305,9 @@ export function useGridBuilderSelection({
         door: door.id,
         label: "New switch",
       };
+    } else if (sourceName === "fixtures") {
+      item = createDefaultFixture(list, level.value);
+      if (!item) return;
     }
     if (!item) return;
     list.push(item);
@@ -302,7 +320,7 @@ export function useGridBuilderSelection({
   function duplicateSelected() {
     const selected = selection.value;
     const list = selected ? collectionFor(selected.source) : null;
-    if (!selected || !list || ["fixtures", "walls", "links"].includes(selected.source)) return;
+    if (!selected || !list || selected.source === "links") return;
     const copy = clonePlain(selected.entity);
     copy.id = uniqueId(`${copy.id}-copy`, list);
     if (selected.source === "rooms") {
@@ -312,6 +330,22 @@ export function useGridBuilderSelection({
     if (copy.at) {
       copy.at.x = Number(copy.at.x ?? 0) + 0.25;
       copy.at.y = Number(copy.at.y ?? 0) + 0.25;
+    }
+    if (copy.rect) {
+      copy.rect.x = Number(copy.rect.x ?? 0) + 0.35;
+      copy.rect.y = Number(copy.rect.y ?? 0) + 0.35;
+    }
+    if (Array.isArray(copy.points)) {
+      copy.points = copy.points.map((point) => ({
+        x: Number(point.x ?? 0) + 0.35,
+        y: Number(point.y ?? 0) + 0.35,
+      }));
+    }
+    // Avoid wiring a duplicate connecting stair to the same rooms by default.
+    if (selected.source === "fixtures" && Array.isArray(copy.connects) && copy.connects.length) {
+      copy.connects = [];
+      copy.visualOnly = true;
+      copy.label = `${copy.label || copy.id} (copy)`;
     }
     list.push(copy);
     selectItem(
@@ -330,13 +364,42 @@ export function useGridBuilderSelection({
         ));
   }
 
-  function deleteSelected() {
+  async function deleteSelected() {
     const selected = selection.value;
     const list = selected ? collectionFor(selected.source) : null;
-    if (!selected || !list || ["fixtures", "walls"].includes(selected.source)) return;
-    if (!window.confirm(
-      `Delete ${selected.source.slice(0, -1)} "${selected.id}"? References are checked when you save.`,
-    )) return;
+    if (!selected || !list) return;
+    if (selected.source === "links") return;
+    const kindLabel = selected.source === "fixtures"
+      ? "fixture"
+      : selected.source.slice(0, -1);
+    const warnings = [];
+    if (selected.source === "fixtures") {
+      const linkedRooms = (draft.value.rooms ?? []).filter(
+        (room) => room.feature === selected.id,
+      );
+      if (linkedRooms.length) {
+        warnings.push(
+          `Feature room(s) still reference this fixture: ${
+            linkedRooms.map((room) => room.id).join(", ")
+          }. Clear or reassign room.feature after delete.`,
+        );
+      }
+      if ((selected.entity.connects ?? []).length && !selected.entity.visualOnly) {
+        warnings.push("This fixture connects rooms for stair travel.");
+      }
+    }
+    const message = [
+      `References are checked when you save.`,
+      ...warnings,
+    ].join("\n\n");
+    const ok = await askConfirm(requestConfirm, {
+      eyebrow: "Delete",
+      title: `Delete ${kindLabel} “${selected.id}”?`,
+      message,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     const index = selectedIndex(selected, list);
     if (selected.source === "stands") {
       const room = draft.value.rooms.find((item) => item.id === selected.id.split("/")[0]);
@@ -359,7 +422,7 @@ export function useGridBuilderSelection({
 
   async function renameSelected() {
     const selected = selection.value;
-    if (!selected || ["fixtures", "walls", "links"].includes(selected.source)) return;
+    if (!selected || selected.source === "links") return;
     const currentId = selected.source === "stands" ? selected.id.split("/")[1] : selected.id;
     const next = window.prompt(`Rename "${currentId}" to:`, currentId)?.trim();
     if (!next || next === currentId) return;
@@ -379,6 +442,7 @@ export function useGridBuilderSelection({
       nodes: "exteriorNode",
       exits: "transition",
       switches: "switch",
+      fixtures: "fixture",
     }[selected.source];
     if (selected.source === "stands") {
       const roomId = selected.id.split("/")[0];
@@ -397,6 +461,20 @@ export function useGridBuilderSelection({
         return;
       }
     }
+    if (selected.source === "fixtures") {
+      const linkedRooms = (draft.value.rooms ?? []).filter(
+        (room) => room.feature === selected.id,
+      );
+      if (linkedRooms.length) {
+        references = [
+          ...references,
+          ...linkedRooms.map((room) => ({
+            kind: "building",
+            path: `rooms.${room.id}.feature`,
+          })),
+        ];
+      }
+    }
     const lines = references.slice(0, 8).map(referenceLabel);
     const overflow = references.length - lines.length;
     const summary = lines.length
@@ -406,7 +484,7 @@ export function useGridBuilderSelection({
     const from = selected.id;
     selected.entity.id = next;
     cascadeLocalRename(kind, from, next);
-    renames.value.push({ kind, from, to: next });
+    if (kind) renames.value.push({ kind, from, to: next });
     selectedKey.value = `${selected.source}:${next}`;
   }
 
@@ -458,6 +536,12 @@ export function useGridBuilderSelection({
         if (action.exteriorNode) action.exteriorNode = replace(action.exteriorNode);
       }
     }
+    if (kind === "fixture") {
+      // Feature rooms bind to fixture id via room.feature.
+      for (const room of draft.value.rooms ?? []) {
+        if (room.feature === from) room.feature = to;
+      }
+    }
   }
 
   watch(level, resetSelectionMode);
@@ -483,6 +567,7 @@ export function useGridBuilderSelection({
     removeSelectedPathHandle,
     collectionFor,
     addObject,
+    addRoomStand,
     duplicateSelected,
     deleteSelected,
     moveSelected,
@@ -491,12 +576,67 @@ export function useGridBuilderSelection({
   };
 }
 
+function createDefaultFixture(list, levelId) {
+  const kind = window.prompt(
+    "Fixture kind: straight-stairs, spiral-stairs, or cliff-wall",
+    "straight-stairs",
+  )?.trim();
+  if (!kind) return null;
+  const levels = levelId ? [levelId] : ["first"];
+  if (kind === "cliff-wall") {
+    return {
+      id: uniqueId("new-wall", list),
+      kind: "cliff-wall",
+      visualOnly: true,
+      label: "New wall",
+      onLevels: levels,
+      thicknessFeet: 5,
+      points: [
+        { x: 0, y: 0 },
+        { x: 2, y: 0 },
+      ],
+    };
+  }
+  if (kind === "spiral-stairs") {
+    return {
+      id: uniqueId("new-spiral", list),
+      kind: "spiral-stairs",
+      label: "New spiral stairs",
+      visualOnly: true,
+      at: { x: 1, y: 1 },
+      protrude: "west",
+      radius: 0.66,
+      onLevels: levels,
+      connects: [],
+    };
+  }
+  if (kind === "straight-stairs") {
+    return {
+      id: uniqueId("new-stairs", list),
+      kind: "straight-stairs",
+      label: "New stairs",
+      visualOnly: true,
+      rect: { x: 0.5, y: 0.5, w: 1.2, h: 0.5 },
+      run: "horizontal",
+      ascend: "end",
+      angleDegrees: 0,
+      onLevels: levels,
+      connects: [],
+    };
+  }
+  window.alert(`Unknown fixture kind "${kind}". Use straight-stairs, spiral-stairs, or cliff-wall.`);
+  return null;
+}
+
 function referenceLabel(reference) {
   if (reference.kind === "storyArc") {
     return `story arc ${reference.arcId}/${reference.beatId}: ${reference.path}`;
   }
   if (reference.kind === "story") {
     return `${reference.areaId}/${reference.beatId}: ${reference.path}`;
+  }
+  if (reference.kind === "building") {
+    return reference.path;
   }
   return reference.path;
 }
