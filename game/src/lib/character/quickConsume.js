@@ -20,43 +20,27 @@ import {
  * holders. Consumes the first matching food or drink found.
  */
 
+/** Kitchen supply discovery — not day-1 milestones or random carried snacks. */
+export const KITCHEN_FOUND_RATIONS_FLAG = "kitchen.found-rations";
+export const KITCHEN_PURIFIED_WATER_FLAG = "kitchen.purified-water";
+
 /**
  * Whether the health-card Eat/Drink shortcut should be offered.
- * Hidden until the player has found kitchen supplies (or already carries food/drink),
- * so Day-1 discovery isn't spoiled by a generic button.
+ * Only after discovering kitchen rations / purified water — not because
+ * leftover trail food is still in the pack.
  */
-export function isQuickConsumeReady(gameState, kind, { nearbyHolderIds = [] } = {}) {
+export function isQuickConsumeReady(gameState, kind) {
   const mode = kind === "drink" ? "drink" : "eat";
-  const character = gameState?.character;
   const flags = gameState?.flags;
-  if (!character?.holdings) return false;
-
-  if (mode === "eat") {
-    if (flagHas(flags, "day1.found-food")) return true;
-    return hasCarriedConsumableMatch(character, "eat");
-  }
-  if (flagHas(flags, "day1.found-water")) return true;
-  return hasCarriedConsumableMatch(character, "drink");
+  if (mode === "eat") return flagHas(flags, KITCHEN_FOUND_RATIONS_FLAG);
+  return flagHas(flags, KITCHEN_PURIFIED_WATER_FLAG);
 }
 
-function flagHas(flags, id) {
+export function flagHas(flags, id) {
   if (!flags) return false;
   if (typeof flags.has === "function") return flags.has(id);
   if (Array.isArray(flags)) return flags.includes(id);
   return Boolean(flags[id]);
-}
-
-function hasCarriedConsumableMatch(character, mode) {
-  const heldId = characterHolderId(character.holdings);
-  const carried = [...accessibleHolderIds(character.holdings, "carried")];
-  const ordered = [heldId, ...carried.filter((id) => id !== heldId)];
-  for (const holderId of ordered) {
-    const records = holdingRecords(character.holdings, character.definitions, [holderId]);
-    for (const record of records) {
-      if (matchConsumeCandidate(character, record, mode)) return true;
-    }
-  }
-  return false;
 }
 
 export function performQuickConsume(gameState, kind, { nearbyHolderIds = [] } = {}) {

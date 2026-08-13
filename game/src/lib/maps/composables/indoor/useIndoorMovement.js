@@ -30,6 +30,7 @@ import {
 import { planKnownRoomPath as planKnownRoomPathPure } from "../knownAreaIndoorTravel.js";
 import { advanceGameTime } from "../../../character/gameTime.js";
 import { resolveStandPoint } from "../useAvatarStand.js";
+import { shutOffSinksLeavingStand } from "./roomFixtures.js";
 
 export const INDOOR_MOVE_MS = 550;
 export const FLOOR_MOVE_MS = 520;
@@ -70,6 +71,18 @@ export function createIndoorMovement(deps) {
     if (gameState?.clock && gameState?.character) {
       advanceGameTime(gameState, minutes, "light");
     }
+  }
+
+  function noteLeavingStand(nextStandId = null) {
+    const roomId = indoor.currentRoom;
+    const prevStand = indoor.currentStand;
+    if (!roomId || !prevStand || prevStand === nextStandId) return;
+    shutOffSinksLeavingStand(
+      indoor.facility,
+      building.value,
+      roomId,
+      prevStand,
+    );
   }
 
   const indoorMoves = computed(() => {
@@ -446,6 +459,7 @@ export function createIndoorMovement(deps) {
     }
 
     if (move.toStandId && move.toRoomId === indoor.currentRoom) {
+      noteLeavingStand(move.toStandId);
       indoor.currentStand = move.toStandId;
       advanceMovementTime(1);
       finishAfter(INDOOR_MOVE_MS);
@@ -485,6 +499,7 @@ export function createIndoorMovement(deps) {
       return;
     }
 
+    noteLeavingStand(null);
     indoor.currentRoom = move.toRoomId;
     const stairStand = stairStandForMove(building.value, from.id, move);
     indoor.currentStand = stairStand?.id ??
@@ -619,6 +634,7 @@ export function createIndoorMovement(deps) {
       const targetLevel = stairEndpointLevel(building.value, currentRoom, stand.id) ?? indoor.level;
       const endpointRoom = stairEndpointRoom(building.value, currentRoom.id, targetLevel);
       indoor.moving = true;
+      noteLeavingStand(stand.id);
       indoor.currentRoom = endpointRoom?.id ?? indoor.currentRoom;
       indoor.currentStand = stand.id;
       indoor.level = targetLevel;
@@ -634,6 +650,7 @@ export function createIndoorMovement(deps) {
     }
     if (!currentRoom?.feature && stand?.kind === "stair" && stand.stair) {
       indoor.moving = true;
+      noteLeavingStand(stand.id);
       indoor.currentStand = stand.id;
       indoor.level = roomLevel(currentRoom);
       indoor.viewLevel = indoor.level;
@@ -650,7 +667,15 @@ export function createIndoorMovement(deps) {
     const move = indoorMoves.value.find((item) =>
       item.toRoomId === indoor.currentRoom && item.toStandId === standId
     );
-    if (move) applyIndoorMove(move);
+    if (move) {
+      applyIndoorMove(move);
+      return;
+    }
+    // Direct stand set (fallback) still shuts off fixtures at the prior stand.
+    if (stand) {
+      noteLeavingStand(standId);
+      indoor.currentStand = standId;
+    }
   }
 
   function moveToExteriorNode(nodeId) {

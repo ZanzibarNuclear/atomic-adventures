@@ -17,6 +17,9 @@ import {
   takeEmptyVesselInstance,
   vesselIsEmpty,
 } from "../../../character/vessels.js";
+import {
+  KITCHEN_PURIFIED_WATER_FLAG,
+} from "../../../character/quickConsume.js";
 import { setFlags } from "../useFlags.js";
 
 export const PROCESS_FIXTURE_KINDS = new Set(["sink", "water-purifier"]);
@@ -168,7 +171,7 @@ export function buildProcessFixtureActions(indoor) {
   for (const fixture of fixturesAtStand(building, roomId, standId)) {
     if (fixture.kind === "sink") {
       const state = fixtureRuntime(facility, fixture.id, "sink");
-      if (state.flow === "off") {
+      if (!isSinkFlowing(state)) {
         actions.push({
           id: `fixture:${fixture.id}:flow-on`,
           label: state.cleared ? "Turn on the faucet" : "Run the faucet",
@@ -193,7 +196,7 @@ export function buildProcessFixtureActions(indoor) {
       const tabletId = fixture.requiresTabletItem;
 
       if (!state.filled) {
-        const canFill = sinkState?.flow !== "off" && sinkState?.cleared;
+        const canFill = isSinkFlowing(sinkState) && sinkState?.cleared === true;
         actions.push({
           id: `fixture:${fixture.id}:fill`,
           label: "Fill the purifier from the tap",
@@ -320,7 +323,9 @@ export function performProcessFixtureAction(indoor, actionId, gameState = null) 
 
   if (fixture.kind === "sink") {
     if (verb === "flow-on") {
-      const firstClear = !state.cleared;
+      // First open of a never-cleared line is always the rusty sputter, even if
+      // a bad save left flow stuck "on".
+      const firstClear = state.cleared !== true;
       state.flow = "low";
       state.cleared = true;
       if (gameState && firstClear) {
@@ -347,10 +352,10 @@ export function performProcessFixtureAction(indoor, actionId, gameState = null) 
       const sinkState = sink
         ? (facility.fixtures?.[sink.id] ?? fixtureRuntime(facility, sink.id, "sink"))
         : null;
-      if (!sinkState || sinkState.flow === "off") {
+      if (!sinkState || !isSinkFlowing(sinkState)) {
         return { ok: false, notice: "Turn on the faucet first." };
       }
-      if (!sinkState.cleared) {
+      if (sinkState.cleared !== true) {
         return { ok: false, notice: "Let the faucet run clear before filling the purifier." };
       }
       state.filled = true;
@@ -680,6 +685,35 @@ function ensureCharacterEffectFields(character) {
 
 function markDay1Water(flags) {
   if (!flags) return;
-  if (typeof flags.has === "function" && flags.has("day1.found-water")) return;
-  setFlags(flags, ["day1.found-water"]);
+  const toSet = [];
+  if (!flagPresent(flags, "day1.found-water")) toSet.push("day1.found-water");
+  if (!flagPresent(flags, KITCHEN_PURIFIED_WATER_FLAG)) toSet.push(KITCHEN_PURIFIED_WATER_FLAG);
+  if (toSet.length) setFlags(flags, toSet);
+}
+
+function flagPresent(flags, id) {
+  if (!flags) return false;
+  if (typeof flags.has === "function") return flags.has(id);
+  if (Array.isArray(flags)) return flags.includes(id);
+  return Boolean(flags[id]);
+}
+
+function isSinkFlowing(state) {
+  return Boolean(state?.flow) && state.flow !== "off";
+}
+
+/**
+ * Turn sinks off when the player leaves their stand (keeps `cleared`).
+ * Re-entering always starts with the faucet off so first-clear rust can play.
+ */
+export function shutOffSinksLeavingStand(facility, building, roomId, leavingStandId) {
+  if (!facility || !building || !roomId || !leavingStandId) return;
+  for (const fixture of listProcessFixtures(building)) {
+    if (fixture.kind !== "sink") continue;
+    if (fixture.room !== roomId) continue;
+    if (fixture.stand && fixture.stand !== leavingStandId) continue;
+    const state = facility.fixtures?.[fixture.id];
+    if (!state) continue;
+    if (isSinkFlowing(state)) state.flow = "off";
+  }
 }

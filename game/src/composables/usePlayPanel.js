@@ -45,6 +45,8 @@ import {
   roomLightAction,
 } from "../lib/maps/composables/indoor/roomLights.js";
 import { roomLabel } from "../lib/displayLabel.js";
+import { KITCHEN_FOUND_RATIONS_FLAG } from "../lib/character/quickConsume.js";
+import { setFlags } from "../lib/maps/composables/useFlags.js";
 import {
   availableItemActions,
   presentConsumeOptions,
@@ -1144,6 +1146,8 @@ function inspectNearbyContainerGroup(indoor, itemId) {
     };
   });
 
+  markKitchenRationsDiscovered(indoor, itemId, baseLabel);
+
   return {
     ok: true,
     inspectGroup: {
@@ -1193,10 +1197,32 @@ function lookInNearbyHolding(indoor, encoded) {
   if (!isNearbyContainerRecord(indoor, record)) {
     return { ok: false, error: "There is nothing to look inside." };
   }
+  markKitchenRationsDiscovered(
+    indoor,
+    record.item,
+    record.definition?.label || record.label || record.item,
+  );
   return {
     ok: true,
     lookIn: { type, id, key: `${type}:${id}` },
   };
+}
+
+/** Discover kitchen rations when the player actually looks at Tastee Tack stores. */
+function markKitchenRationsDiscovered(indoor, itemId, label = "") {
+  const text = `${itemId ?? ""} ${label ?? ""}`;
+  if (!/tastee|ration/i.test(text)) return;
+  const flags = indoor.indoor?.flags ?? indoor.flags ?? indoor.gameState?.flags;
+  if (!flags) return;
+  const toSet = [];
+  if (!(typeof flags.has === "function" ? flags.has(KITCHEN_FOUND_RATIONS_FLAG) : false)) {
+    toSet.push(KITCHEN_FOUND_RATIONS_FLAG);
+  }
+  // Day-1 milestone for story beats that still key off found-food.
+  if (!(typeof flags.has === "function" ? flags.has("day1.found-food") : false)) {
+    toSet.push("day1.found-food");
+  }
+  if (toSet.length) setFlags(flags, toSet);
 }
 
 /**

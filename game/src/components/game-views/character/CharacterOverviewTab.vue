@@ -25,14 +25,14 @@ const consumeActions = computed(() => {
       label: "Eat",
       hint: "Eat the first food in reach",
       ready: isQuickConsumeReady(gameState, "eat"),
-      blockedHint: "Find food in the kitchen first.",
+      blockedHint: "Discover kitchen rations first.",
     },
     {
       id: "drink",
       label: "Drink",
       hint: "Drink the first beverage in reach",
       ready: isQuickConsumeReady(gameState, "drink"),
-      blockedHint: "Purify water at the sink first.",
+      blockedHint: "Purify water at the kitchen sink first.",
     },
   ];
 });

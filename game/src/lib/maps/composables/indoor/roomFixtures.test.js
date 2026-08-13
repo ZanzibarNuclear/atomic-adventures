@@ -6,6 +6,7 @@ import {
   listProcessFixtures,
   performProcessFixtureAction,
   processFixtureStatusLines,
+  shutOffSinksLeavingStand,
 } from "./roomFixtures.js";
 import { createHoldings, addItem, itemQuantity, characterHolderId } from "../../../character/holdings.js";
 import { createFlags } from "../useFlags.js";
@@ -139,6 +140,7 @@ describe("room process fixtures", () => {
       amountMl: 250,
     });
     expect(indoor.indoor.flags.has("day1.found-water")).toBe(true);
+    expect(indoor.indoor.flags.has("kitchen.purified-water")).toBe(true);
     // One fill+tablet charge yields multiple glasses.
     expect(indoor.indoor.facility.fixtures["kitchen-purifier"].servingsLeft).toBe(3);
     expect(indoor.indoor.facility.fixtures["kitchen-purifier"].stage).toBe("ready");
@@ -168,6 +170,25 @@ describe("room process fixtures", () => {
     const later = performProcessFixtureAction(indoor, "fixture:kitchen-sink:flow-on");
     expect(later.notice).toBe("Clear water runs from the faucet.");
     expect(processFixtureStatusLines(indoor)).not.toContain("Clear water runs from the faucet.");
+  });
+
+  it("defaults the faucet off and shuts it off when leaving the sink stand", () => {
+    const indoor = makeIndoor();
+    expect(buildProcessFixtureActions(indoor).map((a) => a.id))
+      .toContain("fixture:kitchen-sink:flow-on");
+    performProcessFixtureAction(indoor, "fixture:kitchen-sink:flow-on");
+    expect(indoor.indoor.facility.fixtures["kitchen-sink"].flow).toBe("low");
+    shutOffSinksLeavingStand(
+      indoor.indoor.facility,
+      building,
+      "kitchen",
+      "kitchen-sink",
+    );
+    expect(indoor.indoor.facility.fixtures["kitchen-sink"].flow).toBe("off");
+    expect(indoor.indoor.facility.fixtures["kitchen-sink"].cleared).toBe(true);
+    // Still cleared: next open is clear water, not rust again.
+    const again = performProcessFixtureAction(indoor, "fixture:kitchen-sink:flow-on");
+    expect(again.notice).toBe("Clear water runs from the faucet.");
   });
 
   it("refuses to fill the purifier before the faucet runs clear", () => {
