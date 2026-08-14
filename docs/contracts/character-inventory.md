@@ -27,6 +27,30 @@ manuals, and future media records such as training videos. These domains are
 related at runtime, but separating them in the builder keeps authoring intent
 clear.
 
+### Inventory vs character attributes
+
+Inventory is **stuff the player has**. It does not define who the character is.
+Carried items, nearby containers, and physical documents live in inventory and
+related stage views — not on the character sheet.
+
+The character sheet shows **attributes and progression**: health/wellbeing,
+acquired knowledge, and skills. Those are part of the character; inventory is
+not.
+
+### Documents vs knowledge
+
+A **document** (ops card, manual, logbook) is a physical artifact. It belongs in
+**inventory** while held, and is opened through the inventory / document stage
+view (`InstructionCardView`), not through a character-sheet Documents tab.
+
+**Knowledge** is what the player has learned — often by reading a document.
+Reading may apply `document.mark-read` (bookkeeping for requirements) and
+`knowledge.acquire` (player-visible progress). Only the knowledge entry is
+listed on the character sheet.
+
+There is no player-facing Documents tab. Character-domain document state may
+still exist for effects and requirements, but it is not a codex UI surface.
+
 This contract separates:
 
 1. **Definitions** — authored facts such as what a flashlight or Hydro Operator
@@ -110,7 +134,9 @@ profile:
   summary: Curious explorer and aspiring energy systems operator.
 
 panel:
-  tabs: [overview, inventory, knowledge, skills, quests, documents]
+  # Authoring may still list legacy tab IDs; the player CharacterView is a
+  # tabless dashboard (health + knowledge/skills), not a tab strip.
+  tabs: [overview, knowledge, skills]
   statGroups:
     - { id: wellbeing, label: Wellbeing, order: 10 }
     - { id: progression, label: Progression, order: 20 }

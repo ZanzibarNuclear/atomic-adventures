@@ -89,11 +89,13 @@ describe("vessel contents", () => {
       liquidDefinition: purifiedWater,
     });
 
+    // Volume-based hydration: 100 points ≈ 1.25 L daily budget (0.08 pts/mL).
     expect(performItemAction(state, "water-bottle", "drink", {
       recordId: state.instanceId,
       optionId: "sip",
     }).ok).toBe(true);
-    expect(state.character.stats.hydration).toBeCloseTo(25);
+    // Sip = 25% of 500 mL capacity → 125 mL → +10 hydration.
+    expect(state.character.stats.hydration).toBeCloseTo(10);
     let live = state.character.holdings.instances[state.instanceId];
     expect(normalizeContents(live.contents).amountMl).toBeCloseTo(375);
 
@@ -104,6 +106,7 @@ describe("vessel contents", () => {
     // Half means half of capacity (250 mL), not half of whatever remains.
     live = state.character.holdings.instances[state.instanceId];
     expect(normalizeContents(live.contents).amountMl).toBeCloseTo(125);
+    expect(state.character.stats.hydration).toBeCloseTo(30); // +20 for 250 mL
 
     expect(performItemAction(state, "water-bottle", "drink", {
       recordId: state.instanceId,
@@ -112,5 +115,6 @@ describe("vessel contents", () => {
     live = state.character.holdings.instances[state.instanceId];
     expect(normalizeContents(live.contents)).toBeNull();
     expect(live.item).toBe("water-bottle");
+    expect(state.character.stats.hydration).toBeCloseTo(40); // +10 for last 125 mL
   });
 });

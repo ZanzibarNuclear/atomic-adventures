@@ -6,6 +6,7 @@ import {
   listProcessFixtures,
   performProcessFixtureAction,
   processFixtureStatusLines,
+  shutOffSinksLeavingStand,
 } from "./roomFixtures.js";
 import { createHoldings, addItem, itemQuantity, characterHolderId } from "../../../character/holdings.js";
 import { createFlags } from "../useFlags.js";
@@ -139,8 +140,26 @@ describe("room process fixtures", () => {
       amountMl: 250,
     });
     expect(indoor.indoor.flags.has("day1.found-water")).toBe(true);
+    expect(indoor.indoor.flags.has("kitchen.purified-water")).toBe(true);
+    // One fill+tablet charge yields multiple glasses.
+    expect(indoor.indoor.facility.fixtures["kitchen-purifier"].servingsLeft).toBe(3);
+    expect(indoor.indoor.facility.fixtures["kitchen-purifier"].stage).toBe("ready");
     // Faucet copy is action-notice only; purifier may still contribute status.
     expect(processFixtureStatusLines(indoor).some((line) => /faucet sputters|Clear water runs/i.test(line))).toBe(false);
+  });
+
+  it("pours and drinks without leaving the sink scene, leaving remaining servings", () => {
+    const indoor = makeIndoor();
+    addItem(indoor.character.holdings, definitions, "purifier-tablet", 1);
+    addItem(indoor.character.holdings, definitions, "drinking-glass", 1);
+    performProcessFixtureAction(indoor, "fixture:kitchen-sink:flow-on");
+    performProcessFixtureAction(indoor, "fixture:kitchen-purifier:fill");
+    performProcessFixtureAction(indoor, "fixture:kitchen-purifier:add-tablet");
+    const result = performProcessFixtureAction(indoor, "fixture:kitchen-purifier:pour-and-drink");
+    expect(result.ok).toBe(true);
+    expect(result.notice).toMatch(/drink/i);
+    expect(indoor.character.stats.hydration).toBeGreaterThan(20);
+    expect(indoor.indoor.facility.fixtures["kitchen-purifier"].servingsLeft).toBe(3);
   });
 
   it("uses distinct faucet notices for first clear vs later open", () => {
@@ -151,6 +170,25 @@ describe("room process fixtures", () => {
     const later = performProcessFixtureAction(indoor, "fixture:kitchen-sink:flow-on");
     expect(later.notice).toBe("Clear water runs from the faucet.");
     expect(processFixtureStatusLines(indoor)).not.toContain("Clear water runs from the faucet.");
+  });
+
+  it("defaults the faucet off and shuts it off when leaving the sink stand", () => {
+    const indoor = makeIndoor();
+    expect(buildProcessFixtureActions(indoor).map((a) => a.id))
+      .toContain("fixture:kitchen-sink:flow-on");
+    performProcessFixtureAction(indoor, "fixture:kitchen-sink:flow-on");
+    expect(indoor.indoor.facility.fixtures["kitchen-sink"].flow).toBe("low");
+    shutOffSinksLeavingStand(
+      indoor.indoor.facility,
+      building,
+      "kitchen",
+      "kitchen-sink",
+    );
+    expect(indoor.indoor.facility.fixtures["kitchen-sink"].flow).toBe("off");
+    expect(indoor.indoor.facility.fixtures["kitchen-sink"].cleared).toBe(true);
+    // Still cleared: next open is clear water, not rust again.
+    const again = performProcessFixtureAction(indoor, "fixture:kitchen-sink:flow-on");
+    expect(again.notice).toBe("Clear water runs from the faucet.");
   });
 
   it("refuses to fill the purifier before the faucet runs clear", () => {
@@ -169,7 +207,12 @@ describe("room process fixtures", () => {
     };
     const facility = indoor.indoor.facility.fixtures;
     facility["kitchen-sink"] = { flow: "low", cleared: true };
-    facility["kitchen-purifier"] = { hasTablet: true, filled: true, stage: "ready" };
+    facility["kitchen-purifier"] = {
+      hasTablet: true,
+      filled: true,
+      stage: "ready",
+      servingsLeft: 4,
+    };
 
     const result = performProcessFixtureAction(indoor, "fixture:kitchen-purifier:fill-bottle");
     expect(result.ok).toBe(true);

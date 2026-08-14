@@ -77,6 +77,78 @@ actions:
       - { op: stat.add, id: satiety, value: 18 }
 ```
 
+### Topping off (partial consumption)
+
+Wellbeing meters refuse consumption only when the **primary** recovery meter
+is already at its **authored max** (not merely in the top display band such as
+Hydrated or Stuffed). Soft refusals are enough:
+
+- satiety max → "You're not hungry right now."
+- hydration max → "You're not thirsty right now."
+- energy max → "You're already well rested."
+
+When the player is below max but a full sip/bite/meal would overshoot, the
+engine spends only enough of the item to reach max (a top-off nibble/sip) and
+leaves the remainder for later. Meals still gate on satiety as primary so a
+full hydration bar does not block eating food that also adds a little water.
+
+The same top-off rule applies to energy if rest/food restores it.
+
+### Proactive rest breaks (character sheet)
+
+The character **Health actions** card offers proactive breaks that advance
+authored game time:
+
+| Action | Target | Duration | Notes |
+| --- | --- | --- | --- |
+| **Eat** | satiety | item time | First food in hands → packs → nearby; auto-consumes (see quick consume) |
+| **Drink** | hydration | item time | First drink in hands → packs → nearby; auto-consumes |
+| **Rest** | energy | 15 min | Always available; **1×** energy unit (no energy change at 100%) |
+| **Nap** | energy + composure | 30 min | Energy **2×** unit; composure **1×** composure unit (10% of max / hr) |
+| **Sleep** | energy + composure | until ~80% energy | Energy **2×** unit; composure **3×** unit (30% of max / hr); nap tops off |
+| **Meditate** | composure + energy | 10 / 20 / 30 min | Composure **2× sleep** (60% of max / hr); energy at **nap** rate |
+
+Balancing knobs in `wellbeingActions.js`:
+
+- `ENERGY_RECOVERY_UNIT_PER_HOUR` — Rest energy per game hour; Nap / Sleep /
+  Meditate use `ENERGY_RECOVERY_MULTIPLIER` (1 / 2 / 2 / 2).
+- `COMPOSURE_RECOVERY_UNIT_PERCENT_PER_HOUR` — Nap composure as % of max per
+  hour; Sleep / Meditate use `COMPOSURE_RECOVERY_MULTIPLIER` (1 / 3 / 6), so
+  sleep is 3× nap and meditate is 2× sleep.
+
+Authored energy/composure drift still applies to other time advances; these
+buttons apply the unit rates above so intentional recovery stays tunable.
+
+### Quick Eat / Drink
+
+**Eat** and **Drink** are hurry actions on the health card. They scan:
+
+1. what the player is holding;
+2. other carried containers (packs);
+3. nearby world holders (ground / within reach).
+
+The first matching food or beverage is transferred into hand if needed and
+consumed with the default consume option (typically “all remaining” / full
+unit). Matching uses action ids/labels (`eat` / `drink` / `sip`) and, as a
+fallback, the primary positive meter effect (`satiety` vs `hydration`).
+
+Feedback names the item and source (“You eat the Meal from your pack.”). If
+nothing is found: “No food in reach.” / “No drink in reach.” Soft refuse when
+the primary meter is already full. For choosier selection, use inventory.
+Rules:
+
+- Nap/Sleep refuse when energy is already full (soft: "You're already well rested.").
+- Sleep also refuses when energy is already at or above 80% (suggest nap to top off).
+- Rest is always allowed; at full energy it spends 15 minutes without changing energy.
+- Rest/Nap/Sleep use `advanceGameTime(..., "resting")` for time and baseline
+  energy drift; Nap adds an extra energy grant so net recovery is twice resting.
+- Other resting drift (food/water decline) still applies during these breaks.
+- Meditate advances resting time and grants a portion of composure.
+- Opening the character sheet itself does not spend time; only these actions do.
+
+Conditions on the health card list only **active** conditions as a compact
+comma-separated line, or **None** when the player is fine.
+
 Time can reduce reserve meters by activity profile:
 
 ```yaml
@@ -174,28 +246,77 @@ Conditions may influence:
 Do not show ambiguous labels such as `Poison 37` unless a future simulation
 gives that number direct player meaning.
 
-## Daily Needs
+## Daily Needs And Metabolism
 
-The character document should eventually support authored daily targets:
+Runtime balance lives in `game/src/lib/character/metabolism.js` and is authored
+onto satiety/hydration `drift.perGameHour` in the character document.
 
-```yaml
-wellbeing:
-  caloriesPerDay: 2400
-  waterMlPerDay: 2500
-```
+### Food (satiety)
 
-These targets should describe Zanzibar's baseline needs. Activity, temperature,
-injury, illness, clothing, and environmental conditions may modify them.
+- **Three Tastee Tack meals per day** maintain satiety under a normal day
+  (8 hours sleep + 16 hours light activity).
+- Each standard meal restores **55** satiety (authored eat effect).
+- Daily satiety budget: `3 × 55 = 165` points drained and restored per day.
+- **Sleep/resting** is the lightest burn; light is the unit; moderate and
+  strenuous burn more.
+- Under light activity, satiety moves from roughly **Full → Hungry in about
+  four hours** (one meal cycle).
 
-Open questions:
+### Water (hydration)
 
-- Should calories and water be tracked as daily intake totals, as reservoir
-  meters, or both?
-- Should satiety/hydration drift be derived from calorie and water deficits
-  instead of authored directly per stat?
-- At what time boundary does the game evaluate daily targets?
-- How forgiving should the system be in an educational adventure, where survival
-  pressure should create stakes but not dominate exploration?
+- Target drinking fluid: **five 250 mL glasses per day (1.25 L)**.
+- Hydration meter 0–100 maps to that daily budget (one full glass ≈ **20**
+  points). Vessel drinks scale by **mL consumed**
+  (`hydrationPointsForMl`).
+- **Resting loses water at the same rate as light activity** (breathing /
+  overnight loss). Moderate and strenuous activity increase loss.
+- Thirst returns more often than hunger because the daily water budget is
+  smaller relative to how fast activity burns fluid.
+
+### Catastrophic failure
+
+If **satiety** or **hydration** reaches **0** (or **health** reaches 0), the
+game ends. Dehydration is more urgent in the short term; starvation remains a
+slower path to failure. Player weight is not tracked yet.
+
+### Composure bands
+
+| Band | Range | Tone |
+| --- | ---: | --- |
+| **Calm** | 90–100 | positive |
+| **Normal** | 60–89 | positive |
+| **Concerned** | 40–59 | warning |
+| **Nervous** | 10–39 | warning |
+| **Panicked** | 0–9 | error |
+
+### Composure from needs
+
+Composure is **derived from satiety/hydration at start** (and after load), not a
+fixed authored default. `initializeComposureFromNeeds` sets it from the current
+need impact or recovery target so different starting hunger/thirst naturally
+change starting composure. Baseline when Full/Peckish and Hydrated is **80**
+(**Normal**).
+
+For now composure is mainly a **side effect of satiety and hydration** (other
+causes later). Only the **worst** active need applies (impacts do not stack).
+
+| Condition | Impact |
+| --- | --- |
+| Hungry (satiety 10–39) or Thirsty (hydration 30–59) | **Concerned** (40) |
+| Starving (satiety &lt; 10) or Parched (hydration 10–29) | **Nervous** (10) |
+| Dehydrated (hydration &lt; 10) | **Panicked** (5) |
+
+Rules:
+
+- **Not permanent.** Entering a worse band can drop composure if the player is
+  currently calmer; staying in that band does **not** clamp composure. Meditation
+  (or other recovery) may raise composure even while still starving.
+- **Eating / drinking restores** composure from the *resulting* state:
+  - Hydrated + Stuffed → at least **Calm** (90)
+  - Hydrated + Full or Peckish → at least **Normal** (80)
+  - Still under a need impact → at least that impact level
+- `syncComposureFromNeeds` runs after stat mutations with previous meter values
+  so it can detect worsening vs recovery transitions.
 
 ## Intake And Overconsumption
 

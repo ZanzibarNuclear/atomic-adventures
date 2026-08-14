@@ -196,7 +196,10 @@ watch(
   <section v-if="drilledIn" class="location-views-drill form-section">
     <div class="drill-toolbar">
       <button type="button" class="sm muted back-btn" @click="cancelEdit">
-        ← Back to {{ parentLabel }}
+        <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        Back to {{ parentLabel }}
       </button>
     </div>
     <header class="editor-heading">
@@ -276,8 +279,18 @@ watch(
       </fieldset>
 
       <div class="editor-actions">
-        <button type="button" class="sm muted" @click="cancelEdit">Cancel</button>
-        <button type="submit" class="sm">Apply</button>
+        <button type="button" class="sm muted" @click="cancelEdit">
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+          </svg>
+          Cancel
+        </button>
+        <button type="submit" class="sm success-btn">
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 12.5 9.5 17 19 7.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          Apply
+        </button>
       </div>
     </form>
   </section>
@@ -286,7 +299,12 @@ watch(
   <section v-else class="form-section location-views-panel">
     <div class="section-heading">
       <h4>{{ title }}</h4>
-      <button type="button" class="sm" @click="addView">Add view</button>
+      <button type="button" class="sm add-btn" @click="addView">
+        <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+        </svg>
+        Add view
+      </button>
     </div>
 
     <p class="help-note">
@@ -317,17 +335,43 @@ watch(
           <span class="drill-chevron" aria-hidden="true">›</span>
         </button>
         <div class="row-actions">
-          <button type="button" class="sm muted" :disabled="index === 0" @click="moveView(index, -1)">Up</button>
+          <button
+            type="button"
+            class="sm muted"
+            :disabled="index === 0"
+            title="Move up"
+            @click="moveView(index, -1)"
+          >
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 19V5M6 11l6-6 6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Up
+          </button>
           <button
             type="button"
             class="sm muted"
             :disabled="index === owner.views.length - 1"
+            title="Move down"
             @click="moveView(index, 1)"
           >
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 5v14M6 13l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
             Down
           </button>
-          <button type="button" class="sm muted" @click="openView(index)">Open</button>
-          <button type="button" class="sm danger-outline" @click="removeView(index)">Remove</button>
+          <button type="button" class="sm edit-btn" @click="openView(index)">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 20h4.5L19 9.5 14.5 5 4 15.5V20z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+              <path d="M12.5 6.5 17.5 11.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+            </svg>
+            Open
+          </button>
+          <button type="button" class="sm danger-outline" @click="removeView(index)">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 7h14M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M8 7l.8 12.2A1.5 1.5 0 0 0 10.3 20.5h3.4a1.5 1.5 0 0 0 1.5-1.3L16 7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+            </svg>
+            Remove
+          </button>
         </div>
       </li>
     </ul>

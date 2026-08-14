@@ -2,11 +2,15 @@
 import { computed, ref, watch } from "vue";
 import PublicImagePicker from "./PublicImagePicker.vue";
 import ContainerStockEditor from "./ContainerStockEditor.vue";
+import ConfirmDialog from "../builder/ConfirmDialog.vue";
+import { useConfirmDialog } from "../../composables/useConfirmDialog.js";
 import {
   defaultContainerConfig,
   isKnownItemKind,
   ITEM_KIND_OPTIONS,
 } from "../../lib/character/itemKinds.js";
+
+const containerConfirm = useConfirmDialog();
 
 const props = defineProps({
   draft: { type: Object, required: true },
@@ -121,8 +125,15 @@ function toggleAcceptedKind(kind, checked) {
     .concat([...kinds].filter((id) => !isKnownItemKind(id)));
 }
 
-function clearContainer() {
-  if (!window.confirm("Remove container capacity from this item?")) return;
+async function clearContainer() {
+  const ok = await containerConfirm.requestConfirm({
+    eyebrow: "Remove container",
+    title: "Remove container capacity from this item?",
+    message: "This clears the container definition. Stock configuration on this item will be lost.",
+    confirmLabel: "Remove container",
+    danger: true,
+  });
+  if (!ok) return;
   props.entry.container = null;
   if (props.entry.kind === "container") {
     props.entry.kind = "item";
@@ -151,7 +162,7 @@ function ensureConsumptionAction(entry) {
     consumeOptions: [
       { id: "small", label: water ? "Sip" : "Nibble", portion: 0.25 },
       { id: "half", label: water ? "Drink half" : "Eat half", portion: 0.5 },
-      { id: "all", label: water ? "Drink all remaining" : "Eat all remaining", remaining: true },
+      { id: "all", label: water ? "Drink all" : "Eat all", remaining: true },
     ],
     depletedItem: null,
     timeMinutes: water ? 2 : 5,
@@ -456,6 +467,18 @@ function removeConsumeOption(action, index) {
       </label>
     </div>
   </div>
+
+  <ConfirmDialog
+    :visible="containerConfirm.state.visible"
+    :eyebrow="containerConfirm.state.eyebrow"
+    :title="containerConfirm.state.title"
+    :message="containerConfirm.state.message"
+    :confirm-label="containerConfirm.state.confirmLabel"
+    :cancel-label="containerConfirm.state.cancelLabel"
+    :danger="containerConfirm.state.danger"
+    @confirm="containerConfirm.accept"
+    @cancel="containerConfirm.dismiss"
+  />
 </template>
 
 <style scoped>

@@ -16,11 +16,19 @@
           </div>
           <button
             type="button"
-            class="inventory-close"
-            aria-label="Close inventory"
-            title="Close"
+            class="sm brand"
+            aria-label="Done"
             @click="$emit('close')">
-            ×
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M5 12.5 9.5 17 19 7.5"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.9"
+                stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+            Done
           </button>
         </header>
 
@@ -92,23 +100,6 @@ defineEmits(["close", "select-holding", "transfer-item", "use-item"]);
   margin: 0.1rem 0 0;
   font-size: 1.15rem;
   letter-spacing: 0;
-}
-.inventory-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border: 0;
-  background: transparent;
-  color: #e8edf5;
-  font-size: 1.25rem;
-  line-height: 1;
-  cursor: pointer;
-}
-.inventory-close:hover,
-.inventory-close:focus-visible {
-  color: #ffffff;
 }
 @media (max-width: 760px) {
   .inventory-dialog :deep(.inventory-layout) {

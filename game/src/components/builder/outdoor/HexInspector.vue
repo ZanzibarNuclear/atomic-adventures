@@ -52,7 +52,17 @@ watch(
     <section class="form-section">
       <div class="subitem-heading">
         <strong>Landmark</strong>
-        <button v-if="!selected.landmark && !landmarkDraft" class="sm" @click="beginAddLandmark">Add landmark</button>
+        <button
+          v-if="!selected.landmark && !landmarkDraft"
+          type="button"
+          class="sm add-btn"
+          @click="beginAddLandmark"
+        >
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+          </svg>
+          Add landmark
+        </button>
       </div>
       <button
         v-if="selected.landmark"
@@ -75,8 +85,18 @@ watch(
           <label>Offset y<input v-model.number="landmarkDraft.dy" type="number" step=".01" /></label>
         </div>
         <div class="row-actions">
-          <button class="sm" @click="confirmAddLandmark">Confirm</button>
-          <button class="sm muted" @click="cancelLandmarkDraft">Cancel</button>
+          <button type="button" class="sm success-btn" @click="confirmAddLandmark">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12.5 9.5 17 19 7.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Confirm
+          </button>
+          <button type="button" class="sm muted" @click="cancelLandmarkDraft">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+            </svg>
+            Cancel
+          </button>
         </div>
       </div>
     </section>
@@ -93,7 +113,17 @@ watch(
     <section class="form-section">
       <div class="subitem-heading">
         <strong>Stand points</strong>
-        <button v-if="!standDraft" class="sm" @click="beginAddStand">Add stand</button>
+        <button
+          v-if="!standDraft"
+          type="button"
+          class="sm add-btn"
+          @click="beginAddStand"
+        >
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+          </svg>
+          Add stand
+        </button>
       </div>
       <button
         v-for="stand in normalizeStandEntries(selected)"
@@ -126,8 +156,18 @@ watch(
           <label>Offset y<input v-model.number="standDraft.dy" type="number" step=".01" /></label>
         </div>
         <div class="row-actions">
-          <button class="sm" @click="confirmAddStand">Confirm</button>
-          <button class="sm muted" @click="cancelStandDraft">Cancel</button>
+          <button type="button" class="sm success-btn" @click="confirmAddStand">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12.5 9.5 17 19 7.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Confirm
+          </button>
+          <button type="button" class="sm muted" @click="cancelStandDraft">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+            </svg>
+            Cancel
+          </button>
         </div>
       </div>
     </section>

@@ -1,149 +1,30 @@
 <script setup>
-import { computed, nextTick, onMounted, ref, watch } from "vue";
-import {
-  acquiredEntries,
-  characterTabs,
-  questSections,
-} from "../../lib/character/panel.js";
+import { computed } from "vue";
+import { acquiredEntries } from "../../lib/character/panel.js";
 import { formatGameClock } from "../../lib/character/gameTime.js";
-import {
-  accessibleHolderIds,
-  holdingRecords,
-} from "../../lib/character/holdings.js";
-import CharacterDocumentsTab from "./character/CharacterDocumentsTab.vue";
-import CharacterEntriesTab from "./character/CharacterEntriesTab.vue";
-import CharacterInventoryTab from "./character/CharacterInventoryTab.vue";
 import CharacterOverviewTab from "./character/CharacterOverviewTab.vue";
-import CharacterQuestsTab from "./character/CharacterQuestsTab.vue";
 import CharacterSkillsTab from "./character/CharacterSkillsTab.vue";
+import CharacterEntriesTab from "./character/CharacterEntriesTab.vue";
 
 const props = defineProps({
   character: { type: Object, required: true },
   clock: { type: Object, default: null },
+  /** Kept for callers that still pass nearby holders / inventory props. */
   nearbyHolderIds: { type: Array, default: () => [] },
   initialTab: { type: String, default: null },
   actionPolicy: { type: Object, default: null },
+  /** False in builder preview where game time cannot advance. */
+  wellbeingActionsEnabled: { type: Boolean, default: true },
+  wellbeingActionFeedback: { type: String, default: "" },
+  /** Story/facility flags for Eat/Drink readiness. */
+  flags: { type: [Object, null], default: null },
 });
 
-defineEmits(["return-to-map", "use-item", "transfer-item"]);
-
-const tabs = computed(() => characterTabs(props.character.definitions));
-const storedTab = readStoredTab();
-const selectedTab = ref(
-  tabs.value.some((tab) => tab.id === props.initialTab)
-    ? props.initialTab
-    : tabs.value.some((tab) => tab.id === storedTab) ? storedTab : tabs.value[0]?.id ?? "overview",
-);
-const selectedHoldingId = ref(null);
-const tabButtons = ref([]);
+defineEmits(["return-to-map", "use-item", "transfer-item", "wellbeing-action"]);
 
 const portraitSrc = computed(() => publicAssetPath(props.character.definitions.profile?.portrait));
-const inventoryHolders = computed(() => {
-  const ids = [...accessibleHolderIds(
-    props.character.holdings,
-    "nearby",
-    props.nearbyHolderIds,
-  )];
-  return ids.map((id) => ({
-    ...(props.character.holdings.holders[id] ?? { id, label: id, kind: "holder" }),
-    records: holdingRecords(
-      props.character.holdings,
-      props.character.definitions,
-      [id],
-    ).map((record) => ({
-      ...record,
-      label: record.definition?.label ?? record.item,
-      description: record.definition?.description ?? "",
-      kind: record.definition?.kind ?? "item",
-      icon: record.definition?.icon ?? null,
-      actions: record.definition?.actions ?? [],
-    })),
-  }));
-});
-const transferTargets = computed(() => inventoryHolders.value
-  .filter((holder) => holder.kind !== "container")
-  .map((holder) => ({
-    id: holder.id,
-    label: holder.label ?? holder.id,
-    kind: holder.kind,
-    accepts: holder.accepts ?? null,
-  })));
-const selectedHolding = computed(() =>
-  inventoryHolders.value.flatMap((holder) =>
-    holder.records.map((record) => ({ ...record, holder })))
-    .find((record) => `${record.type}:${record.id}` === selectedHoldingId.value) ?? null,
-);
 const knowledge = computed(() => acquiredEntries(props.character, "knowledge"));
 const skills = computed(() => acquiredEntries(props.character, "skills"));
-const quests = computed(() => acquiredEntries(props.character, "quests"));
-const documents = computed(() => acquiredEntries(props.character, "documents"));
-const questsByStatus = computed(() => questSections(props.character));
-const currentEntries = computed(() => ({
-  knowledge: knowledge.value,
-  skills: skills.value,
-  quests: quests.value,
-  documents: documents.value,
-}[selectedTab.value] ?? []));
-
-watch(tabs, (next) => {
-  if (!next.some((tab) => tab.id === selectedTab.value)) {
-    selectedTab.value = next[0]?.id ?? "overview";
-  }
-});
-
-watch(
-  () => props.initialTab,
-  (tab) => {
-    if (tabs.value.some((item) => item.id === tab)) selectTab(tab);
-  },
-);
-
-watch(selectedTab, (tab) => {
-  if (typeof sessionStorage !== "undefined") {
-    sessionStorage.setItem("atomic-adventures.character-tab", tab);
-  }
-});
-
-watch(inventoryHolders, () => {
-  const records = inventoryHolders.value.flatMap((holder) => holder.records);
-  if (selectedHoldingId.value && !records.some((record) => `${record.type}:${record.id}` === selectedHoldingId.value)) {
-    selectedHoldingId.value = null;
-  }
-});
-
-onMounted(() => {
-  nextTick(() => {
-    const index = tabs.value.findIndex((tab) => tab.id === selectedTab.value);
-    tabButtons.value[index]?.focus();
-  });
-});
-
-function selectTab(id, focus = false) {
-  selectedTab.value = id;
-  if (focus) {
-    nextTick(() => {
-      const index = tabs.value.findIndex((tab) => tab.id === id);
-      tabButtons.value[index]?.focus();
-    });
-  }
-}
-
-function handleTabKey(event, index) {
-  let next = index;
-  if (event.key === "ArrowRight") next = (index + 1) % tabs.value.length;
-  else if (event.key === "ArrowLeft") next = (index - 1 + tabs.value.length) % tabs.value.length;
-  else if (event.key === "Home") next = 0;
-  else if (event.key === "End") next = tabs.value.length - 1;
-  else return;
-  event.preventDefault();
-  selectTab(tabs.value[next].id, true);
-}
-
-function readStoredTab() {
-  return typeof sessionStorage === "undefined"
-    ? null
-    : sessionStorage.getItem("atomic-adventures.character-tab");
-}
 
 function publicAssetPath(path) {
   if (!path) return null;
@@ -167,74 +48,54 @@ function publicAssetPath(path) {
           {{ character.definitions.profile?.name?.charAt(0) ?? "Z" }}
         </div>
         <div>
-          <p class="label">Character</p>
           <h2 id="character-view-title">{{ character.definitions.profile?.name }}</h2>
           <p v-if="character.definitions.profile?.summary" class="summary">
             {{ character.definitions.profile.summary }}
           </p>
-          <p v-if="clock" class="game-time">{{ formatGameClock(clock) }}</p>
         </div>
       </div>
-      <button type="button" @click="$emit('return-to-map')">Return</button>
+      <button type="button" class="sm brand" @click="$emit('return-to-map')">
+        <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M5 12.5 9.5 17 19 7.5"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.9"
+            stroke-linecap="round"
+            stroke-linejoin="round" />
+        </svg>
+        Done
+      </button>
     </header>
 
-    <nav class="character-tabs" role="tablist" aria-label="Character information">
-      <button
-        v-for="(tab, index) in tabs"
-        :id="`character-tab-${tab.id}`"
-        :key="tab.id"
-        ref="tabButtons"
-        type="button"
-        role="tab"
-        :aria-selected="selectedTab === tab.id"
-        :aria-controls="`character-panel-${tab.id}`"
-        :tabindex="selectedTab === tab.id ? 0 : -1"
-        @click="selectTab(tab.id)"
-        @keydown="handleTabKey($event, index)">
-        {{ tab.label }}
-      </button>
-    </nav>
+    <p v-if="clock" class="stats-as-of">{{ formatGameClock(clock) }}</p>
 
-    <section
-      :id="`character-panel-${selectedTab}`"
-      class="character-panel"
-      role="tabpanel"
-      tabindex="0"
-      :aria-labelledby="`character-tab-${selectedTab}`">
+    <div class="character-dashboard">
       <CharacterOverviewTab
-        v-if="selectedTab === 'overview'"
-        :character="character" />
+        :character="character"
+        :flags="flags"
+        :actions-enabled="wellbeingActionsEnabled"
+        :action-feedback="wellbeingActionFeedback"
+        @wellbeing-action="$emit('wellbeing-action', $event)" />
 
-      <CharacterInventoryTab
-        v-else-if="selectedTab === 'inventory'"
-        :holders="inventoryHolders"
-        :selected-holding="selectedHolding"
-        :selected-holding-id="selectedHoldingId"
-        :transfer-targets="transferTargets"
-        :public-asset-path="publicAssetPath"
-        :action-policy="actionPolicy"
-        @select-holding="selectedHoldingId = $event"
-        @transfer-item="$emit('transfer-item', $event)"
-        @use-item="$emit('use-item', $event)" />
+      <div class="progression-column">
+        <section class="panel-card knowledge-card" aria-labelledby="character-knowledge-heading">
+          <h3 id="character-knowledge-heading">Knowledge</h3>
+          <CharacterEntriesTab
+            :entries="knowledge"
+            selected-tab="knowledge"
+            compact />
+        </section>
 
-      <CharacterSkillsTab
-        v-else-if="selectedTab === 'skills'"
-        :skills="skills"
-        :public-asset-path="publicAssetPath" />
-
-      <CharacterDocumentsTab
-        v-else-if="selectedTab === 'documents'"
-        :documents="documents" />
-
-      <CharacterQuestsTab
-        v-else-if="selectedTab === 'quests'"
-        :quests-by-status="questsByStatus" />
-
-      <CharacterEntriesTab
-        v-else
-        :entries="currentEntries"
-        :selected-tab="selectedTab" />
-    </section>
+        <section class="panel-card skills-card" aria-labelledby="character-skills-heading">
+          <h3 id="character-skills-heading">Skills</h3>
+          <CharacterSkillsTab
+            :skills="skills"
+            :public-asset-path="publicAssetPath"
+            compact />
+        </section>
+      </div>
+    </div>
   </section>
 </template>
 
@@ -285,34 +146,39 @@ function publicAssetPath(path) {
   margin: 0.35rem 0 0;
   color: #aeb5c0;
 }
-.character-tabs {
-  display: flex;
-  gap: 0.35rem;
-  margin-top: 1.25rem;
-  overflow-x: auto;
-  border-bottom: 1px solid #3b4555;
-}
-.character-tabs button {
-  border: 0;
-  border-radius: 8px 8px 0 0;
-  background: transparent;
-  color: #9ea7b4;
-  white-space: nowrap;
-}
-.character-tabs button[aria-selected="true"] {
-  background: #334238;
-  color: #e7f0e9;
-  box-shadow: inset 0 -2px #7cad87;
-}
-.character-panel {
-  min-height: 18rem;
-  padding-top: 1.25rem;
-  outline: none;
-}
-.game-time {
-  margin: .35rem 0 0;
+.stats-as-of {
+  margin: 1rem 0 0.55rem;
   color: #8bc49a;
-  font-size: .82rem;
+  font-size: 0.82rem;
+  line-height: 1.3;
+}
+.character-dashboard {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+.progression-column {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  align-content: start;
+}
+.panel-card {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid #394454;
+  border-radius: 10px;
+  background: rgba(24, 29, 37, 0.72);
+}
+.panel-card h3 {
+  margin: 0 0 0.85rem;
+  color: var(--color-cherenkov, #20c8fb);
+}
+@media (max-width: 960px) {
+  .character-dashboard {
+    grid-template-columns: 1fr;
+  }
 }
 @media (max-width: 720px) {
   .character-view-header {

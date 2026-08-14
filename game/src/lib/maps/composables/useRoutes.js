@@ -168,11 +168,15 @@ function nextSpan(model, fromSpanIdx, dir, currentHexId) {
 
 // Travel options leaving the current hex. The label is the PATH'S heading at
 // the point it leaves the current hex — not the hex-to-hex vector.
+//
+// Each direction is evaluated independently: a blocked northbound leg must not
+// suppress a clear southbound leg on the same route (e.g. closed gate at
+// gate-woods still offers "Follow the main road south").
 export function availableMoves(currentHexId, models, travelOpts = null) {
   const moves = []
   const seen = new Set()
 
-  function reachable(toHexId, routeLeg, pathSamples) {
+  function reachable(toHexId, routeLeg) {
     if (!travelOpts?.fromPos) return true
     const fromHex = travelOpts.fromHex
     const toHex = travelOpts.hexById[toHexId]
@@ -213,25 +217,17 @@ export function availableMoves(currentHexId, models, travelOpts = null) {
           kind: m.kind,
           toHexId: fwd.hexId,
         }
-        if (
-          travelOpts &&
-          !reachable(
-            fwd.hexId,
-            routeLeg,
-            routeMoveSamples(m, span, fwd),
-          )
-        ) {
-          continue
+        if (!travelOpts || reachable(fwd.hexId, routeLeg)) {
+          const h = headingVec(m.samples, span.endIdx)
+          seen.add(fwd.hexId)
+          moves.push({
+            routeId: m.id,
+            routeName: m.label,
+            kind: m.kind,
+            toHexId: fwd.hexId,
+            label: bearingFromVector(h.dx, h.dy),
+          })
         }
-        const h = headingVec(m.samples, span.endIdx)
-        seen.add(fwd.hexId)
-        moves.push({
-          routeId: m.id,
-          routeName: m.label,
-          kind: m.kind,
-          toHexId: fwd.hexId,
-          label: bearingFromVector(h.dx, h.dy),
-        })
       }
 
       const bwd = nextSpan(m, si, -1, currentHexId)
@@ -242,25 +238,17 @@ export function availableMoves(currentHexId, models, travelOpts = null) {
           kind: m.kind,
           toHexId: bwd.hexId,
         }
-        if (
-          travelOpts &&
-          !reachable(
-            bwd.hexId,
-            routeLeg,
-            routeMoveSamples(m, span, bwd),
-          )
-        ) {
-          continue
+        if (!travelOpts || reachable(bwd.hexId, routeLeg)) {
+          const h = headingVec(m.samples, span.startIdx)
+          seen.add(bwd.hexId)
+          moves.push({
+            routeId: m.id,
+            routeName: m.label,
+            kind: m.kind,
+            toHexId: bwd.hexId,
+            label: bearingFromVector(-h.dx, -h.dy),
+          })
         }
-        const h = headingVec(m.samples, span.startIdx)
-        seen.add(bwd.hexId)
-        moves.push({
-          routeId: m.id,
-          routeName: m.label,
-          kind: m.kind,
-          toHexId: bwd.hexId,
-          label: bearingFromVector(-h.dx, -h.dy),
-        })
       }
     }
   }
@@ -379,10 +367,22 @@ export function buildMovePath(
     if (model && fromSpan && toSpan) {
       const fromIdx = closestSampleIndexInSpan(model, fromSpan, fromPos)
       const toIdx = closestSampleIndexInSpan(model, toSpan, toPos)
-      const samples =
-        fromIdx != null && toIdx != null
-          ? model.samples.slice(Math.min(fromIdx, toIdx), Math.max(fromIdx, toIdx) + 1)
-          : routeMoveSamples(model, fromSpan, toSpan)
+      let samples = null
+      if (fromIdx != null && toIdx != null) {
+        // Order samples in travel direction (reverse when heading backward on the polyline).
+        samples =
+          fromIdx <= toIdx
+            ? model.samples.slice(fromIdx, toIdx + 1)
+            : model.samples.slice(toIdx, fromIdx + 1).reverse()
+      } else {
+        samples = routeMoveSamples(model, fromSpan, toSpan)
+        if (
+          samples.length >= 2 &&
+          fromSpan.startIdx > toSpan.startIdx
+        ) {
+          samples = samples.slice().reverse()
+        }
+      }
       if (samples.length >= 2) {
         return [fromPos, ...samples]
       }

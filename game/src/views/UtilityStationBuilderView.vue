@@ -4,22 +4,26 @@ import { useRouter } from "vue-router";
 import { storyApi } from "../lib/storyApi.js";
 import BuilderPageHeader from "../components/builder/BuilderPageHeader.vue";
 import BuilderStatusBanner from "../components/builder/BuilderStatusBanner.vue";
+import ConfirmDialog from "../components/builder/ConfirmDialog.vue";
 import UnsavedChangesDialog from "../components/builder/UnsavedChangesDialog.vue";
 import StationCanvasPanel from "../components/builder/station/StationCanvasPanel.vue";
 import StationInspector from "../components/builder/station/StationInspector.vue";
 import StationObjectBrowser from "../components/builder/station/StationObjectBrowser.vue";
 import { useBuildingBuilderDocument } from "../composables/useBuildingBuilderDocument.js";
+import { useConfirmDialog } from "../composables/useConfirmDialog.js";
 import { useDirtyDocumentNavigation } from "../composables/useDirtyDocumentNavigation.js";
 import { useGridBuilderSelection } from "../composables/useGridBuilderSelection.js";
 import { buildBuilding } from "../lib/maps/composables/useGrid.js";
 import { buildInitialDoorState } from "../lib/maps/composables/useDoors.js";
 import {
   listAllGridEditable,
+  listEditableRoomsWithStands,
 } from "../lib/maps/composables/useGridBuilder.js";
 import { auditIndoorBuilding } from "../lib/maps/testing/indoorBuildingAudit.js";
 import { useResizableSplit } from "../composables/useResizableSplit.js";
 
 const router = useRouter();
+const confirmDialog = useConfirmDialog();
 const emptyUtilityStation = {
   id: "utility-station",
   label: "Utility Station",
@@ -98,6 +102,8 @@ const {
   onMapClick,
   removeSelectedPathHandle,
   addObject,
+  addRoomStand,
+  deleteRoomStand,
   duplicateSelected,
   deleteSelected,
   moveSelected,
@@ -107,6 +113,7 @@ const {
   level,
   status,
   renames,
+  requestConfirm: confirmDialog.requestConfirm,
   previewRename: async ({ kind, from, to }) => {
     const preview = await storyApi(
       "/api/world/buildings/utility-station/rename-preview",
@@ -137,24 +144,39 @@ const allExteriorIds = computed(() => building.value.exterior.nodes.map((node) =
 const editableItems = computed(() =>
   listAllGridEditable(draft.value, level.value).filter((item) => {
     const term = search.value.trim().toLowerCase();
-    return !term || `${item.id} ${item.label} ${item.source}`.toLowerCase().includes(term);
+    return !term || `${item.id} ${item.label} ${item.source} ${item.kind ?? ""}`.toLowerCase().includes(term);
   }),
 );
-const groupedItems = computed(() => [
-  { source: "rooms", label: "Rooms" },
-  { source: "doors", label: "Doors" },
-  { source: "paths", label: "Exterior paths" },
-  { source: "nodes", label: "Exterior nodes" },
-  { source: "exits", label: "Map transitions" },
-  { source: "fixtures", label: "Fixtures" },
-  { source: "walls", label: "Visual walls" },
-  { source: "links", label: "Room connections" },
-  { source: "switches", label: "Switches" },
-  { source: "stands", label: "Room stands" },
-].map((group) => ({
-  ...group,
-  items: editableItems.value.filter((item) => item.source === group.source),
-})));
+const groupedItems = computed(() => {
+  const term = search.value.trim().toLowerCase();
+  const matches = (item) =>
+    !term ||
+    `${item.id} ${item.label} ${item.source} ${item.kind ?? ""}`.toLowerCase().includes(term);
+  const roomItems = listEditableRoomsWithStands(draft.value, level.value)
+    .map((room) => ({
+      ...room,
+      children: (room.children ?? []).filter(matches),
+    }))
+    .filter((room) => matches(room) || room.children.length > 0);
+
+  return [
+    { source: "rooms", label: "Rooms", items: roomItems },
+    { source: "doors", label: "Doors" },
+    { source: "paths", label: "Exterior paths" },
+    { source: "nodes", label: "Exterior nodes" },
+    { source: "exits", label: "Map transitions" },
+    { source: "fixtures", label: "Fixtures" },
+    { source: "links", label: "Room connections" },
+    { source: "switches", label: "Switches" },
+  ].map((group) =>
+    group.source === "rooms"
+      ? group
+      : {
+          ...group,
+          items: editableItems.value.filter((item) => item.source === group.source),
+        },
+  );
+});
 onMounted(async () => {
   try {
     const [buildingResult, catalogResult, beatsResult] = await Promise.all([
@@ -251,15 +273,32 @@ function duplicateArtifact(payload) {
         <slot name="workspace-switcher" />
       </template>
       <template #actions>
-        <button class="sm muted" @click="leftCollapsed = !leftCollapsed">
+        <button type="button" class="sm muted" @click="leftCollapsed = !leftCollapsed">
           {{ leftCollapsed ? "Show objects" : "Hide objects" }}
         </button>
-        <button class="sm muted" @click="rightCollapsed = !rightCollapsed">
+        <button type="button" class="sm muted" @click="rightCollapsed = !rightCollapsed">
           {{ rightCollapsed ? "Show inspector" : "Hide inspector" }}
         </button>
-        <button class="sm muted" :disabled="!dirty" @click="revertDraft">Revert</button>
-        <button class="sm muted" @click="loadHistory">History</button>
-        <button class="sm" :disabled="!dirty" @click="saveDraft">Save building</button>
+        <button type="button" class="sm muted" :disabled="!dirty" @click="revertDraft">
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          Revert
+        </button>
+        <button type="button" class="sm muted" @click="loadHistory">
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8" />
+          </svg>
+          History
+        </button>
+        <button type="button" class="sm success-btn" :disabled="!dirty" @click="saveDraft">
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 4h11l3 3v13H5V4z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+            <path d="M8 4v5h8V4M8 20v-7h8v7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+          </svg>
+          Save building
+        </button>
       </template>
     </BuilderPageHeader>
 
@@ -344,6 +383,9 @@ function duplicateArtifact(payload) {
           @rename-selected="renameSelected"
           @duplicate-selected="duplicateSelected"
           @delete-selected="deleteSelected"
+          @select-item="selectItem($event.source, $event.id)"
+          @add-room-stand="addRoomStand($event)"
+          @delete-room-stand="deleteRoomStand($event)"
           @open-location-beat="openLocationBeat"
           @toggle-path-add-mode="togglePathAddMode"
           @remove-selected-path-handle="removeSelectedPathHandle"
@@ -364,6 +406,18 @@ function duplicateArtifact(payload) {
       @save="navigation.saveAndContinue"
       @discard="navigation.discardAndContinue"
       @keep="navigation.keepEditing"
+    />
+
+    <ConfirmDialog
+      :visible="confirmDialog.state.visible"
+      :eyebrow="confirmDialog.state.eyebrow"
+      :title="confirmDialog.state.title"
+      :message="confirmDialog.state.message"
+      :confirm-label="confirmDialog.state.confirmLabel"
+      :cancel-label="confirmDialog.state.cancelLabel"
+      :danger="confirmDialog.state.danger"
+      @confirm="confirmDialog.accept"
+      @cancel="confirmDialog.dismiss"
     />
   </main>
 </template>
@@ -446,7 +500,6 @@ button.active { background: #49624f; border-color: #6f9b79; }
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; }
 .check-field { display: flex !important; align-items: center; }
 .check-field input { width: auto; }
-.danger-outline { border-color: #9b5050; color: #ffb5b5; background: #3d2729; }
 .empty-note { color: #939ba7; }
 .read-only-note { color: #aeb5c0; font-size: .78rem; line-height: 1.45; }
 .field-error { color: #ff9e9e; font-size: .78rem; }

@@ -1,10 +1,11 @@
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import RevisionHistoryPanel from "../RevisionHistoryPanel.vue";
 import DoorInspector from "./DoorInspector.vue";
 import ExteriorNodeInspector from "./ExteriorNodeInspector.vue";
 import FixtureInspector from "./FixtureInspector.vue";
 import LinkInspector from "./LinkInspector.vue";
+import LocationViewsEditor from "../LocationViewsEditor.vue";
 import LocationViewsSummary from "../LocationViewsSummary.vue";
 import PathInspector from "./PathInspector.vue";
 import RoomInspector from "./RoomInspector.vue";
@@ -37,6 +38,9 @@ const emit = defineEmits([
   "rename-selected",
   "duplicate-selected",
   "delete-selected",
+  "select-item",
+  "add-room-stand",
+  "delete-room-stand",
   "toggle-path-add-mode",
   "remove-selected-path-handle",
   "restore-revision",
@@ -48,21 +52,53 @@ const errorMessages = computed(() =>
   ),
 );
 
-const fixedSelectionSources = new Set(["fixtures", "walls", "links"]);
+// Links stay identity-fixed for now (no stable id field in the list model).
+const fixedSelectionSources = new Set(["links"]);
 const editing = ref(false);
 const selectedArtifactItemId = ref("");
 const placementFormOpen = ref(false);
 const editingPlacementId = ref("");
 const nestedDrill = ref(false);
+const roomTab = ref("details");
+
+const roomTabs = [
+  { id: "details", label: "Details" },
+  { id: "views", label: "Views" },
+  { id: "stands", label: "Stands" },
+  { id: "items", label: "Items" },
+  { id: "rules", label: "Rules" },
+];
 
 watch(
   () => `${props.selection?.source ?? ""}:${props.selection?.id ?? ""}`,
-  () => {
-    editing.value = false;
-    placementFormOpen.value = false;
-    selectedArtifactItemId.value = "";
-    editingPlacementId.value = "";
-    nestedDrill.value = false;
+  (next, prev) => {
+    const nextSource = next.split(":")[0];
+    const prevSource = (prev ?? "").split(":")[0];
+    const drillingRoomStand =
+      (prevSource === "rooms" && nextSource === "stands")
+      || (prevSource === "stands" && nextSource === "rooms");
+
+    if (!drillingRoomStand) {
+      editing.value = false;
+      placementFormOpen.value = false;
+      selectedArtifactItemId.value = "";
+      editingPlacementId.value = "";
+      nestedDrill.value = false;
+    }
+
+    // Reset tabs only when entering a different room, not when drilling stands.
+    if (nextSource === "rooms") {
+      const roomId = next.slice("rooms:".length);
+      const prevRoomId = prevSource === "rooms"
+        ? prev.slice("rooms:".length)
+        : prevSource === "stands"
+          ? (prev ?? "").slice("stands:".length).split("/")[0]
+          : null;
+      if (roomId !== prevRoomId) roomTab.value = "details";
+      else if (prevSource === "stands") roomTab.value = "stands";
+    } else if (!drillingRoomStand) {
+      roomTab.value = "details";
+    }
   },
 );
 
@@ -246,12 +282,24 @@ const summaryRows = computed(() => {
       ["Door", entity.door],
     ];
   }
-  if (selection.source === "fixtures" || selection.source === "walls") {
+  if (selection.source === "fixtures") {
     return [
       ["ID", selection.id],
-      ["Kind", selection.source === "walls" ? "stone wall" : entity.kind || "fixture"],
-      ["Role", entity.visualOnly ? "Visual only" : "Traversal"],
+      ["Label", entity.label || "None"],
+      ["Kind", entity.kind === "cliff-wall" ? "stone wall (cliff-wall)" : entity.kind || "fixture"],
+      ["Role", entity.visualOnly || entity.kind === "cliff-wall" ? "Visual only" : "Traversal"],
       ["Levels", (entity.onLevels ?? []).join(", ") || "Default"],
+      ["Connects", (entity.connects ?? []).join(", ") || "None"],
+    ];
+  }
+  if (selection.source === "stands") {
+    const roomId = selection.id.split("/")[0];
+    return [
+      ["ID", entity.id || selection.id],
+      ["Room", roomId],
+      ["Label", entity.label || "None"],
+      ["Pose", entity.pose || "stand"],
+      ["Position", entity.at ? `${entity.at.x}, ${entity.at.y}` : "Unset"],
     ];
   }
   return [["ID", selection.id]];
@@ -294,6 +342,14 @@ function doorInitialSummary(door) {
   const open = initial.open ?? (initial.closed != null ? !initial.closed : false);
   const locked = initial.locked === true;
   return `${open ? "Open" : "Closed"}${locked ? ", locked" : ""}`;
+}
+
+function openNestedSelection(source, id) {
+  emit("select-item", { source, id });
+  // Keep the editor open when drilling room ↔ stand.
+  nextTick(() => {
+    editing.value = true;
+  });
 }
 
 function artifactLabel(id) {
@@ -342,6 +398,15 @@ function removePlacement(placementId) {
   props.draft.pickups = (props.draft.pickups ?? []).filter((pickup) => pickup.id !== placementId);
 }
 
+function selectRoomTab(tabId) {
+  roomTab.value = tabId;
+  nestedDrill.value = false;
+}
+
+const roomStands = computed(() =>
+  props.selection?.source === "rooms" ? (props.selection.entity?.stands ?? []) : [],
+);
+
 </script>
 
 <template>
@@ -353,278 +418,557 @@ function removePlacement(placementId) {
           <h3>{{ selectionTitle(selection) }}</h3>
         </div>
         <div class="row-actions">
-          <button v-if="!editing" class="sm" @click="editing = true">Edit</button>
-          <button v-else class="sm muted" @click="editing = false">Done</button>
-        </div>
-      </div>
-
-      <section v-if="!editing" class="detail-card">
-        <div v-for="[label, value] in summaryRows" :key="label" class="detail-row">
-          <span>{{ label }}</span>
-          <strong>{{ value || "None" }}</strong>
-        </div>
-        <LocationViewsSummary
-          :views="selection.entity?.views ?? []"
-        />
-        <template v-if="selection.source === 'exits'">
-          <div class="beat-associations">
-            <div>
-              <p class="label">To local beats</p>
-              <p v-if="!associatedTransitionBeats.toLocal.length" class="empty-note">None yet.</p>
-              <ul v-else>
-                <li v-for="beat in associatedTransitionBeats.toLocal" :key="beat.id">
-                  <button
-                    type="button"
-                    class="beat-link"
-                    @click="emit('open-transition-beat', {
-                      transitionId: selection.id,
-                      direction: 'toLocal',
-                      locationMode: beat.trigger?.exteriorNode ? 'exterior' : 'rooms',
-                      location: beat.trigger?.exteriorNode || beat.trigger?.room,
-                      beatId: beat.id,
-                    })"
-                  >
-                    <strong>{{ beat.heading || beat.id }}</strong>
-                    <span>{{ beat.trigger?.exteriorNode || beat.trigger?.room || beat.id }}</span>
-                  </button>
-                </li>
-              </ul>
-              <button
-                type="button"
-                class="sm muted add-beat"
-                @click="emit('open-transition-beat', {
-                  transitionId: selection.id,
-                  direction: 'toLocal',
-                  locationMode: 'exterior',
-                  location: selection.entity.exteriorNode || draft.exterior?.entry,
-                  create: true,
-                })"
-              >
-                Add to local beat
-              </button>
-            </div>
-            <div>
-              <p class="label">To regional beats</p>
-              <p v-if="!associatedTransitionBeats.toRegional.length" class="empty-note">None yet.</p>
-              <ul v-else>
-                <li v-for="beat in associatedTransitionBeats.toRegional" :key="beat.id">
-                  <button
-                    type="button"
-                    class="beat-link"
-                    @click="emit('open-transition-beat', {
-                      transitionId: selection.id,
-                      direction: 'toRegional',
-                      locationMode: 'outdoors',
-                      location: beat.trigger?.hex,
-                      beatId: beat.id,
-                    })"
-                  >
-                    <strong>{{ beat.heading || beat.id }}</strong>
-                    <span>{{ beat.trigger?.hex || beat.id }}</span>
-                  </button>
-                </li>
-              </ul>
-              <button
-                type="button"
-                class="sm muted add-beat"
-                @click="emit('open-transition-beat', {
-                  transitionId: selection.id,
-                  direction: 'toRegional',
-                  locationMode: 'outdoors',
-                  location: selection.entity.hex || draft.outdoorHex,
-                  create: true,
-                })"
-              >
-                Add to regional beat
-              </button>
-            </div>
-          </div>
-        </template>
-        <div v-else-if="locationBeatTarget" class="beat-associations">
-          <div>
-            <p class="label">{{ locationBeatTarget.label }}</p>
-            <p v-if="!associatedLocationBeats.length" class="empty-note">None yet.</p>
-            <ul v-else>
-              <li v-for="beat in associatedLocationBeats" :key="beat.id">
-                <button
-                  type="button"
-                  class="beat-link"
-                  @click="emit('open-location-beat', {
-                    locationMode: locationBeatTarget.locationMode,
-                    location: locationBeatTarget.location,
-                    beatId: beat.id,
-                  })"
-                >
-                  <strong>{{ beat.heading || beat.id }}</strong>
-                  <span>{{ beatContextLabel(beat) }}</span>
-                </button>
-              </li>
-            </ul>
-            <button
-              type="button"
-              class="sm muted add-beat"
-              @click="emit('open-location-beat', {
-                locationMode: locationBeatTarget.locationMode,
-                location: locationBeatTarget.location,
-                create: true,
-              })"
-            >
-              Add beat
-            </button>
-          </div>
-        </div>
-        <div v-if="selection.source === 'rooms'" class="artifact-associations">
-          <p class="label">Artifact placements</p>
-          <p v-if="!placedArtifacts.length" class="empty-note">None yet.</p>
-          <ul v-else>
-            <li v-for="placement in placedArtifacts" :key="placement.id">
-              <div class="artifact-placement-card">
-                <button
-                  type="button"
-                  class="artifact-link"
-                  @click="emit('open-artifact', { catalog: 'items', id: placement.item })"
-                >
-                  <strong>{{ artifactLabel(placement.item) }}</strong>
-                  <span>{{ placement.item }} / {{ placement.id }}</span>
-                </button>
-                <template v-if="editingPlacementId === placement.id">
-                  <label>Placement text<input v-model="placement.label"></label>
-                  <label>Standpoint
-                    <select v-model="placement.stand">
-                      <option :value="null">None</option>
-                      <option v-for="stand in currentStandOptions" :key="stand.id" :value="stand.id">
-                        {{ stand.label || stand.id }} ({{ stand.id }})
-                      </option>
-                    </select>
-                  </label>
-                  <div class="row-actions placement-actions">
-                    <button type="button" class="sm muted" @click="stopEditingPlacement(placement.id)">Done</button>
-                    <button type="button" class="sm danger-outline" @click="removePlacement(placement.id)">Remove</button>
-                  </div>
-                </template>
-                <template v-else>
-                  <p class="placement-text">{{ placement.label || "No placement text." }}</p>
-                  <p v-if="placement.stand" class="placement-meta">Standpoint: {{ standLabel(placement.stand) }}</p>
-                  <div class="row-actions placement-actions">
-                    <button type="button" class="sm muted" @click="editPlacement(placement.id)">Edit</button>
-                    <button
-                      type="button"
-                      class="sm muted"
-                      @click="emit('duplicate-artifact', { catalog: 'items', id: placement.item })"
-                    >
-                      Duplicate
-                    </button>
-                    <button type="button" class="sm danger-outline" @click="removePlacement(placement.id)">Remove</button>
-                  </div>
-                </template>
-              </div>
-            </li>
-          </ul>
-          <div v-if="placementFormOpen" class="artifact-placement-form">
-            <label>Artifact
-              <select
-                v-model="selectedArtifactItemId"
-                :disabled="!characterCatalog.items.length"
-                @change="placeArtifact"
-              >
-                <option value="">Select artifact...</option>
-                <option v-for="item in characterCatalog.items" :key="item.id" :value="item.id">
-                  {{ item.label }} ({{ item.id }})
-                </option>
-              </select>
-            </label>
-            <button type="button" class="sm muted" @click="placementFormOpen = false">Cancel</button>
-          </div>
+          <button
+            v-if="!editing"
+            type="button"
+            class="sm edit-btn"
+            @click="editing = true"
+          >
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 20h4.5L19 9.5 14.5 5 4 15.5V20z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+              <path d="M12.5 6.5 17.5 11.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+            </svg>
+            Edit
+          </button>
           <button
             v-else
             type="button"
-            class="sm muted add-beat"
-            :disabled="!characterCatalog.items.length"
-            @click="placementFormOpen = true"
+            class="sm success-btn"
+            @click="editing = false; nestedDrill = false"
           >
-            Place artifact
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12.5 9.5 17 19 7.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Done
           </button>
-        </div>
-      </section>
-
-      <div v-if="editing && !nestedDrill" class="edit-toolbar">
-        <div class="row-actions object-actions">
-          <button class="sm muted" :disabled="fixedSelectionSources.has(selection.source)" @click="emit('rename-selected')">Rename</button>
-          <button class="sm muted" :disabled="fixedSelectionSources.has(selection.source)" @click="emit('duplicate-selected')">Duplicate object</button>
-          <button class="sm danger-outline" :disabled="['fixtures', 'walls'].includes(selection.source)" @click="emit('delete-selected')">Delete</button>
         </div>
       </div>
 
-      <RoomInspector
-        v-if="editing && selection.source === 'rooms'"
-        :draft="draft"
-        :selection="selection"
-        @drill-change="nestedDrill = $event"
-      />
+      <!-- Room detail: tabbed sections -->
+      <template v-if="selection.source === 'rooms'">
+        <div
+          v-if="!nestedDrill"
+          class="editor-tabs"
+          role="tablist"
+          aria-label="Room detail sections"
+        >
+          <button
+            v-for="tab in roomTabs"
+            :key="tab.id"
+            type="button"
+            class="sm"
+            :class="{ active: roomTab === tab.id }"
+            role="tab"
+            :aria-selected="roomTab === tab.id"
+            @click="selectRoomTab(tab.id)"
+          >
+            {{ tab.label }}
+          </button>
+        </div>
 
-      <DoorInspector
-        v-else-if="editing && selection.source === 'doors'"
-        :draft="draft"
-        :selection="selection"
-        :character-catalog="characterCatalog"
-        :roll-door-room="rollDoorRoom"
-      />
+        <div v-show="roomTab === 'details'" class="tab-panel" role="tabpanel">
+          <section v-if="!editing" class="detail-card">
+            <div v-for="[label, value] in summaryRows" :key="label" class="detail-row">
+              <span>{{ label }}</span>
+              <strong>{{ value || "None" }}</strong>
+            </div>
+            <div class="beat-associations">
+              <div>
+                <p class="label">{{ locationBeatTarget?.label || "Room beats" }}</p>
+                <p v-if="!associatedLocationBeats.length" class="empty-note">None yet.</p>
+                <ul v-else>
+                  <li v-for="beat in associatedLocationBeats" :key="beat.id">
+                    <button
+                      type="button"
+                      class="beat-link"
+                      @click="emit('open-location-beat', {
+                        locationMode: locationBeatTarget.locationMode,
+                        location: locationBeatTarget.location,
+                        beatId: beat.id,
+                      })"
+                    >
+                      <strong>{{ beat.heading || beat.id }}</strong>
+                      <span>{{ beatContextLabel(beat) }}</span>
+                    </button>
+                  </li>
+                </ul>
+                <button
+                  type="button"
+                  class="sm add-btn add-beat"
+                  @click="emit('open-location-beat', {
+                    locationMode: locationBeatTarget.locationMode,
+                    location: locationBeatTarget.location,
+                    create: true,
+                  })"
+                >
+                  <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+                  </svg>
+                  Add beat
+                </button>
+              </div>
+            </div>
+          </section>
 
-      <PathInspector
-        v-else-if="editing && selection.source === 'paths'"
-        :draft="draft"
-        :selection="selection"
-        :selected-handle-id="selectedHandleId"
-        :selected-path-node="selectedPathNode"
-        :add-mode="addMode"
-        @toggle-path-add-mode="emit('toggle-path-add-mode', $event)"
-        @remove-selected-path-handle="emit('remove-selected-path-handle')"
-      />
+          <div v-if="editing" class="edit-toolbar">
+            <div class="row-actions object-actions">
+              <button type="button" class="sm muted" @click="emit('rename-selected')">
+                <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 20h4.5L19 9.5 14.5 5 4 15.5V20z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                  <path d="M12.5 6.5 17.5 11.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                </svg>
+                Rename
+              </button>
+              <button type="button" class="sm muted" @click="emit('duplicate-selected')">
+                <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="8" y="8" width="11" height="11" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7" />
+                  <path d="M6 15H5.5A1.5 1.5 0 0 1 4 13.5v-8A1.5 1.5 0 0 1 5.5 4h8A1.5 1.5 0 0 1 15 5.5V6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                </svg>
+                Duplicate object
+              </button>
+              <button type="button" class="sm danger" @click="emit('delete-selected')">
+                <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M5 7h14M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M8 7l.8 12.2A1.5 1.5 0 0 0 10.3 20.5h3.4a1.5 1.5 0 0 0 1.5-1.3L16 7"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.7"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+                Delete
+              </button>
+            </div>
+          </div>
 
-      <ExteriorNodeInspector
-        v-else-if="editing && selection.source === 'nodes'"
-        :draft="draft"
-        :selection="selection"
-      />
+          <RoomInspector
+            v-if="editing"
+            :draft="draft"
+            :selection="selection"
+          />
+        </div>
 
-      <TransitionInspector
-        v-else-if="editing && selection.source === 'exits'"
-        :draft="draft"
-        :selection="selection"
-      />
+        <div v-show="roomTab === 'views'" class="tab-panel" role="tabpanel">
+          <LocationViewsEditor
+            :owner="selection.entity"
+            title="Room views"
+            parent-label="room"
+            @drill-change="nestedDrill = $event"
+          />
+        </div>
 
-      <FixtureInspector
-        v-else-if="editing && ['fixtures', 'walls'].includes(selection.source)"
-        :selection="selection"
-      />
+        <div v-show="roomTab === 'stands' && !nestedDrill" class="tab-panel" role="tabpanel">
+          <section class="detail-card stands-panel">
+            <div class="section-heading stands-heading">
+              <p class="label">Room stands</p>
+              <button
+                type="button"
+                class="sm add-btn"
+                @click="emit('add-room-stand', selection.id)"
+              >
+                <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+                </svg>
+                Add stand
+              </button>
+            </div>
+            <p class="help-note">
+              Stands belong to this room. Open one to edit pose, views, and default arrival.
+            </p>
+            <p v-if="!roomStands.length" class="empty-note">No authored stands in this room yet.</p>
+            <ul v-else class="stand-list">
+              <li v-for="stand in roomStands" :key="stand.id" class="stand-row">
+                <button
+                  type="button"
+                  class="beat-link stand-link"
+                  @click="openNestedSelection('stands', `${selection.id}/${stand.id}`)"
+                >
+                  <strong>{{ stand.label || stand.id }}</strong>
+                  <span>
+                    {{ stand.id }}
+                    <template v-if="selection.entity.defaultStand === stand.id"> · default</template>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  class="sm edit-btn"
+                  @click="openNestedSelection('stands', `${selection.id}/${stand.id}`)"
+                >
+                  Open
+                </button>
+                <button
+                  type="button"
+                  class="sm danger-outline"
+                  title="Remove stand"
+                  @click="emit('delete-room-stand', { roomId: selection.id, standId: stand.id })"
+                >
+                  <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M5 7h14M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M8 7l.8 12.2A1.5 1.5 0 0 0 10.3 20.5h3.4a1.5 1.5 0 0 0 1.5-1.3L16 7"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.7"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                  Remove
+                </button>
+              </li>
+            </ul>
+          </section>
+        </div>
 
-      <LinkInspector
-        v-else-if="editing && selection.source === 'links'"
-        :draft="draft"
-        :selection="selection"
-      />
+        <div v-show="roomTab === 'items' && !nestedDrill" class="tab-panel" role="tabpanel">
+          <section class="detail-card artifact-associations">
+            <p class="label">Artifact placements</p>
+            <p v-if="!placedArtifacts.length" class="empty-note">None yet.</p>
+            <ul v-else>
+              <li v-for="placement in placedArtifacts" :key="placement.id">
+                <div class="artifact-placement-card">
+                  <button
+                    type="button"
+                    class="artifact-link"
+                    @click="emit('open-artifact', { catalog: 'items', id: placement.item })"
+                  >
+                    <strong>{{ artifactLabel(placement.item) }}</strong>
+                    <span>{{ placement.item }} / {{ placement.id }}</span>
+                  </button>
+                  <template v-if="editingPlacementId === placement.id">
+                    <label>Placement text<input v-model="placement.label"></label>
+                    <label>Standpoint
+                      <select v-model="placement.stand">
+                        <option :value="null">None</option>
+                        <option v-for="stand in currentStandOptions" :key="stand.id" :value="stand.id">
+                          {{ stand.label || stand.id }} ({{ stand.id }})
+                        </option>
+                      </select>
+                    </label>
+                    <div class="row-actions placement-actions">
+                      <button type="button" class="sm success-btn" @click="stopEditingPlacement(placement.id)">
+                        <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M5 12.5 9.5 17 19 7.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        Done
+                      </button>
+                      <button type="button" class="sm danger-outline" @click="removePlacement(placement.id)">
+                        <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M5 7h14M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M8 7l.8 12.2A1.5 1.5 0 0 0 10.3 20.5h3.4a1.5 1.5 0 0 0 1.5-1.3L16 7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                        </svg>
+                        Remove
+                      </button>
+                    </div>
+                  </template>
+                  <template v-else>
+                    <p class="placement-text">{{ placement.label || "No placement text." }}</p>
+                    <p v-if="placement.stand" class="placement-meta">Standpoint: {{ standLabel(placement.stand) }}</p>
+                    <div class="row-actions placement-actions">
+                      <button type="button" class="sm edit-btn" @click="editPlacement(placement.id)">
+                        <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M4 20h4.5L19 9.5 14.5 5 4 15.5V20z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                          <path d="M12.5 6.5 17.5 11.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                        </svg>
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        class="sm muted"
+                        @click="emit('duplicate-artifact', { catalog: 'items', id: placement.item })"
+                      >
+                        <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                          <rect x="8" y="8" width="11" height="11" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7" />
+                          <path d="M6 15H5.5A1.5 1.5 0 0 1 4 13.5v-8A1.5 1.5 0 0 1 5.5 4h8A1.5 1.5 0 0 1 15 5.5V6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                        </svg>
+                        Duplicate
+                      </button>
+                      <button type="button" class="sm danger-outline" @click="removePlacement(placement.id)">
+                        <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M5 7h14M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M8 7l.8 12.2A1.5 1.5 0 0 0 10.3 20.5h3.4a1.5 1.5 0 0 0 1.5-1.3L16 7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                        </svg>
+                        Remove
+                      </button>
+                    </div>
+                  </template>
+                </div>
+              </li>
+            </ul>
+            <div v-if="placementFormOpen" class="artifact-placement-form">
+              <label>Artifact
+                <select
+                  v-model="selectedArtifactItemId"
+                  :disabled="!characterCatalog.items.length"
+                  @change="placeArtifact"
+                >
+                  <option value="">Select artifact...</option>
+                  <option v-for="item in characterCatalog.items" :key="item.id" :value="item.id">
+                    {{ item.label }} ({{ item.id }})
+                  </option>
+                </select>
+              </label>
+              <button type="button" class="sm muted" @click="placementFormOpen = false">
+                <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+                </svg>
+                Cancel
+              </button>
+            </div>
+            <button
+              v-else
+              type="button"
+              class="sm add-btn add-beat"
+              :disabled="!characterCatalog.items.length"
+              @click="placementFormOpen = true"
+            >
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+              </svg>
+              Place artifact
+            </button>
+          </section>
+        </div>
 
-      <RoomStandInspector
-        v-else-if="editing && selection.source === 'stands'"
-        :draft="draft"
-        :selection="selection"
-        @drill-change="nestedDrill = $event"
-      />
+        <div v-show="roomTab === 'rules' && !nestedDrill" class="tab-panel" role="tabpanel">
+          <StationInventoryAuthoring
+            :draft="draft"
+            :character-catalog="characterCatalog"
+            :selection="selection"
+          />
+        </div>
+      </template>
 
-      <SwitchInspector
-        v-else-if="editing && selection.source === 'switches'"
-        :draft="draft"
-        :selection="selection"
-      />
+      <!-- Non-room selections keep the single-column overview/edit flow -->
+      <template v-else>
+        <section v-if="!editing" class="detail-card">
+          <div v-for="[label, value] in summaryRows" :key="label" class="detail-row">
+            <span>{{ label }}</span>
+            <strong>{{ value || "None" }}</strong>
+          </div>
+          <LocationViewsSummary
+            v-if="selection.source === 'nodes' || selection.source === 'stands'"
+            :views="selection.entity?.views ?? []"
+          />
+          <template v-if="selection.source === 'exits'">
+            <div class="beat-associations">
+              <div>
+                <p class="label">To local beats</p>
+                <p v-if="!associatedTransitionBeats.toLocal.length" class="empty-note">None yet.</p>
+                <ul v-else>
+                  <li v-for="beat in associatedTransitionBeats.toLocal" :key="beat.id">
+                    <button
+                      type="button"
+                      class="beat-link"
+                      @click="emit('open-transition-beat', {
+                        transitionId: selection.id,
+                        direction: 'toLocal',
+                        locationMode: beat.trigger?.exteriorNode ? 'exterior' : 'rooms',
+                        location: beat.trigger?.exteriorNode || beat.trigger?.room,
+                        beatId: beat.id,
+                      })"
+                    >
+                      <strong>{{ beat.heading || beat.id }}</strong>
+                      <span>{{ beat.trigger?.exteriorNode || beat.trigger?.room || beat.id }}</span>
+                    </button>
+                  </li>
+                </ul>
+                <button
+                  type="button"
+                  class="sm add-btn add-beat"
+                  @click="emit('open-transition-beat', {
+                    transitionId: selection.id,
+                    direction: 'toLocal',
+                    locationMode: 'exterior',
+                    location: selection.entity.exteriorNode || draft.exterior?.entry,
+                    create: true,
+                  })"
+                >
+                  <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+                  </svg>
+                  Add to local beat
+                </button>
+              </div>
+              <div>
+                <p class="label">To regional beats</p>
+                <p v-if="!associatedTransitionBeats.toRegional.length" class="empty-note">None yet.</p>
+                <ul v-else>
+                  <li v-for="beat in associatedTransitionBeats.toRegional" :key="beat.id">
+                    <button
+                      type="button"
+                      class="beat-link"
+                      @click="emit('open-transition-beat', {
+                        transitionId: selection.id,
+                        direction: 'toRegional',
+                        locationMode: 'outdoors',
+                        location: beat.trigger?.hex,
+                        beatId: beat.id,
+                      })"
+                    >
+                      <strong>{{ beat.heading || beat.id }}</strong>
+                      <span>{{ beat.trigger?.hex || beat.id }}</span>
+                    </button>
+                  </li>
+                </ul>
+                <button
+                  type="button"
+                  class="sm add-btn add-beat"
+                  @click="emit('open-transition-beat', {
+                    transitionId: selection.id,
+                    direction: 'toRegional',
+                    locationMode: 'outdoors',
+                    location: selection.entity.hex || draft.outdoorHex,
+                    create: true,
+                  })"
+                >
+                  <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+                  </svg>
+                  Add to regional beat
+                </button>
+              </div>
+            </div>
+          </template>
+          <div v-else-if="locationBeatTarget" class="beat-associations">
+            <div>
+              <p class="label">{{ locationBeatTarget.label }}</p>
+              <p v-if="!associatedLocationBeats.length" class="empty-note">None yet.</p>
+              <ul v-else>
+                <li v-for="beat in associatedLocationBeats" :key="beat.id">
+                  <button
+                    type="button"
+                    class="beat-link"
+                    @click="emit('open-location-beat', {
+                      locationMode: locationBeatTarget.locationMode,
+                      location: locationBeatTarget.location,
+                      beatId: beat.id,
+                    })"
+                  >
+                    <strong>{{ beat.heading || beat.id }}</strong>
+                    <span>{{ beatContextLabel(beat) }}</span>
+                  </button>
+                </li>
+              </ul>
+              <button
+                type="button"
+                class="sm add-btn add-beat"
+                @click="emit('open-location-beat', {
+                  locationMode: locationBeatTarget.locationMode,
+                  location: locationBeatTarget.location,
+                  create: true,
+                })"
+              >
+                <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+                </svg>
+                Add beat
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <div v-if="editing && !nestedDrill" class="edit-toolbar">
+          <div class="row-actions object-actions">
+            <button
+              type="button"
+              class="sm muted"
+              :disabled="fixedSelectionSources.has(selection.source)"
+              @click="emit('rename-selected')"
+            >
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 20h4.5L19 9.5 14.5 5 4 15.5V20z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                <path d="M12.5 6.5 17.5 11.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+              </svg>
+              Rename
+            </button>
+            <button
+              type="button"
+              class="sm muted"
+              :disabled="fixedSelectionSources.has(selection.source)"
+              @click="emit('duplicate-selected')"
+            >
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="8" y="8" width="11" height="11" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7" />
+                <path d="M6 15H5.5A1.5 1.5 0 0 1 4 13.5v-8A1.5 1.5 0 0 1 5.5 4h8A1.5 1.5 0 0 1 15 5.5V6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+              </svg>
+              Duplicate object
+            </button>
+            <button
+              type="button"
+              class="sm danger"
+              :disabled="selection.source === 'links'"
+              @click="emit('delete-selected')"
+            >
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M5 7h14M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M8 7l.8 12.2A1.5 1.5 0 0 0 10.3 20.5h3.4a1.5 1.5 0 0 0 1.5-1.3L16 7"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              Delete
+            </button>
+          </div>
+        </div>
+
+        <DoorInspector
+          v-if="editing && selection.source === 'doors'"
+          :draft="draft"
+          :selection="selection"
+          :character-catalog="characterCatalog"
+          :roll-door-room="rollDoorRoom"
+        />
+
+        <PathInspector
+          v-else-if="editing && selection.source === 'paths'"
+          :draft="draft"
+          :selection="selection"
+          :selected-handle-id="selectedHandleId"
+          :selected-path-node="selectedPathNode"
+          :add-mode="addMode"
+          @toggle-path-add-mode="emit('toggle-path-add-mode', $event)"
+          @remove-selected-path-handle="emit('remove-selected-path-handle')"
+        />
+
+        <ExteriorNodeInspector
+          v-else-if="editing && selection.source === 'nodes'"
+          :draft="draft"
+          :selection="selection"
+        />
+
+        <TransitionInspector
+          v-else-if="editing && selection.source === 'exits'"
+          :draft="draft"
+          :selection="selection"
+        />
+
+        <FixtureInspector
+          v-else-if="editing && selection.source === 'fixtures'"
+          :draft="draft"
+          :selection="selection"
+        />
+
+        <LinkInspector
+          v-else-if="editing && selection.source === 'links'"
+          :draft="draft"
+          :selection="selection"
+        />
+
+        <RoomStandInspector
+          v-else-if="editing && selection.source === 'stands'"
+          :draft="draft"
+          :selection="selection"
+          @drill-change="nestedDrill = $event"
+          @back-to-room="openNestedSelection('rooms', $event)"
+        />
+
+        <SwitchInspector
+          v-else-if="editing && selection.source === 'switches'"
+          :draft="draft"
+          :selection="selection"
+        />
+      </template>
     </template>
-    <p v-else class="empty-note">Select a room, door, path, node, or transition.</p>
-
-    <StationInventoryAuthoring
-      v-if="editing && selection?.source === 'rooms' && !nestedDrill"
-      :draft="draft"
-      :character-catalog="characterCatalog"
-      :selection="selection"
-    />
+    <p v-else class="empty-note">Select a room, stand, door, path, node, fixture, or transition.</p>
 
     <p v-for="message in errorMessages.slice(0, 12)" :key="message" class="field-error">
       {{ message }}
@@ -710,10 +1054,71 @@ function removePlacement(placementId) {
 }
 .detail-row span { color: #8e96a3; font-size: .75rem; }
 .detail-row strong { min-width: 0; overflow-wrap: anywhere; color: #eef1f5; font-size: .85rem; font-weight: 600; }
+.editor-tabs {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  padding: 0.25rem;
+  border: 1px solid #343d4d;
+  border-radius: 9px;
+  background: #171b22;
+}
+.editor-tabs button {
+  border-color: transparent;
+  background: transparent;
+  color: #b8c0cc;
+}
+.editor-tabs button.active {
+  border-color: #6f9b79;
+  background: #49624f;
+  color: #eef7ef;
+}
+.tab-panel {
+  display: grid;
+  gap: 0.7rem;
+  min-width: 0;
+}
+.stands-panel {
+  gap: 0.55rem;
+}
+.stands-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.stands-heading .label { margin: 0; }
+.stand-list {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.stand-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.stand-link {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.help-note {
+  margin: 0;
+  color: #8e96a3;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
 .beat-associations,
 .artifact-associations {
   display: grid;
   gap: .65rem;
+}
+.detail-card .beat-associations,
+.detail-card .artifact-associations {
   padding-top: .65rem;
   border-top: 1px solid #343d4d;
 }
@@ -782,7 +1187,6 @@ function removePlacement(placementId) {
 }
 button.active, .inspector :deep(button.active) { background: #49624f; border-color: #6f9b79; }
 .object-actions { justify-content: flex-start; }
-.danger-outline, .inspector :deep(.danger-outline) { border-color: #9b5050; color: #ffb5b5; background: #3d2729; }
 .empty-note { color: #939ba7; }
 .read-only-note, .inspector :deep(.read-only-note) { color: #aeb5c0; font-size: .78rem; line-height: 1.45; }
 .field-error { color: #ff9e9e; font-size: .78rem; }

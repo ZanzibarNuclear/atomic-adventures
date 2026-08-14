@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import { createCharacterState } from "../../composables/useCharacterState.js";
 import { createGameClock } from "./gameTime.js";
 import { addItem, characterHolderId, itemQuantity, transferHolding } from "./holdings.js";
-import { performItemAction } from "./itemActions.js";
+import {
+  consumeOptionLabel,
+  isConsumeOptionOffered,
+  performItemAction,
+  presentConsumeOptions,
+} from "./itemActions.js";
 
 function state() {
   const character = createCharacterState({
@@ -122,6 +127,43 @@ function state() {
   addItem(character.holdings, character.definitions, "card", 1);
   return { character, flags: new Set(), clock: createGameClock(), packHolderId };
 }
+
+describe("consume option presentation", () => {
+  const options = [
+    { id: "nibble", label: "Nibble", portion: 0.25 },
+    { id: "half", label: "Eat half", portion: 0.5 },
+    { id: "all", label: "Eat all remaining", remaining: true },
+  ];
+  const action = { id: "eat", label: "Eat", consumeOptions: options };
+
+  it("drops trailing remaining from all-out labels", () => {
+    expect(consumeOptionLabel({ label: "Eat all remaining", remaining: true })).toBe("Eat all");
+    expect(consumeOptionLabel({ label: "Drink all remaining", remaining: true })).toBe("Drink all");
+    expect(consumeOptionLabel({ label: "Eat half", portion: 0.5 })).toBe("Eat half");
+  });
+
+  it("hides half when leftover is at or below half of a full item", () => {
+    expect(isConsumeOptionOffered(options[1], 1)).toBe(true);
+    expect(isConsumeOptionOffered(options[1], 0.5)).toBe(false);
+    expect(isConsumeOptionOffered(options[1], 0.4)).toBe(false);
+  });
+
+  it("keeps nibble available even when it would finish the rest", () => {
+    expect(isConsumeOptionOffered(options[0], 0.2)).toBe(true);
+    expect(isConsumeOptionOffered(options[0], 0.25)).toBe(true);
+  });
+
+  it("always offers all when anything remains", () => {
+    expect(isConsumeOptionOffered(options[2], 0.5)).toBe(true);
+    expect(isConsumeOptionOffered(options[2], 0.01)).toBe(true);
+    expect(isConsumeOptionOffered(options[2], 0)).toBe(false);
+  });
+
+  it("presents the visible labeled choices for a half-eaten item", () => {
+    const choices = presentConsumeOptions(action, 0.5);
+    expect(choices.map((entry) => entry.buttonLabel)).toEqual(["Nibble", "Eat all"]);
+  });
+});
 
 describe("item actions", () => {
   it("atomically consumes an item, applies effects, and advances authored time", () => {
@@ -247,8 +289,16 @@ describe("item actions", () => {
     expect(gameState.character.stats.satiety).toBeCloseTo(30);
   });
 
-  it("refuses more food when already stuffed and reports why", () => {
+  it("tops off satiety with a partial meal instead of refusing when already nearly full", () => {
     const gameState = state();
+    gameState.character.definitions.items.find((item) => item.id === "meal").actions = [{
+      id: "eat",
+      label: "Eat",
+      consume: 1,
+      timeMinutes: 0,
+      activity: "resting",
+      effects: [{ op: "stat.add", id: "satiety", value: 55 }],
+    }];
     gameState.character.definitions.stats.find((stat) => stat.id === "satiety").displayStates = [
       { at: 90, state: "Stuffed", tone: "positive" },
       { at: 0, state: "Hungry", tone: "warning" },
@@ -256,10 +306,65 @@ describe("item actions", () => {
     gameState.character.stats.satiety = 95;
 
     const result = performItemAction(gameState, "meal", "eat");
-    expect(result.ok).toBe(false);
-    expect(result.error).toMatch(/stuffed/i);
+    expect(result.ok).toBe(true);
+    expect(result.notice == null || result.notice === "").toBe(true);
+    expect(gameState.character.stats.satiety).toBeCloseTo(100);
+    // One whole meal becomes a leftover partial (55 → need 5 → ~0.09 spent).
     expect(itemQuantity(gameState.character.holdings, "meal")).toBe(2);
-    expect(gameState.character.stats.satiety).toBe(95);
+    const partial = Object.values(gameState.character.holdings.instances)
+      .find((instance) => instance.item === "meal");
+    expect(partial?.remaining).toBeCloseTo(50 / 55, 3);
+  });
+
+  it("softly refuses food when satiety is already maxed", () => {
+    const gameState = state();
+    gameState.character.stats.satiety = 100;
+
+    const result = performItemAction(gameState, "meal", "eat");
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/not hungry/i);
+    expect(itemQuantity(gameState.character.holdings, "meal")).toBe(2);
+    expect(gameState.character.stats.satiety).toBe(100);
+  });
+
+  it("tops off hydration when already in the hydrated band but under max", () => {
+    const gameState = state();
+    gameState.character.definitions.stats.find((stat) => stat.id === "hydration").displayStates = [
+      { at: 80, state: "Hydrated", tone: "positive" },
+      { at: 0, state: "Thirsty", tone: "warning" },
+    ];
+    gameState.character.stats.hydration = 90;
+    addItem(gameState.character.holdings, gameState.character.definitions, "bottle", 1);
+    const bottle = Object.entries(gameState.character.holdings.instances)
+      .find(([, record]) => record.item === "bottle");
+
+    const result = performItemAction(gameState, "bottle", "drink", {
+      recordId: bottle[0],
+      holderId: bottle[1].holder,
+      optionId: "all",
+    });
+    expect(result.ok).toBe(true);
+    expect(result.notice == null || result.notice === "").toBe(true);
+    expect(gameState.character.stats.hydration).toBeCloseTo(100);
+    // 10% of a full bottle tops off; 90% remains.
+    expect(gameState.character.holdings.instances[bottle[0]].remaining).toBeCloseTo(0.9);
+  });
+
+  it("softly refuses drink when hydration is already maxed", () => {
+    const gameState = state();
+    gameState.character.stats.hydration = 100;
+    addItem(gameState.character.holdings, gameState.character.definitions, "bottle", 1);
+    const bottle = Object.entries(gameState.character.holdings.instances)
+      .find(([, record]) => record.item === "bottle");
+
+    const result = performItemAction(gameState, "bottle", "drink", {
+      recordId: bottle[0],
+      holderId: bottle[1].holder,
+      optionId: "all",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/not thirsty/i);
+    expect(gameState.character.stats.hydration).toBe(100);
   });
 
   it("allows eating food that also adds a little hydration when already hydrated", () => {

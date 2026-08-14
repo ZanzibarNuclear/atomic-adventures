@@ -1,6 +1,8 @@
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import RevisionHistoryPanel from "../RevisionHistoryPanel.vue";
+import ConfirmDialog from "../ConfirmDialog.vue";
+import FlagListEditor from "./FlagListEditor.vue";
 import StoryChoiceEditor from "./StoryChoiceEditor.vue";
 
 const props = defineProps({
@@ -22,10 +24,9 @@ const props = defineProps({
   storyBeatOptions: { type: Array, default: () => [] },
 });
 
-defineEmits([
+const emit = defineEmits([
   "save",
   "revert",
-  "duplicate",
   "history",
   "delete",
   "add-choice",
@@ -44,6 +45,34 @@ const selectedOriginHex = ref("");
 const editingLocationCriteria = ref(false);
 const editingFlagCriteria = ref(false);
 const editingTimeCriteria = ref(false);
+const deleteConfirmOpen = ref(false);
+/** Choice id that should open in edit mode (typically a just-added blank choice). */
+const editingChoiceId = ref(null);
+
+function selectTab(tab) {
+  activeTab.value = tab;
+  if (tab === "history" && !props.isNew && props.draft) {
+    emit("history");
+  }
+}
+
+function requestDelete() {
+  if (props.isNew || !props.draft) return;
+  deleteConfirmOpen.value = true;
+}
+
+function confirmDelete() {
+  deleteConfirmOpen.value = false;
+  emit("delete");
+}
+
+function addChoiceAndEdit() {
+  emit("add-choice");
+  nextTick(() => {
+    const last = props.draft?.choices?.at(-1);
+    editingChoiceId.value = last?.id ?? null;
+  });
+}
 
 const selectedOriginHexes = computed(() =>
   Array.isArray(props.draft?.match?.originHex)
@@ -98,18 +127,6 @@ const flagCriteriaSummary = computed(() => {
   return summary;
 });
 
-const modeCriteriaSummary = computed(() => {
-  if (!props.draft) return [];
-  const summary = [];
-  const modes = Array.isArray(props.draft.modes) ? props.draft.modes : [];
-  if (modes.length) summary.push(`Modes: ${modes.map(modeLabel).join(", ")}`);
-  if (props.draft.storyBeat) {
-    const match = storyBeatSelectOptions.value.find((beat) => beat.id === props.draft.storyBeat);
-    summary.push(`Story beat: ${match?.label ?? props.draft.storyBeat}`);
-  }
-  return summary;
-});
-
 /** Beat picker options, including an orphan value still set on the scene. */
 const storyBeatSelectOptions = computed(() => {
   const options = Array.isArray(props.storyBeatOptions) ? [...props.storyBeatOptions] : [];
@@ -147,19 +164,6 @@ const roomStandOptions = computed(() => {
   return room?.stands ?? [];
 });
 
-const locationTriggerSummary = computed(() => {
-  if (!props.draft?.trigger) return [];
-  const trigger = props.draft.trigger;
-  const summary = [];
-  if (trigger.place) summary.push(`Place: ${trigger.place}`);
-  if (trigger.hex) summary.push(`Hex: ${trigger.hex}`);
-  if (trigger.room) summary.push(`Room: ${trigger.room}`);
-  if (trigger.stand) summary.push(`Stand: ${trigger.stand}`);
-  if (trigger.exteriorNode) summary.push(`Exterior: ${trigger.exteriorNode}`);
-  if (trigger.event) summary.push(`Event: ${trigger.event}`);
-  return summary;
-});
-
 watch(
   () => props.selectedLocation,
   () => {
@@ -178,6 +182,11 @@ watch(
     editingLocationCriteria.value = false;
     editingFlagCriteria.value = false;
     editingTimeCriteria.value = false;
+    editingChoiceId.value = null;
+    if (activeTab.value === "history") {
+      if (props.isNew || !props.draft) activeTab.value = "story";
+      else emit("history");
+    }
   },
 );
 
@@ -192,13 +201,15 @@ function setDayList(event) {
     .filter((item) => Number.isFinite(item));
 }
 
-function setFlagList(group, event) {
+function setFlagList(group, value) {
   props.draft.conditions ??= {};
   props.draft.conditions.flags ??= { all: [], not: [] };
-  props.draft.conditions.flags[group] = event.target.value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
+  props.draft.conditions.flags[group] = Array.isArray(value)
+    ? value.map((item) => String(item).trim()).filter(Boolean)
+    : String(value ?? "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
 }
 
 function milestoneLabel(id) {
@@ -241,12 +252,6 @@ function directionLabel(value) {
   return value;
 }
 
-function modeLabel(value) {
-  if (value === "story") return "Story";
-  if (value === "open-world") return "Open-world";
-  return value;
-}
-
 function modeEnabled(mode) {
   return Array.isArray(props.draft?.modes) && props.draft.modes.includes(mode);
 }
@@ -272,10 +277,50 @@ function setModeEnabled(mode, enabled) {
           <span v-else class="saved-pill">Saved</span>
         </div>
         <div class="toolbar-actions">
-          <button type="button" class="sm muted" :disabled="!dirty" @click="$emit('revert')">Revert</button>
-          <button type="button" class="sm muted" @click="$emit('duplicate', draft)">Duplicate</button>
-          <button type="button" class="sm muted" :disabled="isNew" @click="$emit('history')">History</button>
-          <button type="submit" class="sm" :disabled="!dirty">Save</button>
+          <button type="button" class="sm muted" :disabled="!dirty" @click="$emit('revert')">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+            Revert
+          </button>
+          <button
+            v-if="!isNew"
+            type="button"
+            class="sm muted danger"
+            @click="requestDelete">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M5 7h14M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M8 7l.8 12.2A1.5 1.5 0 0 0 10.3 20.5h3.4a1.5 1.5 0 0 0 1.5-1.3L16 7"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.7"
+                stroke-linejoin="round" />
+            </svg>
+            Delete
+          </button>
+          <button type="submit" class="sm success-btn" :disabled="!dirty">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M5 4h11l3 3v13H5V4z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.7"
+                stroke-linejoin="round" />
+              <path
+                d="M8 4v5h8V4M8 20v-7h8v7"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.7"
+                stroke-linejoin="round" />
+            </svg>
+            Save
+          </button>
         </div>
       </div>
 
@@ -289,7 +334,7 @@ function setModeEnabled(mode, enabled) {
           :class="{ active: activeTab === 'story' }"
           role="tab"
           :aria-selected="activeTab === 'story'"
-          @click="activeTab = 'story'"
+          @click="selectTab('story')"
         >
           Scene
         </button>
@@ -299,7 +344,7 @@ function setModeEnabled(mode, enabled) {
           :class="{ active: activeTab === 'criteria' }"
           role="tab"
           :aria-selected="activeTab === 'criteria'"
-          @click="activeTab = 'criteria'"
+          @click="selectTab('criteria')"
         >
           Criteria
         </button>
@@ -309,9 +354,20 @@ function setModeEnabled(mode, enabled) {
           :class="{ active: activeTab === 'choices' }"
           role="tab"
           :aria-selected="activeTab === 'choices'"
-          @click="activeTab = 'choices'"
+          @click="selectTab('choices')"
         >
           Choices
+        </button>
+        <button
+          type="button"
+          class="sm"
+          :class="{ active: activeTab === 'history' }"
+          role="tab"
+          :aria-selected="activeTab === 'history'"
+          :disabled="isNew || !draft"
+          @click="selectTab('history')"
+        >
+          History
         </button>
       </div>
 
@@ -335,53 +391,7 @@ function setModeEnabled(mode, enabled) {
       <div v-show="activeTab === 'criteria'" class="tab-panel" role="tabpanel">
         <section class="criteria-card">
           <div class="criteria-card-header">
-            <h3>Location trigger</h3>
-          </div>
-          <div class="criteria-readonly">
-            <span
-              v-for="item in locationTriggerSummary"
-              :key="item"
-              class="summary-chip"
-            >
-              {{ item }}
-            </span>
-            <p v-if="!locationTriggerSummary.length" class="empty-origin-list">No location trigger.</p>
-          </div>
-          <div v-if="draft.trigger?.place === 'indoors' && draft.trigger?.room" class="field-grid">
-            <label class="span-all">Stand (optional — leave blank for whole room)
-              <select
-                :value="draft.trigger.stand ?? ''"
-                @change="draft.trigger.stand = $event.target.value || null">
-                <option value="">Whole room (any stand)</option>
-                <option
-                  v-for="stand in roomStandOptions"
-                  :key="stand.id"
-                  :value="stand.id">
-                  {{ stand.label || stand.id }} ({{ stand.id }})
-                </option>
-              </select>
-              <span class="field-hint">
-                Stand scenes fire when the player moves to that authored stand (for example cabinets).
-                They beat room-wide scenes while the player is at that stand.
-              </span>
-              <span v-if="fieldError('trigger.stand')" class="field-error">{{ fieldError("trigger.stand") }}</span>
-            </label>
-          </div>
-        </section>
-
-        <section class="criteria-card">
-          <div class="criteria-card-header">
             <h3>Mode and story beat</h3>
-          </div>
-          <div class="criteria-readonly">
-            <span
-              v-for="item in modeCriteriaSummary"
-              :key="item"
-              class="summary-chip"
-            >
-              {{ item }}
-            </span>
-            <p v-if="!modeCriteriaSummary.length" class="empty-origin-list">Default: both play modes.</p>
           </div>
           <div class="mode-grid">
             <label class="check-row">
@@ -425,6 +435,23 @@ function setModeEnabled(mode, enabled) {
               </span>
               <span v-if="fieldError('storyBeat')" class="field-error">{{ fieldError("storyBeat") }}</span>
             </label>
+            <label
+              v-if="draft.trigger?.place === 'indoors' && draft.trigger?.room"
+              class="span-all">
+              Stand (leave blank for whole room)
+              <select
+                :value="draft.trigger.stand ?? ''"
+                @change="draft.trigger.stand = $event.target.value || null">
+                <option value="">Whole room (any stand)</option>
+                <option
+                  v-for="stand in roomStandOptions"
+                  :key="stand.id"
+                  :value="stand.id">
+                  {{ stand.label || stand.id }} ({{ stand.id }})
+                </option>
+              </select>
+              <span v-if="fieldError('trigger.stand')" class="field-error">{{ fieldError("trigger.stand") }}</span>
+            </label>
           </div>
         </section>
 
@@ -433,9 +460,34 @@ function setModeEnabled(mode, enabled) {
             <h3>Location based</h3>
             <button
               type="button"
-              class="sm muted"
+              class="sm"
+              :class="editingLocationCriteria ? 'success-btn' : 'edit-btn'"
+              :aria-pressed="editingLocationCriteria"
               @click="editingLocationCriteria = !editingLocationCriteria"
             >
+              <svg v-if="!editingLocationCriteria" class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M4 20h4.5L19 9.5 14.5 5 4 15.5V20z"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linejoin="round" />
+                <path
+                  d="M12.5 6.5 17.5 11.5"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linecap="round" />
+              </svg>
+              <svg v-else class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M5 12.5 9.5 17 19 7.5"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.9"
+                  stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
               {{ editingLocationCriteria ? "Done" : "Edit" }}
             </button>
           </div>
@@ -466,7 +518,17 @@ function setModeEnabled(mode, enabled) {
                     <option value="">Specify an origin...</option>
                     <option v-for="hex in availableOriginHexOptions" :key="hex.id" :value="hex.id">{{ hex.label }} ({{ hex.id }})</option>
                   </select>
-                  <button type="button" class="sm" :disabled="!selectedOriginHex" @click="addOriginHex">Add</button>
+                  <button type="button" class="sm add-btn" :disabled="!selectedOriginHex" @click="addOriginHex">
+                    <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M12 5v14M5 12h14"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.9"
+                        stroke-linecap="round" />
+                    </svg>
+                    Add
+                  </button>
                 </div>
               </div>
               <span v-if="fieldError('match.originHex')" class="field-error">{{ fieldError("match.originHex") }}</span>
@@ -500,9 +562,34 @@ function setModeEnabled(mode, enabled) {
             <h3>Flag based</h3>
             <button
               type="button"
-              class="sm muted"
+              class="sm"
+              :class="editingFlagCriteria ? 'success-btn' : 'edit-btn'"
+              :aria-pressed="editingFlagCriteria"
               @click="editingFlagCriteria = !editingFlagCriteria"
             >
+              <svg v-if="!editingFlagCriteria" class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M4 20h4.5L19 9.5 14.5 5 4 15.5V20z"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linejoin="round" />
+                <path
+                  d="M12.5 6.5 17.5 11.5"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linecap="round" />
+              </svg>
+              <svg v-else class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M5 12.5 9.5 17 19 7.5"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.9"
+                  stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
               {{ editingFlagCriteria ? "Done" : "Edit" }}
             </button>
           </div>
@@ -519,27 +606,26 @@ function setModeEnabled(mode, enabled) {
           </div>
 
           <div v-else class="field-grid">
-            <label>Required flags
-              <input
-                :value="(draft.conditions?.flags?.all ?? []).join(', ')"
-                list="story-flag-ids"
+            <div class="span-all">
+              <FlagListEditor
+                :model-value="draft.conditions?.flags?.all ?? []"
+                :flag-ids="flagIds"
+                label="Required flags"
                 placeholder="gate.inspected"
-                @input="setFlagList('all', $event)"
+                @update:model-value="setFlagList('all', $event)"
               />
               <span v-if="fieldError('conditions.flags.all')" class="field-error">{{ fieldError("conditions.flags.all") }}</span>
-            </label>
-            <label>Absent flags
-              <input
-                :value="(draft.conditions?.flags?.not ?? []).join(', ')"
-                list="story-flag-ids"
+            </div>
+            <div class="span-all">
+              <FlagListEditor
+                :model-value="draft.conditions?.flags?.not ?? []"
+                :flag-ids="flagIds"
+                label="Absent flags"
                 placeholder="gate.opened"
-                @input="setFlagList('not', $event)"
+                @update:model-value="setFlagList('not', $event)"
               />
               <span v-if="fieldError('conditions.flags.not')" class="field-error">{{ fieldError("conditions.flags.not") }}</span>
-            </label>
-            <datalist id="story-flag-ids">
-              <option v-for="flag in flagIds" :key="flag" :value="flag" />
-            </datalist>
+            </div>
           </div>
         </section>
 
@@ -548,9 +634,34 @@ function setModeEnabled(mode, enabled) {
             <h3>Time based</h3>
             <button
               type="button"
-              class="sm muted"
+              class="sm"
+              :class="editingTimeCriteria ? 'success-btn' : 'edit-btn'"
+              :aria-pressed="editingTimeCriteria"
               @click="editingTimeCriteria = !editingTimeCriteria"
             >
+              <svg v-if="!editingTimeCriteria" class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M4 20h4.5L19 9.5 14.5 5 4 15.5V20z"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linejoin="round" />
+                <path
+                  d="M12.5 6.5 17.5 11.5"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linecap="round" />
+              </svg>
+              <svg v-else class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M5 12.5 9.5 17 19 7.5"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.9"
+                  stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
               {{ editingTimeCriteria ? "Done" : "Edit" }}
             </button>
           </div>
@@ -631,26 +742,51 @@ function setModeEnabled(mode, enabled) {
             :errors="errors"
             :destination-type="destinationType"
             :flag-ids="flagIds"
+            :start-editing="editingChoiceId === choice.id"
             @move="$emit('move-choice', { index, delta: $event })"
             @remove="$emit('remove-choice', index)"
             @set-csv="$emit('set-csv', $event)"
             @set-destination-type="$emit('set-destination-type', $event)"
             @set-view-kind="$emit('set-view-kind', $event)"
           />
-          <button type="button" class="sm" @click="$emit('add-choice')">Add choice</button>
+          <div class="add-choice-row">
+            <button type="button" class="sm add-btn" @click="addChoiceAndEdit">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M12 5v14M5 12h14"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.9"
+                  stroke-linecap="round" />
+              </svg>
+              Add choice
+            </button>
+          </div>
         </fieldset>
       </div>
 
-      <RevisionHistoryPanel
-        class="revision-panel"
-        :visible="showRevisions"
-        title="Revision history"
-        :revisions="revisions"
-        @restore="$emit('restore-revision', $event)"
-      />
-
-      <button v-if="!isNew" type="button" class="danger" @click="$emit('delete')">Delete scene</button>
+      <div v-show="activeTab === 'history'" class="tab-panel" role="tabpanel">
+        <RevisionHistoryPanel
+          class="revision-panel"
+          :visible="true"
+          title="Revision history"
+          :revisions="revisions"
+          @restore="$emit('restore-revision', $event)"
+        />
+      </div>
     </form>
+
+    <ConfirmDialog
+      :visible="deleteConfirmOpen"
+      eyebrow="Delete scene"
+      :title="`Delete “${draft?.id ?? 'scene'}”?`"
+      message="This removes the scene from the story area. Its revision history will remain available."
+      confirm-label="Delete"
+      cancel-label="Cancel"
+      :danger="true"
+      @confirm="confirmDelete"
+      @cancel="deleteConfirmOpen = false"
+    />
   </section>
 </template>
 
@@ -662,6 +798,17 @@ function setModeEnabled(mode, enabled) {
   padding: 1rem;
   min-width: 0;
 }
+
+.add-choice-row {
+  display: flex;
+  justify-content: center;
+  padding-top: 0.25rem;
+}
+
+.criteria-card-header > button[aria-pressed="true"] {
+  box-shadow: 0 0 0 1px color-mix(in srgb, #6fd391 35%, transparent);
+}
+
 
 .builder-form-column form,
 .tab-panel,
@@ -678,6 +825,11 @@ fieldset {
   justify-content: space-between;
   gap: 0.65rem;
   flex-wrap: wrap;
+}
+
+.toolbar-actions {
+  justify-content: flex-end;
+  gap: 0.45rem;
 }
 
 .editor-tabs {
@@ -886,12 +1038,6 @@ legend {
 .revision-panel {
   display: grid;
   gap: 0.4rem;
-}
-
-.danger {
-  margin-top: 1rem;
-  background: #5a2929;
-  border-color: #854141;
 }
 
 .empty-editor {

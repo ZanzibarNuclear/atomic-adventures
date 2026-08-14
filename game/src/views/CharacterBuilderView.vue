@@ -6,11 +6,15 @@ import LearningLessonsEditor from "../components/character-builder/LearningLesso
 import CharacterView from "../components/game-views/CharacterView.vue";
 import BuilderPageHeader from "../components/builder/BuilderPageHeader.vue";
 import BuilderWorkspaceTabs from "../components/builder/BuilderWorkspaceTabs.vue";
+import ConfirmDialog from "../components/builder/ConfirmDialog.vue";
 import {
   previewBarLevelOptions,
   useCharacterBuilderDraft,
   visibilityOptions,
 } from "../composables/useCharacterBuilderDraft.js";
+import { useConfirmDialog } from "../composables/useConfirmDialog.js";
+
+const confirmDialog = useConfirmDialog();
 
 const {
   activeCatalogs,
@@ -54,7 +58,9 @@ const {
   warnings,
   workspaceMode,
   selectWorkspace,
-} = useCharacterBuilderDraft();
+} = useCharacterBuilderDraft({
+  requestConfirm: confirmDialog.requestConfirm,
+});
 
 const contentWorkspaceTabs = [
   { id: "character", label: "Character" },
@@ -78,9 +84,20 @@ const contentWorkspaceTabs = [
       </template>
       <template #actions>
         <span v-if="dirty" class="dirty-pill">Unsaved</span>
-        <button class="sm muted" :disabled="!dirty" @click="revertDraft">Revert</button>
+        <button class="sm muted" :disabled="!dirty" @click="revertDraft">
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          Revert
+        </button>
         <button class="sm muted" @click="loadHistory">History</button>
-        <button class="sm" :disabled="!dirty" @click="saveDraft">Save content</button>
+        <button class="sm success-btn" :disabled="!dirty" @click="saveDraft">
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 4h11l3 3v13H5V4z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+            <path d="M8 4v5h8V4M8 20v-7h8v7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+          </svg>
+          Save content
+        </button>
       </template>
     </BuilderPageHeader>
 
@@ -164,7 +181,7 @@ const contentWorkspaceTabs = [
           <dd>{{ item.acquired }} / {{ item.total }}</dd>
         </div>
       </dl>
-      <CharacterView :character="previewCharacter" />
+      <CharacterView :character="previewCharacter" :wellbeing-actions-enabled="false" />
     </section>
 
     <div v-if="navigationPromptVisible" class="unsaved-backdrop" role="dialog" aria-modal="true">
@@ -179,6 +196,18 @@ const contentWorkspaceTabs = [
         </div>
       </section>
     </div>
+
+    <ConfirmDialog
+      :visible="confirmDialog.state.visible"
+      :eyebrow="confirmDialog.state.eyebrow"
+      :title="confirmDialog.state.title"
+      :message="confirmDialog.state.message"
+      :confirm-label="confirmDialog.state.confirmLabel"
+      :cancel-label="confirmDialog.state.cancelLabel"
+      :danger="confirmDialog.state.danger"
+      @confirm="confirmDialog.accept"
+      @cancel="confirmDialog.dismiss"
+    />
   </main>
   <section v-else class="character-builder">
     <p class="status" :class="`status-${statusTone}`">{{ status || "Loading content…" }}</p>

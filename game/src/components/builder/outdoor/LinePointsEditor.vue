@@ -17,10 +17,31 @@ defineProps({
       <h4>Control points</h4>
       <div class="point-tools">
         <button
+          type="button"
           class="sm"
-          :class="{ active: tool === 'add-point' }"
+          :class="tool === 'add-point' ? 'success-btn' : 'add-btn'"
+          :aria-pressed="tool === 'add-point'"
           @click="toggleAddPointMode"
         >
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              v-if="tool !== 'add-point'"
+              d="M12 5v14M5 12h14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.9"
+              stroke-linecap="round"
+            />
+            <path
+              v-else
+              d="M5 12.5 9.5 17 19 7.5"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.9"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
           {{ tool === "add-point" ? "Done adding points" : "Add point on map" }}
         </button>
       </div>
@@ -29,9 +50,27 @@ defineProps({
       <div class="point-heading">
         <strong>Point {{ index + 1 }}</strong>
         <div class="row-actions">
-          <button class="sm muted" @click="movePoint(index, -1)">↑</button>
-          <button class="sm muted" @click="movePoint(index, 1)">↓</button>
-          <button class="sm muted" :disabled="selected.points.length <= 2" @click="removePoint(index)">×</button>
+          <button type="button" class="sm muted" title="Move up" @click="movePoint(index, -1)">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 19V5M6 11l6-6 6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+          <button type="button" class="sm muted" title="Move down" @click="movePoint(index, 1)">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 5v14M6 13l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="sm danger-outline"
+            title="Remove point"
+            :disabled="selected.points.length <= 2"
+            @click="removePoint(index)"
+          >
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+            </svg>
+          </button>
         </div>
       </div>
       <select :value="pointMode(point)" @change="setPointMode(point, $event.target.value)">

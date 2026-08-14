@@ -23,6 +23,7 @@ defineProps({
 .actions .options {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 0.45rem;
   margin-top: 0.35rem;
 }

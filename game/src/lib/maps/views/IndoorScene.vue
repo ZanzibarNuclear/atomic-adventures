@@ -57,6 +57,7 @@ import {
   buildIndoorChooseActions,
   buildIndoorPlayActions,
   buildIndoorStatusLines,
+  mergeIndoorPanelActions,
   formatNearbyReachableItemsMessage,
   handleIndoorChooseAction,
   handleIndoorPlayAction,
@@ -86,6 +87,7 @@ const props = defineProps({
   locationMedia: { type: Object, default: null },
   locationMediaMode: { type: String, default: "map" },
   locationMediaIndex: { type: Number, default: 0 },
+  refreshStory: { type: Function, default: () => {} },
 });
 
 const emit = defineEmits([
@@ -152,11 +154,13 @@ const playActions = computed(() =>
   buildIndoorPlayActions(props.indoor, props.pendingBeat),
 );
 
-const actions = computed(() => [
-  ...chooseActions.value,
-  ...props.extraActions,
-  ...playActions.value,
-]);
+const actions = computed(() =>
+  mergeIndoorPanelActions(
+    chooseActions.value,
+    playActions.value,
+    props.extraActions,
+  ),
+);
 const filteredActions = computed(() =>
   filterAllowedActions(actions.value, props.actionPolicy),
 );
@@ -191,6 +195,7 @@ function onAction(id) {
   if (result?.view) emit("stage-view", result.view);
   if (result?.lookIn) emit("look-in-holding", result.lookIn);
   if (result?.inspectGroup) emit("inspect-container-group", result.inspectGroup);
+  if (result?.ok !== false) props.refreshStory();
 }
 
 const mapStageProps = computed(() => ({

@@ -76,12 +76,12 @@ export function characterWellbeingOverview(character) {
       vitalFromStat(byId.composure, {
         id: "composure",
         label: "Composure",
-        fallback: 100,
+        fallback: 80,
         states: [
-          [60, "Calm", "positive"],
-          [40, "Concerned", "positive"],
-          [20, "Nervous", "warning"],
-          [5, "Scared", "error"],
+          [90, "Calm", "positive"],
+          [60, "Normal", "positive"],
+          [40, "Concerned", "warning"],
+          [10, "Nervous", "warning"],
           [0, "Panicked", "error"],
         ],
       }),

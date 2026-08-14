@@ -57,9 +57,56 @@ function buildExteriorModel(exterior) {
   }
 }
 
+/**
+ * Visual walls (cliff-wall) are fixtures. Migrate legacy top-level cliffWall
+ * into fixtures[] and drop the parallel field.
+ */
+export function migrateCliffWallToFixture(data) {
+  if (!data || typeof data !== "object") return data;
+  data.fixtures = Array.isArray(data.fixtures) ? data.fixtures : [];
+  const existing = data.fixtures.find(
+    (fixture) => fixture?.kind === "cliff-wall" || fixture?.id === "cliff-wall",
+  );
+  if (data.cliffWall && !existing) {
+    const wall = data.cliffWall;
+    data.fixtures.push({
+      id: "cliff-wall",
+      kind: "cliff-wall",
+      visualOnly: true,
+      label: wall.label || "Stone wall",
+      onLevels: wall.onLevels ?? [data.exterior?.level ?? "first"],
+      thicknessFeet: wall.thicknessFeet ?? 5,
+      points: Array.isArray(wall.points)
+        ? wall.points.map((point) => ({ ...point }))
+        : [],
+      extendNorthToMapEdge: wall.extendNorthToMapEdge,
+      extendWestToMapEdge: wall.extendWestToMapEdge,
+    });
+  }
+  if (Object.hasOwn(data, "cliffWall")) delete data.cliffWall;
+  return data;
+}
+
+export function cliffWallConfigFromFixtures(fixtures = []) {
+  const wall = fixtures.find((fixture) => fixture?.kind === "cliff-wall");
+  if (!wall) return null;
+  return {
+    onLevels: wall.onLevels,
+    thicknessFeet: wall.thicknessFeet,
+    points: wall.points,
+    extendNorthToMapEdge: wall.extendNorthToMapEdge,
+    extendWestToMapEdge: wall.extendWestToMapEdge,
+    label: wall.label,
+  };
+}
+
 export function buildBuilding(data) {
-  const cell = data.cell ?? 64
-  const rooms = (data.rooms ?? []).map((r) => ({
+  const source = migrateCliffWallToFixture({
+    ...data,
+    fixtures: Array.isArray(data?.fixtures) ? [...data.fixtures] : [],
+  });
+  const cell = source.cell ?? 64
+  const rooms = (source.rooms ?? []).map((r) => ({
     w: 1,
     h: 1,
     ...r,
@@ -68,40 +115,40 @@ export function buildBuilding(data) {
     stands: (r.stands ?? []).map((stand) => ({ ...stand })),
   }))
   const roomById = Object.fromEntries(rooms.map((r) => [r.id, r]))
-  const levels = [...(data.levels ?? [])].sort((a, b) => b.order - a.order)
+  const levels = [...(source.levels ?? [])].sort((a, b) => b.order - a.order)
   const levelById = Object.fromEntries(levels.map((l) => [l.id, l]))
-  const links = data.links ?? []
-  const fixtures = (data.fixtures ?? []).map((f) => ({
+  const links = source.links ?? []
+  const fixtures = (source.fixtures ?? []).map((f) => ({
     ...f,
     protrude: f.protrude ? normalizeCompassEdge(f.protrude) : f.protrude,
   }))
-  const items = data.items ?? []
+  const items = source.items ?? []
   const itemById = Object.fromEntries(
     items.filter((i) => i.id).map((i) => [i.id, { kind: 'item', ...i }]),
   )
-  const pickups = (data.pickups ?? []).filter((p) => p.id && p.item)
-  const switches = (data.switches ?? []).filter((s) => s.id && s.door)
-  const actions = (data.actions ?? []).filter((a) => a.id && a.label)
-  const poweredObjects = (data.poweredObjects ?? []).filter((o) => o.id && o.room && o.label)
-  const doors = (data.doors ?? []).map((d) => ({
+  const pickups = (source.pickups ?? []).filter((p) => p.id && p.item)
+  const switches = (source.switches ?? []).filter((s) => s.id && s.door)
+  const actions = (source.actions ?? []).filter((a) => a.id && a.label)
+  const poweredObjects = (source.poweredObjects ?? []).filter((o) => o.id && o.room && o.label)
+  const doors = (source.doors ?? []).map((d) => ({
     ...d,
     initial: normalizeDoorInitial(d.initial),
   }))
   const doorById = Object.fromEntries(doors.filter((d) => d.id).map((d) => [d.id, d]))
-  const exits = (data.transitions ?? data.exits ?? []).map((e) => ({ ...e }))
+  const exits = (source.transitions ?? source.exits ?? []).map((e) => ({ ...e }))
   const exitByDoorId = Object.fromEntries(exits.filter((e) => e.door).map((e) => [e.door, e]))
   const exitById = Object.fromEntries(exits.filter((e) => e.id).map((e) => [e.id, e]))
-  const exterior = buildExteriorModel(data.exterior)
-  const areaId = data.id ?? data.area ?? 'building'
+  const exterior = buildExteriorModel(source.exterior)
+  const areaId = source.id ?? source.area ?? 'building'
   return {
     id: areaId,
     areaId,
-    label: buildingLabel({ id: areaId, label: data.label }),
+    label: buildingLabel({ id: areaId, label: source.label }),
     cell,
-    gridFeet: data.gridFeet ?? 10,
-    unitFeet: data.unitFeet ?? data.gridFeet ?? 10,
-    north: data.north ?? 'up',
-    outdoorHex: data.outdoorHex ?? null,
+    gridFeet: source.gridFeet ?? 10,
+    unitFeet: source.unitFeet ?? source.gridFeet ?? 10,
+    north: source.north ?? 'up',
+    outdoorHex: source.outdoorHex ?? null,
     rooms,
     roomById,
     levels,
@@ -120,10 +167,11 @@ export function buildBuilding(data) {
     exitByDoorId,
     exitById,
     exterior,
-    river: data.river ?? null,
-    cliffWall: data.cliffWall ?? null,
-    hydroSystem: data.hydroSystem ?? false,
-    start: data.start ?? rooms[0]?.id,
+    river: source.river ?? null,
+    // Derived for layout/render helpers; authoring stores cliff-wall in fixtures.
+    cliffWall: cliffWallConfigFromFixtures(fixtures),
+    hydroSystem: source.hydroSystem ?? false,
+    start: source.start ?? rooms[0]?.id,
   }
 }
 

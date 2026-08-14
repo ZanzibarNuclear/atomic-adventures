@@ -2,7 +2,7 @@ import { computed, watch } from "vue";
 import { advanceGameTime } from "../lib/character/gameTime.js";
 import { applyEffectsAtomically } from "../lib/character/effects.js";
 import { itemQuantity } from "../lib/character/holdings.js";
-import { hasFlag, setFlags } from "../lib/maps/composables/useFlags.js";
+import { hasFlag, isStoryChoiceAvailable, setFlags } from "../lib/maps/composables/useFlags.js";
 import { createStoryState, STORY_ARC_ID } from "./useGameState.js";
 import {
   preferMoreSpecificScene,
@@ -79,7 +79,8 @@ export function useStoryArc(storyData, {
   const activeChoices = computed(() => {
     if (gameState.playMode !== "story" || !activeBeat.value) return [];
     // Choices belong to the scene actually shown (may be a stand ambient scene).
-    return displayScene.value?.choices ?? activeScene.value?.choices ?? [];
+    const choices = displayScene.value?.choices ?? activeScene.value?.choices ?? [];
+    return choices.filter((choice) => isStoryChoiceAvailable(choice, gameState.flags));
   });
   const pendingCompletion = computed(() => {
     if (gameState.playMode !== "story") return null;

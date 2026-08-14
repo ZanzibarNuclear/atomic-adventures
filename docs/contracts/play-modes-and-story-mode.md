@@ -110,7 +110,7 @@ progress:
 ```
 
 On a **saved** playthrough, `playMode` is always `"story"` or `"open-world"`.
-Before title **Enter the Game**, in-memory session may use `playMode: null`
+Before title **Welcome**, in-memory session may use `playMode: null`
 (title only). New playthroughs always start as **story** in the current UI.
 
 `story` is active when `playMode` is `story`. It records the current arc and

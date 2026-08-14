@@ -62,8 +62,13 @@ export function gameplayMoveTo(outdoor, hexId) {
   return { ...outdoor.state.stand }
 }
 
-/** Open and cross the compound gate (required before heading south). */
+/** Open and cross the compound gate (vines untangled if not already). */
 export function passCompoundGate(outdoor) {
+  const flags = outdoor.flags
+  if (flags && typeof flags.add === 'function') {
+    flags.add('story.gate.inspected')
+    flags.add('story.gate.untangled')
+  }
   outdoor.togglePassage('compound-gate')
   outdoor.crossPassage('compound-gate')
 }

@@ -48,7 +48,7 @@
         <h2 id="title-screen-heading">Zanzibar's World of Energy</h2>
         <p class="tagline">Join the adventure. Discover what was lost.</p>
         <button type="button" class="enter-btn" @click="$emit('enter')">
-          Enter the Game
+          Welcome
         </button>
       </div>
     </div>

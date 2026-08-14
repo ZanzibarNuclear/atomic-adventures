@@ -26,6 +26,8 @@ import {
 } from "../composables/useCharacterState.js";
 import { applyOutdoorWorldUpdate } from "../composables/worldRuntime.js";
 import { availableItemActions, performItemAction } from "../lib/character/itemActions.js";
+import { performWellbeingAction } from "../lib/character/wellbeingActions.js";
+import { performQuickConsume } from "../lib/character/quickConsume.js";
 import {
   accessibleHolderIds,
   characterHolderId,
@@ -48,7 +50,6 @@ import ContainerContentsDialog from "../components/game-views/ContainerContentsD
 import ContainerGroupDialog from "../components/game-views/ContainerGroupDialog.vue";
 import InventoryDialog from "../components/game-views/InventoryDialog.vue";
 import InventoryStageView from "../components/game-views/InventoryStageView.vue";
-import VitalsDialog from "../components/game-views/VitalsDialog.vue";
 import StoryOverlay from "../components/story/StoryOverlay.vue";
 import OutdoorScene from "../lib/maps/views/OutdoorScene.vue";
 import IndoorScene from "../lib/maps/views/IndoorScene.vue";
@@ -81,7 +82,6 @@ const place = ref("outdoors");
 const builderView = ref(false);
 const movementAuditVisible = ref(false);
 const developerSettingsVisible = ref(false);
-const vitalsDialogVisible = ref(false);
 /** One-shot info modal when a vital enters the band just above empty. */
 const vitalCrisisAlert = ref(null); // { id, title, message }
 /** Vital ids already warned this crisis episode (cleared on recovery). */
@@ -91,6 +91,7 @@ const inventoryDialogVisible = ref(false);
 const lookInContainerInstanceId = ref(null);
 const lookInSelectedHoldingId = ref(null);
 const itemActionFeedback = ref("");
+const wellbeingActionFeedback = ref("");
 const containerGroupInspect = ref(null);
 const locationMediaMode = ref("map");
 const locationMediaIndex = ref(0);
@@ -102,6 +103,7 @@ const {
   isCharacterView,
   openView,
   openCharacter,
+  openInventory,
   openCharacterStats,
   returnToMap,
 } = useGameView();
@@ -344,14 +346,18 @@ const nearbyHolderIds = computed(() => {
 });
 const stageSelectedHoldingId = ref(null);
 function inventoryHolderViews(ids) {
-  return ids.map((id) => ({
-    ...(gameState.character.holdings.holders[id] ?? { id, label: id, kind: "holder" }),
-    records: holdingRecords(
-      gameState.character.holdings,
-      gameState.character.definitions,
-      [id],
-    ).map((record) => decorateHoldingRecord(record)),
-  }));
+  return ids.map((id) => {
+    const holder = gameState.character.holdings.holders[id] ?? { id, label: id, kind: "holder" };
+    return {
+      ...holder,
+      shortLabel: holder.shortLabel ?? null,
+      records: holdingRecords(
+        gameState.character.holdings,
+        gameState.character.definitions,
+        [id],
+      ).map((record) => decorateHoldingRecord(record)),
+    };
+  });
 }
 
 function decorateHoldingRecord(record) {
@@ -370,6 +376,7 @@ function decorateHoldingRecord(record) {
   return {
     ...record,
     label,
+    shortLabel: definition?.shortLabel ?? null,
     description: definition?.description ?? "",
     kind: definition?.kind ?? "item",
     icon: definition?.icon ?? null,
@@ -406,6 +413,7 @@ const transferTargets = computed(() => inventoryHolders.value
   .map((holder) => ({
     id: holder.id,
     label: holder.label ?? holder.id,
+    shortLabel: holder.shortLabel ?? null,
     kind: holder.kind,
     accepts: holder.accepts ?? null,
   })));
@@ -429,6 +437,12 @@ const playerSelectedHolding = computed(() =>
     .find((record) => `${record.type}:${record.id}` === stageSelectedHoldingId.value) ?? null,
 );
 const characterStats = computed(() => visibleCharacterStats(gameState.character));
+const characterDisplayName = computed(
+  () => gameState.character?.definitions?.profile?.name ?? "Zanzibar Nuhero",
+);
+const characterPortraitSrc = computed(() =>
+  publicAssetPath(gameState.character?.definitions?.profile?.portrait),
+);
 const wellbeingOverview = computed(() => characterWellbeingOverview(gameState.character));
 const mustRest = computed(() => Number(gameState.character.stats?.energy ?? 100) <= 0);
 const wellbeingAvailableActions = computed(() => ({
@@ -439,11 +453,19 @@ const wellbeingAvailableActions = computed(() => ({
   ),
   mustRest: mustRest.value,
 }));
-const catastrophicVitals = computed(() =>
-  [wellbeingOverview.value.health].filter((vital) =>
+const catastrophicVitals = computed(() => {
+  const overview = wellbeingOverview.value;
+  const fatalIds = new Set(["health", "satiety", "hydration"]);
+  const candidates = [
+    overview?.health,
+    ...(overview?.vitals ?? []),
+  ].filter((vital) => vital && fatalIds.has(vital.id));
+  // Dedupe by id (health may appear only on overview.health).
+  const byId = new Map(candidates.map((vital) => [vital.id, vital]));
+  return [...byId.values()].filter((vital) =>
     Number(vital.value) <= Number(vital.min ?? 0),
-  ),
-);
+  );
+});
 const gameFailed = computed(() => catastrophicVitals.value.length > 0);
 
 function pruneRecoveredCrisisAlerts(overview) {
@@ -508,9 +530,12 @@ const holoReaderActions = computed(() =>
     stationPowerOn: stationPowerOverrideOn.value,
   }),
 );
+const HYDRO_CONSOLE_STAND_ID = "console";
+const HYDRO_CONSOLE_CHECKED_FLAG = "hydro.console-checked";
 const hydroConsoleActions = computed(() => {
   if (place.value !== "indoors") return [];
   if (indoor.indoor.currentRoom !== "control-room") return [];
+  if (indoor.indoor.currentStand !== HYDRO_CONSOLE_STAND_ID) return [];
   if (!stationPowerOverrideOn.value) return [];
   return [{
     id: "hydro-console:open",
@@ -597,7 +622,7 @@ watch(
 );
 
 onMounted(async () => {
-  // Title screen first — Enter the Game decides new vs resume.
+  // Title screen first — Welcome decides new vs resume.
   markSessionClean();
   await refreshContent();
   refreshStoryMoment();
@@ -646,14 +671,34 @@ function performSave() {
 }
 
 /**
+ * Clear play-only UI that must not leak across loads / new games
+ * (inventory focus, open modals, stage views, media mode).
+ */
+function resetPlaySessionUi() {
+  inventoryDialogVisible.value = false;
+  stageSelectedHoldingId.value = null;
+  lookInContainerInstanceId.value = null;
+  lookInSelectedHoldingId.value = null;
+  itemActionFeedback.value = "";
+  containerGroupInspect.value = null;
+  developerSettingsVisible.value = false;
+  vitalCrisisAlert.value = null;
+  vitalCrisisAlertedIds.value = new Set();
+  locationMediaMode.value = "map";
+  locationMediaIndex.value = 0;
+  locationMediaKey.value = null;
+  lessonCompletionError.value = "";
+  returnToMap({ force: true });
+}
+
+/**
  * Wipe a slot and enter a fresh story session in it (no title-screen detour).
  */
 function beginFreshGame(gameId) {
   clearSave(gameId);
   setActiveSlot(gameId);
   resetGameState(saveCtx.value);
-  vitalCrisisAlert.value = null;
-  vitalCrisisAlertedIds.value = new Set();
+  resetPlaySessionUi();
   applyPlayMode("story");
 }
 
@@ -684,6 +729,7 @@ function handlePlayGame(gameId) {
     }
     if (hasSave(gameId)) {
       if (!load(saveCtx.value, gameId)) return;
+      resetPlaySessionUi();
       markSessionClean();
       refreshStoryMoment();
       noticeResumingGame(gameId);
@@ -710,6 +756,7 @@ function noticeResumingGame(gameId) {
 function completePlayGame(gameId) {
   if (hasSave(gameId)) {
     if (!load(saveCtx.value, gameId)) return;
+    resetPlaySessionUi();
     markSessionClean();
     refreshStoryMoment();
     noticeResumingGame(gameId);
@@ -816,7 +863,7 @@ function handleFailureNewGame() {
 }
 
 /**
- * Title screen: Enter the Game (no interstitial).
+ * Title screen: Welcome (no interstitial).
  * - No saves → new story in Game 1
  * - One save → resume that game
  * - Several saves → resume the most recently saved
@@ -841,6 +888,7 @@ function enterTheGame() {
     beginFreshGame(openId ?? 1);
     return;
   }
+  resetPlaySessionUi();
   markSessionClean();
   refreshStoryMoment();
   noticeResumingGame(gameId);
@@ -853,7 +901,7 @@ function handleHeaderSave() {
 function handleReturnToMap() {
   returnToMap();
   lessonCompletionError.value = "";
-  nextTick(() => document.querySelector(".player-health")?.focus());
+  nextTick(() => document.querySelector(".player-character")?.focus());
 }
 
 function showLocationImage() {
@@ -924,7 +972,7 @@ function openStageView(view, { force = false } = {}) {
   if (!force && !isStageViewAllowed(wellbeingAvailableActions.value, view)) return false;
   if (kind === "inventory") {
     currentWorldHolderId();
-    return openCharacter({ ...view, tab: "inventory" });
+    return openInventory(view);
   }
   if (kind === "character-stats") return openCharacterStats(view);
   if (kind === "character") return openCharacter(view);
@@ -937,11 +985,15 @@ function handleHoloReaderAction(id) {
     openView("lesson", { source: "library-holo-reader" });
   }
   if (id === "hydro-console:open") {
+    // Durable signal for story beat check-console: only the player action
+    // (stand at console + View console) should open this stage.
+    gameState.flags?.add?.(HYDRO_CONSOLE_CHECKED_FLAG);
     openView("console", {
       panelId: "hydro-control-room-panel",
       focus: "generation",
       mode: "startup",
     });
+    refreshStoryMoment();
   }
 }
 
@@ -1013,6 +1065,28 @@ function handleUseItem({ itemId, actionId, holderId = null, recordId = null, opt
   if (result.view) openStageView(result.view);
 }
 
+function handleWellbeingAction(payload) {
+  const actionId = typeof payload === "string" ? payload : payload?.actionId;
+  const minutes = typeof payload === "object" ? payload?.minutes : undefined;
+
+  let result;
+  if (actionId === "eat" || actionId === "drink") {
+    result = performQuickConsume(gameState, actionId, {
+      nearbyHolderIds: [...nearbyHolderIds.value, currentWorldHolderId()],
+    });
+  } else {
+    result = performWellbeingAction(gameState, actionId, { minutes });
+  }
+
+  if (!result.ok) {
+    wellbeingActionFeedback.value = result.error || "That did not work.";
+    return;
+  }
+  wellbeingActionFeedback.value = result.notice || "";
+  markCharacterChanged(gameState.character);
+  refreshStoryMoment();
+}
+
 function handleTransferItem({ type, recordId, quantity, toHolder }) {
   const target = toHolder === "__ground__" ? currentWorldHolderId() : toHolder;
   try {
@@ -1056,6 +1130,7 @@ function openInventoryDialog(focusHoldingKey = null) {
   if (focusHoldingKey) {
     stageSelectedHoldingId.value = focusHoldingKey;
   } else if (!stageSelectedHolding.value) {
+    // Stale selection from a prior session, or empty focus — pick first live item.
     const firstHolding = inventoryHolders.value
       .flatMap((holder) => holder.records)
       .at(0);
@@ -1064,6 +1139,10 @@ function openInventoryDialog(focusHoldingKey = null) {
       : null;
   }
   inventoryDialogVisible.value = true;
+}
+
+function openCharacterSheet() {
+  openCharacter({ tab: "overview" });
 }
 
 const lookInContainerView = computed(() => {
@@ -1204,11 +1283,13 @@ function handleGroupPickUp(entry) {
       :load-error="loadError"
       :movement-audit-visible="movementAuditVisible"
       :play-mode="gameState.playMode"
+      :portrait-src="characterPortraitSrc"
+      :character-name="characterDisplayName"
       @save="handleHeaderSave"
       @play-game="handlePlayGame"
       @restart-game="handleRestartGame"
       @new-game="handleNewGameRequest"
-      @show-health="vitalsDialogVisible = true"
+      @show-character="openCharacterSheet"
       @show-inventory="openInventoryDialog"
       @show-dev-settings="developerSettingsVisible = true"
       @toggle-movement-audit="movementAuditVisible = !movementAuditVisible" />
@@ -1253,11 +1334,6 @@ function handleGroupPickUp(entry) {
       @set-vital="handleSetVital"
       @adjust-vital="handleAdjustVital"
       @close="developerSettingsVisible = false" />
-
-    <VitalsDialog
-      v-if="vitalsDialogVisible"
-      :vitals="wellbeingOverview.vitals"
-      @close="vitalsDialogVisible = false" />
 
     <InventoryDialog
       v-if="inventoryDialogVisible"
@@ -1387,6 +1463,7 @@ function handleGroupPickUp(entry) {
       :location-media="currentLocationMedia"
       :location-media-mode="locationMediaMode"
       :location-media-index="locationMediaIndex"
+      @stage-view="openStageView"
       @show-location-map="showLocationMap"
       @show-location-image="showLocationImage"
       @previous-location-image="stepLocationImage(-1)"
@@ -1408,6 +1485,7 @@ function handleGroupPickUp(entry) {
       :location-media="currentLocationMedia"
       :location-media-mode="locationMediaMode"
       :location-media-index="locationMediaIndex"
+      :refresh-story="refreshStoryMoment"
       @extra-action="handleHoloReaderAction"
       @stage-view="openStageView"
       @look-in-holding="handleLookInHolding"
@@ -1441,11 +1519,14 @@ function handleGroupPickUp(entry) {
       v-else-if="gameState.playMode && !gameFailed && isCharacterView"
       :character="gameState.character"
       :clock="gameState.clock"
+      :flags="gameState.flags"
       :nearby-holder-ids="[...nearbyHolderIds, currentWorldHolderId()]"
       :initial-tab="activeView.payload?.tab"
       :action-policy="wellbeingAvailableActions"
+      :wellbeing-action-feedback="wellbeingActionFeedback"
       @use-item="handleUseItem"
       @transfer-item="handleTransferItem"
+      @wellbeing-action="handleWellbeingAction"
       @return-to-map="handleReturnToMap" />
 
     <HoloReaderView

@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import { useRouter } from "vue-router";
 import BuilderPageHeader from "../components/builder/BuilderPageHeader.vue";
 import BuilderStatusBanner from "../components/builder/BuilderStatusBanner.vue";
+import ConfirmDialog from "../components/builder/ConfirmDialog.vue";
 import UnsavedChangesDialog from "../components/builder/UnsavedChangesDialog.vue";
 import OutdoorCanvasPanel from "../components/builder/outdoor/OutdoorCanvasPanel.vue";
 import OutdoorInspector from "../components/builder/outdoor/OutdoorInspector.vue";
@@ -13,6 +14,7 @@ import {
   buildMapMovementAudit,
   movementAuditSummary,
 } from "../lib/maps/debug/mapMovementAudit.js";
+import { useConfirmDialog } from "../composables/useConfirmDialog.js";
 import { useDirtyDocumentNavigation } from "../composables/useDirtyDocumentNavigation.js";
 import { useOutdoorBuilderSelection } from "../composables/useOutdoorBuilderSelection.js";
 import { useOutdoorWorldBuilderDocument } from "../composables/useOutdoorWorldBuilderDocument.js";
@@ -27,6 +29,7 @@ const TERRAIN_KINDS = ["forest", "clearing", "gorge", "rock", "water"];
 const { refresh: refreshSharedWorld } = useWorldContent();
 const builderFlags = new Set();
 const router = useRouter();
+const confirmDialog = useConfirmDialog();
 
 const selectedKey = ref("");
 const selectedHandleId = ref(null);
@@ -182,6 +185,7 @@ const {
   standDraft,
   standEditDraft,
   focusPoint: (point) => worldCamera.focusPoint(point),
+  requestConfirm: confirmDialog.requestConfirm,
 });
 
 onMounted(async () => {
@@ -324,9 +328,20 @@ function removeArtifactPlacement({ id = "" } = {}) {
       <template #actions>
         <button class="sm muted" @click="leftCollapsed = !leftCollapsed">{{ leftCollapsed ? "Show objects" : "Hide objects" }}</button>
         <button class="sm muted" @click="rightCollapsed = !rightCollapsed">{{ rightCollapsed ? "Show inspector" : "Hide inspector" }}</button>
-        <button class="sm muted" :disabled="!dirty" @click="revertWorld">Revert</button>
+        <button class="sm muted" :disabled="!dirty" @click="revertWorld">
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          Revert
+        </button>
         <button class="sm muted" @click="loadHistory">History</button>
-        <button class="sm" :disabled="!dirty" @click="saveWorld">Save world</button>
+        <button class="sm success-btn" :disabled="!dirty" @click="saveWorld">
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 4h11l3 3v13H5V4z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+            <path d="M8 4v5h8V4M8 20v-7h8v7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+          </svg>
+          Save world
+        </button>
       </template>
     </BuilderPageHeader>
 
@@ -478,6 +493,18 @@ function removeArtifactPlacement({ id = "" } = {}) {
       @save="navigation.saveAndContinue"
       @discard="navigation.discardAndContinue"
       @keep="navigation.keepEditing"
+    />
+
+    <ConfirmDialog
+      :visible="confirmDialog.state.visible"
+      :eyebrow="confirmDialog.state.eyebrow"
+      :title="confirmDialog.state.title"
+      :message="confirmDialog.state.message"
+      :confirm-label="confirmDialog.state.confirmLabel"
+      :cancel-label="confirmDialog.state.cancelLabel"
+      :danger="confirmDialog.state.danger"
+      @confirm="confirmDialog.accept"
+      @cancel="confirmDialog.dismiss"
     />
   </main>
 </template>

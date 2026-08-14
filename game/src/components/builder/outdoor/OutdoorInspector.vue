@@ -270,8 +270,29 @@ const summaryRows = computed(() => {
           <h3>{{ selectedTitle }}</h3>
         </div>
         <div class="row-actions">
-          <button v-if="!editing" class="sm" @click="editing = true">Edit</button>
-          <button v-else class="sm muted" @click="editing = false">Done</button>
+          <button
+            v-if="!editing"
+            type="button"
+            class="sm edit-btn"
+            @click="editing = true"
+          >
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 20h4.5L19 9.5 14.5 5 4 15.5V20z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+              <path d="M12.5 6.5 17.5 11.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+            </svg>
+            Edit
+          </button>
+          <button
+            v-else
+            type="button"
+            class="sm success-btn"
+            @click="editing = false"
+          >
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12.5 9.5 17 19 7.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Done
+          </button>
         </div>
       </div>
 
@@ -305,13 +326,16 @@ const summaryRows = computed(() => {
             </ul>
             <button
               type="button"
-              class="sm muted add-beat"
+              class="sm add-btn add-beat"
               @click="emit('open-location-beat', {
                 locationMode: locationBeatTarget.locationMode,
                 location: locationBeatTarget.location,
                 create: true,
               })"
             >
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+              </svg>
               Add beat
             </button>
           </div>
@@ -341,23 +365,48 @@ const summaryRows = computed(() => {
                     </select>
                   </label>
                   <div class="row-actions placement-actions">
-                    <button type="button" class="sm muted" @click="stopEditingPlacement(placement.id)">Done</button>
-                    <button type="button" class="sm danger-outline" @click="removePlacement(placement.id)">Remove</button>
+                    <button type="button" class="sm success-btn" @click="stopEditingPlacement(placement.id)">
+                      <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 12.5 9.5 17 19 7.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+                      </svg>
+                      Done
+                    </button>
+                    <button type="button" class="sm danger-outline" @click="removePlacement(placement.id)">
+                      <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 7h14M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M8 7l.8 12.2A1.5 1.5 0 0 0 10.3 20.5h3.4a1.5 1.5 0 0 0 1.5-1.3L16 7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                      </svg>
+                      Remove
+                    </button>
                   </div>
                 </template>
                 <template v-else>
                   <p class="placement-text">{{ placement.label || "No placement text." }}</p>
                   <p v-if="placement.stand" class="placement-meta">Standpoint: {{ standLabel(placement.stand) }}</p>
                   <div class="row-actions placement-actions">
-                    <button type="button" class="sm muted" @click="editPlacement(placement.id)">Edit</button>
+                    <button type="button" class="sm edit-btn" @click="editPlacement(placement.id)">
+                      <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 20h4.5L19 9.5 14.5 5 4 15.5V20z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                        <path d="M12.5 6.5 17.5 11.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                      </svg>
+                      Edit
+                    </button>
                     <button
                       type="button"
                       class="sm muted"
                       @click="emit('duplicate-artifact', { catalog: 'items', id: placement.item })"
                     >
+                      <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <rect x="8" y="8" width="11" height="11" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7" />
+                        <path d="M6 15H5.5A1.5 1.5 0 0 1 4 13.5v-8A1.5 1.5 0 0 1 5.5 4h8A1.5 1.5 0 0 1 15 5.5V6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                      </svg>
                       Duplicate
                     </button>
-                    <button type="button" class="sm danger-outline" @click="removePlacement(placement.id)">Remove</button>
+                    <button type="button" class="sm danger-outline" @click="removePlacement(placement.id)">
+                      <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 7h14M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M8 7l.8 12.2A1.5 1.5 0 0 0 10.3 20.5h3.4a1.5 1.5 0 0 0 1.5-1.3L16 7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                      </svg>
+                      Remove
+                    </button>
                   </div>
                 </template>
               </div>
@@ -376,15 +425,23 @@ const summaryRows = computed(() => {
                 </option>
               </select>
             </label>
-            <button type="button" class="sm muted" @click="placementFormOpen = false">Cancel</button>
+            <button type="button" class="sm muted" @click="placementFormOpen = false">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+              </svg>
+              Cancel
+            </button>
           </div>
           <button
             v-else
             type="button"
-            class="sm muted add-beat"
+            class="sm add-btn add-beat"
             :disabled="!characterCatalog.items.length"
             @click="openPlacementForm"
           >
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+            </svg>
             Place artifact
           </button>
         </div>
@@ -392,22 +449,71 @@ const summaryRows = computed(() => {
 
       <div v-if="editing && !nestedDrill" class="edit-toolbar">
         <div class="row-actions">
-          <button class="sm muted" @click="moveSelected(-1)">Move up</button>
-          <button class="sm muted" @click="moveSelected(1)">Move down</button>
+          <button type="button" class="sm muted" title="Move up" @click="moveSelected(-1)">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 19V5M6 11l6-6 6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Move up
+          </button>
+          <button type="button" class="sm muted" title="Move down" @click="moveSelected(1)">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 5v14M6 13l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Move down
+          </button>
         </div>
         <template v-if="selectedType === 'landmark'">
-          <button class="sm" :disabled="!landmarkEditDirty" @click="saveLandmarkEdit">Save changes</button>
-          <button class="sm muted" @click="backToHexFromLandmark">Back to cell</button>
+          <button type="button" class="sm success-btn" :disabled="!landmarkEditDirty" @click="saveLandmarkEdit">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 4h11l3 3v13H5V4z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+              <path d="M8 4v5h8V4M8 20v-7h8v7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+            </svg>
+            Save changes
+          </button>
+          <button type="button" class="sm muted" @click="backToHexFromLandmark">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Back to cell
+          </button>
         </template>
         <template v-else-if="selectedType === 'stand'">
-          <button class="sm" :disabled="!standEditDirty" @click="saveStandEdit">Save changes</button>
-          <button class="sm muted" @click="backToHexFromStand">Back to cell</button>
+          <button type="button" class="sm success-btn" :disabled="!standEditDirty" @click="saveStandEdit">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 4h11l3 3v13H5V4z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+              <path d="M8 4v5h8V4M8 20v-7h8v7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+            </svg>
+            Save changes
+          </button>
+          <button type="button" class="sm muted" @click="backToHexFromStand">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Back to cell
+          </button>
         </template>
         <template v-else>
-          <button class="sm muted" @click="renameSelected">Rename</button>
-          <button class="sm muted" @click="duplicateSelected">Duplicate object</button>
+          <button type="button" class="sm muted" @click="renameSelected">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 20h4.5L19 9.5 14.5 5 4 15.5V20z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+              <path d="M12.5 6.5 17.5 11.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+            </svg>
+            Rename
+          </button>
+          <button type="button" class="sm muted" @click="duplicateSelected">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="8" y="8" width="11" height="11" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7" />
+              <path d="M6 15H5.5A1.5 1.5 0 0 1 4 13.5v-8A1.5 1.5 0 0 1 5.5 4h8A1.5 1.5 0 0 1 15 5.5V6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+            </svg>
+            Duplicate object
+          </button>
         </template>
-        <button class="sm danger-outline" @click="deleteSelected">Delete</button>
+        <button type="button" class="sm danger" @click="deleteSelected">
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 7h14M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M8 7l.8 12.2A1.5 1.5 0 0 0 10.3 20.5h3.4a1.5 1.5 0 0 0 1.5-1.3L16 7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+          </svg>
+          Delete
+        </button>
       </div>
 
       <HexInspector

@@ -358,7 +358,8 @@ export function createMovementCaseWorld(mapData, movementCase) {
   // authored inspection prerequisite belongs to story progression, not the
   // movement cases being audited here.
   const { outdoor, gameState } = buildGameplayWorld(mapData, {
-    flags: ['story.gate.inspected'],
+    // Movement audit is not testing vine discovery; grant untangle so open/close works.
+    flags: ['story.gate.inspected', 'story.gate.untangled'],
   })
   movementCase.setup(outdoor, gameState)
   return { outdoor, gameState }

@@ -1,8 +1,13 @@
 import { computed, ref } from "vue";
 import { storyApi } from "../lib/storyApi.js";
+import { migrateCliffWallToFixture } from "../lib/maps/composables/useGrid.js";
 
 function clonePlain(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function normalizeBuilding(building) {
+  return migrateCliffWallToFixture(clonePlain(building));
 }
 
 export function useBuildingBuilderDocument({
@@ -50,9 +55,10 @@ export function useBuildingBuilderDocument({
   }
 
   function applyLoaded(result) {
-    source.value = clonePlain(result.building);
-    draft.value = clonePlain(result.building);
-    baseline.value = JSON.stringify(result.building);
+    const building = normalizeBuilding(result.building);
+    source.value = clonePlain(building);
+    draft.value = clonePlain(building);
+    baseline.value = JSON.stringify(building);
     version.value = result.version;
     warnings.value = result.warnings ?? [];
     errors.value = {};
@@ -61,12 +67,12 @@ export function useBuildingBuilderDocument({
     auditResult.value = null;
     if (
       level &&
-      !result.building.levels?.some((item) => item.id === level.value)
+      !building.levels?.some((item) => item.id === level.value)
     ) {
       level.value =
-        result.building.exterior?.level ?? result.building.levels?.at(-1)?.id ?? "";
+        building.exterior?.level ?? building.levels?.at(-1)?.id ?? "";
     }
-    resetRouteState(result.building);
+    resetRouteState(building);
   }
 
   async function saveDraft() {

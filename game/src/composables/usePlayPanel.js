@@ -44,6 +44,14 @@ import {
   lightFixtureForRoom,
   roomLightAction,
 } from "../lib/maps/composables/indoor/roomLights.js";
+import { roomLabel } from "../lib/displayLabel.js";
+import { KITCHEN_FOUND_RATIONS_FLAG } from "../lib/character/quickConsume.js";
+import { setFlags } from "../lib/maps/composables/useFlags.js";
+import {
+  availableItemActions,
+  presentConsumeOptions,
+  performItemAction,
+} from "../lib/character/itemActions.js";
 
 function actionButtonLabel(action) {
   if (action.verb) return cleanActionLabel(`${action.verb} ${withArticle(action.label)}`);
@@ -77,6 +85,9 @@ export function isVisibleAction(action) {
  * Story choice buttons for the play panel (prose stays in NarrativeCard).
  * Story movement choices are authored prompts, so action policy and choice
  * application own validity; do not hide them during button construction.
+ *
+ * Destination fields mark the choice as a move so the UI can highlight it
+ * the same way as free outdoor/indoor/exterior travel actions.
  */
 export function buildStoryChoices(pendingBeat) {
   if (!pendingBeat?.choices?.length) return [];
@@ -89,8 +100,108 @@ export function buildStoryChoices(pendingBeat) {
       toRoomId: choice.go_room ?? null,
       toExteriorNode: choice.go_exterior_node ?? null,
       enterBuilding: choice.enter ?? null,
-      label: choice.text,
+      label: choice.text ?? choice.label,
+      kind: storyChoiceActionKind(choice),
     }));
+}
+
+/** Local world affordances that should appear before travel. */
+export function isLocalOutdoorAction(action) {
+  const id = action?.id ?? "";
+  return (
+    id.startsWith("search:") ||
+    // passage-unlock / passage-toggle / passage: (cross)
+    id.startsWith("passage") ||
+    id.startsWith("held-use:") ||
+    id.startsWith("holding-pickup:") ||
+    id.startsWith("holding-pickup-any:")
+  );
+}
+
+export function isStoryTravelAction(action) {
+  if (!action?.id?.startsWith("story:")) return false;
+  return (
+    Boolean(action.toHexId) ||
+    Boolean(action.toRoomId) ||
+    Boolean(action.toExteriorNode) ||
+    Boolean(action.enterBuilding) ||
+    action.kind === "move"
+  );
+}
+
+/**
+ * Order outdoor actions for the play panel:
+ * 1. Story non-travel choices (Inspect the gate)
+ * 2. Local free actions (Untangle / Open the gate)
+ * 3. Story travel choices (Follow the road uphill)
+ * 4. Free travel (routes, barrier walks, hex steps)
+ *
+ * Keeps gate work ahead of road-following so open/cross is not buried under movement.
+ */
+export function mergeOutdoorPanelActions(storyActions = [], freeActions = []) {
+  const storyLocal = [];
+  const storyTravel = [];
+  for (const action of storyActions) {
+    if (isStoryTravelAction(action)) storyTravel.push(action);
+    else storyLocal.push(action);
+  }
+  const freeLocal = [];
+  const freeTravel = [];
+  for (const action of freeActions) {
+    if (isLocalOutdoorAction(action)) freeLocal.push(action);
+    else freeTravel.push(action);
+  }
+  return [...storyLocal, ...freeLocal, ...storyTravel, ...freeTravel];
+}
+
+/** Indoor travel (path, room, exterior, world exit). */
+export function isIndoorTravelAction(action) {
+  const id = action?.id ?? "";
+  if (action?.kind === "move") return true;
+  return (
+    id.startsWith("move-room:") ||
+    id.startsWith("move-stand:") ||
+    id.startsWith("move-exterior:") ||
+    id.startsWith("exit-world:") ||
+    isStoryTravelAction(action)
+  );
+}
+
+/**
+ * Order indoor panel actions so doors and other local work beat path travel:
+ * 1. Story non-travel
+ * 2. Local free (door break/open, switches, pickups, …)
+ * 3. Story travel
+ * 4. Free travel (along the path, room steps, world exit)
+ */
+export function mergeIndoorPanelActions(storyActions = [], freeActions = [], extraActions = []) {
+  const storyLocal = [];
+  const storyTravel = [];
+  for (const action of storyActions) {
+    if (isIndoorTravelAction(action)) storyTravel.push(action);
+    else storyLocal.push(action);
+  }
+  const freeLocal = [];
+  const freeTravel = [];
+  for (const action of [...extraActions, ...freeActions]) {
+    if (isIndoorTravelAction(action)) freeTravel.push(action);
+    else freeLocal.push(action);
+  }
+  return [...storyLocal, ...freeLocal, ...storyTravel, ...freeTravel];
+}
+
+/**
+ * Map authored destination fields → play-panel action kind.
+ * Outdoor hex, indoor room, and exterior-node steps all use "move"
+ * so they share the movement highlight with free map travel.
+ */
+export function storyChoiceActionKind(choice) {
+  if (!choice || typeof choice !== "object") return null;
+  if (choice.go_hex || choice.go_room || choice.go_exterior_node) return "move";
+  if (choice.enter) return "move";
+  // Crossing a passage is travel; open/close alone is not.
+  if (choice.crossPassage || choice.cross_passage) return "move";
+  return null;
 }
 
 export function handleStoryChoice(index, applyChoice) {
@@ -275,15 +386,18 @@ export function buildOutdoorPlayActions(
   indoor = null,
   nearbyHoldings = [],
 ) {
+  const character = indoor?.character ?? outdoor?.character ?? null;
   return [
-    ...buildOutdoorRouteActions(outdoor, pendingBeat),
-    ...buildOutdoorBarrierFollowActions(outdoor, pendingBeat),
-    ...buildOutdoorDirectMovementActions(outdoor, pendingBeat),
-    ...buildOutdoorEnterBuildingActions(outdoor, indoor),
+    ...buildHeldItemUseActions(character),
+    // Barrier/passage use before travel — e.g. Untangle the vines, Open the gate.
     ...buildOutdoorSearchActions(outdoor),
     ...buildOutdoorPassageUnlockActions(outdoor),
     ...buildOutdoorPassageToggleActions(outdoor),
     ...buildOutdoorPassageActions(outdoor),
+    ...buildOutdoorRouteActions(outdoor, pendingBeat),
+    ...buildOutdoorBarrierFollowActions(outdoor, pendingBeat),
+    ...buildOutdoorDirectMovementActions(outdoor, pendingBeat),
+    ...buildOutdoorEnterBuildingActions(outdoor, indoor),
     ...nearbyHoldings.map((record) => ({
       id: `holding-pickup:${record.type}:${record.id}`,
       label: `Pick up ${withArticle(record.label)}`,
@@ -384,73 +498,117 @@ export function handleIndoorChooseAction(
 }
 
 /**
- * Build a flat action list for the play panel (pickups, room actions, doors, switches).
+ * Use-actions for items currently in the character's hands.
+ * These lead the play list so held tools/food/docs stay usable without opening inventory.
  */
-export function buildIndoorPlayActions(indoor, pendingBeat = null) {
-  const items = buildIndoorMovementActions(indoor, pendingBeat);
-
-  for (const pickup of indoor.roomPickups ?? []) {
-    const itemDef = itemDefinition(indoor, pickup.item);
-    const label = pickup.label || itemDef?.label || pickup.item;
-    // Container pickups support Look in (materializes a holdings instance at this stand).
-    if (itemDef?.container) {
-      items.push({
-        id: `pickup-look:${pickup.id}`,
-        label: `Look in ${withArticle(label)}`,
-      });
-    }
-    items.push({
-      id: `pickup:${pickup.id}`,
-      label: `Pick up ${withArticle(label)}`,
+export function buildHeldItemUseActions(character) {
+  if (!character?.holdings || !character?.definitions) return [];
+  const holderId = characterHolderId(character.holdings);
+  const records = holdingRecords(character.holdings, character.definitions, [holderId]);
+  const actions = [];
+  for (const record of records) {
+    const itemActions = availableItemActions(character, record.item, {
+      recordId: record.type === "instance" ? record.id : null,
     });
-  }
-
-  const nearbyHoldings = nearbyPortableHoldings(indoor);
-  const containerRecords = nearbyHoldings.filter((record) => isNearbyContainerRecord(indoor, record));
-  const nonContainerRecords = nearbyHoldings.filter((record) => !isNearbyContainerRecord(indoor, record));
-  const containersByItem = groupBy(containerRecords, (record) => record.item);
-
-  for (const [itemId, group] of containersByItem) {
-    const baseLabel = group[0]?.definition?.label || itemId;
-    if (group.length >= 2) {
-      items.push({
-        id: `holding-inspect-group:${itemId}`,
-        label: containerGroupInspectLabel(baseLabel, group.length),
-      });
-      for (const record of group) {
-        const label = holdingDisplayLabel(indoor, record);
-        items.push({
-          id: `holding-pickup:${record.type}:${record.id}`,
-          label: `Pick up ${withArticle(label)}`,
+    if (!itemActions.length) continue;
+    const remaining = heldRecordRemainingFraction(record);
+    for (const action of itemActions) {
+      for (const entry of presentConsumeOptions(action, remaining)) {
+        const optionPart = entry.optionId ? `:${entry.optionId}` : "";
+        actions.push({
+          id: `held-use:${record.type}:${record.id}:${entry.id}${optionPart}`,
+          label: entry.buttonLabel || entry.label || action.label,
+          kind: "action",
         });
       }
-      continue;
     }
-    const record = group[0];
-    const label = holdingDisplayLabel(indoor, record);
-    items.push({
-      id: `holding-look:${record.type}:${record.id}`,
-      label: `Look in ${withArticle(label)}`,
-    });
-    items.push({
-      id: `holding-pickup:${record.type}:${record.id}`,
-      label: `Pick up ${withArticle(label)}`,
-    });
   }
+  return actions;
+}
 
-  for (const record of nonContainerRecords) {
-    items.push({
-      id: `holding-pickup:${record.type}:${record.id}`,
-      label: `Pick up ${withArticle(holdingDisplayLabel(indoor, record))}`,
-    });
+function heldRecordRemainingFraction(record) {
+  if (record?.remaining != null && Number.isFinite(Number(record.remaining))) {
+    return Math.min(1, Math.max(0, Number(record.remaining)));
   }
+  const capacity = Number(record?.definition?.vessel?.capacityMl);
+  const amount = Number(record?.contents?.amountMl);
+  if (Number.isFinite(capacity) && capacity > 0 && Number.isFinite(amount)) {
+    return Math.min(1, Math.max(0, amount / capacity));
+  }
+  return 1;
+}
 
-  for (const action of indoor.availableActions ?? []) {
-    items.push({
-      id: `action:${action.id}`,
-      label: actionButtonLabel(action),
-    });
+/**
+ * Parse `held-use:{type}:{recordId}:{actionId}[:optionId]` and run the item action.
+ */
+export function performHeldItemUse(gameState, actionId) {
+  if (!gameState?.character) {
+    return { ok: false, error: "No character is available." };
   }
+  const parsed = parseHeldUseActionId(actionId);
+  if (!parsed) return { ok: false, error: "Unknown held-item action." };
+  const { type, recordId, itemActionId, optionId } = parsed;
+  const holderId = characterHolderId(gameState.character.holdings);
+  const record = holdingRecords(
+    gameState.character.holdings,
+    gameState.character.definitions,
+    [holderId],
+  ).find((entry) => entry.type === type && entry.id === recordId);
+  if (!record) return { ok: false, error: "You are not holding that item." };
+
+  const result = performItemAction(gameState, record.item, itemActionId, {
+    holderId,
+    recordId: type === "instance" ? recordId : null,
+    optionId,
+  });
+  if (!result.ok) return result;
+  markCharacterChanged(gameState.character);
+  return result;
+}
+
+function parseHeldUseActionId(actionId) {
+  if (!String(actionId).startsWith("held-use:")) return null;
+  const parts = String(actionId).split(":");
+  // held-use : type : recordId... : actionId [ : optionId ]
+  // record ids may contain hyphens but not colons in practice.
+  if (parts.length < 4) return null;
+  const type = parts[1];
+  if (type !== "instance" && type !== "stack" && type !== "catalog") return null;
+  // action id is the last segment, or second-to-last when option present.
+  // We detect option by checking if the final segment matches a known option
+  // on the action — simpler: require form type:id:action or type:id:action:option
+  // where id has no colons.
+  if (parts.length === 4) {
+    return {
+      type,
+      recordId: parts[2],
+      itemActionId: parts[3],
+      optionId: null,
+    };
+  }
+  if (parts.length === 5) {
+    return {
+      type,
+      recordId: parts[2],
+      itemActionId: parts[3],
+      optionId: parts[4],
+    };
+  }
+  // Longer: treat last as option, second-last as action, middle as recordId
+  const optionId = parts[parts.length - 1];
+  const itemActionId = parts[parts.length - 2];
+  const recordId = parts.slice(2, -2).join(":");
+  return { type, recordId, itemActionId, optionId };
+}
+
+/**
+ * Build a flat action list for the play panel (doors, pickups, room actions, movement).
+ * Door and other local interactions come before path/room travel.
+ */
+export function buildIndoorPlayActions(indoor, pendingBeat = null) {
+  const items = [
+    ...buildHeldItemUseActions(indoor.character),
+  ];
 
   const building = indoor.building;
   const doorState = indoor.indoor.doorState;
@@ -525,6 +683,85 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
   for (const action of buildProcessFixtureActions(indoor)) {
     items.push(action);
   }
+
+  for (const pickup of indoor.roomPickups ?? []) {
+    const itemDef = itemDefinition(indoor, pickup.item);
+    const label = pickup.label || itemDef?.label || pickup.item;
+    // Container pickups support Look in (materializes a holdings instance at this stand).
+    if (itemDef?.container) {
+      items.push({
+        id: `pickup-look:${pickup.id}`,
+        label: `Look in ${withArticle(label)}`,
+      });
+    }
+    items.push({
+      id: `pickup:${pickup.id}`,
+      label: `Pick up ${withArticle(label)}`,
+    });
+  }
+
+  const nearbyHoldings = nearbyPortableHoldings(indoor);
+  const containerRecords = nearbyHoldings.filter((record) => isNearbyContainerRecord(indoor, record));
+  const nonContainerRecords = nearbyHoldings.filter((record) => !isNearbyContainerRecord(indoor, record));
+  const containersByItem = groupBy(containerRecords, (record) => record.item);
+
+  for (const [itemId, group] of containersByItem) {
+    const baseLabel = group[0]?.definition?.label || itemId;
+    if (group.length >= 2) {
+      items.push({
+        id: `holding-inspect-group:${itemId}`,
+        label: containerGroupInspectLabel(baseLabel, group.length),
+      });
+      for (const record of group) {
+        const label = holdingDisplayLabel(indoor, record);
+        items.push({
+          id: `holding-pickup:${record.type}:${record.id}`,
+          label: `Pick up ${withArticle(label)}`,
+        });
+      }
+      continue;
+    }
+    const record = group[0];
+    const label = holdingDisplayLabel(indoor, record);
+    items.push({
+      id: `holding-look:${record.type}:${record.id}`,
+      label: `Look in ${withArticle(label)}`,
+    });
+    items.push({
+      id: `holding-pickup:${record.type}:${record.id}`,
+      label: `Pick up ${withArticle(label)}`,
+    });
+  }
+
+  // Identical loose items (e.g. four empty glasses) share one pickup action.
+  const nonContainersByItem = groupBy(nonContainerRecords, (record) => record.item);
+  for (const [itemId, group] of nonContainersByItem) {
+    const baseLabel = group[0]?.definition?.label || group[0]?.label || itemId;
+    if (group.length >= 2) {
+      items.push({
+        id: `holding-pickup-any:${itemId}`,
+        label: `Pick up ${withArticle(baseLabel)}`,
+        kind: "pickup",
+        hint: group.length > 1 ? `${group.length} within reach` : "",
+      });
+      continue;
+    }
+    const record = group[0];
+    items.push({
+      id: `holding-pickup:${record.type}:${record.id}`,
+      label: `Pick up ${withArticle(holdingDisplayLabel(indoor, record))}`,
+    });
+  }
+
+  for (const action of indoor.availableActions ?? []) {
+    items.push({
+      id: `action:${action.id}`,
+      label: actionButtonLabel(action),
+    });
+  }
+
+  // Path/room travel after local door and interaction work.
+  items.push(...buildIndoorMovementActions(indoor, pendingBeat));
 
   return items.filter(isVisibleAction);
 }
@@ -618,30 +855,80 @@ function movementLabel(indoor, move) {
   }
   if (indoor?.indoor && !indoor.indoor.exteriorNode && move.toExteriorNode) return "Go outside";
   if (indoor?.indoor?.exteriorNode && move.toRoomId && move.kind === "door") return "Go inside";
-  if (
-    move.toRoomId &&
-    !isDestinationRoomDiscovered(indoor, move.toRoomId) &&
-    !isKnownGenericDestination(indoor, move.toRoomId)
-  ) {
-    return "Enter the room";
+
+  if (move.toRoomId && (move.kind === "door" || move.doorId)) {
+    return doorTravelLabel(indoor, move);
   }
-  if (
-    move.toRoomId &&
-    move.kind === "door" &&
-    indoor?.indoor?.discovered?.has &&
-    !indoor.indoor.discovered.has(move.toRoomId)
-  ) {
-    return "Enter the room";
-  }
+
   if (move.toExteriorNode) return `Go ${move.label ?? "along the footpath"}`;
   if (move.toStandId) return `Go ${move.label ?? "to another spot"}`;
-  if (move.toRoomId) return `Go ${move.label ?? "to another room"}`;
+  if (move.toRoomId) {
+    const dest = indoor?.building?.roomById?.[move.toRoomId];
+    const name = roomDestinationPhrase(dest);
+    if (isDestinationRoomDiscovered(indoor, move.toRoomId) || isKnownGenericDestination(indoor, move.toRoomId)) {
+      return name ? `Go to ${name}` : `Go ${move.label ?? "to another room"}`;
+    }
+    return "Enter the room";
+  }
   return `Go ${move.label ?? "onward"}`;
+}
+
+/**
+ * Prefer named destinations and door labels so multi-door rooms aren't ambiguous.
+ * Known rooms (already visited) never fall back to bare "Enter the room".
+ */
+function doorTravelLabel(indoor, move) {
+  const building = indoor?.building;
+  const dest = building?.roomById?.[move.toRoomId];
+  const door = move.doorId ? building?.doorById?.[move.doorId] : null;
+  const doorName = String(door?.label ?? "").trim();
+  const destName = roomDestinationPhrase(dest);
+  const known =
+    isDestinationRoomDiscovered(indoor, move.toRoomId)
+    || isKnownGenericDestination(indoor, move.toRoomId);
+  const doorCount = countDoorLinksFromRoom(building, indoor?.indoor?.currentRoom ?? indoor?.playerRoomId);
+
+  if (doorName && doorCount > 1) {
+    return `Go through ${withArticle(doorName)}`;
+  }
+  if (known && destName) {
+    return `Go to ${destName}`;
+  }
+  if (doorName) {
+    return `Go through ${withArticle(doorName)}`;
+  }
+  if (known && move.label) {
+    return `Go ${move.label}`;
+  }
+  return "Enter the room";
+}
+
+function roomDestinationPhrase(room) {
+  const raw = roomLabel(room);
+  if (!raw) return "";
+  const name = String(raw).trim();
+  if (!name) return "";
+  // roomLabel is often Title Case ("Conference Room"); play actions use "the …".
+  return /^(the|a|an)\s/i.test(name) ? name : `the ${name}`;
+}
+
+function countDoorLinksFromRoom(building, roomId) {
+  if (!building || !roomId) return 0;
+  return (building.links ?? []).filter(
+    (link) =>
+      link.kind === "door"
+      && link.door
+      && (link.from === roomId || link.to === roomId),
+  ).length;
 }
 
 function isDestinationRoomDiscovered(indoor, roomId) {
   const discovered = indoor?.indoor?.discovered;
-  return !discovered?.has || discovered.has(roomId);
+  if (!discovered) return true;
+  if (discovered instanceof Set) return discovered.has(roomId);
+  if (Array.isArray(discovered)) return discovered.includes(roomId);
+  if (typeof discovered.has === "function") return discovered.has(roomId);
+  return false;
 }
 
 function isKnownGenericDestination(indoor, roomId) {
@@ -677,25 +964,28 @@ export function buildIndoorMovementActions(indoor, pendingBeat = null) {
         return {
           id: `move-exterior:${move.toExteriorNode}`,
           label: movementLabel(indoor, move),
-          kind: move.kind ?? "path",
+          kind: "move",
         };
       }
       if (move.toStandId) {
         return {
           id: `move-stand:${move.toStandId}`,
           label: movementLabel(indoor, move),
-          kind: move.kind ?? "stand",
+          kind: "move",
         };
       }
       return {
         id: `move-room:${move.toRoomId}`,
         label: movementLabel(indoor, move),
-        kind: move.kind ?? "room",
+        kind: "move",
       };
     });
 }
 
 export function handleIndoorPlayAction(indoor, actionId) {
+  if (actionId.startsWith("held-use:")) {
+    return performHeldItemUse(indoor.gameState ?? { character: indoor.character }, actionId);
+  }
   if (actionId.startsWith("move-exterior:")) {
     indoor.moveToExteriorNode(actionId.slice("move-exterior:".length));
     return;
@@ -720,6 +1010,9 @@ export function handleIndoorPlayAction(indoor, actionId) {
   }
   if (actionId.startsWith("holding-look:")) {
     return lookInNearbyHolding(indoor, actionId.slice("holding-look:".length));
+  }
+  if (actionId.startsWith("holding-pickup-any:")) {
+    return pickupAnyNearbyHolding(indoor, actionId.slice("holding-pickup-any:".length));
   }
   if (actionId.startsWith("holding-pickup:")) {
     return pickupNearbyHolding(indoor, actionId.slice("holding-pickup:".length));
@@ -853,6 +1146,8 @@ function inspectNearbyContainerGroup(indoor, itemId) {
     };
   });
 
+  markKitchenRationsDiscovered(indoor, itemId, baseLabel);
+
   return {
     ok: true,
     inspectGroup: {
@@ -902,10 +1197,32 @@ function lookInNearbyHolding(indoor, encoded) {
   if (!isNearbyContainerRecord(indoor, record)) {
     return { ok: false, error: "There is nothing to look inside." };
   }
+  markKitchenRationsDiscovered(
+    indoor,
+    record.item,
+    record.definition?.label || record.label || record.item,
+  );
   return {
     ok: true,
     lookIn: { type, id, key: `${type}:${id}` },
   };
+}
+
+/** Discover kitchen rations when the player actually looks at Tastee Tack stores. */
+function markKitchenRationsDiscovered(indoor, itemId, label = "") {
+  const text = `${itemId ?? ""} ${label ?? ""}`;
+  if (!/tastee|ration/i.test(text)) return;
+  const flags = indoor.indoor?.flags ?? indoor.flags ?? indoor.gameState?.flags;
+  if (!flags) return;
+  const toSet = [];
+  if (!(typeof flags.has === "function" ? flags.has(KITCHEN_FOUND_RATIONS_FLAG) : false)) {
+    toSet.push(KITCHEN_FOUND_RATIONS_FLAG);
+  }
+  // Day-1 milestone for story beats that still key off found-food.
+  if (!(typeof flags.has === "function" ? flags.has("day1.found-food") : false)) {
+    toSet.push("day1.found-food");
+  }
+  if (toSet.length) setFlags(flags, toSet);
 }
 
 /**
@@ -1177,14 +1494,27 @@ function pickupNearbyHolding(indoor, encoded) {
   const record = nearbyPortableHoldings(indoor)
     .find((entry) => entry.type === type && entry.id === id);
   if (!record) return { ok: false, error: "Holding is not available." };
+  return transferNearbyRecord(indoor, record);
+}
+
+/** Pick the first nearby instance/stack of an item id (shared glass/tablet actions). */
+function pickupAnyNearbyHolding(indoor, itemId) {
+  const character = indoor.character;
+  if (!character?.holdings) return { ok: false, error: "Character holdings are unavailable." };
+  const record = nearbyPortableHoldings(indoor).find((entry) => entry.item === itemId);
+  if (!record) return { ok: false, error: "Nothing like that is within reach." };
+  return transferNearbyRecord(indoor, record);
+}
+
+function transferNearbyRecord(indoor, record) {
+  const character = indoor.character;
   try {
-    // Stacks default to one; take the whole stack only for unique-style single records.
     const quantity = record.type === "stack"
       ? 1
       : (record.quantity ?? 1);
     transferHolding(character.holdings, character.definitions, {
-      type,
-      id,
+      type: record.type,
+      id: record.id,
       quantity,
       toHolder: characterHolderId(character.holdings),
     });

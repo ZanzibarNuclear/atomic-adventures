@@ -1,6 +1,7 @@
 <script setup>
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { isActionAllowed } from "../../composables/storyActionAvailability.js";
+import { presentConsumeOptions } from "../../lib/character/itemActions.js";
 
 const props = defineProps({
   holders: { type: Array, required: true },
@@ -13,6 +14,14 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["select-holding", "transfer-item", "use-item"]);
+
+const DETAIL_ZOOM = 2;
+const LOUPE_SIZE_PX = 112;
+
+const detailImageHost = ref(null);
+const detailImgEl = ref(null);
+const zoomActive = ref(false);
+const loupeStyle = ref({});
 
 const visibleHolders = computed(() =>
   props.holders.filter((holder) => holder.kind !== "container"),
@@ -86,23 +95,60 @@ const detailImage = computed(() => {
   return null;
 });
 
+const detailImageSrc = computed(() =>
+  detailImage.value ? props.publicAssetPath(detailImage.value) : null,
+);
+
+watch(
+  () => props.selectedHoldingId,
+  () => {
+    zoomActive.value = false;
+    loupeStyle.value = {};
+  },
+);
+
+function hideDetailZoom() {
+  zoomActive.value = false;
+}
+
+function onDetailImageMove(event) {
+  const img = detailImgEl.value;
+  const host = detailImageHost.value;
+  if (!img || !host || !detailImageSrc.value) return;
+
+  const imgRect = img.getBoundingClientRect();
+  const hostRect = host.getBoundingClientRect();
+  if (!(imgRect.width > 0) || !(imgRect.height > 0)) return;
+
+  const x = Math.max(0, Math.min(imgRect.width, event.clientX - imgRect.left));
+  const y = Math.max(0, Math.min(imgRect.height, event.clientY - imgRect.top));
+  const half = LOUPE_SIZE_PX / 2;
+
+  zoomActive.value = true;
+  loupeStyle.value = {
+    width: `${LOUPE_SIZE_PX}px`,
+    height: `${LOUPE_SIZE_PX}px`,
+    left: `${event.clientX - hostRect.left - half}px`,
+    top: `${event.clientY - hostRect.top - half}px`,
+    backgroundImage: `url(${JSON.stringify(detailImageSrc.value)})`,
+    backgroundRepeat: "no-repeat",
+    backgroundSize: `${imgRect.width * DETAIL_ZOOM}px ${imgRect.height * DETAIL_ZOOM}px`,
+    backgroundPosition: `${-(x * DETAIL_ZOOM - half)}px ${-(y * DETAIL_ZOOM - half)}px`,
+  };
+}
+
 const visibleActions = computed(() => {
   if (!isHeldDirectly.value) return [];
+  const remaining = props.selectedHolding?.remaining != null
+    ? Number(props.selectedHolding.remaining)
+    : 1;
   return (props.selectedHolding?.actions ?? [])
     .filter((action) =>
       isActionAllowed(`item-action:${props.selectedHolding.item}.${action.id}`, props.actionPolicy, {
         itemId: props.selectedHolding.item,
         actionId: action.id,
       }))
-    .flatMap((action) => {
-      const options = action.consumeOptions ?? [];
-      if (!options.length) return [{ ...action, buttonLabel: action.label }];
-      return options.map((option) => ({
-        ...action,
-        optionId: option.id,
-        buttonLabel: option.label || action.label,
-      }));
-    });
+    .flatMap((action) => presentConsumeOptions(action, remaining));
 });
 
 const availableTransferTargets = computed(() => {
@@ -127,7 +173,8 @@ const availableTransferTargets = computed(() => {
         .filter((target) => target.kind === "fixed")
         .filter((target) => acceptsItemKind(target, props.selectedHolding?.kind))
         .map((target) => ({ ...target, putOnSurface: true }));
-      const includeFloor = surfaces.length !== 1;
+      const soleSurface = surfaces.length === 1;
+      const includeFloor = !soleSurface;
       const ordinaryTargets = candidates
         .filter((target) => target.kind !== "fixed")
         .filter((target) => includeFloor || target.kind !== "world")
@@ -137,13 +184,24 @@ const availableTransferTargets = computed(() => {
         });
       const containers = props.holders
         .filter((holder) => holder.kind === "container" && holder.instance !== selectedId)
-        .map((holder) => ({
-          id: holder.id,
-          label: containerItemLabel(holder) ?? holder.label ?? holder.id,
-          kind: "container",
-          putIn: true,
-        }));
-      targets = [...surfaces, ...ordinaryTargets, ...containers];
+        .map((holder) => {
+          const record = containerItemRecord(holder);
+          return {
+            id: holder.id,
+            label: record?.label ?? holder.label ?? holder.id,
+            shortLabel: record?.shortLabel ?? holder.shortLabel ?? null,
+            kind: "container",
+            putIn: true,
+          };
+        });
+      targets = [
+        ...surfaces.map((target) => ({
+          ...target,
+          soleSurface,
+        })),
+        ...ordinaryTargets,
+        ...containers,
+      ];
     }
   }
 
@@ -167,16 +225,17 @@ function expandStackTransferActions(targets, holding) {
       }];
     }
     if (target.takeOut || target.pickUp || target.putIn) {
+      const place = transferPlaceName(target);
       const oneLabel = target.takeOut
         ? "Take one"
         : target.pickUp
           ? "Pick up one"
-          : `Put one in ${target.label}`;
+          : `Put one in ${place}`;
       const allLabel = target.takeOut
         ? `Take all (${quantity})`
         : target.pickUp
           ? `Pick up all (${quantity})`
-          : `Put all (${quantity}) in ${target.label}`;
+          : `Put all (${quantity}) in ${place}`;
       return [
         {
           ...target,
@@ -204,10 +263,30 @@ function expandStackTransferActions(targets, holding) {
 function transferLabel(target) {
   if (target.takeOut) return "Take out";
   if (target.pickUp) return "Pick up";
-  if (target.putIn) return `Put in ${target.label}`;
-  if (target.putOnSurface) return `Put down on ${target.label}`;
+  if (target.putIn) return `Put in ${transferPlaceName(target)}`;
+  // Standing at the only reachable surface — place is implied.
+  if (target.putOnSurface && target.soleSurface) return "Put down";
+  if (target.putOnSurface) return `Put down on ${transferPlaceName(target)}`;
   if (target.putDown) return "Put down";
-  return `Move to ${target.label}`;
+  return `Move to ${transferPlaceName(target)}`;
+}
+
+/**
+ * Short place name for transfer buttons. Prefers authored shortLabel, else
+ * drops common verbose prefixes ("field", "control-room", …).
+ */
+function transferPlaceName(target) {
+  const short = String(target?.shortLabel ?? "").trim();
+  if (short) return short;
+  return briefTransferName(target?.label) || target?.label || target?.id || "there";
+}
+
+function briefTransferName(label) {
+  let text = String(label ?? "").trim();
+  if (!text) return "";
+  text = text.replace(/^(the|a|an)\s+/i, "");
+  text = text.replace(/^(control[-\s]?room|field|utility[-\s]?station)\s+/i, "");
+  return text;
 }
 
 function acceptsItemKind(target, itemKind) {
@@ -215,12 +294,16 @@ function acceptsItemKind(target, itemKind) {
   return !kinds.length || kinds.includes(itemKind);
 }
 
-function containerItemLabel(holder) {
+function containerItemRecord(holder) {
   if (!holder.instance) return null;
   return props.holders
     .flatMap((entry) => entry.records ?? [])
     .find((record) => record.type === "instance" && record.id === holder.instance)
-    ?.label ?? null;
+    ?? null;
+}
+
+function containerItemLabel(holder) {
+  return containerItemRecord(holder)?.label ?? null;
 }
 
 function holdingKey(record) {
@@ -327,8 +410,23 @@ function closeToContainer() {
         </div>
 
         <div class="detail-hero">
-          <div v-if="detailImage" class="detail-image">
-            <img :src="publicAssetPath(detailImage)" :alt="selectedHolding.label">
+          <div
+            v-if="detailImageSrc"
+            ref="detailImageHost"
+            class="detail-image"
+            @mousemove="onDetailImageMove"
+            @mouseenter="onDetailImageMove"
+            @mouseleave="hideDetailZoom">
+            <img
+              ref="detailImgEl"
+              :src="detailImageSrc"
+              :alt="selectedHolding.label"
+              draggable="false">
+            <div
+              v-show="zoomActive"
+              class="detail-zoom-loupe"
+              :style="loupeStyle"
+              aria-hidden="true" />
           </div>
           <div class="detail-summary">
             <h3>{{ selectedHolding.label }}</h3>
@@ -354,57 +452,52 @@ function closeToContainer() {
           v-if="availableTransferTargets.length || visibleActions.length"
           class="focus-actions"
           :class="{ 'has-contents-below': containerContents.length }">
-          <div v-if="availableTransferTargets.length" class="item-actions">
-            <button
-              v-for="target in availableTransferTargets"
-              :key="target.actionKey"
-              type="button"
-              class="sm transfer-btn"
-              :class="{
-                'take-out': target.takeOut,
-                'put-down': target.putDown,
-                'put-in': target.putIn,
-              }"
-              @click="$emit('transfer-item', {
-                type: selectedHolding.type,
-                recordId: selectedHolding.id,
-                itemId: selectedHolding.item,
-                quantity: target.quantity,
-                toHolder: target.id,
-              })">
-              <svg
-                v-if="target.takeOut"
-                class="transfer-icon"
-                viewBox="0 0 24 24"
-                aria-hidden="true">
-                <path
-                  d="M12 21V11m0 0l-3.5 3.5M12 11l3.5 3.5M5 9V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.75"
-                  stroke-linecap="round"
-                  stroke-linejoin="round" />
-              </svg>
-              {{ target.buttonLabel }}
-            </button>
-          </div>
-
-          <div v-if="visibleActions.length" class="item-actions">
-            <button
-              v-for="action in visibleActions"
-              :key="`${action.id}:${action.optionId ?? 'default'}`"
-              type="button"
-              class="sm"
-              @click="$emit('use-item', {
-                itemId: selectedHolding.item,
-                actionId: action.id,
-                optionId: action.optionId ?? null,
-                recordId: selectedHolding.id,
-                holderId: selectedHolding.holder?.id,
-              })">
-              {{ action.buttonLabel }}
-            </button>
-          </div>
+          <button
+            v-for="action in visibleActions"
+            :key="`${action.id}:${action.optionId ?? 'default'}`"
+            type="button"
+            class="sm"
+            @click="$emit('use-item', {
+              itemId: selectedHolding.item,
+              actionId: action.id,
+              optionId: action.optionId ?? null,
+              recordId: selectedHolding.id,
+              holderId: selectedHolding.holder?.id,
+            })">
+            {{ action.buttonLabel }}
+          </button>
+          <button
+            v-for="target in availableTransferTargets"
+            :key="target.actionKey"
+            type="button"
+            class="sm transfer-btn"
+            :class="{
+              'take-out': target.takeOut,
+              'put-down': target.putDown,
+              'put-in': target.putIn,
+            }"
+            @click="$emit('transfer-item', {
+              type: selectedHolding.type,
+              recordId: selectedHolding.id,
+              itemId: selectedHolding.item,
+              quantity: target.quantity,
+              toHolder: target.id,
+            })">
+            <svg
+              v-if="target.takeOut"
+              class="transfer-icon"
+              viewBox="0 0 24 24"
+              aria-hidden="true">
+              <path
+                d="M12 21V11m0 0l-3.5 3.5M12 11l3.5 3.5M5 9V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+            {{ target.buttonLabel }}
+          </button>
           <p
             v-if="actionFeedback"
             class="action-feedback"
@@ -586,11 +679,15 @@ function closeToContainer() {
   align-items: start;
 }
 .detail-image {
+  position: relative;
   width: 7.5rem;
   padding: 0.65rem;
   border-radius: 12px;
   background: rgba(32, 42, 62, 0.85);
   border: 1px solid rgba(120, 150, 195, 0.22);
+  cursor: zoom-in;
+  touch-action: none;
+  user-select: none;
 }
 .detail-image img {
   display: block;
@@ -598,6 +695,21 @@ function closeToContainer() {
   height: auto;
   object-fit: contain;
   filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35));
+  pointer-events: none;
+}
+.detail-zoom-loupe {
+  position: absolute;
+  z-index: 4;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--color-cherenkov, #20c8fb) 55%, #e8f4ff);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.45),
+    0 8px 22px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  background-color: rgba(20, 26, 36, 0.92);
+  pointer-events: none;
+  /* Glass rim highlight */
+  background-clip: padding-box;
 }
 .detail-summary {
   display: grid;
@@ -616,16 +728,12 @@ function closeToContainer() {
   margin-top: 0.9rem;
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 0.45rem;
 }
-.focus-actions .item-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  margin-top: 0;
-}
-.focus-actions .item-actions + .item-actions {
-  margin-top: 0;
+.focus-actions .action-feedback {
+  flex: 1 0 100%;
+  text-align: center;
 }
 .container-contents {
   margin-top: 1rem;
@@ -671,11 +779,6 @@ function closeToContainer() {
 .content-item span {
   display: grid;
   gap: 0.1rem;
-}
-.item-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
 }
 .transfer-btn {
   display: inline-flex;

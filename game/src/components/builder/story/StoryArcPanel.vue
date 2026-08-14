@@ -2,6 +2,8 @@
 import { computed, ref, watch } from "vue";
 import { moveStoryBeat, splitStoryBeat } from "../../../lib/story/storyArcOperations.js";
 import StoryCompletionCard from "../../story/StoryCompletionCard.vue";
+import ConfirmDialog from "../ConfirmDialog.vue";
+import { useConfirmDialog } from "../../../composables/useConfirmDialog.js";
 
 const props = defineProps({
   documentText: { type: String, default: "" },
@@ -48,6 +50,7 @@ const attachRoomFilter = ref("");
 const attachUnattachedOnly = ref(true);
 const completionEditing = ref(false);
 const completionDraft = ref(null);
+const deleteConfirm = useConfirmDialog();
 const completionError = ref("");
 
 const selectedStoryArc = computed(() =>
@@ -281,10 +284,18 @@ function applyCompletionEdit() {
   cancelCompletionEdit();
 }
 
-function removeStoryBeat() {
+async function removeStoryBeat() {
   const arcId = selectedStoryArc.value?.id;
   const beatId = selectedStoryBeat.value?.id;
-  if (!arcId || !beatId || !window.confirm(`Delete story beat "${beatId}"? Linked scenes will not be deleted.`)) return;
+  if (!arcId || !beatId) return;
+  const ok = await deleteConfirm.requestConfirm({
+    eyebrow: "Delete beat",
+    title: `Delete story beat “${beatId}”?`,
+    message: "Linked scenes will not be deleted. They stay in the story area and can be reattached later.",
+    confirmLabel: "Delete beat",
+    danger: true,
+  });
+  if (!ok) return;
   updateDocument((document) => {
     const arc = document.storyArcs?.find((item) => item.id === arcId);
     if (!arc) return;
@@ -462,7 +473,12 @@ function uniqueId(base, existingIds = []) {
     <aside class="outline panel" aria-label="Story outline">
       <header class="panel-heading">
         <div><p class="label">Story mode</p><h2>Story outline</h2></div>
-        <button type="button" class="sm muted" @click="addStoryArc">Add arc</button>
+        <button type="button" class="sm add-btn" @click="addStoryArc">
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+          </svg>
+          Add arc
+        </button>
       </header>
       <p v-if="status" class="builder-status">{{ status }}</p>
       <p v-if="parseError" class="field-error">{{ parseError }}</p>
@@ -520,9 +536,68 @@ function uniqueId(base, existingIds = []) {
         </div>
         <div class="toolbar">
           <span v-if="dirty" class="dirty-pill">Unsaved</span>
-          <button type="button" class="sm muted" :disabled="!dirty" @click="$emit('revert')">Revert</button>
-          <button type="button" class="sm muted" @click="$emit('reload')">Reload</button>
-          <button type="button" class="sm" :disabled="!dirty || Boolean(parseError)" @click="$emit('save')">Save all</button>
+          <button type="button" class="sm muted" :disabled="!dirty" @click="$emit('revert')">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+            Revert
+          </button>
+          <button type="button" class="sm muted" @click="$emit('reload')">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M4.5 12a7.5 7.5 0 0 1 12.8-5.3L20 9.5"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round" />
+              <path
+                d="M20 4.5v5h-5"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round" />
+              <path
+                d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3L4 14.5"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round" />
+              <path
+                d="M4 19.5v-5h5"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+            Reload
+          </button>
+          <button type="button" class="sm success-btn" :disabled="!dirty || Boolean(parseError)" @click="$emit('save')">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M5 4h11l3 3v13H5V4z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.7"
+                stroke-linejoin="round" />
+              <path
+                d="M8 4v5h8V4M8 20v-7h8v7"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.7"
+                stroke-linejoin="round" />
+            </svg>
+            Save all
+          </button>
         </div>
       </header>
 
@@ -531,7 +606,15 @@ function uniqueId(base, existingIds = []) {
           <label v-if="!selectedStoryBeat">ID <input v-model="editId" class="arc-id-input" autofocus></label>
           <label>{{ selectedStoryBeat ? "Title" : "Label" }} <input v-model="editTitle" :autofocus="Boolean(selectedStoryBeat)"></label>
           <p v-if="editError" class="field-error">{{ editError }}</p>
-          <div class="toolbar"><button type="button" class="sm muted" @click="cancelEdit">Cancel</button><button class="sm">Apply</button></div>
+          <div class="toolbar">
+            <button type="button" class="sm muted" @click="cancelEdit">Cancel</button>
+            <button type="submit" class="sm success-btn">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 12.5 9.5 17 19 7.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              Apply
+            </button>
+          </div>
         </form>
 
         <article v-else-if="isSelectingCompletion" class="object-detail">
@@ -547,15 +630,21 @@ function uniqueId(base, existingIds = []) {
               <button
                 v-if="completionDraft.showCard"
                 type="button"
-                class="sm muted"
+                class="sm danger"
                 @click="removeCompletionCard">
+                <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+                </svg>
                 Remove completion card
               </button>
               <button
                 v-else
                 type="button"
-                class="sm muted"
+                class="sm add-btn"
                 @click="addCompletionCard">
+                <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+                </svg>
                 Add completion card
               </button>
               <template v-if="completionDraft.showCard">
@@ -566,11 +655,27 @@ function uniqueId(base, existingIds = []) {
                 <label>Button label <input v-model="completionDraft.actionLabel"></label>
               </template>
               <p v-if="completionError" class="field-error">{{ completionError }}</p>
-              <div class="toolbar"><button type="button" class="sm muted" @click="cancelCompletionEdit">Cancel</button><button class="sm">Apply completion</button></div>
+              <div class="toolbar">
+                <button type="button" class="sm muted" @click="cancelCompletionEdit">Cancel</button>
+                <button type="submit" class="sm success-btn">
+                  <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M5 12.5 9.5 17 19 7.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                  Apply completion
+                </button>
+              </div>
             </form>
           </template>
           <template v-else>
-            <div class="detail-actions"><button type="button" class="sm" @click="beginCompletionEdit">Edit completion</button></div>
+            <div class="detail-actions">
+              <button type="button" class="sm edit-btn" @click="beginCompletionEdit">
+                <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 20h4.5L19 9.5 14.5 5 4 15.5V20z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                  <path d="M12.5 6.5 17.5 11.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                </svg>
+                Edit completion
+              </button>
+            </div>
             <div v-if="selectedStoryArc.completion?.card" class="completion-preview">
               <StoryCompletionCard :card="selectedStoryArc.completion.card" />
             </div>
@@ -579,7 +684,21 @@ function uniqueId(base, existingIds = []) {
         </article>
 
         <article v-else-if="!selectedStoryBeat" class="object-detail">
-          <div class="detail-actions"><button type="button" class="sm" @click="beginEdit">Edit arc</button><button type="button" class="sm muted" @click="addStoryBeat">Add beat</button></div>
+          <div class="detail-actions">
+            <button type="button" class="sm edit-btn" @click="beginEdit">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 20h4.5L19 9.5 14.5 5 4 15.5V20z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                <path d="M12.5 6.5 17.5 11.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+              </svg>
+              Edit arc
+            </button>
+            <button type="button" class="sm add-btn" @click="addStoryBeat">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+              </svg>
+              Add beat
+            </button>
+          </div>
           <dl class="metadata">
             <div><dt>ID</dt><dd>{{ selectedStoryArc.id }}</dd></div>
           </dl>
@@ -587,12 +706,33 @@ function uniqueId(base, existingIds = []) {
 
         <article v-else class="object-detail">
           <div class="detail-actions">
-            <button type="button" class="sm" @click="beginEdit">Edit title</button>
+            <button type="button" class="sm edit-btn" @click="beginEdit">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 20h4.5L19 9.5 14.5 5 4 15.5V20z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                <path d="M12.5 6.5 17.5 11.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+              </svg>
+              Edit title
+            </button>
             <button type="button" class="sm muted" @click="requestMove">Move beat</button>
             <button type="button" class="sm muted" :disabled="linkedScenes.length < 2" @click="requestSplit">Split beat</button>
             <button type="button" class="sm muted" :disabled="!attachableScenes.length" @click="requestAttachScene">Attach scene</button>
-            <button type="button" class="sm muted" @click="addScene">Add scene</button>
-            <button type="button" class="sm danger" @click="removeStoryBeat">Delete beat</button>
+            <button type="button" class="sm add-btn" @click="addScene">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+              </svg>
+              Add scene
+            </button>
+            <button type="button" class="sm danger" @click="removeStoryBeat">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M5 7h14M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M8 7l.8 12.2A1.5 1.5 0 0 0 10.3 20.5h3.4a1.5 1.5 0 0 0 1.5-1.3L16 7"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linejoin="round" />
+              </svg>
+              Delete beat
+            </button>
           </div>
           <dl class="metadata">
             <div><dt>ID</dt><dd>{{ selectedStoryBeat.id }}</dd></div>
@@ -635,7 +775,15 @@ function uniqueId(base, existingIds = []) {
         </label>
         <p class="dialog-note">The beat's scenes and hidden runtime data move with it. A conflicting non-linear handoff will stop the move.</p>
         <p v-if="operationError" class="field-error">{{ operationError }}</p>
-        <div class="toolbar"><button type="button" class="sm muted" @click="moveDialog = null">Cancel</button><button class="sm">Move beat</button></div>
+        <div class="toolbar">
+          <button type="button" class="sm muted" @click="moveDialog = null">Cancel</button>
+          <button type="submit" class="sm success-btn">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12.5 9.5 17 19 7.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Move beat
+          </button>
+        </div>
       </form>
     </div>
     <div v-if="splitDialog" class="dialog-backdrop" @click.self="splitDialog = null">
@@ -655,7 +803,15 @@ function uniqueId(base, existingIds = []) {
         </div>
         <p class="dialog-note">Existing hidden runtime fields stay unchanged on the original beat and are not copied. The scenes and arc document are saved together.</p>
         <p v-if="operationError" class="field-error">{{ operationError }}</p>
-        <div class="toolbar"><button type="button" class="sm muted" @click="splitDialog = null">Cancel</button><button class="sm">Split beat</button></div>
+        <div class="toolbar">
+          <button type="button" class="sm muted" @click="splitDialog = null">Cancel</button>
+          <button type="submit" class="sm success-btn">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12.5 9.5 17 19 7.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Split beat
+          </button>
+        </div>
       </form>
     </div>
     <div v-if="attachDialog" class="dialog-backdrop" @click.self="attachDialog = null">
@@ -683,9 +839,29 @@ function uniqueId(base, existingIds = []) {
           </select>
         </label>
         <p class="dialog-note">Attaching changes this scene's story beat. Its prose, trigger, choices, and other scene details stay unchanged.</p>
-        <div class="toolbar"><button type="button" class="sm muted" @click="attachDialog = null">Cancel</button><button class="sm" :disabled="!attachDialog.sceneId">Attach scene</button></div>
+        <div class="toolbar">
+          <button type="button" class="sm muted" @click="attachDialog = null">Cancel</button>
+          <button type="submit" class="sm success-btn" :disabled="!attachDialog.sceneId">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12.5 9.5 17 19 7.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Attach scene
+          </button>
+        </div>
       </form>
     </div>
+
+    <ConfirmDialog
+      :visible="deleteConfirm.state.visible"
+      :eyebrow="deleteConfirm.state.eyebrow"
+      :title="deleteConfirm.state.title"
+      :message="deleteConfirm.state.message"
+      :confirm-label="deleteConfirm.state.confirmLabel"
+      :cancel-label="deleteConfirm.state.cancelLabel"
+      :danger="deleteConfirm.state.danger"
+      @confirm="deleteConfirm.accept"
+      @cancel="deleteConfirm.dismiss"
+    />
   </section>
 </template>
 

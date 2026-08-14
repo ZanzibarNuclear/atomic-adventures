@@ -74,8 +74,11 @@ sequence.
 
 ## Focused Inventory
 
-Inventory browsing is a focused component, not owned by the full character
-sheet. It should support:
+Inventory browsing is a focused component, not owned by the character sheet.
+Inventory is possessions; the character sheet is attributes and progression.
+See [character-inventory.md](character-inventory.md).
+
+Inventory UI should support:
 
 - holder groups for carried and nearby items;
 - item selection;
@@ -83,20 +86,28 @@ sheet. It should support:
 - authored item actions;
 - item transfers where valid.
 
-The full `CharacterView` may embed the same focused inventory component inside
-its Inventory tab. The stage inventory view uses that same component as the
-primary inspection surface.
+The stage inventory view (`kind: inventory`) and the inventory dialog/trunk use
+the same focused inventory component. Story or action payloads that open
+inventory use that stage view — not a tab on `CharacterView`.
 
-## Character Stats
+Physical documents (manuals, cards) are inventory items. Opening one uses the
+`document` stage view. Learning from a document grants **knowledge** on the
+character sheet; there is no separate documents panel on the character UI.
 
-Character stats may appear in two contexts:
+## Character Sheet and Stats
 
-- the full character overview;
-- the `character-stats` stage view.
+`CharacterView` is a tabless dashboard:
 
-The `character-stats` stage view accepts an optional `focus` payload. For now
-`focus: "health"` highlights health if that stat exists; unknown focus values
-show the ordinary stat list.
+- **Health** — wellbeing vitals, conditions, and a **Health actions** card
+  (Nap / Rest / Meditate; see [character-wellbeing.md](character-wellbeing.md));
+- **Knowledge** and **Skills** — stacked in one right-hand column.
+
+It does not embed inventory, a documents codex, or quest tabs. Quests may gain a
+dedicated surface later; they are not part of this sheet by default.
+
+Character stats may also appear in the `character-stats` stage view. That view
+accepts an optional `focus` payload. For now `focus: "health"` highlights
+health if that stat exists; unknown focus values show the ordinary stat list.
 
 ## Close-Up Stage Kinds
 

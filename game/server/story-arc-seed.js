@@ -745,17 +745,9 @@ export const storyArcSeed = {
             "developerActions": []
           },
           "completesWhen": {
-            "facility": {
-              "hydro.online": true
-            }
+            "flag": "hydro.console-checked"
           },
-          "onEnter": {
-            "view": {
-              "kind": "console",
-              "id": "hydro",
-              "focus": "generation"
-            }
-          },
+          "onEnter": null,
           "onComplete": null,
           "next": "complete-startup"
         },

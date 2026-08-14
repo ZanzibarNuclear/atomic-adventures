@@ -40,6 +40,7 @@ export function normalizeCharacterDocument(input = {}) {
     items: array(source.items).map((item) => ({
       id: text(item.id),
       label: text(item.label),
+      shortLabel: nullableText(item.shortLabel),
       description: nullableText(item.description),
       kind: text(item.kind) || "item",
       group: nullableText(item.group),

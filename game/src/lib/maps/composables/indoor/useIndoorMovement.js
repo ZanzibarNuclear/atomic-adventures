@@ -30,6 +30,7 @@ import {
 import { planKnownRoomPath as planKnownRoomPathPure } from "../knownAreaIndoorTravel.js";
 import { advanceGameTime } from "../../../character/gameTime.js";
 import { resolveStandPoint } from "../useAvatarStand.js";
+import { shutOffSinksLeavingStand } from "./roomFixtures.js";
 
 export const INDOOR_MOVE_MS = 550;
 export const FLOOR_MOVE_MS = 520;
@@ -72,6 +73,18 @@ export function createIndoorMovement(deps) {
     }
   }
 
+  function noteLeavingStand(nextStandId = null) {
+    const roomId = indoor.currentRoom;
+    const prevStand = indoor.currentStand;
+    if (!roomId || !prevStand || prevStand === nextStandId) return;
+    shutOffSinksLeavingStand(
+      indoor.facility,
+      building.value,
+      roomId,
+      prevStand,
+    );
+  }
+
   const indoorMoves = computed(() => {
     if (indoor.exteriorNode) {
       const moves = exteriorMovesFrom(building.value, indoor.exteriorNode).map(
@@ -103,6 +116,8 @@ export function createIndoorMovement(deps) {
       }
       return moves;
     }
+    // Free travel one-hops include closed unlocked doors (manners on pass).
+    // Open-only movesFrom would hide every adjacent room after manners reclose.
     const roomMoves = [
       ...movesFrom(
         building.value,
@@ -110,7 +125,17 @@ export function createIndoorMovement(deps) {
         indoor.level,
         indoor.doorState,
         indoorVisibility.value,
-      ),
+        { includeBarge: true },
+      ).filter((move) => {
+        if (!move.doorId) return true;
+        const door = building.value.doorById?.[move.doorId];
+        return canTraverseDoorOnPath(
+          indoor.doorState,
+          building.value.areaId,
+          move.doorId,
+          door,
+        );
+      }),
       ...exteriorStepOutMoves(
         building.value,
         indoor.currentRoom,
@@ -434,6 +459,7 @@ export function createIndoorMovement(deps) {
     }
 
     if (move.toStandId && move.toRoomId === indoor.currentRoom) {
+      noteLeavingStand(move.toStandId);
       indoor.currentStand = move.toStandId;
       advanceMovementTime(1);
       finishAfter(INDOOR_MOVE_MS);
@@ -473,6 +499,7 @@ export function createIndoorMovement(deps) {
       return;
     }
 
+    noteLeavingStand(null);
     indoor.currentRoom = move.toRoomId;
     const stairStand = stairStandForMove(building.value, from.id, move);
     indoor.currentStand = stairStand?.id ??
@@ -513,19 +540,56 @@ export function createIndoorMovement(deps) {
     });
   }
 
+  /**
+   * Adjacent room hop that free travel can execute: open doors, or closed
+   * unlocked doors (manners on pass). Used for discovery one-hop and story
+   * go_room — indoorMoves only lists already-open doors.
+   */
+  function findAdjacentRoomMove(roomId) {
+    if (!indoor.currentRoom || !roomId || roomId === indoor.currentRoom) return null;
+    const areaId = building.value.areaId;
+    const edges = movesFrom(
+      building.value,
+      indoor.currentRoom,
+      indoor.level,
+      indoor.doorState,
+      indoorVisibility.value,
+      { includeBarge: true },
+    );
+    for (const edge of edges) {
+      if (edge.onSpiral || edge.toRoomId !== roomId) continue;
+      if (!edge.doorId) return edge;
+      const door = building.value.doorById?.[edge.doorId];
+      if (canTraverseDoorOnPath(indoor.doorState, areaId, edge.doorId, door)) {
+        return edge;
+      }
+    }
+    return null;
+  }
+
   function moveToRoom(roomId) {
+    if (!roomId || indoor.moving) return false;
+    if (roomId === indoor.currentRoom) return true;
+
     let move = indoorMoves.value.find(
       (m) => !m.onSpiral && m.toRoomId === roomId,
     );
-    if (move) {
-      // One-hop may be closed unlocked (exterior free travel / barge); manners apply.
-      applyIndoorMove(move);
-      return;
+    if (!move) {
+      // Closed unlocked adjacent door (not yet in free-move list) — story go_room
+      // and discovery travel still need to pass with manners.
+      move = findAdjacentRoomMove(roomId);
+      if (move) {
+        applyIndoorMove(move, { allowAny: true });
+        return true;
+      }
+      // Known-area multi-hop through closed unlocked (and open) doors.
+      const path = planKnownRoomPath(roomId);
+      if (!path?.length) return false;
+      runIndoorMovePath(path);
+      return true;
     }
-    // Known-area multi-hop through closed unlocked (and open) doors.
-    const path = planKnownRoomPath(roomId);
-    if (!path?.length) return;
-    runIndoorMovePath(path);
+    applyIndoorMove(move);
+    return true;
   }
 
   function runIndoorMovePath(pathMoves) {
@@ -570,6 +634,7 @@ export function createIndoorMovement(deps) {
       const targetLevel = stairEndpointLevel(building.value, currentRoom, stand.id) ?? indoor.level;
       const endpointRoom = stairEndpointRoom(building.value, currentRoom.id, targetLevel);
       indoor.moving = true;
+      noteLeavingStand(stand.id);
       indoor.currentRoom = endpointRoom?.id ?? indoor.currentRoom;
       indoor.currentStand = stand.id;
       indoor.level = targetLevel;
@@ -585,6 +650,7 @@ export function createIndoorMovement(deps) {
     }
     if (!currentRoom?.feature && stand?.kind === "stair" && stand.stair) {
       indoor.moving = true;
+      noteLeavingStand(stand.id);
       indoor.currentStand = stand.id;
       indoor.level = roomLevel(currentRoom);
       indoor.viewLevel = indoor.level;
@@ -601,7 +667,15 @@ export function createIndoorMovement(deps) {
     const move = indoorMoves.value.find((item) =>
       item.toRoomId === indoor.currentRoom && item.toStandId === standId
     );
-    if (move) applyIndoorMove(move);
+    if (move) {
+      applyIndoorMove(move);
+      return;
+    }
+    // Direct stand set (fallback) still shuts off fixtures at the prior stand.
+    if (stand) {
+      noteLeavingStand(standId);
+      indoor.currentStand = standId;
+    }
   }
 
   function moveToExteriorNode(nodeId) {

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import LocationViewsEditor from "../LocationViewsEditor.vue";
 
 const props = defineProps({
@@ -7,13 +7,23 @@ const props = defineProps({
   selection: { type: Object, required: true },
 });
 
-const emit = defineEmits(["drill-change"]);
+const emit = defineEmits(["drill-change", "back-to-room"]);
 
 const viewsDrilled = ref(false);
+
+const roomId = computed(() => props.selection?.id?.split("/")[0] ?? "");
+const room = computed(() =>
+  props.draft.rooms.find((entry) => entry.id === roomId.value) ?? null,
+);
 
 function setViewsDrilled(next) {
   viewsDrilled.value = Boolean(next);
   emit("drill-change", viewsDrilled.value);
+}
+
+function setDefaultStand(checked) {
+  if (!room.value) return;
+  room.value.defaultStand = checked ? props.selection.entity.id : null;
 }
 
 watch(
@@ -26,6 +36,21 @@ watch(
 
 <template>
   <template v-if="!viewsDrilled">
+    <div class="stand-toolbar">
+      <button
+        type="button"
+        class="sm muted"
+        :disabled="!roomId"
+        @click="emit('back-to-room', roomId)"
+      >
+        <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        Back to room
+      </button>
+      <p v-if="room" class="room-context">In room <strong>{{ room.label || roomId }}</strong></p>
+    </div>
+
     <section class="form-section">
       <div class="section-heading">
         <h4>Identity</h4>
@@ -55,14 +80,8 @@ watch(
       <label class="check-field">
         <input
           type="checkbox"
-          :checked="
-            draft.rooms.find((room) => room.id === selection.id.split('/')[0])
-              ?.defaultStand === selection.entity.id
-          "
-          @change="
-            draft.rooms.find((room) => room.id === selection.id.split('/')[0]).defaultStand =
-              $event.target.checked ? selection.entity.id : null
-          "
+          :checked="room?.defaultStand === selection.entity.id"
+          @change="setDefaultStand($event.target.checked)"
         />
         Default room stand
       </label>
@@ -79,4 +98,18 @@ watch(
 
 <style scoped>
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; }
+.stand-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.35rem;
+}
+.room-context {
+  margin: 0;
+  color: #aeb5c0;
+  font-size: 0.8rem;
+}
+.check-field { display: flex !important; align-items: center; gap: .45rem; }
+.check-field input { width: auto; }
 </style>

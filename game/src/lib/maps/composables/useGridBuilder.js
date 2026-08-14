@@ -114,20 +114,12 @@ export function listEditableFixtures(data, levelId) {
     .map((fixture) => ({
       source: 'fixtures',
       id: fixture.id,
-      label: `${fixture.id} (${fixture.kind ?? 'fixture'})`,
+      kind: fixture.kind ?? null,
+      label:
+        fixture.kind === 'cliff-wall'
+          ? `${fixture.label || 'Stone wall'} (${fixture.id})`
+          : `${fixture.label || fixture.id} (${fixture.kind ?? 'fixture'})`,
     }))
-}
-
-export function listEditableWalls(data, levelId) {
-  const wall = data.cliffWall
-  if (!wall) return []
-  const onLevels = wall.onLevels ?? [data.exterior?.level ?? 'first']
-  if (!onLevels.includes(levelId)) return []
-  return [{
-    source: 'walls',
-    id: 'cliff-wall',
-    label: 'Stone wall (cliff-wall)',
-  }]
 }
 
 export function listEditableLinks(data, levelId) {
@@ -164,9 +156,25 @@ export function listEditableRoomStands(data, levelId) {
       (room.stands ?? []).map((stand) => ({
         source: 'stands',
         id: `${room.id}/${stand.id}`,
-        label: `${stand.label ?? stand.id} (${room.id})`,
+        roomId: room.id,
+        kind: 'stand',
+        label: stand.label ?? stand.id,
       })),
     )
+}
+
+/** Rooms with nested stand children for the object browser. */
+export function listEditableRoomsWithStands(data, levelId) {
+  const standsByRoom = new Map()
+  for (const stand of listEditableRoomStands(data, levelId)) {
+    const list = standsByRoom.get(stand.roomId) ?? []
+    list.push(stand)
+    standsByRoom.set(stand.roomId, list)
+  }
+  return listEditableRooms(data, levelId).map((room) => ({
+    ...room,
+    children: standsByRoom.get(room.id) ?? [],
+  }))
 }
 
 export function listAllGridEditable(data, levelId) {
@@ -177,9 +185,9 @@ export function listAllGridEditable(data, levelId) {
     ...listEditableNodes(data, levelId),
     ...listEditableExits(data, levelId),
     ...listEditableFixtures(data, levelId),
-    ...listEditableWalls(data, levelId),
     ...listEditableLinks(data, levelId),
     ...listEditableSwitches(data, levelId),
+    // Stands are nested under rooms in the browser; still listed for search/map pick.
     ...listEditableRoomStands(data, levelId),
   ]
 }
@@ -204,9 +212,6 @@ export function findGridEditable(data, source, id) {
   if (source === 'fixtures') {
     return data.fixtures?.find((fixture) => fixture.id === id) ?? null
   }
-  if (source === 'walls') {
-    return id === 'cliff-wall' ? data.cliffWall ?? null : null
-  }
   if (source === 'links') {
     const index = Number(id.split('-').at(-1))
     return Number.isInteger(index) ? data.links?.[index] ?? null : null
@@ -229,7 +234,6 @@ export function gridEditModeForSource(source) {
   if (source === 'nodes') return 'node'
   if (source === 'exits') return 'map transition'
   if (source === 'fixtures') return 'fixture'
-  if (source === 'walls') return 'wall'
   if (source === 'links') return 'link'
   if (source === 'switches') return 'switch'
   if (source === 'stands') return 'stand'
@@ -462,6 +466,9 @@ function straightFixtureGeometry(fixture) {
 }
 
 export function resolvedFixtureHandles(fixture, cell) {
+  if (fixture?.kind === 'cliff-wall') {
+    return resolvedWallHandles(fixture, cell)
+  }
   if (fixture?.kind !== 'straight-stairs' || !fixture.rect) return []
   const g = straightFixtureGeometry(fixture)
   if (!g) return []
@@ -701,9 +708,14 @@ function setStraightFixtureFromGeometry(fixture, start, end, width) {
   fixture.rect.y = round2(center.y - fixture.rect.h / 2)
 }
 
-export function setFixtureFromHandle(data, fixtureId, role, xUnits, yUnits) {
+export function setFixtureFromHandle(data, fixtureId, role, xUnits, yUnits, pointIndex = null) {
   const fixture = data.fixtures?.find((item) => item.id === fixtureId)
-  if (fixture?.kind !== 'straight-stairs' || !fixture.rect) return
+  if (!fixture) return
+  if (fixture.kind === 'cliff-wall') {
+    setWallPoint(data, fixtureId, pointIndex, xUnits, yUnits)
+    return
+  }
+  if (fixture.kind !== 'straight-stairs' || !fixture.rect) return
   const g = straightFixtureGeometry(fixture)
   if (!g) return
   const point = { x: xUnits, y: yUnits }
@@ -729,11 +741,15 @@ export function setFixtureFromHandle(data, fixtureId, role, xUnits, yUnits) {
 }
 
 export function setWallPoint(data, wallId, pointIndex, xUnits, yUnits) {
-  if (wallId !== 'cliff-wall') return
-  if (!data.cliffWall?.points?.[pointIndex]) return
-  data.cliffWall.points[pointIndex] = {
-    x: round2(xUnits),
-    y: round2(yUnits),
+  if (pointIndex == null || pointIndex < 0) return
+  const fixture = data.fixtures?.find(
+    (item) => item.id === wallId && item.kind === 'cliff-wall',
+  )
+  if (fixture?.points?.[pointIndex]) {
+    fixture.points[pointIndex] = {
+      x: round2(xUnits),
+      y: round2(yUnits),
+    }
   }
 }
 

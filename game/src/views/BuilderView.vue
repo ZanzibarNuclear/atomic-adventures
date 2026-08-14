@@ -8,6 +8,7 @@ import StoryMilestonePanel from "../components/builder/story/StoryMilestonePanel
 import StoryArcPanel from "../components/builder/story/StoryArcPanel.vue";
 import BuilderPageHeader from "../components/builder/BuilderPageHeader.vue";
 import BuilderWorkspaceTabs from "../components/builder/BuilderWorkspaceTabs.vue";
+import ConfirmDialog from "../components/builder/ConfirmDialog.vue";
 import UnsavedChangesDialog from "../components/builder/UnsavedChangesDialog.vue";
 import { useOutdoorWorld } from "../lib/maps/composables/useOutdoorWorld.js";
 import { buildBuilding } from "../lib/maps/composables/useGrid.js";
@@ -18,12 +19,15 @@ import {
   setChoiceDestinationType,
   setChoiceViewKind as applyChoiceViewKind,
 } from "../lib/storyChoiceDrafts.js";
+import { useConfirmDialog } from "../composables/useConfirmDialog.js";
 import { useDirtyDocumentNavigation } from "../composables/useDirtyDocumentNavigation.js";
 import { useStoryBeatDocument } from "../composables/useStoryBeatDocument.js";
 import { useWorldContent } from "../composables/useWorldContent.js";
 import { useBuildingContent } from "../composables/useBuildingContent.js";
 import { hexDistance } from "../lib/maps/composables/useHexGeometry.js";
 import { buildStoryBeatMatchWarnings } from "../lib/storyBeatMatchWarnings.js";
+
+const confirmDialog = useConfirmDialog();
 
 const { worldData, revision: worldRevision } = useWorldContent();
 const { buildingData, revision: buildingRevision } = useBuildingContent();
@@ -534,7 +538,17 @@ function setMilestoneCriterion({ field, value }) {
 }
 
 function newBeat(copy = null) {
-  void requestContextChange(() => beginNewBeat(copy));
+  void requestContextChange(async () => {
+    beginNewBeat(copy);
+    // Duplicates save immediately so they appear in the location list.
+    // Overlapping criteria may warn; the author can fix them next.
+    if (copy) {
+      const ok = await saveBeat();
+      if (ok && draft.value?.id) {
+        status.value = `Duplicated as ${draft.value.id}. Adjust criteria if this scene competes with the original.`;
+      }
+    }
+  });
 }
 
 function newSceneForStoryBeat({ beatId, primarySceneId = null } = {}) {
@@ -583,7 +597,15 @@ function openStoryBeatScene({ sceneId } = {}) {
 }
 
 async function removeStoryBeatScene({ scene } = {}) {
-  if (!scene?.id || !window.confirm(`Remove scene "${scene.id}" from this story beat?`)) return;
+  if (!scene?.id) return;
+  const ok = await confirmDialog.requestConfirm({
+    eyebrow: "Remove scene",
+    title: `Remove scene “${scene.id}” from this story beat?`,
+    message: "The scene is deleted from the story area. Its revision history remains available.",
+    confirmLabel: "Remove scene",
+    danger: true,
+  });
+  if (!ok) return;
   try {
     await storyApi(`/api/story/areas/${STORY_AREA_ID}/beats/${encodeURIComponent(scene.id)}`, {
       method: "DELETE",
@@ -806,8 +828,10 @@ async function applyStoryRouteQuery() {
           :selected-location="selectedLocation"
           :beats="displayedLocationBeats"
           :selected-beat-id="selectedBeatId"
+          :can-duplicate="Boolean(draft) && !isNew"
           :warnings="matchWarnings"
           @new="newBeat()"
+          @duplicate="newBeat(draft)"
           @select="selectBeat"
         />
       </div>
@@ -830,7 +854,6 @@ async function applyStoryRouteQuery() {
         :story-beat-options="storyBeatOptions"
         @save="saveBeat"
         @revert="revertDraft"
-        @duplicate="newBeat"
         @history="loadRevisions"
         @delete="deleteBeat"
         @add-choice="addChoice"
@@ -885,6 +908,18 @@ async function applyStoryRouteQuery() {
       @keep="navigation.keepEditing"
     />
 
+    <ConfirmDialog
+      :visible="confirmDialog.state.visible"
+      :eyebrow="confirmDialog.state.eyebrow"
+      :title="confirmDialog.state.title"
+      :message="confirmDialog.state.message"
+      :confirm-label="confirmDialog.state.confirmLabel"
+      :cancel-label="confirmDialog.state.cancelLabel"
+      :danger="confirmDialog.state.danger"
+      @confirm="confirmDialog.accept"
+      @cancel="confirmDialog.dismiss"
+    />
+
     <div v-if="milestoneDialog.visible" class="modal-backdrop" role="presentation">
       <form class="milestone-dialog panel" @submit.prevent="createMilestoneFromDialog">
         <div class="milestone-dialog-heading">
@@ -922,7 +957,12 @@ async function applyStoryRouteQuery() {
         </section>
         <div class="dialog-actions">
           <button type="button" class="sm muted" @click="cancelMilestoneDialog">Cancel</button>
-          <button type="submit" class="sm">Create</button>
+          <button type="submit" class="sm success-btn">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12.5 9.5 17 19 7.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Create
+          </button>
         </div>
       </form>
     </div>

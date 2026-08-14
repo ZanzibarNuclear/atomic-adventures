@@ -63,14 +63,26 @@ const currentStand = computed(() =>
       </div>
       <div class="tool-group">
         <button
+          type="button"
           class="sm"
-          :class="{ active: geometryEditing }"
+          :class="geometryEditing ? 'success-btn' : 'edit-btn'"
           :disabled="!canEditGeometry"
+          :aria-pressed="geometryEditing"
           @click="$emit('toggle-geometry-editing')"
         >
+          <svg v-if="!geometryEditing" class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 20h4.5L19 9.5 14.5 5 4 15.5V20z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+            <path d="M12.5 6.5 17.5 11.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+          </svg>
+          <svg v-else class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 12.5 9.5 17 19 7.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
           {{ geometryEditing ? "Done editing" : "Edit geometry" }}
         </button>
-        <button class="sm muted" @click="$emit('run-traversal-audit')">
+        <button type="button" class="sm muted" @click="$emit('run-traversal-audit')">
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 5h11M9 12h11M9 19h11M4 5h.01M4 12h.01M4 19h.01" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+          </svg>
           Run traversal audit
         </button>
       </div>

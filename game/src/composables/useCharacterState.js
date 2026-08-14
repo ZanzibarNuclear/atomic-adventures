@@ -6,6 +6,7 @@ import {
   normalizeHoldings,
   totalItemQuantity,
 } from "../lib/character/holdings.js";
+import { initializeComposureFromNeeds } from "../lib/character/metabolism.js";
 
 export function createCharacterState(definitions = {}, holderDefinitions = []) {
   const state = reactive({
@@ -25,6 +26,8 @@ export function createCharacterState(definitions = {}, holderDefinitions = []) {
     revision: 0,
   });
   initializeDefinitionDefaults(state);
+  // Composure follows starting satiety/hydration side effects.
+  initializeComposureFromNeeds(state);
   return state;
 }
 
@@ -78,6 +81,7 @@ export function resetCharacterState(state) {
   state.documents = {};
   state.orphanItemIds = [];
   initializeDefinitionDefaults(state);
+  initializeComposureFromNeeds(state);
   markCharacterChanged(state);
 }
 
@@ -94,6 +98,8 @@ export function captureCharacterState(state) {
 
 export function applyCharacterState(state, snapshot = {}, {
   mergeAuthored = true,
+  /** When true (default with mergeAuthored), set composure from satiety/hydration. */
+  alignComposure = mergeAuthored,
 } = {}) {
   const definitions = cloneDefinitions(state.definitions);
   state.definitions = definitions;
@@ -109,6 +115,10 @@ export function applyCharacterState(state, snapshot = {}, {
   state.skills = plainObject(snapshot.skills);
   state.quests = plainObject(snapshot.quests);
   state.documents = plainObject(snapshot.documents);
+  // Fill any missing stat defaults after snapshot apply.
+  initializeDefinitionDefaults(state);
+  // Align composure for loads/resets only — not for effect-batch drafts.
+  if (alignComposure) initializeComposureFromNeeds(state);
   refreshOrphanItems(state);
   markCharacterChanged(state);
 }
