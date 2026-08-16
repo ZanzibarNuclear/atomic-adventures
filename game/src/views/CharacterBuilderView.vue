@@ -54,7 +54,6 @@ const {
   showHistory,
   status,
   statusTone,
-  toggleTab,
   warnings,
   workspaceMode,
   selectWorkspace,
@@ -113,8 +112,7 @@ const contentWorkspaceTabs = [
         :labelize="labelize"
         @add-entry="addEntry"
         @select-catalog="selectCatalog"
-        @select-entry="selectedId = $event"
-        @toggle-tab="toggleTab" />
+        @select-entry="selectedId = $event" />
 
       <CharacterEntryEditor
         :draft="draft"

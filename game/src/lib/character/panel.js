@@ -1,17 +1,5 @@
 import { itemQuantity } from "./holdings.js";
 
-const DEFAULT_TABS = ["overview", "inventory"];
-
-export function characterTabs(definitions = {}) {
-  const tabs = definitions.panel?.tabs?.length
-    ? definitions.panel.tabs
-    : DEFAULT_TABS;
-  return tabs.map((id) => ({
-    id,
-    label: labelForTab(id),
-  }));
-}
-
 export function visibleCharacterStats(character) {
   return ordered(character.definitions?.stats)
     .filter((definition) => visibleDefinition(
@@ -371,8 +359,4 @@ function ordered(items = []) {
         String(right.label ?? right.title ?? right.id),
       ),
   );
-}
-
-function labelForTab(id) {
-  return id.charAt(0).toUpperCase() + id.slice(1);
 }

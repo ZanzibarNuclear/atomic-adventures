@@ -20,7 +20,6 @@ const artifactCatalogs = [
 ];
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-export const tabOptions = ["overview", "inventory", "knowledge", "skills", "quests", "documents"];
 export const visibilityOptions = ["always", "when-acquired", "when-started", "hidden"];
 export const previewBarLevelOptions = [
   { id: "authored", label: "Authored defaults" },
@@ -174,13 +173,6 @@ export function useCharacterBuilderDraft({ requestConfirm = null } = {}) {
       const copy = duplicateEntry();
       clearDuplicateRoute(copy?.id);
     }
-  }
-
-  function toggleTab(tab) {
-    const tabs = draft.value.panel.tabs;
-    draft.value.panel.tabs = tabs.includes(tab)
-      ? tabs.filter((item) => item !== tab)
-      : [...tabs, tab];
   }
 
   function addGroup(kind) {
@@ -399,7 +391,6 @@ export function useCharacterBuilderDraft({ requestConfirm = null } = {}) {
     loadCharacter,
     selectCatalog,
     selectWorkspace,
-    toggleTab,
     addGroup,
     removeGroup,
     addEntry,

@@ -134,9 +134,8 @@ profile:
   summary: Curious explorer and aspiring energy systems operator.
 
 panel:
-  # Authoring may still list legacy tab IDs; the player CharacterView is a
-  # tabless dashboard (health + knowledge/skills), not a tab strip.
-  tabs: [overview, knowledge, skills]
+  # The player CharacterView is a tabless dashboard (health + knowledge/skills).
+  # panel.tabs is unused leftover and is not authored.
   statGroups:
     - { id: wellbeing, label: Wellbeing, order: 10 }
     - { id: progression, label: Progression, order: 20 }

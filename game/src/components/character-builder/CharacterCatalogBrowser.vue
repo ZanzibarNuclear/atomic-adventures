@@ -1,6 +1,4 @@
 <script setup>
-import { tabOptions } from "../../composables/useCharacterBuilderDraft.js";
-
 defineProps({
   draft: { type: Object, required: true },
   workspaceMode: { type: String, required: true },
@@ -10,7 +8,7 @@ defineProps({
   labelize: { type: Function, required: true },
 });
 
-defineEmits(["add-entry", "select-catalog", "select-entry", "toggle-tab"]);
+defineEmits(["add-entry", "select-catalog", "select-entry"]);
 </script>
 
 <template>
@@ -29,16 +27,6 @@ defineEmits(["add-entry", "select-catalog", "select-entry", "toggle-tab"]);
         <small>Place files in game/public; paths resolve from the public root.</small>
       </label>
       <label>Summary<textarea v-model="draft.profile.summary" rows="3"></textarea></label>
-      <fieldset>
-        <legend>Visible tabs</legend>
-        <label v-for="tab in tabOptions" :key="tab" class="check-field">
-          <input
-            type="checkbox"
-            :checked="draft.panel.tabs.includes(tab)"
-            @change="$emit('toggle-tab', tab)">
-          {{ labelize(tab) }}
-        </label>
-      </fieldset>
     </section>
 
     <section v-else class="profile-summary">

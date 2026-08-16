@@ -73,9 +73,8 @@ defineEmits([
 
       <SkillFields
         v-else-if="selectedCatalog === 'skills'"
-        :entry="selectedEntry"
-        :set-csv="setCsv"
-        :set-json="setJson" />
+        :draft="draft"
+        :entry="selectedEntry" />
 
       <QuestFields
         v-if="selectedCatalog === 'quests'"
