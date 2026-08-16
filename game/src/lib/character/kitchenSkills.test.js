@@ -10,6 +10,7 @@ import {
   SATISFIED_THRESHOLD,
   WATER_PURIFICATION_SKILL,
   buildKitchenSkillActions,
+  drinkKitchenTreatedWater,
   listEatAndDrinkOptions,
   performEatAndDrinkShortcut,
 } from "./kitchenSkills.js";
@@ -372,5 +373,54 @@ describe("kitchen skill shortcuts", () => {
     expect(indoor.indoor.facility.fixtures["kitchen-purifier"].stage).toBe("ready");
     expect(indoor.indoor.facility.fixtures["kitchen-purifier"].servingsLeft).toBe(4);
     expect(indoor.flags.has("kitchen.purified-water")).toBe(true);
+  });
+
+  it("keeps drinking from the purifier after a chosen glass runs out", () => {
+    const indoor = makeIndoor({
+      skills: {
+        [WATER_PURIFICATION_SKILL]: { rank: 1 },
+        "eat-and-drink": { rank: 1 },
+      },
+      stats: { satiety: 90, hydration: 40 },
+    });
+    addItem(indoor.character.holdings, definitions, "drinking-glass", 1);
+    const glassId = Object.entries(indoor.character.holdings.instances ?? {})
+      .find(([, record]) => record.item === "drinking-glass")?.[0];
+    indoor.character.holdings.instances[glassId].contents = {
+      item: "purified-water",
+      amountMl: 80,
+    };
+    indoor.indoor.facility.fixtures["kitchen-purifier"] = {
+      hasTablet: true,
+      filled: true,
+      stage: "ready",
+      servingsLeft: 4,
+    };
+
+    const result = performEatAndDrinkShortcut(indoor, indoor.gameState, {
+      foodId: null,
+      drinkId: "vessel:drinking-glass",
+    });
+    expect(result.ok).toBe(true);
+    expect(indoor.character.stats.hydration).toBeGreaterThan(SATISFIED_THRESHOLD);
+    expect(indoor.indoor.facility.fixtures["kitchen-purifier"].servingsLeft).toBeLessThan(4);
+  });
+
+  it("drinks from the kitchen purifier when no vessel is in reach", () => {
+    const indoor = makeIndoor({
+      skills: { [WATER_PURIFICATION_SKILL]: { rank: 1 } },
+      stats: { hydration: 40 },
+    });
+    indoor.indoor.facility.fixtures["kitchen-purifier"] = {
+      hasTablet: true,
+      filled: true,
+      stage: "ready",
+      servingsLeft: 3,
+    };
+
+    const result = drinkKitchenTreatedWater(indoor, indoor.gameState);
+    expect(result.ok).toBe(true);
+    expect(indoor.character.stats.hydration).toBeGreaterThan(40);
+    expect(indoor.indoor.facility.fixtures["kitchen-purifier"].servingsLeft).toBe(2);
   });
 });

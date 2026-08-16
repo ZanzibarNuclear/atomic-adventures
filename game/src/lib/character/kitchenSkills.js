@@ -78,6 +78,36 @@ export function performKitchenSkillAction(indoor, actionId, gameState = null) {
   return { ok: false, error: "Unknown kitchen skill action." };
 }
 
+/**
+ * Drink treated kitchen water: from a ready purifier, or tablet+fill then drink.
+ * Used after carried drinks run out, and by the player-card Drink action.
+ */
+export function drinkKitchenTreatedWater(indoor, gameState = null) {
+  const state = resolveGameState(indoor, gameState);
+  const character = state.character ?? indoor.character;
+  const roomId = indoor.playerRoomId ?? indoor.indoor?.currentRoom ?? null;
+  if (roomId !== "kitchen" || !characterKnowsWaterPurification(character)) {
+    return { ok: false, error: "No drink in reach." };
+  }
+
+  const poured = drinkFromKitchenPurifier(indoor, state);
+  if (poured.ok) return { ...poured, fromKitchen: true };
+
+  if (!canRefillPurifier(indoor, character)) {
+    return {
+      ok: false,
+      error: "The purifier is empty. Add a tablet and fill it from the tap first.",
+    };
+  }
+  const filled = performPurifyWaterShortcut(indoor, state);
+  if (!filled.ok) {
+    return { ok: false, error: filled.notice || filled.error || "Could not purify water." };
+  }
+  const after = drinkFromKitchenPurifier(indoor, state);
+  if (after.ok) return { ...after, purified: true, fromKitchen: true };
+  return { ok: false, error: after.notice || after.error || "No drink in reach.", purified: true };
+}
+
 export function performEatAndDrinkShortcut(indoor, gameState = null, selection = null) {
   const state = resolveGameState(indoor, gameState);
   const character = state.character ?? indoor.character;
@@ -212,7 +242,7 @@ function consumeChosenDrink(indoor, state, nearbyHolderIds, drinkId) {
   if (drinkId === "purifier:pour" || drinkId === "purifier:drink") {
     const poured = drinkFromKitchenPurifier(indoor, state);
     if (poured.ok) return poured;
-    return { ok: false, error: poured.notice || poured.error || "No drink in reach." };
+    return drinkKitchenTreatedWater(indoor, state);
   }
 
   if (String(drinkId).startsWith("vessel:")) {
@@ -222,7 +252,7 @@ function consumeChosenDrink(indoor, state, nearbyHolderIds, drinkId) {
       matchItem: (candidate) => candidate.itemId === itemId,
     });
     if (drunk.ok) return drunk;
-    return { ok: false, error: drunk.error || "No drink in reach." };
+    return drinkKitchenTreatedWater(indoor, state);
   }
 
   return { ok: false, error: "Unknown drink." };

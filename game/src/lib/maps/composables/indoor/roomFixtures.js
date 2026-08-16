@@ -15,7 +15,9 @@ import {
   fillVesselInstance,
   findHeldVesselInstance,
   isVesselDefinition,
+  normalizeContents,
   takeEmptyVesselInstance,
+  vesselCapacityMl,
   vesselIsEmpty,
 } from "../../../character/vessels.js";
 import {
@@ -134,6 +136,10 @@ function heldQuantity(character, itemId) {
 }
 
 function heldEmptyVesselCount(character, vesselItemId) {
+  return heldFillableVesselCount(character, vesselItemId, null, { emptyOnly: true });
+}
+
+function heldFillableVesselCount(character, vesselItemId, liquidId, { emptyOnly = false } = {}) {
   if (!character?.holdings) return 0;
   const holderId = characterHolderId(character.holdings);
   const def = (character.definitions?.items ?? []).find((item) => item.id === vesselItemId);
@@ -141,7 +147,8 @@ function heldEmptyVesselCount(character, vesselItemId) {
 
   let count = 0;
   for (const record of Object.values(character.holdings.instances ?? {})) {
-    if (record.item === vesselItemId && record.holder === holderId && vesselIsEmpty(record)) {
+    if (record.item !== vesselItemId || record.holder !== holderId) continue;
+    if (emptyOnly ? vesselIsEmpty(record) : vesselAcceptsMore(record, def, liquidId)) {
       count += 1;
     }
   }
@@ -151,6 +158,13 @@ function heldEmptyVesselCount(character, vesselItemId) {
     }
   }
   return count;
+}
+
+function vesselAcceptsMore(instance, vesselDef, liquidId) {
+  const contents = normalizeContents(instance?.contents);
+  if (!contents) return true;
+  if (liquidId && contents.item !== liquidId) return false;
+  return contents.amountMl < vesselCapacityMl(vesselDef) - 1;
 }
 
 function sinkInRoom(building, roomId) {
@@ -242,7 +256,7 @@ export function buildProcessFixtureActions(indoor) {
             kind: "fixture",
           });
         }
-        if (heldEmptyVesselCount(character, "water-bottle") > 0) {
+        if (heldFillableVesselCount(character, "water-bottle", fixture.outputLiquid) > 0) {
           actions.push({
             id: `fixture:${fixture.id}:fill-bottle`,
             label: "Fill the water bottle from the purifier",
@@ -252,7 +266,7 @@ export function buildProcessFixtureActions(indoor) {
         if (
           !emptyGlassHeld
           && !emptyGlassNearby
-          && heldEmptyVesselCount(character, "water-bottle") <= 0
+          && heldFillableVesselCount(character, "water-bottle", fixture.outputLiquid) <= 0
         ) {
           actions.push({
             id: `fixture:${fixture.id}:drink`,
@@ -748,13 +762,17 @@ function markTookPurifierTablet(indoor) {
   }
 }
 
-function claimEmptyVessel(character, indoor, vesselItemId, { allowNearby = false } = {}) {
+function claimEmptyVessel(character, indoor, vesselItemId, {
+  allowNearby = false,
+  liquidId = null,
+} = {}) {
   const holderId = characterHolderId(character.holdings);
+  const vesselDef = (character.definitions?.items ?? []).find((item) => item.id === vesselItemId);
   let target = findHeldVesselInstance(character.holdings, vesselItemId, {
     holderId,
     preferEmpty: true,
   });
-  if (target && vesselIsEmpty(target.instance)) {
+  if (target && vesselAcceptsMore(target.instance, vesselDef, liquidId)) {
     return { ok: true, ...target };
   }
   if (allowNearby) {
@@ -805,30 +823,47 @@ function pourIntoVessel(character, state, fixture, indoor, {
     return { ok: false, error: `"${vesselItemId}" is not configured as a vessel.` };
   }
 
-  const claimed = claimEmptyVessel(character, indoor, vesselItemId, { allowNearby });
+  const liquidId = fixture.outputLiquid || DEFAULT_OUTPUT_LIQUID;
+  const claimed = claimEmptyVessel(character, indoor, vesselItemId, {
+    allowNearby,
+    liquidId,
+  });
   if (!claimed.ok) return claimed;
 
-  const liquidId = fixture.outputLiquid || DEFAULT_OUTPUT_LIQUID;
   const liquidDef = (character.definitions?.items ?? []).find((item) => item.id === liquidId);
-  const amountMl = Math.min(
-    Number(vesselDef.vessel.capacityMl),
-    Number(fixture.outputMl) > 0 ? Number(fixture.outputMl) : DEFAULT_OUTPUT_ML,
-  );
+  const servingMl = Number(fixture.outputMl) > 0 ? Number(fixture.outputMl) : DEFAULT_OUTPUT_ML;
+  const capacity = vesselCapacityMl(vesselDef);
+  const existing = normalizeContents(claimed.instance.contents);
+  const alreadyMl = existing?.item === liquidId ? existing.amountMl : 0;
+  const roomMl = Math.max(0, capacity - alreadyMl);
+  if (!(roomMl > 0)) {
+    return { ok: true, notice: "That vessel is already full." };
+  }
+  const servingsAvailable = Math.max(0, Number(state.servingsLeft) || 0);
+  const servingsNeeded = Math.ceil(roomMl / servingMl);
+  const servingsUsed = Math.min(servingsAvailable, servingsNeeded);
+  if (!(servingsUsed > 0)) {
+    return { ok: false, notice: "The purifier has no treated water ready." };
+  }
+  const pourMl = Math.min(roomMl, servingsUsed * servingMl);
   const filled = fillVesselInstance(claimed.instance, vesselDef, {
     liquidId,
-    amountMl,
+    amountMl: alreadyMl + pourMl,
     liquidDefinition: liquidDef,
   });
   if (!filled.ok) return filled;
 
-  consumePurifierServing(state);
+  for (let index = 0; index < servingsUsed; index += 1) consumePurifierServing(state);
   markDay1Water(flags);
   if (gameState) advanceGameTime(gameState, 2, "light");
   const remain = Number(state.servingsLeft) || 0;
   const remainNote = remain > 0
     ? ` About ${remain} glass${remain === 1 ? "" : "es"} remain in the purifier.`
     : " The purifier is empty.";
-  return { ok: true, notice: `${notice}${remainNote}`, characterChanged: true };
+  const short = pourMl + alreadyMl < capacity - 1
+    ? " That's as much as the remaining treated water would cover."
+    : "";
+  return { ok: true, notice: `${notice}${short}${remainNote}`, characterChanged: true };
 }
 
 function drinkHeldGlass(character, fixture, flags, gameState) {

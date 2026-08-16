@@ -51,7 +51,7 @@ import ContainerGroupDialog from "../components/game-views/ContainerGroupDialog.
 import EatAndDrinkDialog from "../components/game-views/EatAndDrinkDialog.vue";
 import ItemKindDialog from "../components/game-views/ItemKindDialog.vue";
 import { takeOneFromNearbyContainer } from "../composables/usePlayPanel.js";
-import { performEatAndDrinkShortcut } from "../lib/character/kitchenSkills.js";
+import { drinkKitchenTreatedWater, performEatAndDrinkShortcut } from "../lib/character/kitchenSkills.js";
 import InventoryDialog from "../components/game-views/InventoryDialog.vue";
 import InventoryStageView from "../components/game-views/InventoryStageView.vue";
 import StoryOverlay from "../components/story/StoryOverlay.vue";
@@ -1080,6 +1080,10 @@ function handleWellbeingAction(payload) {
     result = performQuickConsume(gameState, actionId, {
       nearbyHolderIds: [...nearbyHolderIds.value, currentWorldHolderId()],
     });
+    if (actionId === "drink" && !result.ok && place.value === "indoors") {
+      const kitchenDrink = drinkKitchenTreatedWater(indoor, gameState);
+      if (kitchenDrink.ok) result = kitchenDrink;
+    }
   } else {
     result = performWellbeingAction(gameState, actionId, { minutes });
   }

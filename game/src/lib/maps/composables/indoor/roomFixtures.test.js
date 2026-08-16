@@ -222,7 +222,8 @@ describe("room process fixtures", () => {
     const bottle = indoor.character.holdings.instances["bottle-1"];
     expect(normalizeContents(bottle.contents)).toEqual({
       item: "purified-water",
-      amountMl: 250,
+      amountMl: 500,
     });
+    expect(indoor.indoor.facility.fixtures["kitchen-purifier"].servingsLeft).toBe(2);
   });
 });
