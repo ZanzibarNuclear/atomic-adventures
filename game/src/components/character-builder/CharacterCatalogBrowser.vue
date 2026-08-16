@@ -1,4 +1,6 @@
 <script setup>
+import BuilderBtnIcon from "../builder/BuilderBtnIcon.vue";
+
 defineProps({
   draft: { type: Object, required: true },
   workspaceMode: { type: String, required: true },
@@ -51,8 +53,9 @@ defineEmits(["add-entry", "select-catalog", "select-entry"]);
         {{ catalog.label }} <span>{{ draft[catalog.id].length }}</span>
       </button>
     </nav>
-    <button class="sm add-entry" @click="$emit('add-entry')">
-      + Add {{ selectedCatalog.replace(/s$/, "") }}
+    <button class="sm add-btn add-entry" @click="$emit('add-entry')">
+      <BuilderBtnIcon name="add" />
+      Add {{ selectedCatalog.replace(/s$/, "") }}
     </button>
     <button
       v-for="entry in draft[selectedCatalog]"

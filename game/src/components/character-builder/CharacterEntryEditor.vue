@@ -1,4 +1,5 @@
 <script setup>
+import BuilderBtnIcon from "../builder/BuilderBtnIcon.vue";
 import ItemFields from "./ItemFields.vue";
 import QuestFields from "./QuestFields.vue";
 import SkillFields from "./SkillFields.vue";
@@ -37,11 +38,26 @@ defineEmits([
           <h3>{{ selectedEntry.id }}</h3>
         </div>
         <div class="toolbar-actions">
-          <button type="button" class="sm muted" @click="$emit('move-entry', -1)">&uarr;</button>
-          <button type="button" class="sm muted" @click="$emit('move-entry', 1)">&darr;</button>
-          <button type="button" class="sm muted" @click="$emit('rename-entry')">Rename</button>
-          <button type="button" class="sm muted" @click="$emit('duplicate-entry')">Duplicate</button>
-          <button type="button" class="sm danger-outline" @click="$emit('delete-entry')">Delete</button>
+          <button type="button" class="sm muted" title="Move up" @click="$emit('move-entry', -1)">
+            <BuilderBtnIcon name="up" />
+            Up
+          </button>
+          <button type="button" class="sm muted" title="Move down" @click="$emit('move-entry', 1)">
+            <BuilderBtnIcon name="down" />
+            Down
+          </button>
+          <button type="button" class="sm edit-btn" @click="$emit('rename-entry')">
+            <BuilderBtnIcon name="edit" />
+            Rename
+          </button>
+          <button type="button" class="sm muted" @click="$emit('duplicate-entry')">
+            <BuilderBtnIcon name="duplicate" />
+            Duplicate
+          </button>
+          <button type="button" class="sm danger-outline" @click="$emit('delete-entry')">
+            <BuilderBtnIcon name="remove" />
+            Delete
+          </button>
         </div>
       </div>
 
@@ -68,7 +84,6 @@ defineEmits([
         v-else-if="selectedCatalog === 'stats'"
         :draft="draft"
         :entry="selectedEntry"
-        :set-json="setJson"
         :set-optional-number="setOptionalNumber" />
 
       <SkillFields
@@ -77,9 +92,8 @@ defineEmits([
         :entry="selectedEntry" />
 
       <QuestFields
-        v-if="selectedCatalog === 'quests'"
-        :entry="selectedEntry"
-        :set-json="setJson" />
+        v-else-if="selectedCatalog === 'quests'"
+        :entry="selectedEntry" />
 
       <div v-if="selectedCatalog !== 'items'" class="field-grid">
         <label v-if="'order' in selectedEntry">Order<input v-model.number="selectedEntry.order" type="number"></label>

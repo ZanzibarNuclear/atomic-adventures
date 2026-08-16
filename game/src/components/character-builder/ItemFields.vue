@@ -3,6 +3,7 @@ import { computed, ref, watch } from "vue";
 import PublicImagePicker from "./PublicImagePicker.vue";
 import ContainerStockEditor from "./ContainerStockEditor.vue";
 import ConfirmDialog from "../builder/ConfirmDialog.vue";
+import BuilderBtnIcon from "../builder/BuilderBtnIcon.vue";
 import { useConfirmDialog } from "../../composables/useConfirmDialog.js";
 import {
   defaultContainerConfig,
@@ -313,8 +314,9 @@ function removeConsumeOption(action, index) {
           <button
             v-if="entry.container"
             type="button"
-            class="sm muted"
+            class="sm danger-outline"
             @click="clearContainer">
+            <BuilderBtnIcon name="remove" />
             Clear container
           </button>
         </div>
@@ -354,7 +356,8 @@ function removeConsumeOption(action, index) {
       <section v-if="entry.kind === 'consumable'" class="consumable-panel">
         <div class="section-heading">
           <h4>Consumable tuning</h4>
-          <button type="button" class="sm" @click="ensureConsumptionAction(entry)">
+          <button type="button" class="sm add-btn" @click="ensureConsumptionAction(entry)">
+            <BuilderBtnIcon name="add" />
             Add consumption action
           </button>
         </div>
@@ -413,7 +416,10 @@ function removeConsumeOption(action, index) {
           <div class="consume-options">
             <div class="section-heading">
               <h5>Player portion choices</h5>
-              <button type="button" class="sm muted" @click="addConsumeOption(action)">Add choice</button>
+              <button type="button" class="sm add-btn" @click="addConsumeOption(action)">
+                <BuilderBtnIcon name="add" />
+                Add choice
+              </button>
             </div>
             <div
               v-for="(option, index) in action.consumeOptions"
@@ -428,7 +434,10 @@ function removeConsumeOption(action, index) {
               <label v-if="!option.remaining">Portion of full item
                 <input v-model.number="option.portion" type="number" min="0.01" max="1" step="0.01">
               </label>
-              <button type="button" class="sm muted" @click="removeConsumeOption(action, index)">Remove</button>
+              <button type="button" class="sm danger-outline" @click="removeConsumeOption(action, index)">
+                <BuilderBtnIcon name="remove" />
+                Remove
+              </button>
             </div>
           </div>
         </article>

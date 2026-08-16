@@ -1,5 +1,6 @@
 <script setup>
 import { watch } from "vue";
+import BuilderBtnIcon from "../builder/BuilderBtnIcon.vue";
 
 const COMPARE_OPS = [
   { id: "gte", label: "at least" },
@@ -181,10 +182,14 @@ function uniqueId(prefix, entries) {
         </label>
       </div>
       <button type="button" class="sm danger-outline" @click="removeEvidence(index)">
+        <BuilderBtnIcon name="remove" />
         Remove evidence
       </button>
     </article>
-    <button type="button" class="sm" @click="addEvidence">Add evidence</button>
+    <button type="button" class="sm add-btn" @click="addEvidence">
+      <BuilderBtnIcon name="add" />
+      Add evidence
+    </button>
   </section>
 
   <section class="field-panel">
@@ -249,10 +254,14 @@ function uniqueId(prefix, entries) {
             type="button"
             class="sm danger-outline"
             @click="awardRequire(award).skills.splice(conditionIndex, 1)">
+            <BuilderBtnIcon name="remove" />
             Remove
           </button>
         </div>
-        <button type="button" class="sm" @click="addSkillRequire(award)">Add skill requirement</button>
+        <button type="button" class="sm add-btn" @click="addSkillRequire(award)">
+          <BuilderBtnIcon name="add" />
+          Add skill requirement
+        </button>
       </fieldset>
 
       <fieldset v-if="entry.practice.evidence.length" class="require-set">
@@ -277,17 +286,25 @@ function uniqueId(prefix, entries) {
             type="button"
             class="sm danger-outline"
             @click="awardRequire(award).evidence.splice(conditionIndex, 1)">
+            <BuilderBtnIcon name="remove" />
             Remove
           </button>
         </div>
-        <button type="button" class="sm" @click="addEvidenceRequire(award)">Add evidence requirement</button>
+        <button type="button" class="sm add-btn" @click="addEvidenceRequire(award)">
+          <BuilderBtnIcon name="add" />
+          Add evidence requirement
+        </button>
       </fieldset>
 
       <button type="button" class="sm danger-outline" @click="removeAward(index)">
+        <BuilderBtnIcon name="remove" />
         Remove award
       </button>
     </article>
-    <button type="button" class="sm" @click="addAward">Add award</button>
+    <button type="button" class="sm add-btn" @click="addAward">
+      <BuilderBtnIcon name="add" />
+      Add award
+    </button>
   </section>
 </template>
 

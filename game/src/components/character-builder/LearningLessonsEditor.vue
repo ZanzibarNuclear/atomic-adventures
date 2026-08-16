@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref, toRaw } from "vue";
 import LessonRenderer from "../learning/LessonRenderer.vue";
+import BuilderBtnIcon from "../builder/BuilderBtnIcon.vue";
 import { storyApi } from "../../lib/storyApi.js";
 
 const availabilityGroups = [
@@ -382,9 +383,18 @@ function uniqueId(base, entries) {
         <h2>Lessons</h2>
       </div>
       <div class="toolbar-actions">
-        <button type="button" class="sm muted" @click="loadLearning">Reload</button>
-        <button type="button" class="sm" @click="addLesson">Add lesson</button>
-        <button type="button" class="sm" :disabled="saving || !draft" @click="saveLearning">Save lessons</button>
+        <button type="button" class="sm muted" @click="loadLearning">
+          <BuilderBtnIcon name="reload" />
+          Reload
+        </button>
+        <button type="button" class="sm add-btn" @click="addLesson">
+          <BuilderBtnIcon name="add" />
+          Add lesson
+        </button>
+        <button type="button" class="sm success-btn" :disabled="saving || !draft" @click="saveLearning">
+          <BuilderBtnIcon name="save" />
+          Save lessons
+        </button>
       </div>
     </div>
 
@@ -444,7 +454,10 @@ function uniqueId(base, entries) {
         <section class="form-card">
           <div class="section-heading">
             <h3>Completion effects</h3>
-            <button type="button" class="sm muted" @click="addEffect">Add effect</button>
+            <button type="button" class="sm add-btn" @click="addEffect">
+              <BuilderBtnIcon name="add" />
+              Add effect
+            </button>
           </div>
           <div v-if="!selectedLesson.completion.effects.length" class="empty-inline">
             No completion effects yet.
@@ -463,14 +476,20 @@ function uniqueId(base, entries) {
             <label v-if="effect.op === 'stat.add'">Value<input v-model.number="effect.value" type="number"></label>
             <label v-if="effect.op === 'skill.add-evidence'">Evidence<input v-model="effect.evidence"></label>
             <label v-if="effect.op === 'skill.add-evidence'">Value<input v-model.number="effect.value" type="number" min="1"></label>
-            <button type="button" class="sm danger" @click="removeEffect(index)">Remove</button>
+            <button type="button" class="sm danger-outline" @click="removeEffect(index)">
+              <BuilderBtnIcon name="remove" />
+              Remove
+            </button>
           </div>
         </section>
 
         <section class="form-card">
           <div class="section-heading">
             <h3>Pages</h3>
-            <button type="button" class="sm muted" @click="addPage">Add page</button>
+            <button type="button" class="sm add-btn" @click="addPage">
+              <BuilderBtnIcon name="add" />
+              Add page
+            </button>
           </div>
           <article
             v-for="(page, pageIndex) in selectedLesson.pages"
@@ -479,9 +498,18 @@ function uniqueId(base, entries) {
             <div class="section-heading">
               <h4>Page {{ pageIndex + 1 }}</h4>
               <div class="row-actions">
-                <button type="button" class="sm muted" :disabled="pageIndex === 0" @click="movePage(pageIndex, -1)">Up</button>
-                <button type="button" class="sm muted" :disabled="pageIndex === selectedLesson.pages.length - 1" @click="movePage(pageIndex, 1)">Down</button>
-                <button type="button" class="sm danger" @click="removePage(pageIndex)">Remove</button>
+                <button type="button" class="sm muted" :disabled="pageIndex === 0" @click="movePage(pageIndex, -1)">
+                  <BuilderBtnIcon name="up" />
+                  Up
+                </button>
+                <button type="button" class="sm muted" :disabled="pageIndex === selectedLesson.pages.length - 1" @click="movePage(pageIndex, 1)">
+                  <BuilderBtnIcon name="down" />
+                  Down
+                </button>
+                <button type="button" class="sm danger-outline" @click="removePage(pageIndex)">
+                  <BuilderBtnIcon name="remove" />
+                  Remove
+                </button>
               </div>
             </div>
             <div class="field-grid">
@@ -493,8 +521,14 @@ function uniqueId(base, entries) {
               <div class="section-heading">
                 <h5>Frames</h5>
                 <div class="row-actions">
-                  <button type="button" class="sm muted" @click="addFrame(page, 'content')">Add content frame</button>
-                  <button type="button" class="sm muted" @click="addFrame(page, 'quiz')">Add quiz frame</button>
+                  <button type="button" class="sm add-btn" @click="addFrame(page, 'content')">
+                    <BuilderBtnIcon name="add" />
+                    Add content frame
+                  </button>
+                  <button type="button" class="sm add-btn" @click="addFrame(page, 'quiz')">
+                    <BuilderBtnIcon name="add" />
+                    Add quiz frame
+                  </button>
                 </div>
               </div>
               <article
@@ -504,9 +538,18 @@ function uniqueId(base, entries) {
                 <div class="section-heading">
                   <h5>Frame {{ frameIndex + 1 }}</h5>
                   <div class="row-actions">
-                    <button type="button" class="sm muted" :disabled="frameIndex === 0" @click="moveFrame(page, frameIndex, -1)">Up</button>
-                    <button type="button" class="sm muted" :disabled="frameIndex === page.frames.length - 1" @click="moveFrame(page, frameIndex, 1)">Down</button>
-                    <button type="button" class="sm danger" @click="removeFrame(page, frameIndex)">Remove</button>
+                    <button type="button" class="sm muted" :disabled="frameIndex === 0" @click="moveFrame(page, frameIndex, -1)">
+                      <BuilderBtnIcon name="up" />
+                      Up
+                    </button>
+                    <button type="button" class="sm muted" :disabled="frameIndex === page.frames.length - 1" @click="moveFrame(page, frameIndex, 1)">
+                      <BuilderBtnIcon name="down" />
+                      Down
+                    </button>
+                    <button type="button" class="sm danger-outline" @click="removeFrame(page, frameIndex)">
+                      <BuilderBtnIcon name="remove" />
+                      Remove
+                    </button>
                   </div>
                 </div>
                 <div class="field-grid">
@@ -522,7 +565,10 @@ function uniqueId(base, entries) {
                 <div v-if="frame.kind === 'content'" class="nested-list">
                   <div class="section-heading">
                     <h5>Blocks</h5>
-                    <button type="button" class="sm muted" @click="addBlock(frame)">Add block</button>
+                    <button type="button" class="sm add-btn" @click="addBlock(frame)">
+                      <BuilderBtnIcon name="add" />
+                      Add block
+                    </button>
                   </div>
                   <article
                     v-for="(block, blockIndex) in frame.blocks"
@@ -531,9 +577,18 @@ function uniqueId(base, entries) {
                     <div class="section-heading">
                       <h5>Block {{ blockIndex + 1 }}</h5>
                       <div class="row-actions">
-                        <button type="button" class="sm muted" :disabled="blockIndex === 0" @click="moveBlock(frame, blockIndex, -1)">Up</button>
-                        <button type="button" class="sm muted" :disabled="blockIndex === frame.blocks.length - 1" @click="moveBlock(frame, blockIndex, 1)">Down</button>
-                        <button type="button" class="sm danger" @click="removeBlock(frame, blockIndex)">Remove</button>
+                        <button type="button" class="sm muted" :disabled="blockIndex === 0" @click="moveBlock(frame, blockIndex, -1)">
+                          <BuilderBtnIcon name="up" />
+                          Up
+                        </button>
+                        <button type="button" class="sm muted" :disabled="blockIndex === frame.blocks.length - 1" @click="moveBlock(frame, blockIndex, 1)">
+                          <BuilderBtnIcon name="down" />
+                          Down
+                        </button>
+                        <button type="button" class="sm danger-outline" @click="removeBlock(frame, blockIndex)">
+                          <BuilderBtnIcon name="remove" />
+                          Remove
+                        </button>
                       </div>
                     </div>
                     <label>Type
@@ -554,36 +609,54 @@ function uniqueId(base, entries) {
                     <div v-if="block.type === 'diagram'" class="nested-list">
                       <div class="section-heading">
                         <h5>Diagram steps</h5>
-                        <button type="button" class="sm muted" @click="addDiagramStep(block)">Add step</button>
+                        <button type="button" class="sm add-btn" @click="addDiagramStep(block)">
+                          <BuilderBtnIcon name="add" />
+                          Add step
+                        </button>
                       </div>
                       <div v-for="(step, stepIndex) in block.steps" :key="stepIndex" class="symbol-row">
                         <label>Step<input v-model="block.steps[stepIndex]"></label>
-                        <button type="button" class="sm danger" @click="block.steps.splice(stepIndex, 1)">Remove</button>
+                        <button type="button" class="sm danger-outline" @click="block.steps.splice(stepIndex, 1)">
+                          <BuilderBtnIcon name="remove" />
+                          Remove
+                        </button>
                       </div>
                     </div>
 
                     <div v-if="block.type === 'symbols'" class="nested-list">
                       <div class="section-heading">
                         <h5>Symbol rows</h5>
-                        <button type="button" class="sm muted" @click="addSymbolRow(block)">Add row</button>
+                        <button type="button" class="sm add-btn" @click="addSymbolRow(block)">
+                          <BuilderBtnIcon name="add" />
+                          Add row
+                        </button>
                       </div>
                       <div v-for="(row, rowIndex) in block.rows" :key="rowIndex" class="symbol-row">
                         <label>Symbol<input v-model="row.symbol"></label>
                         <label>Meaning<input v-model="row.meaning"></label>
                         <label>Units<input v-model="row.units"></label>
-                        <button type="button" class="sm danger" @click="block.rows.splice(rowIndex, 1)">Remove</button>
+                        <button type="button" class="sm danger-outline" @click="block.rows.splice(rowIndex, 1)">
+                          <BuilderBtnIcon name="remove" />
+                          Remove
+                        </button>
                       </div>
                     </div>
 
                     <div v-if="block.type === 'examples'" class="nested-list">
                       <div class="section-heading">
                         <h5>Examples</h5>
-                        <button type="button" class="sm muted" @click="addExample(block)">Add example</button>
+                        <button type="button" class="sm add-btn" @click="addExample(block)">
+                          <BuilderBtnIcon name="add" />
+                          Add example
+                        </button>
                       </div>
                       <article v-for="(example, exampleIndex) in block.examples" :key="exampleIndex" class="example-editor">
                         <div class="section-heading">
                           <h5>Example {{ exampleIndex + 1 }}</h5>
-                          <button type="button" class="sm danger" @click="block.examples.splice(exampleIndex, 1)">Remove</button>
+                          <button type="button" class="sm danger-outline" @click="block.examples.splice(exampleIndex, 1)">
+                            <BuilderBtnIcon name="remove" />
+                            Remove
+                          </button>
                         </div>
                         <label>Title<input v-model="example.title"></label>
                         <label>Givens
@@ -601,7 +674,10 @@ function uniqueId(base, entries) {
                 <div v-if="frame.kind === 'quiz'" class="nested-list">
                   <div class="section-heading">
                     <h5>Questions</h5>
-                    <button type="button" class="sm muted" @click="addQuestion(frame)">Add question</button>
+                    <button type="button" class="sm add-btn" @click="addQuestion(frame)">
+                      <BuilderBtnIcon name="add" />
+                      Add question
+                    </button>
                   </div>
                   <article
                     v-for="(question, questionIndex) in frame.questions"
@@ -609,7 +685,10 @@ function uniqueId(base, entries) {
                     class="example-editor">
                     <div class="section-heading">
                       <h5>Question {{ questionIndex + 1 }}</h5>
-                      <button type="button" class="sm danger" @click="removeQuestion(frame, questionIndex)">Remove</button>
+                      <button type="button" class="sm danger-outline" @click="removeQuestion(frame, questionIndex)">
+                        <BuilderBtnIcon name="remove" />
+                        Remove
+                      </button>
                     </div>
                     <div class="field-grid">
                       <label>ID<input v-model="question.id"></label>
@@ -625,13 +704,19 @@ function uniqueId(base, entries) {
                     <div class="nested-list">
                       <div class="section-heading">
                         <h5>Answer options</h5>
-                        <button type="button" class="sm muted" @click="addOption(question)">Add option</button>
+                        <button type="button" class="sm add-btn" @click="addOption(question)">
+                          <BuilderBtnIcon name="add" />
+                          Add option
+                        </button>
                       </div>
                       <div v-for="(option, optionIndex) in question.options" :key="optionIndex" class="option-row">
                         <label>ID<input v-model="option.id"></label>
                         <label>Label<input v-model="option.label"></label>
                         <label>Feedback<textarea v-model="option.feedback" rows="2"></textarea></label>
-                        <button type="button" class="sm danger" @click="removeOption(question, optionIndex)">Remove</button>
+                        <button type="button" class="sm danger-outline" @click="removeOption(question, optionIndex)">
+                          <BuilderBtnIcon name="remove" />
+                          Remove
+                        </button>
                       </div>
                     </div>
                   </article>
