@@ -18,6 +18,11 @@ import { barrierHintAtStand } from "../lib/maps/composables/useBarrierStand.js";
 import { clearPlayMessages, pushPlayMessage } from "./usePlayMessages.js";
 import { markCharacterChanged } from "./useCharacterState.js";
 import {
+  WATER_PURIFICATION_SKILL,
+  buildKitchenSkillActions,
+  performKitchenSkillAction,
+} from "../lib/character/kitchenSkills.js";
+import {
   buildProcessFixtureActions,
   performProcessFixtureAction,
   processFixtureStatusLines,
@@ -45,7 +50,11 @@ import {
   roomLightAction,
 } from "../lib/maps/composables/indoor/roomLights.js";
 import { roomLabel } from "../lib/displayLabel.js";
-import { KITCHEN_FOUND_RATIONS_FLAG } from "../lib/character/quickConsume.js";
+import {
+  KITCHEN_FOUND_RATIONS_FLAG,
+  KITCHEN_TOOK_TABLET_FLAG,
+} from "../lib/character/quickConsume.js";
+import { characterHasSkill } from "../lib/character/requirements.js";
 import { setFlags } from "../lib/maps/composables/useFlags.js";
 import {
   availableItemActions,
@@ -684,6 +693,10 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
     items.push(action);
   }
 
+  for (const action of buildKitchenSkillActions(indoor)) {
+    items.push(action);
+  }
+
   for (const pickup of indoor.roomPickups ?? []) {
     const itemDef = itemDefinition(indoor, pickup.item);
     const label = pickup.label || itemDef?.label || pickup.item;
@@ -694,10 +707,12 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
         label: `Look in ${withArticle(label)}`,
       });
     }
-    items.push({
-      id: `pickup:${pickup.id}`,
-      label: `Pick up ${withArticle(label)}`,
-    });
+    if (!isTasteeTackContainer({ item: pickup.item, definition: itemDef }, label)) {
+      items.push({
+        id: `pickup:${pickup.id}`,
+        label: `Pick up ${withArticle(label)}`,
+      });
+    }
   }
 
   const nearbyHoldings = nearbyPortableHoldings(indoor);
@@ -707,17 +722,20 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
 
   for (const [itemId, group] of containersByItem) {
     const baseLabel = group[0]?.definition?.label || itemId;
-    if (group.length >= 2) {
+    const rationBox = isTasteeTackContainer(group[0], baseLabel);
+    if (group.length >= 2 || rationBox) {
       items.push({
         id: `holding-inspect-group:${itemId}`,
         label: containerGroupInspectLabel(baseLabel, group.length),
       });
-      for (const record of group) {
-        const label = holdingDisplayLabel(indoor, record);
-        items.push({
-          id: `holding-pickup:${record.type}:${record.id}`,
-          label: `Pick up ${withArticle(label)}`,
-        });
+      if (!rationBox) {
+        for (const record of group) {
+          const label = holdingDisplayLabel(indoor, record);
+          items.push({
+            id: `holding-pickup:${record.type}:${record.id}`,
+            label: `Pick up ${withArticle(label)}`,
+          });
+        }
       }
       continue;
     }
@@ -736,6 +754,7 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
   // Identical loose items (e.g. four empty glasses) share one pickup action.
   const nonContainersByItem = groupBy(nonContainerRecords, (record) => record.item);
   for (const [itemId, group] of nonContainersByItem) {
+    if (shouldHideTabletPickup(indoor, itemId)) continue;
     const baseLabel = group[0]?.definition?.label || group[0]?.label || itemId;
     if (group.length >= 2) {
       items.push({
@@ -1060,6 +1079,17 @@ export function handleIndoorPlayAction(indoor, actionId) {
     if (!result.ok) return result;
     return { ok: true };
   }
+  if (actionId.startsWith("kitchen:")) {
+    const result = performKitchenSkillAction(
+      indoor,
+      actionId,
+      indoor.gameState ?? null,
+    );
+    if (result?.characterChanged && indoor.character) {
+      markCharacterChanged(indoor.character);
+    }
+    return result;
+  }
   if (actionId.startsWith("fixture:")) {
     const result = performProcessFixtureAction(
       indoor,
@@ -1135,13 +1165,18 @@ function inspectNearbyContainerGroup(indoor, itemId) {
         })
         .join(", ")
       : "Empty";
+    const rationBox = isTasteeTackContainer(record, baseLabel);
+    const takeFrom = rationBox ? firstTakeableContent(contents) : null;
     return {
       id: record.id,
       type: record.type,
       item: record.item,
       label: holdingDisplayLabel(indoor, record),
       detail,
-      canPickUp: record.definition?.portable !== false,
+      canPickUp: rationBox ? Boolean(takeFrom) : record.definition?.portable !== false,
+      takeOne: Boolean(rationBox && takeFrom),
+      viewLabel: rationBox ? "View" : "Look in",
+      takeLabel: rationBox ? "Take one" : "Pick up",
       key: `${record.type}:${record.id}`,
     };
   });
@@ -1154,11 +1189,52 @@ function inspectNearbyContainerGroup(indoor, itemId) {
       itemId,
       title: containerGroupInspectLabel(baseLabel, entries.length),
       intro: /tastee\s*tack/i.test(baseLabel)
-        ? "Shelf-stable Tastee Tack rations for station crews. Each box is a different meal."
+        ? "Shelf-stable Tastee Tack rations. Each package is a full meal."
         : "Choose a container to open or take with you.",
+      kindView: /tastee\s*tack/i.test(baseLabel),
       entries,
     },
   };
+}
+
+/** Take a single portion from a nearby container (leave the box where it is). */
+export function takeOneFromNearbyContainer(indoor, containerInstanceId) {
+  const character = indoor.character;
+  if (!character?.holdings) return { ok: false, error: "Character holdings are unavailable." };
+  const contents = containerContentsRecords(
+    character.holdings,
+    character.definitions,
+    containerInstanceId,
+  );
+  const meal = firstTakeableContent(contents);
+  if (!meal) return { ok: false, error: "The box is empty." };
+  try {
+    transferHolding(character.holdings, character.definitions, {
+      type: meal.type,
+      id: meal.id,
+      quantity: 1,
+      toHolder: characterHolderId(character.holdings),
+    });
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+  markCharacterChanged(character);
+  const name = meal.definition?.label || meal.item;
+  return {
+    ok: true,
+    notice: `You take one ${name}.`,
+    characterChanged: true,
+    itemId: meal.item,
+  };
+}
+
+function firstTakeableContent(contents) {
+  return (contents ?? []).find((entry) => Number(entry.quantity) > 0) ?? null;
+}
+
+function isTasteeTackContainer(record, extra = "") {
+  const text = `${record?.item ?? ""} ${record?.definition?.label ?? ""} ${record?.label ?? ""} ${extra}`;
+  return /tastee[\s-]*tack/i.test(text);
 }
 
 function itemDefinition(indoor, itemId) {
@@ -1519,10 +1595,23 @@ function transferNearbyRecord(indoor, record) {
       toHolder: characterHolderId(character.holdings),
     });
     markCharacterChanged(character);
+    if (record.item === "purifier-tablet") {
+      const flags = indoor.indoor?.flags ?? indoor.flags;
+      if (flags && typeof flags.add === "function") flags.add(KITCHEN_TOOK_TABLET_FLAG);
+    }
     return { ok: true };
   } catch (error) {
     return { ok: false, error: error.message };
   }
+}
+
+function shouldHideTabletPickup(indoor, itemId) {
+  if (itemId !== "purifier-tablet") return false;
+  if (characterHasSkill(indoor.character, WATER_PURIFICATION_SKILL)) return true;
+  const flags = indoor.indoor?.flags ?? indoor.flags;
+  if (!flags) return false;
+  if (typeof flags.has === "function") return flags.has(KITCHEN_TOOK_TABLET_FLAG);
+  return Boolean(flags[KITCHEN_TOOK_TABLET_FLAG]);
 }
 
 export function buildIndoorStatusLines(indoor, wellbeingOverview = null) {

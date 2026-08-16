@@ -48,6 +48,10 @@ import HydroConsoleView from "../components/game-views/HydroConsoleView.vue";
 import InstructionCardView from "../components/game-views/InstructionCardView.vue";
 import ContainerContentsDialog from "../components/game-views/ContainerContentsDialog.vue";
 import ContainerGroupDialog from "../components/game-views/ContainerGroupDialog.vue";
+import EatAndDrinkDialog from "../components/game-views/EatAndDrinkDialog.vue";
+import ItemKindDialog from "../components/game-views/ItemKindDialog.vue";
+import { takeOneFromNearbyContainer } from "../composables/usePlayPanel.js";
+import { performEatAndDrinkShortcut } from "../lib/character/kitchenSkills.js";
 import InventoryDialog from "../components/game-views/InventoryDialog.vue";
 import InventoryStageView from "../components/game-views/InventoryStageView.vue";
 import StoryOverlay from "../components/story/StoryOverlay.vue";
@@ -93,6 +97,7 @@ const lookInSelectedHoldingId = ref(null);
 const itemActionFeedback = ref("");
 const wellbeingActionFeedback = ref("");
 const containerGroupInspect = ref(null);
+const eatAndDrinkPicker = ref(null);
 const locationMediaMode = ref("map");
 const locationMediaIndex = ref(0);
 const locationMediaKey = ref(null);
@@ -681,6 +686,7 @@ function resetPlaySessionUi() {
   lookInSelectedHoldingId.value = null;
   itemActionFeedback.value = "";
   containerGroupInspect.value = null;
+  eatAndDrinkPicker.value = null;
   developerSettingsVisible.value = false;
   vitalCrisisAlert.value = null;
   vitalCrisisAlertedIds.value = new Set();
@@ -1212,6 +1218,18 @@ const lookInSelectedHoldingKey = computed(() => {
   return holding ? `${holding.type}:${holding.id}` : null;
 });
 
+const lookInKindView = computed(() => {
+  const view = lookInContainerView.value;
+  if (!view) return false;
+  const text = `${view.containerRecord?.item ?? ""} ${view.label ?? ""}`;
+  return /tastee[\s-]*tack/i.test(text);
+});
+
+const lookInKindItem = computed(() => {
+  if (!lookInKindView.value) return null;
+  return lookInSelectedHolding.value ?? lookInContainerView.value?.contents?.[0] ?? null;
+});
+
 watch(lookInContainerView, (view) => {
   if (!view) return;
   const stillThere = view.contents.some(
@@ -1246,18 +1264,42 @@ function handleInspectContainerGroup(group) {
   containerGroupInspect.value = group ?? null;
 }
 
+function handleEatAndDrinkPicker(picker) {
+  eatAndDrinkPicker.value = picker ?? null;
+}
+
+function closeEatAndDrinkPicker() {
+  eatAndDrinkPicker.value = null;
+}
+
+function confirmEatAndDrinkPicker(selection) {
+  const result = performEatAndDrinkShortcut(indoor, gameState, selection);
+  eatAndDrinkPicker.value = null;
+  if (result?.notice) {
+    pushPlayMessage(result.notice, { source: "action", tone: "notice" });
+  } else if (result?.error) {
+    pushPlayMessage(result.error, { source: "action", tone: "notice" });
+  }
+  if (result?.characterChanged) markCharacterChanged(gameState.character);
+  refreshStoryMoment();
+}
+
 function closeContainerGroupInspect() {
   containerGroupInspect.value = null;
 }
 
 function handleGroupLookIn(entry) {
   if (!entry?.id) return;
-  containerGroupInspect.value = null;
   handleLookInHolding({ type: entry.type || "instance", id: entry.id, key: entry.key });
 }
 
 function handleGroupPickUp(entry) {
-  if (!entry?.type || !entry?.id) return;
+  if (!entry?.id) return;
+  if (entry.takeOne) {
+    finishTakeOneFromBox(entry.id);
+    return;
+  }
+  if (!entry?.type) return;
   try {
     transferHolding(gameState.character.holdings, gameState.character.definitions, {
       type: entry.type,
@@ -1271,6 +1313,24 @@ function handleGroupPickUp(entry) {
   } catch (error) {
     console.warn(error);
   }
+}
+
+function handleKindTakeOne() {
+  const instanceId = lookInContainerView.value?.instanceId;
+  if (!instanceId) return;
+  finishTakeOneFromBox(instanceId);
+}
+
+function finishTakeOneFromBox(containerInstanceId) {
+  const result = takeOneFromNearbyContainer(indoor, containerInstanceId);
+  if (result?.notice) {
+    pushPlayMessage(result.notice, { source: "action", tone: "notice" });
+  } else if (result?.error) {
+    pushPlayMessage(result.error, { source: "action", tone: "notice" });
+  }
+  closeLookInContainer();
+  containerGroupInspect.value = null;
+  refreshStoryMoment();
 }
 </script>
 
@@ -1349,8 +1409,17 @@ function handleGroupPickUp(entry) {
       @transfer-item="handleTransferItem"
       @close="inventoryDialogVisible = false; itemActionFeedback = ''" />
 
+    <ItemKindDialog
+      v-if="lookInKindView"
+      eyebrow="Tastee Tack"
+      :title="lookInKindItem?.label || lookInContainerView.label"
+      :item="lookInKindItem"
+      :public-asset-path="publicAssetPath"
+      @take-one="handleKindTakeOne"
+      @close="closeLookInContainer" />
+
     <ContainerContentsDialog
-      v-if="lookInContainerView"
+      v-else-if="lookInContainerView"
       :container-label="lookInContainerView.label"
       :location-label="lookInContainerView.locationLabel"
       :contents="lookInContainerView.contents"
@@ -1370,6 +1439,15 @@ function handleGroupPickUp(entry) {
       @look-in="handleGroupLookIn"
       @pick-up="handleGroupPickUp"
       @close="closeContainerGroupInspect" />
+
+    <EatAndDrinkDialog
+      v-if="eatAndDrinkPicker"
+      :food="eatAndDrinkPicker.food"
+      :drink="eatAndDrinkPicker.drink"
+      :need-food="eatAndDrinkPicker.needFood"
+      :need-drink="eatAndDrinkPicker.needDrink"
+      @confirm="confirmEatAndDrinkPicker"
+      @close="closeEatAndDrinkPicker" />
 
     <div
       v-if="contentError || worldContentError || buildingContentError || characterContentError || learningContentError || storyArcContentError"
@@ -1490,6 +1568,7 @@ function handleGroupPickUp(entry) {
       @stage-view="openStageView"
       @look-in-holding="handleLookInHolding"
       @inspect-container-group="handleInspectContainerGroup"
+      @eat-and-drink-picker="handleEatAndDrinkPicker"
       @show-location-map="showLocationMap"
       @show-location-image="showLocationImage"
       @previous-location-image="stepLocationImage(-1)"

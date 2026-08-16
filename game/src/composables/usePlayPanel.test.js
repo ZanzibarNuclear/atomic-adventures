@@ -7,6 +7,7 @@ import {
   handleIndoorPlayAction,
   handleOutdoorChooseAction,
   listNearbyReachableItems,
+  takeOneFromNearbyContainer,
 } from "./usePlayPanel.js";
 import {
   clearPlayMessages,
@@ -239,7 +240,7 @@ describe("nearby container look-in", () => {
     const actions = buildIndoorPlayActions(indoor);
     expect(actions.map((action) => action.id)).toContain("pickup-look:kitchen-tastee-tack-box");
     expect(actions.map((action) => action.label)).toContain("Look in the Box of Tastee Tack meals");
-    expect(actions.map((action) => action.id)).toContain("pickup:kitchen-tastee-tack-box");
+    expect(actions.map((action) => action.id)).not.toContain("pickup:kitchen-tastee-tack-box");
 
     const result = handleIndoorPlayAction(indoor, "pickup-look:kitchen-tastee-tack-box");
     expect(result.ok).toBe(true);
@@ -307,14 +308,80 @@ describe("nearby container look-in", () => {
     };
 
     const actions = buildIndoorPlayActions(indoor);
-    expect(actions.map((action) => action.id)).toContain("holding-look:instance:box-1");
-    expect(actions.map((action) => action.label)).toContain("Look in the Empty Tastee Tack box");
-    expect(actions.map((action) => action.id)).toContain("holding-pickup:instance:box-1");
+    expect(actions.map((action) => action.id)).toContain("holding-inspect-group:tastee-tack-box");
+    expect(actions.map((action) => action.label)).toContain("Inspect the Tastee Tack box");
+    expect(actions.map((action) => action.id)).not.toContain("holding-look:instance:box-1");
+    expect(actions.map((action) => action.id)).not.toContain("holding-pickup:instance:box-1");
+  });
+});
+
+describe("purifier tablet pickup", () => {
+  function sinkIndoor({ flags = new Set(), skills = {} } = {}) {
+    return {
+      roomPickups: [],
+      availableActions: [],
+      nearbyDoors: [],
+      playerRoomId: "kitchen",
+      building: {
+        areaId: "utility-station",
+        doors: [],
+        doorById: {},
+        links: [],
+        roomById: { kitchen: { id: "kitchen", label: "Kitchen" } },
+      },
+      indoor: {
+        currentRoom: "kitchen",
+        currentStand: "kitchen-sink",
+        doorState: {},
+        facility: { fixtures: {} },
+        discovered: new Set(["kitchen"]),
+        flags,
+      },
+      flags,
+      character: {
+        skills,
+        definitions: {
+          items: [
+            { id: "purifier-tablet", label: "purification tablet", kind: "consumable", portable: true, carrying: "stack" },
+          ],
+        },
+        holdings: {
+          holders: {
+            "character:player": { id: "character:player", kind: "character" },
+            "fixed:kitchen-sink-counter": {
+              id: "fixed:kitchen-sink-counter",
+              kind: "fixed",
+              label: "Sink counter",
+              location: { room: "kitchen", stand: "kitchen-sink" },
+            },
+          },
+          instances: {},
+          stacks: {
+            "stack-tablet": { item: "purifier-tablet", quantity: 8, holder: "fixed:kitchen-sink-counter" },
+          },
+        },
+      },
+      doorStateFor: () => ({ open: false, locked: false }),
+      doorLockHint: () => null,
+      canToggleDoorLock: () => false,
+    };
+  }
+
+  it("offers tablet pickup until one has been taken", () => {
+    const indoor = sinkIndoor();
+    const labels = buildIndoorPlayActions(indoor).map((action) => action.label);
+    expect(labels).toContain("Pick up the purification tablet");
+  });
+
+  it("hides tablet pickup after the first take", () => {
+    const indoor = sinkIndoor({ flags: new Set(["kitchen.took-purifier-tablet"]) });
+    const labels = buildIndoorPlayActions(indoor).map((action) => action.label);
+    expect(labels).not.toContain("Pick up the purification tablet");
   });
 });
 
 describe("multi-flavor container groups", () => {
-  it("offers one inspect action and flavored pick-up labels", () => {
+  it("offers one inspect action and no whole-box pickups", () => {
     const indoor = threeFlavorBoxesIndoor();
     const actions = buildIndoorPlayActions(indoor);
     const ids = actions.map((action) => action.id);
@@ -323,20 +390,36 @@ describe("multi-flavor container groups", () => {
     expect(ids).toContain("holding-inspect-group:tastee-tack-box");
     expect(labels).toContain("Inspect the Tastee Tack boxes");
     expect(ids.some((id) => id.startsWith("holding-look:"))).toBe(false);
-    expect(labels).toEqual(expect.arrayContaining([
-      "Pick up the Box of Tastee Tack: Turkey Cranberry Dinner",
-      "Pick up the Box of Tastee Tack: Pioneer Breakfast",
-      "Pick up the Box of Tastee Tack: Nut Butter and Preserves",
-    ]));
+    expect(ids.some((id) => id.startsWith("holding-pickup:"))).toBe(false);
+    expect(labels.some((label) => /^Pick up the Box of Tastee Tack/i.test(label))).toBe(false);
 
     const result = handleIndoorPlayAction(indoor, "holding-inspect-group:tastee-tack-box");
     expect(result.ok).toBe(true);
+    expect(result.inspectGroup.intro).toBe(
+      "Shelf-stable Tastee Tack rations. Each package is a full meal.",
+    );
     expect(result.inspectGroup.entries).toHaveLength(3);
     expect(result.inspectGroup.entries.map((entry) => entry.label)).toEqual(expect.arrayContaining([
       "Box of Tastee Tack: Turkey Cranberry Dinner",
       "Box of Tastee Tack: Pioneer Breakfast",
       "Box of Tastee Tack: Nut Butter and Preserves",
     ]));
+    expect(result.inspectGroup.entries.every((entry) => entry.viewLabel === "View")).toBe(true);
+    expect(result.inspectGroup.entries.every((entry) => entry.takeLabel === "Take one")).toBe(true);
+    expect(result.inspectGroup.entries.every((entry) => entry.takeOne)).toBe(true);
+  });
+
+  it("takes one meal from a Tastee Tack box and leaves the box", () => {
+    const indoor = threeFlavorBoxesIndoor();
+    const result = takeOneFromNearbyContainer(indoor, "box-1");
+    expect(result.ok).toBe(true);
+    expect(result.notice).toMatch(/Turkey Cranberry Dinner/i);
+    expect(indoor.character.holdings.stacks.s1.quantity).toBe(13);
+    expect(indoor.character.holdings.stacks.s1.holder).toBe("container:box-1");
+    const held = Object.values(indoor.character.holdings.stacks)
+      .find((stack) => stack.item === "turkey" && stack.holder === "character:player");
+    expect(held?.quantity).toBe(1);
+    expect(indoor.character.holdings.instances["box-1"].holder).toBe("fixed:kitchen-cabinets");
   });
 
   it("summarizes flavors in the discovery message", () => {

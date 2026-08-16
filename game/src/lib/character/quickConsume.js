@@ -8,6 +8,7 @@ import {
   holdingRecords,
   transferHolding,
 } from "./holdings.js";
+import { characterHasSkill } from "./requirements.js";
 import {
   isVesselDefinition,
   normalizeContents,
@@ -23,17 +24,20 @@ import {
 /** Kitchen supply discovery — not day-1 milestones or random carried snacks. */
 export const KITCHEN_FOUND_RATIONS_FLAG = "kitchen.found-rations";
 export const KITCHEN_PURIFIED_WATER_FLAG = "kitchen.purified-water";
+export const KITCHEN_TOOK_TABLET_FLAG = "kitchen.took-purifier-tablet";
+/** Learned by drinking treated tap water — gates the eat-and-drink shortcut. */
+export const DRANK_PURIFIED_WATER_KNOWLEDGE = "drank-purified-water";
 
 /**
  * Whether the health-card Eat/Drink shortcut should be offered.
- * Only after discovering kitchen rations / purified water — not because
- * leftover trail food is still in the pack.
+ * Gated by kitchen procedure skills — not leftover trail food in the pack,
+ * and not the first-visit discovery flags alone.
  */
 export function isQuickConsumeReady(gameState, kind) {
   const mode = kind === "drink" ? "drink" : "eat";
-  const flags = gameState?.flags;
-  if (mode === "eat") return flagHas(flags, KITCHEN_FOUND_RATIONS_FLAG);
-  return flagHas(flags, KITCHEN_PURIFIED_WATER_FLAG);
+  const character = gameState?.character;
+  if (mode === "eat") return characterHasSkill(character, "eat-and-drink");
+  return characterHasSkill(character, "water-purification");
 }
 
 export function flagHas(flags, id) {
@@ -43,7 +47,31 @@ export function flagHas(flags, id) {
   return Boolean(flags[id]);
 }
 
-export function performQuickConsume(gameState, kind, { nearbyHolderIds = [] } = {}) {
+/** Scan carried and nearby holdings for eat/drink candidates without consuming. */
+export function listConsumeCandidates(gameState, kind, { nearbyHolderIds = [], matchItem = null } = {}) {
+  const mode = kind === "drink" ? "drink" : "eat";
+  const character = gameState?.character;
+  if (!character?.holdings) return [];
+
+  const found = [];
+  for (const holderId of consumeHolderOrder(character, nearbyHolderIds)) {
+    const records = holdingRecords(character.holdings, character.definitions, [holderId]);
+    for (const record of records) {
+      const candidate = matchConsumeCandidate(character, record, mode);
+      if (!candidate) continue;
+      if (matchItem && !matchItem(candidate, record)) continue;
+      found.push({
+        ...candidate,
+        holderId: record.holder,
+        placeLabel: holderDisplayLabel(character.holdings, record.holder),
+        quantity: Number(record.quantity) > 0 ? Number(record.quantity) : 1,
+      });
+    }
+  }
+  return found;
+}
+
+export function performQuickConsume(gameState, kind, { nearbyHolderIds = [], matchItem = null } = {}) {
   const mode = kind === "drink" ? "drink" : "eat";
   const character = gameState?.character;
   if (!character?.holdings) {
@@ -60,22 +88,14 @@ export function performQuickConsume(gameState, kind, { nearbyHolderIds = [] } = 
   }
 
   const heldId = characterHolderId(character.holdings);
-  const carried = [...accessibleHolderIds(character.holdings, "carried")];
-  const nearby = [...accessibleHolderIds(character.holdings, "nearby", nearbyHolderIds)]
-    .filter((id) => !carried.includes(id));
-
-  // Hands first, then other carried containers, then surroundings.
-  const orderedHolders = [
-    heldId,
-    ...carried.filter((id) => id !== heldId),
-    ...nearby,
-  ];
+  const orderedHolders = consumeHolderOrder(character, nearbyHolderIds);
 
   for (const holderId of orderedHolders) {
     const records = holdingRecords(character.holdings, character.definitions, [holderId]);
     for (const record of records) {
       const candidate = matchConsumeCandidate(character, record, mode);
       if (!candidate) continue;
+      if (matchItem && !matchItem(candidate, record)) continue;
 
       const sourceHolderId = record.holder;
       const sourceLabel = holderDisplayLabel(character.holdings, sourceHolderId);
@@ -125,6 +145,18 @@ export function performQuickConsume(gameState, kind, { nearbyHolderIds = [] } = 
   }
 
   return { ok: false, error: nothingFoundMessage(mode) };
+}
+
+function consumeHolderOrder(character, nearbyHolderIds = []) {
+  const heldId = characterHolderId(character.holdings);
+  const carried = [...accessibleHolderIds(character.holdings, "carried")];
+  const nearby = [...accessibleHolderIds(character.holdings, "nearby", nearbyHolderIds)]
+    .filter((id) => !carried.includes(id));
+  return [
+    heldId,
+    ...carried.filter((id) => id !== heldId),
+    ...nearby,
+  ];
 }
 
 function matchConsumeCandidate(character, record, mode) {

@@ -130,6 +130,7 @@ describe("room process fixtures", () => {
 
     actions = buildProcessFixtureActions(indoor).map((a) => a.id);
     expect(actions).toContain("fixture:kitchen-purifier:fill-glass");
+    expect(actions).not.toContain("fixture:kitchen-purifier:pour-and-drink");
 
     result = performProcessFixtureAction(indoor, "fixture:kitchen-purifier:fill-glass");
     expect(result.ok).toBe(true);
@@ -148,14 +149,16 @@ describe("room process fixtures", () => {
     expect(processFixtureStatusLines(indoor).some((line) => /faucet sputters|Clear water runs/i.test(line))).toBe(false);
   });
 
-  it("pours and drinks without leaving the sink scene, leaving remaining servings", () => {
+  it("fills a glass, then drinks from it, leaving remaining servings", () => {
     const indoor = makeIndoor();
     addItem(indoor.character.holdings, definitions, "purifier-tablet", 1);
     addItem(indoor.character.holdings, definitions, "drinking-glass", 1);
     performProcessFixtureAction(indoor, "fixture:kitchen-sink:flow-on");
     performProcessFixtureAction(indoor, "fixture:kitchen-purifier:fill");
     performProcessFixtureAction(indoor, "fixture:kitchen-purifier:add-tablet");
-    const result = performProcessFixtureAction(indoor, "fixture:kitchen-purifier:pour-and-drink");
+    const filled = performProcessFixtureAction(indoor, "fixture:kitchen-purifier:fill-glass");
+    expect(filled.ok).toBe(true);
+    const result = performProcessFixtureAction(indoor, "fixture:kitchen-purifier:drink-glass");
     expect(result.ok).toBe(true);
     expect(result.notice).toMatch(/drink/i);
     expect(indoor.character.stats.hydration).toBeGreaterThan(20);

@@ -408,8 +408,8 @@ export const storyArcSeed = {
               "door-open:conference-kitchen",
               "door-open:conference-garage-stair",
               "move-room:kitchen",
-              "action:eat-rations",
-              "action:purify-water",
+              "kitchen:eat-and-drink",
+              "fixture:kitchen-purifier:purify",
               "move-room:library",
               "action:rest-in-library"
             ],
@@ -420,7 +420,7 @@ export const storyArcSeed = {
               "door-open:library-hallway",
               "door-open:conference-kitchen",
               "door-open:conference-garage-stair",
-              "eat-rations",
+              "eat-and-drink",
               "purify-water",
               "rest-in-library"
             ],

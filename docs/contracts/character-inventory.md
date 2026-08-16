@@ -712,6 +712,15 @@ remain visible and auditable in the Content Builder's Character mode.
 The character panel shows qualifications in the Skills tab and may summarize
 selected skills on Overview.
 
+Kitchen procedure skills are the first everyday use of this model. Completing
+the tablet-and-fill steps awards **Purify water**. Eating Tastee Tack teaches
+that the meals make you thirsty. Drinking treated tap water teaches that the
+purifier's output is safe. Those three together award **Eat and drink**. Those
+skills — not discovery flags — unlock the later shortcuts: one-step purify
+(full treated container) and combined eat-and-drink until satiety and
+hydration are both above 80. After the first tablet is taken, picking up
+loose tablets is no longer listed; the purify skill uses them.
+
 ## Quests and Objectives
 
 Quests provide structured player-facing progress. They do not replace story

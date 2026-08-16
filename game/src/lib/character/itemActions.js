@@ -109,6 +109,7 @@ export function performItemAction(gameState, itemId, actionId, {
       .map((effect) => scaledEffect(effect, portion.scale))
       .map((effect) => sourceAwareEffect(effect, sourceHolderId)),
   ];
+  const hadEatAndDrink = Number(gameState.character.skills?.["eat-and-drink"]?.rank ?? 0) > 0;
   const result = applyEffectsAtomically(effects, {
     character: gameState.character,
     flags: gameState.flags,
@@ -127,9 +128,15 @@ export function performItemAction(gameState, itemId, actionId, {
       if (!timeResult.ok) return timeResult;
     }
   }
+  const learnedEatAndDrink = !hadEatAndDrink
+    && Number(gameState.character.skills?.["eat-and-drink"]?.rank ?? 0) > 0;
+  const learnedNotice = learnedEatAndDrink
+    ? "You've learned to eat Tastee Tack with water."
+    : null;
+  const notice = [wellbeingGate.notice, learnedNotice].filter(Boolean).join(" ") || null;
   return {
     ok: true,
-    notice: wellbeingGate.notice ?? null,
+    notice,
     view: action.view && typeof action.view === "object" ? { ...action.view } : null,
   };
 }

@@ -69,6 +69,15 @@ export function evaluateRequirements(input, {
   return { ok: reasons.length === 0, reasons, require };
 }
 
+/** True when the player has acquired this skill at or above `minRank`. */
+export function characterHasSkill(character, skillId, minRank = 1) {
+  if (!skillId) return false;
+  return evaluateRequirements(
+    { skills: [{ id: skillId, op: "gte", rank: minRank }] },
+    { character: character ?? {} },
+  ).ok;
+}
+
 function evaluateItemGroups(groups, character, reasons, nearbyHolderIds) {
   const quantity = (entry) => itemQuantity(character.holdings, entry.id, {
     access: entry.access ?? "carried",
