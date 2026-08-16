@@ -4,6 +4,7 @@ import {
   removeItem,
   transferHolding,
 } from "./holdings.js";
+import { stampHeldSkillAwards } from "./skillAwards.js";
 
 const QUEST_STATUSES = new Set([
   "unavailable", "available", "active", "completed", "failed", "abandoned",
@@ -124,6 +125,7 @@ function applySkillEffect({ state, effect, operation, definition, now, fail }) {
     fail(`Skill rank for ${effect.id} is out of bounds.`);
   }
   if (skill.rank > 0) skill.acquiredAt ??= now();
+  stampHeldSkillAwards(skill, definition, now);
   state.skills[effect.id] = skill;
 }
 

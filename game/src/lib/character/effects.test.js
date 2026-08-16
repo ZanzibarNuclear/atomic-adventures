@@ -115,6 +115,41 @@ describe("character effects", () => {
     });
   });
 
+  it("stamps an acquire award badge and does not grant empty-require awards early", () => {
+    const character = createCharacterState({
+      ...definitions,
+      skills: [{
+        id: "purify",
+        maxRank: 1,
+        practice: {
+          awards: [{
+            rank: 1,
+            earnedText: "Learned to purify tap water",
+            badge: "badges/water-purification.webp",
+            require: {},
+          }],
+        },
+      }],
+    });
+
+    expect(applyEffectsAtomically([
+      { op: "knowledge.acquire", id: "hydro" },
+    ], { character, now: () => "too-soon" }).ok).toBe(true);
+    expect(character.skills.purify).toBeUndefined();
+
+    expect(applyEffectsAtomically([
+      { op: "skill.acquire", id: "purify" },
+    ], { character, now: () => "earned-now" }).ok).toBe(true);
+    expect(character.skills.purify.rank).toBe(1);
+    expect(character.skills.purify.awards).toEqual({
+      1: {
+        earnedAt: "earned-now",
+        badge: "badges/water-purification.webp",
+        earnedText: "Learned to purify tap water",
+      },
+    });
+  });
+
   it("does not count a one-time evidence event twice", () => {
     const character = createCharacterState(definitions);
     const effect = {

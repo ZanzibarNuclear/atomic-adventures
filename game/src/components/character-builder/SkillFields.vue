@@ -1,6 +1,7 @@
 <script setup>
-import { watch } from "vue";
+import { computed, watch } from "vue";
 import BuilderBtnIcon from "../builder/BuilderBtnIcon.vue";
+import PublicImagePicker from "./PublicImagePicker.vue";
 
 const COMPARE_OPS = [
   { id: "gte", label: "at least" },
@@ -15,40 +16,27 @@ const props = defineProps({
   entry: { type: Object, required: true },
 });
 
-watch(
-  () => props.entry,
-  (entry) => {
-    entry.practice ??= { evidence: [], awards: [] };
-    entry.practice.evidence ??= [];
-    entry.practice.awards ??= [];
-    entry.rankLabels ??= [];
-    if (entry.mode === "ranked") syncRankLabels(entry);
-    else entry.maxRank = Math.max(1, Number(entry.maxRank) || 1);
-  },
-  { immediate: true },
-);
+const maxRankCount = computed(() => Math.max(1, Number(props.entry.maxRank) || 1));
 
 watch(
-  () => [props.entry.mode, props.entry.maxRank],
-  () => {
-    if (props.entry.mode === "ranked") syncRankLabels(props.entry);
-    else {
-      props.entry.maxRank = 1;
-      for (const award of props.entry.practice?.awards ?? []) award.rank = 1;
-    }
+  () => props.entry.mode,
+  (mode, previousMode) => {
+    if (mode === "ranked" || previousMode !== "ranked") return;
+    props.entry.maxRank = 1;
+    for (const award of props.entry.practice?.awards ?? []) award.rank = 1;
   },
 );
 
-function syncRankLabels(entry) {
-  const count = Math.max(1, Number(entry.maxRank) || 1);
-  entry.maxRank = count;
-  const labels = [...(entry.rankLabels ?? [])];
-  while (labels.length < count) labels.push("");
-  entry.rankLabels = labels.slice(0, count);
+function ensurePractice() {
+  const entry = props.entry;
+  entry.practice ??= { evidence: [], awards: [] };
+  entry.practice.evidence ??= [];
+  entry.practice.awards ??= [];
+  return entry.practice;
 }
 
 function addEvidence() {
-  const evidence = props.entry.practice.evidence;
+  const evidence = ensurePractice().evidence;
   evidence.push({
     id: uniqueId("evidence", evidence),
     label: "",
@@ -57,11 +45,11 @@ function addEvidence() {
 }
 
 function removeEvidence(index) {
-  props.entry.practice.evidence.splice(index, 1);
+  ensurePractice().evidence.splice(index, 1);
 }
 
 function addAward() {
-  const awards = props.entry.practice.awards;
+  const awards = ensurePractice().awards;
   const nextRank = props.entry.mode === "ranked"
     ? Math.min(props.entry.maxRank, awards.length + 1)
     : 1;
@@ -74,7 +62,7 @@ function addAward() {
 }
 
 function removeAward(index) {
-  props.entry.practice.awards.splice(index, 1);
+  ensurePractice().awards.splice(index, 1);
 }
 
 function emptyRequire() {
@@ -94,8 +82,27 @@ function awardRequire(award) {
   return award.require;
 }
 
+function requireSkills(award) {
+  return award.require?.skills ?? [];
+}
+
+function requireEvidence(award) {
+  return award.require?.evidence ?? [];
+}
+
+function rankLabel(index) {
+  return props.entry.rankLabels?.[index] ?? "";
+}
+
+function setRankLabel(index, value) {
+  const labels = [...(props.entry.rankLabels ?? [])];
+  while (labels.length <= index) labels.push("");
+  labels[index] = value;
+  props.entry.rankLabels = labels;
+}
+
 function knowledgeSelected(award, id) {
-  return awardRequire(award).knowledge.all.includes(id);
+  return (award.require?.knowledge?.all ?? []).includes(id);
 }
 
 function toggleKnowledge(award, id) {
@@ -115,7 +122,7 @@ function addSkillRequire(award) {
 }
 
 function addEvidenceRequire(award) {
-  const first = props.entry.practice.evidence[0];
+  const first = ensurePractice().evidence[0];
   awardRequire(award).evidence.push({
     id: first?.id ?? "",
     op: "gte",
@@ -154,9 +161,12 @@ function uniqueId(prefix, entries) {
     </div>
     <div v-if="entry.mode === 'ranked'" class="rank-labels">
       <p class="hint">One label per rank, shown on the character sheet.</p>
-      <label v-for="(_, index) in entry.rankLabels" :key="index">
-        Rank {{ index + 1 }}
-        <input v-model="entry.rankLabels[index]" :placeholder="`Rank ${index + 1}`">
+      <label v-for="index in maxRankCount" :key="index">
+        Rank {{ index }}
+        <input
+          :value="rankLabel(index - 1)"
+          :placeholder="`Rank ${index}`"
+          @input="setRankLabel(index - 1, $event.target.value)">
       </label>
     </div>
   </section>
@@ -164,14 +174,14 @@ function uniqueId(prefix, entries) {
   <section class="field-panel">
     <div class="section-heading">
       <h4>Practice evidence</h4>
-      <code>{{ entry.practice.evidence.length }}</code>
+      <code>{{ (entry.practice?.evidence ?? []).length }}</code>
     </div>
     <p class="hint">
       Optional counters such as operating days. Gameplay effects add to these;
       awards can require a count.
     </p>
     <article
-      v-for="(evidence, index) in entry.practice.evidence"
+      v-for="(evidence, index) in (entry.practice?.evidence ?? [])"
       :key="index"
       class="editor-card">
       <div class="field-grid">
@@ -195,7 +205,7 @@ function uniqueId(prefix, entries) {
   <section class="field-panel">
     <div class="section-heading">
       <h4>{{ entry.mode === "ranked" ? "Rank awards" : "When earned" }}</h4>
-      <code>{{ entry.practice.awards.length }}</code>
+      <code>{{ (entry.practice?.awards ?? []).length }}</code>
     </div>
     <p class="hint">
       After an effect list commits, ranks are granted when these requirements
@@ -203,7 +213,7 @@ function uniqueId(prefix, entries) {
       explicit skill.acquire effect.
     </p>
     <article
-      v-for="(award, index) in entry.practice.awards"
+      v-for="(award, index) in (entry.practice?.awards ?? [])"
       :key="index"
       class="editor-card">
       <div class="field-grid">
@@ -213,9 +223,13 @@ function uniqueId(prefix, entries) {
         <label class="wide">Earned text
           <input v-model="award.earnedText" placeholder="Learned to purify water">
         </label>
-        <label class="wide">Badge image
-          <input v-model="award.badge" placeholder="optional public path">
-        </label>
+        <PublicImagePicker
+          class="wide"
+          :model-value="award.badge ?? ''"
+          folder="badges"
+          label="Badge image"
+          placeholder="badges/..."
+          @update:model-value="award.badge = $event || null" />
       </div>
 
       <fieldset v-if="draft.knowledge.length" class="require-set">
@@ -235,7 +249,7 @@ function uniqueId(prefix, entries) {
       <fieldset class="require-set">
         <legend>Requires other skills</legend>
         <div
-          v-for="(condition, conditionIndex) in awardRequire(award).skills"
+          v-for="(condition, conditionIndex) in requireSkills(award)"
           :key="conditionIndex"
           class="condition-row">
           <select v-model="condition.id">
@@ -264,15 +278,15 @@ function uniqueId(prefix, entries) {
         </button>
       </fieldset>
 
-      <fieldset v-if="entry.practice.evidence.length" class="require-set">
+      <fieldset v-if="(entry.practice?.evidence ?? []).length" class="require-set">
         <legend>Requires evidence</legend>
         <div
-          v-for="(condition, conditionIndex) in awardRequire(award).evidence"
+          v-for="(condition, conditionIndex) in requireEvidence(award)"
           :key="conditionIndex"
           class="condition-row">
           <select v-model="condition.id">
             <option
-              v-for="evidence in entry.practice.evidence"
+              v-for="evidence in (entry.practice?.evidence ?? [])"
               :key="evidence.id"
               :value="evidence.id">
               {{ evidence.label || evidence.id }}

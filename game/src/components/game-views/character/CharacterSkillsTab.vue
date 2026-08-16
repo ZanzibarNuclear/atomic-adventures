@@ -13,6 +13,31 @@ function skillRankLabel(entry) {
 function evidenceValue(entry, evidence) {
   return Number(entry.state?.evidence?.[evidence.id] ?? 0);
 }
+
+function earnedAwards(entry) {
+  const rank = Number(entry.state?.rank ?? 0);
+  if (rank <= 0) return [];
+  const authored = [...(entry.practice?.awards ?? [])]
+    .filter((award) => Number(award.rank) <= rank)
+    .sort((left, right) => Number(left.rank) - Number(right.rank));
+  const stateAwards = entry.state?.awards ?? {};
+  const ranks = new Set([
+    ...authored.map((award) => String(award.rank)),
+    ...Object.keys(stateAwards),
+  ]);
+  return [...ranks]
+    .sort((left, right) => Number(left) - Number(right))
+    .filter((key) => Number(key) <= rank)
+    .map((key) => {
+      const authoredAward = authored.find((award) => String(award.rank) === key) ?? {};
+      const stateAward = stateAwards[key] ?? {};
+      return {
+        rank: key,
+        badge: stateAward.badge || authoredAward.badge || null,
+        earnedText: stateAward.earnedText || authoredAward.earnedText || `Rank ${key} earned`,
+      };
+    });
+}
 </script>
 
 <template>
@@ -34,10 +59,13 @@ function evidenceValue(entry, evidence) {
           <small>{{ evidenceValue(skill, evidence) }} / {{ evidence.target }}</small>
         </label>
       </div>
-      <ul v-if="!compact && Object.keys(skill.state?.awards ?? {}).length" class="badge-list">
-        <li v-for="(award, rank) in skill.state.awards" :key="rank">
-          <img v-if="award.badge" :src="publicAssetPath(award.badge)" alt="">
-          <span>{{ award.earnedText || `Rank ${rank} earned` }}</span>
+      <ul v-if="earnedAwards(skill).length" class="badge-list" :class="{ compact }">
+        <li v-for="award in earnedAwards(skill)" :key="award.rank">
+          <img
+            v-if="award.badge"
+            :src="publicAssetPath(award.badge)"
+            :alt="award.earnedText">
+          <span>{{ award.earnedText }}</span>
         </li>
       </ul>
     </li>
@@ -106,21 +134,41 @@ function evidenceValue(entry, evidence) {
 .badge-list {
   display: flex;
   flex-wrap: wrap;
-  gap: .5rem;
-  padding: .5rem 0 0;
+  gap: 0.75rem;
+  padding: 0.55rem 0 0;
   list-style: none;
 }
+.badge-list.compact {
+  gap: 0.55rem;
+  padding-top: 0.4rem;
+}
 .badge-list li {
-  display: flex;
-  align-items: center;
-  gap: .4rem;
-  padding: .4rem .55rem;
-  border: 1px solid #526174;
-  border-radius: 999px;
+  display: grid;
+  justify-items: center;
+  gap: 0.3rem;
+  width: 5.6rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: center;
+}
+.badge-list.compact li {
+  width: 4.6rem;
 }
 .badge-list img {
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 4rem;
+  height: 4rem;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+.badge-list.compact img {
+  width: 3.25rem;
+  height: 3.25rem;
+}
+.badge-list span {
+  color: #c8d0db;
+  font-size: 0.72rem;
+  line-height: 1.25;
 }
 @media (max-width: 720px) {
   .skill-progress label {

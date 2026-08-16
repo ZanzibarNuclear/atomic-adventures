@@ -660,15 +660,18 @@ skills:
         - { id: leak-repairs, label: Leaks patched, target: 1 }
       awards:
         - rank: 1
+          earnedText: Introduced to hydro operations
           badge: badges/hydro-introduced.webp
           require:
             knowledge: { all: [hydro-head-and-flow] }
         - rank: 2
+          earnedText: Practiced hydro operator
           badge: badges/hydro-practiced.webp
           require:
             evidence:
               - { id: operating-days, op: gte, value: 5 }
         - rank: 3
+          earnedText: Qualified hydro operator
           badge: badges/hydro-qualified.webp
           require:
             evidence:

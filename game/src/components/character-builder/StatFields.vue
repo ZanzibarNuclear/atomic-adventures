@@ -1,5 +1,4 @@
 <script setup>
-import { watch } from "vue";
 import BuilderBtnIcon from "../builder/BuilderBtnIcon.vue";
 
 const ACTIVITIES = [
@@ -15,15 +14,6 @@ const props = defineProps({
   entry: { type: Object, required: true },
   setOptionalNumber: { type: Function, required: true },
 });
-
-watch(
-  () => props.entry,
-  (entry) => {
-    entry.displayStates ??= [];
-    entry.thresholds ??= [];
-  },
-  { immediate: true },
-);
 
 function driftRate(activity) {
   const value = props.entry.drift?.perGameHour?.[activity];
@@ -47,10 +37,12 @@ function setDriftRate(activity, raw) {
 }
 
 function addDisplayState() {
+  props.entry.displayStates ??= [];
   props.entry.displayStates.push({ at: 0, state: "", tone: "positive" });
 }
 
 function addThreshold() {
+  props.entry.thresholds ??= [];
   props.entry.thresholds.push({ at: 0, state: "", effectsPerGameHour: [] });
 }
 

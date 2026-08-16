@@ -21,6 +21,7 @@ const {
   activeCatalogs,
   addEntry,
   addGroup,
+  clearPendingEdit,
   deleteEntry,
   dirty,
   discardAndLeave,
@@ -33,6 +34,7 @@ const {
   loadHistory,
   moveEntry,
   navigationPromptVisible,
+  pendingEditId,
   previewCharacter,
   previewBarLevel,
   previewContentSummary,
@@ -117,6 +119,7 @@ const contentWorkspaceTabs = [
         :draft="draft"
         :selected-catalog="selectedCatalog"
         :selected-entry="selectedEntry"
+        :pending-edit-id="pendingEditId"
         :error-messages="errorMessages"
         :warnings="warnings"
         :show-history="showHistory"
@@ -130,7 +133,8 @@ const contentWorkspaceTabs = [
         @duplicate-entry="duplicateEntry"
         @move-entry="moveEntry"
         @rename-entry="renameEntry"
-        @restore-revision="restoreRevision" />
+        @restore-revision="restoreRevision"
+        @clear-pending-edit="clearPendingEdit" />
     </div>
 
     <section v-else-if="workspaceMode === 'options'" class="options-workspace panel">

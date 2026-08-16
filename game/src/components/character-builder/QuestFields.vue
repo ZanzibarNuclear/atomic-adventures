@@ -1,5 +1,4 @@
 <script setup>
-import { watch } from "vue";
 import BuilderBtnIcon from "../builder/BuilderBtnIcon.vue";
 
 const VISIBILITY = ["always", "when-acquired", "when-started", "hidden"];
@@ -8,17 +7,13 @@ const props = defineProps({
   entry: { type: Object, required: true },
 });
 
-watch(
-  () => props.entry,
-  (entry) => {
-    entry.objectives ??= [];
-    if (entry.autoComplete == null) entry.autoComplete = false;
-  },
-  { immediate: true },
-);
+function ensureObjectives() {
+  props.entry.objectives ??= [];
+  return props.entry.objectives;
+}
 
 function addObjective() {
-  const objectives = props.entry.objectives;
+  const objectives = ensureObjectives();
   const order = (objectives.at(-1)?.order ?? 0) + 10;
   objectives.push({
     id: uniqueId("objective", objectives),
@@ -30,12 +25,12 @@ function addObjective() {
 }
 
 function removeObjective(index) {
-  props.entry.objectives.splice(index, 1);
+  ensureObjectives().splice(index, 1);
 }
 
 function moveObjective(index, delta) {
   const next = index + delta;
-  const list = props.entry.objectives;
+  const list = ensureObjectives();
   if (next < 0 || next >= list.length) return;
   const [row] = list.splice(index, 1);
   list.splice(next, 0, row);
@@ -114,7 +109,7 @@ function uniqueId(prefix, entries) {
         <button
           type="button"
           class="sm muted"
-          :disabled="index === entry.objectives.length - 1"
+          :disabled="index === (entry.objectives ?? []).length - 1"
           @click="moveObjective(index, 1)">
           <BuilderBtnIcon name="down" />
           Down
@@ -125,7 +120,7 @@ function uniqueId(prefix, entries) {
         </button>
       </div>
     </article>
-    <p v-if="!entry.objectives.length" class="hint">No objectives yet.</p>
+    <p v-if="!(entry.objectives ?? []).length" class="hint">No objectives yet.</p>
   </section>
 </template>
 
