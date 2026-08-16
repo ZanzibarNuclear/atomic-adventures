@@ -79,19 +79,19 @@ function publicAssetPath(path) {
         @wellbeing-action="$emit('wellbeing-action', $event)" />
 
       <div class="progression-column">
-        <section class="panel-card knowledge-card" aria-labelledby="character-knowledge-heading">
-          <h3 id="character-knowledge-heading">Knowledge</h3>
-          <CharacterEntriesTab
-            :entries="knowledge"
-            selected-tab="knowledge"
-            compact />
-        </section>
-
         <section class="panel-card skills-card" aria-labelledby="character-skills-heading">
           <h3 id="character-skills-heading">Skills</h3>
           <CharacterSkillsTab
             :skills="skills"
             :public-asset-path="publicAssetPath"
+            compact />
+        </section>
+
+        <section class="panel-card knowledge-card" aria-labelledby="character-knowledge-heading">
+          <h3 id="character-knowledge-heading">Knowledge</h3>
+          <CharacterEntriesTab
+            :entries="knowledge"
+            selected-tab="knowledge"
             compact />
         </section>
       </div>
