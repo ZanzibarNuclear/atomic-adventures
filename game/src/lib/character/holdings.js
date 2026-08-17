@@ -131,6 +131,9 @@ export function transferHolding(holdings, definitions, {
     if (instance.holder === toHolder) return;
     const definition = itemDefinition(definitions, instance.item);
     if (definition?.portable === false) throw new Error(`${instance.item} is not portable.`);
+    if (definition?.properties?.bound === true) {
+      throw new Error("Those pages stay in the binder.");
+    }
     assertNoHolderCycle(holdings, id, toHolder);
     assertHolderAccepts(holdings, definitions, toHolder, definition, 1);
     instance.holder = toHolder;
@@ -144,6 +147,9 @@ export function transferHolding(holdings, definitions, {
     if (amount > stack.quantity) throw new Error("Not enough items in the source stack.");
     const definition = itemDefinition(definitions, stack.item);
     if (definition?.portable === false) throw new Error(`${stack.item} is not portable.`);
+    if (definition?.properties?.bound === true) {
+      throw new Error("Those pages stay in the binder.");
+    }
     assertHolderAccepts(holdings, definitions, toHolder, definition, amount);
     const target = Object.values(holdings.stacks)
       .find((entry) => entry.item === stack.item && entry.holder === toHolder);

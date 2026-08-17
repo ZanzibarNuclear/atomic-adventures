@@ -1,13 +1,17 @@
 <script setup>
+import { ref, watch } from "vue";
+import BuilderBtnIcon from "../builder/BuilderBtnIcon.vue";
+import CharacterEntrySummary from "./CharacterEntrySummary.vue";
 import ItemFields from "./ItemFields.vue";
 import QuestFields from "./QuestFields.vue";
 import SkillFields from "./SkillFields.vue";
 import StatFields from "./StatFields.vue";
 
-defineProps({
+const props = defineProps({
   draft: { type: Object, required: true },
   selectedCatalog: { type: String, required: true },
   selectedEntry: { type: Object, default: null },
+  pendingEditId: { type: String, default: "" },
   errorMessages: { type: Array, required: true },
   warnings: { type: Array, required: true },
   showHistory: { type: Boolean, required: true },
@@ -19,77 +23,132 @@ defineProps({
   setJson: { type: Function, required: true },
 });
 
-defineEmits([
+const emit = defineEmits([
+  "clear-pending-edit",
   "delete-entry",
   "duplicate-entry",
   "move-entry",
   "rename-entry",
   "restore-revision",
 ]);
+
+const editing = ref(false);
+
+watch(
+  () => props.selectedEntry?.id,
+  (id) => {
+    editing.value = Boolean(id && id === props.pendingEditId);
+    if (editing.value) emit("clear-pending-edit");
+  },
+  { immediate: true },
+);
+
+function beginEdit() {
+  editing.value = true;
+}
+
+function finishEdit() {
+  editing.value = false;
+}
 </script>
 
 <template>
-  <section class="entry-editor panel">
+  <section class="entry-editor panel" :class="{ editing }">
     <template v-if="selectedEntry">
       <div class="entry-heading">
         <div>
           <p class="label">{{ selectedCatalog }}</p>
-          <h3>{{ selectedEntry.id }}</h3>
+          <h3>{{ selectedEntry.label ?? selectedEntry.title ?? selectedEntry.id }}</h3>
+          <p class="entry-id">{{ selectedEntry.id }}</p>
         </div>
         <div class="toolbar-actions">
-          <button type="button" class="sm muted" @click="$emit('move-entry', -1)">&uarr;</button>
-          <button type="button" class="sm muted" @click="$emit('move-entry', 1)">&darr;</button>
-          <button type="button" class="sm muted" @click="$emit('rename-entry')">Rename</button>
-          <button type="button" class="sm muted" @click="$emit('duplicate-entry')">Duplicate</button>
-          <button type="button" class="sm danger-outline" @click="$emit('delete-entry')">Delete</button>
+          <button v-if="!editing" type="button" class="sm edit-btn" @click="beginEdit">
+            <BuilderBtnIcon name="edit" />
+            Edit
+          </button>
+          <button v-else type="button" class="sm success-btn" @click="finishEdit">
+            <BuilderBtnIcon name="check" />
+            Done
+          </button>
+          <button type="button" class="sm muted" title="Move up" @click="$emit('move-entry', -1)">
+            <BuilderBtnIcon name="up" />
+            Up
+          </button>
+          <button type="button" class="sm muted" title="Move down" @click="$emit('move-entry', 1)">
+            <BuilderBtnIcon name="down" />
+            Down
+          </button>
+          <button type="button" class="sm muted" @click="$emit('rename-entry')">
+            Rename
+          </button>
+          <button type="button" class="sm muted" @click="$emit('duplicate-entry')">
+            <BuilderBtnIcon name="duplicate" />
+            Duplicate
+          </button>
+          <button type="button" class="sm danger-outline" @click="$emit('delete-entry')">
+            <BuilderBtnIcon name="remove" />
+            Delete
+          </button>
         </div>
       </div>
 
-      <section class="form-section">
-        <div class="section-heading">
-          <h4>Core fields</h4>
-          <code>{{ selectedEntry.id }}</code>
+      <CharacterEntrySummary
+        v-if="!editing"
+        :draft="draft"
+        :catalog="selectedCatalog"
+        :entry="selectedEntry" />
+
+      <template v-else>
+        <section class="form-section">
+          <div class="section-heading">
+            <h4>Core fields</h4>
+            <code>{{ selectedEntry.id }}</code>
+          </div>
+          <label v-if="selectedCatalog !== 'documents'">Label<input v-model="selectedEntry.label"></label>
+          <label v-else>Title<input v-model="selectedEntry.title"></label>
+          <label v-if="'description' in selectedEntry">
+            Description<textarea v-model="selectedEntry.description" rows="4"></textarea>
+          </label>
+        </section>
+
+        <ItemFields
+          v-if="selectedCatalog === 'items'"
+          :draft="draft"
+          :entry="selectedEntry"
+          :visibility-options="visibilityOptions"
+          :set-json="setJson" />
+
+        <StatFields
+          v-else-if="selectedCatalog === 'stats'"
+          :draft="draft"
+          :entry="selectedEntry"
+          :set-optional-number="setOptionalNumber" />
+
+        <SkillFields
+          v-else-if="selectedCatalog === 'skills'"
+          :draft="draft"
+          :entry="selectedEntry" />
+
+        <QuestFields
+          v-else-if="selectedCatalog === 'quests'"
+          :entry="selectedEntry" />
+
+        <div v-if="selectedCatalog !== 'items'" class="field-grid">
+          <label v-if="'order' in selectedEntry">Order<input v-model.number="selectedEntry.order" type="number"></label>
+          <label>Visibility
+            <select v-model="selectedEntry.visible">
+              <option v-for="visibility in visibilityOptions" :key="visibility">{{ visibility }}</option>
+            </select>
+          </label>
         </div>
-        <label v-if="selectedCatalog !== 'documents'">Label<input v-model="selectedEntry.label"></label>
-        <label v-else>Title<input v-model="selectedEntry.title"></label>
-        <label v-if="'description' in selectedEntry">
-          Description<textarea v-model="selectedEntry.description" rows="4"></textarea>
-        </label>
-      </section>
 
-      <ItemFields
-        v-if="selectedCatalog === 'items'"
-        :draft="draft"
-        :entry="selectedEntry"
-        :visibility-options="visibilityOptions"
-        :set-json="setJson" />
-
-      <StatFields
-        v-else-if="selectedCatalog === 'stats'"
-        :draft="draft"
-        :entry="selectedEntry"
-        :set-json="setJson"
-        :set-optional-number="setOptionalNumber" />
-
-      <SkillFields
-        v-else-if="selectedCatalog === 'skills'"
-        :entry="selectedEntry"
-        :set-csv="setCsv"
-        :set-json="setJson" />
-
-      <QuestFields
-        v-if="selectedCatalog === 'quests'"
-        :entry="selectedEntry"
-        :set-json="setJson" />
-
-      <div v-if="selectedCatalog !== 'items'" class="field-grid">
-        <label v-if="'order' in selectedEntry">Order<input v-model.number="selectedEntry.order" type="number"></label>
-        <label>Visibility
-          <select v-model="selectedEntry.visible">
-            <option v-for="visibility in visibilityOptions" :key="visibility">{{ visibility }}</option>
-          </select>
-        </label>
-      </div>
+        <div class="form-footer">
+          <button type="button" class="sm success-btn" @click="finishEdit">
+            <BuilderBtnIcon name="check" />
+            Done
+          </button>
+        </div>
+      </template>
     </template>
     <p v-else class="empty-note">Choose or add an entry.</p>
 
@@ -127,10 +186,22 @@ defineEmits([
 }
 .entry-heading h3,
 .entry-heading p { margin: 0; }
+.entry-editor.editing {
+  border-color: color-mix(in srgb, var(--color-cherenkov, #20c8fb) 35%, #343d4d);
+}
 .entry-heading h3 {
   color: #eef1f5;
   font-size: 1rem;
   overflow-wrap: anywhere;
+}
+.entry-id {
+  margin: 0.15rem 0 0;
+  color: #8f98a6;
+  font-size: 0.78rem;
+}
+.form-footer {
+  display: flex;
+  justify-content: flex-end;
 }
 .form-section,
 :deep(.tab-panel),

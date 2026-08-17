@@ -74,25 +74,32 @@ export function performItemAction(gameState, itemId, actionId, {
   if (action.timeMinutes > 0 && !ACTIVITY_PROFILES.includes(action.activity ?? "light")) {
     return { ok: false, error: "Item action has an invalid activity profile." };
   }
-  const consumptionSource = consumableActionSource(gameState.character, itemId, action, holderId);
-  if (!consumptionSource.ok) return consumptionSource;
-  let portion = resolveConsumptionPortion(gameState.character, itemId, action, {
-    holderId: consumptionSource.holderId ?? holderId,
-    recordId,
-    optionId,
-  });
-  if (!portion.ok) return portion;
+  const consumptive = isConsumptiveAction(action);
+  let portion = { ok: true, scale: 1, instance: null, stackUnit: null };
+  let consumptionSource = { ok: true, holderId: null };
+  let wellbeingGate = { ok: true, notice: null, scale: 1 };
+  if (consumptive) {
+    consumptionSource = consumableActionSource(gameState.character, itemId, action, holderId);
+    if (!consumptionSource.ok) return consumptionSource;
+    portion = resolveConsumptionPortion(gameState.character, itemId, action, {
+      holderId: consumptionSource.holderId ?? holderId,
+      recordId,
+      optionId,
+    });
+    if (!portion.ok) return portion;
 
-  const wellbeingGate = consumptionWellbeingGate(gameState.character, action, portion.scale);
-  if (!wellbeingGate.ok) return wellbeingGate;
-  portion = applyWellbeingScaleToPortion(portion, wellbeingGate.scale);
+    wellbeingGate = consumptionWellbeingGate(gameState.character, action, portion.scale);
+    if (!wellbeingGate.ok) return wellbeingGate;
+    portion = applyWellbeingScaleToPortion(portion, wellbeingGate.scale);
+  }
 
   const sourceHolderId = consumptionSource.holderId ??
     (holderId && itemQuantity(gameState.character.holdings, itemId, { holderId }) > 0
       ? holderId
       : null);
   // Whole-unit consume (no partial instance) only when the entire unit is spent.
-  const removeWholeUnit = action.consume > 0 &&
+  const removeWholeUnit = consumptive &&
+    action.consume > 0 &&
     !portion.instance &&
     !portion.stackUnit &&
     portion.scale >= 1 - 1e-9;
@@ -109,13 +116,16 @@ export function performItemAction(gameState, itemId, actionId, {
       .map((effect) => scaledEffect(effect, portion.scale))
       .map((effect) => sourceAwareEffect(effect, sourceHolderId)),
   ];
+  const hadEatAndDrink = Number(gameState.character.skills?.["eat-and-drink"]?.rank ?? 0) > 0;
   const result = applyEffectsAtomically(effects, {
     character: gameState.character,
     flags: gameState.flags,
   });
   if (!result.ok) return result;
-  const depletion = applyInstanceConsumption(gameState.character, itemId, action, portion, sourceHolderId);
-  if (!depletion.ok) return depletion;
+  if (consumptive) {
+    const depletion = applyInstanceConsumption(gameState.character, itemId, action, portion, sourceHolderId);
+    if (!depletion.ok) return depletion;
+  }
   if (action.timeMinutes > 0) {
     const minutes = action.timeMinutes * (Number(portion.scale) || 1);
     if (minutes > 0) {
@@ -127,9 +137,15 @@ export function performItemAction(gameState, itemId, actionId, {
       if (!timeResult.ok) return timeResult;
     }
   }
+  const learnedEatAndDrink = !hadEatAndDrink
+    && Number(gameState.character.skills?.["eat-and-drink"]?.rank ?? 0) > 0;
+  const learnedNotice = learnedEatAndDrink
+    ? "You've learned to eat Tastee Tack with water."
+    : null;
+  const notice = [wellbeingGate.notice, learnedNotice].filter(Boolean).join(" ") || null;
   return {
     ok: true,
-    notice: wellbeingGate.notice ?? null,
+    notice,
     view: action.view && typeof action.view === "object" ? { ...action.view } : null,
   };
 }
@@ -591,6 +607,7 @@ function scaledEffect(effect, scale = 1) {
 }
 
 function applyInstanceConsumption(character, itemId, action, portion, sourceHolderId) {
+  if (!isConsumptiveAction(action)) return { ok: true };
   if (portion.instance) {
     const instance = character.holdings.instances?.[portion.instance.id];
     if (!instance) return { ok: false, error: "Consumed item instance is no longer available." };

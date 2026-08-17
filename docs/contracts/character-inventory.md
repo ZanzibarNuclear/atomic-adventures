@@ -134,9 +134,8 @@ profile:
   summary: Curious explorer and aspiring energy systems operator.
 
 panel:
-  # Authoring may still list legacy tab IDs; the player CharacterView is a
-  # tabless dashboard (health + knowledge/skills), not a tab strip.
-  tabs: [overview, knowledge, skills]
+  # The player CharacterView is a tabless dashboard (health + knowledge/skills).
+  # panel.tabs is unused leftover and is not authored.
   statGroups:
     - { id: wellbeing, label: Wellbeing, order: 10 }
     - { id: progression, label: Progression, order: 20 }
@@ -661,15 +660,18 @@ skills:
         - { id: leak-repairs, label: Leaks patched, target: 1 }
       awards:
         - rank: 1
+          earnedText: Introduced to hydro operations
           badge: badges/hydro-introduced.webp
           require:
             knowledge: { all: [hydro-head-and-flow] }
         - rank: 2
+          earnedText: Practiced hydro operator
           badge: badges/hydro-practiced.webp
           require:
             evidence:
               - { id: operating-days, op: gte, value: 5 }
         - rank: 3
+          earnedText: Qualified hydro operator
           badge: badges/hydro-qualified.webp
           require:
             evidence:
@@ -711,6 +713,15 @@ remain visible and auditable in the Content Builder's Character mode.
 
 The character panel shows qualifications in the Skills tab and may summarize
 selected skills on Overview.
+
+Kitchen procedure skills are the first everyday use of this model. Completing
+the tablet-and-fill steps awards **Purify water**. Eating Tastee Tack teaches
+that the meals make you thirsty. Drinking treated tap water teaches that the
+purifier's output is safe. Those three together award **Eat and drink**. Those
+skills — not discovery flags — unlock the later shortcuts: one-step purify
+(full treated container) and combined eat-and-drink until satiety and
+hydration are both above 80. After the first tablet is taken, picking up
+loose tablets is no longer listed; the purify skill uses them.
 
 ## Quests and Objectives
 

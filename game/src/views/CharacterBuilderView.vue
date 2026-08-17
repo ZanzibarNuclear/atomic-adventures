@@ -7,6 +7,7 @@ import CharacterView from "../components/game-views/CharacterView.vue";
 import BuilderPageHeader from "../components/builder/BuilderPageHeader.vue";
 import BuilderWorkspaceTabs from "../components/builder/BuilderWorkspaceTabs.vue";
 import ConfirmDialog from "../components/builder/ConfirmDialog.vue";
+import BuilderBtnIcon from "../components/builder/BuilderBtnIcon.vue";
 import {
   previewBarLevelOptions,
   useCharacterBuilderDraft,
@@ -20,6 +21,7 @@ const {
   activeCatalogs,
   addEntry,
   addGroup,
+  clearPendingEdit,
   deleteEntry,
   dirty,
   discardAndLeave,
@@ -32,6 +34,7 @@ const {
   loadHistory,
   moveEntry,
   navigationPromptVisible,
+  pendingEditId,
   previewCharacter,
   previewBarLevel,
   previewContentSummary,
@@ -54,7 +57,6 @@ const {
   showHistory,
   status,
   statusTone,
-  toggleTab,
   warnings,
   workspaceMode,
   selectWorkspace,
@@ -85,17 +87,15 @@ const contentWorkspaceTabs = [
       <template #actions>
         <span v-if="dirty" class="dirty-pill">Unsaved</span>
         <button class="sm muted" :disabled="!dirty" @click="revertDraft">
-          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
+          <BuilderBtnIcon name="revert" />
           Revert
         </button>
-        <button class="sm muted" @click="loadHistory">History</button>
+        <button class="sm muted" @click="loadHistory">
+          <BuilderBtnIcon name="history" />
+          History
+        </button>
         <button class="sm success-btn" :disabled="!dirty" @click="saveDraft">
-          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M5 4h11l3 3v13H5V4z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
-            <path d="M8 4v5h8V4M8 20v-7h8v7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
-          </svg>
+          <BuilderBtnIcon name="save" />
           Save content
         </button>
       </template>
@@ -113,13 +113,13 @@ const contentWorkspaceTabs = [
         :labelize="labelize"
         @add-entry="addEntry"
         @select-catalog="selectCatalog"
-        @select-entry="selectedId = $event"
-        @toggle-tab="toggleTab" />
+        @select-entry="selectedId = $event" />
 
       <CharacterEntryEditor
         :draft="draft"
         :selected-catalog="selectedCatalog"
         :selected-entry="selectedEntry"
+        :pending-edit-id="pendingEditId"
         :error-messages="errorMessages"
         :warnings="warnings"
         :show-history="showHistory"
@@ -133,7 +133,8 @@ const contentWorkspaceTabs = [
         @duplicate-entry="duplicateEntry"
         @move-entry="moveEntry"
         @rename-entry="renameEntry"
-        @restore-revision="restoreRevision" />
+        @restore-revision="restoreRevision"
+        @clear-pending-edit="clearPendingEdit" />
     </div>
 
     <section v-else-if="workspaceMode === 'options'" class="options-workspace panel">
@@ -190,9 +191,18 @@ const contentWorkspaceTabs = [
         <h2>Leave the Content Builder?</h2>
         <p>Save the draft, discard it, or keep editing.</p>
         <div class="toolbar-actions">
-          <button :disabled="savingBeforeNavigation" @click="saveAndLeave">Save and continue</button>
-          <button class="danger-outline" @click="discardAndLeave">Discard changes</button>
-          <button class="muted" @click="keepEditing">Keep editing</button>
+          <button class="sm success-btn" :disabled="savingBeforeNavigation" @click="saveAndLeave">
+            <BuilderBtnIcon name="save" />
+            Save and continue
+          </button>
+          <button class="sm danger-outline" @click="discardAndLeave">
+            <BuilderBtnIcon name="remove" />
+            Discard changes
+          </button>
+          <button class="sm muted" @click="keepEditing">
+            <BuilderBtnIcon name="close" />
+            Keep editing
+          </button>
         </div>
       </section>
     </div>

@@ -18,13 +18,21 @@ import { barrierHintAtStand } from "../lib/maps/composables/useBarrierStand.js";
 import { clearPlayMessages, pushPlayMessage } from "./usePlayMessages.js";
 import { markCharacterChanged } from "./useCharacterState.js";
 import {
+  WATER_PURIFICATION_SKILL,
+  buildKitchenSkillActions,
+  performKitchenSkillAction,
+} from "../lib/character/kitchenSkills.js";
+import {
   buildProcessFixtureActions,
   performProcessFixtureAction,
   processFixtureStatusLines,
 } from "../lib/maps/composables/indoor/roomFixtures.js";
 import {
+  accessibleHolderIds,
+  addItem,
   characterHolderId,
   holdingRecords,
+  itemQuantity,
   transferHolding,
 } from "../lib/character/holdings.js";
 import {
@@ -37,7 +45,6 @@ import {
   containerGroupInspectLabel,
   containerInstanceLabel,
   contentFlavorLabel,
-  formatContainerGroupDiscovery,
 } from "../lib/character/containerLabels.js";
 import {
   DEAD_LIGHT_SWITCH_NOTICE,
@@ -45,7 +52,11 @@ import {
   roomLightAction,
 } from "../lib/maps/composables/indoor/roomLights.js";
 import { roomLabel } from "../lib/displayLabel.js";
-import { KITCHEN_FOUND_RATIONS_FLAG } from "../lib/character/quickConsume.js";
+import {
+  KITCHEN_FOUND_RATIONS_FLAG,
+  KITCHEN_TOOK_TABLET_FLAG,
+} from "../lib/character/quickConsume.js";
+import { characterHasSkill } from "../lib/character/requirements.js";
 import { setFlags } from "../lib/maps/composables/useFlags.js";
 import {
   availableItemActions,
@@ -61,6 +72,14 @@ function actionButtonLabel(action) {
 function withArticle(label) {
   if (!label) return "";
   return /^(the|a|an)\s/i.test(label) ? label : `the ${label}`;
+}
+
+/** Item name for pickup buttons — not the placement caption or lock hint. */
+function playPickupNoun(itemDef, fallback = "") {
+  if (itemDef?.kind === "key" || /(?:^|-)key$/i.test(itemDef?.id ?? fallback)) {
+    return itemDef?.shortLabel || "key";
+  }
+  return itemDef?.shortLabel || itemDef?.label || fallback;
 }
 
 function cleanActionLabel(label) {
@@ -389,6 +408,8 @@ export function buildOutdoorPlayActions(
   const character = indoor?.character ?? outdoor?.character ?? null;
   return [
     ...buildHeldItemUseActions(character),
+    ...buildStartupCardReadActions(character),
+    ...buildHeldCardStowActions(indoor),
     // Barrier/passage use before travel — e.g. Untangle the vines, Open the gate.
     ...buildOutdoorSearchActions(outdoor),
     ...buildOutdoorPassageUnlockActions(outdoor),
@@ -400,7 +421,7 @@ export function buildOutdoorPlayActions(
     ...buildOutdoorEnterBuildingActions(outdoor, indoor),
     ...nearbyHoldings.map((record) => ({
       id: `holding-pickup:${record.type}:${record.id}`,
-      label: `Pick up ${withArticle(record.label)}`,
+      label: `Pick up ${withArticle(playPickupNoun(record.definition, record.label))}`,
       kind: "pickup",
     })),
   ].filter(isVisibleAction);
@@ -507,6 +528,15 @@ export function buildHeldItemUseActions(character) {
   const records = holdingRecords(character.holdings, character.definitions, [holderId]);
   const actions = [];
   for (const record of records) {
+    if (isOpsBinderRecord(record)) {
+      actions.push({
+        id: `holding-examine:${record.type}:${record.id}`,
+        label: "Examine the binder",
+        kind: "action",
+      });
+      continue;
+    }
+    if (record.item === STARTUP_CARD_ITEM_ID) continue;
     const itemActions = availableItemActions(character, record.item, {
       recordId: record.type === "instance" ? record.id : null,
     });
@@ -608,6 +638,8 @@ function parseHeldUseActionId(actionId) {
 export function buildIndoorPlayActions(indoor, pendingBeat = null) {
   const items = [
     ...buildHeldItemUseActions(indoor.character),
+    ...buildStartupCardReadActions(indoor.character),
+    ...buildHeldCardStowActions(indoor),
   ];
 
   const building = indoor.building;
@@ -684,9 +716,13 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
     items.push(action);
   }
 
+  for (const action of buildKitchenSkillActions(indoor)) {
+    items.push(action);
+  }
+
   for (const pickup of indoor.roomPickups ?? []) {
     const itemDef = itemDefinition(indoor, pickup.item);
-    const label = pickup.label || itemDef?.label || pickup.item;
+    const label = playPickupNoun(itemDef, pickup.label || pickup.item);
     // Container pickups support Look in (materializes a holdings instance at this stand).
     if (itemDef?.container) {
       items.push({
@@ -694,10 +730,12 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
         label: `Look in ${withArticle(label)}`,
       });
     }
-    items.push({
-      id: `pickup:${pickup.id}`,
-      label: `Pick up ${withArticle(label)}`,
-    });
+    if (!isTasteeTackContainer({ item: pickup.item, definition: itemDef }, label)) {
+      items.push({
+        id: `pickup:${pickup.id}`,
+        label: `Pick up ${withArticle(label)}`,
+      });
+    }
   }
 
   const nearbyHoldings = nearbyPortableHoldings(indoor);
@@ -707,21 +745,31 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
 
   for (const [itemId, group] of containersByItem) {
     const baseLabel = group[0]?.definition?.label || itemId;
-    if (group.length >= 2) {
+    const rationBox = isTasteeTackContainer(group[0], baseLabel);
+    if (group.length >= 2 || rationBox) {
       items.push({
         id: `holding-inspect-group:${itemId}`,
         label: containerGroupInspectLabel(baseLabel, group.length),
       });
-      for (const record of group) {
-        const label = holdingDisplayLabel(indoor, record);
-        items.push({
-          id: `holding-pickup:${record.type}:${record.id}`,
-          label: `Pick up ${withArticle(label)}`,
-        });
+      if (!rationBox) {
+        for (const record of group) {
+          const label = holdingDisplayLabel(indoor, record);
+          items.push({
+            id: `holding-pickup:${record.type}:${record.id}`,
+            label: `Pick up ${withArticle(label)}`,
+          });
+        }
       }
       continue;
     }
     const record = group[0];
+    if (isOpsBinderRecord(record)) {
+      items.push({
+        id: `holding-examine:${record.type}:${record.id}`,
+        label: "Examine the binder",
+      });
+      continue;
+    }
     const label = holdingDisplayLabel(indoor, record);
     items.push({
       id: `holding-look:${record.type}:${record.id}`,
@@ -736,7 +784,8 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
   // Identical loose items (e.g. four empty glasses) share one pickup action.
   const nonContainersByItem = groupBy(nonContainerRecords, (record) => record.item);
   for (const [itemId, group] of nonContainersByItem) {
-    const baseLabel = group[0]?.definition?.label || group[0]?.label || itemId;
+    if (shouldHideTabletPickup(indoor, itemId)) continue;
+    const baseLabel = playPickupNoun(group[0]?.definition, group[0]?.label || itemId);
     if (group.length >= 2) {
       items.push({
         id: `holding-pickup-any:${itemId}`,
@@ -749,7 +798,7 @@ export function buildIndoorPlayActions(indoor, pendingBeat = null) {
     const record = group[0];
     items.push({
       id: `holding-pickup:${record.type}:${record.id}`,
-      label: `Pick up ${withArticle(holdingDisplayLabel(indoor, record))}`,
+      label: `Pick up ${withArticle(playPickupNoun(record.definition, record.label || itemId))}`,
     });
   }
 
@@ -986,6 +1035,12 @@ export function handleIndoorPlayAction(indoor, actionId) {
   if (actionId.startsWith("held-use:")) {
     return performHeldItemUse(indoor.gameState ?? { character: indoor.character }, actionId);
   }
+  if (actionId.startsWith("read-carried:")) {
+    return performReadCarriedItem(indoor.gameState ?? { character: indoor.character }, actionId);
+  }
+  if (actionId.startsWith("stow-card:")) {
+    return performStowHeldCard(indoor, actionId);
+  }
   if (actionId.startsWith("move-exterior:")) {
     indoor.moveToExteriorNode(actionId.slice("move-exterior:".length));
     return;
@@ -1007,6 +1062,9 @@ export function handleIndoorPlayAction(indoor, actionId) {
   }
   if (actionId.startsWith("holding-inspect-group:")) {
     return inspectNearbyContainerGroup(indoor, actionId.slice("holding-inspect-group:".length));
+  }
+  if (actionId.startsWith("holding-examine:")) {
+    return examineOpsBinder(indoor, actionId.slice("holding-examine:".length));
   }
   if (actionId.startsWith("holding-look:")) {
     return lookInNearbyHolding(indoor, actionId.slice("holding-look:".length));
@@ -1060,6 +1118,17 @@ export function handleIndoorPlayAction(indoor, actionId) {
     if (!result.ok) return result;
     return { ok: true };
   }
+  if (actionId.startsWith("kitchen:")) {
+    const result = performKitchenSkillAction(
+      indoor,
+      actionId,
+      indoor.gameState ?? null,
+    );
+    if (result?.characterChanged && indoor.character) {
+      markCharacterChanged(indoor.character);
+    }
+    return result;
+  }
   if (actionId.startsWith("fixture:")) {
     const result = performProcessFixtureAction(
       indoor,
@@ -1088,10 +1157,7 @@ function nearbyPortableHoldings(indoor) {
     .filter((record) => record.definition?.portable !== false)
     .map((record) => ({
       ...record,
-      label: holdingDisplayLabel(indoor, {
-        ...record,
-        label: record.definition?.label ?? record.item,
-      }),
+      label: record.definition?.label ?? record.item,
     }));
 }
 
@@ -1135,13 +1201,18 @@ function inspectNearbyContainerGroup(indoor, itemId) {
         })
         .join(", ")
       : "Empty";
+    const rationBox = isTasteeTackContainer(record, baseLabel);
+    const takeFrom = rationBox ? firstTakeableContent(contents) : null;
     return {
       id: record.id,
       type: record.type,
       item: record.item,
       label: holdingDisplayLabel(indoor, record),
       detail,
-      canPickUp: record.definition?.portable !== false,
+      canPickUp: rationBox ? Boolean(takeFrom) : record.definition?.portable !== false,
+      takeOne: Boolean(rationBox && takeFrom),
+      viewLabel: rationBox ? "View" : "Look in",
+      takeLabel: rationBox ? "Take one" : "Pick up",
       key: `${record.type}:${record.id}`,
     };
   });
@@ -1154,11 +1225,52 @@ function inspectNearbyContainerGroup(indoor, itemId) {
       itemId,
       title: containerGroupInspectLabel(baseLabel, entries.length),
       intro: /tastee\s*tack/i.test(baseLabel)
-        ? "Shelf-stable Tastee Tack rations for station crews. Each box is a different meal."
+        ? "Shelf-stable Tastee Tack rations. Each package is a full meal."
         : "Choose a container to open or take with you.",
+      kindView: /tastee\s*tack/i.test(baseLabel),
       entries,
     },
   };
+}
+
+/** Take a single portion from a nearby container (leave the box where it is). */
+export function takeOneFromNearbyContainer(indoor, containerInstanceId) {
+  const character = indoor.character;
+  if (!character?.holdings) return { ok: false, error: "Character holdings are unavailable." };
+  const contents = containerContentsRecords(
+    character.holdings,
+    character.definitions,
+    containerInstanceId,
+  );
+  const meal = firstTakeableContent(contents);
+  if (!meal) return { ok: false, error: "The box is empty." };
+  try {
+    transferHolding(character.holdings, character.definitions, {
+      type: meal.type,
+      id: meal.id,
+      quantity: 1,
+      toHolder: characterHolderId(character.holdings),
+    });
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+  markCharacterChanged(character);
+  const name = meal.definition?.label || meal.item;
+  return {
+    ok: true,
+    notice: `You take one ${name}.`,
+    characterChanged: true,
+    itemId: meal.item,
+  };
+}
+
+function firstTakeableContent(contents) {
+  return (contents ?? []).find((entry) => Number(entry.quantity) > 0) ?? null;
+}
+
+function isTasteeTackContainer(record, extra = "") {
+  const text = `${record?.item ?? ""} ${record?.definition?.label ?? ""} ${record?.label ?? ""} ${extra}`;
+  return /tastee[\s-]*tack/i.test(text);
 }
 
 function itemDefinition(indoor, itemId) {
@@ -1174,6 +1286,205 @@ function groupBy(list, keyFn) {
     map.set(key, bucket);
   }
   return map;
+}
+
+const OPS_BINDER_ITEM_ID = "hydro-ops-binder";
+const STARTUP_CARD_ITEM_ID = "hydro-startup-instruction-card";
+const OPS_GUIDE_ITEM_ID = "hydro-operations-guide";
+
+function isOpsBinderRecord(record) {
+  return record?.item === OPS_BINDER_ITEM_ID
+    || record?.definition?.id === OPS_BINDER_ITEM_ID;
+}
+
+export function examineOpsBinder(indoor, encoded) {
+  const character = indoor.character;
+  if (!character?.holdings) return { ok: false, error: "Character holdings are unavailable." };
+  const [type, ...idParts] = String(encoded).split(":");
+  const id = idParts.join(":");
+  const record = findReachableHolding(indoor, type, id);
+  if (!record || !isOpsBinderRecord(record)) {
+    return { ok: false, error: "The binder is not within reach." };
+  }
+  const contents = containerContentsRecords(character.holdings, character.definitions, record.id);
+  let card = contents.find((entry) => entry.item === STARTUP_CARD_ITEM_ID) ?? null;
+  if (!card) {
+    restoreMissingStartupCard(character, `container:${record.id}`);
+    card = containerContentsRecords(character.holdings, character.definitions, record.id)
+      .find((entry) => entry.item === STARTUP_CARD_ITEM_ID) ?? null;
+  }
+  const guide = contents.find((entry) => entry.item === OPS_GUIDE_ITEM_ID) ?? null;
+  return {
+    ok: true,
+    examineBinder: {
+      recordType: record.type,
+      recordId: record.id,
+      heading: "Hydro-power Operations Guide",
+      text: record.definition?.description
+        || "Binder that holds information about how to start and operate the hydro power generator system.",
+      canExamineCard: Boolean(card),
+      canReadGuide: Boolean(guide || record.definition?.relatedDocument),
+      cardType: card?.type ?? null,
+      cardId: card?.id ?? null,
+      guideType: guide?.type ?? null,
+      guideId: guide?.id ?? null,
+    },
+  };
+}
+
+export function buildStartupCardReadActions(character) {
+  const card = findCarriedStartupCard(character);
+  if (!card) return [];
+  return [{
+    id: `read-carried:${card.type}:${card.id}`,
+    label: "Read the startup card",
+    kind: "action",
+  }];
+}
+
+export function performReadCarriedItem(gameState, actionId) {
+  if (!gameState?.character) {
+    return { ok: false, error: "No character is available." };
+  }
+  const encoded = String(actionId).slice("read-carried:".length);
+  const [type, ...idParts] = encoded.split(":");
+  const id = idParts.join(":");
+  const card = findCarriedStartupCard(gameState.character);
+  if (!card || card.type !== type || card.id !== id) {
+    return { ok: false, error: "You are not carrying the startup card." };
+  }
+  const result = performItemAction(gameState, card.item, "read", {
+    recordId: type === "instance" ? id : null,
+  });
+  if (result.ok) markCharacterChanged(gameState.character);
+  return result;
+}
+
+/** Put the unique startup card back if a read/consume bug destroyed it. */
+export function restoreMissingStartupCard(character, holderId) {
+  if (!character?.holdings || !character?.definitions || !holderId) return false;
+  if (itemQuantity(character.holdings, STARTUP_CARD_ITEM_ID, { access: "anywhere" }) > 0) {
+    return false;
+  }
+  try {
+    addItem(character.holdings, character.definitions, STARTUP_CARD_ITEM_ID, 1, {
+      holderId,
+    });
+  } catch {
+    return false;
+  }
+  markCharacterChanged(character);
+  return true;
+}
+
+export function findHeldStartupCardRecord(character) {
+  return findHeldStartupCard(character);
+}
+
+function findCarriedStartupCard(character) {
+  if (!character?.holdings || !character?.definitions) return null;
+  const carried = accessibleHolderIds(character.holdings, "carried");
+  return holdingRecords(character.holdings, character.definitions, carried)
+    .find((record) => record.item === STARTUP_CARD_ITEM_ID) ?? null;
+}
+
+function findHeldStartupCard(character) {
+  if (!character?.holdings || !character?.definitions) return null;
+  const heldId = characterHolderId(character.holdings);
+  return holdingRecords(character.holdings, character.definitions, [heldId])
+    .find((record) => record.item === STARTUP_CARD_ITEM_ID) ?? null;
+}
+
+export function buildHeldCardStowActions(indoor) {
+  const character = indoor?.character;
+  const card = findHeldStartupCard(character);
+  if (!card) return [];
+  const actions = [];
+  const binder = findReachableBinder(indoor);
+  if (binder) {
+    actions.push({
+      id: `stow-card:binder:container:${binder.id}`,
+      label: "Put the card in the binder",
+      kind: "action",
+    });
+  }
+  const backpackHolderId = findCarriedBackpackHolderId(character);
+  if (backpackHolderId) {
+    actions.push({
+      id: `stow-card:backpack:${backpackHolderId}`,
+      label: "Put the card in the backpack",
+      kind: "action",
+    });
+  }
+  const consoleHolderId = findConsoleHolderId(indoor);
+  if (consoleHolderId) {
+    actions.push({
+      id: `stow-card:console:${consoleHolderId}`,
+      label: "Put the card on the console",
+      kind: "action",
+    });
+  }
+  return actions;
+}
+
+export function performStowHeldCard(indoor, actionId) {
+  const character = indoor?.character;
+  if (!character?.holdings) return { ok: false, error: "Character holdings are unavailable." };
+  const card = findHeldStartupCard(character);
+  if (!card) return { ok: false, error: "You are not holding the startup card." };
+  const encoded = String(actionId).slice("stow-card:".length);
+  const colon = encoded.indexOf(":");
+  const target = colon >= 0 ? encoded.slice(colon + 1) : "";
+  if (!target) return { ok: false, error: "Unknown place to put the card." };
+  try {
+    transferHolding(character.holdings, character.definitions, {
+      type: card.type,
+      id: card.id,
+      quantity: 1,
+      toHolder: target,
+    });
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+  markCharacterChanged(character);
+  const place = encoded.startsWith("binder:")
+    ? "in the binder"
+    : encoded.startsWith("backpack:")
+      ? "in the backpack"
+      : "on the console";
+  return { ok: true, notice: `You put the card ${place}.` };
+}
+
+function findReachableBinder(indoor) {
+  const character = indoor?.character;
+  if (!character?.holdings) return null;
+  const heldId = characterHolderId(character.holdings);
+  const nearby = nearbyPortableHoldings(indoor);
+  const held = holdingRecords(character.holdings, character.definitions, [heldId]);
+  return [...nearby, ...held].find((record) => isOpsBinderRecord(record)) ?? null;
+}
+
+function findCarriedBackpackHolderId(character) {
+  if (!character?.holdings) return null;
+  const carried = accessibleHolderIds(character.holdings, "carried");
+  const backpack = holdingRecords(character.holdings, character.definitions, carried)
+    .find((record) => record.item === "field-backpack" && record.type === "instance");
+  if (!backpack) return null;
+  return `container:${backpack.id}`;
+}
+
+function findConsoleHolderId(indoor) {
+  if (indoor?.indoor?.currentStand !== "console") return null;
+  return nearbyFixedHolderIds(indoor).find((id) => /console/i.test(id)) ?? null;
+}
+
+function findReachableHolding(indoor, type, id) {
+  const character = indoor.character;
+  if (!character?.holdings) return null;
+  const heldId = characterHolderId(character.holdings);
+  const nearby = nearbyPortableHoldings(indoor);
+  const held = holdingRecords(character.holdings, character.definitions, [heldId]);
+  return [...nearby, ...held].find((entry) => entry.type === type && entry.id === id) ?? null;
 }
 
 function isNearbyContainerRecord(indoor, record) {
@@ -1311,17 +1622,18 @@ export function ensureContainerInstanceAtLocation(character, itemDefinition, {
 export function listNearbyReachableItems(indoor) {
   const items = [];
   for (const pickup of indoor.roomPickups ?? []) {
+    const itemDef = itemDefinition(indoor, pickup.item);
     items.push({
       key: `pickup:${pickup.id}`,
-      label: pickup.label || pickup.item || pickup.id,
+      label: playPickupNoun(itemDef, itemDef?.label || pickup.label || pickup.item || pickup.id),
       itemId: pickup.item,
-      isContainer: Boolean(itemDefinition(indoor, pickup.item)?.container),
+      isContainer: Boolean(itemDef?.container),
     });
   }
   for (const record of nearbyPortableHoldings(indoor)) {
     items.push({
       key: `holding:${record.type}:${record.id}`,
-      label: record.label || record.item || record.id,
+      label: playPickupNoun(record.definition, record.label || record.item || record.id),
       itemId: record.item,
       isContainer: isNearbyContainerRecord(indoor, record),
     });
@@ -1341,71 +1653,24 @@ export function nearbyReachableItemsSignature(indoor) {
 /**
  * Player-facing discovery line for items at the current stand, e.g.
  * "There is a bolt cutter." / "There are four drinking glasses."
- * Multiple same-type containers with different contents are summarized by flavor.
+ * Container contents stay hidden until the player examines the container.
  */
 export function formatNearbyReachableItemsMessage(indoor) {
   const items = listNearbyReachableItems(indoor);
   if (!items.length) return null;
 
-  const containerGroups = new Map();
-  const otherLabels = [];
-  for (const item of items) {
-    if (item.isContainer && item.itemId) {
-      const group = containerGroups.get(item.itemId) ?? [];
-      group.push(item);
-      containerGroups.set(item.itemId, group);
-    } else {
-      otherLabels.push(String(item.label ?? "").trim());
-    }
+  const simplePhrases = collapseIdenticalLabels(
+    items.map((item) => String(item.label ?? "").trim()),
+  );
+  if (!simplePhrases.length) return null;
+  if (simplePhrases.length === 1) {
+    return simplePhrases[0].plural
+      ? `There are ${simplePhrases[0].text}.`
+      : `There is ${simplePhrases[0].text}.`;
   }
-
-  const groupPhrases = [];
-  for (const group of containerGroups.values()) {
-    if (group.length >= 2) {
-      const summary = formatContainerGroupDiscovery(
-        itemDefinition(indoor, group[0].itemId)?.label || group[0].label,
-        group.map((entry) => entry.label),
-      );
-      if (summary) groupPhrases.push(summary.replace(/\.$/, ""));
-      continue;
-    }
-    otherLabels.push(String(group[0].label ?? "").trim());
-  }
-
-  // Collapse identical ordinary labels: four "drinking glass" → one counted phrase.
-  const simplePhrases = collapseIdenticalLabels(otherLabels);
-
-  if (!groupPhrases.length && !simplePhrases.length) return null;
-
-  // Only ordinary pickups (no multi-flavor container summaries).
-  if (!groupPhrases.length) {
-    if (simplePhrases.length === 1) {
-      return simplePhrases[0].plural
-        ? `There are ${simplePhrases[0].text}.`
-        : `There is ${simplePhrases[0].text}.`;
-    }
-    const texts = simplePhrases.map((phrase) => phrase.text);
-    if (texts.length === 2) return `There is ${texts[0]} and ${texts[1]}.`;
-    return `There is ${texts.slice(0, -1).join(", ")}, and ${texts.at(-1)}.`;
-  }
-
-  // Container summaries already include "There are N boxes...".
-  const parts = [
-    ...groupPhrases,
-    ...simplePhrases.map((phrase) =>
-      phrase.plural ? `there are ${phrase.text}` : `there is ${phrase.text}`,
-    ),
-  ];
-  if (parts.length === 1) {
-    const line = parts[0];
-    return line.endsWith(".") ? line : `${line}.`;
-  }
-  const normalized = parts.map((phrase, index) => {
-    let text = phrase.replace(/\.$/, "");
-    if (index === 0) return text.charAt(0).toUpperCase() + text.slice(1);
-    return text.charAt(0).toLowerCase() + text.slice(1);
-  });
-  return `${normalized.slice(0, -1).join("; ")}; and ${normalized.at(-1)}.`;
+  const texts = simplePhrases.map((phrase) => phrase.text);
+  if (texts.length === 2) return `There is ${texts[0]} and ${texts[1]}.`;
+  return `There is ${texts.slice(0, -1).join(", ")}, and ${texts.at(-1)}.`;
 }
 
 /**
@@ -1446,6 +1711,8 @@ function countWord(count) {
 function pluralizeNounPhrase(label) {
   const raw = String(label ?? "").trim();
   if (!raw) return raw;
+  const boxOf = raw.match(/^box of (.+)$/i);
+  if (boxOf) return `boxes of ${boxOf[1]}`;
   const parts = raw.split(/\s+/);
   const last = parts.pop();
   parts.push(pluralizeWord(last));
@@ -1519,10 +1786,23 @@ function transferNearbyRecord(indoor, record) {
       toHolder: characterHolderId(character.holdings),
     });
     markCharacterChanged(character);
+    if (record.item === "purifier-tablet") {
+      const flags = indoor.indoor?.flags ?? indoor.flags;
+      if (flags && typeof flags.add === "function") flags.add(KITCHEN_TOOK_TABLET_FLAG);
+    }
     return { ok: true };
   } catch (error) {
     return { ok: false, error: error.message };
   }
+}
+
+function shouldHideTabletPickup(indoor, itemId) {
+  if (itemId !== "purifier-tablet") return false;
+  if (characterHasSkill(indoor.character, WATER_PURIFICATION_SKILL)) return true;
+  const flags = indoor.indoor?.flags ?? indoor.flags;
+  if (!flags) return false;
+  if (typeof flags.has === "function") return flags.has(KITCHEN_TOOK_TABLET_FLAG);
+  return Boolean(flags[KITCHEN_TOOK_TABLET_FLAG]);
 }
 
 export function buildIndoorStatusLines(indoor, wellbeingOverview = null) {

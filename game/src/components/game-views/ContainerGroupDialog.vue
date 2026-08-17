@@ -39,14 +39,14 @@
                 type="button"
                 class="sm"
                 @click="$emit('look-in', entry)">
-                Look in
+                {{ entry.viewLabel || "Look in" }}
               </button>
               <button
                 v-if="entry.canPickUp"
                 type="button"
                 class="sm"
                 @click="$emit('pick-up', entry)">
-                Pick up
+                {{ entry.takeLabel || "Pick up" }}
               </button>
             </div>
           </li>

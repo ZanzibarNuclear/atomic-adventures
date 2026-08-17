@@ -1,5 +1,6 @@
 <script setup>
 import { onBeforeUnmount, ref, watch } from "vue";
+import BuilderBtnIcon from "../builder/BuilderBtnIcon.vue";
 import { storyApi } from "../../lib/storyApi.js";
 
 const props = defineProps({
@@ -107,9 +108,7 @@ watch(
       class="sm danger-outline clear-btn"
       :disabled="!modelValue"
       @click="clearImage">
-      <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
-      </svg>
+      <BuilderBtnIcon name="remove" />
       Clear image
     </button>
 
@@ -145,9 +144,7 @@ watch(
             </div>
             <div class="picker-heading-actions">
               <button type="button" class="sm muted" :disabled="loading" @click="loadImages">
-                <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M20 11a8 8 0 1 0-2.3 5.5M20 11V5m0 6h-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
+                <BuilderBtnIcon name="reload" />
                 Refresh
               </button>
               <button
@@ -155,9 +152,7 @@ watch(
                 class="sm muted close-btn"
                 aria-label="Close without selecting"
                 @click="closePicker">
-                <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
-                </svg>
+                <BuilderBtnIcon name="close" />
                 Cancel
               </button>
             </div>

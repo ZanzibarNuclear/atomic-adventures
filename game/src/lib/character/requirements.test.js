@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateRequirements, normalizeRequirements } from "./requirements.js";
+import { characterHasSkill, evaluateRequirements, normalizeRequirements } from "./requirements.js";
 
 const character = {
   holdings: { items: { key: { quantity: 1 }, ration: { quantity: 2 } } },
@@ -65,5 +65,11 @@ describe("character requirements", () => {
     expect(result.ok).toBe(false);
     expect(result.reasons.map((reason) => reason.domain)).toEqual(["items", "stats", "knowledge"]);
     expect(character).toEqual(before);
+  });
+
+  it("treats acquired skills as rank gates", () => {
+    expect(characterHasSkill(character, "operator", 2)).toBe(true);
+    expect(characterHasSkill(character, "operator", 3)).toBe(false);
+    expect(characterHasSkill(character, "missing")).toBe(false);
   });
 });

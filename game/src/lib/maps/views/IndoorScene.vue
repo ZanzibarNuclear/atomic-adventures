@@ -96,6 +96,8 @@ const emit = defineEmits([
   "stage-view",
   "look-in-holding",
   "inspect-container-group",
+  "eat-and-drink-picker",
+  "examine-binder",
   "show-location-map",
   "show-location-image",
   "previous-location-image",
@@ -195,6 +197,8 @@ function onAction(id) {
   if (result?.view) emit("stage-view", result.view);
   if (result?.lookIn) emit("look-in-holding", result.lookIn);
   if (result?.inspectGroup) emit("inspect-container-group", result.inspectGroup);
+  if (result?.eatAndDrinkPicker) emit("eat-and-drink-picker", result.eatAndDrinkPicker);
+  if (result?.examineBinder) emit("examine-binder", result.examineBinder);
   if (result?.ok !== false) props.refreshStory();
 }
 

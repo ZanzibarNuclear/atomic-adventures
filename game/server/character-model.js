@@ -1,7 +1,6 @@
 import { validateCharacterEffects } from "./character-reference-validation.js";
 
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const TABS = new Set(["overview", "inventory", "knowledge", "skills", "quests", "documents"]);
 const VISIBILITY = new Set(["always", "when-acquired", "when-started", "hidden"]);
 const STAT_TYPES = new Set(["integer", "decimal", "meter", "boolean", "enum"]);
 const STAT_DIRECTIONS = new Set(["higher-is-better"]);
@@ -187,14 +186,6 @@ export function validateCharacterDocument(input) {
 
   const statGroups = validateIds(character.panel.statGroups, "panel.statGroups", add);
   const inventoryGroups = validateIds(character.panel.inventoryGroups, "panel.inventoryGroups", add);
-  const duplicateTabs = new Set();
-  for (const [index, tab] of character.panel.tabs.entries()) {
-    if (!TABS.has(tab)) add(`panel.tabs.${index}`, `Unknown character tab "${tab}".`);
-    if (duplicateTabs.has(tab)) add(`panel.tabs.${index}`, "Tabs may appear only once.");
-    duplicateTabs.add(tab);
-  }
-  if (!character.panel.tabs.length) add("panel.tabs", "Choose at least one character tab.");
-
   const itemIds = validateIds(character.items, "items", add);
   validateHoldings(character.holdings, itemIds, add);
   character.items.forEach((item, index) => {

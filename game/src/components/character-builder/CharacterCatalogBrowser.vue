@@ -1,5 +1,5 @@
 <script setup>
-import { tabOptions } from "../../composables/useCharacterBuilderDraft.js";
+import BuilderBtnIcon from "../builder/BuilderBtnIcon.vue";
 
 defineProps({
   draft: { type: Object, required: true },
@@ -10,7 +10,7 @@ defineProps({
   labelize: { type: Function, required: true },
 });
 
-defineEmits(["add-entry", "select-catalog", "select-entry", "toggle-tab"]);
+defineEmits(["add-entry", "select-catalog", "select-entry"]);
 </script>
 
 <template>
@@ -29,16 +29,6 @@ defineEmits(["add-entry", "select-catalog", "select-entry", "toggle-tab"]);
         <small>Place files in game/public; paths resolve from the public root.</small>
       </label>
       <label>Summary<textarea v-model="draft.profile.summary" rows="3"></textarea></label>
-      <fieldset>
-        <legend>Visible tabs</legend>
-        <label v-for="tab in tabOptions" :key="tab" class="check-field">
-          <input
-            type="checkbox"
-            :checked="draft.panel.tabs.includes(tab)"
-            @change="$emit('toggle-tab', tab)">
-          {{ labelize(tab) }}
-        </label>
-      </fieldset>
     </section>
 
     <section v-else class="profile-summary">
@@ -63,8 +53,9 @@ defineEmits(["add-entry", "select-catalog", "select-entry", "toggle-tab"]);
         {{ catalog.label }} <span>{{ draft[catalog.id].length }}</span>
       </button>
     </nav>
-    <button class="sm add-entry" @click="$emit('add-entry')">
-      + Add {{ selectedCatalog.replace(/s$/, "") }}
+    <button class="sm add-btn add-entry" @click="$emit('add-entry')">
+      <BuilderBtnIcon name="add" />
+      Add {{ selectedCatalog.replace(/s$/, "") }}
     </button>
     <button
       v-for="entry in draft[selectedCatalog]"

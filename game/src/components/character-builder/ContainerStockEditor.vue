@@ -13,6 +13,7 @@ import {
   ensureContainerHolder,
 } from "../../lib/character/holdingsAuthoring.js";
 import { useBuildingContent, refreshBuildingContent } from "../../composables/useBuildingContent.js";
+import BuilderBtnIcon from "../builder/BuilderBtnIcon.vue";
 
 const props = defineProps({
   draft: { type: Object, required: true },
@@ -261,7 +262,8 @@ function removePlacement(instanceId) {
         <input v-model.number="contentQuantity" type="number" min="1">
       </label>
       <div class="place-actions">
-        <button type="button" class="sm" :disabled="!roomId" @click="placeHere">
+        <button type="button" class="sm add-btn" :disabled="!roomId" @click="placeHere">
+          <BuilderBtnIcon name="add" />
           Place here
         </button>
       </div>
@@ -283,6 +285,7 @@ function removePlacement(instanceId) {
             type="button"
             class="sm danger-outline"
             @click="removePlacement(placement.instanceId)">
+            <BuilderBtnIcon name="remove" />
             Remove
           </button>
         </div>
@@ -305,8 +308,9 @@ function removePlacement(instanceId) {
             <span v-else class="qty-static">×1</span>
             <button
               type="button"
-              class="sm"
+              class="sm danger-outline"
               @click="removeContent(record.type, record.id)">
+              <BuilderBtnIcon name="remove" />
               Remove
             </button>
           </li>
@@ -315,8 +319,9 @@ function removePlacement(instanceId) {
         <div v-if="contentItemId" class="add-more">
           <button
             type="button"
-            class="sm"
+            class="sm add-btn"
             @click="addMoreContents(placement.instanceId)">
+            <BuilderBtnIcon name="add" />
             Add more of selected item
           </button>
         </div>

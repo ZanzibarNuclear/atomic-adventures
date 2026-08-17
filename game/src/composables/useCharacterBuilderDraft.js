@@ -20,7 +20,6 @@ const artifactCatalogs = [
 ];
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-export const tabOptions = ["overview", "inventory", "knowledge", "skills", "quests", "documents"];
 export const visibilityOptions = ["always", "when-acquired", "when-started", "hidden"];
 export const previewBarLevelOptions = [
   { id: "authored", label: "Authored defaults" },
@@ -61,6 +60,7 @@ export function useCharacterBuilderDraft({ requestConfirm = null } = {}) {
   const warnings = ref([]);
   const selectedCatalog = ref("stats");
   const selectedId = ref("");
+  const pendingEditId = ref("");
   const workspaceMode = ref("character");
   const previewMode = ref("early");
   const previewBarLevel = ref("authored");
@@ -135,9 +135,14 @@ export function useCharacterBuilderDraft({ requestConfirm = null } = {}) {
     }
   }
 
+  function clearPendingEdit() {
+    pendingEditId.value = "";
+  }
+
   function selectCatalog(id) {
     selectedCatalog.value = id;
     selectedId.value = draft.value?.[id]?.[0]?.id ?? "";
+    pendingEditId.value = "";
   }
 
   function selectWorkspace(mode) {
@@ -176,13 +181,6 @@ export function useCharacterBuilderDraft({ requestConfirm = null } = {}) {
     }
   }
 
-  function toggleTab(tab) {
-    const tabs = draft.value.panel.tabs;
-    draft.value.panel.tabs = tabs.includes(tab)
-      ? tabs.filter((item) => item !== tab)
-      : [...tabs, tab];
-  }
-
   function addGroup(kind) {
     const groups = draft.value.panel[kind];
     const id = uniqueId(kind === "statGroups" ? "status" : "group", groups);
@@ -198,6 +196,7 @@ export function useCharacterBuilderDraft({ requestConfirm = null } = {}) {
     const id = uniqueId(`new-${selectedCatalog.value.replace(/s$/, "")}`, entries);
     entries.push(entryDefaults(selectedCatalog.value, id, entries.length));
     selectedId.value = id;
+    pendingEditId.value = id;
     status.value = `Added ${id}.`;
     statusTone.value = "info";
   }
@@ -212,6 +211,7 @@ export function useCharacterBuilderDraft({ requestConfirm = null } = {}) {
     const copy = duplicateCatalogEntry(selectedEntry.value, entries);
     entries.push(copy);
     selectedId.value = copy.id;
+    pendingEditId.value = copy.id;
     status.value = `Duplicated ${copy.label ?? copy.title ?? copy.id}.`;
     statusTone.value = "success";
     return copy;
@@ -383,6 +383,8 @@ export function useCharacterBuilderDraft({ requestConfirm = null } = {}) {
     warnings,
     selectedCatalog,
     selectedId,
+    pendingEditId,
+    clearPendingEdit,
     workspaceMode,
     previewMode,
     previewBarLevel,
@@ -399,7 +401,6 @@ export function useCharacterBuilderDraft({ requestConfirm = null } = {}) {
     loadCharacter,
     selectCatalog,
     selectWorkspace,
-    toggleTab,
     addGroup,
     removeGroup,
     addEntry,
@@ -469,7 +470,11 @@ export function buildPreviewCharacter(draft, previewMode, previewBarLevel = "aut
     ),
     skills: Object.fromEntries(
       definitions.skills.map((entry, index) => include(index)
-        ? [entry.id, { rank: 1, evidence: {}, acquiredAt: "preview" }]
+        ? [entry.id, {
+            rank: populated ? Math.max(1, Number(entry.maxRank) || 1) : 1,
+            evidence: {},
+            acquiredAt: "preview",
+          }]
         : null).filter(Boolean),
     ),
     quests: Object.fromEntries(

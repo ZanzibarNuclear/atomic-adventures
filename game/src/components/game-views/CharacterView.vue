@@ -79,19 +79,19 @@ function publicAssetPath(path) {
         @wellbeing-action="$emit('wellbeing-action', $event)" />
 
       <div class="progression-column">
-        <section class="panel-card knowledge-card" aria-labelledby="character-knowledge-heading">
-          <h3 id="character-knowledge-heading">Knowledge</h3>
-          <CharacterEntriesTab
-            :entries="knowledge"
-            selected-tab="knowledge"
-            compact />
-        </section>
-
         <section class="panel-card skills-card" aria-labelledby="character-skills-heading">
           <h3 id="character-skills-heading">Skills</h3>
           <CharacterSkillsTab
             :skills="skills"
             :public-asset-path="publicAssetPath"
+            compact />
+        </section>
+
+        <section class="panel-card knowledge-card" aria-labelledby="character-knowledge-heading">
+          <h3 id="character-knowledge-heading">Knowledge</h3>
+          <CharacterEntriesTab
+            :entries="knowledge"
+            selected-tab="knowledge"
             compact />
         </section>
       </div>
@@ -166,13 +166,13 @@ function publicAssetPath(path) {
 }
 .panel-card {
   min-width: 0;
-  padding: 1rem;
+  padding: 0.85rem 1rem;
   border: 1px solid #394454;
   border-radius: 10px;
   background: rgba(24, 29, 37, 0.72);
 }
 .panel-card h3 {
-  margin: 0 0 0.85rem;
+  margin: 0 0 0.55rem;
   color: var(--color-cherenkov, #20c8fb);
 }
 @media (max-width: 960px) {

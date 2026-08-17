@@ -146,7 +146,7 @@ Remaining Part I work includes:
 
 - broader authored learning progression and quest content beyond the wired
   Restore Station Power chain;
-- final badge artwork and simulation-owned evidence outcomes;
+- simulation-owned evidence outcomes;
 - close-up views for room detail, holo-reader lessons and videos, buggy rides,
   and simulations;
 - simulation outcome integration through the shared effect boundary.

@@ -428,7 +428,10 @@ World Builder room edit exposes:
 8. Player can **add a tablet** to the purifier and **fill** it, then obtain
    purified water through real item/effects rules.
 9. Discovery messages list reachable cabinet contents at the cabinets stand.
-10. Flag-only kitchen “Eat and drink” is not required for the above loop.
+10. The first kitchen visit has no Eat and drink / Purify water shortcuts.
+    Those appear only after the matching skills are acquired (see
+    [character-inventory.md](character-inventory.md)). Flag-only kitchen
+    “Eat and drink” is not part of the loop.
 
 ---
 

@@ -10,17 +10,24 @@ import {
   itemQuantity,
   removeItem,
 } from "../../../character/holdings.js";
+import { characterHasSkill } from "../../../character/requirements.js";
 import {
   fillVesselInstance,
   findHeldVesselInstance,
   isVesselDefinition,
+  normalizeContents,
   takeEmptyVesselInstance,
+  vesselCapacityMl,
   vesselIsEmpty,
 } from "../../../character/vessels.js";
 import {
+  DRANK_PURIFIED_WATER_KNOWLEDGE,
   KITCHEN_PURIFIED_WATER_FLAG,
+  KITCHEN_TOOK_TABLET_FLAG,
 } from "../../../character/quickConsume.js";
 import { setFlags } from "../useFlags.js";
+
+const WATER_PURIFICATION_SKILL = "water-purification";
 
 export const PROCESS_FIXTURE_KINDS = new Set(["sink", "water-purifier"]);
 
@@ -129,6 +136,10 @@ function heldQuantity(character, itemId) {
 }
 
 function heldEmptyVesselCount(character, vesselItemId) {
+  return heldFillableVesselCount(character, vesselItemId, null, { emptyOnly: true });
+}
+
+function heldFillableVesselCount(character, vesselItemId, liquidId, { emptyOnly = false } = {}) {
   if (!character?.holdings) return 0;
   const holderId = characterHolderId(character.holdings);
   const def = (character.definitions?.items ?? []).find((item) => item.id === vesselItemId);
@@ -136,7 +147,8 @@ function heldEmptyVesselCount(character, vesselItemId) {
 
   let count = 0;
   for (const record of Object.values(character.holdings.instances ?? {})) {
-    if (record.item === vesselItemId && record.holder === holderId && vesselIsEmpty(record)) {
+    if (record.item !== vesselItemId || record.holder !== holderId) continue;
+    if (emptyOnly ? vesselIsEmpty(record) : vesselAcceptsMore(record, def, liquidId)) {
       count += 1;
     }
   }
@@ -146,6 +158,13 @@ function heldEmptyVesselCount(character, vesselItemId) {
     }
   }
   return count;
+}
+
+function vesselAcceptsMore(instance, vesselDef, liquidId) {
+  const contents = normalizeContents(instance?.contents);
+  if (!contents) return true;
+  if (liquidId && contents.item !== liquidId) return false;
+  return contents.amountMl < vesselCapacityMl(vesselDef) - 1;
 }
 
 function sinkInRoom(building, roomId) {
@@ -194,8 +213,23 @@ export function buildProcessFixtureActions(indoor) {
         ? fixtureRuntime(facility, sink.id, "sink")
         : null;
       const tabletId = fixture.requiresTabletItem;
+      const knowsPurify = characterHasSkill(character, WATER_PURIFICATION_SKILL);
+      const alreadyReady = state.stage === "ready" && Number(state.servingsLeft) > 0;
 
-      if (!state.filled) {
+      if (knowsPurify && !alreadyReady) {
+        const hasTablet = state.hasTablet
+          || heldQuantity(character, tabletId) > 0
+          || roomItemQuantity(character, indoor, tabletId) > 0;
+        actions.push({
+          id: `fixture:${fixture.id}:purify`,
+          label: "Purify water",
+          kind: "fixture",
+          disabled: !hasTablet,
+          hint: hasTablet ? "Tablet in, fill from the tap." : "You need a purification tablet.",
+        });
+      }
+
+      if (!knowsPurify && !state.filled) {
         const canFill = isSinkFlowing(sinkState) && sinkState?.cleared === true;
         actions.push({
           id: `fixture:${fixture.id}:fill`,
@@ -205,7 +239,7 @@ export function buildProcessFixtureActions(indoor) {
           hint: canFill ? "" : "Run the faucet clear first.",
         });
       }
-      if (!state.hasTablet && heldQuantity(character, tabletId) > 0) {
+      if (!knowsPurify && !state.hasTablet && heldQuantity(character, tabletId) > 0) {
         actions.push({
           id: `fixture:${fixture.id}:add-tablet`,
           label: "Add a purification tablet",
@@ -221,13 +255,8 @@ export function buildProcessFixtureActions(indoor) {
             label: "Fill a glass from the purifier",
             kind: "fixture",
           });
-          actions.push({
-            id: `fixture:${fixture.id}:pour-and-drink`,
-            label: "Pour a glass and drink",
-            kind: "fixture",
-          });
         }
-        if (heldEmptyVesselCount(character, "water-bottle") > 0) {
+        if (heldFillableVesselCount(character, "water-bottle", fixture.outputLiquid) > 0) {
           actions.push({
             id: `fixture:${fixture.id}:fill-bottle`,
             label: "Fill the water bottle from the purifier",
@@ -237,7 +266,7 @@ export function buildProcessFixtureActions(indoor) {
         if (
           !emptyGlassHeld
           && !emptyGlassNearby
-          && heldEmptyVesselCount(character, "water-bottle") <= 0
+          && heldFillableVesselCount(character, "water-bottle", fixture.outputLiquid) <= 0
         ) {
           actions.push({
             id: `fixture:${fixture.id}:drink`,
@@ -347,6 +376,10 @@ export function performProcessFixtureAction(indoor, actionId, gameState = null) 
   }
 
   if (fixture.kind === "water-purifier") {
+    if (verb === "purify") {
+      return performPurifyWaterShortcut(indoor, gameState);
+    }
+
     if (verb === "fill") {
       const sink = sinkInRoom(building, roomId);
       const sinkState = sink
@@ -360,11 +393,13 @@ export function performProcessFixtureAction(indoor, actionId, gameState = null) 
       }
       state.filled = true;
       refreshPurifierStage(state, fixture);
+      const awarded = maybeAwardWaterPurification(character, flags, state);
       return {
         ok: true,
-        notice: state.stage === "ready"
+        notice: (state.stage === "ready"
           ? `You fill the purifier. With the tablet already in, about ${state.servingsLeft} glasses are ready.`
-          : "You fill the purifier reservoir from the clear tap.",
+          : "You fill the purifier reservoir from the clear tap.") + learnedKitchenSkillNotice(awarded),
+        characterChanged: awarded.water || awarded.eatAndDrink || undefined,
       };
     }
 
@@ -381,12 +416,14 @@ export function performProcessFixtureAction(indoor, actionId, gameState = null) 
       if (!took.ok) return took;
       state.hasTablet = true;
       refreshPurifierStage(state, fixture);
+      const awarded = maybeAwardWaterPurification(character, flags, state);
       return {
         ok: true,
-        notice: state.stage === "ready"
+        notice: (state.stage === "ready"
           ? `You drop in a tablet. About ${state.servingsLeft} glasses of treated water are ready.`
-          : "You drop a purification tablet into the purifier.",
+          : "You drop a purification tablet into the purifier.") + learnedKitchenSkillNotice(awarded),
         characterChanged: true,
+        skillAwarded: awarded.water,
       };
     }
 
@@ -443,20 +480,112 @@ export function performProcessFixtureAction(indoor, actionId, gameState = null) 
         return { ok: false, notice: "There is no treated water ready to drink." };
       }
       consumePurifierServing(state);
-      if (character) applyHydrationGain(character, flags, 35);
+      const awarded = character ? applyHydrationGain(character, flags, 35) : null;
       markDay1Water(flags);
       if (gameState) advanceGameTime(gameState, 3, "resting");
       return {
         ok: true,
-        notice: Number(state.servingsLeft) > 0
+        notice: (Number(state.servingsLeft) > 0
           ? `You drink a long pull of purified water. About ${state.servingsLeft} glasses remain in the purifier.`
-          : "You drink a long pull of purified water. The purifier is empty.",
+          : "You drink a long pull of purified water. The purifier is empty.")
+          + learnedEatAndDrinkNotice(awarded),
         characterChanged: true,
       };
     }
   }
 
   return { ok: false, error: "Unknown fixture action." };
+}
+
+/**
+ * Learned shortcut: tablet + fill from a cleared tap in one step.
+ * Allowed from any stand in the kitchen once the skill is acquired.
+ */
+export function performPurifyWaterShortcut(indoor, gameState = null) {
+  const building = indoor.building;
+  const roomId = indoor.playerRoomId ?? indoor.indoor?.currentRoom ?? null;
+  const facility = indoor.indoor?.facility ?? indoor.facility;
+  const character = indoor.character ?? gameState?.character ?? null;
+  const flags = indoor.indoor?.flags ?? indoor.flags ?? gameState?.flags;
+  if (!facility) return { ok: false, error: "Facility state is unavailable." };
+  if (roomId !== "kitchen") return { ok: false, error: "Purify water at the kitchen sink." };
+  if (!characterHasSkill(character, WATER_PURIFICATION_SKILL)) {
+    return { ok: false, error: "You have not learned to purify water yet." };
+  }
+
+  const fixture = listProcessFixtures(building).find(
+    (entry) => entry.room === roomId && entry.kind === "water-purifier",
+  );
+  if (!fixture) return { ok: false, error: "There is no water purifier here." };
+
+  const state = mutableFixtureState(facility, fixture);
+  const capacity = Number(fixture.capacityServings) > 0
+    ? Number(fixture.capacityServings)
+    : DEFAULT_CAPACITY_SERVINGS;
+  if (state.stage === "ready" && Number(state.servingsLeft) >= capacity) {
+    return { ok: true, notice: "The purifier is already full of treated water." };
+  }
+
+  const tabletId = fixture.requiresTabletItem;
+  if (!state.hasTablet) {
+    const took = takeTabletInRoom(character, indoor, tabletId);
+    if (!took.ok) return took;
+    state.hasTablet = true;
+  }
+
+  const sink = sinkInRoom(building, roomId);
+  if (sink) {
+    const sinkState = mutableFixtureState(facility, sink);
+    if (sinkState.cleared !== true && gameState) {
+      advanceGameTime(gameState, 2, "light");
+    }
+    sinkState.cleared = true;
+    sinkState.flow = "off";
+  }
+
+  state.filled = true;
+  refreshPurifierStage(state, fixture);
+  state.servingsLeft = capacity;
+  state.stage = "ready";
+  markDay1Water(flags);
+  if (gameState) advanceGameTime(gameState, 3, "light");
+  return {
+    ok: true,
+    notice: `You add a tablet and fill the purifier from the tap. About ${capacity} glasses of treated water are ready.`,
+    characterChanged: true,
+  };
+}
+
+/** Drink one serving from the kitchen purifier without requiring the sink stand. */
+export function drinkFromKitchenPurifier(indoor, gameState = null) {
+  const building = indoor.building;
+  const roomId = indoor.playerRoomId ?? indoor.indoor?.currentRoom ?? null;
+  const facility = indoor.indoor?.facility ?? indoor.facility;
+  const character = indoor.character ?? gameState?.character ?? null;
+  const flags = indoor.indoor?.flags ?? indoor.flags ?? gameState?.flags;
+  if (!facility || roomId !== "kitchen") {
+    return { ok: false, notice: "There is no treated water ready." };
+  }
+  const fixture = listProcessFixtures(building).find(
+    (entry) => entry.room === roomId && entry.kind === "water-purifier",
+  );
+  if (!fixture) return { ok: false, notice: "There is no treated water ready." };
+  const state = mutableFixtureState(facility, fixture);
+  if (state.stage !== "ready" || Number(state.servingsLeft) <= 0) {
+    return { ok: false, notice: "There is no treated water ready to drink." };
+  }
+  consumePurifierServing(state);
+  const awarded = character ? applyHydrationGain(character, flags, 35) : null;
+  markDay1Water(flags);
+  if (gameState) advanceGameTime(gameState, 3, "resting");
+  return {
+    ok: true,
+    notice: (Number(state.servingsLeft) > 0
+      ? `You drink a long pull of purified water. About ${state.servingsLeft} glasses remain in the purifier.`
+      : "You drink a long pull of purified water. The purifier is empty.")
+      + learnedEatAndDrinkNotice(awarded),
+    characterChanged: true,
+  };
 }
 
 function refreshPurifierStage(state, fixture = null) {
@@ -528,12 +657,85 @@ function heldFilledVesselCount(character, vesselItemId, liquidId) {
   return count;
 }
 
+function kitchenRoomHolderIds(character, indoor) {
+  const roomId = indoor.playerRoomId ?? indoor.indoor?.currentRoom ?? null;
+  if (!roomId || !character?.holdings?.holders) return [];
+  return Object.values(character.holdings.holders)
+    .filter((holder) => holder.kind === "fixed" || holder.kind === "world")
+    .filter((holder) => holder.location?.room === roomId)
+    .map((holder) => holder.id);
+}
+
+function roomItemQuantity(character, indoor, itemId) {
+  if (!character?.holdings) return 0;
+  let count = 0;
+  for (const holderId of kitchenRoomHolderIds(character, indoor)) {
+    count += itemQuantity(character.holdings, itemId, { holderId });
+  }
+  return count;
+}
+
+function takeTabletInRoom(character, indoor, tabletId) {
+  if (!character?.holdings) {
+    return { ok: false, error: "Character holdings are unavailable." };
+  }
+  if (heldQuantity(character, tabletId) > 0) {
+    try {
+      removeItem(character.holdings, character.definitions, tabletId, 1, {
+        holderId: characterHolderId(character.holdings),
+      });
+      markTookPurifierTablet(indoor);
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: error.message };
+    }
+  }
+  for (const holderId of kitchenRoomHolderIds(character, indoor)) {
+    if (itemQuantity(character.holdings, tabletId, { holderId }) <= 0) continue;
+    try {
+      removeItem(character.holdings, character.definitions, tabletId, 1, { holderId });
+      markTookPurifierTablet(indoor);
+      return { ok: true };
+    } catch {
+      /* try next holder */
+    }
+  }
+  return { ok: false, notice: "You need a purification tablet." };
+}
+
+function maybeAwardWaterPurification(character, flags, state) {
+  if (state?.stage !== "ready") return { water: false, eatAndDrink: false };
+  if (!character?.definitions?.skills?.some((skill) => skill.id === WATER_PURIFICATION_SKILL)) {
+    return { water: false, eatAndDrink: false };
+  }
+  if (characterHasSkill(character, WATER_PURIFICATION_SKILL)) {
+    return { water: false, eatAndDrink: false };
+  }
+  const hadEatAndDrink = characterHasSkill(character, "eat-and-drink");
+  const result = applyEffectsAtomically(
+    [{ op: "skill.acquire", id: WATER_PURIFICATION_SKILL }],
+    { character, flags },
+  );
+  return {
+    water: result.ok,
+    eatAndDrink: result.ok && !hadEatAndDrink && characterHasSkill(character, "eat-and-drink"),
+  };
+}
+
+function learnedKitchenSkillNotice(awarded) {
+  const parts = [];
+  if (awarded?.water) parts.push("You've learned to purify water.");
+  if (awarded?.eatAndDrink) parts.push("You've learned to eat Tastee Tack with water.");
+  return parts.length ? ` ${parts.join(" ")}` : "";
+}
+
 function takeTabletForPurifier(character, indoor, tabletId) {
   if (heldQuantity(character, tabletId) > 0) {
     try {
       removeItem(character.holdings, character.definitions, tabletId, 1, {
         holderId: characterHolderId(character.holdings),
       });
+      markTookPurifierTablet(indoor);
       return { ok: true };
     } catch (error) {
       return { ok: false, error: error.message };
@@ -544,6 +746,7 @@ function takeTabletForPurifier(character, indoor, tabletId) {
     if (itemQuantity(character.holdings, tabletId, { holderId }) <= 0) continue;
     try {
       removeItem(character.holdings, character.definitions, tabletId, 1, { holderId });
+      markTookPurifierTablet(indoor);
       return { ok: true };
     } catch {
       /* try next holder */
@@ -552,13 +755,24 @@ function takeTabletForPurifier(character, indoor, tabletId) {
   return { ok: false, notice: "You need a purification tablet." };
 }
 
-function claimEmptyVessel(character, indoor, vesselItemId, { allowNearby = false } = {}) {
+function markTookPurifierTablet(indoor) {
+  const flags = indoor?.indoor?.flags ?? indoor?.flags;
+  if (!flagPresent(flags, KITCHEN_TOOK_TABLET_FLAG)) {
+    setFlags(flags, [KITCHEN_TOOK_TABLET_FLAG]);
+  }
+}
+
+function claimEmptyVessel(character, indoor, vesselItemId, {
+  allowNearby = false,
+  liquidId = null,
+} = {}) {
   const holderId = characterHolderId(character.holdings);
+  const vesselDef = (character.definitions?.items ?? []).find((item) => item.id === vesselItemId);
   let target = findHeldVesselInstance(character.holdings, vesselItemId, {
     holderId,
     preferEmpty: true,
   });
-  if (target && vesselIsEmpty(target.instance)) {
+  if (target && vesselAcceptsMore(target.instance, vesselDef, liquidId)) {
     return { ok: true, ...target };
   }
   if (allowNearby) {
@@ -609,30 +823,47 @@ function pourIntoVessel(character, state, fixture, indoor, {
     return { ok: false, error: `"${vesselItemId}" is not configured as a vessel.` };
   }
 
-  const claimed = claimEmptyVessel(character, indoor, vesselItemId, { allowNearby });
+  const liquidId = fixture.outputLiquid || DEFAULT_OUTPUT_LIQUID;
+  const claimed = claimEmptyVessel(character, indoor, vesselItemId, {
+    allowNearby,
+    liquidId,
+  });
   if (!claimed.ok) return claimed;
 
-  const liquidId = fixture.outputLiquid || DEFAULT_OUTPUT_LIQUID;
   const liquidDef = (character.definitions?.items ?? []).find((item) => item.id === liquidId);
-  const amountMl = Math.min(
-    Number(vesselDef.vessel.capacityMl),
-    Number(fixture.outputMl) > 0 ? Number(fixture.outputMl) : DEFAULT_OUTPUT_ML,
-  );
+  const servingMl = Number(fixture.outputMl) > 0 ? Number(fixture.outputMl) : DEFAULT_OUTPUT_ML;
+  const capacity = vesselCapacityMl(vesselDef);
+  const existing = normalizeContents(claimed.instance.contents);
+  const alreadyMl = existing?.item === liquidId ? existing.amountMl : 0;
+  const roomMl = Math.max(0, capacity - alreadyMl);
+  if (!(roomMl > 0)) {
+    return { ok: true, notice: "That vessel is already full." };
+  }
+  const servingsAvailable = Math.max(0, Number(state.servingsLeft) || 0);
+  const servingsNeeded = Math.ceil(roomMl / servingMl);
+  const servingsUsed = Math.min(servingsAvailable, servingsNeeded);
+  if (!(servingsUsed > 0)) {
+    return { ok: false, notice: "The purifier has no treated water ready." };
+  }
+  const pourMl = Math.min(roomMl, servingsUsed * servingMl);
   const filled = fillVesselInstance(claimed.instance, vesselDef, {
     liquidId,
-    amountMl,
+    amountMl: alreadyMl + pourMl,
     liquidDefinition: liquidDef,
   });
   if (!filled.ok) return filled;
 
-  consumePurifierServing(state);
+  for (let index = 0; index < servingsUsed; index += 1) consumePurifierServing(state);
   markDay1Water(flags);
   if (gameState) advanceGameTime(gameState, 2, "light");
   const remain = Number(state.servingsLeft) || 0;
   const remainNote = remain > 0
     ? ` About ${remain} glass${remain === 1 ? "" : "es"} remain in the purifier.`
     : " The purifier is empty.";
-  return { ok: true, notice: `${notice}${remainNote}`, characterChanged: true };
+  const short = pourMl + alreadyMl < capacity - 1
+    ? " That's as much as the remaining treated water would cover."
+    : "";
+  return { ok: true, notice: `${notice}${short}${remainNote}`, characterChanged: true };
 }
 
 function drinkHeldGlass(character, fixture, flags, gameState) {
@@ -651,27 +882,40 @@ function drinkHeldGlass(character, fixture, flags, gameState) {
     return { ok: false, notice: "You need a glass of purified water in hand." };
   }
   const instance = entry[1];
-  applyHydrationGain(character, flags, 20);
+  const awarded = applyHydrationGain(character, flags, 20);
   instance.contents = null;
   delete instance.contents;
   markDay1Water(flags);
   if (gameState) advanceGameTime(gameState, 3, "resting");
   return {
     ok: true,
-    notice: "You drink the glass of purified water.",
+    notice: "You drink the glass of purified water." + learnedEatAndDrinkNotice(awarded),
     characterChanged: true,
   };
 }
 
 function applyHydrationGain(character, flags, value) {
   ensureCharacterEffectFields(character);
-  const result = applyEffectsAtomically(
-    [{ op: "stat.add", id: "hydration", value }],
-    { character, flags },
-  );
-  if (result.ok) return;
-  character.stats ??= {};
-  character.stats.hydration = (Number(character.stats.hydration) || 0) + value;
+  const hadEatAndDrink = characterHasSkill(character, "eat-and-drink");
+  const effects = [{ op: "stat.add", id: "hydration", value }];
+  if ((character.definitions?.knowledge ?? []).some((entry) => entry.id === DRANK_PURIFIED_WATER_KNOWLEDGE)) {
+    effects.push({ op: "knowledge.acquire", id: DRANK_PURIFIED_WATER_KNOWLEDGE });
+  }
+  const result = applyEffectsAtomically(effects, { character, flags });
+  if (!result.ok) {
+    character.stats ??= {};
+    character.stats.hydration = (Number(character.stats.hydration) || 0) + value;
+    return { learnedEatAndDrink: false };
+  }
+  return {
+    learnedEatAndDrink: !hadEatAndDrink && characterHasSkill(character, "eat-and-drink"),
+  };
+}
+
+function learnedEatAndDrinkNotice(awarded) {
+  return awarded?.learnedEatAndDrink
+    ? " You've learned to eat Tastee Tack with water."
+    : "";
 }
 
 function ensureCharacterEffectFields(character) {

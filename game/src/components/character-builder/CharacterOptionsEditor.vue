@@ -1,4 +1,6 @@
 <script setup>
+import BuilderBtnIcon from "../builder/BuilderBtnIcon.vue";
+
 defineProps({
   draft: { type: Object, required: true },
 });
@@ -25,9 +27,15 @@ defineEmits(["add-group", "remove-group"]);
       <div v-for="group in draft.panel.statGroups" :key="group.id" class="group-row">
         <label>ID<input v-model="group.id" aria-label="Stat group id"></label>
         <label>Label<input v-model="group.label" aria-label="Stat group label"></label>
-        <button class="sm muted" @click="$emit('remove-group', 'statGroups', group.id)">Remove</button>
+        <button class="sm danger-outline" @click="$emit('remove-group', 'statGroups', group.id)">
+          <BuilderBtnIcon name="remove" />
+          Remove
+        </button>
       </div>
-      <button class="sm" @click="$emit('add-group', 'statGroups')">Add stat group</button>
+      <button class="sm add-btn" @click="$emit('add-group', 'statGroups')">
+        <BuilderBtnIcon name="add" />
+        Add stat group
+      </button>
     </section>
 
     <section class="group-section">
@@ -38,9 +46,15 @@ defineEmits(["add-group", "remove-group"]);
       <div v-for="group in draft.panel.inventoryGroups" :key="group.id" class="group-row">
         <label>ID<input v-model="group.id" aria-label="Inventory group id"></label>
         <label>Label<input v-model="group.label" aria-label="Inventory group label"></label>
-        <button class="sm muted" @click="$emit('remove-group', 'inventoryGroups', group.id)">Remove</button>
+        <button class="sm danger-outline" @click="$emit('remove-group', 'inventoryGroups', group.id)">
+          <BuilderBtnIcon name="remove" />
+          Remove
+        </button>
       </div>
-      <button class="sm" @click="$emit('add-group', 'inventoryGroups')">Add inventory group</button>
+      <button class="sm add-btn" @click="$emit('add-group', 'inventoryGroups')">
+        <BuilderBtnIcon name="add" />
+        Add inventory group
+      </button>
     </section>
   </section>
 </template>

@@ -25,16 +25,16 @@ const consumeActions = computed(() => {
       label: "Eat",
       hint: "Eat the first food in reach",
       ready: isQuickConsumeReady(gameState, "eat"),
-      blockedHint: "Discover kitchen rations first.",
+      blockedHint: "Learn to eat Tastee Tack with water first.",
     },
     {
       id: "drink",
       label: "Drink",
       hint: "Drink the first beverage in reach",
       ready: isQuickConsumeReady(gameState, "drink"),
-      blockedHint: "Purify water at the kitchen sink first.",
+      blockedHint: "Learn to purify tap water first.",
     },
-  ];
+  ].filter((action) => action.ready);
 });
 const energyActions = computed(() =>
   wellbeingActions.value.filter((action) => ["rest", "nap", "sleep"].includes(action.id)),
@@ -160,13 +160,13 @@ function formatDurationOption(minutes) {
     <section class="panel-card actions-card" aria-labelledby="character-health-actions-heading">
       <h3 id="character-health-actions-heading">Health actions</h3>
       <div class="action-rows">
-        <div class="action-row consume-row">
+        <div v-if="consumeActions.length" class="action-row consume-row">
           <button
             v-for="action in consumeActions"
             :key="action.id"
             type="button"
             class="sm brand wellbeing-action"
-            :disabled="!actionsEnabled || !action.ready"
+            :disabled="!actionsEnabled"
             :title="consumeTitle(action)"
             @click="runConsume(action.id)">
             {{ action.label }}

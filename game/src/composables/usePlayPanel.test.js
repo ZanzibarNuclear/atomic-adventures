@@ -7,6 +7,7 @@ import {
   handleIndoorPlayAction,
   handleOutdoorChooseAction,
   listNearbyReachableItems,
+  takeOneFromNearbyContainer,
 } from "./usePlayPanel.js";
 import {
   clearPlayMessages,
@@ -160,6 +161,54 @@ describe("indoor door actions", () => {
   });
 });
 
+describe("pickup labels", () => {
+  it("uses a short key name instead of the placement caption", () => {
+    const indoor = {
+      roomPickups: [{
+        id: "hallway-key-hook",
+        room: "hallway",
+        item: "hallway-small-bay-key",
+        label: "Key on the hallway hook (small bay door)",
+      }],
+      availableActions: [],
+      nearbyDoors: [],
+      playerRoomId: "hallway",
+      building: {
+        areaId: "utility-station",
+        doors: [],
+        doorById: {},
+        links: [],
+        roomById: { hallway: { id: "hallway", label: "Hallway" } },
+      },
+      indoor: {
+        currentRoom: "hallway",
+        currentStand: null,
+        doorState: {},
+        facility: {},
+        discovered: new Set(["hallway"]),
+      },
+      character: {
+        definitions: {
+          items: [{
+            id: "hallway-small-bay-key",
+            label: "master key",
+            kind: "key",
+            portable: true,
+          }],
+        },
+        holdings: { holders: {}, instances: {}, stacks: {} },
+      },
+      doorStateFor: () => ({ open: false, locked: false }),
+      doorLockHint: () => null,
+      canToggleDoorLock: () => false,
+    };
+
+    const labels = buildIndoorPlayActions(indoor).map((action) => action.label);
+    expect(labels).toContain("Pick up the key");
+    expect(labels.some((label) => /hallway hook|small bay/i.test(label))).toBe(false);
+  });
+});
+
 function indoorWithReachable({ pickups = [] } = {}) {
   return {
     roomPickups: pickups,
@@ -239,7 +288,7 @@ describe("nearby container look-in", () => {
     const actions = buildIndoorPlayActions(indoor);
     expect(actions.map((action) => action.id)).toContain("pickup-look:kitchen-tastee-tack-box");
     expect(actions.map((action) => action.label)).toContain("Look in the Box of Tastee Tack meals");
-    expect(actions.map((action) => action.id)).toContain("pickup:kitchen-tastee-tack-box");
+    expect(actions.map((action) => action.id)).not.toContain("pickup:kitchen-tastee-tack-box");
 
     const result = handleIndoorPlayAction(indoor, "pickup-look:kitchen-tastee-tack-box");
     expect(result.ok).toBe(true);
@@ -307,14 +356,80 @@ describe("nearby container look-in", () => {
     };
 
     const actions = buildIndoorPlayActions(indoor);
-    expect(actions.map((action) => action.id)).toContain("holding-look:instance:box-1");
-    expect(actions.map((action) => action.label)).toContain("Look in the Empty Tastee Tack box");
-    expect(actions.map((action) => action.id)).toContain("holding-pickup:instance:box-1");
+    expect(actions.map((action) => action.id)).toContain("holding-inspect-group:tastee-tack-box");
+    expect(actions.map((action) => action.label)).toContain("Inspect the Tastee Tack box");
+    expect(actions.map((action) => action.id)).not.toContain("holding-look:instance:box-1");
+    expect(actions.map((action) => action.id)).not.toContain("holding-pickup:instance:box-1");
+  });
+});
+
+describe("purifier tablet pickup", () => {
+  function sinkIndoor({ flags = new Set(), skills = {} } = {}) {
+    return {
+      roomPickups: [],
+      availableActions: [],
+      nearbyDoors: [],
+      playerRoomId: "kitchen",
+      building: {
+        areaId: "utility-station",
+        doors: [],
+        doorById: {},
+        links: [],
+        roomById: { kitchen: { id: "kitchen", label: "Kitchen" } },
+      },
+      indoor: {
+        currentRoom: "kitchen",
+        currentStand: "kitchen-sink",
+        doorState: {},
+        facility: { fixtures: {} },
+        discovered: new Set(["kitchen"]),
+        flags,
+      },
+      flags,
+      character: {
+        skills,
+        definitions: {
+          items: [
+            { id: "purifier-tablet", label: "purification tablet", kind: "consumable", portable: true, carrying: "stack" },
+          ],
+        },
+        holdings: {
+          holders: {
+            "character:player": { id: "character:player", kind: "character" },
+            "fixed:kitchen-sink-counter": {
+              id: "fixed:kitchen-sink-counter",
+              kind: "fixed",
+              label: "Sink counter",
+              location: { room: "kitchen", stand: "kitchen-sink" },
+            },
+          },
+          instances: {},
+          stacks: {
+            "stack-tablet": { item: "purifier-tablet", quantity: 8, holder: "fixed:kitchen-sink-counter" },
+          },
+        },
+      },
+      doorStateFor: () => ({ open: false, locked: false }),
+      doorLockHint: () => null,
+      canToggleDoorLock: () => false,
+    };
+  }
+
+  it("offers tablet pickup until one has been taken", () => {
+    const indoor = sinkIndoor();
+    const labels = buildIndoorPlayActions(indoor).map((action) => action.label);
+    expect(labels).toContain("Pick up the purification tablet");
+  });
+
+  it("hides tablet pickup after the first take", () => {
+    const indoor = sinkIndoor({ flags: new Set(["kitchen.took-purifier-tablet"]) });
+    const labels = buildIndoorPlayActions(indoor).map((action) => action.label);
+    expect(labels).not.toContain("Pick up the purification tablet");
   });
 });
 
 describe("multi-flavor container groups", () => {
-  it("offers one inspect action and flavored pick-up labels", () => {
+  it("offers one inspect action and no whole-box pickups", () => {
     const indoor = threeFlavorBoxesIndoor();
     const actions = buildIndoorPlayActions(indoor);
     const ids = actions.map((action) => action.id);
@@ -323,29 +438,161 @@ describe("multi-flavor container groups", () => {
     expect(ids).toContain("holding-inspect-group:tastee-tack-box");
     expect(labels).toContain("Inspect the Tastee Tack boxes");
     expect(ids.some((id) => id.startsWith("holding-look:"))).toBe(false);
-    expect(labels).toEqual(expect.arrayContaining([
-      "Pick up the Box of Tastee Tack: Turkey Cranberry Dinner",
-      "Pick up the Box of Tastee Tack: Pioneer Breakfast",
-      "Pick up the Box of Tastee Tack: Nut Butter and Preserves",
-    ]));
+    expect(ids.some((id) => id.startsWith("holding-pickup:"))).toBe(false);
+    expect(labels.some((label) => /^Pick up the Box of Tastee Tack/i.test(label))).toBe(false);
 
     const result = handleIndoorPlayAction(indoor, "holding-inspect-group:tastee-tack-box");
     expect(result.ok).toBe(true);
+    expect(result.inspectGroup.intro).toBe(
+      "Shelf-stable Tastee Tack rations. Each package is a full meal.",
+    );
     expect(result.inspectGroup.entries).toHaveLength(3);
     expect(result.inspectGroup.entries.map((entry) => entry.label)).toEqual(expect.arrayContaining([
       "Box of Tastee Tack: Turkey Cranberry Dinner",
       "Box of Tastee Tack: Pioneer Breakfast",
       "Box of Tastee Tack: Nut Butter and Preserves",
     ]));
+    expect(result.inspectGroup.entries.every((entry) => entry.viewLabel === "View")).toBe(true);
+    expect(result.inspectGroup.entries.every((entry) => entry.takeLabel === "Take one")).toBe(true);
+    expect(result.inspectGroup.entries.every((entry) => entry.takeOne)).toBe(true);
   });
 
-  it("summarizes flavors in the discovery message", () => {
+  it("takes one meal from a Tastee Tack box and leaves the box", () => {
+    const indoor = threeFlavorBoxesIndoor();
+    const result = takeOneFromNearbyContainer(indoor, "box-1");
+    expect(result.ok).toBe(true);
+    expect(result.notice).toMatch(/Turkey Cranberry Dinner/i);
+    expect(indoor.character.holdings.stacks.s1.quantity).toBe(13);
+    expect(indoor.character.holdings.stacks.s1.holder).toBe("container:box-1");
+    const held = Object.values(indoor.character.holdings.stacks)
+      .find((stack) => stack.item === "turkey" && stack.holder === "character:player");
+    expect(held?.quantity).toBe(1);
+    expect(indoor.character.holdings.instances["box-1"].holder).toBe("fixed:kitchen-cabinets");
+  });
+
+  it("names nearby containers without listing what is inside", () => {
     const message = formatNearbyReachableItemsMessage(threeFlavorBoxesIndoor());
-    expect(message).toContain("3 boxes of Tastee Tack");
-    expect(message).toContain("Turkey Cranberry Dinner");
-    expect(message).toContain("Pioneer Breakfast");
-    expect(message).toContain("Nut Butter and Preserves");
-    expect(message).not.toMatch(/There is a Box of Tastee Tack meals and a Box of Tastee Tack meals/);
+    expect(message).toBe("There are three boxes of Tastee Tack meals.");
+    expect(message).not.toMatch(/Turkey|Pioneer|Nut Butter|startup card|operations guide/i);
+  });
+});
+
+describe("ops binder examine", () => {
+  function consoleIndoor() {
+    return {
+      roomPickups: [],
+      availableActions: [],
+      nearbyDoors: [],
+      playerRoomId: "control-room",
+      building: {
+        areaId: "utility-station",
+        doors: [],
+        doorById: {},
+        links: [],
+        roomById: { "control-room": { id: "control-room", label: "Control room" } },
+      },
+      indoor: {
+        currentRoom: "control-room",
+        currentStand: "console",
+        doorState: {},
+        facility: {},
+        discovered: new Set(["control-room"]),
+      },
+      character: {
+        definitions: {
+          items: [
+            {
+              id: "hydro-ops-binder",
+              label: "ops binder",
+              description: "Binder that holds information about how to start and operate the hydro power generator system.",
+              portable: true,
+              container: { capacity: { slots: 6 } },
+            },
+            { id: "hydro-startup-instruction-card", label: "startup card", kind: "card" },
+            { id: "hydro-operations-guide", label: "operations guide", kind: "book" },
+          ],
+        },
+        holdings: {
+          holders: {
+            "character:player": { id: "character:player", kind: "character" },
+            "fixed:control-room-console": {
+              id: "fixed:control-room-console",
+              kind: "fixed",
+              label: "console",
+              location: { room: "control-room", stand: "console" },
+            },
+            "container:hydro-ops-binder-16": {
+              id: "container:hydro-ops-binder-16",
+              kind: "container",
+              instance: "hydro-ops-binder-16",
+            },
+          },
+          instances: {
+            "hydro-ops-binder-16": {
+              item: "hydro-ops-binder",
+              holder: "fixed:control-room-console",
+            },
+            "hydro-startup-instruction-card-4": {
+              item: "hydro-startup-instruction-card",
+              holder: "container:hydro-ops-binder-16",
+            },
+            "hydro-operations-guide-17": {
+              item: "hydro-operations-guide",
+              holder: "container:hydro-ops-binder-16",
+            },
+          },
+          stacks: {},
+          nextId: 20,
+        },
+      },
+      doorStateFor: () => ({ open: false, locked: false }),
+      doorLockHint: () => null,
+      canToggleDoorLock: () => false,
+    };
+  }
+
+  it("offers a single Examine action without listing binder contents", () => {
+    const indoor = consoleIndoor();
+    const actions = buildIndoorPlayActions(indoor);
+    const labels = actions.map((action) => action.label);
+    expect(labels).toContain("Examine the binder");
+    expect(labels.some((label) => /Look in/i.test(label))).toBe(false);
+    expect(labels.some((label) => /Pick up/i.test(label))).toBe(false);
+    expect(labels.some((label) => /startup card|operations guide/i.test(label))).toBe(false);
+  });
+
+  it("opens a follow-up scene that can take the card but keeps the guide", () => {
+    const indoor = consoleIndoor();
+    const result = handleIndoorPlayAction(indoor, "holding-examine:instance:hydro-ops-binder-16");
+    expect(result.ok).toBe(true);
+    expect(result.examineBinder.heading).toBe("Hydro-power Operations Guide");
+    expect(result.examineBinder.canExamineCard).toBe(true);
+    expect(result.examineBinder.canReadGuide).toBe(true);
+    expect(result.examineBinder.text).toMatch(/start and operate/i);
+    expect(result.examineBinder.text).not.toMatch(/loose sheets/);
+  });
+
+  it("offers Read the startup card once the card is carried", () => {
+    const indoor = consoleIndoor();
+    indoor.character.holdings.instances["hydro-startup-instruction-card-4"].holder = "character:player";
+    const labels = buildIndoorPlayActions(indoor).map((action) => action.label);
+    expect(labels).toContain("Read the startup card");
+    expect(labels).toContain("Put the card in the binder");
+    expect(labels).toContain("Put the card on the console");
+  });
+
+  it("announces the binder without listing its contents", () => {
+    const indoor = consoleIndoor();
+    expect(formatNearbyReachableItemsMessage(indoor)).toBe("There is an ops binder.");
+  });
+
+  it("puts a destroyed startup card back in the binder when examined", () => {
+    const indoor = consoleIndoor();
+    delete indoor.character.holdings.instances["hydro-startup-instruction-card-4"];
+    const result = handleIndoorPlayAction(indoor, "holding-examine:instance:hydro-ops-binder-16");
+    expect(result.ok).toBe(true);
+    expect(result.examineBinder.canExamineCard).toBe(true);
+    expect(result.examineBinder.cardId).toBeTruthy();
   });
 });
 
