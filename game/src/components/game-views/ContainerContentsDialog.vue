@@ -135,6 +135,7 @@ defineEmits(["close", "select-holding", "transfer-item"]);
 const takeActions = computed(() => {
   const holding = props.selectedHolding;
   if (!holding || !props.characterHolderId) return [];
+  if (holding.definition?.properties?.bound === true || holding.portable === false) return [];
   const quantity = Math.max(1, Number(holding.quantity) || 1);
   if (holding.type === "stack" && quantity > 1) {
     return [

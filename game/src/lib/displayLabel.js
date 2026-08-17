@@ -58,3 +58,60 @@ export function levelLabel(level) {
 export function exteriorNodeLabel(node) {
   return displayLabel(node);
 }
+
+/**
+ * Inventory group heading. Named stands use the stand's player-facing name
+ * ("On the console"), never the holder id slug ("control-room-console").
+ */
+export function inventoryHolderHeading(holder, stand = null) {
+  const kind = holder?.kind;
+  if (kind === "character") return "In your hands";
+  if (kind === "world") {
+    if (stand || holder?.location?.stand) return "On the floor";
+    return holder?.label || "Within reach";
+  }
+  if (kind === "fixed" || kind === "vehicle") {
+    const name = inventorySurfaceName(holder, stand);
+    return name ? `On the ${stripLeadingArticle(name)}` : (holder?.label || "Nearby");
+  }
+  return holder?.label ?? holder?.id ?? "";
+}
+
+/** Hide the generic world bucket when a named stand surface already represents that place. */
+export function isRedundantWorldHolder(holder, holders = []) {
+  if (holder?.kind !== "world") return false;
+  if (holder.records?.length) return false;
+  return holders.some((entry) => (
+    entry.kind === "fixed"
+    && entry.location?.stand
+    && entry.id !== holder.id
+  ));
+}
+
+function inventorySurfaceName(holder, stand = null) {
+  const short = String(holder?.shortLabel ?? "").trim();
+  if (short) return short;
+  const standLabel = String(stand?.label ?? "").trim();
+  if (standLabel) return standLabel;
+  const standId = String(stand?.id ?? holder?.location?.stand ?? "").trim();
+  if (standId && !/[-:]/.test(standId)) return standId;
+  if (standId) {
+    const last = standId.split(/[-:]/).filter(Boolean).at(-1);
+    if (last && last !== "room") return last;
+  }
+  const label = String(holder?.label ?? "").trim();
+  if (label && /control-room|utility-station/i.test(label)) {
+    const last = label.split(/[\s-]+/).filter(Boolean).at(-1);
+    if (last) return last.toLowerCase();
+  }
+  if (label && !/^fixed:/i.test(label) && !looksLikeSlug(label)) return label;
+  return standId || label;
+}
+
+function looksLikeSlug(text) {
+  return /^[a-z0-9]+(?:-[a-z0-9]+)+$/i.test(text);
+}
+
+function stripLeadingArticle(text) {
+  return String(text ?? "").replace(/^(the|a|an)\s+/i, "").trim();
+}

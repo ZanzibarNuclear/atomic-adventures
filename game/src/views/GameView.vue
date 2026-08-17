@@ -45,12 +45,19 @@ import CharacterStatsStageView from "../components/game-views/CharacterStatsStag
 import DeveloperSettingsDialog from "../components/dev/DeveloperSettingsDialog.vue";
 import HoloReaderView from "../components/game-views/HoloReaderView.vue";
 import HydroConsoleView from "../components/game-views/HydroConsoleView.vue";
+import DocumentPageView from "../components/game-views/DocumentPageView.vue";
 import InstructionCardView from "../components/game-views/InstructionCardView.vue";
+import BinderExamineDialog from "../components/game-views/BinderExamineDialog.vue";
 import ContainerContentsDialog from "../components/game-views/ContainerContentsDialog.vue";
 import ContainerGroupDialog from "../components/game-views/ContainerGroupDialog.vue";
 import EatAndDrinkDialog from "../components/game-views/EatAndDrinkDialog.vue";
 import ItemKindDialog from "../components/game-views/ItemKindDialog.vue";
-import { takeOneFromNearbyContainer } from "../composables/usePlayPanel.js";
+import {
+  examineOpsBinder,
+  findHeldStartupCardRecord,
+  restoreMissingStartupCard,
+  takeOneFromNearbyContainer,
+} from "../composables/usePlayPanel.js";
 import { drinkKitchenTreatedWater, performEatAndDrinkShortcut } from "../lib/character/kitchenSkills.js";
 import InventoryDialog from "../components/game-views/InventoryDialog.vue";
 import InventoryStageView from "../components/game-views/InventoryStageView.vue";
@@ -71,6 +78,7 @@ import {
   resolveIndoorLocationMedia,
   resolveOutdoorLocationMedia,
 } from "../lib/maps/locationMedia.js";
+import { inventoryHolderHeading, isRedundantWorldHolder } from "../lib/displayLabel.js";
 import { completeLesson } from "../lib/learning/completion.js";
 import {
   HOLO_READER_BROWSER_ACTION_ID,
@@ -98,6 +106,7 @@ const itemActionFeedback = ref("");
 const wellbeingActionFeedback = ref("");
 const containerGroupInspect = ref(null);
 const eatAndDrinkPicker = ref(null);
+const binderExamine = ref(null);
 const locationMediaMode = ref("map");
 const locationMediaIndex = ref(0);
 const locationMediaKey = ref(null);
@@ -350,11 +359,22 @@ const nearbyHolderIds = computed(() => {
   return ids;
 });
 const stageSelectedHoldingId = ref(null);
+function currentIndoorStand() {
+  if (place.value !== "indoors") return null;
+  const standId = indoor.indoor.currentStand;
+  if (!standId) return null;
+  const room = indoor.building?.roomById?.[indoor.indoor.currentRoom];
+  return (room?.stands ?? []).find((entry) => entry.id === standId)
+    ?? { id: standId, label: null };
+}
+
 function inventoryHolderViews(ids) {
+  const stand = currentIndoorStand();
   return ids.map((id) => {
     const holder = gameState.character.holdings.holders[id] ?? { id, label: id, kind: "holder" };
     return {
       ...holder,
+      label: inventoryHolderHeading(holder, stand),
       shortLabel: holder.shortLabel ?? null,
       records: holdingRecords(
         gameState.character.holdings,
@@ -395,7 +415,8 @@ const inventoryHolders = computed(() => {
     "nearby",
     [...nearbyHolderIds.value, currentWorldHolderId()],
   )];
-  return inventoryHolderViews(ids);
+  const views = inventoryHolderViews(ids);
+  return views.filter((holder) => !isRedundantWorldHolder(holder, views));
 });
 const outdoorGroundHoldings = computed(() => {
   if (place.value !== "outdoors") return [];
@@ -513,6 +534,13 @@ watch(
   { deep: true },
 );
 const characterDocuments = computed(() => gameState.character.definitions.documents ?? []);
+const isStartupCardView = computed(() => {
+  const payload = activeView.value.payload;
+  if (payload?.documentType === "hydro-startup-card") return true;
+  const documentId = payload?.id;
+  const entry = characterDocuments.value.find((document) => document.id === documentId);
+  return entry?.properties?.type === "hydro-startup-card";
+});
 const lessonCompletionError = ref("");
 const availableLessons = computed(() =>
   availableHoloReaderLessons(lessons.value, {
@@ -687,6 +715,7 @@ function resetPlaySessionUi() {
   itemActionFeedback.value = "";
   containerGroupInspect.value = null;
   eatAndDrinkPicker.value = null;
+  binderExamine.value = null;
   developerSettingsVisible.value = false;
   vitalCrisisAlert.value = null;
   vitalCrisisAlertedIds.value = new Set();
@@ -905,9 +934,32 @@ function handleHeaderSave() {
 }
 
 function handleReturnToMap() {
+  const leavingStartupCard = isStartupCardView.value;
   returnToMap();
+  if (leavingStartupCard) {
+    const handsId = characterHolderId(gameState.character.holdings);
+    restoreMissingStartupCard(gameState.character, handsId);
+    const heldCard = findHeldStartupCardRecord(gameState.character);
+    if (heldCard) {
+      stageSelectedHoldingId.value = holdingKeyFor(heldCard);
+      pushPlayMessage("You're holding the laminated card.", { source: "held-item" });
+    }
+  }
   lessonCompletionError.value = "";
   nextTick(() => document.querySelector(".player-character")?.focus());
+}
+
+function holdingKeyFor(record) {
+  if (!record?.type || !record?.id) return null;
+  return `${record.type}:${record.id}`;
+}
+
+function restoreStartupCardIntoBinderIfMissing() {
+  const character = gameState.character;
+  const binder = Object.entries(character.holdings?.instances ?? {})
+    .find(([, instance]) => instance.item === "hydro-ops-binder");
+  if (!binder) return;
+  restoreMissingStartupCard(character, `container:${binder[0]}`);
 }
 
 function showLocationImage() {
@@ -1137,6 +1189,7 @@ function handlePickupOutdoorHolding(encoded) {
 }
 
 function openInventoryDialog(focusHoldingKey = null) {
+  restoreStartupCardIntoBinderIfMissing();
   if (focusHoldingKey) {
     stageSelectedHoldingId.value = focusHoldingKey;
   } else if (!stageSelectedHolding.value) {
@@ -1274,6 +1327,61 @@ function handleEatAndDrinkPicker(picker) {
 
 function closeEatAndDrinkPicker() {
   eatAndDrinkPicker.value = null;
+}
+
+function handleExamineBinder(payload) {
+  binderExamine.value = payload ?? null;
+}
+
+function refreshBinderExamine() {
+  const current = binderExamine.value;
+  if (!current?.recordId) return;
+  const result = examineOpsBinder(indoor, `${current.recordType}:${current.recordId}`);
+  binderExamine.value = result.ok ? result.examineBinder : null;
+}
+
+function handleBinderExamineCard() {
+  const current = binderExamine.value;
+  if (!current?.cardId || !current.cardType) return;
+  try {
+    transferHolding(gameState.character.holdings, gameState.character.definitions, {
+      type: current.cardType,
+      id: current.cardId,
+      quantity: 1,
+      toHolder: characterHolderId(gameState.character.holdings),
+    });
+    markCharacterChanged(gameState.character);
+  } catch (error) {
+    pushPlayMessage(error.message, { source: "action", tone: "notice" });
+    return;
+  }
+  binderExamine.value = null;
+  stageSelectedHoldingId.value = `${current.cardType}:${current.cardId}`;
+  pushPlayMessage("You're holding the laminated card.", { source: "held-item", tone: "notice" });
+  handleUseItem({
+    itemId: "hydro-startup-instruction-card",
+    actionId: "read",
+    recordId: current.cardId,
+  });
+  refreshStoryMoment();
+}
+
+function handleBinderReadGuide() {
+  const current = binderExamine.value;
+  binderExamine.value = null;
+  if (current?.guideId) {
+    handleUseItem({
+      itemId: "hydro-operations-guide",
+      actionId: "read",
+      recordId: current.guideId,
+    });
+  }
+  if (activeView.value.kind !== "document") {
+    openStageView({
+      kind: "document",
+      id: "hydro-operations-primer",
+    }, { force: true });
+  }
 }
 
 function confirmEatAndDrinkPicker(selection) {
@@ -1444,6 +1552,16 @@ function finishTakeOneFromBox(containerInstanceId) {
       @pick-up="handleGroupPickUp"
       @close="closeContainerGroupInspect" />
 
+    <BinderExamineDialog
+      v-if="binderExamine"
+      :heading="binderExamine.heading"
+      :text="binderExamine.text"
+      :can-examine-card="binderExamine.canExamineCard"
+      :can-read-guide="binderExamine.canReadGuide"
+      @examine-card="handleBinderExamineCard"
+      @read-guide="handleBinderReadGuide"
+      @close="binderExamine = null" />
+
     <EatAndDrinkDialog
       v-if="eatAndDrinkPicker"
       :food="eatAndDrinkPicker.food"
@@ -1573,6 +1691,7 @@ function finishTakeOneFromBox(containerInstanceId) {
       @look-in-holding="handleLookInHolding"
       @inspect-container-group="handleInspectContainerGroup"
       @eat-and-drink-picker="handleEatAndDrinkPicker"
+      @examine-binder="handleExamineBinder"
       @show-location-map="showLocationMap"
       @show-location-image="showLocationImage"
       @previous-location-image="stepLocationImage(-1)"
@@ -1634,6 +1753,12 @@ function finishTakeOneFromBox(containerInstanceId) {
       @return-to-map="handleReturnToMap" />
 
     <InstructionCardView
+      v-else-if="gameState.playMode && !gameFailed && activeView.kind === 'document' && isStartupCardView"
+      :documents="characterDocuments"
+      :payload="activeView.payload"
+      @return-to-map="handleReturnToMap" />
+
+    <DocumentPageView
       v-else-if="gameState.playMode && !gameFailed && activeView.kind === 'document'"
       :documents="characterDocuments"
       :payload="activeView.payload"

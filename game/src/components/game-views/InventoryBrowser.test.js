@@ -259,7 +259,6 @@ describe("InventoryBrowser transfers", () => {
       transferTargets: [carriedHolder],
     });
 
-    expect(wrapper.text()).toContain("container stays put");
     const takeOne = wrapper.findAll("button").find((candidate) => candidate.text().includes("Take one"));
     expect(takeOne?.exists()).toBe(true);
     await takeOne.trigger("click");
@@ -323,5 +322,66 @@ describe("InventoryBrowser transfers", () => {
       quantity: 14,
       toHolder: carriedHolder.id,
     });
+  });
+
+  it("only offers Put in binder for papers, not a backpack", () => {
+    const binderHolder = {
+      id: "container:hydro-ops-binder-16",
+      kind: "container",
+      label: "ops binder",
+      shortLabel: "binder",
+      instance: "hydro-ops-binder-16",
+      accepts: { kinds: ["card", "book", "document"] },
+    };
+    const binderRecord = {
+      type: "instance",
+      id: "hydro-ops-binder-16",
+      item: "hydro-ops-binder",
+      label: "ops binder",
+      shortLabel: "binder",
+      kind: "container",
+      quantity: 1,
+      holder: consoleHolder,
+    };
+    const backpack = {
+      type: "instance",
+      id: "field-backpack-1",
+      item: "field-backpack",
+      label: "Field backpack",
+      kind: "container",
+      quantity: 1,
+      holder: carriedHolder,
+    };
+    const card = {
+      type: "instance",
+      id: "laminated-card-1",
+      item: "laminated-card",
+      label: "Laminated card",
+      kind: "card",
+      quantity: 1,
+      holder: carriedHolder,
+    };
+    const holders = [
+      { ...carriedHolder, records: [backpack, card] },
+      { ...consoleHolder, records: [binderRecord] },
+      { ...binderHolder, records: [] },
+    ];
+    const transferTargets = [carriedHolder, consoleHolder];
+
+    const backpackView = mountBrowser({
+      selectedHolding: backpack,
+      holders,
+      transferTargets,
+    });
+    expect(backpackView.findAll("button").map((button) => button.text()).join(" "))
+      .not.toMatch(/Put in binder/i);
+
+    const cardView = mountBrowser({
+      selectedHolding: card,
+      holders,
+      transferTargets,
+    });
+    expect(cardView.findAll("button").map((button) => button.text()))
+      .toEqual(expect.arrayContaining(["Put in binder"]));
   });
 });

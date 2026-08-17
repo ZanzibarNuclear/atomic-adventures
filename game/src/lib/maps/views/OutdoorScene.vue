@@ -90,6 +90,8 @@ import {
   buildOutdoorStatusLines,
   handleOutdoorChooseAction,
   performHeldItemUse,
+  performReadCarriedItem,
+  performStowHeldCard,
 } from "../../../composables/usePlayPanel.js";
 import {
   filterAllowedActions,
@@ -208,6 +210,22 @@ function onAction(id) {
       ?? { character: props.indoor?.character };
     const result = performHeldItemUse(gameState, id);
     if (result?.view) emit("stage-view", result.view);
+    props.refreshStory();
+    return;
+  }
+  if (id.startsWith("read-carried:")) {
+    const gameState = props.indoor?.gameState
+      ?? { character: props.indoor?.character };
+    const result = performReadCarriedItem(gameState, id);
+    if (result?.view) emit("stage-view", result.view);
+    props.refreshStory();
+    return;
+  }
+  if (id.startsWith("stow-card:")) {
+    const result = performStowHeldCard(props.indoor, id);
+    if (result?.notice) {
+      // IndoorScene publishes notices; outdoors we still refresh story.
+    }
     props.refreshStory();
     return;
   }

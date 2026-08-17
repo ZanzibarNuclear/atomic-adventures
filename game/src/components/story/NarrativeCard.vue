@@ -2,20 +2,23 @@
   <section v-if="beat" class="narrative-card" aria-live="polite">
     <h2 v-if="beat.heading" class="narrative-heading">{{ beat.heading }}</h2>
     <div class="narrative-body">
-      <p v-for="(para, i) in paragraphs" :key="i">{{ para }}</p>
+      <p
+        v-for="(para, i) in paragraphs"
+        :key="i"
+        v-html="para" />
     </div>
   </section>
 </template>
 
 <script setup>
 import { computed } from "vue";
-import { proseParagraphs } from "../../lib/prose.js";
+import { proseParagraphHtml } from "../../lib/prose.js";
 
 const props = defineProps({
   beat: { type: Object, default: null },
 });
 
-const paragraphs = computed(() => proseParagraphs(props.beat?.text));
+const paragraphs = computed(() => proseParagraphHtml(props.beat?.text));
 </script>
 
 <style scoped>
@@ -48,5 +51,12 @@ const paragraphs = computed(() => proseParagraphs(props.beat?.text));
 }
 .narrative-body p + p {
   margin-top: 0.85rem;
+}
+.narrative-body em {
+  font-style: italic;
+}
+.narrative-body strong {
+  font-weight: 650;
+  color: #dce3ee;
 }
 </style>

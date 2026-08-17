@@ -44,27 +44,6 @@ const isContainerItem = computed(() =>
   props.holders.some((holder) => holder.id === `container:${props.selectedHolding.id}`),
 );
 
-/** Container instance sitting in the world (or vehicle), not carried. */
-const isInPlaceContainer = computed(() =>
-  isContainerItem.value && isWithinReach.value,
-);
-
-/** Contents of a container that is still on a fixed/vehicle/world surface. */
-const isInsideInPlaceContainer = computed(() => {
-  if (!isInsideContainer.value) return false;
-  const instanceId = String(props.selectedHolding?.holder?.id ?? "")
-    .replace(/^container:/, "");
-  if (!instanceId) return false;
-  for (const holder of props.holders) {
-    if (holder.kind === "container") continue;
-    const owns = (holder.records ?? []).some(
-      (record) => record.type === "instance" && record.id === instanceId,
-    );
-    if (owns) return ["fixed", "vehicle", "world"].includes(holder.kind);
-  }
-  return false;
-});
-
 const containerContents = computed(() => {
   const selected = props.selectedHolding;
   if (!selected || selected.type !== "instance" || !isContainerItem.value) return [];
@@ -184,6 +163,7 @@ const availableTransferTargets = computed(() => {
         });
       const containers = props.holders
         .filter((holder) => holder.kind === "container" && holder.instance !== selectedId)
+        .filter((holder) => acceptsItemKind(holder, props.selectedHolding?.kind))
         .map((holder) => {
           const record = containerItemRecord(holder);
           return {
@@ -439,12 +419,6 @@ function closeToContainer() {
             <p v-if="selectedHolding.remaining != null" class="detail-meta">
               Remaining: {{ Math.round(Number(selectedHolding.remaining) * 100) }}%
             </p>
-            <p v-if="isInPlaceContainer" class="detail-meta in-place-note">
-              Still in place. Open the items below to take them without picking up the container.
-            </p>
-            <p v-else-if="isInsideInPlaceContainer" class="detail-meta in-place-note">
-              Inside a container within reach. Take items out — the container stays put.
-            </p>
           </div>
         </div>
 
@@ -507,7 +481,7 @@ function closeToContainer() {
         </div>
 
         <section v-if="isContainerItem" class="container-contents">
-          <h4>{{ isInPlaceContainer ? "Inside (leave container in place)" : "Inside" }}</h4>
+          <h4>Inside</h4>
           <p v-if="!containerContents.length" class="empty-contents">Empty.</p>
           <ul v-else class="contents-list">
             <li v-for="item in containerContents" :key="holdingKey(item)">
@@ -600,10 +574,6 @@ function closeToContainer() {
 .detail-meta,
 .empty-contents {
   color: #93a3bc;
-}
-.in-place-note {
-  color: #b7d4a8;
-  line-height: 1.4;
 }
 .empty-contents {
   margin: 0.25rem 0 0;

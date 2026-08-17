@@ -198,6 +198,7 @@ describe("item actions", () => {
     expect(gameState.flags.has("hydro.discovered")).toBe(true);
     expect(gameState.character.documents["startup-card"].readAt).toBeTruthy();
     expect(gameState.clock.elapsedMinutes).toBe(0);
+    expect(itemQuantity(gameState.character.holdings, "card")).toBe(1);
   });
 
   it("requires holding a consumable before consuming it", () => {
