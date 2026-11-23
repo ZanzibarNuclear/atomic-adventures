@@ -7,6 +7,10 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.js', 'server/**/*.test.js'],
+    // Node 26 defines a localStorage getter that returns undefined unless
+    // --localstorage-file is set. Vitest then skips jsdom's storage. The
+    // save tests need the jsdom implementation.
+    execArgv: ['--no-experimental-webstorage'],
   },
   // energy-sim-wasm (web target) loads the companion .wasm via import.meta.url
   assetsInclude: ['**/*.wasm'],
