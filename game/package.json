@@ -30,7 +30,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "js-yaml": "^4.1.0",
+    "js-yaml": "^4.3.2",
     "katex": "^0.17.0",
     "rehype-katex": "^7.0.1",
     "rehype-stringify": "^10.0.1",
@@ -38,16 +38,16 @@
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.2",
     "unified": "^11.0.5",
-    "vue": "^3.5.35",
-    "vue-router": "^4.6.4"
+    "vue": "^3.5.46",
+    "vue-router": "^4.6.5"
   },
   "devDependencies": {
-    "@rollup/plugin-yaml": "^5.0.0",
-    "@vitejs/plugin-vue": "^6.0.7",
-    "@vue/test-utils": "^2.4.11",
+    "@rollup/plugin-yaml": "^5.0.1",
+    "@vitejs/plugin-vue": "^6.0.11",
+    "@vue/test-utils": "^2.6.0",
     "jsdom": "^29.1.1",
-    "playwright": "^1.61.1",
-    "vite": "^8.0.14",
-    "vitest": "^4.1.9"
+    "playwright": "^1.65.1",
+    "vite": "^8.3.8",
+    "vitest": "^4.1.12"
   }
 }

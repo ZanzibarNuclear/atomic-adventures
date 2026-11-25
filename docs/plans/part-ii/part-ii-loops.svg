@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 820" width="1100" height="820" role="img" aria-labelledby="title desc">
+  <title id="title">Part II activity loops</title>
+  <desc id="desc">Daily operations repeat at the center. The player can leave that routine for any of four activities and come back. One line from the routine leads to Path opens to Part III.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#2f4a34"/>
+    </marker>
+    <marker id="gold" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#8a6232"/>
+    </marker>
+  </defs>
+  <style>
+    .paper { fill: #f6f3ec; }
+    .ink { fill: #1c1915; font-family: Palatino, Georgia, serif; }
+    .sans { fill: #1c1915; font-family: "Segoe UI", sans-serif; }
+    .note { fill: #5c564c; font-family: "Segoe UI", sans-serif; }
+    .light { fill: #f6f3ec; font-family: "Segoe UI", sans-serif; }
+    .routine { fill: #e4efe2; stroke: #2f4a34; stroke-width: 1.75; }
+    .quest { fill: #fffdf8; stroke: #3d4a3a; stroke-width: 1.5; }
+    .gate { fill: #f3e6c8; stroke: #8a6232; stroke-width: 1.5; }
+    .end { fill: #1e2a24; stroke: #1e2a24; }
+    .line { fill: none; stroke: #2f4a34; stroke-width: 1.6; }
+    .muted { fill: none; stroke: #8a6232; stroke-width: 1.6; }
+  </style>
+  <rect class="paper" width="1100" height="820"/>
+
+  <text class="ink" x="48" y="46" font-size="28">Part II — the days get busier</text>
+  <text class="note" x="48" y="74" font-size="15">Whenever he wants, he can step out of the daily routine into any of the four activities, then come back. One line leaves the routine for Part III.</text>
+
+  <rect class="routine" x="330" y="200" width="440" height="300" rx="28"/>
+  <path class="line" d="M392 232 a28 28 0 1 1 -0.1 0" marker-end="url(#arrow)"/>
+  <text class="ink" x="550" y="250" text-anchor="middle" font-size="24">Daily routine</text>
+  <text class="sans" x="550" y="286" text-anchor="middle" font-size="16">Eat, drink, sleep.</text>
+  <text class="sans" x="550" y="310" text-anchor="middle" font-size="16">Keep the hydro plant running.</text>
+  <text class="sans" x="550" y="354" text-anchor="middle" font-size="16">This is the day, and it repeats.</text>
+  <text class="sans" x="550" y="390" text-anchor="middle" font-size="16">Each return adds a chore,</text>
+  <text class="sans" x="550" y="414" text-anchor="middle" font-size="16">so the same routine gets busier.</text>
+  <text class="note" x="550" y="466" text-anchor="middle" font-size="14">Starts when the power comes on.</text>
+
+  <rect class="quest" x="36" y="210" width="214" height="112" rx="12"/>
+  <text class="ink" x="143" y="242" text-anchor="middle" font-size="17">Holo-reader</text>
+  <text class="sans" x="143" y="268" text-anchor="middle" font-size="14">Study topics.</text>
+  <text class="sans" x="143" y="290" text-anchor="middle" font-size="14">Finish some number</text>
+  <text class="sans" x="143" y="308" text-anchor="middle" font-size="14">of lessons.</text>
+
+  <rect class="quest" x="36" y="360" width="214" height="128" rx="12"/>
+  <text class="ink" x="143" y="392" text-anchor="middle" font-size="17">eBuggy</text>
+  <text class="sans" x="143" y="418" text-anchor="middle" font-size="14">Ride inside the compound.</text>
+  <text class="sans" x="143" y="440" text-anchor="middle" font-size="14">Discover the tunnel</text>
+  <text class="sans" x="143" y="460" text-anchor="middle" font-size="14">entrance.</text>
+  <text class="note" x="143" y="478" text-anchor="middle" font-size="12">Not the way in.</text>
+
+  <rect class="quest" x="850" y="210" width="214" height="112" rx="12"/>
+  <text class="ink" x="957" y="242" text-anchor="middle" font-size="17">Solar panels</text>
+  <text class="sans" x="957" y="268" text-anchor="middle" font-size="14">Discover them.</text>
+  <text class="sans" x="957" y="290" text-anchor="middle" font-size="14">Connect them</text>
+  <text class="sans" x="957" y="308" text-anchor="middle" font-size="14">to the grid.</text>
+
+  <rect class="quest" x="850" y="368" width="214" height="112" rx="12"/>
+  <text class="ink" x="957" y="400" text-anchor="middle" font-size="17">Small battery array</text>
+  <text class="sans" x="957" y="426" text-anchor="middle" font-size="14">Discover it.</text>
+  <text class="sans" x="957" y="448" text-anchor="middle" font-size="14">Connect it.</text>
+
+  <!-- upper arrow leaves the routine; lower arrow comes back -->
+  <path class="line" d="M330 250 H250" marker-end="url(#arrow)"/>
+  <path class="line" d="M250 292 H330" marker-end="url(#arrow)"/>
+  <path class="line" d="M330 400 H250" marker-end="url(#arrow)"/>
+  <path class="line" d="M250 442 H330" marker-end="url(#arrow)"/>
+  <path class="line" d="M770 250 H850" marker-end="url(#arrow)"/>
+  <path class="line" d="M850 292 H770" marker-end="url(#arrow)"/>
+  <path class="line" d="M770 400 H850" marker-end="url(#arrow)"/>
+  <path class="line" d="M850 442 H770" marker-end="url(#arrow)"/>
+
+  <text class="note" x="290" y="192" text-anchor="middle" font-size="12">step out</text>
+  <text class="note" x="810" y="192" text-anchor="middle" font-size="12">come back busier</text>
+
+  <rect class="gate" x="280" y="680" width="540" height="84" rx="12"/>
+  <text class="ink" x="550" y="730" text-anchor="middle" font-size="22">Path opens to Part III</text>
+  <path class="line" d="M550 500 V680" marker-end="url(#arrow)"/>
+</svg>
