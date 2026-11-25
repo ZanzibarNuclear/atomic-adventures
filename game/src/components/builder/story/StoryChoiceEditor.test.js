@@ -1,20 +1,22 @@
 /* @vitest-environment jsdom */
 
 import { mount } from "@vue/test-utils";
+import { reactive } from "vue";
 import { describe, expect, it } from "vitest";
 import StoryChoiceEditor from "./StoryChoiceEditor.vue";
 
 function mountEditor(flagIds = []) {
   return mount(StoryChoiceEditor, {
     props: {
-      choice: {
+      // The story builder holds the beat in a ref, so the choice is reactive.
+      choice: reactive({
         id: "inspect-gate",
         text: "Inspect the gate",
         set_flags: ["story.gate.inspected"],
         timeMinutes: 0,
         timeUntil: null,
         activity: "light",
-      },
+      }),
       index: 0,
       catalog: { world: { hexes: [], rooms: [], exteriorNodes: [] } },
       destinationType: () => "",

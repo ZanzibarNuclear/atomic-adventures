@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed, watch, nextTick } from "vue";
+import { defineAsyncComponent, ref, onMounted, computed, watch, nextTick } from "vue";
 import { useOutdoorWorld } from "../lib/maps/composables/useOutdoorWorld.js";
 import { useIndoorBuilding } from "../lib/maps/composables/useIndoorBuilding.js";
 import { captureSnapshot, createGameState, resetGameState, setPlayMode } from "../composables/useGameState.js";
@@ -40,18 +40,6 @@ import { vesselDisplayLabel } from "../lib/character/vessels.js";
 import AppHeader from "../components/AppHeader.vue";
 import SaveGamesDialog from "../components/SaveGamesDialog.vue";
 import TitleScreen from "../components/TitleScreen.vue";
-import CharacterView from "../components/game-views/CharacterView.vue";
-import CharacterStatsStageView from "../components/game-views/CharacterStatsStageView.vue";
-import DeveloperSettingsDialog from "../components/dev/DeveloperSettingsDialog.vue";
-import HoloReaderView from "../components/game-views/HoloReaderView.vue";
-import HydroConsoleView from "../components/game-views/HydroConsoleView.vue";
-import DocumentPageView from "../components/game-views/DocumentPageView.vue";
-import InstructionCardView from "../components/game-views/InstructionCardView.vue";
-import BinderExamineDialog from "../components/game-views/BinderExamineDialog.vue";
-import ContainerContentsDialog from "../components/game-views/ContainerContentsDialog.vue";
-import ContainerGroupDialog from "../components/game-views/ContainerGroupDialog.vue";
-import EatAndDrinkDialog from "../components/game-views/EatAndDrinkDialog.vue";
-import ItemKindDialog from "../components/game-views/ItemKindDialog.vue";
 import {
   examineOpsBinder,
   findHeldStartupCardRecord,
@@ -59,11 +47,8 @@ import {
   takeOneFromNearbyContainer,
 } from "../composables/usePlayPanel.js";
 import { drinkKitchenTreatedWater, performEatAndDrinkShortcut } from "../lib/character/kitchenSkills.js";
-import InventoryDialog from "../components/game-views/InventoryDialog.vue";
-import InventoryStageView from "../components/game-views/InventoryStageView.vue";
 import StoryOverlay from "../components/story/StoryOverlay.vue";
 import OutdoorScene from "../lib/maps/views/OutdoorScene.vue";
-import IndoorScene from "../lib/maps/views/IndoorScene.vue";
 import {
   characterWellbeingOverview,
   visibleCharacterStats,
@@ -89,6 +74,22 @@ import {
   isStationPowerOverriddenOn,
   setStationPowerOverride,
 } from "../lib/dev/developerOverrides.js";
+
+const CharacterView = defineAsyncComponent(() => import("../components/game-views/CharacterView.vue"));
+const CharacterStatsStageView = defineAsyncComponent(() => import("../components/game-views/CharacterStatsStageView.vue"));
+const DeveloperSettingsDialog = defineAsyncComponent(() => import("../components/dev/DeveloperSettingsDialog.vue"));
+const HoloReaderView = defineAsyncComponent(() => import("../components/game-views/HoloReaderView.vue"));
+const HydroConsoleView = defineAsyncComponent(() => import("../components/game-views/HydroConsoleView.vue"));
+const DocumentPageView = defineAsyncComponent(() => import("../components/game-views/DocumentPageView.vue"));
+const InstructionCardView = defineAsyncComponent(() => import("../components/game-views/InstructionCardView.vue"));
+const BinderExamineDialog = defineAsyncComponent(() => import("../components/game-views/BinderExamineDialog.vue"));
+const ContainerContentsDialog = defineAsyncComponent(() => import("../components/game-views/ContainerContentsDialog.vue"));
+const ContainerGroupDialog = defineAsyncComponent(() => import("../components/game-views/ContainerGroupDialog.vue"));
+const EatAndDrinkDialog = defineAsyncComponent(() => import("../components/game-views/EatAndDrinkDialog.vue"));
+const ItemKindDialog = defineAsyncComponent(() => import("../components/game-views/ItemKindDialog.vue"));
+const InventoryDialog = defineAsyncComponent(() => import("../components/game-views/InventoryDialog.vue"));
+const InventoryStageView = defineAsyncComponent(() => import("../components/game-views/InventoryStageView.vue"));
+const IndoorScene = defineAsyncComponent(() => import("../lib/maps/views/IndoorScene.vue"));
 
 const place = ref("outdoors");
 const builderView = ref(false);
